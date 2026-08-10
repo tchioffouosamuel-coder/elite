@@ -30,6 +30,13 @@ import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 import { SchoolSwitcher } from './SchoolSwitcher'
 
+type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
+
+/**
+ * `types` restreint une entrée aux établissements concernés : le secondaire
+ * s'organise en départements, le primaire et la maternelle en niveaux
+ * d'enseignement. Sans `types`, l'entrée vaut pour toutes les écoles.
+ */
 const navGroups = [
   {
     label: 'nav.group.overview',
@@ -39,7 +46,20 @@ const navGroups = [
     label: 'nav.group.staff',
     items: [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view' },
-      { to: '/departements', label: 'nav.departements', icon: Building2, permission: 'personnel.view' },
+      {
+        to: '/departements',
+        label: 'nav.departements',
+        icon: Building2,
+        permission: 'personnel.view',
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
+        to: '/niveaux',
+        label: 'nav.niveaux',
+        icon: Layers,
+        permission: 'pedagogie.view',
+        types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
     ],
   },
   {
@@ -97,9 +117,10 @@ export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, can, clearSession } = useAuthStore()
+  const { user, can, clearSession, activeSchool } = useAuthStore()
   const { locale, setLocale } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
+  const typeEcole = activeSchool()?.type
 
   // Le tiroir se referme à chaque navigation : sur mobile il recouvre la page,
   // le laisser ouvert masquerait l'écran qu'on vient d'ouvrir.
@@ -115,7 +136,14 @@ export function AppLayout() {
   }
 
   const groupesVisibles = navGroups
-    .map((group) => ({ ...group, items: group.items.filter((item) => can(item.permission)) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          can(item.permission) &&
+          (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)),
+      ),
+    }))
     .filter((group) => group.items.length > 0)
 
   return (
@@ -177,8 +205,7 @@ export function AppLayout() {
                       <item.icon
                         className={clsx(
                           'h-[18px] w-[18px] flex-none',
-                          isActive ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
-                        )}
+                          isActive ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',                        )}
                       />
                       <span className="truncate">{t(item.label)}</span>
                     </>

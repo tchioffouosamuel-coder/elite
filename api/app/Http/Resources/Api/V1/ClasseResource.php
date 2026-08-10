@@ -16,6 +16,7 @@ class ClasseResource extends JsonResource
             'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
             'niveau_id' => $this->niveau_id,
+            'niveau_scolaire_id' => $this->niveau_scolaire_id,
             'annee_scolaire_id' => $this->annee_scolaire_id,
             'effectif' => $this->when(isset($this->eleves_count), $this->eleves_count),
             'niveau' => $this->whenLoaded('niveau', fn () => [
@@ -23,7 +24,14 @@ class ClasseResource extends JsonResource
                 'code' => $this->niveau?->code,
                 'name_fr' => $this->niveau?->name_fr,
             ]),
+            'niveau_scolaire' => $this->whenLoaded('niveauScolaire', fn () => $this->niveauScolaire ? [
+                'id' => $this->niveauScolaire->id,
+                'code' => $this->niveauScolaire->code,
+                'libelle' => $this->niveauScolaire->libelle,
+            ] : null),
             'professeur_principal_id' => $this->professeur_principal_id,
+            'titulaire_id' => $this->titulaire_id,
+            'titulaire' => $this->responsable('titulaire'),
             'surveillant_general_id' => $this->surveillant_general_id,
             'censeur_id' => $this->censeur_id,
             'conseiller_orientation_id' => $this->conseiller_orientation_id,

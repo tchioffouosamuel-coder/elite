@@ -22,6 +22,7 @@ class NoteService extends BaseService
     {
         $notes = Note::where('classe_matiere_id', $classeMatiere->id)
             ->where('sequence_id', $sequenceId)
+            ->where('composante', 'unique')
             ->get()
             ->keyBy('eleve_id');
 
@@ -58,6 +59,9 @@ class NoteService extends BaseService
                         'eleve_id' => $row['eleve_id'],
                         'classe_matiere_id' => $classeMatiere->id,
                         'sequence_id' => $sequenceId,
+                        // Le secondaire n'a qu'une note par séquence : les volets
+                        // (oral, écrit…) sont propres au primaire.
+                        'composante' => 'unique',
                     ],
                     ['valeur' => $row['valeur'] ?? null, 'saisi_par' => $personnelId]
                 );

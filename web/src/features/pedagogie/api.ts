@@ -5,6 +5,10 @@ import type { Departement } from '@/features/personnel/api'
 export interface Matiere {
   id: number
   nom: string
+  nom_en: string | null
+  notation: number | null
+  evalue_pratique: boolean
+  composantes: string[]
   abbreviation: string | null
   statut: string
   departement: Departement | null
@@ -12,8 +16,13 @@ export interface Matiere {
 
 export interface MatierePayload {
   nom: string
+  nom_en?: string | null
   abbreviation?: string | null
   departement_id?: number | null
+  /** Barème du primaire : la matière est notée sur cette valeur, pas sur 20. */
+  notation?: number | null
+  /** Ajoute le volet « pratique » aux trois volets systématiques. */
+  evalue_pratique?: boolean
 }
 
 export interface ClasseMatiere {

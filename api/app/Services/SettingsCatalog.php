@@ -100,6 +100,14 @@ class SettingsCatalog
                 'label_fr' => 'Code du centre d\'examen (imprimé sur les photos DECC/OBC)',
                 'label_en' => 'Examination centre code (printed on DECC/OBC photos)',
             ],
+            // Primaire et maternelle : le passage en classe supérieure se décide
+            // sur la moyenne annuelle (archange, decision.php — seuil par défaut 10).
+            [
+                'key' => 'passage_moyenne_min', 'groupe' => 'passage', 'type' => 'number',
+                'default' => 10,
+                'label_fr' => 'Passage en classe supérieure — moyenne annuelle minimale',
+                'label_en' => 'Promotion to next class — minimum annual average',
+            ],
         ];
     }
 

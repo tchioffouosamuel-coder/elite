@@ -8,7 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Note extends Model
 {
-    protected $fillable = ['eleve_id', 'classe_matiere_id', 'sequence_id', 'valeur', 'saisi_par'];
+    /** Volets d'évaluation du primaire ; le secondaire n'utilise que 'unique'. */
+    public const COMPOSANTES_PRIMAIRE = ['oral', 'ecrit', 'savoir_etre', 'pratique'];
+
+    protected $fillable = ['eleve_id', 'classe_matiere_id', 'sequence_id', 'composante', 'valeur', 'saisi_par'];
 
     protected function casts(): array
     {

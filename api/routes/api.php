@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BulletinController;
+use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
@@ -14,10 +15,13 @@ use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
+use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
+use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\ResultatController;
+use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SeanceController;
@@ -143,6 +147,41 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:notes.create')->group(function () {
                 Route::post('classe-matieres/{classeMatiereId}/notes', [NoteController::class, 'bulkStore'])->name('notes.bulk-store');
                 Route::post('classe-matieres/{classeMatiereId}/notes/import', [NoteController::class, 'import'])->name('notes.import');
+            });
+
+            /*
+             * Primaire et maternelle — pédagogie propre à ces cycles : niveaux
+             * d'enseignement animés par un responsable, saisie des notes par
+             * volets d'évaluation et bulletins au format archange. Les
+             * permissions restent celles du secondaire.
+             */
+            Route::middleware('permission:pedagogie.view')->group(function () {
+                Route::get('niveaux-scolaires', [NiveauScolaireController::class, 'index'])->name('niveaux-scolaires.index');
+            });
+
+            Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('niveaux-scolaires', [NiveauScolaireController::class, 'store'])->name('niveaux-scolaires.store');
+                Route::put('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'update'])->name('niveaux-scolaires.update');
+                Route::delete('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'destroy'])->name('niveaux-scolaires.destroy');
+            });
+
+            Route::middleware('permission:notes.view')->group(function () {
+                Route::get('classe-matieres/{classeMatiereId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
+            });
+
+            Route::middleware('permission:notes.create')->group(function () {
+                Route::post('classe-matieres/{classeMatiereId}/notes-primaire', [NotePrimaireController::class, 'bulkStore'])->name('notes-primaire.bulk-store');
+            });
+
+            Route::middleware('permission:notes.view')->group(function () {
+                Route::get('classes/{classeId}/classement-primaire', [ResultatPrimaireController::class, 'classement'])->name('resultats-primaire.classement');
+                Route::get('classes/{classeId}/remplissage-primaire', [ResultatPrimaireController::class, 'remplissage'])->name('resultats-primaire.remplissage');
+                Route::get('classes/{classeId}/decisions', [ResultatPrimaireController::class, 'decisions'])->name('resultats-primaire.decisions');
+            });
+
+            Route::middleware('permission:bulletins.view')->group(function () {
+                Route::get('classes/{classeId}/bulletins-primaire', [BulletinPrimaireController::class, 'classe'])->name('bulletins-primaire.classe');
+                Route::get('eleves/{eleveId}/bulletin-primaire', [BulletinPrimaireController::class, 'show'])->name('bulletins-primaire.show');
             });
 
             Route::middleware('permission:notes.view')->group(function () {

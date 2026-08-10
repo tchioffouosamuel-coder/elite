@@ -1,4 +1,5 @@
 import { http } from '@/shared/lib/http'
+import { estSecondaire } from '@/shared/lib/ecole'
 import type { ApiResponse } from '@/shared/types/api'
 
 export interface Remplissage {
@@ -23,15 +24,26 @@ export interface Palmares {
   eleves: { eleve_id: number; nom_complet: string; classe: string | null; moyenne: number; heures_non_justifiees: number }[]
 }
 
+/**
+ * Le primaire et la maternelle ont leur propre moteur de notation : les écrans
+ * de résultats sont communs, seul l'endpoint interrogé change selon l'école
+ * active. Les deux variantes renvoient la même enveloppe.
+ */
+function endpoint(classeId: number, ressource: string): string {
+  return estSecondaire()
+    ? `/classes/${classeId}/${ressource}`
+    : `/classes/${classeId}/${ressource}-primaire`
+}
+
 export async function fetchRemplissage(classeId: number, trimestreId?: number): Promise<Remplissage> {
-  const { data } = await http.get<ApiResponse<Remplissage>>(`/classes/${classeId}/remplissage`, {
+  const { data } = await http.get<ApiResponse<Remplissage>>(endpoint(classeId, 'remplissage'), {
     params: trimestreId ? { trimestre_id: trimestreId } : undefined,
   })
   return data.data
 }
 
 export async function fetchClassement(classeId: number, trimestreId?: number): Promise<Classement> {
-  const { data } = await http.get<ApiResponse<Classement>>(`/classes/${classeId}/classement`, {
+  const { data } = await http.get<ApiResponse<Classement>>(endpoint(classeId, 'classement'), {
     params: trimestreId ? { trimestre_id: trimestreId } : undefined,
   })
   return data.data
@@ -51,12 +63,14 @@ export async function fetchPalmares(trimestreId?: number, classeId?: number): Pr
  * blob une fois la requête authentifiée terminée.
  */
 export async function ouvrirBulletin(eleveId: number, trimestreId?: number): Promise<void> {
-  return ouvrirPdf(`/eleves/${eleveId}/bulletin`, trimestreId)
+  const url = estSecondaire() ? `/eleves/${eleveId}/bulletin` : `/eleves/${eleveId}/bulletin-primaire`
+
+  return ouvrirPdf(url, trimestreId)
 }
 
 /** Tous les bulletins de la classe dans un document unique, un élève par page. */
 export async function ouvrirBulletinsClasse(classeId: number, trimestreId?: number): Promise<void> {
-  return ouvrirPdf(`/classes/${classeId}/bulletins`, trimestreId)
+  return ouvrirPdf(endpoint(classeId, 'bulletins'), trimestreId)
 }
 
 async function ouvrirPdf(url: string, trimestreId?: number): Promise<void> {

@@ -12,6 +12,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { useForm } from 'react-hook-form'
+import { estSecondaire } from '@/shared/lib/ecole'
 import type { Matiere, MatierePayload } from '@/features/pedagogie/api'
 
 export function MatieresPage() {
@@ -25,8 +26,16 @@ export function MatieresPage() {
 
   const { register, handleSubmit, reset } = useForm<MatierePayload>()
 
+  // Au primaire une matière est notée sur un barème propre et se découpe en
+  // volets ; au secondaire elle est sur 20 et relève d'un département.
+  const secondaire = estSecondaire()
+
   const onSubmit = async (values: MatierePayload) => {
-    await createMatiere({ ...values, departement_id: values.departement_id ? Number(values.departement_id) : null })
+    await createMatiere({
+      ...values,
+      departement_id: values.departement_id ? Number(values.departement_id) : null,
+      notation: values.notation ? Number(values.notation) : null,
+    })
     reset()
     setShowForm(false)
     queryClient.invalidateQueries({ queryKey: ['matieres'] })
@@ -45,13 +54,33 @@ export function MatieresPage() {
       valeur: (m) => m.abbreviation,
       cellule: (m) => m.abbreviation ?? '—',
     },
-    {
-      cle: 'departement',
-      entete: t('personnel.departement'),
-      valeur: (m) => m.departement?.nom,
-      cellule: (m) => m.departement?.nom ?? '—',
-      masquerMobile: true,
-    },
+    // Le secondaire classe ses matières par département ; le primaire les note
+    // sur un barème propre, réparti sur ses volets d'évaluation.
+    ...(secondaire
+      ? [
+          {
+            cle: 'departement',
+            entete: t('personnel.departement'),
+            valeur: (m: Matiere) => m.departement?.nom,
+            cellule: (m: Matiere) => m.departement?.nom ?? '—',
+            masquerMobile: true,
+          },
+        ]
+      : [
+          {
+            cle: 'notation',
+            entete: t('matieres.notation'),
+            valeur: (m: Matiere) => m.notation,
+            cellule: (m: Matiere) => (m.notation ? `/ ${m.notation}` : '—'),
+          },
+          {
+            cle: 'volets',
+            entete: t('matieres.volets'),
+            valeur: (m: Matiere) => m.composantes.length,
+            cellule: (m: Matiere) => m.composantes.length,
+            masquerMobile: true,
+          },
+        ]),
   ]
 
   return (
@@ -80,22 +109,38 @@ export function MatieresPage() {
           cleLigne={(m) => m.id}
           placeholderRecherche="Rechercher une matière…"
           messageVide="Aucune matière pour cet établissement."
-        />
-      )}
+        />      )}
 
       {showForm && (
         <Modal title={t('matieres.add')} onClose={() => setShowForm(false)}>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Input label={t('matieres.nom')} {...register('nom', { required: true })} />
             <Input label={t('matieres.abbreviation')} {...register('abbreviation')} />
-            <Select label={t('personnel.departement')} {...register('departement_id')}>
-              <option value="">—</option>
-              {departements?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nom}
-                </option>
-              ))}
-            </Select>
+            {secondaire ? (
+              <Select label={t('personnel.departement')} {...register('departement_id')}>
+                <option value="">—</option>
+                {departements?.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nom}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <>
+                <Input label={t('matieres.nom_en')} {...register('nom_en')} />
+                <Input
+                  type="number"
+                  min={10}
+                  max={100}
+                  label={t('matieres.notation')}
+                  {...register('notation', { required: true })}
+                />
+                <label className="flex items-center gap-2 text-sm text-navy-700">
+                  <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
+                  {t('matieres.evalue_pratique')}
+                </label>
+              </>
+            )}
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 {t('common.cancel')}
