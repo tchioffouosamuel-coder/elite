@@ -17,6 +17,7 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   evaluations: { fr: 'Évaluations', en: 'Grading' },
   palmares: { fr: 'Palmarès', en: 'Honor roll' },
   mentions: { fr: 'Mentions & appréciations', en: 'Remarks & mentions' },
+  examens: { fr: 'Examens officiels', en: 'Official examinations' },
 }
 
 export function SettingsPage() {

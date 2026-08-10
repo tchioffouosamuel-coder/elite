@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\PersonnelController;
+use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
@@ -92,6 +93,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:eleves.view')->group(function () {
+                // Photos DECC & OBC : réservées aux classes d'examen.
+                Route::get('photos-examen/classes', [PhotoExamenController::class, 'classes'])->name('photos-examen.classes');
+                Route::get('photos-examen/classes/{classeId}', [PhotoExamenController::class, 'candidats'])->name('photos-examen.candidats');
+                Route::get('photos-examen/classes/{classeId}/archive', [PhotoExamenController::class, 'archive'])->name('photos-examen.archive');
                 Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');

@@ -25,6 +25,7 @@ export interface Classe {
   id: number
   nom: string
   filiere: string | null
+  code_examen: string | null
   capacite: number | null
   effectif?: number
   niveau_id: number
@@ -45,6 +46,7 @@ export interface ClassePayload {
   annee_scolaire_id: number
   nom: string
   filiere?: string | null
+  code_examen?: string | null
   capacite?: number | null
   professeur_principal_id?: number | null
   surveillant_general_id?: number | null

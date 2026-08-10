@@ -41,6 +41,7 @@
     "openMenu": "Ouvrir le menu",
     "statsPedagogiques": "Stats pédagogiques",
     "statsDisciplinaires": "Stats disciplinaires",
+    "photosExamen": "Photos DECC & OBC",
     "group": {
       "overview": "Vue d'ensemble",
       "staff": "Personnel & structure",
@@ -103,7 +104,8 @@
     "filiere": "Filière",
     "capacite": "Capacité",
     "effectif": "Effectif",
-    "professeur_principal": "Professeur principal"
+    "professeur_principal": "Professeur principal",
+    "code_examen": "Code d'examen (facultatif)"
   },
   "eleves": {
     "title": "Élèves",

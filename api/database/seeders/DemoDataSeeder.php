@@ -206,6 +206,9 @@ class DemoDataSeeder extends Seeder
             [
                 'niveau_id' => $niveauCollege->id,
                 'filiere' => 'Général',
+                // La 3ème présente le BEPC : donne une classe d'examen au
+                // module Photos DECC & OBC dès le jeu de démonstration.
+                'code_examen' => $nom === '3ème A' ? 'BEPC' : null,
                 'capacite' => 60,
                 'professeur_principal_id' => $enseignants[$i % $enseignants->count()]->id,
             ]

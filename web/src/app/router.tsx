@@ -10,6 +10,7 @@ import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
+import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
 import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
 import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
+      { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view"><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
     ],
