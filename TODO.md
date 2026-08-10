@@ -2,7 +2,7 @@
 
 Ce document liste ce qu'il reste à construire après le Palier A (Fondations) et le cœur académique + outillage du Palier B (Collège), tous livrés et vérifiés. Il sert de reprise de contexte — chaque section donne le modèle de données, les endpoints API et les pages frontend, sur le pattern de l'existant (`Controller → FormRequest → Service → Repository → Model`, RBAC par permission dot-notation, i18n FR/EN, scoping multi-école systématique).
 
-Dernière mise à jour : 10 août 2026 (nuit).
+Dernière mise à jour : 10 août 2026 (nuit, branche `claude/primaire-maternelle-archange`).
 
 ---
 
@@ -86,8 +86,29 @@ Construit en s'appuyant sur une lecture détaillée de `_smapp` (moyennes pondé
 **Frontend** : layout distinct et simplifié, sélecteur d'enfant, vues en lecture seule.
 **Remarque** : `Tuteur.user_id` existe en base mais n'est jamais rempli — il faut un flux "créer un accès parent" symétrique à `PersonnelController::createAccount`.
 
-### 2.4 Interfaces Primaire et Maternelle
-Le complexe et `School.type` sont en place, mais seul le secondaire a son flux pédagogique. **Reste à faire, école par école** : un enseignant unique par classe au lieu d'une affectation par matière, la notion de niveau avec ses animateurs de niveau en remplacement des départements et de leurs chefs, et un barème de notation propre à chaque cycle. Les menus et formulaires devront se filtrer sur `School.type` comme ils se filtrent déjà sur les permissions.
+### 2.4 Interfaces Primaire et Maternelle — livré (branche `claude/primaire-maternelle-archange`)
+Le flux pédagogique de ces deux cycles est porté du projet **archange** (`C:/Données/archange`), à côté de celui du secondaire hérité de `_smapp`. Le RBAC est inchangé : mêmes rôles, mêmes permissions dot-notation.
+
+**Ce qui diffère du secondaire**, et pourquoi :
+- **Un titulaire par classe** (`classes.titulaire_id`) plutôt qu'un enseignant par affectation classe↔matière — au primaire un seul maître enseigne toutes les matières.
+- **Des niveaux d'enseignement** (`niveau_scolaires` : SIL, CP, CE1… / PS, MS, GS) pilotés par un **animateur de niveau**, là où le secondaire s'organise en départements avec un chef. À ne pas confondre avec la table `niveaux`, qui désigne le type d'établissement dans le complexe.
+- **Un barème par matière** (`matieres.notation`, 10 à 100) au lieu d'une note sur 20 pondérée par un coefficient : le barème joue le rôle du coefficient.
+- **Quatre volets d'évaluation** (`notes.composante` : oral, écrit, savoir-être, et pratique si `matieres.evalue_pratique`), chacun noté à chaque séquence — le secondaire n'a qu'une note par séquence (`composante = 'unique'`).
+
+**Formules** (`MoyennePrimaireService`, portées de `term_reports.php` et `calculate_marks.php`) :
+- total d'une séquence = somme de ses volets ;
+- note trimestrielle d'une matière = moyenne des totaux de séquence ;
+- moyenne générale = `(Σ notes matières × 20) / Σ barèmes` ;
+- appréciation par compétence sur le pourcentage du barème : `A+ ≥ 80 %`, `A ≥ 60 %`, `ECA ≥ 50 %`, `NA < 50 %` ;
+- moyenne annuelle = moyenne des trimestres renseignés ; passage en classe supérieure au-delà de `passage_moyenne_min` (défaut 10).
+
+**Écart assumé avec archange** : le legacy initialise toutes les notes à 0 en base, ce qui fait entrer chaque matière au dénominateur avant même la saisie et rend les moyennes ininterprétables en cours de trimestre. Ici une matière sans aucune note est exclue du calcul, comme au secondaire.
+
+**Interfaces** : la sidebar remplace « Départements » par « Niveaux » hors secondaire ; l'onglet Notes d'une classe sert la grille par volets ; les écrans Résultats/Remplissage/Bulletins sont partagés, l'aiguillage vers le bon moteur se faisant dans la couche API (`shared/lib/ecole.ts`) et non dans chaque page. Bulletin PDF dédié (`BulletinPrimaireGenerator`, mPDF) reprenant la mise en page d'archange : une ligne par volet, note trimestrielle et appréciation fusionnées par matière, mention « Sur/Over {barème} ».
+
+**Données de démonstration** : `php artisan db:seed --class=PrimaireMaternelleSeeder` crée les niveaux, classes, titulaires, matières et notes du trimestre 1 pour les deux écoles.
+
+**Reste à faire sur ce cycle** : bilan disciplinaire et palmarès n'ont pas d'équivalent primaire dédié (ils utilisent encore le moteur du secondaire) ; l'écran de décisions de passage existe côté API (`GET /classes/{id}/decisions`) mais n'a pas encore de page ; l'import XLSX des notes ne gère pas les volets.
 
 ---
 
