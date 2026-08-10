@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
-import { fetchDepartements, createDepartement } from '@/features/personnel/api'
+import { Building2, Plus } from 'lucide-react'
+import { fetchDepartements, createDepartement, type Departement } from '@/features/personnel/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
-import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 
 export function DepartementsPage() {
   const { t } = useTranslation()
@@ -29,9 +30,18 @@ export function DepartementsPage() {
     }
   }
 
+  const colonnes: Colonne<Departement>[] = [
+    {
+      cle: 'nom',
+      entete: t('personnel.departement'),
+      valeur: (d) => d.nom,
+      cellule: (d) => <span className="font-semibold text-navy-900">{d.nom}</span>,
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-2xl font-semibold text-navy-900">{t('nav.departements')}</h1>
+      <PageHeader titre={t('nav.departements')} icon={Building2} />
 
       {can('personnel.manage') && (
         <div className="flex max-w-md gap-2">
@@ -47,23 +57,15 @@ export function DepartementsPage() {
         <Spinner />
       ) : isError || !data ? (
         <ErrorState />
-      ) : data.length === 0 ? (
-        <EmptyState />
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>{t('personnel.departement')}</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {data.map((d) => (
-              <Tr key={d.id}>
-                <Td>{d.nom}</Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={data}
+          cleLigne={(d) => d.id}
+          placeholderRecherche="Rechercher un département…"
+          messageVide="Aucun département pour cet établissement."
+          largeurMin={320}
+        />
       )}
     </div>
   )
