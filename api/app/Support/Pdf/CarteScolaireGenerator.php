@@ -4,6 +4,7 @@ namespace App\Support\Pdf;
 
 use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\School;
 use FPDF;
 use Illuminate\Support\Facades\Storage;
 
@@ -40,12 +41,14 @@ class CarteScolaireGenerator extends FPDF
 
     private ?int $headerDrawnOnPage = null;
 
+    private ?School $school = null;
+
     public function build(Classe $classe, string $anneeLabel): string
     {
         $this->classeName = $classe->nom;
         $this->anneeLabel = $anneeLabel;
+        $this->school = $classe->school;
 
-        $this->AddPage('L', 'A4');
         $this->SetAutoPageBreak(false);
         $this->SetTitle($this->txt('Cartes scolaires - '.$classe->nom));
 
@@ -55,35 +58,50 @@ class CarteScolaireGenerator extends FPDF
             ->orderBy('nom')
             ->get();
 
-        $marginX = (297 - (self::COLS * self::CARD_W + (self::COLS - 1) * self::GUTTER_X)) / 2;
-
-        $index = 0;
-        foreach ($eleves as $eleve) {
-            $slot = $index % (self::COLS * self::ROWS);
-            if ($index > 0 && $slot === 0) {
-                $this->AddPage('L', 'A4');
-            }
-            $col = $slot % self::COLS;
-            $row = intdiv($slot, self::COLS);
-            $x = $marginX + $col * (self::CARD_W + self::GUTTER_X);
-            $y = self::MARGIN_TOP + $row * (self::CARD_H + self::GUTTER_Y);
-
-            $this->drawPageHeaderIfNeeded();
-            $this->drawCard($x, $y, $eleve);
-            $index++;
-        }
-
         if ($eleves->isEmpty()) {
+            $this->AddPage('L', 'A4');
             $this->drawPageHeaderIfNeeded();
             $this->SetFont('Helvetica', '', 11);
             $this->SetXY(0, 100);
             $this->Cell(297, 8, $this->txt('Aucun élève actif dans cette classe.'), 0, 0, 'C');
+
+            return $this->Output('S');
+        }
+
+        // Une planche recto puis sa planche verso, comme
+        // generate_IDcards_for_a_class.php : les deux faces s'impriment en
+        // recto-verso sur la même feuille avant découpe.
+        foreach ($eleves->chunk(self::COLS * self::ROWS) as $planche) {
+            $this->AddPage('L', 'A4');
+            $this->drawPageHeaderIfNeeded();
+            foreach ($planche->values() as $slot => $eleve) {
+                [$x, $y] = $this->slotPosition($slot);
+                $this->drawCard($x, $y, $eleve);
+            }
+
+            $this->AddPage('L', 'A4');
+            $this->drawPageHeaderIfNeeded('Verso');
+            foreach ($planche->values() as $slot => $unused) {
+                [$x, $y] = $this->slotPosition($slot);
+                $this->drawCardBack($x, $y);
+            }
         }
 
         return $this->Output('S');
     }
 
-    private function drawPageHeaderIfNeeded(): void
+    /** @return array{0: float, 1: float} coin supérieur gauche de la case $slot */
+    private function slotPosition(int $slot): array
+    {
+        $marginX = (297 - (self::COLS * self::CARD_W + (self::COLS - 1) * self::GUTTER_X)) / 2;
+
+        return [
+            $marginX + ($slot % self::COLS) * (self::CARD_W + self::GUTTER_X),
+            self::MARGIN_TOP + intdiv($slot, self::COLS) * (self::CARD_H + self::GUTTER_Y),
+        ];
+    }
+
+    private function drawPageHeaderIfNeeded(string $face = 'Recto'): void
     {
         if ($this->headerDrawnOnPage === $this->PageNo()) {
             return;
@@ -93,12 +111,75 @@ class CarteScolaireGenerator extends FPDF
         $this->SetFont('Helvetica', 'B', 13);
         $this->SetTextColor(...self::SLATE);
         $this->SetXY(0, 8);
-        $this->Cell(297, 7, $this->txt('Cartes scolaires — '.$this->classeName), 0, 0, 'C');
+        $this->Cell(297, 7, $this->txt('Cartes scolaires — '.$this->classeName.' ('.$face.')'), 0, 0, 'C');
 
         $this->SetFont('Helvetica', 'I', 9);
         $this->SetTextColor(120, 120, 120);
         $this->SetXY(0, 15);
         $this->Cell(297, 6, $this->txt('Année scolaire '.$this->anneeLabel), 0, 0, 'C');
+    }
+
+    /**
+     * Verso commun à toutes les cartes : mentions réglementaires, cachet et
+     * signature de l'établissement. Aucune donnée propre à l'élève n'y figure,
+     * les cases se superposent donc au recto quel que soit le sens de retournement.
+     */
+    private function drawCardBack(float $x, float $y): void
+    {
+        $this->SetFillColor(...self::CREAM);
+        $this->RoundedRect($x, $y, self::CARD_W, self::CARD_H, 3, 'F');
+        $this->SetDrawColor(...self::GOLD);
+        $this->SetLineWidth(0.5);
+        $this->RoundedRect($x, $y, self::CARD_W, self::CARD_H, 3, 'D');
+        $this->SetLineWidth(0.2);
+
+        $this->SetFillColor(...self::SLATE);
+        $this->Rect($x + 1, $y + 1, self::CARD_W - 2, 8, 'F');
+        $this->SetTextColor(...self::GOLD);
+        $this->SetFont('Helvetica', 'B', 6);
+        $this->SetXY($x + 2, $y + 3);
+        $this->Cell(self::CARD_W - 4, 4, $this->txt('RÈGLEMENT / REGULATIONS'), 0, 0, 'C');
+
+        $this->SetTextColor(...self::SLATE);
+        $this->SetFont('Helvetica', '', 4.6);
+        $this->SetXY($x + 3, $y + 11);
+        $this->MultiCell(self::CARD_W - 6, 2.4, $this->txt(
+            'Cette carte est strictement personnelle. Elle doit être présentée '
+            ."à toute réquisition des autorités de l'établissement. Toute perte "
+            ."doit être déclarée immédiatement à l'administration."
+        ), 0, 'J');
+
+        $cachet = $this->cheminImage($this->school?->stamp_path);
+        if ($cachet !== null) {
+            $this->Image($cachet, $x + 21, $y + 40, 11, 11);
+        }
+
+        $signature = $this->cheminImage($this->school?->signature_path);
+        if ($signature !== null) {
+            $this->Image($signature, $x + 18, $y + 52, 17, 12);
+        }
+
+        $this->SetDrawColor(209, 219, 217);
+        $this->Line($x + 8, $y + self::CARD_H - 16, $x + self::CARD_W - 8, $y + self::CARD_H - 16);
+        $this->SetTextColor(136, 136, 136);
+        $this->SetFont('Helvetica', 'I', 5);
+        $this->SetXY($x + 2, $y + self::CARD_H - 14);
+        $this->Cell(self::CARD_W - 4, 3, $this->txt("Le Chef d'établissement"), 0, 0, 'C');
+
+        $this->SetFont('Helvetica', '', 4.8);
+        $this->SetXY($x + 2, $y + self::CARD_H - 9);
+        $this->MultiCell(self::CARD_W - 4, 2.4, $this->txt($this->school?->name ?? ''), 0, 'C');
+    }
+
+    private function cheminImage(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $absolu = Storage::disk('public')->path($path);
+
+        return is_file($absolu) ? $absolu : null;
     }
 
     private function drawCard(float $x, float $y, Eleve $eleve): void
@@ -114,10 +195,15 @@ class CarteScolaireGenerator extends FPDF
         $this->SetFillColor(...self::SLATE);
         $this->Rect($x + 1, $y + 1, self::CARD_W - 2, 15, 'F');
 
+        $logo = $this->cheminImage($this->school?->logo_path);
+        if ($logo !== null) {
+            $this->Image($logo, $x + 2.5, $y + 2.5, 9, 9);
+        }
+
         $this->SetTextColor(255, 255, 255);
         $this->SetFont('Helvetica', 'B', 7.5);
-        $this->SetXY($x + 2, $y + 2.5);
-        $this->MultiCell(self::CARD_W - 4, 3.2, $this->txt(mb_strtoupper($eleve->school->name ?? '')), 0, 'C');
+        $this->SetXY($x + ($logo !== null ? 12 : 2), $y + 2.5);
+        $this->MultiCell(self::CARD_W - ($logo !== null ? 14 : 4), 3.2, $this->txt(mb_strtoupper($this->school?->name ?? '')), 0, 'C');
 
         $this->SetTextColor(...self::GOLD);
         $this->SetFont('Helvetica', 'B', 6);

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreEleveRequest;
 use App\Http\Requests\Api\V1\UpdateEleveRequest;
 use App\Http\Resources\Api\V1\EleveResource;
+use App\Models\Classe;
 use App\Services\EleveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,9 +17,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EleveController extends Controller
 {
-    public function __construct(private readonly EleveService $service)
-    {
-    }
+    public function __construct(private readonly EleveService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -82,5 +81,42 @@ class EleveController extends Controller
         $eleve = $this->service->updatePhoto($eleve, $request->file('photo'));
 
         return ApiResponse::success(new EleveResource($eleve), 'Photo mise à jour.');
+    }
+
+    /**
+     * Transfert d'un élève vers une autre école du complexe. La classe d'arrivée
+     * est obligatoire : sans elle l'élève se retrouverait dans un établissement
+     * où il n'est rattaché à aucun enseignement, invisible des listes de classe.
+     */
+    public function transfert(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('super_admin')) {
+            return ApiResponse::forbidden('Seul le super administrateur peut transférer un élève entre établissements.');
+        }
+
+        $data = $request->validate([
+            'school_id' => ['required', 'integer'],
+            'classe_id' => ['required', 'integer'],
+        ]);
+
+        if (! $user->ecolesAccessibles()->contains('id', $data['school_id'])) {
+            return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
+        }
+
+        $classe = Classe::where('school_id', $data['school_id'])->find($data['classe_id']);
+
+        if (! $classe) {
+            return ApiResponse::error("La classe d'arrivée n'appartient pas à l'établissement de destination.", 422);
+        }
+
+        $eleve = $this->service->find(app('tenant.school_id'), $id);
+        $eleve = $this->service->transferer($eleve, $classe);
+
+        return ApiResponse::success(
+            new EleveResource($eleve),
+            'Élève transféré vers '.$classe->school->name.' — '.$classe->nom.'.'
+        );
     }
 }

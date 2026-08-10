@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\EleveController;
+use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NoteController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
+use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use Illuminate\Support\Facades\Route;
@@ -72,6 +74,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('ecole', [SchoolController::class, 'show'])->name('ecole.show');
                 Route::put('ecole', [SchoolController::class, 'update'])->name('ecole.update');
+                Route::post('ecole/images/{type}', [SchoolController::class, 'uploadImage'])->name('ecole.images.upload');
+                Route::delete('ecole/images/{type}', [SchoolController::class, 'deleteImage'])->name('ecole.images.delete');
             });
 
             Route::middleware('permission:classes.view')->group(function () {
@@ -98,6 +102,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
+                Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
             });
 
@@ -145,6 +150,27 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('palmares/export', [ResultatController::class, 'exportPalmares'])->name('resultats.palmares.export');
                 Route::get('palmares/pdf', [ResultatController::class, 'palmaresPdf'])->name('resultats.palmares.pdf');
                 Route::get('eleves/{eleveId}/bulletin', [BulletinController::class, 'show'])->name('eleves.bulletin');
+                Route::get('classes/{classeId}/bulletins', [BulletinController::class, 'classe'])->name('classes.bulletins');
+            });
+
+            Route::middleware('permission:emploi_du_temps.view')->group(function () {
+                Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
+                Route::get('classes/{classeId}/seances', [SeanceController::class, 'index'])->name('seances.index');
+                Route::get('seances/{id}/appel', [SeanceController::class, 'appel'])->name('seances.appel');
+            });
+
+            Route::middleware('permission:emploi_du_temps.manage')->group(function () {
+                Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store');
+                Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
+                Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
+                Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
+                Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
+                Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update');
+                Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy');
+            });
+
+            Route::middleware('permission:appel.manage')->group(function () {
+                Route::post('seances/{id}/appel', [SeanceController::class, 'enregistrerAppel'])->name('seances.appel.store');
             });
 
             Route::middleware('permission:discipline.view')->group(function () {

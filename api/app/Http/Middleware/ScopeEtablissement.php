@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Helpers\ApiResponse;
-use App\Models\School;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,28 +28,29 @@ class ScopeEtablissement
             return ApiResponse::unauthorized();
         }
 
-        $schoolId = $user->school_id;
-
-        if ($user->hasRole('super_admin') && $request->header('X-School-Id')) {
-            $schoolId = (int) $request->header('X-School-Id');
-        }
-
-        if (! $user->hasRole('super_admin') && ! $schoolId) {
-            return ApiResponse::forbidden("Votre compte n'est rattaché à aucun établissement.");
-        }
-
-        if ($user->hasRole('super_admin') && ! $schoolId) {
-            $activeSchoolIds = School::where('is_active', true)->pluck('id');
-
-            if ($activeSchoolIds->count() === 1) {
-                $schoolId = $activeSchoolIds->first();
-            } else {
-                return ApiResponse::forbidden(
-                    $activeSchoolIds->isEmpty()
-                        ? "Aucun établissement actif n'est configuré."
-                        : 'Veuillez sélectionner un établissement (en-tête X-School-Id).'
-                );
+        if (! $user->hasRole('super_admin')) {
+            if (! $user->school_id) {
+                return ApiResponse::forbidden("Votre compte n'est rattaché à aucun établissement.");
             }
+
+            $schoolId = $user->school_id;
+        } else {
+            // Le super admin bascule d'une école à l'autre via X-School-Id, mais
+            // reste borné aux établissements de son complexe : accepter l'en-tête
+            // tel quel ouvrirait l'accès à n'importe quel établissement.
+            $accessibles = $user->ecolesAccessibles();
+
+            if ($accessibles->isEmpty()) {
+                return ApiResponse::forbidden("Aucun établissement actif n'est configuré.");
+            }
+
+            $demande = (int) $request->header('X-School-Id');
+
+            if ($demande && ! $accessibles->contains('id', $demande)) {
+                return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
+            }
+
+            $schoolId = $demande ?: ($user->school_id ?? $accessibles->first()->id);
         }
 
         // bind() plutôt qu'instance() : $schoolId peut être null (super_admin

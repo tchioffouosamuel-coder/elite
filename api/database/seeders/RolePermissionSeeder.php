@@ -24,6 +24,7 @@ class RolePermissionSeeder extends Seeder
         'finance.view', 'finance.manage',
         'bulletins.view', 'bulletins.publish',
         'annonces.view', 'annonces.publish',
+        'emploi_du_temps.view', 'emploi_du_temps.manage', 'appel.manage',
         'dashboard.view',
     ];
 
@@ -34,15 +35,18 @@ class RolePermissionSeeder extends Seeder
             'notes.view', 'notes.create', 'discipline.view', 'discipline.manage',
             'finance.view', 'finance.manage', 'bulletins.view', 'bulletins.publish',
             'annonces.view', 'annonces.publish', 'dashboard.view',
+            'emploi_du_temps.view', 'emploi_du_temps.manage', 'appel.manage',
         ],
         'censeur_sg' => [
             'personnel.view', 'classes.view', 'eleves.view', 'pedagogie.view',
             'notes.view', 'notes.create', 'discipline.view', 'discipline.manage', 'bulletins.view', 'bulletins.publish',
             'annonces.view', 'dashboard.view',
+            'emploi_du_temps.view', 'emploi_du_temps.manage', 'appel.manage',
         ],
         'enseignant' => [
             'classes.view', 'eleves.view', 'pedagogie.view', 'notes.view', 'notes.create',
             'discipline.view', 'annonces.view', 'dashboard.view',
+            'emploi_du_temps.view', 'appel.manage',
         ],
         'econome' => [
             'eleves.view', 'finance.view', 'finance.manage', 'annonces.view', 'dashboard.view',

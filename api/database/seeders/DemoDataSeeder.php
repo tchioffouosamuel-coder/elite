@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Complexe;
 use App\Models\Departement;
 use App\Models\Eleve;
 use App\Models\Matiere;
@@ -19,6 +20,7 @@ use App\Models\Tuteur;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 /**
  * Jeu de données réaliste pour développer et démontrer le Palier A/B
@@ -76,9 +78,24 @@ class DemoDataSeeder extends Seeder
     {
         $niveauCollege = Niveau::where('code', 'college')->firstOrFail();
 
+        // ELITES est un complexe : une maternelle, un primaire et un secondaire,
+        // chacun avec son propre mode de fonctionnement. Seul le secondaire est
+        // alimenté ici, le flux primaire/maternelle restant à construire.
+        $complexe = Complexe::updateOrCreate(
+            ['code' => 'ELITES'],
+            [
+                'name' => 'Complexe Scolaire ELITES',
+                'address' => 'Bertoua-Monou2, Cameroun',
+                'phone' => '698256973',
+                'is_active' => true,
+            ]
+        );
+
         $school = School::updateOrCreate(
             ['code' => 'ELITES-BTA'],
             [
+                'complexe_id' => $complexe->id,
+                'type' => 'secondaire',
                 'name' => 'Elites Bilingual Technical and Commercial College',
                 'address' => 'Bertoua-Monou2, Cameroun',
                 'phone' => '698256973',
@@ -86,6 +103,8 @@ class DemoDataSeeder extends Seeder
             ]
         );
         $school->niveaux()->syncWithoutDetaching([$niveauCollege->id]);
+
+        $this->seedEcolesDuComplexe($complexe);
 
         // Seuils repérés dans le flux _smapp (settings.setting_key), configurables par école.
         foreach ([
@@ -225,10 +244,10 @@ class DemoDataSeeder extends Seeder
             );
 
             $tuteur = Tuteur::firstOrCreate(
-                ['school_id' => $school->id, 'telephone' => '69' . str_pad((string) (1000000 + $i), 7, '0', STR_PAD_LEFT)],
+                ['school_id' => $school->id, 'telephone' => '69'.str_pad((string) (1000000 + $i), 7, '0', STR_PAD_LEFT)],
                 [
                     'nom' => $data['nom'],
-                    'prenom' => $data['sexe'] === 'F' ? 'Père de ' . $data['prenom'] : 'Mère de ' . $data['prenom'],
+                    'prenom' => $data['sexe'] === 'F' ? 'Père de '.$data['prenom'] : 'Mère de '.$data['prenom'],
                 ]
             );
 
@@ -243,7 +262,54 @@ class DemoDataSeeder extends Seeder
      * trimestre actif, afin que moyennes/classements/palmarès/bulletins
      * soient testables dès le seed sans saisie manuelle.
      */
-    private function seedNotesTrimestreActif(\Illuminate\Support\Collection $classes, AnneeScolaire $annee): void
+    /**
+     * Maternelle et primaire du complexe : créées avec leur niveau et un compte
+     * de direction rattaché, pour que la bascule d'établissement du super admin
+     * soit démontrable. Leur flux pédagogique propre reste à construire.
+     */
+    private function seedEcolesDuComplexe(Complexe $complexe): void
+    {
+        foreach ([
+            ['code' => 'ELITES-MAT', 'type' => 'maternelle', 'niveau' => 'maternelle',
+                'name' => 'Elites Bilingual Nursery School', 'email' => 'maternelle@elites-school.test'],
+            ['code' => 'ELITES-PRI', 'type' => 'primaire', 'niveau' => 'primaire',
+                'name' => 'Elites Bilingual Primary School', 'email' => 'primaire@elites-school.test'],
+        ] as $data) {
+            $ecole = School::updateOrCreate(
+                ['code' => $data['code']],
+                [
+                    'complexe_id' => $complexe->id,
+                    'type' => $data['type'],
+                    'name' => $data['name'],
+                    'address' => 'Bertoua-Monou2, Cameroun',
+                    'is_active' => true,
+                ]
+            );
+
+            $niveau = Niveau::where('code', $data['niveau'])->first();
+            if ($niveau) {
+                $ecole->niveaux()->syncWithoutDetaching([$niveau->id]);
+            }
+
+            AnneeScolaire::updateOrCreate(
+                ['school_id' => $ecole->id, 'libelle' => '2026-2027'],
+                ['date_debut' => '2026-09-01', 'date_fin' => '2027-06-30', 'is_active' => true]
+            );
+
+            User::updateOrCreate(
+                ['email' => $data['email']],
+                [
+                    'name' => 'Direction '.ucfirst($data['type']),
+                    'password' => 'password',
+                    'school_id' => $ecole->id,
+                    'niveau_id' => $niveau?->id,
+                    'is_active' => true,
+                ]
+            )->syncRoles(['admin_etablissement']);
+        }
+    }
+
+    private function seedNotesTrimestreActif(Collection $classes, AnneeScolaire $annee): void
     {
         $trimestreActif = Trimestre::where('annee_scolaire_id', $annee->id)->where('is_active', true)->first();
 

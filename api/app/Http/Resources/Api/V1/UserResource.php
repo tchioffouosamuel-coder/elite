@@ -21,6 +21,12 @@ class UserResource extends JsonResource
             'roles' => $this->getRoleNames(),
             'is_super_admin' => $this->hasRole('super_admin'),
             'permissions' => $this->getAllPermissions()->pluck('name'),
+            'ecoles_accessibles' => $this->ecolesAccessibles()->map(fn ($ecole) => [
+                'id' => $ecole->id,
+                'name' => $ecole->name,
+                'code' => $ecole->code,
+                'type' => $ecole->type,
+            ])->values(),
         ];
     }
 }
