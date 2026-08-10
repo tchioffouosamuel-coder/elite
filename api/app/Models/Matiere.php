@@ -9,7 +9,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Matiere extends Model
 {
-    protected $fillable = ['school_id', 'departement_id', 'nom', 'abbreviation', 'statut'];
+    protected $fillable = [
+        'school_id', 'departement_id', 'nom', 'nom_en', 'abbreviation',
+        'notation', 'evalue_pratique', 'statut',
+    ];
+
+    protected function casts(): array
+    {
+        return ['evalue_pratique' => 'boolean'];
+    }
+
+    /**
+     * Volets d'évaluation de la matière au primaire : oral, écrit et
+     * savoir-être systématiquement, pratique seulement si la matière s'y prête.
+     *
+     * @return list<string>
+     */
+    public function composantes(): array
+    {
+        return $this->evalue_pratique
+            ? ['oral', 'ecrit', 'savoir_etre', 'pratique']
+            : ['oral', 'ecrit', 'savoir_etre'];
+    }
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder
     {

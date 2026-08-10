@@ -92,6 +92,14 @@ class SettingsCatalog
                 'label_fr' => 'Blâme conduite — à partir de ce nombre d\'heures',
                 'label_en' => 'Conduct reprimand — from this many hours',
             ],
+            // Primaire et maternelle : le passage en classe supérieure se décide
+            // sur la moyenne annuelle (archange, decision.php — seuil par défaut 10).
+            [
+                'key' => 'passage_moyenne_min', 'groupe' => 'passage', 'type' => 'number',
+                'default' => 10,
+                'label_fr' => 'Passage en classe supérieure — moyenne annuelle minimale',
+                'label_en' => 'Promotion to next class — minimum annual average',
+            ],
         ];
     }
 

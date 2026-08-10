@@ -10,7 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Classe extends Model
 {
     protected $fillable = [
-        'school_id', 'niveau_id', 'annee_scolaire_id', 'professeur_principal_id',
+        'school_id', 'niveau_id', 'niveau_scolaire_id', 'annee_scolaire_id',
+        'professeur_principal_id', 'titulaire_id',
         'surveillant_general_id', 'censeur_id', 'conseiller_orientation_id',
         'nom', 'filiere', 'capacite',
     ];
@@ -28,6 +29,18 @@ class Classe extends Model
     public function niveau(): BelongsTo
     {
         return $this->belongsTo(Niveau::class);
+    }
+
+    /** Niveau d'enseignement (SIL, CP, CE1…) — primaire et maternelle. */
+    public function niveauScolaire(): BelongsTo
+    {
+        return $this->belongsTo(NiveauScolaire::class);
+    }
+
+    /** Enseignant unique de la classe au primaire/maternelle. */
+    public function titulaire(): BelongsTo
+    {
+        return $this->belongsTo(Personnel::class, 'titulaire_id');
     }
 
     public function anneeScolaire(): BelongsTo
