@@ -7,6 +7,9 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { fetchNiveaux, fetchAnneesScolaires, createClasse, type ClassePayload } from '@/features/classes/api'
 import { fetchEcole } from '@/features/settings/api'
+import { fetchNiveauxScolaires } from '@/features/primaire/api'
+import { fetchPersonnels } from '@/features/personnel/api'
+import { estSecondaire } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 
 export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -17,6 +20,20 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
   const niveauxEcole = ecole ? niveaux?.filter((n) => ecole.niveau_ids.includes(n.id)) : niveaux
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Au primaire et en maternelle, une classe relève d'un degré d'enseignement
+  // (SIL, CP…) et d'un titulaire unique ; au secondaire, ni l'un ni l'autre.
+  const secondaire = estSecondaire()
+  const { data: niveauxScolaires } = useQuery({
+    queryKey: ['niveaux-scolaires'],
+    queryFn: fetchNiveauxScolaires,
+    enabled: !secondaire,
+  })
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', { page: 1, per_page: 100 }],
+    queryFn: () => fetchPersonnels({ per_page: 100 }),
+    enabled: !secondaire,
+  })
 
   const activeAnnee = annees?.find((a) => a.is_active) ?? annees?.[0]
 
@@ -35,6 +52,8 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
         niveau_id: Number(values.niveau_id),
         annee_scolaire_id: Number(values.annee_scolaire_id),
         capacite: values.capacite ? Number(values.capacite) : null,
+        niveau_scolaire_id: values.niveau_scolaire_id ? Number(values.niveau_scolaire_id) : null,
+        titulaire_id: values.titulaire_id ? Number(values.titulaire_id) : null,
       })
       onCreated()
     } catch (err) {
@@ -70,8 +89,30 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
           ))}
         </Select>
 
+        {!secondaire && (
+          <>
+            <Select label={t('niveaux.title')} {...register('niveau_scolaire_id')}>
+              <option value="">—</option>
+              {niveauxScolaires?.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.code} — {n.libelle}
+                </option>
+              ))}
+            </Select>
+
+            <Select label={t('classes.titulaire')} {...register('titulaire_id')}>
+              <option value="">—</option>
+              {personnels?.items.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nom_complet}
+                </option>
+              ))}
+            </Select>
+          </>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
-          <Input label={t('classes.filiere')} {...register('filiere')} />
+          {secondaire && <Input label={t('classes.filiere')} {...register('filiere')} />}
           <Input label={t('classes.capacite')} type="number" {...register('capacite')} />
         </div>
 
