@@ -8,7 +8,7 @@ use App\Http\Requests\Api\V1\BulkSaveAbsencesRequest;
 use App\Models\Classe;
 use App\Models\Trimestre;
 use App\Services\DisciplineService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\Pdf\MpdfFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -62,13 +62,11 @@ class AbsenceController extends Controller
             fn ($q) => $q->where('school_id', app('tenant.school_id'))
         )->with('anneeScolaire')->findOrFail($request->integer('trimestre_id'));
 
-        $pdf = Pdf::loadView('pdf.bilan-disciplinaire', [
+        return MpdfFactory::streamFromView('pdf.bilan-disciplinaire', [
             'classe' => $classe,
             'trimestre' => $trimestre,
             'bilan' => $this->service->bilanClasse($classe, $trimestre),
             'eleves' => $this->service->lignesDetail($classe, $trimestre),
-        ])->setPaper('a4', 'portrait');
-
-        return $pdf->stream("bilan-disciplinaire-{$classe->nom}.pdf");
+        ], "bilan-disciplinaire-{$classe->nom}.pdf");
     }
 }

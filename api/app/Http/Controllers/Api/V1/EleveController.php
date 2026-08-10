@@ -73,4 +73,14 @@ class EleveController extends Controller
 
         return ApiResponse::success($result, "{$result['imported']} ligne(s) importée(s).");
     }
+
+    public function photo(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['photo' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120']]);
+
+        $eleve = $this->service->find(app('tenant.school_id'), $id);
+        $eleve = $this->service->updatePhoto($eleve, $request->file('photo'));
+
+        return ApiResponse::success(new EleveResource($eleve), 'Photo mise à jour.');
+    }
 }

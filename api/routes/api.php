@@ -76,6 +76,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:classes.view')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
+                Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
                 Route::get('classes/{id}', [ClasseController::class, 'show'])->name('classes.show');
             });
 
@@ -90,7 +91,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');
                 Route::get('eleves/{eleveId}/attestation-scolarite', [AttestationController::class, 'scolarite'])->name('eleves.attestation');
-                Route::get('eleves/{eleveId}/carte-scolaire', [CarteScolaireController::class, 'show'])->name('eleves.carte');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
             });
 
@@ -98,6 +98,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
+                Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
             });
 
             Route::middleware('permission:pedagogie.view')->group(function () {

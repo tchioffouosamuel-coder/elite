@@ -18,6 +18,7 @@ export interface Eleve {
   nom_complet: string
   sexe: 'M' | 'F'
   date_naissance: string | null
+  photo_url: string | null
   redoublant: boolean
   statut: string
   classe: { id: number; nom: string; niveau: string | null } | null
@@ -51,5 +52,14 @@ export async function fetchEleves(params: { search?: string; classe_id?: number;
 
 export async function createEleve(payload: ElevePayload): Promise<Eleve> {
   const { data } = await http.post<ApiResponse<Eleve>>('/eleves', payload)
+  return data.data
+}
+
+export async function uploadElevePhoto(id: number, file: File): Promise<Eleve> {
+  const formData = new FormData()
+  formData.append('photo', file)
+  const { data } = await http.post<ApiResponse<Eleve>>(`/eleves/${id}/photo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
   return data.data
 }

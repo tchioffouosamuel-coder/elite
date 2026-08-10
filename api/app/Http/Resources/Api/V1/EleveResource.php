@@ -19,6 +19,7 @@ class EleveResource extends JsonResource
             'date_naissance' => $this->date_naissance?->format('Y-m-d'),
             'lieu_naissance' => $this->lieu_naissance,
             'nationalite' => $this->nationalite,
+            'photo_url' => $this->photo_path ? asset('storage/'.$this->photo_path) : null,
             'redoublant' => (bool) $this->redoublant,
             'statut' => $this->statut,
             'classe' => $this->whenLoaded('classe', fn () => $this->classe ? [

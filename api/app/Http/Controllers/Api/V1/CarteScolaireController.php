@@ -3,24 +3,22 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Eleve;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Classe;
+use App\Support\Pdf\CarteScolaireGenerator;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class CarteScolaireController extends Controller
 {
-    public function show(int $eleveId): Response
+    public function classe(int $id): Response
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->with(['classe.anneeScolaire', 'school'])->findOrFail($eleveId);
+        $classe = Classe::forSchool(app('tenant.school_id'))->with(['school', 'anneeScolaire'])->findOrFail($id);
 
-        $pdf = Pdf::loadView('pdf.carte-scolaire', [
-            'eleve' => $eleve,
-            'classe' => $eleve->classe,
-            'school' => $eleve->school,
-            'anneeScolaire' => $eleve->classe?->anneeScolaire,
-        ])->setPaper([0, 0, 340, 220], 'portrait');
+        $pdf = (new CarteScolaireGenerator)->build($classe, $classe->anneeScolaire?->libelle ?? '');
 
-        return $pdf->stream('carte-scolaire-'.Str::slug($eleve->nomComplet()).'.pdf');
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="cartes-scolaires-'.Str::slug($classe->nom).'.pdf"',
+        ]);
     }
 }

@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, FileDown, FileSpreadsheet, FileText, IdCard, Upload } from 'lucide-react'
-import { fetchEleves } from '@/features/eleves/api'
+import { Plus, Search, FileDown, FileSpreadsheet, FileText, Camera, Upload } from 'lucide-react'
+import { fetchEleves, uploadElevePhoto } from '@/features/eleves/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
-import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
+import { telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
@@ -14,6 +14,60 @@ import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { Pagination } from '@/shared/ui/Pagination'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { EleveFormModal } from '@/features/eleves/pages/EleveFormModal'
+
+function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: string; photo_url: string | null }; canManage: boolean }) {
+  const queryClient = useQueryClient()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      await uploadElevePhoto(eleve.id, file)
+      queryClient.invalidateQueries({ queryKey: ['eleves'] })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="relative h-10 w-10 flex-none">
+      {eleve.photo_url ? (
+        <img src={eleve.photo_url} alt={eleve.nom_complet} className="h-10 w-10 rounded-full object-cover ring-1 ring-navy-100" />
+      ) : (
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
+          {eleve.nom_complet
+            .split(' ')
+            .map((p) => p[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase()}
+        </span>
+      )}
+      {canManage && (
+        <>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            title="Photo"
+            className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-navy-900 shadow-soft hover:bg-gold-600"
+          >
+            <Camera className="h-3 w-3" />
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        </>
+      )}
+    </div>
+  )
+}
 
 export function ElevesListPage() {
   const { t } = useTranslation()
@@ -75,6 +129,7 @@ export function ElevesListPage() {
         <Table>
           <Thead>
             <tr>
+              <Th></Th>
               <Th>{t('eleves.matricule')}</Th>
               <Th>{t('eleves.nom')}</Th>
               <Th>{t('eleves.sexe')}</Th>
@@ -82,12 +137,14 @@ export function ElevesListPage() {
               <Th>{t('eleves.tuteur')}</Th>
               <Th>{t('resultats.bulletin')}</Th>
               <Th>{t('export.attestation')}</Th>
-              <Th>{t('export.carte')}</Th>
             </tr>
           </Thead>
           <tbody>
             {data.items.map((e) => (
               <Tr key={e.id}>
+                <Td>
+                  <PhotoCell eleve={e} canManage={can('eleves.manage')} />
+                </Td>
                 <Td className="font-mono text-xs">{e.matricule ?? '—'}</Td>
                 <Td className="font-medium">{e.nom_complet}</Td>
                 <Td>
@@ -118,17 +175,6 @@ export function ElevesListPage() {
                     >
                       <FileText className="h-3.5 w-3.5" />
                       Word
-                    </button>
-                  )}
-                </Td>
-                <Td>
-                  {e.classe && (
-                    <button
-                      onClick={() => ouvrirDocument(`/eleves/${e.id}/carte-scolaire`)}
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
-                    >
-                      <IdCard className="h-3.5 w-3.5" />
-                      PDF
                     </button>
                   )}
                 </Td>

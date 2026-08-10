@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, IdCard } from 'lucide-react'
 import { fetchClasse } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Tabs } from '@/shared/ui/Tabs'
+import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { ouvrirDocument } from '@/shared/lib/download'
 import { AffectationsTab } from '@/features/pedagogie/pages/AffectationsTab'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { AbsencesTab } from '@/features/discipline/pages/AbsencesTab'
@@ -33,13 +35,21 @@ export function ClasseDetailPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <Link to="/classes" className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
-          <ArrowLeft className="h-4 w-4" />
-          {t('common.back')}
-        </Link>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{classe.nom}</h1>
-        <p className="text-sm text-navy-400">{classe.niveau?.name_fr} · {classe.filiere}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <Link to="/classes" className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
+            <ArrowLeft className="h-4 w-4" />
+            {t('common.back')}
+          </Link>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{classe.nom}</h1>
+          <p className="text-sm text-navy-400">{classe.niveau?.name_fr} · {classe.filiere}</p>
+        </div>
+        {can('eleves.view') && (
+          <Button variant="secondary" onClick={() => ouvrirDocument(`/classes/${classeId}/cartes-scolaires`)}>
+            <IdCard className="h-4 w-4" />
+            {t('export.carte')}
+          </Button>
+        )}
       </div>
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />

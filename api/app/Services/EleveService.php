@@ -8,6 +8,7 @@ use App\Models\Tuteur;
 use App\Repositories\EleveRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class EleveService extends BaseService
@@ -53,6 +54,36 @@ class EleveService extends BaseService
 
             return $eleve->load('tuteurs');
         });
+    }
+
+    /**
+     * Recadre en carré (centre) et redimensionne en 600x600 JPEG, comme upload_photo.php dans _smapp.
+     */
+    public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
+    {
+        $source = $file->getMimeType() === 'image/png'
+            ? imagecreatefrompng($file->getRealPath())
+            : imagecreatefromjpeg($file->getRealPath());
+
+        $width = imagesx($source);
+        $height = imagesy($source);
+        $side = min($width, $height);
+        $srcX = intdiv($width - $side, 2);
+        $srcY = intdiv($height - $side, 2);
+
+        $square = imagecreatetruecolor(600, 600);
+        imagecopyresampled($square, $source, 0, 0, $srcX, $srcY, 600, 600, $side, $side);
+        imagedestroy($source);
+
+        ob_start();
+        imagejpeg($square, null, 90);
+        $contents = ob_get_clean();
+        imagedestroy($square);
+
+        $path = 'eleves/photos/'.$eleve->id.'.jpg';
+        Storage::disk('public')->put($path, $contents);
+
+        return $this->repository->update($eleve, ['photo_path' => $path]);
     }
 
     /**
