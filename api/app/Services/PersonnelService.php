@@ -14,9 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PersonnelService extends BaseService
 {
-    public function __construct(private readonly PersonnelRepository $repository)
-    {
-    }
+    public function __construct(private readonly PersonnelRepository $repository) {}
 
     public function list(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {

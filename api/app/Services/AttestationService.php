@@ -18,7 +18,7 @@ class AttestationService extends BaseService
         $school = $eleve->school;
         $annee = $classe?->anneeScolaire;
 
-        $phpWord = new PhpWord();
+        $phpWord = new PhpWord;
         $section = $phpWord->addSection(['marginTop' => 1200, 'marginBottom' => 1200]);
 
         $section->addText(mb_strtoupper($school->name), ['bold' => true, 'size' => 13], ['alignment' => 'center']);

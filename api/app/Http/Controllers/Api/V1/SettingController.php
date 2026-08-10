@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Services\SettingsCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SettingController extends \App\Http\Controllers\Controller
+class SettingController extends Controller
 {
     public function index(): JsonResponse
     {

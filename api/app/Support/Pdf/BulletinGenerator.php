@@ -3,7 +3,7 @@
 namespace App\Support\Pdf;
 
 use App\Models\School;
-use Illuminate\Support\Facades\Storage;
+use App\Support\Pdf\Concerns\RenduDocument;
 use Mpdf\Output\Destination;
 
 /**
@@ -17,9 +17,7 @@ use Mpdf\Output\Destination;
  */
 class BulletinGenerator
 {
-    private const OR = '#d8a02e';
-
-    private const ARDOISE = '#292F36';
+    use RenduDocument;
 
     public function build(array $donnees): string
     {
@@ -59,24 +57,7 @@ class BulletinGenerator
 
     private function styles(): string
     {
-        return '<style>'
-            .'body{font-family:dejavusans,sans-serif;font-size:3.2mm;margin:0;padding:0;color:#333}'
-            .'table{width:100%;border-collapse:collapse;margin-top:4px;margin-bottom:6px}'
-            .'th,td{border:0.5px solid #bdc3c7;text-align:center;padding:1px}'
-            .'th{background-color:'.self::OR.';color:#fff;font-weight:bold;font-size:2.6mm}'
-            .'.header-table{width:100%;table-layout:fixed;margin-bottom:6px}'
-            .'.header-table td{text-align:center;vertical-align:top;border:none;font-size:2.5mm}'
-            .'.lh-1{line-height:1.25}'
-            .'.logo{width:64px}'
-            .'.no-border,.no-border td,.no-border tr{border:none!important}'
-            .'.titre{color:'.self::OR.';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
-            .'.titre-en{color:'.self::OR.';text-transform:uppercase;font-style:italic;font-size:3.2mm}'
-            .'.left{text-align:left!important}'
-            .'.value{font-weight:bold;color:#000}'
-            .'.mini{font-size:2.2mm}'
-            .'.legende{font-size:2.1mm;text-align:center;display:block}'
-            .'.rouge{color:#ac3527;font-weight:bold}'
-            .'</style>';
+        return '<style>'.$this->stylesBase().'</style>';
     }
 
     /** En-tête bilingue à trois colonnes : mentions FR, logo, mentions EN. */
@@ -84,16 +65,7 @@ class BulletinGenerator
     {
         $school = $donnees['school'];
 
-        $logo = $this->cheminImage($school->logo_path);
-        $celluleLogo = $logo !== null
-            ? '<img src="'.$this->e($logo).'" class="logo">'
-            : '<div class="value" style="font-size:5mm;color:'.self::OR.';">'.$this->e($this->monogramme($school)).'</div>';
-
-        return '<table class="header-table"><tr>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_fr ?? $school->name)).'</div></td>'
-            .'<td style="width:20%;">'.$celluleLogo.'</td>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_en ?? $school->name)).'</div></td>'
-            .'</tr></table>'
+        return $this->enTeteEcole($school)
             .'<table class="no-border"><tr><td class="left" style="line-height:1.4;">'
             .'<span class="titre">Bulletin de notes du '.$this->e($donnees['trimestre']->libelle).'</span><br>'
             .'<span class="titre-en">'.$this->e($donnees['trimestre']->libelle).' report card</span><br>'
@@ -322,37 +294,10 @@ class BulletinGenerator
         };
     }
 
-    private function monogramme(School $school): string
-    {
-        preg_match_all('/\b\p{L}/u', $school->name, $matches);
-
-        return mb_strtoupper(implode('', array_slice($matches[0], 0, 3)));
-    }
-
     private function initiales($eleve): string
     {
         return mb_strtoupper(mb_substr($eleve->prenom, 0, 1).mb_substr($eleve->nom, 0, 1));
     }
 
     /** Chemin absolu d'une image du disque public, ou null si elle n'existe pas. */
-    private function cheminImage(?string $path): ?string
-    {
-        if (! $path) {
-            return null;
-        }
-
-        $absolu = Storage::disk('public')->path($path);
-
-        return is_file($absolu) ? $absolu : null;
-    }
-
-    private function nombre(?float $valeur, int $decimales = 2): string
-    {
-        return $valeur === null ? '—' : number_format($valeur, $decimales, ',', ' ');
-    }
-
-    private function e(?string $valeur): string
-    {
-        return htmlspecialchars((string) $valeur, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    }
 }

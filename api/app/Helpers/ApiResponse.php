@@ -3,8 +3,6 @@
 namespace App\Helpers;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ApiResponse
@@ -25,7 +23,7 @@ class ApiResponse
         return self::success($data, $message, 201);
     }
 
-    public static function paginated(LengthAwarePaginator $paginator, string $resourceClass = null, string $message = ''): JsonResponse
+    public static function paginated(LengthAwarePaginator $paginator, ?string $resourceClass = null, string $message = ''): JsonResponse
     {
         $items = $resourceClass ? $resourceClass::collection($paginator->items()) : $paginator->items();
 

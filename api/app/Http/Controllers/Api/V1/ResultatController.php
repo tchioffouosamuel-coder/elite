@@ -21,9 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ResultatController extends Controller
 {
-    public function __construct(private readonly MoyenneService $service)
-    {
-    }
+    public function __construct(private readonly MoyenneService $service) {}
 
     public function remplissage(Request $request, int $classeId): JsonResponse
     {

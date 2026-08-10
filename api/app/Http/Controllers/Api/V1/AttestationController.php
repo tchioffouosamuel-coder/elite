@@ -10,9 +10,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AttestationController extends Controller
 {
-    public function __construct(private readonly AttestationService $service)
-    {
-    }
+    public function __construct(private readonly AttestationService $service) {}
 
     public function scolarite(int $eleveId): BinaryFileResponse
     {

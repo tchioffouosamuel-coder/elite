@@ -17,9 +17,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PersonnelController extends Controller
 {
-    public function __construct(private readonly PersonnelService $service)
-    {
-    }
+    public function __construct(private readonly PersonnelService $service) {}
 
     public function index(Request $request): JsonResponse
     {

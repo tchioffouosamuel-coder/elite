@@ -21,6 +21,7 @@ import {
   IdCard,
   Menu,
   X,
+  BarChart3,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -65,6 +66,8 @@ const navGroups = [
       { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view' },
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
+      { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view' },
+      { to: '/stats-disciplinaires', label: 'nav.statsDisciplinaires', icon: ShieldAlert, permission: 'discipline.view' },
     ],
   },
   {

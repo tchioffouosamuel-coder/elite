@@ -9,9 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 abstract class BaseRepository implements RepositoryInterface
 {
-    public function __construct(protected Model $model)
-    {
-    }
+    public function __construct(protected Model $model) {}
 
     public function query(): Builder
     {
