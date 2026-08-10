@@ -14,6 +14,7 @@ import { Pagination } from '@/shared/ui/Pagination'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { PersonnelFormModal } from '@/features/personnel/pages/PersonnelFormModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
+import { confirmer, succes } from '@/shared/lib/alertes'
 
 export function PersonnelListPage() {
   const { t } = useTranslation()
@@ -111,7 +112,16 @@ export function PersonnelListPage() {
                       (p.statut === 'actif' ? (
                         <button
                           title={t('common.archive')}
-                          onClick={() => archivePersonnel(p.id).then(invalidate)}
+                          onClick={async () => {
+                            if (!(await confirmer({
+                              titre: `Archiver ${p.nom_complet} ?`,
+                              message: "Le compte n'apparaîtra plus dans les listes actives. L'historique est conservé et la réactivation reste possible.",
+                              action: 'Archiver',
+                            }))) return
+                            await archivePersonnel(p.id)
+                            invalidate()
+                            succes('Personnel archivé.')
+                          }}
                           className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
                         >
                           <Archive className="h-4 w-4" />

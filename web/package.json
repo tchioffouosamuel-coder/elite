@@ -22,6 +22,7 @@
     "react-hook-form": "^7.85.0",
     "react-i18next": "^17.0.11",
     "react-router-dom": "^7.18.2",
+    "sweetalert2": "^11.26.25",
     "tailwindcss": "^4.3.3",
     "zustand": "^5.0.14"
   },

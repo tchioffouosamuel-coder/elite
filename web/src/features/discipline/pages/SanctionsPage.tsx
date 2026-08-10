@@ -15,6 +15,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 
 const TYPE_TONE: Record<string, 'gold' | 'red' | 'neutral'> = {
   corvee: 'gold',
@@ -89,7 +90,12 @@ export function SanctionsPage() {
                 {can('discipline.manage') && (
                   <Td>
                     <button
-                      onClick={() => deleteSanction(s.id).then(invalidate)}
+                      onClick={async () => {
+                        if (!(await confirmerSuppression(`la sanction de ${s.eleve.nom_complet}`))) return
+                        await deleteSanction(s.id)
+                        invalidate()
+                        succes('Sanction supprimée.')
+                      }}
                       className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
                     >
                       <Trash2 className="h-4 w-4" />

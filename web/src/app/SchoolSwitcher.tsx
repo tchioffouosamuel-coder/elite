@@ -38,17 +38,17 @@ export function SchoolSwitcher() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 max-w-xs flex-1 sm:max-w-none sm:flex-none">
       <button
         onClick={() => setOuvert((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-navy-100 bg-white px-3 py-2 text-sm font-semibold text-navy-800 transition-colors hover:border-gold-300"
+        className="flex w-full items-center gap-2 rounded-xl border border-navy-100 bg-white px-2.5 py-2 text-sm font-semibold text-navy-800 shadow-soft transition-colors hover:border-gold-300 hover:shadow-card sm:px-3"
       >
-        <Building2 className="h-4 w-4 text-gold-500" />
-        <span className="max-w-56 truncate">{active?.name}</span>
-        <span className="rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy-500">
+        <Building2 className="h-4 w-4 flex-none text-gold-500" />
+        <span className="min-w-0 flex-1 truncate text-left sm:max-w-56 sm:flex-none">{active?.name}</span>
+        <span className="hidden flex-none rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy-500 md:inline">
           {LIBELLE_TYPE[active?.type ?? ''] ?? active?.type}
         </span>
-        <ChevronDown className={clsx('h-4 w-4 text-navy-400 transition-transform', ouvert && 'rotate-180')} />
+        <ChevronDown className={clsx('h-4 w-4 flex-none text-navy-400 transition-transform', ouvert && 'rotate-180')} />
       </button>
 
       {ouvert && (

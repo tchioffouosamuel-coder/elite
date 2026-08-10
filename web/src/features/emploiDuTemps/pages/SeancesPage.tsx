@@ -17,6 +17,7 @@ import { Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { erreur, succes } from '@/shared/lib/alertes'
 
 const STATUTS: { valeur: LigneAppel['statut']; libelle: string }[] = [
   { valeur: 'present', libelle: 'Présent' },
@@ -139,11 +140,13 @@ function AppelModal({ seance, classeId, onClose }: { seance: Seance; classeId: n
           remarque: l.remarque,
         })),
       ),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['seances', classeId] })
       queryClient.invalidateQueries({ queryKey: ['appel', seance.id] })
+      succes(`Appel enregistré (${data.enregistres} élève(s)).`)
       onClose()
     },
+    onError: (e: { message?: string }) => erreur(e.message ?? "Enregistrement de l'appel impossible."),
   })
 
   const modifier = (eleveId: number, champs: Partial<LigneAppel>) =>

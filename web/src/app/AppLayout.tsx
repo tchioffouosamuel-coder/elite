@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   GraduationCap,
@@ -18,6 +19,8 @@ import {
   FileText,
   ListChecks,
   IdCard,
+  Menu,
+  X,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -86,8 +89,14 @@ function initials(name?: string) {
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, can, clearSession } = useAuthStore()
   const { locale, setLocale } = useUiStore()
+  const [menuOuvert, setMenuOuvert] = useState(false)
+
+  // Le tiroir se referme à chaque navigation : sur mobile il recouvre la page,
+  // le laisser ouvert masquerait l'écran qu'on vient d'ouvrir.
+  useEffect(() => setMenuOuvert(false), [location.pathname])
 
   const handleLogout = async () => {
     try {
@@ -98,53 +107,82 @@ export function AppLayout() {
     }
   }
 
+  const groupesVisibles = navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => can(item.permission)) }))
+    .filter((group) => group.items.length > 0)
+
   return (
     <div className="flex h-svh overflow-hidden bg-cream-50">
-      <aside className="flex w-64 flex-none flex-col overflow-y-auto bg-navy-800 text-cream-50">
-        <div className="flex items-center gap-2.5 px-6 py-6">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-500/15 ring-1 ring-gold-500/30">
+      {menuOuvert && (
+        <div
+          className="animate-fade-in fixed inset-0 z-40 bg-navy-900/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setMenuOuvert(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={clsx(
+          'fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-none flex-col overflow-y-auto bg-navy-800 text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
+          'lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:shadow-none',
+          menuOuvert ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        <div className="flex items-center gap-2.5 px-5 py-5">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-gold-500/15 ring-1 ring-gold-500/30">
             <GraduationCap className="h-5 w-5 text-gold-300" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight">{t('app.name')}</span>
+          <button
+            onClick={() => setMenuOuvert(false)}
+            className="ml-auto rounded-lg p-1.5 text-navy-300 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+            aria-label={t('common.close')}
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-4 px-3 pt-2 pb-4">
-          {navGroups
-            .map((group) => ({ ...group, items: group.items.filter((item) => can(item.permission)) }))
-            .filter((group) => group.items.length > 0)
-            .map((group) => (
-              <div key={group.label} className="flex flex-col gap-1">
-                <span className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-navy-400">
-                  {t(group.label)}
-                </span>
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    className={({ isActive }) =>
-                      clsx(
-                        'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
-                        isActive ? 'bg-white/10 text-white' : 'text-navy-200 hover:bg-white/5 hover:text-white',
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
+        <nav className="flex flex-1 flex-col gap-4 px-3 pt-1 pb-4">
+          {groupesVisibles.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1">
+              <span className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-navy-400">
+                {t(group.label)}
+              </span>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  className={({ isActive }) =>
+                    clsx(
+                      'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
+                        : 'text-navy-200 hover:bg-white/5 hover:text-white',
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
+                      )}
+                      <item.icon
+                        className={clsx(
+                          'h-[18px] w-[18px] flex-none',
+                          isActive ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
                         )}
-                        <item.icon className={clsx('h-[18px] w-[18px]', isActive ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200')} />
-                        {t(item.label)}
-                      </>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
-            ))}
+                      />
+                      <span className="truncate">{t(item.label)}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          ))}
         </nav>
 
-        <div className="flex items-center gap-3 border-t border-white/10 px-4 py-4">
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800 px-4 py-4">
           <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
             {initials(user?.name)}
           </span>
@@ -162,11 +200,21 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex flex-none items-center justify-between border-b border-navy-100 bg-white/80 px-6 py-3.5 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex flex-none items-center gap-3 border-b border-navy-100 bg-white/85 px-4 py-3 backdrop-blur-sm sm:px-6">
+          <button
+            onClick={() => setMenuOuvert(true)}
+            className="-ml-1 flex h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:hidden"
+            aria-label={t('nav.openMenu')}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <SchoolSwitcher />
-            <div className="flex gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
+          </div>
+
+          <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
             {(['fr', 'en'] as const).map((l) => (
               <button
                 key={l}
@@ -179,21 +227,20 @@ export function AppLayout() {
                 {l.toUpperCase()}
               </button>
             ))}
-            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
-              {initials(user?.name)}
-            </span>
+          <div className="hidden items-center gap-3 xl:flex">
             <div className="text-right text-sm leading-tight">
               <p className="font-semibold text-navy-800">{user?.name}</p>
               <p className="text-xs text-navy-400">{user?.roles.join(', ')}</p>
             </div>
+            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
+              {initials(user?.name)}
+            </span>
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
             <Outlet />
           </div>

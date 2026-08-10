@@ -30,6 +30,8 @@ interface AuthState {
    */
   activeSchoolId: number | null
   setSession: (token: string, user: AuthUser) => void
+  /** Rafraîchit le profil sans toucher au jeton, en réparant l'école active. */
+  refreshUser: (user: AuthUser) => void
   setActiveSchool: (schoolId: number) => void
   clearSession: () => void
   can: (permission: string) => boolean
@@ -38,7 +40,7 @@ interface AuthState {
 
 /** École vers laquelle diriger le compte à la connexion. */
 function ecoleParDefaut(user: AuthUser): number | null {
-  return user.school_id ?? user.ecoles_accessibles[0]?.id ?? null
+  return user.school_id ?? user.ecoles_accessibles?.[0]?.id ?? null
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -48,10 +50,16 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       activeSchoolId: null,
       setSession: (token, user) => set({ token, user, activeSchoolId: ecoleParDefaut(user) }),
+      refreshUser: (user) => {
+        const { activeSchoolId } = get()
+        const encoreAccessible = user.ecoles_accessibles?.some((e) => e.id === activeSchoolId)
+
+        set({ user, activeSchoolId: encoreAccessible ? activeSchoolId : ecoleParDefaut(user) })
+      },
       setActiveSchool: (schoolId) => {
         // Refuse une école hors du périmètre du compte : l'API la rejetterait
         // de toute façon, autant ne pas basculer l'interface dans le vide.
-        if (get().user?.ecoles_accessibles.some((e) => e.id === schoolId)) {
+        if (get().user?.ecoles_accessibles?.some((e) => e.id === schoolId)) {
           set({ activeSchoolId: schoolId })
         }
       },
@@ -63,9 +71,18 @@ export const useAuthStore = create<AuthState>()(
       },
       activeSchool: () => {
         const { user, activeSchoolId } = get()
-        return user?.ecoles_accessibles.find((e) => e.id === activeSchoolId) ?? null
+        return user?.ecoles_accessibles?.find((e) => e.id === activeSchoolId) ?? null
       },
     }),
-    { name: 'elites-school-auth' },
+    {
+      name: 'elites-school-auth',
+      // Le profil persisté a gagné `ecoles_accessibles` et `activeSchoolId` avec
+      // le multi-école. Une session ouverte avant ce changement conserverait un
+      // profil sans ces champs, et le sélecteur d'établissement resterait inerte.
+      // Incrémenter la version force la reconnexion plutôt que de traîner une
+      // forme périmée.
+      version: 2,
+      migrate: () => ({ token: null, user: null, activeSchoolId: null }) as Partial<AuthState>,
+    },
   ),
 )
