@@ -46,7 +46,8 @@
       "resultats": "Résultats",
       "admin": "Administration",
       "identification": "Identification & sécurité"
-    }
+    },
+    "niveaux": "Niveaux"
   },
   "auth": {
     "login_title": "Connexion",
@@ -99,7 +100,8 @@
     "filiere": "Filière",
     "capacite": "Capacité",
     "effectif": "Effectif",
-    "professeur_principal": "Professeur principal"
+    "professeur_principal": "Professeur principal",
+    "titulaire": "Titulaire"
   },
   "eleves": {
     "title": "Élèves",
@@ -133,9 +135,20 @@
   "notes": {
     "title": "Notes",
     "sequence": "Séquence",
+    "trimestre": "Trimestre",
     "valeur": "Note / 20",
     "select_prompt": "Choisissez une matière et une séquence pour afficher la grille.",
-    "saved": "{{count}} note(s) enregistrée(s)."
+    "saved": "{{count}} note(s) enregistrée(s).",
+    "bareme_hint": "Matière notée sur {{bareme}}, répartis sur {{volets}} volets — soit {{max}} points au maximum par volet et par séquence."
+  },
+  "niveaux": {
+    "title": "Niveaux d'enseignement",
+    "hint": "Les classes d'un même niveau (SIL, CP, CE1…) sont placées sous la responsabilité d'un animateur de niveau.",
+    "code": "Code",
+    "libelle": "Libellé",
+    "classes": "Classes",
+    "animateur": "Animateur de niveau",
+    "empty": "Aucun niveau défini pour le moment."
   },
   "discipline": {
     "title": "Discipline",

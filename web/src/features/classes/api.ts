@@ -28,9 +28,14 @@ export interface Classe {
   capacite: number | null
   effectif?: number
   niveau_id: number
+  niveau_scolaire_id: number | null
   annee_scolaire_id: number
   niveau: { id: number; code: string; name_fr: string } | null
+  /** Niveau d'enseignement (SIL, CP…) — primaire et maternelle uniquement. */
+  niveau_scolaire: { id: number; code: string; libelle: string } | null
   professeur_principal_id: number | null
+  titulaire_id: number | null
+  titulaire: Responsable | null
   surveillant_general_id: number | null
   censeur_id: number | null
   conseiller_orientation_id: number | null
@@ -42,11 +47,13 @@ export interface Classe {
 
 export interface ClassePayload {
   niveau_id: number
+  niveau_scolaire_id?: number | null
   annee_scolaire_id: number
   nom: string
   filiere?: string | null
   capacite?: number | null
   professeur_principal_id?: number | null
+  titulaire_id?: number | null
   surveillant_general_id?: number | null
   censeur_id?: number | null
   conseiller_orientation_id?: number | null

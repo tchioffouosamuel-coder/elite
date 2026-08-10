@@ -14,13 +14,19 @@ import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { AbsencesTab } from '@/features/discipline/pages/AbsencesTab'
 import { ResultatsTab } from '@/features/resultats/pages/ResultatsTab'
 import { ResponsablesTab } from '@/features/classes/pages/ResponsablesTab'
+import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
 
 export function ClasseDetailPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const activeSchool = useAuthStore((s) => s.activeSchool)
   const { id } = useParams<{ id: string }>()
   const classeId = Number(id)
   const [tab, setTab] = useState('affectations')
+
+  // Le primaire et la maternelle notent par volets d'évaluation, le secondaire
+  // par séquence : deux grilles de saisie distinctes.
+  const estSecondaire = (activeSchool()?.type ?? 'secondaire') === 'secondaire'
 
   const { data: classe, isLoading, isError } = useQuery({ queryKey: ['classe', classeId], queryFn: () => fetchClasse(classeId) })
 
@@ -44,7 +50,15 @@ export function ClasseDetailPage() {
             {t('common.back')}
           </Link>
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{classe.nom}</h1>
-          <p className="text-sm text-navy-400">{classe.niveau?.name_fr} · {classe.filiere}</p>
+          <p className="text-sm text-navy-400">
+            {[
+              classe.niveau_scolaire?.libelle ?? classe.niveau?.name_fr,
+              classe.filiere,
+              classe.titulaire ? `${t('classes.titulaire')} : ${classe.titulaire.nom_complet}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
         </div>
         {can('eleves.view') && (
           <Button variant="secondary" onClick={() => ouvrirDocument(`/classes/${classeId}/cartes-scolaires`)}>
@@ -57,7 +71,7 @@ export function ClasseDetailPage() {
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'affectations' && <AffectationsTab classeId={classeId} />}
-      {tab === 'notes' && <NotesTab classeId={classeId} />}
+      {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
       {tab === 'absences' && <AbsencesTab classeId={classeId} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
       {tab === 'responsables' && <ResponsablesTab classeId={classeId} />}

@@ -16,6 +16,7 @@ import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
 import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
+import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolairesPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },
+      { path: 'niveaux', element: <ProtectedRoute permission="pedagogie.view"><NiveauxScolairesPage /></ProtectedRoute> },
       { path: 'classes', element: <ProtectedRoute permission="classes.view"><ClassesListPage /></ProtectedRoute> },
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view"><ClasseDetailPage /></ProtectedRoute> },
       { path: 'eleves', element: <ProtectedRoute permission="eleves.view"><ElevesListPage /></ProtectedRoute> },

@@ -18,6 +18,7 @@ import {
   FileText,
   ListChecks,
   IdCard,
+  Layers,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -25,6 +26,13 @@ import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 import { SchoolSwitcher } from './SchoolSwitcher'
 
+type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
+
+/**
+ * `types` restreint une entrée aux établissements concernés : le secondaire
+ * s'organise en départements, le primaire et la maternelle en niveaux
+ * d'enseignement. Sans `types`, l'entrée vaut pour toutes les écoles.
+ */
 const navGroups = [
   {
     label: 'nav.group.overview',
@@ -34,7 +42,20 @@ const navGroups = [
     label: 'nav.group.staff',
     items: [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view' },
-      { to: '/departements', label: 'nav.departements', icon: Building2, permission: 'personnel.view' },
+      {
+        to: '/departements',
+        label: 'nav.departements',
+        icon: Building2,
+        permission: 'personnel.view',
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
+        to: '/niveaux',
+        label: 'nav.niveaux',
+        icon: Layers,
+        permission: 'pedagogie.view',
+        types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
     ],
   },
   {
@@ -86,8 +107,9 @@ function initials(name?: string) {
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { user, can, clearSession } = useAuthStore()
+  const { user, can, clearSession, activeSchool } = useAuthStore()
   const { locale, setLocale } = useUiStore()
+  const typeEcole = activeSchool()?.type
 
   const handleLogout = async () => {
     try {
@@ -110,7 +132,14 @@ export function AppLayout() {
 
         <nav className="flex flex-1 flex-col gap-4 px-3 pt-2 pb-4">
           {navGroups
-            .map((group) => ({ ...group, items: group.items.filter((item) => can(item.permission)) }))
+            .map((group) => ({
+              ...group,
+              items: group.items.filter(
+                (item) =>
+                  can(item.permission) &&
+                  (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)),
+              ),
+            }))
             .filter((group) => group.items.length > 0)
             .map((group) => (
               <div key={group.label} className="flex flex-col gap-1">

@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Collection;
 class ClasseService extends BaseService
 {
     private const RESPONSABLES = [
-        'niveau', 'professeurPrincipal', 'surveillantGeneral', 'censeur', 'conseillerOrientation',
+        'niveau', 'niveauScolaire', 'professeurPrincipal', 'titulaire',
+        'surveillantGeneral', 'censeur', 'conseillerOrientation',
     ];
 
     public function __construct(private readonly ClasseRepository $repository) {}

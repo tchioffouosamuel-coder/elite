@@ -46,7 +46,8 @@
       "resultats": "Results",
       "admin": "Administration",
       "identification": "Identification & security"
-    }
+    },
+    "niveaux": "Levels"
   },
   "auth": {
     "login_title": "Sign in",
@@ -99,7 +100,8 @@
     "filiere": "Stream",
     "capacite": "Capacity",
     "effectif": "Enrolled",
-    "professeur_principal": "Homeroom teacher"
+    "professeur_principal": "Homeroom teacher",
+    "titulaire": "Class teacher"
   },
   "eleves": {
     "title": "Students",
@@ -135,7 +137,9 @@
     "sequence": "Sequence",
     "valeur": "Grade / 20",
     "select_prompt": "Choose a subject and a sequence to display the grade sheet.",
-    "saved": "{{count}} grade(s) saved."
+    "saved": "{{count}} grade(s) saved.",
+    "trimestre": "Term",
+    "bareme_hint": "Subject marked out of {{bareme}}, split across {{volets}} assessment areas — up to {{max}} points per area and per sequence."
   },
   "discipline": {
     "title": "Discipline",
@@ -208,5 +212,14 @@
     "submit": "Import",
     "result": "{{imported}} row(s) imported, {{failed}} failure(s).",
     "template_hint": "Expected columns (first row as headers):"
+  },
+  "niveaux": {
+    "title": "Teaching levels",
+    "hint": "Classes of the same level (SIL, CP, CE1…) are placed under a level coordinator.",
+    "code": "Code",
+    "libelle": "Label",
+    "classes": "Classes",
+    "animateur": "Level coordinator",
+    "empty": "No level defined yet."
   }
 }
