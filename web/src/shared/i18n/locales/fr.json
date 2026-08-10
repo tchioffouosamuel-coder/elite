@@ -1,5 +1,7 @@
 {
-  "app": { "name": "Elite School" },
+  "app": {
+    "name": "Elite School"
+  },
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -30,6 +32,11 @@
     "session": "Année scolaire",
     "parametres": "Paramètres",
     "logout": "Déconnexion",
+    "emploiDuTemps": "Emploi du temps",
+    "seances": "Séances & appel",
+    "bulletins": "Bulletins",
+    "remplissage": "Remplissage des notes",
+    "identification": "Photos & cartes",
     "group": {
       "overview": "Vue d'ensemble",
       "staff": "Personnel & structure",
@@ -37,7 +44,8 @@
       "pedagogie": "Pédagogie",
       "discipline": "Discipline",
       "resultats": "Résultats",
-      "admin": "Administration"
+      "admin": "Administration",
+      "identification": "Identification & sécurité"
     }
   },
   "auth": {

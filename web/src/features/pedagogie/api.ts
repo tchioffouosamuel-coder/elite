@@ -46,6 +46,8 @@ export interface Trimestre {
   annee_scolaire_id: number
   libelle: string
   ordre: number
+  date_debut: string | null
+  date_fin: string | null
   is_active: boolean
   sequences: Sequence[]
 }

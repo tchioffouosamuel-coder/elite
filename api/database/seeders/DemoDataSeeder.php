@@ -106,6 +106,10 @@ class DemoDataSeeder extends Seeder
 
         $this->seedEcolesDuComplexe($complexe);
 
+        // Le super administrateur voit les trois écoles, mais démarre sur le
+        // secondaire — le seul cycle dont le flux pédagogique est construit.
+        User::where('email', 'admin@elites-school.test')->update(['school_id' => $school->id]);
+
         // Seuils repérés dans le flux _smapp (settings.setting_key), configurables par école.
         foreach ([
             'num_sequences' => 2,

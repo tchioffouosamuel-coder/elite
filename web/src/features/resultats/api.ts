@@ -51,18 +51,27 @@ export async function fetchPalmares(trimestreId?: number, classeId?: number): Pr
  * blob une fois la requête authentifiée terminée.
  */
 export async function ouvrirBulletin(eleveId: number, trimestreId?: number): Promise<void> {
+  return ouvrirPdf(`/eleves/${eleveId}/bulletin`, trimestreId)
+}
+
+/** Tous les bulletins de la classe dans un document unique, un élève par page. */
+export async function ouvrirBulletinsClasse(classeId: number, trimestreId?: number): Promise<void> {
+  return ouvrirPdf(`/classes/${classeId}/bulletins`, trimestreId)
+}
+
+async function ouvrirPdf(url: string, trimestreId?: number): Promise<void> {
   const fenetre = window.open('', '_blank')
 
-  const response = await http.get(`/eleves/${eleveId}/bulletin`, {
+  const response = await http.get(url, {
     params: trimestreId ? { trimestre_id: trimestreId } : undefined,
     responseType: 'blob',
   })
 
-  const url = URL.createObjectURL(response.data as Blob)
+  const blobUrl = URL.createObjectURL(response.data as Blob)
 
   if (fenetre) {
-    fenetre.location.href = url
+    fenetre.location.href = blobUrl
   } else {
-    window.open(url, '_blank')
+    window.open(blobUrl, '_blank')
   }
 }

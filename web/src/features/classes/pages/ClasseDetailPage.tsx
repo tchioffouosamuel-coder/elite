@@ -13,6 +13,7 @@ import { AffectationsTab } from '@/features/pedagogie/pages/AffectationsTab'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { AbsencesTab } from '@/features/discipline/pages/AbsencesTab'
 import { ResultatsTab } from '@/features/resultats/pages/ResultatsTab'
+import { ResponsablesTab } from '@/features/classes/pages/ResponsablesTab'
 
 export function ClasseDetailPage() {
   const { t } = useTranslation()
@@ -28,6 +29,7 @@ export function ClasseDetailPage() {
     can('notes.view') && { key: 'notes', label: t('notes.title') },
     can('discipline.view') && { key: 'absences', label: t('discipline.title') },
     can('notes.view') && { key: 'resultats', label: t('resultats.title') },
+    can('classes.view') && { key: 'responsables', label: 'Responsables' },
   ].filter(Boolean) as { key: string; label: string }[]
 
   if (isLoading) return <Spinner />
@@ -58,6 +60,7 @@ export function ClasseDetailPage() {
       {tab === 'notes' && <NotesTab classeId={classeId} />}
       {tab === 'absences' && <AbsencesTab classeId={classeId} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
+      {tab === 'responsables' && <ResponsablesTab classeId={classeId} />}
     </div>
   )
 }

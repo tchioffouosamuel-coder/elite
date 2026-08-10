@@ -16,14 +16,28 @@ export interface AnneeScolaire {
   is_active: boolean
 }
 
+export interface Responsable {
+  id: number
+  nom_complet: string
+}
+
 export interface Classe {
   id: number
   nom: string
   filiere: string | null
   capacite: number | null
   effectif?: number
+  niveau_id: number
+  annee_scolaire_id: number
   niveau: { id: number; code: string; name_fr: string } | null
-  professeur_principal: { id: number; nom_complet: string } | null
+  professeur_principal_id: number | null
+  surveillant_general_id: number | null
+  censeur_id: number | null
+  conseiller_orientation_id: number | null
+  professeur_principal: Responsable | null
+  surveillant_general: Responsable | null
+  censeur: Responsable | null
+  conseiller_orientation: Responsable | null
 }
 
 export interface ClassePayload {
@@ -33,6 +47,9 @@ export interface ClassePayload {
   filiere?: string | null
   capacite?: number | null
   professeur_principal_id?: number | null
+  surveillant_general_id?: number | null
+  censeur_id?: number | null
+  conseiller_orientation_id?: number | null
 }
 
 export async function fetchNiveaux(): Promise<Niveau[]> {
@@ -59,5 +76,10 @@ export async function createClasse(payload: ClassePayload): Promise<Classe> {
 
 export async function fetchClasse(id: number): Promise<Classe> {
   const { data } = await http.get<ApiResponse<Classe>>(`/classes/${id}`)
+  return data.data
+}
+
+export async function updateClasse(id: number, payload: ClassePayload): Promise<Classe> {
+  const { data } = await http.put<ApiResponse<Classe>>(`/classes/${id}`, payload)
   return data.data
 }

@@ -14,6 +14,8 @@ class ClasseResource extends JsonResource
             'nom' => $this->nom,
             'filiere' => $this->filiere,
             'capacite' => $this->capacite,
+            'niveau_id' => $this->niveau_id,
+            'annee_scolaire_id' => $this->annee_scolaire_id,
             'effectif' => $this->when(isset($this->eleves_count), $this->eleves_count),
             'niveau' => $this->whenLoaded('niveau', fn () => [
                 'id' => $this->niveau?->id,

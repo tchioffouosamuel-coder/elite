@@ -13,11 +13,17 @@ import {
   Trophy,
   Settings,
   CalendarRange,
+  CalendarClock,
+  ClipboardCheck,
+  FileText,
+  ListChecks,
+  IdCard,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
+import { SchoolSwitcher } from './SchoolSwitcher'
 
 const navGroups = [
   {
@@ -40,7 +46,11 @@ const navGroups = [
   },
   {
     label: 'nav.group.pedagogie',
-    items: [{ to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view' }],
+    items: [
+      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view' },
+      { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view' },
+      { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view' },
+    ],
   },
   {
     label: 'nav.group.discipline',
@@ -48,7 +58,15 @@ const navGroups = [
   },
   {
     label: 'nav.group.resultats',
-    items: [{ to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' }],
+    items: [
+      { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view' },
+      { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
+      { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
+    ],
+  },
+  {
+    label: 'nav.group.identification',
+    items: [{ to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view' }],
   },
   {
     label: 'nav.group.admin',
@@ -146,7 +164,9 @@ export function AppLayout() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex flex-none items-center justify-between border-b border-navy-100 bg-white/80 px-6 py-3.5 backdrop-blur-sm">
-          <div className="flex gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
+          <div className="flex items-center gap-3">
+            <SchoolSwitcher />
+            <div className="flex gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
             {(['fr', 'en'] as const).map((l) => (
               <button
                 key={l}
@@ -159,6 +179,7 @@ export function AppLayout() {
                 {l.toUpperCase()}
               </button>
             ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

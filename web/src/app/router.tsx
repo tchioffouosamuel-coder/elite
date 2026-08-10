@@ -11,6 +11,11 @@ import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
 import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
+import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
+import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
+import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
+import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
+import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
@@ -33,6 +38,11 @@ export const router = createBrowserRouter([
       { path: 'matieres', element: <ProtectedRoute permission="pedagogie.view"><MatieresPage /></ProtectedRoute> },
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
+      { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
+      { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
+      { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
+      { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
+      { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
     ],

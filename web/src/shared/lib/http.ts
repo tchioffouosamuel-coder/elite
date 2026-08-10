@@ -12,11 +12,13 @@ export const http = axios.create({
 })
 
 http.interceptors.request.use((config) => {
-  const { token, user } = useAuthStore.getState()
+  const { token, user, activeSchoolId } = useAuthStore.getState()
   const { locale } = useUiStore.getState()
 
   if (token) config.headers.Authorization = `Bearer ${token}`
-  if (user?.school_id) config.headers['X-School-Id'] = String(user.school_id)
+
+  const schoolId = activeSchoolId ?? user?.school_id
+  if (schoolId) config.headers['X-School-Id'] = String(schoolId)
   config.headers['X-Locale'] = locale
 
   return config
