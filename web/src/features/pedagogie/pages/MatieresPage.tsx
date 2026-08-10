@@ -11,6 +11,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { useForm } from 'react-hook-form'
+import { estSecondaire } from '@/shared/lib/ecole'
 import type { MatierePayload } from '@/features/pedagogie/api'
 
 export function MatieresPage() {
@@ -24,8 +25,16 @@ export function MatieresPage() {
 
   const { register, handleSubmit, reset } = useForm<MatierePayload>()
 
+  // Au primaire une matière est notée sur un barème propre et se découpe en
+  // volets ; au secondaire elle est sur 20 et relève d'un département.
+  const secondaire = estSecondaire()
+
   const onSubmit = async (values: MatierePayload) => {
-    await createMatiere({ ...values, departement_id: values.departement_id ? Number(values.departement_id) : null })
+    await createMatiere({
+      ...values,
+      departement_id: values.departement_id ? Number(values.departement_id) : null,
+      notation: values.notation ? Number(values.notation) : null,
+    })
     reset()
     setShowForm(false)
     queryClient.invalidateQueries({ queryKey: ['matieres'] })
@@ -55,7 +64,14 @@ export function MatieresPage() {
             <tr>
               <Th>{t('matieres.nom')}</Th>
               <Th>{t('matieres.abbreviation')}</Th>
-              <Th>{t('personnel.departement')}</Th>
+              {secondaire ? (
+                <Th>{t('personnel.departement')}</Th>
+              ) : (
+                <>
+                  <Th>{t('matieres.notation')}</Th>
+                  <Th>{t('matieres.volets')}</Th>
+                </>
+              )}
             </tr>
           </Thead>
           <tbody>
@@ -63,7 +79,14 @@ export function MatieresPage() {
               <Tr key={m.id}>
                 <Td className="font-medium">{m.nom}</Td>
                 <Td>{m.abbreviation ?? '—'}</Td>
-                <Td>{m.departement?.nom ?? '—'}</Td>
+                {secondaire ? (
+                  <Td>{m.departement?.nom ?? '—'}</Td>
+                ) : (
+                  <>
+                    <Td>{m.notation ? `/ ${m.notation}` : '—'}</Td>
+                    <Td className="text-navy-500">{m.composantes.length}</Td>
+                  </>
+                )}
               </Tr>
             ))}
           </tbody>
@@ -75,14 +98,31 @@ export function MatieresPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Input label={t('matieres.nom')} {...register('nom', { required: true })} />
             <Input label={t('matieres.abbreviation')} {...register('abbreviation')} />
-            <Select label={t('personnel.departement')} {...register('departement_id')}>
-              <option value="">—</option>
-              {departements?.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nom}
-                </option>
-              ))}
-            </Select>
+            {secondaire ? (
+              <Select label={t('personnel.departement')} {...register('departement_id')}>
+                <option value="">—</option>
+                {departements?.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nom}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <>
+                <Input label={t('matieres.nom_en')} {...register('nom_en')} />
+                <Input
+                  type="number"
+                  min={10}
+                  max={100}
+                  label={t('matieres.notation')}
+                  {...register('notation', { required: true })}
+                />
+                <label className="flex items-center gap-2 text-sm text-navy-700">
+                  <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
+                  {t('matieres.evalue_pratique')}
+                </label>
+              </>
+            )}
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 {t('common.cancel')}

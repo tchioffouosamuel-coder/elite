@@ -27,6 +27,8 @@ class ResultatPrimaireController extends Controller
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
         }
 
+        // Même enveloppe que le classement du secondaire, pour que les écrans
+        // de résultats soient partagés entre les deux moteurs de notation.
         $rows = $this->service->classementGeneral($classe, $trimestre)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
             'nom_complet' => $row['eleve']->nomComplet(),
@@ -34,9 +36,14 @@ class ResultatPrimaireController extends Controller
             'sexe' => $row['eleve']->sexe,
             'moyenne' => $row['moyenne'],
             'rang' => $row['rang'],
+            'cote' => $this->service->appreciationCompetence($row['moyenne'], 20),
+            'mention' => null,
         ]);
 
-        return ApiResponse::success($rows->values());
+        return ApiResponse::success([
+            'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
+            'eleves' => $rows->values(),
+        ]);
     }
 
     public function remplissage(Request $request, int $classeId): JsonResponse
@@ -58,7 +65,10 @@ class ResultatPrimaireController extends Controller
                 'taux' => $this->service->tauxRemplissage($cm, $trimestre),
             ]);
 
-        return ApiResponse::success($rows->values());
+        return ApiResponse::success([
+            'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
+            'matieres' => $rows->values(),
+        ]);
     }
 
     /** Décisions de fin d'année : passage ou redoublement selon la moyenne annuelle. */

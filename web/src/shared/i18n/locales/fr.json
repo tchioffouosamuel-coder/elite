@@ -123,7 +123,11 @@
     "title": "Matières",
     "add": "Ajouter une matière",
     "nom": "Nom de la matière",
-    "abbreviation": "Abréviation"
+    "abbreviation": "Abréviation",
+    "nom_en": "Nom (anglais)",
+    "notation": "Notée sur",
+    "volets": "Volets",
+    "evalue_pratique": "Évaluer aussi le volet pratique"
   },
   "pedagogie": {
     "title": "Matières & affectations",
