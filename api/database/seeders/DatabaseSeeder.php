@@ -23,6 +23,12 @@ class DatabaseSeeder extends Seeder
         );
         $superAdmin->assignRole('super_admin');
 
-        $this->call(DemoDataSeeder::class);
+        // DemoDataSeeder crée le complexe et ses trois écoles, puis alimente le
+        // secondaire ; PrimaireMaternelleSeeder prend la suite sur les deux
+        // autres cycles et dépend donc des écoles créées avant lui.
+        $this->call([
+            DemoDataSeeder::class,
+            PrimaireMaternelleSeeder::class,
+        ]);
     }
 }

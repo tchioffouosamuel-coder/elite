@@ -15,6 +15,8 @@ use App\Models\School;
 use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
+use App\Models\Tuteur;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 
@@ -140,6 +142,33 @@ class PrimaireMaternelleSeeder extends Seeder
             $eleves = $this->seedEleves($school, $classe, $index);
             $this->seedNotes($eleves, $affectations, $trimestres->first());
         }
+
+        $this->seedCompteTitulaire($school, $personnels->first(), $niveauReference?->id);
+    }
+
+    /**
+     * Accès de connexion pour un titulaire, afin de pouvoir éprouver la saisie
+     * des notes sous le rôle `enseignant` : au primaire c'est le titulaire qui
+     * saisit toutes les matières de sa classe, règle qu'un compte
+     * administrateur ne met pas à l'épreuve.
+     */
+    private function seedCompteTitulaire(School $school, Personnel $titulaire, ?int $niveauId): void
+    {
+        $email = 'titulaire.'.$school->type.'@elites-school.test';
+
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $titulaire->nomComplet(),
+                'password' => 'password',
+                'school_id' => $school->id,
+                'niveau_id' => $niveauId,
+                'is_active' => true,
+            ]
+        );
+        $user->syncRoles(['enseignant']);
+
+        $titulaire->update(['user_id' => $user->id, 'email' => $email]);
     }
 
     /** @return Collection<int, Trimestre> */
@@ -229,7 +258,7 @@ class PrimaireMaternelleSeeder extends Seeder
             [$nom, $prenom, $sexe] = $n;
             $matricule = sprintf('%s-%02d%02d', strtoupper(substr($school->type, 0, 3)), $classeIndex + 1, $i + 1);
 
-            return Eleve::firstOrCreate(
+            $eleve = Eleve::firstOrCreate(
                 ['school_id' => $school->id, 'matricule' => $matricule],
                 [
                     'classe_id' => $classe->id,
@@ -241,6 +270,22 @@ class PrimaireMaternelleSeeder extends Seeder
                     'statut' => 'actif',
                 ],
             );
+
+            // Sans tuteur, les listes d'élèves et les bulletins afficheraient un
+            // tiret là où l'usage montre toujours un parent joignable.
+            $tuteur = Tuteur::firstOrCreate(
+                [
+                    'school_id' => $school->id,
+                    'telephone' => sprintf('6%02d%05d', $classeIndex + 70, $i + 1),
+                ],
+                ['nom' => mb_strtoupper($nom), 'prenom' => 'Parent de '.$prenom],
+            );
+
+            $eleve->tuteurs()->syncWithoutDetaching(
+                [$tuteur->id => ['lien_parente' => 'parent', 'is_principal' => true]]
+            );
+
+            return $eleve;
         });
     }
 

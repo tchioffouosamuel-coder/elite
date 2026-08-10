@@ -79,8 +79,9 @@ class DemoDataSeeder extends Seeder
         $niveauCollege = Niveau::where('code', 'college')->firstOrFail();
 
         // ELITES est un complexe : une maternelle, un primaire et un secondaire,
-        // chacun avec son propre mode de fonctionnement. Seul le secondaire est
-        // alimenté ici, le flux primaire/maternelle restant à construire.
+        // chacun avec son propre mode de fonctionnement. Ce seeder crée les trois
+        // écoles mais n'alimente que le secondaire ; PrimaireMaternelleSeeder
+        // prend la suite sur les deux autres cycles.
         $complexe = Complexe::updateOrCreate(
             ['code' => 'ELITES'],
             [
@@ -106,8 +107,8 @@ class DemoDataSeeder extends Seeder
 
         $this->seedEcolesDuComplexe($complexe);
 
-        // Le super administrateur voit les trois écoles, mais démarre sur le
-        // secondaire — le seul cycle dont le flux pédagogique est construit.
+        // Le super administrateur voit les trois écoles et démarre sur le
+        // secondaire ; le sélecteur de la barre supérieure permet de basculer.
         User::where('email', 'admin@elites-school.test')->update(['school_id' => $school->id]);
 
         // Seuils repérés dans le flux _smapp (settings.setting_key), configurables par école.
