@@ -12,7 +12,7 @@ class Classe extends Model
     protected $fillable = [
         'school_id', 'niveau_id', 'annee_scolaire_id', 'professeur_principal_id',
         'surveillant_general_id', 'censeur_id', 'conseiller_orientation_id',
-        'nom', 'filiere', 'capacite',
+        'nom', 'filiere', 'code_examen', 'capacite',
     ];
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder

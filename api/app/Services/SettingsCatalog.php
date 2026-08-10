@@ -92,6 +92,14 @@ class SettingsCatalog
                 'label_fr' => 'Blâme conduite — à partir de ce nombre d\'heures',
                 'label_en' => 'Conduct reprimand — from this many hours',
             ],
+            [
+                // _smapp imprimait « CR 1357 » en dur sur chaque photo d'examen :
+                // le code du centre est propre à l'établissement, il se règle ici.
+                'key' => 'centre_examen', 'groupe' => 'examens', 'type' => 'text',
+                'default' => '',
+                'label_fr' => 'Code du centre d\'examen (imprimé sur les photos DECC/OBC)',
+                'label_en' => 'Examination centre code (printed on DECC/OBC photos)',
+            ],
         ];
     }
 

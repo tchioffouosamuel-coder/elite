@@ -72,6 +72,13 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
 
         <div className="grid grid-cols-2 gap-3">
           <Input label={t('classes.filiere')} {...register('filiere')} />
+          {/* Renseigner ce code inscrit la classe au module Photos DECC & OBC
+              et l'imprime sous chaque photo de candidat. */}
+          <Input
+            label={t('classes.code_examen')}
+            placeholder="BEPC, Probatoire, BAC, CEP…"
+            {...register('code_examen')}
+          />
           <Input label={t('classes.capacite')} type="number" {...register('capacite')} />
         </div>
 

@@ -41,6 +41,7 @@
     "openMenu": "Open menu",
     "statsPedagogiques": "Academic statistics",
     "statsDisciplinaires": "Disciplinary statistics",
+    "photosExamen": "DECC & OBC photos",
     "group": {
       "overview": "Overview",
       "staff": "Staff & structure",
@@ -103,7 +104,8 @@
     "filiere": "Stream",
     "capacite": "Capacity",
     "effectif": "Enrolled",
-    "professeur_principal": "Homeroom teacher"
+    "professeur_principal": "Homeroom teacher",
+    "code_examen": "Examination code (optional)"
   },
   "eleves": {
     "title": "Students",

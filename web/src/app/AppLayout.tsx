@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   BarChart3,
+  ScanFace,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -72,7 +73,10 @@ const navGroups = [
   },
   {
     label: 'nav.group.identification',
-    items: [{ to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view' }],
+    items: [
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view' },
+      { to: '/photos-examen', label: 'nav.photosExamen', icon: ScanFace, permission: 'eleves.view' },
+    ],
   },
   {
     label: 'nav.group.admin',

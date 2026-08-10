@@ -25,6 +25,8 @@ class StoreClasseRequest extends FormRequest
             'conseiller_orientation_id' => ['nullable', $this->scopedExists('personnels')],
             'nom' => ['required', 'string', 'max:50'],
             'filiere' => ['nullable', 'string', 'max:100'],
+            // Non vide = classe présentant un examen officiel (BEPC, BAC, CEP…).
+            'code_examen' => ['nullable', 'string', 'max:40'],
             'capacite' => ['nullable', 'integer', 'min:1'],
         ];
     }

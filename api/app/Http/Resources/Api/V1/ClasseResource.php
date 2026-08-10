@@ -13,6 +13,7 @@ class ClasseResource extends JsonResource
             'id' => $this->id,
             'nom' => $this->nom,
             'filiere' => $this->filiere,
+            'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
             'niveau_id' => $this->niveau_id,
             'annee_scolaire_id' => $this->annee_scolaire_id,
