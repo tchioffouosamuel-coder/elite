@@ -28,10 +28,16 @@ export interface EcoleProfile {
   address: string | null
   phone: string | null
   email: string | null
+  type: 'maternelle' | 'primaire' | 'secondaire'
   header_fr: string | null
   header_en: string | null
+  logo_url: string | null
+  cachet_url: string | null
+  signature_url: string | null
   niveau_ids: number[]
 }
+
+export type ImageEcole = 'logo' | 'cachet' | 'signature'
 
 export interface EcoleProfilePayload {
   name: string
@@ -50,5 +56,19 @@ export async function fetchEcole(): Promise<EcoleProfile> {
 
 export async function updateEcole(payload: EcoleProfilePayload): Promise<EcoleProfile> {
   const { data } = await http.put<ApiResponse<EcoleProfile>>('/ecole', payload)
+  return data.data
+}
+
+export async function uploadImageEcole(type: ImageEcole, file: File): Promise<EcoleProfile> {
+  const formData = new FormData()
+  formData.append('image', file)
+  const { data } = await http.post<ApiResponse<EcoleProfile>>(`/ecole/images/${type}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
+export async function supprimerImageEcole(type: ImageEcole): Promise<EcoleProfile> {
+  const { data } = await http.delete<ApiResponse<EcoleProfile>>(`/ecole/images/${type}`)
   return data.data
 }

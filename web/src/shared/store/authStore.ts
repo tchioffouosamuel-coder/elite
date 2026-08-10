@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export interface EcoleAccessible {
+  id: number
+  name: string
+  code: string
+  type: 'maternelle' | 'primaire' | 'secondaire'
+}
+
 export interface AuthUser {
   id: number
   name: string
@@ -10,14 +17,28 @@ export interface AuthUser {
   roles: string[]
   is_super_admin: boolean
   permissions: string[]
+  ecoles_accessibles: EcoleAccessible[]
 }
 
 interface AuthState {
   token: string | null
   user: AuthUser | null
+  /**
+   * Établissement sur lequel l'interface travaille. Pour un compte rattaché à
+   * une école c'est toujours la sienne ; le super administrateur en change
+   * depuis le sélecteur de la barre supérieure.
+   */
+  activeSchoolId: number | null
   setSession: (token: string, user: AuthUser) => void
+  setActiveSchool: (schoolId: number) => void
   clearSession: () => void
   can: (permission: string) => boolean
+  activeSchool: () => EcoleAccessible | null
+}
+
+/** École vers laquelle diriger le compte à la connexion. */
+function ecoleParDefaut(user: AuthUser): number | null {
+  return user.school_id ?? user.ecoles_accessibles[0]?.id ?? null
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,12 +46,24 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       user: null,
-      setSession: (token, user) => set({ token, user }),
-      clearSession: () => set({ token: null, user: null }),
+      activeSchoolId: null,
+      setSession: (token, user) => set({ token, user, activeSchoolId: ecoleParDefaut(user) }),
+      setActiveSchool: (schoolId) => {
+        // Refuse une école hors du périmètre du compte : l'API la rejetterait
+        // de toute façon, autant ne pas basculer l'interface dans le vide.
+        if (get().user?.ecoles_accessibles.some((e) => e.id === schoolId)) {
+          set({ activeSchoolId: schoolId })
+        }
+      },
+      clearSession: () => set({ token: null, user: null, activeSchoolId: null }),
       can: (permission) => {
         const user = get().user
         if (!user) return false
         return user.is_super_admin || user.permissions.includes(permission)
+      },
+      activeSchool: () => {
+        const { user, activeSchoolId } = get()
+        return user?.ecoles_accessibles.find((e) => e.id === activeSchoolId) ?? null
       },
     }),
     { name: 'elites-school-auth' },

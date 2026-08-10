@@ -252,6 +252,11 @@ class MoyenneService extends BaseService
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return Collection<int, array<string, mixed>>
      */
+    public function classer(Collection $rows): Collection
+    {
+        return $this->attribuerRangs($rows);
+    }
+
     private function attribuerRangs(Collection $rows): Collection
     {
         $classes = $rows->partition(fn ($row) => $row['moyenne'] !== null);

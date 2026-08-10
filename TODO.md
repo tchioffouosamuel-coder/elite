@@ -2,7 +2,7 @@
 
 Ce document liste ce qu'il reste à construire après le Palier A (Fondations) et le cœur académique + outillage du Palier B (Collège), tous livrés et vérifiés. Il sert de reprise de contexte — chaque section donne le modèle de données, les endpoints API et les pages frontend, sur le pattern de l'existant (`Controller → FormRequest → Service → Repository → Model`, RBAC par permission dot-notation, i18n FR/EN, scoping multi-école systématique).
 
-Dernière mise à jour : 10 août 2026 (soir).
+Dernière mise à jour : 10 août 2026 (nuit).
 
 ---
 
@@ -23,13 +23,13 @@ Construit en s'appuyant sur une lecture détaillée de `_smapp` (moyennes pondé
 
 **Évaluations** : `Sequence` (générées automatiquement par trimestre selon `Setting::num_sequences`), `Note` (élève × classe_matiere × séquence, /20). `MoyenneService` calcule à la demande (pas de cache dénormalisé) : moyenne matière, moyenne générale pondérée, rangs ex-aequo, rang/min/max par matière, cote (A+→D), appréciation, **mentions "travail" et "conduite"** (félicitations/encouragements/avertissement/blâme — seuils configurables, cf. Settings ci-dessous ; _smapp avait ces réglages mais ne les câblait jamais réellement).
 
-**Résultats** : état de remplissage des notes (seuil configurable), classement de classe, palmarès (seuil moyenne **et** seuil d'assiduité, comme `_smapp`), bulletin PDF (dompdf) avec grille de notes groupées, total/coef, cote, rang/min/max par matière, mentions, absences, sanctions du trimestre. Pages : onglet Résultats sur la fiche classe, page Palmarès, bouton bulletin sur les listes élèves/classement.
+**Résultats** : état de remplissage des notes (seuil configurable), classement de classe, palmarès (seuil moyenne **et** seuil d'assiduité, comme `_smapp`), bulletin PDF avec grille de notes groupées, total/coef, cote, rang/min/max par matière, mentions, absences, sanctions du trimestre. Pages : onglet Résultats sur la fiche classe, page Palmarès, bouton bulletin sur les listes élèves/classement.
 
 **Discipline** : `AbsenceTrimestre` (heures justifiées/non justifiées cumulées par élève × trimestre — pas un journal par créneau, fidèle à `_smapp`), `Sanction` (type/durée/motif en colonnes réelles, pas de chaîne packée). Bilan disciplinaire par classe (totaux/moyennes par genre, élève le plus absent). Pages : onglet Absences sur la fiche classe, page Sanctions.
 
 **Settings** (`app/Services/SettingsCatalog.php`) : catalogue complet des préférences repérées dans `_smapp` (`preferences.php`/table `settings`) — nombre de séquences, comportement note vide, seuil de remplissage, seuils palmarès, et surtout les seuils de mentions (félicitations/encouragements/avertissement/blâme travail et conduite) qui existaient côté `_smapp` mais n'étaient branchés nulle part. Page Paramètres (`/parametres`, réservée à `ecoles.manage`) pour les éditer par établissement.
 
-**Exports** — XLSX (`maatwebsite/excel`) : personnel, élèves, classement de classe, palmarès. Word (`phpoffice/phpword`, nouvellement installé) : attestation de scolarité par élève. PDF (dompdf) supplémentaires : palmarès, bilan disciplinaire de classe, carte scolaire (avatar avec initiales — pas de vraie photo, cf. §2.4). Boutons de téléchargement/consultation câblés sur les pages concernées (`shared/lib/download.ts` : `telechargerFichier()` pour Excel/Word, `ouvrirDocument()` pour ouvrir un PDF dans un nouvel onglet).
+**Exports** — XLSX (`maatwebsite/excel`) : personnel, élèves, classement de classe, palmarès. Word (`phpoffice/phpword`, nouvellement installé) : attestation de scolarité par élève. PDF supplémentaires : palmarès, bilan disciplinaire de classe. Boutons de téléchargement/consultation câblés sur les pages concernées (`shared/lib/download.ts` : `telechargerFichier()` pour Excel/Word, `ouvrirDocument()` pour ouvrir un PDF dans un nouvel onglet).
 
 **Imports en masse** — XLSX/CSV : personnel (déjà backend en Palier A, bouton frontend ajouté), élèves (avec résolution de classe par nom + création de tuteur), notes (par classe/matière/séquence, résolution par matricule, lignes invalides ignorées silencieusement plutôt que de bloquer tout le fichier). Composant frontend générique `shared/ui/ImportModal.tsx` réutilisé sur les trois.
 
@@ -38,13 +38,29 @@ Construit en s'appuyant sur une lecture détaillée de `_smapp` (moyennes pondé
 **Comptes de test** (mot de passe `password`) : `admin@elites-school.test` (super_admin), `directeur@elites-school.test` (admin_etablissement), `censeur@elites-school.test` (censeur_sg).
 
 ### Style documentaire, navigation et session (terminé)
-**Documents PDF** — les 4 templates (`resources/views/pdf/bulletin.blade.php`, `palmares.blade.php`, `bilan-disciplinaire.blade.php`, `carte-scolaire.blade.php`) ont été repris avec le style visuel réel de `_smapp` (déduit d'une étude directe de son code de génération mPDF/FPDF) : palette ardoise `#292F36` / or `#FFAB02`, en-tête bilingue FR/EN à 3 colonnes (texte + logo si `School.logo_path` existe, sinon monogramme), tableaux à en-tête doré, bloc de signatures bilingue à deux parties, code couleur d'assiduité (vert/orange/rouge selon les seuils `<10h / 10-30h / >30h`, repris du `getAbsenceColorClass()` de `_smapp` qui n'était en réalité jamais stylé côté legacy). Partiels réutilisables : `resources/views/pdf/partials/{styles,header,signatures}.blade.php`.
+**Documents PDF** — les templates Blade restants (`resources/views/pdf/palmares.blade.php`, `bilan-disciplinaire.blade.php`) ont été repris avec le style visuel réel de `_smapp` (déduit d'une étude directe de son code de génération mPDF/FPDF) : palette ardoise `#292F36` / or `#FFAB02`, en-tête bilingue FR/EN à 3 colonnes (texte + logo si `School.logo_path` existe, sinon monogramme), tableaux à en-tête doré, bloc de signatures bilingue à deux parties, code couleur d'assiduité (vert/orange/rouge selon les seuils `<10h / 10-30h / >30h`, repris du `getAbsenceColorClass()` de `_smapp` qui n'était en réalité jamais stylé côté legacy). Partiels réutilisables : `resources/views/pdf/partials/{styles,header,signatures}.blade.php`. Bulletin et carte scolaire ont depuis quitté Blade pour les générateurs PHP décrits plus bas.
 
 **Sidebar** (`web/src/app/AppLayout.tsx`) — passée d'une liste plate à des groupes explicites façon `_smapp` (`utils/php/sidebar.php`) : Vue d'ensemble, Personnel & structure, Classes & élèves, Pédagogie, Discipline, Résultats, Administration — chaque groupe se filtre selon les permissions comme avant, mais n'apparaît que si au moins un de ses items est visible.
 
 **Page Session** (`/session`, `web/src/features/session/`) — gère les années scolaires (créer, activer) et leurs trimestres (créer, activer), branchée sur `AnneeScolaireController`/`TrimestreController` déjà existants côté API. A nécessité d'exposer `annee_scolaire_id` dans `TrimestreResource` (absent jusqu'ici) pour permettre le regroupement des trimestres par année côté frontend.
 
 **Paramètres > Établissement** (`SchoolController` + `EcoleProfileCard.tsx`) — nouveau contrôleur `GET/PUT /ecole` (permission `ecoles.manage`) pour éditer le profil de l'école (nom, adresse, téléphone, email, en-têtes de documents FR/EN) et surtout **cocher les niveaux qu'elle opère** (Maternelle/Primaire/Collège, pivot `school_niveau`). `ClasseFormModal` filtre désormais son sélecteur de niveau sur ces niveaux activés plutôt que sur la liste globale — vérifié en navigateur (désactivation de la Maternelle → elle disparaît du formulaire de classe, réactivation → elle réapparaît).
+
+### Complexe scolaire, moteur PDF _smapp et vie de classe (terminé)
+
+**Complexe à trois écoles** — ELITES est modélisé comme un `Complexe` regroupant une maternelle, un primaire et un secondaire, chacun portant son `School.type` (le type pilote le mode de fonctionnement : au secondaire un enseignant par matière avec départements ; au primaire et en maternelle un enseignant par classe avec animateurs de niveau, **à construire**). Le super administrateur voit les trois écoles et bascule de l'une à l'autre par un sélecteur en barre supérieure (`web/src/app/SchoolSwitcher.tsx`), qui vide le cache React Query puisque chaque entrée est scopée par établissement. `ScopeEtablissement` accepte toujours `X-School-Id` mais le borne désormais aux écoles du complexe du compte — l'en-tête n'ouvre plus l'accès à un établissement arbitraire. Les comptes rattachés à une école y sont dirigés dès la connexion. **Transfert d'élève** entre écoles (`POST /eleves/{id}/transfert`, super admin seulement) : la classe d'arrivée est obligatoire et doit appartenir à l'établissement de destination, sinon l'élève serait invisible des listes de classe. Seul le flux secondaire est alimenté ; primaire et maternelle n'ont qu'une coquille (école, niveau, année, compte de direction).
+
+**Bulletins sur le moteur _smapp** — la vue Blade a été remplacée par `App\Support\Pdf\BulletinGenerator`, qui assemble le HTML en PHP puis le rend via mPDF, exactement comme `report_cards_single.php`. Le document couvre **toute une classe, un élève par page** (`GET /classes/{id}/bulletins`), le bulletin individuel restant disponible. Structure reprise du legacy : en-tête bilingue à trois colonnes avec logo, bloc élève (photo, état civil, effectif, prof principal, surveillant général), grille de notes par groupe de matières avec une colonne par séquence, synthèse travail/conduite/appréciations/profil de classe, rappel des moyennes de l'année (séquences × trimestres) et cartouche de visas portant cachet et signature. Le conseil de fin de bulletin reprend `getAdvice()` (au-delà de 70 % de matières faibles, constat global plutôt que liste). `BulletinService::donneesClasse()` calcule les statistiques de classe une seule fois pour toutes les pages.
+
+**Cartes scolaires recto-verso** — `CarteScolaireGenerator` (FPDF) produit une planche recto puis sa planche verso par groupe de 10 cartes (5 × 2, A4 paysage), comme `generate_IDcards_for_a_class.php`. Le verso porte les mentions réglementaires, le cachet et la signature ; il est identique pour toutes les cartes, donc insensible au sens de retournement à l'impression.
+
+**Logo, cachet et signature** — `POST/DELETE /ecole/images/{logo|cachet|signature}` et carte d'import dans Paramètres. Le fichier est stocké tel quel plutôt que converti en JPEG : aplatir la transparence rendrait cachet et signature inutilisables en superposition.
+
+**Responsables de classe** — `professeur_principal_id` est rejoint par `surveillant_general_id`, `censeur_id` et `conseiller_orientation_id`, avec un onglet Responsables sur la fiche classe. Le professeur principal et le surveillant général alimentent le bulletin.
+
+**Emploi du temps, séances et appel** — `EmploiDuTemps` (créneaux hebdomadaires classe × jour × heure, chevauchement refusé), `Seance` (séance datée, matérialisée depuis les créneaux sur une période, sans doublon) et `Presence` (pointage élève × séance). Pages : grille jour × heure par classe, liste des séances, feuille d'appel par exception (tout le monde présent par défaut). `EmploiDuTempsService::cumulAbsences()` déduit les heures d'absence d'un trimestre des appels — **non branché** sur `AbsenceTrimestre`, qui reste la saisie manuelle de référence (cf. §3).
+
+**Pages de résultats et d'identification** — Bulletins par classe, État de remplissage des notes, Photos & cartes scolaires (couverture photo de la classe, upload par élève, édition de la planche).
 
 ---
 
@@ -70,11 +86,8 @@ Construit en s'appuyant sur une lecture détaillée de `_smapp` (moyennes pondé
 **Frontend** : layout distinct et simplifié, sélecteur d'enfant, vues en lecture seule.
 **Remarque** : `Tuteur.user_id` existe en base mais n'est jamais rempli — il faut un flux "créer un accès parent" symétrique à `PersonnelController::createAccount`.
 
-### 2.4 Photo élève
-La carte scolaire PDF existe déjà (`/eleves/{id}/carte-scolaire`) mais affiche un avatar avec initiales, faute de vraie photo. **Reste à faire** : `POST /eleves/{id}/photo` (upload, `intervention/image` à ajouter au composer si recadrage nécessaire), puis brancher `eleve.photo_path` dans la vue `pdf/carte-scolaire.blade.php` à la place de l'avatar.
-
-### 2.5 Emploi du temps
-Non construit (dépendance faible avec le reste — la saisie des notes/absences fonctionne sans). **Modèle** : `EmploiDuTemps` (classe_id, classe_matiere_id, jour, heure_debut, heure_fin, salle). Vue grille jour × heure par classe.
+### 2.4 Interfaces Primaire et Maternelle
+Le complexe et `School.type` sont en place, mais seul le secondaire a son flux pédagogique. **Reste à faire, école par école** : un enseignant unique par classe au lieu d'une affectation par matière, la notion de niveau avec ses animateurs de niveau en remplacement des départements et de leurs chefs, et un barème de notation propre à chaque cycle. Les menus et formulaires devront se filtrer sur `School.type` comme ils se filtrent déjà sur les permissions.
 
 ---
 
@@ -85,9 +98,8 @@ Non construit (dépendance faible avec le reste — la saisie des notes/absences
 - **Sanctum** : pas de vrai refresh-token séparé, juste un endpoint `refresh` qui révoque et réémet.
 - **Messages d'erreur par défaut** : `ApiResponse::validationError()`/`forbidden()`/etc. ont des messages français codés en dur par défaut — acceptable pour le MVP.
 - **`X-School-Id` côté frontend** : déjà envoyé pour les comptes rattachés à un établissement ; à vérifier pour un futur écran super_admin multi-établissements (sélecteur d'établissement actif).
-- **Emploi du temps absent** : la saisie des notes/absences se fait par sélection manuelle classe/matière/séquence, pas depuis un planning — acceptable pour le MVP, cf. §2.5.
+- **Deux sources d'absences** : `AbsenceTrimestre` (heures cumulées saisies à la main, ce que consomme le bulletin) et les pointages d'appel par séance coexistent. `EmploiDuTempsService::cumulAbsences()` sait dériver les heures des appels mais n'écrase pas la saisie manuelle — à arbitrer une fois l'appel réellement utilisé sur le terrain.
 - **Bulletin et carte scolaire PDF** : pas de QR/code-barre de vérification d'authenticité (contrairement à `_smapp`) — volontairement différé en Phase 2 (§4, "Vérification de documents").
-- **Logo/cachet/signature d'établissement** : les colonnes `School.logo_path`/`stamp_path`/`signature_path` existent et les vues PDF savent afficher le logo s'il est présent (`storage/app/public/...`), mais aucun endpoint d'upload n'a encore été construit — en attendant, les documents retombent sur un monogramme texte. À faire : `POST /ecole/logo` (et cachet/signature), sur le même principe que la photo élève différée en §2.4.
 - **Import notes** : les lignes dont le matricule est introuvable (ou l'élève hors de la classe visée) sont silencieusement ignorées plutôt que remontées une à une à l'utilisateur — le compteur `failed` de la réponse ne couvre que les échecs de validation de ligne (matricule/note absents), pas les matricules inconnus. Acceptable pour le MVP, mais à affiner si l'usage réel montre des fichiers avec beaucoup d'erreurs de saisie.
 
 ---
@@ -102,7 +114,6 @@ Non construit (dépendance faible avec le reste — la saisie des notes/absences
 - **Mode offline-first / PWA**.
 - **RH avancée** — paie, primes, retenues, avances sur salaire.
 - **Vérification de documents par QR signé** — bulletins/cartes/attestations authentifiables.
-- **Interfaces dédiées Primaire et Maternelle** — le modèle `Niveau` et le pivot `school_niveau` sont déjà en place ; adaptation des règles de notation/menus par niveau, pas de refonte du schéma.
 - **Gestion des revendications (contestations de notes) et PV de conseil de classe** — n'existent pas non plus dans `_smapp` (menus en 404 dans le code legacy) ; terrain vierge, mais les seuils de mentions (§1, Settings) donnent déjà la base de logique métier pour déclencher un conseil de discipline.
 
 ---

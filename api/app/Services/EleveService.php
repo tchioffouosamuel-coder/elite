@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Imports\EleveImport;
+use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Tuteur;
 use App\Repositories\EleveRepository;
@@ -13,9 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class EleveService extends BaseService
 {
-    public function __construct(private readonly EleveRepository $repository)
-    {
-    }
+    public function __construct(private readonly EleveRepository $repository) {}
 
     public function list(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
@@ -54,6 +53,21 @@ class EleveService extends BaseService
 
             return $eleve->load('tuteurs');
         });
+    }
+
+    /**
+     * Rattache l'élève à une classe d'une autre école du complexe. Notes,
+     * absences et sanctions restent liées aux classe_matieres de l'école
+     * d'origine : l'historique scolaire est conservé tel quel, seul le
+     * rattachement courant change.
+     */
+    public function transferer(Eleve $eleve, Classe $classe): Eleve
+    {
+        return $this->repository->update($eleve, [
+            'school_id' => $classe->school_id,
+            'classe_id' => $classe->id,
+            'statut' => 'actif',
+        ]);
     }
 
     /**

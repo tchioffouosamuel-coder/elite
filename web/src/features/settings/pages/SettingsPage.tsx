@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { fetchSettings, updateSettings } from '@/features/settings/api'
 import { EcoleProfileCard } from '@/features/settings/pages/EcoleProfileCard'
+import { EcoleImagesCard } from '@/features/settings/pages/EcoleImagesCard'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -56,6 +57,8 @@ export function SettingsPage() {
       {saved && <p className="text-sm text-green-600">{t('settings.saved')}</p>}
 
       <EcoleProfileCard />
+
+      <EcoleImagesCard />
 
       {groupes.map((groupe) => (
         <Card key={groupe}>

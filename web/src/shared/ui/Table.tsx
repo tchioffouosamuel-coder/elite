@@ -17,7 +17,8 @@ export function Thead({ children }: { children: ReactNode }) {
   )
 }
 
-export function Th({ children }: { children: ReactNode }) {
+/** children optionnel : les colonnes d'actions n'ont pas d'intitulé. */
+export function Th({ children }: { children?: ReactNode }) {
   return <th className="px-4 py-3.5 font-semibold">{children}</th>
 }
 

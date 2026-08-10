@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -43,5 +44,25 @@ class User extends Authenticatable
     public function personnel(): HasOne
     {
         return $this->hasOne(Personnel::class);
+    }
+
+    /**
+     * Établissements sur lesquels le compte peut travailler. Le super
+     * administrateur voit les trois écoles du complexe et bascule de l'une à
+     * l'autre ; tout autre compte reste sur le sien, vers lequel il est
+     * directement redirigé à la connexion.
+     *
+     * @return Collection<int, School>
+     */
+    public function ecolesAccessibles(): Collection
+    {
+        if (! $this->hasRole('super_admin')) {
+            return $this->school ? collect([$this->school]) : collect();
+        }
+
+        return School::where('is_active', true)
+            ->when($this->school?->complexe_id, fn ($q, $id) => $q->where('complexe_id', $id))
+            ->orderBy('type')
+            ->get();
     }
 }

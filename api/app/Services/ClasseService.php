@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ClasseService extends BaseService
 {
-    public function __construct(private readonly ClasseRepository $repository)
-    {
-    }
+    private const RESPONSABLES = [
+        'niveau', 'professeurPrincipal', 'surveillantGeneral', 'censeur', 'conseillerOrientation',
+    ];
+
+    public function __construct(private readonly ClasseRepository $repository) {}
 
     public function list(int $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
     {
@@ -19,7 +21,7 @@ class ClasseService extends BaseService
 
     public function find(int $schoolId, int $id): Classe
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['niveau', 'professeurPrincipal'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(self::RESPONSABLES)->findOrFail($id);
     }
 
     public function create(int $schoolId, array $attributes): Classe
