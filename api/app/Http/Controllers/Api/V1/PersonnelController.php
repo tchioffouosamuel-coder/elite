@@ -9,11 +9,16 @@ use App\Http\Requests\Api\V1\CreateLoginAccountRequest;
 use App\Http\Requests\Api\V1\StorePersonnelRequest;
 use App\Http\Requests\Api\V1\UpdatePersonnelRequest;
 use App\Http\Resources\Api\V1\PersonnelResource;
+use App\Models\AnneeScolaire;
+use App\Models\School;
 use App\Services\PersonnelService;
+use App\Support\Pdf\PersonnelFichierGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class PersonnelController extends Controller
 {
@@ -93,5 +98,24 @@ class PersonnelController extends Controller
     public function export(): BinaryFileResponse
     {
         return Excel::download(new PersonnelExport(app('tenant.school_id')), 'personnel.xlsx');
+    }
+
+    /**
+     * Fichier du personnel : registre nominatif des agents en poste, à signer
+     * et archiver. L'export Excel voisin sert au retraitement des données ;
+     * celui-ci est le document officiel.
+     */
+    public function fichier(): Response
+    {
+        $schoolId = app('tenant.school_id');
+        $school = School::findOrFail($schoolId);
+        $annee = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+
+        $pdf = (new PersonnelFichierGenerator)->build($this->service->fichier($schoolId), $school, $annee);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="fichier-personnel-'.Str::slug($school->name).'.pdf"',
+        ]);
     }
 }

@@ -95,7 +95,8 @@
     "has_account": "Account",
     "create_account": "Create login access",
     "create_success": "Staff member created.",
-    "import": "Import an Excel file"
+    "import": "Import an Excel file",
+    "fichier": "Staff file"
   },
   "classes": {
     "title": "Classes",

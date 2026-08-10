@@ -50,6 +50,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('departements', [DepartementController::class, 'index'])->name('departements.index');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
+                Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
                 Route::get('personnels/{id}', [PersonnelController::class, 'show'])->name('personnels.show');
             });
 

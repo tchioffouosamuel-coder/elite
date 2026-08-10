@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Repositories\PersonnelRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -67,6 +68,46 @@ class PersonnelService extends BaseService
 
             return $user;
         });
+    }
+
+    /**
+     * Données du fichier du personnel : la liste des agents en poste et sa
+     * ventilation. Comme `fichier_du_personnel.php` dans _smapp, le document
+     * ne recense que le personnel actif — un fichier destiné à être signé et
+     * archivé décrit l'effectif du moment, pas les départs.
+     *
+     * @return array{
+     *     personnels: \Illuminate\Database\Eloquent\Collection<int, Personnel>,
+     *     total: int,
+     *     avec_acces: int,
+     *     par_fonction: array<string, int>,
+     *     par_departement: array<string, int>
+     * }
+     */
+    public function fichier(int $schoolId): array
+    {
+        $personnels = Personnel::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->with('departement')
+            ->orderBy('nom')->orderBy('prenom')
+            ->get();
+
+        $ventilation = static function (Collection $valeurs): array {
+            $comptes = $valeurs->countBy()->all();
+            arsort($comptes);
+
+            return $comptes;
+        };
+
+        return [
+            'personnels' => $personnels,
+            'total' => $personnels->count(),
+            'avec_acces' => $personnels->whereNotNull('user_id')->count(),
+            'par_fonction' => $ventilation($personnels->map(fn (Personnel $p) => $p->fonction ?: 'Non précisée')),
+            'par_departement' => $ventilation(
+                $personnels->map(fn (Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
+            ),
+        ];
     }
 
     /**

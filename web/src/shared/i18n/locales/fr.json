@@ -95,7 +95,8 @@
     "has_account": "Compte",
     "create_account": "Créer un accès",
     "create_success": "Membre du personnel créé.",
-    "import": "Importer un fichier Excel"
+    "import": "Importer un fichier Excel",
+    "fichier": "Fichier du personnel"
   },
   "classes": {
     "title": "Classes",

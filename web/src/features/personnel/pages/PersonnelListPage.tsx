@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, KeyRound, Archive, RotateCcw, FileSpreadsheet, Upload, Users } from 'lucide-react'
+import { Plus, KeyRound, Archive, RotateCcw, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
 import { fetchPersonnels, archivePersonnel, reactivatePersonnel, type Personnel } from '@/features/personnel/api'
-import { telechargerFichier } from '@/shared/lib/download'
+import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
@@ -121,6 +121,10 @@ export function PersonnelListPage() {
         icon={Users}
         actions={
           <>
+          <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
+            <FileText className="h-4 w-4" />
+            {t('personnel.fichier')}
+          </Button>
           <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
             <FileSpreadsheet className="h-4 w-4" />
             {t('export.excel')}
