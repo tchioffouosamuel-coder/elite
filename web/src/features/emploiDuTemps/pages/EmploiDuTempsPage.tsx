@@ -17,6 +17,7 @@ import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
+import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 
 /** Bornes de la grille : la journée scolaire va de 7 h à 18 h. */
 const HEURE_MIN = 7
@@ -35,7 +36,6 @@ export function EmploiDuTempsPage() {
   const [classeId, setClasseId] = useState<number | ''>('')
   const [formOuvert, setFormOuvert] = useState(false)
   const [generationOuverte, setGenerationOuverte] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
 
@@ -55,8 +55,20 @@ export function EmploiDuTempsPage() {
 
   const suppression = useMutation({
     mutationFn: (id: number) => deleteCreneau(classeActive!, id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
+      succes('Créneau supprimé.')
+    },
+    onError: (e: { message?: string }) => erreur(e.message ?? 'Suppression impossible.'),
   })
+
+  const supprimerCreneau = async (creneau: Creneau) => {
+    const confirme = await confirmerSuppression(
+      `le créneau de ${creneau.matiere}`,
+      'Les séances déjà générées depuis ce créneau sont conservées.',
+    )
+    if (confirme) suppression.mutate(creneau.id)
+  }
 
   // La grille se cale sur les heures réellement utilisées, arrondies à l'heure,
   // pour ne pas afficher une colonne de créneaux vides toute la journée.
@@ -101,8 +113,6 @@ export function EmploiDuTempsPage() {
           </option>
         ))}
       </Select>
-
-      {erreur && <Card className="border-red-200 text-sm font-medium text-red-600">{erreur}</Card>}
 
       {!classeActive ? (
         <Card>
@@ -156,7 +166,7 @@ export function EmploiDuTempsPage() {
                             key={c.id}
                             creneau={c}
                             peutGerer={peutGerer}
-                            onSupprimer={() => suppression.mutate(c.id)}
+                            onSupprimer={() => supprimerCreneau(c)}
                           />
                         ))}
                       </td>
@@ -170,12 +180,7 @@ export function EmploiDuTempsPage() {
       )}
 
       {formOuvert && classeActive && (
-        <CreneauModal
-          classeId={classeActive}
-          matieres={matieres ?? []}
-          onClose={() => setFormOuvert(false)}
-          onErreur={setErreur}
-        />
+        <CreneauModal classeId={classeActive} matieres={matieres ?? []} onClose={() => setFormOuvert(false)} />
       )}
 
       {generationOuverte && classeActive && (
@@ -206,7 +211,9 @@ function CelluleCreneau({
         <button
           onClick={onSupprimer}
           title="Supprimer le créneau"
-          className="absolute right-1 top-1 hidden rounded p-0.5 text-navy-300 hover:bg-white hover:text-red-500 group-hover:block"
+          // Toujours présent plutôt qu'au survol : sur écran tactile un contrôle
+          // qui n'apparaît qu'au hover est inatteignable.
+          className="absolute right-1 top-1 rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-red-500 hover:opacity-100 focus-visible:opacity-100"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -219,12 +226,10 @@ function CreneauModal({
   classeId,
   matieres,
   onClose,
-  onErreur,
 }: {
   classeId: number
   matieres: { id: number; matiere: { nom: string } }[]
   onClose: () => void
-  onErreur: (message: string | null) => void
 }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
@@ -238,11 +243,11 @@ function CreneauModal({
   const creation = useMutation({
     mutationFn: () => createCreneau(classeId, { ...form, salle: form.salle || null }),
     onSuccess: () => {
-      onErreur(null)
       queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeId] })
+      succes('Créneau ajouté.')
       onClose()
     },
-    onError: (e: { message?: string }) => onErreur(e.message ?? 'Enregistrement impossible.'),
+    onError: (e: { message?: string }) => erreur(e.message ?? 'Enregistrement impossible.'),
   })
 
   return (
@@ -323,7 +328,9 @@ function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () 
     onSuccess: (data) => {
       setResultat(`${data.creees} séance(s) créée(s).`)
       queryClient.invalidateQueries({ queryKey: ['seances'] })
+      succes(data.creees > 0 ? `${data.creees} séance(s) générée(s).` : 'Aucune nouvelle séance à générer.')
     },
+    onError: (e: { message?: string }) => erreur(e.message ?? 'Génération impossible.'),
   })
 
   return (

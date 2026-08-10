@@ -10,6 +10,8 @@ import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
+import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
+import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
 import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
 import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
@@ -40,6 +42,8 @@ export const router = createBrowserRouter([
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
+      { path: 'stats-pedagogiques', element: <ProtectedRoute permission="bulletins.view"><StatsPedagogiquesPage /></ProtectedRoute> },
+      { path: 'stats-disciplinaires', element: <ProtectedRoute permission="discipline.view"><StatsDisciplinairesPage /></ProtectedRoute> },
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },

@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
+use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use Illuminate\Support\Facades\Route;
 
@@ -151,6 +152,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('palmares/pdf', [ResultatController::class, 'palmaresPdf'])->name('resultats.palmares.pdf');
                 Route::get('eleves/{eleveId}/bulletin', [BulletinController::class, 'show'])->name('eleves.bulletin');
                 Route::get('classes/{classeId}/bulletins', [BulletinController::class, 'classe'])->name('classes.bulletins');
+
+                // Statistiques globales de l'établissement (équivalent des pages
+                // generate_*_stats_batch_advanced.php de _smapp).
+                Route::get('statistiques/pedagogiques', [StatistiqueController::class, 'pedagogiques'])->name('statistiques.pedagogiques');
+                Route::get('statistiques/pedagogiques/pdf', [StatistiqueController::class, 'pedagogiquesPdf'])->name('statistiques.pedagogiques.pdf');
+                Route::get('statistiques/disciplinaires', [StatistiqueController::class, 'disciplinaires'])->name('statistiques.disciplinaires');
+                Route::get('statistiques/disciplinaires/pdf', [StatistiqueController::class, 'disciplinairesPdf'])->name('statistiques.disciplinaires.pdf');
             });
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {

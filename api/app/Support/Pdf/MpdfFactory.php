@@ -3,6 +3,8 @@
 namespace App\Support\Pdf;
 
 use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * _smapp génère ses documents HTML (bulletins, bilans disciplinaires) via mPDF plutôt que dompdf.
@@ -24,13 +26,13 @@ class MpdfFactory
         ], $options));
     }
 
-    public static function streamFromView(string $view, array $data, string $filename, array $options = []): \Symfony\Component\HttpFoundation\Response
+    public static function streamFromView(string $view, array $data, string $filename, array $options = []): Response
     {
         $html = view($view, $data)->render();
         $mpdf = self::make($options);
         $mpdf->WriteHTML($html);
 
-        return response($mpdf->Output($filename, \Mpdf\Output\Destination::STRING_RETURN), 200, [
+        return response($mpdf->Output($filename, Destination::STRING_RETURN), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
         ]);

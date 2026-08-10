@@ -9,9 +9,7 @@ use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly DashboardService $service)
-    {
-    }
+    public function __construct(private readonly DashboardService $service) {}
 
     public function index(): JsonResponse
     {

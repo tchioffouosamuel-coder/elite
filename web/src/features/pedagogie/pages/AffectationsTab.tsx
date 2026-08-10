@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 
 export function AffectationsTab({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
@@ -116,7 +117,13 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
                 {can('pedagogie.manage') && (
                   <Td>
                     <button
-                      onClick={() => retirerMatiere(a.id).then(invalidate)}
+                      onClick={async () => {
+                        if (!(await confirmerSuppression(`l'affectation de ${a.matiere.nom}`,
+                          'Les notes déjà saisies pour cette matière seront également retirées du bulletin.'))) return
+                        await retirerMatiere(a.id)
+                        invalidate()
+                        succes('Affectation retirée.')
+                      }}
                       className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
                     >
                       <Trash2 className="h-4 w-4" />

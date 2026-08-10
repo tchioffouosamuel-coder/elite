@@ -20,9 +20,7 @@ class PersonnelImport implements SkipsOnFailure, ToModel, WithHeadingRow, WithVa
 
     public int $importedCount = 0;
 
-    public function __construct(private readonly int $schoolId)
-    {
-    }
+    public function __construct(private readonly int $schoolId) {}
 
     public function model(array $row): ?Personnel
     {

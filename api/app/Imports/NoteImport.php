@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\Eleve;
 use App\Models\Note;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -28,11 +29,10 @@ class NoteImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithVa
         private readonly int $classeMatiereId,
         private readonly int $sequenceId,
         private readonly ?int $personnelId,
-        private readonly \Illuminate\Support\Collection $eleveIdsValides,
-    ) {
-    }
+        private readonly Collection $eleveIdsValides,
+    ) {}
 
-    public function collection(\Illuminate\Support\Collection $rows): void
+    public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
             if (empty($row['matricule']) || $row['note'] === null || $row['note'] === '') {

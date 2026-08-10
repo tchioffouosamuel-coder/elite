@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Tuteur;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
@@ -26,11 +27,9 @@ class EleveImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithV
 
     public int $importedCount = 0;
 
-    public function __construct(private readonly int $schoolId)
-    {
-    }
+    public function __construct(private readonly int $schoolId) {}
 
-    public function collection(\Illuminate\Support\Collection $rows): void
+    public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
             $classeId = null;

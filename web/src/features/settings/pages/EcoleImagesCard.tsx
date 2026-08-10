@@ -11,6 +11,7 @@ import {
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
+import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 
 const IMAGES: { type: ImageEcole; titre: string; aide: string; champ: keyof EcoleProfile }[] = [
   {
@@ -70,8 +71,31 @@ function ChampImage({
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['ecole'] })
 
-  const envoi = useMutation({ mutationFn: (file: File) => uploadImageEcole(image.type, file), onSuccess: rafraichir })
-  const suppression = useMutation({ mutationFn: () => supprimerImageEcole(image.type), onSuccess: rafraichir })
+  const envoi = useMutation({
+    mutationFn: (file: File) => uploadImageEcole(image.type, file),
+    onSuccess: () => {
+      rafraichir()
+      succes(`${image.titre} mis à jour.`)
+    },
+    onError: (e: { message?: string }) => erreur(e.message ?? 'Envoi impossible.'),
+  })
+
+  const suppression = useMutation({
+    mutationFn: () => supprimerImageEcole(image.type),
+    onSuccess: () => {
+      rafraichir()
+      succes(`${image.titre} supprimé.`)
+    },
+    onError: (e: { message?: string }) => erreur(e.message ?? 'Suppression impossible.'),
+  })
+
+  const demanderSuppression = async () => {
+    const confirme = await confirmerSuppression(
+      `le ${image.titre.toLowerCase()} de l'établissement`,
+      'Les documents officiels retomberont sur un rendu sans cette image.',
+    )
+    if (confirme) suppression.mutate()
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-navy-100 p-3">
@@ -108,7 +132,7 @@ function ChampImage({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => suppression.mutate()}
+            onClick={demanderSuppression}
             disabled={suppression.isPending}
             title="Supprimer"
           >

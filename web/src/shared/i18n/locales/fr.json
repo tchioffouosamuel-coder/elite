@@ -18,7 +18,8 @@
     "all": "Tous",
     "error_generic": "Une erreur est survenue.",
     "empty": "Aucun résultat.",
-    "total": "Total"
+    "total": "Total",
+    "close": "Fermer"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -37,6 +38,9 @@
     "bulletins": "Bulletins",
     "remplissage": "Remplissage des notes",
     "identification": "Photos & cartes",
+    "openMenu": "Ouvrir le menu",
+    "statsPedagogiques": "Stats pédagogiques",
+    "statsDisciplinaires": "Stats disciplinaires",
     "group": {
       "overview": "Vue d'ensemble",
       "staff": "Personnel & structure",

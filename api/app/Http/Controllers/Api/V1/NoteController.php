@@ -13,9 +13,7 @@ use Illuminate\Http\Request;
 
 class NoteController extends Controller
 {
-    public function __construct(private readonly NoteService $service)
-    {
-    }
+    public function __construct(private readonly NoteService $service) {}
 
     public function index(Request $request, int $classeMatiereId): JsonResponse
     {

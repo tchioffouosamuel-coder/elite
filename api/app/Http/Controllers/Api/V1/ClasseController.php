@@ -12,9 +12,7 @@ use Illuminate\Http\Request;
 
 class ClasseController extends Controller
 {
-    public function __construct(private readonly ClasseService $service)
-    {
-    }
+    public function __construct(private readonly ClasseService $service) {}
 
     public function index(Request $request): JsonResponse
     {

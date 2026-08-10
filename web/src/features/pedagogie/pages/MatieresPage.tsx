@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { BookOpen, Plus } from 'lucide-react'
 import { fetchMatieres, createMatiere } from '@/features/pedagogie/api'
 import { fetchDepartements } from '@/features/personnel/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
-import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { useForm } from 'react-hook-form'
-import type { MatierePayload } from '@/features/pedagogie/api'
+import type { Matiere, MatierePayload } from '@/features/pedagogie/api'
 
 export function MatieresPage() {
   const { t } = useTranslation()
@@ -31,43 +32,55 @@ export function MatieresPage() {
     queryClient.invalidateQueries({ queryKey: ['matieres'] })
   }
 
+  const colonnes: Colonne<Matiere>[] = [
+    {
+      cle: 'nom',
+      entete: t('matieres.nom'),
+      valeur: (m) => m.nom,
+      cellule: (m) => <span className="font-semibold text-navy-900">{m.nom}</span>,
+    },
+    {
+      cle: 'abbreviation',
+      entete: t('matieres.abbreviation'),
+      valeur: (m) => m.abbreviation,
+      cellule: (m) => m.abbreviation ?? '—',
+    },
+    {
+      cle: 'departement',
+      entete: t('personnel.departement'),
+      valeur: (m) => m.departement?.nom,
+      cellule: (m) => m.departement?.nom ?? '—',
+      masquerMobile: true,
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('matieres.title')}</h1>
-        {can('pedagogie.manage') && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            {t('matieres.add')}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        titre={t('matieres.title')}
+        icon={BookOpen}
+        actions={
+          can('pedagogie.manage') && (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              {t('matieres.add')}
+            </Button>
+          )
+        }
+      />
 
       {isLoading ? (
         <Spinner />
       ) : isError || !data ? (
         <ErrorState />
-      ) : data.length === 0 ? (
-        <EmptyState />
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>{t('matieres.nom')}</Th>
-              <Th>{t('matieres.abbreviation')}</Th>
-              <Th>{t('personnel.departement')}</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {data.map((m) => (
-              <Tr key={m.id}>
-                <Td className="font-medium">{m.nom}</Td>
-                <Td>{m.abbreviation ?? '—'}</Td>
-                <Td>{m.departement?.nom ?? '—'}</Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={data}
+          cleLigne={(m) => m.id}
+          placeholderRecherche="Rechercher une matière…"
+          messageVide="Aucune matière pour cet établissement."
+        />
       )}
 
       {showForm && (

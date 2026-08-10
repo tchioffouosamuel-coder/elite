@@ -18,7 +18,8 @@
     "all": "All",
     "error_generic": "Something went wrong.",
     "empty": "No results.",
-    "total": "Total"
+    "total": "Total",
+    "close": "Close"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -37,6 +38,9 @@
     "bulletins": "Report cards",
     "remplissage": "Marks completion",
     "identification": "Photos & ID cards",
+    "openMenu": "Open menu",
+    "statsPedagogiques": "Academic statistics",
+    "statsDisciplinaires": "Disciplinary statistics",
     "group": {
       "overview": "Overview",
       "staff": "Staff & structure",

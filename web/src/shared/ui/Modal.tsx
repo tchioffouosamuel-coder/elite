@@ -4,23 +4,26 @@ import { X } from 'lucide-react'
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-navy-900/50 p-4 backdrop-blur-sm"
+      className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
+      {/* Feuille ancrée en bas sur mobile, boîte centrée à partir de sm. */}
       <div
-        className="animate-scale-in max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-navy-100/70 bg-white p-6 shadow-lifted"
+        className="animate-scale-in flex max-h-[92svh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-navy-100/70 bg-white shadow-lifted sm:max-h-[90vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold tracking-tight text-navy-900">{title}</h2>
+        <div className="flex flex-none items-center justify-between gap-3 border-b border-navy-50 px-5 py-4 sm:px-6">
+          <h2 className="min-w-0 truncate font-display text-base font-bold tracking-tight text-navy-900 sm:text-lg">
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            className="flex-none rounded-full p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
       </div>
     </div>
   )

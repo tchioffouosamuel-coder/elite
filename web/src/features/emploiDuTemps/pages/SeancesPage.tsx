@@ -16,7 +16,9 @@ import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { erreur, succes } from '@/shared/lib/alertes'
 
 const STATUTS: { valeur: LigneAppel['statut']; libelle: string }[] = [
   { valeur: 'present', libelle: 'Présent' },
@@ -39,12 +41,64 @@ export function SeancesPage() {
     enabled: classeActive !== null,
   })
 
+  const colonnes: Colonne<Seance>[] = [
+    {
+      cle: 'date',
+      entete: 'Date',
+      valeur: (s) => s.date_seance,
+      cellule: (s) => <span className="font-medium">{new Date(s.date_seance).toLocaleDateString('fr-FR')}</span>,
+    },
+    {
+      cle: 'horaire',
+      entete: 'Horaire',
+      valeur: (s) => s.heure_debut,
+      cellule: (s) => `${s.heure_debut}–${s.heure_fin}`,
+    },
+    {
+      cle: 'matiere',
+      entete: 'Matière',
+      valeur: (s) => s.matiere,
+      cellule: (s) => <span className="font-semibold text-navy-900">{s.matiere}</span>,
+    },
+    {
+      cle: 'enseignant',
+      entete: 'Enseignant',
+      valeur: (s) => s.enseignant,
+      cellule: (s) => s.enseignant ?? '—',
+      masquerMobile: true,
+    },
+    {
+      cle: 'statut',
+      entete: 'Statut',
+      valeur: (s) => s.statut,
+      cellule: (s) => (
+        <Badge tone={s.statut === 'effectuee' ? 'green' : s.statut === 'annulee' ? 'red' : 'neutral'}>
+          {s.statut === 'effectuee' ? 'Effectuée' : s.statut === 'annulee' ? 'Annulée' : 'Prévue'}
+        </Badge>
+      ),
+    },
+    {
+      cle: 'absents',
+      entete: 'Absents',
+      valeur: (s) => s.absents,
+      cellule: (s) => (s.absents > 0 ? <Badge tone="red">{s.absents}</Badge> : '—'),
+    },
+    {
+      cle: 'actions',
+      entete: '',
+      cellule: (s) =>
+        can('appel.manage') ? (
+          <Button size="sm" variant="secondary" onClick={() => setSeanceAppel(s)}>
+            <UserCheck className="h-4 w-4" />
+            Faire l'appel
+          </Button>
+        ) : null,
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <ClipboardCheck className="h-6 w-6 text-gold-500" />
-        <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">Séances &amp; appel</h1>
-      </div>
+      <PageHeader titre="Séances & appel" icon={ClipboardCheck} />
 
       <Select
         label="Classe"
@@ -66,50 +120,15 @@ export function SeancesPage() {
         </Card>
       ) : isLoading ? (
         <Spinner />
-      ) : !seances?.length ? (
-        <Card>
-          <EmptyState label="Aucune séance. Générez-les depuis l'emploi du temps de la classe." />
-        </Card>
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>Date</Th>
-              <Th>Horaire</Th>
-              <Th>Matière</Th>
-              <Th>Enseignant</Th>
-              <Th>Statut</Th>
-              <Th>Absents</Th>
-              <Th />
-            </tr>
-          </Thead>
-          <tbody>
-            {seances.map((seance) => (
-              <Tr key={seance.id}>
-                <Td className="font-medium">{new Date(seance.date_seance).toLocaleDateString('fr-FR')}</Td>
-                <Td>
-                  {seance.heure_debut}–{seance.heure_fin}
-                </Td>
-                <Td className="font-medium">{seance.matiere}</Td>
-                <Td>{seance.enseignant ?? '—'}</Td>
-                <Td>
-                  <Badge tone={seance.statut === 'effectuee' ? 'green' : seance.statut === 'annulee' ? 'red' : 'neutral'}>
-                    {seance.statut === 'effectuee' ? 'Effectuée' : seance.statut === 'annulee' ? 'Annulée' : 'Prévue'}
-                  </Badge>
-                </Td>
-                <Td>{seance.absents > 0 ? <Badge tone="red">{seance.absents}</Badge> : '—'}</Td>
-                <Td>
-                  {can('appel.manage') && (
-                    <Button size="sm" variant="secondary" onClick={() => setSeanceAppel(seance)}>
-                      <UserCheck className="h-4 w-4" />
-                      Faire l'appel
-                    </Button>
-                  )}
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={seances ?? []}
+          cleLigne={(s) => s.id}
+          placeholderRecherche="Rechercher une matière, une date…"
+          messageVide="Aucune séance. Générez-les depuis l'emploi du temps de la classe."
+          largeurMin={820}
+        />
       )}
 
       {seanceAppel && (
@@ -139,11 +158,13 @@ function AppelModal({ seance, classeId, onClose }: { seance: Seance; classeId: n
           remarque: l.remarque,
         })),
       ),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['seances', classeId] })
       queryClient.invalidateQueries({ queryKey: ['appel', seance.id] })
+      succes(`Appel enregistré (${data.enregistres} élève(s)).`)
       onClose()
     },
+    onError: (e: { message?: string }) => erreur(e.message ?? "Enregistrement de l'appel impossible."),
   })
 
   const modifier = (eleveId: number, champs: Partial<LigneAppel>) =>

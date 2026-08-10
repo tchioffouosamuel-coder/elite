@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Plus, Trash2 } from 'lucide-react'
 import { fetchSanctions, createSanction, deleteSanction } from '@/features/discipline/api'
-import type { SanctionPayload } from '@/features/discipline/api'
+import type { Sanction, SanctionPayload } from '@/features/discipline/api'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
@@ -12,9 +12,10 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
-import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { Spinner } from '@/shared/ui/Feedback'
+import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 
 const TYPE_TONE: Record<string, 'gold' | 'red' | 'neutral'> = {
   corvee: 'gold',
@@ -37,6 +38,61 @@ export function SanctionsPage() {
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['sanctions'] })
+
+  const colonnes: Colonne<Sanction>[] = [
+    {
+      cle: 'eleve',
+      entete: t('eleves.nom'),
+      valeur: (s) => s.eleve.nom_complet,
+      cellule: (s) => <span className="font-semibold text-navy-900">{s.eleve.nom_complet}</span>,
+    },
+    { cle: 'classe', entete: t('classes.title'), valeur: (s) => s.classe, cellule: (s) => s.classe ?? '—' },
+    {
+      cle: 'type',
+      entete: t('discipline.type'),
+      valeur: (s) => s.type,
+      cellule: (s) => (
+        <>
+          <Badge tone={TYPE_TONE[s.type]}>{t(`discipline.type_${s.type}`)}</Badge>
+          {s.duree_jours && <span className="ml-1 text-xs text-navy-400">({s.duree_jours}j)</span>}
+        </>
+      ),
+    },
+    {
+      cle: 'motif',
+      entete: t('discipline.motif'),
+      valeur: (s) => s.motif,
+      cellule: (s) => <span className="block max-w-xs truncate">{s.motif}</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'date',
+      entete: t('discipline.date'),
+      valeur: (s) => s.date_sanction,
+      cellule: (s) => new Date(s.date_sanction).toLocaleDateString('fr-FR'),
+    },
+    ...(can('discipline.manage')
+      ? [
+          {
+            cle: 'actions',
+            entete: t('common.actions'),
+            cellule: (s: Sanction) => (
+              <button
+                onClick={async () => {
+                  if (!(await confirmerSuppression(`la sanction de ${s.eleve.nom_complet}`))) return
+                  await deleteSanction(s.id)
+                  invalidate()
+                  succes('Sanction supprimée.')
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ),
+          } satisfies Colonne<Sanction>,
+        ]
+      : []),
+  ]
 
   return (
     <div className="flex flex-col gap-5">
@@ -61,45 +117,15 @@ export function SanctionsPage() {
 
       {isLoading ? (
         <Spinner />
-      ) : !sanctions || sanctions.length === 0 ? (
-        <EmptyState />
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>{t('eleves.nom')}</Th>
-              <Th>{t('classes.title')}</Th>
-              <Th>{t('discipline.type')}</Th>
-              <Th>{t('discipline.motif')}</Th>
-              <Th>{t('discipline.date')}</Th>
-              {can('discipline.manage') && <Th>{t('common.actions')}</Th>}
-            </tr>
-          </Thead>
-          <tbody>
-            {sanctions.map((s) => (
-              <Tr key={s.id}>
-                <Td className="font-medium">{s.eleve.nom_complet}</Td>
-                <Td>{s.classe}</Td>
-                <Td>
-                  <Badge tone={TYPE_TONE[s.type]}>{t(`discipline.type_${s.type}`)}</Badge>
-                  {s.duree_jours && <span className="ml-1 text-xs text-navy-400">({s.duree_jours}j)</span>}
-                </Td>
-                <Td className="max-w-xs truncate">{s.motif}</Td>
-                <Td>{new Date(s.date_sanction).toLocaleDateString()}</Td>
-                {can('discipline.manage') && (
-                  <Td>
-                    <button
-                      onClick={() => deleteSanction(s.id).then(invalidate)}
-                      className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </Td>
-                )}
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={sanctions ?? []}
+          cleLigne={(s) => s.id}
+          placeholderRecherche="Rechercher un élève, un motif…"
+          messageVide="Aucune sanction enregistrée."
+          largeurMin={760}
+        />
       )}
 
       {showForm && (

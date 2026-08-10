@@ -15,6 +15,8 @@ import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { AnneeScolaireFormModal } from '@/features/session/pages/AnneeScolaireFormModal'
 import { TrimestreFormModal } from '@/features/session/pages/TrimestreFormModal'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 
 export function SessionPage() {
   const { t } = useTranslation()
@@ -37,21 +39,45 @@ export function SessionPage() {
   const invalidateAnnees = () => queryClient.invalidateQueries({ queryKey: ['annees-scolaires'] })
   const invalidateTrimestres = () => queryClient.invalidateQueries({ queryKey: ['trimestres-all'] })
 
-  const handleActivateAnnee = async (id: number) => {
+  // Activer bascule la période de référence de tout l'établissement : notes,
+  // bulletins et absences suivent. D'où la confirmation explicite.
+  const handleActivateAnnee = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: `Activer l'année ${libelle} ?`,
+      message: "Elle devient l'année de référence de l'établissement. L'année active actuelle est désactivée.",
+      action: 'Activer',
+      destructif: false,
+    })
+    if (!confirme) return
+
     setBusyId(id)
     try {
       await activerAnneeScolaire(id)
       invalidateAnnees()
+      succes(`Année ${libelle} activée.`)
+    } catch (e) {
+      erreur((e as ApiError).message)
     } finally {
       setBusyId(null)
     }
   }
 
-  const handleActivateTrimestre = async (id: number) => {
+  const handleActivateTrimestre = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: `Activer le ${libelle} ?`,
+      message: 'Les saisies de notes et les bulletins porteront désormais sur ce trimestre.',
+      action: 'Activer',
+      destructif: false,
+    })
+    if (!confirme) return
+
     setBusyId(id)
     try {
       await activerTrimestre(id)
       invalidateTrimestres()
+      succes(`${libelle} activé.`)
+    } catch (e) {
+      erreur((e as ApiError).message)
     } finally {
       setBusyId(null)
     }
@@ -112,7 +138,7 @@ export function SessionPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleActivateAnnee(a.id)
+                          handleActivateAnnee(a.id, a.libelle)
                         }}
                         disabled={busyId === a.id}
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
@@ -174,7 +200,7 @@ export function SessionPage() {
                   <Td>
                     {!tr.is_active && (
                       <button
-                        onClick={() => handleActivateTrimestre(tr.id)}
+                        onClick={() => handleActivateTrimestre(tr.id, tr.libelle)}
                         disabled={busyId === tr.id}
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
                       >

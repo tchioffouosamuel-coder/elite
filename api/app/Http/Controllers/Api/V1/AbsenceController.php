@@ -15,9 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AbsenceController extends Controller
 {
-    public function __construct(private readonly DisciplineService $service)
-    {
-    }
+    public function __construct(private readonly DisciplineService $service) {}
 
     public function index(Request $request, int $classeId): JsonResponse
     {
