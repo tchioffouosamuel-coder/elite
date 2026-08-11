@@ -85,7 +85,18 @@ const navGroups = [
   },
   {
     label: 'nav.group.discipline',
-    items: [{ to: '/sanctions', label: 'nav.sanctions', icon: ShieldAlert, permission: 'discipline.view' }],
+    items: [
+      {
+        to: '/sanctions',
+        label: 'nav.sanctions',
+        icon: ShieldAlert,
+        permission: 'discipline.view',
+        // Corvée, exclusion temporaire ou définitive : des mesures qu'on ne
+        // prononce pas contre de jeunes enfants. Le primaire et la maternelle
+        // suivent l'assiduité par l'appel, sans sanctionner.
+        types: ['secondaire'] as TypeEcole[],
+      },
+    ],
   },
   {
     label: 'nav.group.resultats',

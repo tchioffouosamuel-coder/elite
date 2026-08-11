@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Api\V1\Concerns\RestreintParTypeEcole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreNiveauScolaireRequest;
 use App\Http\Resources\Api\V1\NiveauScolaireResource;
 use App\Models\NiveauScolaire;
-use App\Models\School;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -21,9 +21,11 @@ use Illuminate\Http\JsonResponse;
  */
 class NiveauScolaireController extends Controller
 {
+    use RestreintParTypeEcole;
+
     public function index(): JsonResponse
     {
-        if ($refus = $this->refuserSiHorsPrimaire()) {
+        if ($refus = $this->refuserSaufPour('primaire')) {
             return $refus;
         }
 
@@ -38,7 +40,7 @@ class NiveauScolaireController extends Controller
 
     public function store(StoreNiveauScolaireRequest $request): JsonResponse
     {
-        if ($refus = $this->refuserSiHorsPrimaire()) {
+        if ($refus = $this->refuserSaufPour('primaire')) {
             return $refus;
         }
 
@@ -71,10 +73,8 @@ class NiveauScolaireController extends Controller
         return ApiResponse::success(message: 'Niveau supprimé.');
     }
 
-    private function refuserSiHorsPrimaire(): ?JsonResponse
+    protected function messageRefus(): string
     {
-        return School::find(app('tenant.school_id'))?->type === 'primaire'
-            ? null
-            : ApiResponse::error("Cet établissement ne s'organise pas en niveaux d'enseignement.", 422);
+        return "Cet établissement ne s'organise pas en niveaux d'enseignement.";
     }
 }

@@ -13,6 +13,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { erreur } from '@/shared/lib/alertes'
+import { estSecondaire } from '@/shared/lib/ecole'
 
 /**
  * Code couleur d'assiduité repris de _smapp (`getAbsenceColorClass`) :
@@ -25,6 +26,7 @@ function tonAbsence(heures: number): string {
 }
 
 export function StatsDisciplinairesPage() {
+  const secondaire = estSecondaire()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['stats-disciplinaires'],
     queryFn: () => fetchStatsDisciplinaires(),
@@ -38,19 +40,26 @@ export function StatsDisciplinairesPage() {
       cellule: (c) => <span className="font-semibold text-navy-900">{c.classe.nom}</span>,
     },
     { cle: 'effectif', entete: 'Effectif', valeur: (c) => c.bilan.effectif, cellule: (c) => c.bilan.effectif },
-    {
-      cle: 'sanctions',
-      entete: 'Sanctions',
-      valeur: (c) => c.total_sanctions,
-      cellule: (c) => c.total_sanctions,
-    },
-    {
-      cle: 'sanctionnes',
-      entete: 'Élèves sanctionnés',
-      valeur: (c) => c.eleves_sanctionnes,
-      cellule: (c) => c.eleves_sanctionnes,
-      masquerMobile: true,
-    },
+    // Seul le secondaire prononce des sanctions : ailleurs, ces deux colonnes
+    // n'afficheraient que des zéros et masqueraient l'assiduité, qui est la
+    // vraie matière du bilan disciplinaire de ces cycles.
+    ...(secondaire
+      ? [
+          {
+            cle: 'sanctions',
+            entete: 'Sanctions',
+            valeur: (c: StatsDisciplinairesClasse) => c.total_sanctions,
+            cellule: (c: StatsDisciplinairesClasse) => c.total_sanctions,
+          },
+          {
+            cle: 'sanctionnes',
+            entete: 'Élèves sanctionnés',
+            valeur: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
+            cellule: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
+            masquerMobile: true,
+          },
+        ]
+      : []),
     {
       cle: 'hnj',
       entete: 'Heures non justifiées',
@@ -110,13 +119,22 @@ export function StatsDisciplinairesPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Effectif" value={c.effectif} icon={Users} accent="navy" />
-        <StatCard
-          label="Élèves sanctionnés"
-          value={c.eleves_sanctionnes}
-          icon={AlertTriangle}
-          accent="red"
-          hint={`${c.total_sanctions} sanction(s)`}
-        />
+        {secondaire ? (
+          <StatCard
+            label="Élèves sanctionnés"
+            value={c.eleves_sanctionnes}
+            icon={AlertTriangle}
+            accent="red"
+            hint={`${c.total_sanctions} sanction(s)`}
+          />
+        ) : (
+          <StatCard
+            label="Heures justifiées"
+            value={`${c.heures_justifiees.toFixed(1)} h`}
+            icon={Clock}
+            accent="green"
+          />
+        )}
         <StatCard
           label="Heures non justifiées"
           value={`${c.heures_non_justifiees.toFixed(1)} h`}
@@ -126,6 +144,7 @@ export function StatsDisciplinairesPage() {
         <StatCard label="Moyenne / élève" value={`${moyenne.toFixed(1)} h`} icon={Clock} accent="navy" />
       </div>
 
+      {secondaire && (
       <Card className="flex flex-col gap-3">
         <h2 className="font-display text-base font-bold text-navy-900">Répartition des sanctions</h2>
         <Table minWidth={420}>
@@ -157,6 +176,7 @@ export function StatsDisciplinairesPage() {
           </tbody>
         </Table>
       </Card>
+      )}
 
       <div className="flex flex-col gap-3">
         <h2 className="font-display text-base font-bold text-navy-900">Comparatif des classes</h2>
