@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
+use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
+use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\SanctionController;
@@ -130,6 +132,31 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');
                 Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update');
                 Route::delete('classe-matieres/{id}', [ClasseMatiereController::class, 'destroy'])->name('classe-matieres.destroy');
+            });
+
+            /*
+             * Progression pédagogique : le programme annuel se consulte avec la
+             * pédagogie et ne s'édite qu'avec le droit de la gérer.
+             */
+            Route::middleware('permission:pedagogie.view')->group(function () {
+                Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
+                Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
+                Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
+            });
+
+            Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
+            });
+
+            /*
+             * « Ma journée » : déclarer les leçons traitées et faire l'appel.
+             * Ouvert à qui peut pointer une classe — l'enseignant y est en outre
+             * restreint à ses propres affectations par le service.
+             */
+            Route::middleware('permission:appel.manage')->group(function () {
+                Route::get('ma-journee', [MaJourneeController::class, 'affectations'])->name('ma-journee.affectations');
+                Route::get('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'feuille'])->name('ma-journee.feuille');
+                Route::post('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'enregistrer'])->name('ma-journee.enregistrer');
             });
 
             Route::middleware('permission:pedagogie.view')->group(function () {

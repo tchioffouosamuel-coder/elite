@@ -23,6 +23,9 @@ import {
   X,
   BarChart3,
   ScanFace,
+  Layers,
+  GitBranch,
+  CalendarCheck,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -73,6 +76,8 @@ const navGroups = [
     label: 'nav.group.pedagogie',
     items: [
       { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view' },
+      { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view' },
+      { to: '/ma-journee', label: 'nav.maJournee', icon: CalendarCheck, permission: 'appel.manage' },
       { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view' },
       { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view' },
     ],

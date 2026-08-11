@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Seance extends Model
@@ -42,6 +43,12 @@ class Seance extends Model
     public function presences(): HasMany
     {
         return $this->hasMany(Presence::class);
+    }
+
+    /** Leçons du programme traitées pendant la séance. */
+    public function lecons(): BelongsToMany
+    {
+        return $this->belongsToMany(ProgressionItem::class, 'lecon_seance')->withTimestamps();
     }
 
     /** Durée de la séance en heures, base du cumul d'absences. */

@@ -20,6 +20,8 @@ import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsP
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
 import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
 import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolairesPage'
+import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
+import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
@@ -49,6 +51,8 @@ export const router = createBrowserRouter([
       { path: 'stats-disciplinaires', element: <ProtectedRoute permission="discipline.view"><StatsDisciplinairesPage /></ProtectedRoute> },
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
+      { path: 'progression', element: <ProtectedRoute permission="pedagogie.view"><ProgressionPage /></ProtectedRoute> },
+      { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage"><MaJourneePage /></ProtectedRoute> },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view"><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },

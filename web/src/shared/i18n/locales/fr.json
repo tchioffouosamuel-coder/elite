@@ -52,7 +52,9 @@
       "admin": "Administration",
       "identification": "Identification & sécurité"
     },
-    "niveaux": "Niveaux"
+    "niveaux": "Niveaux",
+    "progression": "Progression",
+    "maJournee": "Ma journée"
   },
   "auth": {
     "login_title": "Connexion",
@@ -232,5 +234,33 @@
     "submit": "Importer",
     "result": "{{imported}} ligne(s) importée(s), {{failed}} échec(s).",
     "template_hint": "Colonnes attendues (première ligne d'en-têtes) :"
+  },
+  "progression": {
+    "title": "Progression pédagogique",
+    "hint": "Programme annuel par matière et avancement réel des leçons.",
+    "vue_ensemble": "Vue d'ensemble de l'établissement",
+    "lecons": "Leçons",
+    "avancement_court": "Avancement",
+    "par_matiere": "Par matière",
+    "aucun_programme": "Aucun programme saisi",
+    "vide": "Ce programme est vide : ajoutez un module, un chapitre ou une leçon.",
+    "vide_etablissement": "Aucune classe pour cet établissement.",
+    "sequence_libre": "Sans séquence imposée",
+    "traitee": "Traitée",
+    "avancement": "{{traitees}} leçon(s) traitée(s) sur {{lecons}}",
+    "saved": "Programme enregistré ({{count}} leçon(s))."
+  },
+  "journee": {
+    "title": "Ma journée",
+    "hint": "Déclarez les leçons traitées et faites l'appel.",
+    "classe_matiere": "Classe et matière",
+    "date": "Date",
+    "choisir": "Choisissez la classe dans laquelle vous êtes intervenu.",
+    "aucune_affectation": "Aucune classe ne vous est affectée.",
+    "aucun_programme": "Aucune leçon au programme de cette matière.",
+    "lecons": "Leçons traitées",
+    "appel": "Appel",
+    "resume_appel": "{{presents}} présent(s), {{absents}} absent(s)",
+    "saved": "Journée enregistrée."
   }
 }

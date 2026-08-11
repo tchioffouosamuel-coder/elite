@@ -91,7 +91,9 @@ class EmploiDuTempsService extends BaseService
             ->orderBy('nom')->orderBy('prenom')->get()
             ->map(fn ($eleve) => [
                 'eleve' => $eleve,
+                // Tous présents par défaut : l'appel ne relève que les écarts.
                 'statut' => $pointages->get($eleve->id)?->statut ?? 'present',
+                'motif' => $pointages->get($eleve->id)?->motif,
                 'justifie' => (bool) ($pointages->get($eleve->id)?->justifie ?? false),
                 'remarque' => $pointages->get($eleve->id)?->remarque,
                 'pointe' => $pointages->has($eleve->id),
@@ -99,7 +101,7 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
-     * @param  array<int, array{eleve_id:int, statut:string, justifie?:bool, remarque?:?string}>  $lignes
+     * @param  array<int, array{eleve_id:int, statut:string, motif?:?string, justifie?:bool, remarque?:?string}>  $lignes
      */
     public function enregistrerAppel(Seance $seance, array $lignes): int
     {
@@ -117,6 +119,9 @@ class EmploiDuTempsService extends BaseService
                     ['seance_id' => $seance->id, 'eleve_id' => $ligne['eleve_id']],
                     [
                         'statut' => $ligne['statut'],
+                        // Le motif ne qualifie qu'une absence : le conserver sur
+                        // un élève repassé présent laisserait une trace fausse.
+                        'motif' => $ligne['statut'] === 'absent' ? ($ligne['motif'] ?? null) : null,
                         'justifie' => $ligne['justifie'] ?? false,
                         'remarque' => $ligne['remarque'] ?? null,
                     ]

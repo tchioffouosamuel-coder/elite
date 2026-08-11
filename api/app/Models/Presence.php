@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Presence extends Model
 {
-    protected $fillable = ['seance_id', 'eleve_id', 'statut', 'justifie', 'remarque'];
+    /** Motifs relevés à l'appel ; seule une absence en porte un. */
+    public const MOTIFS = ['maladie', 'inconnu', 'scolarite', 'permission'];
+
+    protected $fillable = ['seance_id', 'eleve_id', 'statut', 'motif', 'justifie', 'remarque'];
 
     protected function casts(): array
     {

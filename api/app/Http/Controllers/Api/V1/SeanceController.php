@@ -6,10 +6,12 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Presence;
 use App\Models\Seance;
 use App\Services\EmploiDuTempsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SeanceController extends Controller
 {
@@ -96,6 +98,7 @@ class SeanceController extends Controller
                 'nom_complet' => $ligne['eleve']->nomComplet(),
                 'matricule' => $ligne['eleve']->matricule,
                 'statut' => $ligne['statut'],
+                'motif' => $ligne['motif'],
                 'justifie' => $ligne['justifie'],
                 'remarque' => $ligne['remarque'],
                 'pointe' => $ligne['pointe'],
@@ -111,6 +114,9 @@ class SeanceController extends Controller
             'lignes' => ['required', 'array', 'min:1'],
             'lignes.*.eleve_id' => ['required', 'integer'],
             'lignes.*.statut' => ['required', 'in:present,absent,retard,renvoye'],
+            // Une absence sans motif ne se traite pas : le surveillant général
+            // ne saurait pas s'il faut relancer la famille ou classer l'affaire.
+            'lignes.*.motif' => ['nullable', 'required_if:lignes.*.statut,absent', Rule::in(Presence::MOTIFS)],
             'lignes.*.justifie' => ['nullable', 'boolean'],
             'lignes.*.remarque' => ['nullable', 'string', 'max:255'],
         ]);

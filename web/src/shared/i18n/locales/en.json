@@ -52,7 +52,9 @@
       "admin": "Administration",
       "identification": "Identification & security"
     },
-    "niveaux": "Levels"
+    "niveaux": "Levels",
+    "progression": "Progress",
+    "maJournee": "My day"
   },
   "auth": {
     "login_title": "Sign in",
@@ -232,5 +234,33 @@
     "classes": "Classes",
     "animateur": "Level coordinator",
     "empty": "No level defined yet."
+  },
+  "progression": {
+    "title": "Teaching progress",
+    "hint": "Annual syllabus per subject and actual lesson coverage.",
+    "vue_ensemble": "School overview",
+    "lecons": "Lessons",
+    "avancement_court": "Progress",
+    "par_matiere": "By subject",
+    "aucun_programme": "No syllabus entered",
+    "vide": "This syllabus is empty: add a module, a chapter or a lesson.",
+    "vide_etablissement": "No class in this school.",
+    "sequence_libre": "No set sequence",
+    "traitee": "Covered",
+    "avancement": "{{traitees}} of {{lecons}} lesson(s) covered",
+    "saved": "Syllabus saved ({{count}} lesson(s))."
+  },
+  "journee": {
+    "title": "My day",
+    "hint": "Record the lessons you covered and take the register.",
+    "classe_matiere": "Class and subject",
+    "date": "Date",
+    "choisir": "Choose the class you taught in.",
+    "aucune_affectation": "No class is assigned to you.",
+    "aucun_programme": "No lesson in this subject syllabus.",
+    "lecons": "Lessons covered",
+    "appel": "Register",
+    "resume_appel": "{{presents}} present, {{absents}} absent",
+    "saved": "Day saved."
   }
 }
