@@ -146,7 +146,11 @@ class BulletinPrimaireGenerator
             .$this->champ('Effectif', 'Enrolment',
                 'M: '.$effectif['garcons'].'  F: '.$effectif['filles'].'  T: '.$effectif['total'])
             .'</tr><tr>'
-            .$this->champ('Niveau', 'Level', $classe->niveauScolaire?->libelle)
+            // La maternelle ne range pas ses classes par degré : afficher un
+            // « Niveau : — » y annoncerait un champ qui n'existe pas pour elle.
+            .($classe->niveauScolaire
+                ? $this->champ('Niveau', 'Level', $classe->niveauScolaire->libelle)
+                : '')
             .$this->champ('Titulaire', 'Class teacher', $classe->titulaire?->nomComplet())
             .$this->champ('Statut', 'Status', $eleve->redoublant ? 'Redoublant(e)' : 'Passant(e)')
             .'</tr></table>'

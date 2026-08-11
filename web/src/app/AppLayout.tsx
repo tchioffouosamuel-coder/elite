@@ -37,8 +37,8 @@ type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
 
 /**
  * `types` restreint une entrée aux établissements concernés : le secondaire
- * s'organise en départements, le primaire et la maternelle en niveaux
- * d'enseignement. Sans `types`, l'entrée vaut pour toutes les écoles.
+ * s'organise en départements, le primaire en niveaux d'enseignement, et la
+ * maternelle en simples sections. Sans `types`, l'entrée vaut pour toutes.
  */
 const navGroups = [
   {
@@ -61,7 +61,8 @@ const navGroups = [
         label: 'nav.niveaux',
         icon: Layers,
         permission: 'pedagogie.view',
-        types: ['primaire', 'maternelle'] as TypeEcole[],
+        // La maternelle ne s'organise pas en degrés : l'entrée ne la concerne pas.
+        types: ['primaire'] as TypeEcole[],
       },
     ],
   },

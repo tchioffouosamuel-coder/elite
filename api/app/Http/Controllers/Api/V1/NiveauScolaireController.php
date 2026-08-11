@@ -7,17 +7,26 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreNiveauScolaireRequest;
 use App\Http\Resources\Api\V1\NiveauScolaireResource;
 use App\Models\NiveauScolaire;
+use App\Models\School;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Niveaux d'enseignement du primaire et de la maternelle (SIL, CP, CE1…),
- * chacun piloté par un animateur de niveau — l'équivalent du département et
- * de son chef au secondaire.
+ * Niveaux d'enseignement du primaire (SIL, CP, CE1…), chacun piloté par un
+ * animateur de niveau — l'équivalent du département et de son chef au
+ * secondaire.
+ *
+ * Le secondaire et la maternelle ne s'organisent pas ainsi : le premier suit
+ * ses départements, la seconde ses seules sections. Le module leur est donc
+ * fermé, et pas seulement masqué dans le menu.
  */
 class NiveauScolaireController extends Controller
 {
     public function index(): JsonResponse
     {
+        if ($refus = $this->refuserSiHorsPrimaire()) {
+            return $refus;
+        }
+
         $niveaux = NiveauScolaire::forSchool(app('tenant.school_id'))
             ->with('animateur')
             ->withCount('classes')
@@ -29,6 +38,10 @@ class NiveauScolaireController extends Controller
 
     public function store(StoreNiveauScolaireRequest $request): JsonResponse
     {
+        if ($refus = $this->refuserSiHorsPrimaire()) {
+            return $refus;
+        }
+
         $niveau = NiveauScolaire::create([
             ...$request->validated(),
             'school_id' => app('tenant.school_id'),
@@ -56,5 +69,12 @@ class NiveauScolaireController extends Controller
         $niveau->delete();
 
         return ApiResponse::success(message: 'Niveau supprimé.');
+    }
+
+    private function refuserSiHorsPrimaire(): ?JsonResponse
+    {
+        return School::find(app('tenant.school_id'))?->type === 'primaire'
+            ? null
+            : ApiResponse::error("Cet établissement ne s'organise pas en niveaux d'enseignement.", 422);
     }
 }

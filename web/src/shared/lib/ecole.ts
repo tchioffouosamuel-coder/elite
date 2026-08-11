@@ -17,3 +17,12 @@ export function typeEcoleActive(): TypeEcole {
 export function estSecondaire(): boolean {
   return typeEcoleActive() === 'secondaire'
 }
+
+/**
+ * Seul le primaire s'organise en degrés d'enseignement (SIL, CP, CE1…) placés
+ * sous un animateur de niveau. La maternelle ne connaît pas cette notion : ses
+ * classes — petite, moyenne et grande section — se suffisent à elles-mêmes.
+ */
+export function utiliseNiveaux(): boolean {
+  return typeEcoleActive() === 'primaire'
+}

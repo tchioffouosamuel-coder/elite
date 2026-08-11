@@ -23,9 +23,11 @@ use Illuminate\Support\Collection;
 /**
  * Jeu de démonstration pour les deux écoles non secondaires du complexe.
  *
- * Reproduit l'organisation d'archange : des niveaux d'enseignement pilotés par
- * un animateur, une classe par niveau tenue par un unique titulaire, et des
- * matières notées sur un barème propre puis évaluées par volets.
+ * Reproduit l'organisation d'archange : au primaire des niveaux d'enseignement
+ * pilotés par un animateur, une classe par niveau tenue par un unique
+ * titulaire, et des matières notées sur un barème propre puis évaluées par
+ * volets. La maternelle suit le même mode de notation mais ignore les niveaux :
+ * ses trois sections sont directement des classes.
  */
 class PrimaireMaternelleSeeder extends Seeder
 {
@@ -59,7 +61,8 @@ class PrimaireMaternelleSeeder extends Seeder
         ['CM2', 'Cours Moyen 2'],
     ];
 
-    private const NIVEAUX_MATERNELLE = [
+    /** La maternelle n'a pas de degrés : ses sections sont directement des classes. */
+    private const SECTIONS_MATERNELLE = [
         ['PS', 'Petite Section'],
         ['MS', 'Moyenne Section'],
         ['GS', 'Grande Section'],
@@ -91,7 +94,7 @@ class PrimaireMaternelleSeeder extends Seeder
 
             $this->seedEcole(
                 $school,
-                $type === 'primaire' ? self::NIVEAUX_PRIMAIRE : self::NIVEAUX_MATERNELLE,
+                $type === 'primaire' ? self::NIVEAUX_PRIMAIRE : self::SECTIONS_MATERNELLE,
                 $type === 'primaire' ? self::MATIERES_PRIMAIRE : self::MATIERES_MATERNELLE,
             );
         }
@@ -111,30 +114,40 @@ class PrimaireMaternelleSeeder extends Seeder
         $personnels = $this->seedPersonnels($school);
         $matiereModels = $this->seedMatieres($school, $matieres);
 
+        // La maternelle ne range pas ses classes par degré : ses trois sections
+        // se suffisent à elles-mêmes, sans animateur de niveau au-dessus.
+        $avecNiveaux = $school->type === 'primaire';
+
         foreach ($niveaux as $index => [$code, $libelle]) {
-            $niveauScolaire = NiveauScolaire::firstOrCreate(
-                ['school_id' => $school->id, 'code' => $code],
-                [
-                    'libelle' => $libelle,
-                    'ordre' => $index + 1,
-                    // Un animateur pour deux niveaux consécutifs, comme en pratique
-                    // dans les petites structures.
-                    'animateur_personnel_id' => $personnels[intdiv($index, 2) % count($personnels)]->id,
-                ],
-            );
+            $niveauScolaire = $avecNiveaux
+                ? NiveauScolaire::firstOrCreate(
+                    ['school_id' => $school->id, 'code' => $code],
+                    [
+                        'libelle' => $libelle,
+                        'ordre' => $index + 1,
+                        // Un animateur pour deux niveaux consécutifs, comme en pratique
+                        // dans les petites structures.
+                        'animateur_personnel_id' => $personnels[intdiv($index, 2) % count($personnels)]->id,
+                    ],
+                )
+                : null;
+
+            // Sans degré au-dessus d'elle, la classe de maternelle porte le nom
+            // complet de sa section plutôt qu'un code suivi d'une lettre.
+            $nomClasse = $avecNiveaux ? $code.' A' : $libelle;
 
             $classe = Classe::firstOrCreate(
-                ['school_id' => $school->id, 'nom' => $code.' A', 'annee_scolaire_id' => $annee->id],
+                ['school_id' => $school->id, 'nom' => $nomClasse, 'annee_scolaire_id' => $annee->id],
                 [
                     'niveau_id' => $niveauReference?->id,
-                    'niveau_scolaire_id' => $niveauScolaire->id,
+                    'niveau_scolaire_id' => $niveauScolaire?->id,
                     'titulaire_id' => $personnels[$index % count($personnels)]->id,
                     'capacite' => 40,
                 ],
             );
 
             $classe->update([
-                'niveau_scolaire_id' => $niveauScolaire->id,
+                'niveau_scolaire_id' => $niveauScolaire?->id,
                 'titulaire_id' => $personnels[$index % count($personnels)]->id,
             ]);
 

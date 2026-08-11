@@ -9,7 +9,7 @@ import { fetchNiveaux, fetchAnneesScolaires, createClasse, type ClassePayload } 
 import { fetchEcole } from '@/features/settings/api'
 import { fetchNiveauxScolaires } from '@/features/primaire/api'
 import { fetchPersonnels } from '@/features/personnel/api'
-import { estSecondaire } from '@/shared/lib/ecole'
+import { estSecondaire, utiliseNiveaux } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 
 export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -21,13 +21,15 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Au primaire et en maternelle, une classe relève d'un degré d'enseignement
-  // (SIL, CP…) et d'un titulaire unique ; au secondaire, ni l'un ni l'autre.
+  // Le titulaire unique vaut pour le primaire comme pour la maternelle ; le
+  // degré d'enseignement (SIL, CP…) ne concerne que le primaire, la maternelle
+  // ne connaissant pas cette notion.
   const secondaire = estSecondaire()
+  const avecNiveaux = utiliseNiveaux()
   const { data: niveauxScolaires } = useQuery({
     queryKey: ['niveaux-scolaires'],
     queryFn: fetchNiveauxScolaires,
-    enabled: !secondaire,
+    enabled: avecNiveaux,
   })
   const { data: personnels } = useQuery({
     queryKey: ['personnels', { page: 1, per_page: 100 }],
@@ -89,17 +91,19 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
           ))}
         </Select>
 
+        {avecNiveaux && (
+          <Select label={t('niveaux.title')} {...register('niveau_scolaire_id')}>
+            <option value="">—</option>
+            {niveauxScolaires?.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.code} — {n.libelle}
+              </option>
+            ))}
+          </Select>
+        )}
+
         {!secondaire && (
           <>
-            <Select label={t('niveaux.title')} {...register('niveau_scolaire_id')}>
-              <option value="">—</option>
-              {niveauxScolaires?.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.code} — {n.libelle}
-                </option>
-              ))}
-            </Select>
-
             <Select label={t('classes.titulaire')} {...register('titulaire_id')}>
               <option value="">—</option>
               {personnels?.items.map((p) => (

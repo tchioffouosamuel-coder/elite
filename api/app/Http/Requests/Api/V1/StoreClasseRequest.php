@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
+use App\Models\School;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreClasseRequest extends FormRequest
 {
@@ -18,9 +20,15 @@ class StoreClasseRequest extends FormRequest
     {
         return [
             'niveau_id' => ['required', 'exists:niveaux,id'], // référentiel global, non scopé
-            // Niveau d'enseignement propre à l'établissement (SIL, CP…) au
-            // primaire et en maternelle ; absent au secondaire.
-            'niveau_scolaire_id' => ['nullable', $this->scopedExists('niveau_scolaires')],
+            // Degré d'enseignement propre à l'établissement (SIL, CP…) : le
+            // primaire seul s'organise ainsi. Le secondaire suit ses
+            // départements, et la maternelle ne connaît pas cette notion — ses
+            // sections se suffisent à elles-mêmes.
+            'niveau_scolaire_id' => [
+                'nullable',
+                Rule::prohibitedIf(fn () => ! $this->ecoleUtiliseNiveaux()),
+                $this->scopedExists('niveau_scolaires'),
+            ],
             'annee_scolaire_id' => ['required', $this->scopedExists('annee_scolaires')],
             'professeur_principal_id' => ['nullable', $this->scopedExists('personnels')],
             // Enseignant unique de la classe au primaire et en maternelle.
@@ -34,5 +42,18 @@ class StoreClasseRequest extends FormRequest
             'code_examen' => ['nullable', 'string', 'max:40'],
             'capacite' => ['nullable', 'integer', 'min:1'],
         ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'niveau_scolaire_id.prohibited' => "Cet établissement ne s'organise pas en niveaux d'enseignement.",
+        ];
+    }
+
+    /** Seul le primaire range ses classes par degré d'enseignement. */
+    private function ecoleUtiliseNiveaux(): bool
+    {
+        return School::find(app('tenant.school_id'))?->type === 'primaire';
     }
 }

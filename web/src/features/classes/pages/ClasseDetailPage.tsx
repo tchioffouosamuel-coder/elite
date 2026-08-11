@@ -14,6 +14,7 @@ import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { AbsencesTab } from '@/features/discipline/pages/AbsencesTab'
 import { ResultatsTab } from '@/features/resultats/pages/ResultatsTab'
 import { ResponsablesTab } from '@/features/classes/pages/ResponsablesTab'
+import { ElevesTab } from '@/features/classes/pages/ElevesTab'
 import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
 
 export function ClasseDetailPage() {
@@ -32,10 +33,15 @@ export function ClasseDetailPage() {
 
   const tabs = [
     can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },
+    can('eleves.view') && { key: 'eleves', label: t('eleves.title') },
     can('notes.view') && { key: 'notes', label: t('notes.title') },
     can('discipline.view') && { key: 'absences', label: t('discipline.title') },
     can('notes.view') && { key: 'resultats', label: t('resultats.title') },
-    can('classes.view') && { key: 'responsables', label: 'Responsables' },
+    // Professeur principal, censeur, surveillant général et conseiller
+    // d'orientation sont des fonctions du secondaire. Au primaire et en
+    // maternelle, le titulaire tient seul la classe : l'onglet n'aurait que
+    // des listes vides à proposer.
+    estSecondaire && can('classes.view') && { key: 'responsables', label: 'Responsables' },
   ].filter(Boolean) as { key: string; label: string }[]
 
   if (isLoading) return <Spinner />
@@ -71,10 +77,11 @@ export function ClasseDetailPage() {
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'affectations' && <AffectationsTab classeId={classeId} />}
+      {tab === 'eleves' && <ElevesTab classeId={classeId} />}
       {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
       {tab === 'absences' && <AbsencesTab classeId={classeId} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
-      {tab === 'responsables' && <ResponsablesTab classeId={classeId} />}
+      {tab === 'responsables' && estSecondaire && <ResponsablesTab classeId={classeId} />}
     </div>
   )
 }
