@@ -122,29 +122,16 @@ class DemoDataSeeder extends Seeder
             Setting::set($school->id, $key, $value);
         }
 
-        $directeur = User::updateOrCreate(
-            ['email' => 'directeur@elites-school.test'],
-            [
-                'name' => 'TCHIOFFOUO Josué',
-                'password' => 'password',
-                'school_id' => $school->id,
-                'niveau_id' => $niveauCollege->id,
-                'is_active' => true,
-            ]
-        );
-        $directeur->syncRoles(['admin_etablissement']);
+        // `directeur@` est conservé : des notes de reprise et des scénarios de
+        // test le référencent. `principal@` est le même rôle sous le nom que
+        // l'établissement emploie dans ses propres documents (« The Principal »).
+        $directeur = $this->compte($school, $niveauCollege->id, 'directeur@elites-school.test', 'TCHIOFFOUO Josué', 'admin_etablissement');
+        $principal = $this->compte($school, $niveauCollege->id, 'principal@elites-school.test', 'USENI Venyteh', 'admin_etablissement');
+        $censeur = $this->compte($school, $niveauCollege->id, 'censeur@elites-school.test', 'NGUEMA Alice', 'censeur_sg');
+        $surveillant = $this->compte($school, $niveauCollege->id, 'surveillant@elites-school.test', 'AKONO EVANG Nathan', 'surveillant_general');
 
-        $censeur = User::updateOrCreate(
-            ['email' => 'censeur@elites-school.test'],
-            [
-                'name' => 'AKONO EVANG Nathan',
-                'password' => 'password',
-                'school_id' => $school->id,
-                'niveau_id' => $niveauCollege->id,
-                'is_active' => true,
-            ]
-        );
-        $censeur->syncRoles(['censeur_sg']);
+        // Le signataire des documents officiels (certificat de scolarité).
+        Setting::set($school->id, 'chef_etablissement', $principal->name);
 
         $annee = AnneeScolaire::updateOrCreate(
             ['school_id' => $school->id, 'libelle' => '2026-2027'],
@@ -188,14 +175,38 @@ class DemoDataSeeder extends Seeder
             ]
         ));
 
-        Personnel::updateOrCreate(
-            ['school_id' => $school->id, 'matricule' => 'TID-100'],
-            [
-                'nom' => 'AKONO EVANG', 'prenom' => 'Nathan', 'fonction' => 'Surveillant Général',
-                'departement_id' => $departements['Administration']->id, 'statut' => 'actif',
-                'user_id' => $censeur->id, 'email' => $censeur->email,
-            ]
-        );
+        // Encadrement : chaque responsable a sa fiche personnel et son accès.
+        // Le surveillant général portait jusqu'ici le rôle `censeur_sg`, alors
+        // que sa fonction disait l'inverse ; les deux concordent désormais.
+        foreach ([
+            ['TID-100', 'AKONO EVANG', 'Nathan', 'Surveillant Général', $surveillant],
+            ['TID-101', 'NGUEMA', 'Alice', 'Censeur', $censeur],
+            ['TID-102', 'USENI', 'Venyteh', 'Principal', $principal],
+        ] as [$matricule, $nom, $prenom, $fonction, $compte]) {
+            Personnel::updateOrCreate(
+                ['school_id' => $school->id, 'matricule' => $matricule],
+                [
+                    'nom' => $nom, 'prenom' => $prenom, 'fonction' => $fonction,
+                    'departement_id' => $departements['Administration']->id, 'statut' => 'actif',
+                    'user_id' => $compte->id, 'email' => $compte->email,
+                ]
+            );
+        }
+
+        // Un accès par enseignant : au secondaire chacun ne saisit que les
+        // matières qui lui sont affectées, règle qu'un compte d'encadrement
+        // ne met pas à l'épreuve.
+        $enseignants->each(function (Personnel $enseignant, int $i) use ($school, $niveauCollege) {
+            $compte = $this->compte(
+                $school,
+                $niveauCollege->id,
+                sprintf('enseignant%d@elites-school.test', $i + 1),
+                $enseignant->nomComplet(),
+                'enseignant',
+            );
+
+            $enseignant->update(['user_id' => $compte->id, 'email' => $compte->email]);
+        });
 
         // Chef de département (cf. _smapp departements.dept_head, ici une vraie FK).
         $departements['Sciences']->update(['head_personnel_id' => $enseignants->firstWhere('nom', 'MELINGUI')->id]);
@@ -275,6 +286,24 @@ class DemoDataSeeder extends Seeder
      * de direction rattaché, pour que la bascule d'établissement du super admin
      * soit démontrable. Leur flux pédagogique propre reste à construire.
      */
+    /** Compte de connexion de démonstration, mot de passe `password`. */
+    private function compte(School $school, ?int $niveauId, string $email, string $nom, string $role): User
+    {
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $nom,
+                'password' => 'password',
+                'school_id' => $school->id,
+                'niveau_id' => $niveauId,
+                'is_active' => true,
+            ]
+        );
+        $user->syncRoles([$role]);
+
+        return $user;
+    }
+
     private function seedEcolesDuComplexe(Complexe $complexe): void
     {
         foreach ([

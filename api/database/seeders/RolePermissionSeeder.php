@@ -43,6 +43,20 @@ class RolePermissionSeeder extends Seeder
             'annonces.view', 'dashboard.view',
             'emploi_du_temps.view', 'emploi_du_temps.manage', 'appel.manage',
         ],
+        /*
+         * Le surveillant général tient la discipline : absences, sanctions,
+         * appel et bilan disciplinaire. Il consulte les bulletins sans les
+         * publier et ne saisit pas de notes — c'est le censeur qui répond du
+         * pédagogique. La table `classes` distinguait déjà les deux
+         * responsables ; les rôles le font désormais aussi.
+         */
+        'surveillant_general' => [
+            'personnel.view', 'classes.view', 'eleves.view',
+            'discipline.view', 'discipline.manage',
+            'bulletins.view',
+            'emploi_du_temps.view', 'appel.manage',
+            'annonces.view', 'dashboard.view',
+        ],
         'enseignant' => [
             'classes.view', 'eleves.view', 'pedagogie.view', 'notes.view', 'notes.create',
             'discipline.view', 'annonces.view', 'dashboard.view',

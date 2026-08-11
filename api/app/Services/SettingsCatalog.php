@@ -108,6 +108,28 @@ class SettingsCatalog
                 'label_fr' => 'Passage en classe supérieure — moyenne annuelle minimale',
                 'label_en' => 'Promotion to next class — minimum annual average',
             ],
+            // Mentions signataires et légales des documents officiels. Le
+            // certificat de scolarité les imprime ; elles diffèrent d'une école
+            // du complexe à l'autre (arrêté de création, comptes, immatriculation)
+            // et ne peuvent donc pas être écrites en dur dans le générateur.
+            [
+                'key' => 'chef_etablissement', 'groupe' => 'documents', 'type' => 'text',
+                'default' => '',
+                'label_fr' => "Nom du chef d'établissement (signataire des documents)",
+                'label_en' => 'Head of school (signs official documents)',
+            ],
+            [
+                'key' => 'chef_etablissement_titre', 'groupe' => 'documents', 'type' => 'text',
+                'default' => "Le Chef d'Établissement",
+                'label_fr' => 'Titre du signataire',
+                'label_en' => 'Signatory title',
+            ],
+            [
+                'key' => 'mentions_legales', 'groupe' => 'documents', 'type' => 'text',
+                'default' => '',
+                'label_fr' => 'Mentions légales en pied de document (arrêté, comptes, immatriculation)',
+                'label_en' => 'Legal notices in document footer (order, accounts, registration)',
+            ],
         ];
     }
 
