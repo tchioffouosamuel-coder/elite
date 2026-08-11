@@ -1,4 +1,5 @@
 import { type InputHTMLAttributes, type SelectHTMLAttributes, type ReactNode, type ComponentType } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const fieldClasses =
@@ -50,13 +51,21 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export function Select({ label, error, className, id, children, ...props }: SelectProps) {
   return (
     <FieldWrapper label={label} error={error} htmlFor={id}>
-      <select
-        id={id}
-        className={clsx(fieldClasses, 'bg-white', error && 'border-red-400 focus:border-red-400 focus:ring-red-100', className)}
-        {...props}
-      >
-        {children}
-      </select>
+      <div className="relative">
+        <select
+          id={id}
+          className={clsx(
+            fieldClasses,
+            'appearance-none bg-white pr-10',
+            error && 'border-red-400 focus:border-red-400 focus:ring-red-100',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+      </div>
     </FieldWrapper>
   )
 }

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, SlidersHorizontal, Info } from 'lucide-react'
 import { fetchSettings, updateSettings } from '@/features/settings/api'
-import { EcoleProfileCard } from '@/features/settings/pages/EcoleProfileCard'
+import { EcoleProfileCard, type EcoleProfileHandle } from '@/features/settings/pages/EcoleProfileCard'
 import { EcoleImagesCard } from '@/features/settings/pages/EcoleImagesCard'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -29,15 +29,19 @@ export function SettingsPage() {
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings })
   const [valeurs, setValeurs] = useState<Record<string, string | number>>({})
   const [submitting, setSubmitting] = useState(false)
+  const ecoleRef = useRef<EcoleProfileHandle>(null)
 
   useEffect(() => {
     if (data) setValeurs(Object.fromEntries(data.map((s) => [s.key, s.value])))
   }, [data])
 
+  // Un seul bouton pour toute la page : deux "Enregistrer" séparés (celui-ci
+  // + celui de la carte Établissement) faisaient croire que tout était
+  // sauvegardé alors que seule la moitié du formulaire partait réellement.
   const handleSave = async () => {
     setSubmitting(true)
     try {
-      await updateSettings(valeurs)
+      await Promise.all([updateSettings(valeurs), ecoleRef.current?.save()])
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       succes(t('settings.saved'))
     } catch (e) {
@@ -80,7 +84,7 @@ export function SettingsPage() {
         </p>
       </Card>
 
-      <EcoleProfileCard />
+      <EcoleProfileCard ref={ecoleRef} />
 
       <EcoleImagesCard />
 
@@ -109,8 +113,8 @@ export function SettingsPage() {
                     </select>
                   ) : (
                     <input
-                      type="number"
-                      step="0.5"
+                      type={s.type === 'text' ? 'text' : 'number'}
+                      step={s.type === 'text' ? undefined : '0.5'}
                       value={valeurs[s.key] ?? ''}
                       onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
                       className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"

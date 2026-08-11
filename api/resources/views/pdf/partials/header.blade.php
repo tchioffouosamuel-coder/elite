@@ -11,7 +11,7 @@
         <td class="fr">
             <span class="school-name">{{ $school->name }}</span><br>
             @if(!empty($school->header_fr))
-                {!! nl2br(e($school->header_fr)) !!}
+                {!! \App\Support\Pdf\EnTeteHtml::render($school->header_fr) !!}
             @else
                 @if(!empty($school->address)) {{ $school->address }}<br> @endif
                 @if(!empty($school->phone)) Tél : {{ $school->phone }}<br> @endif
@@ -28,7 +28,7 @@
         <td class="en">
             <span class="school-name">{{ $school->name }}</span><br>
             @if(!empty($school->header_en))
-                {!! nl2br(e($school->header_en)) !!}
+                {!! \App\Support\Pdf\EnTeteHtml::render($school->header_en) !!}
             @else
                 @if(!empty($school->address)) {{ $school->address }}<br> @endif
                 @if(!empty($school->phone)) Phone: {{ $school->phone }}<br> @endif

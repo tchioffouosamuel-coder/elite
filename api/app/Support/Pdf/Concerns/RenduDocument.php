@@ -3,6 +3,7 @@
 namespace App\Support\Pdf\Concerns;
 
 use App\Models\School;
+use App\Support\Pdf\EnTeteHtml;
 
 /**
  * Primitives communes aux documents mPDF de l'établissement : palette, échappement,
@@ -73,6 +74,14 @@ trait RenduDocument
             .'.rouge{color:#ac3527;font-weight:bold}';
     }
 
+    /** En-tête FR/EN de l'établissement, saisi via l'éditeur riche ; replie sur le nom si vide. */
+    protected function texteEnTete(?string $valeur, string $repli): string
+    {
+        $rendu = EnTeteHtml::render($valeur);
+
+        return $rendu !== '' ? $rendu : nl2br($this->e($repli));
+    }
+
     /** En-tête bilingue à trois colonnes : mentions FR, logo, mentions EN. */
     protected function enTeteEcole(School $school): string
     {
@@ -82,9 +91,9 @@ trait RenduDocument
             : '<div class="value" style="font-size:5mm;color:'.self::OR.';">'.$this->e($this->monogramme($school)).'</div>';
 
         return '<table class="header-table"><tr>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_fr ?? $school->name)).'</div></td>'
+            .'<td style="width:40%;"><div class="lh-1">'.$this->texteEnTete($school->header_fr, $school->name).'</div></td>'
             .'<td style="width:20%;">'.$celluleLogo.'</td>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_en ?? $school->name)).'</div></td>'
+            .'<td style="width:40%;"><div class="lh-1">'.$this->texteEnTete($school->header_en, $school->name).'</div></td>'
             .'</tr></table>';
     }
 }

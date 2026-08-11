@@ -32,7 +32,7 @@ class NotePrimaireService extends BaseService
     public function grille(ClasseMatiere $classeMatiere, Trimestre $trimestre): array
     {
         $composantes = $classeMatiere->matiere->composantes();
-        $sequences = $trimestre->sequences()->orderBy('ordre')->get();
+        $sequences = $trimestre->sequencesRetenues();
 
         $notes = Note::where('classe_matiere_id', $classeMatiere->id)
             ->whereIn('sequence_id', $sequences->pluck('id'))

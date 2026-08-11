@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UpdateSchoolRequest;
 use App\Http\Resources\Api\V1\SchoolResource;
 use App\Models\School;
+use App\Support\Pdf\EnTeteHtml;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,8 +33,8 @@ class SchoolController extends Controller
                 'address' => $data['address'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'email' => $data['email'] ?? null,
-                'header_fr' => $data['header_fr'] ?? null,
-                'header_en' => $data['header_en'] ?? null,
+                'header_fr' => EnTeteHtml::nettoyer($data['header_fr'] ?? null),
+                'header_en' => EnTeteHtml::nettoyer($data['header_en'] ?? null),
             ]);
             $school->niveaux()->sync($data['niveau_ids']);
         });
@@ -43,9 +44,12 @@ class SchoolController extends Controller
 
     /**
      * Logo, cachet et signature de l'établissement, apposés sur les documents
-     * officiels (bulletins, cartes scolaires, attestations). Le fichier est
-     * stocké tel quel : convertir en JPEG aplatirait la transparence dont le
-     * cachet et la signature ont besoin pour se superposer au document.
+     * officiels (bulletins, cartes scolaires, attestations). Redimensionné
+     * sans changer de format : convertir en JPEG aplatirait la transparence
+     * dont le cachet et la signature ont besoin pour se superposer au
+     * document, mais garder une photo brute (parfois 4000px+, quelques Mo une
+     * fois décodée en bitmap) fait exploser le memory_limit de mPDF dès qu'un
+     * bulletin l'embarque — cf. incident sur un logo 4868×2481.
      */
     public function uploadImage(Request $request, string $type): JsonResponse
     {
@@ -58,7 +62,8 @@ class SchoolController extends Controller
         $request->validate(['image' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120']]);
 
         $school = School::findOrFail(app('tenant.school_id'));
-        $extension = $request->file('image')->extension();
+        $fichier = $request->file('image');
+        $extension = $fichier->extension();
         $chemin = 'ecoles/'.$school->id.'/'.$type.'.'.$extension;
 
         $ancien = $school->{$colonnes[$type]};
@@ -66,13 +71,54 @@ class SchoolController extends Controller
             Storage::disk('public')->delete($ancien);
         }
 
-        Storage::disk('public')->put($chemin, $request->file('image')->getContent());
+        Storage::disk('public')->put($chemin, $this->redimensionner($fichier->getContent(), $fichier->getMimeType()));
         $school->update([$colonnes[$type] => $chemin]);
 
         return ApiResponse::success(
             new SchoolResource($school->refresh()->load('niveaux')),
             'Image de l\'établissement mise à jour.'
         );
+    }
+
+    /** Plafonne le plus grand côté à 1000px (largement suffisant à l'impression) sans recadrer ni changer de format. */
+    private function redimensionner(string $contenu, string $mime, int $maxCote = 1000): string
+    {
+        $source = @imagecreatefromstring($contenu);
+        if ($source === false) {
+            return $contenu;
+        }
+
+        $largeur = imagesx($source);
+        $hauteur = imagesy($source);
+
+        if (max($largeur, $hauteur) <= $maxCote) {
+            imagedestroy($source);
+
+            return $contenu;
+        }
+
+        $ratio = $maxCote / max($largeur, $hauteur);
+        $nLargeur = max(1, (int) round($largeur * $ratio));
+        $nHauteur = max(1, (int) round($hauteur * $ratio));
+
+        $redimensionnee = imagecreatetruecolor($nLargeur, $nHauteur);
+
+        if ($mime === 'image/png') {
+            imagealphablending($redimensionnee, false);
+            imagesavealpha($redimensionnee, true);
+            $transparent = imagecolorallocatealpha($redimensionnee, 0, 0, 0, 127);
+            imagefilledrectangle($redimensionnee, 0, 0, $nLargeur, $nHauteur, $transparent);
+        }
+
+        imagecopyresampled($redimensionnee, $source, 0, 0, 0, 0, $nLargeur, $nHauteur, $largeur, $hauteur);
+        imagedestroy($source);
+
+        ob_start();
+        $mime === 'image/png' ? imagepng($redimensionnee) : imagejpeg($redimensionnee, null, 90);
+        $sortie = ob_get_clean();
+        imagedestroy($redimensionnee);
+
+        return $sortie;
     }
 
     public function deleteImage(string $type): JsonResponse

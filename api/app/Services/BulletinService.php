@@ -31,7 +31,7 @@ class BulletinService extends BaseService
         $affectations = $classe->classeMatieres()->where('statut', 'actif')
             ->with(['matiere', 'enseignant'])->orderBy('groupe')->orderBy('id')->get();
 
-        $sequences = $trimestre->sequences()->orderBy('ordre')->get();
+        $sequences = $trimestre->sequencesRetenues();
         $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
 
         $classementGeneral = $this->moyennes->classementGeneral($classe, $trimestre);
@@ -190,7 +190,7 @@ class BulletinService extends BaseService
 
             return [
                 'libelle' => $trimestre->libelle,
-                'sequences' => $trimestre->sequences->sortBy('ordre')->map(fn ($sequence) => [
+                'sequences' => $trimestre->sequencesRetenues()->map(fn ($sequence) => [
                     'libelle' => $sequence->libelle,
                     ...$this->moyenneSequence($eleve, $classe, $sequence->id),
                 ])->values()->all(),

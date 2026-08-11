@@ -47,7 +47,7 @@ class MoyennePrimaireService extends BaseService
     {
         $matiere = $classeMatiere->matiere;
         $composantes = $matiere->composantes();
-        $sequences = $trimestre->sequences()->orderBy('ordre')->get();
+        $sequences = $trimestre->sequencesRetenues();
 
         $notes = Note::where('eleve_id', $eleve->id)
             ->where('classe_matiere_id', $classeMatiere->id)
@@ -215,17 +215,17 @@ class MoyennePrimaireService extends BaseService
     public function tauxRemplissage(ClasseMatiere $classeMatiere, Trimestre $trimestre): float
     {
         $nbEleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->count();
-        $nbSequences = $trimestre->sequences()->count();
+        $sequences = $trimestre->sequencesRetenues();
         $nbComposantes = count($classeMatiere->matiere->composantes());
 
-        $attendu = $nbEleves * $nbSequences * $nbComposantes;
+        $attendu = $nbEleves * $sequences->count() * $nbComposantes;
 
         if ($attendu === 0) {
             return 0.0;
         }
 
         $saisi = Note::where('classe_matiere_id', $classeMatiere->id)
-            ->whereIn('sequence_id', $trimestre->sequences()->pluck('id'))
+            ->whereIn('sequence_id', $sequences->pluck('id'))
             ->whereNotNull('valeur')
             ->count();
 

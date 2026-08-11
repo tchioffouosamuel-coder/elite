@@ -18,8 +18,10 @@ class UpdateSchoolRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-            'header_fr' => ['nullable', 'string', 'max:1000'],
-            'header_en' => ['nullable', 'string', 'max:1000'],
+            // Saisis via un éditeur riche : la limite couvre le balisage HTML,
+            // pas seulement le texte visible.
+            'header_fr' => ['nullable', 'string', 'max:4000'],
+            'header_en' => ['nullable', 'string', 'max:4000'],
             'niveau_ids' => ['required', 'array', 'min:1'],
             'niveau_ids.*' => ['integer', 'exists:niveaux,id'],
         ];

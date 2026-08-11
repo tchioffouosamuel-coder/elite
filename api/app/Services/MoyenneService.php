@@ -24,7 +24,7 @@ class MoyenneService extends BaseService
 {
     public function moyenneMatiereEleve(Eleve $eleve, ClasseMatiere $classeMatiere, Trimestre $trimestre): ?float
     {
-        $sequenceIds = $trimestre->sequences()->pluck('id');
+        $sequenceIds = $trimestre->sequencesRetenues()->pluck('id');
 
         $notes = Note::where('eleve_id', $eleve->id)
             ->where('classe_matiere_id', $classeMatiere->id)
@@ -111,7 +111,7 @@ class MoyenneService extends BaseService
     public function tauxRemplissage(ClasseMatiere $classeMatiere, Trimestre $trimestre): float
     {
         $nbEleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->count();
-        $sequenceIds = $trimestre->sequences()->pluck('id');
+        $sequenceIds = $trimestre->sequencesRetenues()->pluck('id');
         $nbSequences = $sequenceIds->count();
 
         if ($nbEleves === 0 || $nbSequences === 0) {

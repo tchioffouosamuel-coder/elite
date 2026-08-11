@@ -103,9 +103,9 @@ class BulletinPrimaireGenerator
             : '<div class="value" style="font-size:5mm;color:'.self::OR.';">'.$this->e($this->monogramme($school)).'</div>';
 
         return '<table class="header-table"><tr>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_fr ?? $school->name)).'</div></td>'
+            .'<td style="width:40%;"><div class="lh-1">'.$this->texteEnTete($school->header_fr, $school->name).'</div></td>'
             .'<td style="width:20%;">'.$celluleLogo.'</td>'
-            .'<td style="width:40%;"><div class="lh-1">'.nl2br($this->e($school->header_en ?? $school->name)).'</div></td>'
+            .'<td style="width:40%;"><div class="lh-1">'.$this->texteEnTete($school->header_en, $school->name).'</div></td>'
             .'</tr></table>'
             .'<table class="no-border"><tr><td class="left" style="line-height:1.4;">'
             .'<span class="titre">Bulletin de notes du '.$this->e($donnees['trimestre']->libelle).'</span><br>'
@@ -295,5 +295,12 @@ class BulletinPrimaireGenerator
     private function e(?string $valeur): string
     {
         return htmlspecialchars((string) $valeur, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function texteEnTete(?string $valeur, string $repli): string
+    {
+        $rendu = EnTeteHtml::render($valeur);
+
+        return $rendu !== '' ? $rendu : nl2br($this->e($repli));
     }
 }

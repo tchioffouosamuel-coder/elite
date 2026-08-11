@@ -27,7 +27,7 @@ class BulletinPrimaireService extends BaseService
         $affectations = $classe->classeMatieres()->where('statut', 'actif')
             ->with(['matiere', 'enseignant'])->orderBy('id')->get();
 
-        $sequences = $trimestre->sequences()->orderBy('ordre')->get();
+        $sequences = $trimestre->sequencesRetenues();
         $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
 
         $classement = $this->moyennes->classementGeneral($classe, $trimestre);
