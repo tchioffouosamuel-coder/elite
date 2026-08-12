@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, KeyRound, Archive, RotateCcw, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
+import { Plus, Pencil, KeyRound, Archive, RotateCcw, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
 import { fetchPersonnels, archivePersonnel, reactivatePersonnel, type Personnel } from '@/features/personnel/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -14,6 +14,7 @@ import { ImportModal } from '@/shared/ui/ImportModal'
 import { PersonnelFormModal } from '@/features/personnel/pages/PersonnelFormModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes } from '@/shared/lib/alertes'
+import { estSecondaire } from '@/shared/lib/ecole'
 
 export function PersonnelListPage() {
   const { t } = useTranslation()
@@ -21,6 +22,7 @@ export function PersonnelListPage() {
   const queryClient = useQueryClient()
 
   const [showForm, setShowForm] = useState(false)
+  const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [accountFor, setAccountFor] = useState<number | null>(null)
 
@@ -34,6 +36,8 @@ export function PersonnelListPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['personnels'] })
 
+  const secondaire = estSecondaire()
+
   const colonnes: Colonne<Personnel>[] = [
     {
       cle: 'nom',
@@ -42,13 +46,19 @@ export function PersonnelListPage() {
       cellule: (p) => <span className="font-semibold text-navy-900">{p.nom_complet}</span>,
     },
     { cle: 'fonction', entete: t('personnel.fonction'), valeur: (p) => p.fonction, cellule: (p) => p.fonction },
-    {
-      cle: 'departement',
-      entete: t('personnel.departement'),
-      valeur: (p) => p.departement?.nom,
-      cellule: (p) => p.departement?.nom ?? '—',
-      masquerMobile: true,
-    },
+    // Les départements n'existent qu'au secondaire : ailleurs la colonne
+    // n'afficherait qu'une suite de tirets.
+    ...(secondaire
+      ? [
+          {
+            cle: 'departement',
+            entete: t('personnel.departement'),
+            valeur: (p: Personnel) => p.departement?.nom,
+            cellule: (p: Personnel) => p.departement?.nom ?? '—',
+            masquerMobile: true,
+          },
+        ]
+      : []),
     {
       cle: 'telephone',
       entete: t('personnel.telephone'),
@@ -67,6 +77,15 @@ export function PersonnelListPage() {
       entete: t('common.actions'),
       cellule: (p) => (
         <div className="flex items-center gap-1">
+          {can('personnel.manage') && (
+            <button
+              title={t('common.edit')}
+              onClick={() => setEditingPersonnel(p)}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
           {can('personnel.manage') && !p.a_un_compte && (
             <button
               title={t('personnel.create_account')}
@@ -165,6 +184,16 @@ export function PersonnelListPage() {
           onClose={() => setShowForm(false)}
           onCreated={() => {
             setShowForm(false)
+            invalidate()
+          }}
+        />
+      )}
+      {editingPersonnel && (
+        <PersonnelFormModal
+          personnel={editingPersonnel}
+          onClose={() => setEditingPersonnel(null)}
+          onCreated={() => {
+            setEditingPersonnel(null)
             invalidate()
           }}
         />

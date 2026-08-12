@@ -40,14 +40,14 @@ class PersonnelFichierGenerator
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-            .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
-            .$this->enTeteEcole($school)
-            .'<hr>'
-            .$this->titre($annee, $donnees)
-            .$this->tableau($donnees)
-            .$this->ventilations($donnees)
-            .$this->signature($school)
-            .'</body></html>'
+                .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
+                .$this->enTeteEcole($school)
+                .'<hr>'
+                .$this->titre($annee, $donnees)
+                .$this->tableau($donnees, $school)
+                .$this->ventilations($donnees, $school)
+                .$this->signature($school)
+                .'</body></html>'
         );
 
         return $mpdf->Output('', Destination::STRING_RETURN);
@@ -86,8 +86,9 @@ class PersonnelFichierGenerator
             .'</div>';
     }
 
-    private function tableau(array $donnees): string
+    private function tableau(array $donnees, School $school): string
     {
+        $isSecondaire = $school->estSecondaire();
         $lignes = '';
         $rang = 1;
 
@@ -96,36 +97,68 @@ class PersonnelFichierGenerator
                 .'<td>'.$rang.'</td>'
                 .'<td class="left nom">'.$this->e($personnel->nomComplet()).'</td>'
                 .'<td>'.$this->e($personnel->matricule ?: '—').'</td>'
-                .'<td class="left">'.$this->etiquette($personnel->fonction).'</td>'
-                .'<td class="left">'.$this->etiquette($personnel->departement?->nom).'</td>'
-                .'<td>'.$this->e($this->telephone($personnel)).'</td>'
-                .'<td class="left">'.$this->e($personnel->email ?: '—').'</td>'
-                .'</tr>';
+                .'<td class="left">'.$this->etiquette($personnel->fonction).'</td>';
+
+            if ($isSecondaire) {
+                $lignes .= '<td class="left">'.$this->etiquette($personnel->departement?->nom).'</td>';
+            }
+
+            $lignes .= '<td>'.$this->e($this->telephone($personnel)).'</td>';
+
+            if (! $isSecondaire) {
+                // Afficher les classes tenues pour le primaire/maternelle
+                $classesTenues = $personnel->classesTenues
+                    ->map(fn ($classe) => $classe->nom)
+                    ->join(', ');
+                $lignes .= '<td class="left">'.$this->e($classesTenues ?: '—').'</td>';
+            }
+
+            $lignes .= '</tr>';
             $rang++;
         }
 
+        // 5 colonnes communes ; le secondaire ajoute le département, les autres
+        // cycles la classe tenue par le titulaire.
+        $colspanFooter = 6;
         if ($lignes === '') {
-            $lignes = '<tr><td colspan="7" style="padding:6mm;">Aucun personnel en poste.</td></tr>';
+            $lignes = '<tr><td colspan="'.$colspanFooter.'" style="padding:6mm;">Aucun personnel en poste.</td></tr>';
+        }
+
+        $headerHtml = '<th style="width:5%;">N°</th>'
+            .'<th style="width:22%;">Nom et prénoms<br><i>Full name</i></th>'
+            .'<th style="width:12%;">Matricule<br><i>ID number</i></th>'
+            .'<th style="width:19%;">Fonction<br><i>Position</i></th>';
+
+        if ($isSecondaire) {
+            $headerHtml .= '<th style="width:26%;">Département<br><i>Department</i></th>';
+        }
+
+        $headerHtml .= '<th style="width:16%;">Téléphone<br><i>Phone</i></th>';
+
+        if (! $isSecondaire) {
+            $headerHtml .= '<th style="width:18%;">Classe tenue<br><i>Assigned class</i></th>';
         }
 
         return '<table class="registre"><thead><tr>'
-            .'<th style="width:5%;">N°</th>'
-            .'<th style="width:22%;">Nom et prénoms<br><i>Full name</i></th>'
-            .'<th style="width:12%;">Matricule<br><i>ID number</i></th>'
-            .'<th style="width:19%;">Fonction<br><i>Position</i></th>'
-            .'<th style="width:15%;">Département<br><i>Department</i></th>'
-            .'<th style="width:12%;">Téléphone<br><i>Phone</i></th>'
-            .'<th style="width:15%;">Email</th>'
+            .$headerHtml
             .'</tr></thead><tbody>'.$lignes.'</tbody>'
-            .'<tfoot><tr class="total"><td colspan="7">'
+            .'<tfoot><tr class="total"><td colspan="'.$colspanFooter.'">'
             .'Total : '.$donnees['total'].' membre(s) du personnel en poste'
             .' &nbsp;|&nbsp; '.$donnees['avec_acces'].' disposant d\'un accès à la plateforme'
             .'</td></tr></tfoot></table>';
     }
 
     /** Les deux ventilations côte à côte, comme les statistiques de _smapp. */
-    private function ventilations(array $donnees): string
+    private function ventilations(array $donnees, School $school): string
     {
+        // Hors secondaire, la ventilation par département n'aurait qu'une ligne
+        // « Non rattaché » : la répartition par fonction occupe alors la largeur.
+        if (! $school->estSecondaire()) {
+            return '<div style="margin-top:4mm;">'
+                .$this->ventilation('Répartition par fonction', $donnees['par_fonction'], $donnees['total'])
+                .'</div>';
+        }
+
         return '<table class="no-border" style="margin-top:4mm;"><tr>'
             .'<td class="no-border left" style="width:50%;padding-right:2mm;vertical-align:top;">'
             .$this->ventilation('Répartition par fonction', $donnees['par_fonction'], $donnees['total'])
