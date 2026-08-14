@@ -5,10 +5,15 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
+import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsReferentielPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
+import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
+import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
+import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
+import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
@@ -20,6 +25,7 @@ import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsP
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
 import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
 import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolairesPage'
+import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
@@ -37,12 +43,20 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
+      { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },
       { path: 'niveaux', element: <ProtectedRoute permission="pedagogie.view"><NiveauxScolairesPage /></ProtectedRoute> },
+      { path: 'niveaux-globaux', element: <ProtectedRoute permission="niveaux.view"><NiveauxListPage /></ProtectedRoute> },
       { path: 'classes', element: <ProtectedRoute permission="classes.view"><ClassesListPage /></ProtectedRoute> },
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view"><ClasseDetailPage /></ProtectedRoute> },
+      { path: 'sous-systemes', element: <ProtectedRoute permission="classes.manage"><SousSystemesListPage /></ProtectedRoute> },
       { path: 'eleves', element: <ProtectedRoute permission="eleves.view"><ElevesListPage /></ProtectedRoute> },
+      { path: 'eleves/nouveau', element: <ProtectedRoute permission="eleves.manage"><EleveInscriptionPage /></ProtectedRoute> },
+      { path: 'eleves/transferts', element: <ProtectedRoute permission="eleves.manage"><EleveTransfertsPage /></ProtectedRoute> },
+      { path: 'eleves/:id/edit', element: <ProtectedRoute permission="eleves.manage"><EleveInscriptionPage /></ProtectedRoute> },
       { path: 'matieres', element: <ProtectedRoute permission="pedagogie.view"><MatieresPage /></ProtectedRoute> },
+      { path: 'matieres/nouvelle', element: <ProtectedRoute permission="pedagogie.manage"><MatiereFormPage /></ProtectedRoute> },
+      { path: 'matieres/:id/edit', element: <ProtectedRoute permission="pedagogie.manage"><MatiereFormPage /></ProtectedRoute> },
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
@@ -52,7 +66,7 @@ export const router = createBrowserRouter([
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view"><ProgressionPage /></ProtectedRoute> },
-      { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage"><MaJourneePage /></ProtectedRoute> },
+      { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" roles={['enseignant']}><MaJourneePage /></ProtectedRoute> },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view"><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },

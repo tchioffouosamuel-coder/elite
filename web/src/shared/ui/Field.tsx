@@ -1,9 +1,26 @@
-import { type InputHTMLAttributes, type SelectHTMLAttributes, type ReactNode, type ComponentType } from 'react'
-import { ChevronDown } from 'lucide-react'
+import {
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type ReactNode,
+  type ComponentType,
+  type Ref,
+  type FocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  Children,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { createPortal } from 'react-dom'
+import { Check, ChevronDown, Search } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const fieldClasses =
-  'w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm text-navy-900 shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100'
+  'w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm text-navy-900 shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100 disabled:cursor-not-allowed disabled:border-navy-100 disabled:bg-cream-100 disabled:text-navy-400 disabled:shadow-none'
 
 interface WrapperProps {
   label?: string
@@ -43,28 +60,275 @@ export function Input({ label, error, className, id, icon: Icon, ...props }: Inp
   )
 }
 
+interface Option {
+  value: string
+  label: string
+  disabled?: boolean
+}
+
+/** Concatène les enfants texte/nombre d'un nœud, en ignorant le reste (ex: {a} ({b}) → "a (b)"). */
+function texteEnfants(node: ReactNode): string {
+  return Children.toArray(node)
+    .map((enfant) => (typeof enfant === 'string' || typeof enfant === 'number' ? String(enfant) : ''))
+    .join('')
+}
+
+/** Aplatit les <option> passés en enfants JSX, y compris via .map()/fragments. */
+function extraireOptions(children: ReactNode): Option[] {
+  const options: Option[] = []
+
+  Children.forEach(children, (enfant) => {
+    if (!isValidElement<{ value?: string | number; children?: ReactNode; disabled?: boolean }>(enfant)) return
+    if (enfant.type !== 'option') return
+
+    const { value, children: libelle, disabled } = enfant.props
+    options.push({
+      value: value === undefined ? '' : String(value),
+      label: texteEnfants(libelle),
+      disabled,
+    })
+  })
+
+  return options
+}
+
+/** Attache un même nœud DOM à plusieurs refs (celle de react-hook-form et la nôtre). */
+function fusionnerRefs<T>(...refs: (Ref<T> | undefined)[]) {
+  return (noeud: T | null) => {
+    for (const ref of refs) {
+      if (!ref) continue
+      if (typeof ref === 'function') ref(noeud)
+      else (ref as { current: T | null }).current = noeud
+    }
+  }
+}
+
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   error?: string
+  ref?: Ref<HTMLSelectElement>
 }
 
-export function Select({ label, error, className, id, children, ...props }: SelectProps) {
+/**
+ * Select recherchable façon Select2 : un <select> natif reste la source de
+ * vérité (register() de react-hook-form s'y attache normalement, y compris
+ * pour defaultValues/validation/reset), visuellement masqué derrière une
+ * interface personnalisée avec recherche. Le menu est porté dans <body> pour
+ * échapper au `overflow-hidden` des modales.
+ */
+export function Select({ label, error, className, id, children, ref, value, onChange, onBlur, disabled, ...props }: SelectProps) {
+  const options = useMemo(() => extraireOptions(children), [children])
+
+  const [ouvert, setOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const [survol, setSurvol] = useState(0)
+  const [affichage, setAffichage] = useState('')
+  const [position, setPosition] = useState<{ top: number; left: number; width: number; ouvreVersLeHaut: boolean } | null>(null)
+
+  const selectRef = useRef<HTMLSelectElement>(null)
+  const conteneurRef = useRef<HTMLDivElement>(null)
+  const declencheurRef = useRef<HTMLButtonElement>(null)
+  const rechercheRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const genereId = useId()
+  const triggerId = id ?? genereId
+
+  // Non contrôlé (register seul, sans prop value) : l'état affiché suit le
+  // <select> caché, dont react-hook-form définit lui-même la valeur initiale
+  // (defaultValues) au montage, avant que cet effet ne s'exécute.
+  useEffect(() => {
+    if (value === undefined) setAffichage(selectRef.current?.value ?? '')
+  }, [value])
+
+  const valeurCourante = value !== undefined ? String(value) : affichage
+  const optionCourante = options.find((o) => o.value === valeurCourante)
+
+  const filtres = useMemo(() => {
+    const q = recherche.trim().toLowerCase()
+    return q === '' ? options : options.filter((o) => o.label.toLowerCase().includes(q))
+  }, [options, recherche])
+
+  const positionner = () => {
+    const rect = declencheurRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const espaceBas = window.innerHeight - rect.bottom
+    const ouvreVersLeHaut = espaceBas < 260 && rect.top > espaceBas
+    setPosition({ top: ouvreVersLeHaut ? rect.top : rect.bottom, left: rect.left, width: rect.width, ouvreVersLeHaut })
+  }
+
+  const ouvrir = () => {
+    if (disabled) return
+    positionner()
+    setRecherche('')
+    setSurvol(Math.max(options.findIndex((o) => o.value === valeurCourante), 0))
+    setOuvert(true)
+  }
+
+  const fermer = useCallback(
+    (rendreLeFocus = false) => {
+      setOuvert(false)
+      onBlur?.({ target: selectRef.current } as unknown as FocusEvent<HTMLSelectElement>)
+      if (rendreLeFocus) declencheurRef.current?.focus()
+    },
+    [onBlur],
+  )
+
+  useEffect(() => {
+    if (!ouvert) return
+    requestAnimationFrame(() => rechercheRef.current?.focus())
+
+    const surClicExterieur = (e: MouseEvent) => {
+      const cible = e.target as Node
+      if (conteneurRef.current?.contains(cible) || menuRef.current?.contains(cible)) return
+      fermer()
+    }
+    const surRepositionnement = () => positionner()
+
+    document.addEventListener('mousedown', surClicExterieur)
+    window.addEventListener('resize', surRepositionnement)
+    window.addEventListener('scroll', surRepositionnement, true)
+    return () => {
+      document.removeEventListener('mousedown', surClicExterieur)
+      window.removeEventListener('resize', surRepositionnement)
+      window.removeEventListener('scroll', surRepositionnement, true)
+    }
+  }, [ouvert, fermer])
+
+  const choisir = (option: Option) => {
+    if (option.disabled) return
+
+    const noeud = selectRef.current
+    if (noeud) {
+      // Déclenche le vrai setter natif puis un événement 'change' réel :
+      // c'est ainsi que React (et donc onChange fourni par register()) détecte
+      // un changement de valeur programmatique sur un <select>.
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
+      setter?.call(noeud, option.value)
+      noeud.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+    setAffichage(option.value)
+    fermer(true)
+  }
+
+  const surClavierDeclencheur = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (ouvert) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      ouvrir()
+    }
+  }
+
+  const surClavierRecherche = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSurvol((i) => Math.min(i + 1, filtres.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSurvol((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const option = filtres[survol]
+      if (option) choisir(option)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      fermer(true)
+    }
+  }
+
   return (
-    <FieldWrapper label={label} error={error} htmlFor={id}>
-      <div className="relative">
+    <FieldWrapper label={label} error={error} htmlFor={triggerId}>
+      <div ref={conteneurRef} className="relative">
+        {/* Source de vérité pour react-hook-form : masqué visuellement mais
+            fonctionnellement présent (defaultValues, validation, reset…). */}
         <select
-          id={id}
-          className={clsx(
-            fieldClasses,
-            'appearance-none bg-white pr-10',
-            error && 'border-red-400 focus:border-red-400 focus:ring-red-100',
-            className,
-          )}
+          ref={fusionnerRefs(ref, selectRef)}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
           {...props}
         >
           {children}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+
+        <button
+          ref={declencheurRef}
+          type="button"
+          id={triggerId}
+          disabled={disabled}
+          onClick={() => (ouvert ? fermer() : ouvrir())}
+          onKeyDown={surClavierDeclencheur}
+          className={clsx(
+            fieldClasses,
+            'flex items-center justify-between gap-2 text-left',
+            error && 'border-red-400 focus:border-red-400 focus:ring-red-100',
+            className,
+          )}
+        >
+          <span className={clsx('truncate', !optionCourante?.label && 'text-navy-300')}>
+            {optionCourante?.label || '—'}
+          </span>
+          <ChevronDown className={clsx('h-4 w-4 flex-none text-navy-400 transition-transform', ouvert && 'rotate-180')} />
+        </button>
+
+        {ouvert &&
+          position &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={{
+                position: 'fixed',
+                left: position.left,
+                width: position.width,
+                ...(position.ouvreVersLeHaut ? { bottom: window.innerHeight - position.top + 4 } : { top: position.top + 4 }),
+              }}
+              className="z-[100] flex max-h-72 flex-col overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lifted"
+            >
+              <div className="relative flex-none border-b border-navy-50 p-1.5">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-navy-300" />
+                <input
+                  ref={rechercheRef}
+                  value={recherche}
+                  onChange={(e) => {
+                    setRecherche(e.target.value)
+                    setSurvol(0)
+                  }}
+                  onKeyDown={surClavierRecherche}
+                  placeholder="Rechercher…"
+                  className="w-full rounded-lg border-none bg-cream-50 py-1.5 pl-8 pr-2 text-sm text-navy-900 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-navy-100"
+                />
+              </div>
+              <ul role="listbox" className="overflow-y-auto py-1">
+                {filtres.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-navy-300">Aucun résultat</li>
+                ) : (
+                  filtres.map((option, i) => (
+                    <li
+                      key={option.value}
+                      role="option"
+                      aria-selected={option.value === valeurCourante}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setSurvol(i)}
+                      onClick={() => choisir(option)}
+                      className={clsx(
+                        'flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm text-navy-700',
+                        option.disabled && 'cursor-not-allowed text-navy-300',
+                        !option.disabled && i === survol && 'bg-cream-100',
+                        option.value === valeurCourante && 'font-semibold text-navy-900',
+                      )}
+                    >
+                      <span className="truncate">{option.label || '—'}</span>
+                      {option.value === valeurCourante && <Check className="h-3.5 w-3.5 flex-none text-gold-500" />}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>,
+            document.body,
+          )}
       </div>
     </FieldWrapper>
   )

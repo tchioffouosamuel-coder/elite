@@ -136,7 +136,7 @@ class MoyenneService extends BaseService
             ->map(fn (ClasseMatiere $cm) => [
                 'classe_matiere_id' => $cm->id,
                 'matiere' => $cm->matiere->nom,
-                'enseignant' => $cm->enseignant?->nomComplet(),
+                'enseignant' => $cm->enseignant?->nom_complet,
                 'taux' => $this->tauxRemplissage($cm, $trimestre),
             ]);
     }

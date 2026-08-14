@@ -111,7 +111,7 @@ class ProgressionService extends BaseService
             ->map(fn (ClasseMatiere $cm) => [
                 'classe_matiere_id' => $cm->id,
                 'matiere' => $cm->matiere->nom,
-                'enseignant' => $cm->enseignant?->nomComplet() ?? $classe->titulaire?->nomComplet(),
+                'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
                 ...$this->tauxAffectation($cm),
             ])
             ->values();

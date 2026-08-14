@@ -13,14 +13,14 @@ class SanctionResource extends JsonResource
             'id' => $this->id,
             'eleve' => $this->whenLoaded('eleve', fn () => [
                 'id' => $this->eleve->id,
-                'nom_complet' => $this->eleve->nomComplet(),
+                'nom_complet' => $this->eleve->nom_complet,
             ]),
             'classe' => $this->whenLoaded('classe', fn () => $this->classe->nom),
             'type' => $this->type,
             'duree_jours' => $this->duree_jours,
             'motif' => $this->motif,
             'date_sanction' => $this->date_sanction?->format('Y-m-d'),
-            'enregistre_par' => $this->enregistrePar?->nomComplet(),
+            'enregistre_par' => $this->enregistrePar?->nom_complet,
         ];
     }
 }

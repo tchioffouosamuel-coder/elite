@@ -11,7 +11,7 @@ class TuteurResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'nom_complet' => $this->nomComplet(),
+            'nom_complet' => $this->nom_complet,
             'telephone' => $this->telephone,
             'email' => $this->email,
             'profession' => $this->profession,

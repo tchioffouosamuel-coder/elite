@@ -95,7 +95,7 @@ class SeanceController extends Controller
             'seance' => $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant')),
             'lignes' => $this->service->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
-                'nom_complet' => $ligne['eleve']->nomComplet(),
+                'nom_complet' => $ligne['eleve']->nom_complet,
                 'matricule' => $ligne['eleve']->matricule,
                 'statut' => $ligne['statut'],
                 'motif' => $ligne['motif'],
@@ -143,7 +143,7 @@ class SeanceController extends Controller
             'classe_id' => $seance->classe_id,
             'classe_matiere_id' => $seance->classe_matiere_id,
             'matiere' => $seance->classeMatiere?->matiere?->nom,
-            'enseignant' => $seance->classeMatiere?->enseignant?->nomComplet(),
+            'enseignant' => $seance->classeMatiere?->enseignant?->nom_complet,
             'date_seance' => $seance->date_seance?->toDateString(),
             'heure_debut' => substr((string) $seance->heure_debut, 0, 5),
             'heure_fin' => substr((string) $seance->heure_fin, 0, 5),

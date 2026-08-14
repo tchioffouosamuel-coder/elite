@@ -5,19 +5,29 @@ import { useState } from 'react'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
-import { fetchNiveaux, fetchAnneesScolaires, createClasse, type ClassePayload } from '@/features/classes/api'
+import { fetchNiveaux, fetchAnneesScolaires, createClasse, updateClasse, fetchSousSystemes, fetchSchools, type Classe, type ClassePayload } from '@/features/classes/api'
 import { fetchEcole } from '@/features/settings/api'
 import { fetchNiveauxScolaires } from '@/features/primaire/api'
 import { fetchPersonnels } from '@/features/personnel/api'
 import { estSecondaire, utiliseNiveaux } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 
-export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function ClasseFormModal({
+  classe,
+  onClose,
+  onCreated,
+}: {
+  classe?: Classe
+  onClose: () => void
+  onCreated: () => void
+}) {
   const { t } = useTranslation()
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: fetchNiveaux })
   const { data: ecole } = useQuery({ queryKey: ['ecole'], queryFn: fetchEcole })
   const { data: annees } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
-  const niveauxEcole = ecole ? niveaux?.filter((n) => ecole.niveau_ids.includes(n.id)) : niveaux
+  const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const niveauxEcole = ecole ? niveaux?.filter((n) => n.school_id === ecole.id) : niveaux
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -43,20 +53,44 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ClassePayload>({ defaultValues: { annee_scolaire_id: activeAnnee?.id } })
+  } = useForm<ClassePayload>({
+    defaultValues: classe
+      ? {
+        nom: classe.nom,
+        sigle: classe.sigle ?? '',
+        niveau_classe: classe.niveau_classe ?? '',
+        niveau_id: classe.niveau_id,
+        annee_scolaire_id: classe.annee_scolaire_id,
+        niveau_scolaire_id: classe.niveau_scolaire_id ?? undefined,
+        sous_systeme_id: classe.sous_systeme_id ?? undefined,
+        school_id: classe.school_id ?? undefined,
+        titulaire_id: classe.titulaire_id ?? undefined,
+        filiere: classe.filiere ?? '',
+        code_examen: classe.code_examen ?? '',
+        capacite: classe.capacite ?? undefined,
+      }
+      : { annee_scolaire_id: activeAnnee?.id },
+  })
 
   const onSubmit = async (values: ClassePayload) => {
     setServerError(null)
     setSubmitting(true)
     try {
-      await createClasse({
+      const payload = {
         ...values,
         niveau_id: Number(values.niveau_id),
         annee_scolaire_id: Number(values.annee_scolaire_id),
         capacite: values.capacite ? Number(values.capacite) : null,
         niveau_scolaire_id: values.niveau_scolaire_id ? Number(values.niveau_scolaire_id) : null,
+        sous_systeme_id: values.sous_systeme_id ? Number(values.sous_systeme_id) : null,
+        school_id: values.school_id ? Number(values.school_id) : null,
         titulaire_id: values.titulaire_id ? Number(values.titulaire_id) : null,
-      })
+      }
+      if (classe) {
+        await updateClasse(classe.id, payload)
+      } else {
+        await createClasse(payload)
+      }
       onCreated()
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -66,9 +100,20 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
   }
 
   return (
-    <Modal title={t('classes.add')} onClose={onClose}>
+    <Modal title={classe ? t('classes.edit') : t('classes.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input label={t('classes.nom')} error={errors.nom?.message} {...register('nom', { required: true })} />
+
+        <Input label="Sigle" placeholder="ex: GS-A, CE1-B" {...register('sigle')} />
+
+        <Select label="École" {...register('school_id')}>
+          <option value="">—</option>
+          {schools?.map((s) => (
+            <option key={s.id} value={String(s.id)}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
 
         <Select label={t('classes.niveau')} error={errors.niveau_id?.message} {...register('niveau_id', { required: true })}>
           <option value="">—</option>
@@ -87,6 +132,15 @@ export function ClasseFormModal({ onClose, onCreated }: { onClose: () => void; o
           {annees?.map((a) => (
             <option key={a.id} value={a.id}>
               {a.libelle}
+            </option>
+          ))}
+        </Select>
+
+        <Select label="Sous-système" {...register('sous_systeme_id')}>
+          <option value="">—</option>
+          {sousSystemes?.map((s) => (
+            <option key={s.id} value={String(s.id)}>
+              {s.nom} ({s.code})
             </option>
           ))}
         </Select>

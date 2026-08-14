@@ -9,9 +9,8 @@ export interface Departement {
 export interface Personnel {
   id: number
   matricule: string | null
-  nom: string
-  prenom: string
   nom_complet: string
+  fonction_id: number
   fonction: string
   departement: Departement | null
   telephone: string | null
@@ -21,13 +20,21 @@ export interface Personnel {
 }
 
 export interface PersonnelPayload {
-  nom: string
-  prenom: string
-  fonction: string
+  nom_complet: string
+  fonction_id: number
   departement_id?: number | null
   matricule?: string | null
   telephone?: string | null
   email?: string | null
+}
+
+export interface FonctionReferentiel {
+  id: number
+  school_id: number
+  label_fr: string
+  label_en: string | null
+  label: string
+  personnels_count?: number
 }
 
 export async function fetchDepartements(): Promise<Departement[]> {
@@ -40,6 +47,34 @@ export async function createDepartement(nom: string): Promise<Departement> {
   return data.data
 }
 
+export async function fetchFonctionsReferentiel(): Promise<FonctionReferentiel[]> {
+  const { data } = await http.get<ApiResponse<FonctionReferentiel[]>>('/fonctions-referentiel')
+  return data.data
+}
+
+export async function createFonctionReferentiel(payload: {
+  label_fr: string
+  label_en?: string | null
+}): Promise<FonctionReferentiel> {
+  const { data } = await http.post<ApiResponse<FonctionReferentiel>>('/fonctions-referentiel', payload)
+  return data.data
+}
+
+export async function updateFonctionReferentiel(
+  id: number,
+  payload: {
+    label_fr: string
+    label_en?: string | null
+  },
+): Promise<FonctionReferentiel> {
+  const { data } = await http.put<ApiResponse<FonctionReferentiel>>(`/fonctions-referentiel/${id}`, payload)
+  return data.data
+}
+
+export async function deleteFonctionReferentiel(id: number): Promise<void> {
+  await http.delete(`/fonctions-referentiel/${id}`)
+}
+
 export async function fetchPersonnels(params: { search?: string; page?: number; per_page?: number }): Promise<{ items: Personnel[]; pagination: Pagination }> {
   const { data } = await http.get<ApiResponse<Personnel[]>>('/personnels', { params })
   return { items: data.data, pagination: data.meta!.pagination! }
@@ -47,6 +82,11 @@ export async function fetchPersonnels(params: { search?: string; page?: number; 
 
 export async function createPersonnel(payload: PersonnelPayload): Promise<Personnel> {
   const { data } = await http.post<ApiResponse<Personnel>>('/personnels', payload)
+  return data.data
+}
+
+export async function updatePersonnel(id: number, payload: PersonnelPayload): Promise<Personnel> {
+  const { data } = await http.put<ApiResponse<Personnel>>(`/personnels/${id}`, payload)
   return data.data
 }
 

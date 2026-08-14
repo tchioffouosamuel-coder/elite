@@ -14,8 +14,8 @@ use Maatwebsite\Excel\Concerns\WithValidation;
 
 /**
  * Colonnes attendues (en-têtes insensibles à la casse) :
- * nom, prenom, sexe (M/F), matricule, classe (nom exact de la classe),
- * date_naissance (AAAA-MM-JJ), lieu_naissance, tuteur_nom, tuteur_prenom, tuteur_telephone
+ * nom_complet, sexe (M/F), matricule, classe (nom exact de la classe),
+ * date_naissance (AAAA-MM-JJ), lieu_naissance, tuteur_nom_complet, tuteur_telephone
  *
  * ToCollection plutôt que ToModel : contrairement à PersonnelImport, chaque
  * ligne doit résoudre une classe par nom et éventuellement créer un tuteur —
@@ -40,25 +40,23 @@ class EleveImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithV
             $eleve = Eleve::create([
                 'school_id' => $this->schoolId,
                 'classe_id' => $classeId,
-                'matricule' => $row['matricule'] ?? null,
-                'nom' => $row['nom'],
-                'prenom' => $row['prenom'],
+                'matricule' => ($row['matricule'] ?? null) ?: Eleve::genererMatricule($this->schoolId),
+                'nom_complet' => $row['nom_complet'],
                 'sexe' => strtoupper($row['sexe']),
                 'date_naissance' => $row['date_naissance'] ?? null,
                 'lieu_naissance' => $row['lieu_naissance'] ?? null,
                 'statut' => 'actif',
             ]);
 
-            if (! empty($row['tuteur_nom']) && ! empty($row['tuteur_prenom'])) {
+            if (! empty($row['tuteur_nom_complet'])) {
                 $tuteur = ! empty($row['tuteur_telephone'])
                     ? Tuteur::firstOrCreate(
                         ['school_id' => $this->schoolId, 'telephone' => $row['tuteur_telephone']],
-                        ['nom' => $row['tuteur_nom'], 'prenom' => $row['tuteur_prenom']]
+                        ['nom_complet' => $row['tuteur_nom_complet']]
                     )
                     : Tuteur::create([
                         'school_id' => $this->schoolId,
-                        'nom' => $row['tuteur_nom'],
-                        'prenom' => $row['tuteur_prenom'],
+                        'nom_complet' => $row['tuteur_nom_complet'],
                     ]);
 
                 $eleve->tuteurs()->attach($tuteur->id, ['lien_parente' => 'parent', 'is_principal' => true]);
@@ -71,8 +69,7 @@ class EleveImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithV
     public function rules(): array
     {
         return [
-            'nom' => ['required', 'string'],
-            'prenom' => ['required', 'string'],
+            'nom_complet' => ['required', 'string'],
             'sexe' => ['required', 'in:M,F,m,f'],
             'date_naissance' => ['nullable', 'date'],
         ];

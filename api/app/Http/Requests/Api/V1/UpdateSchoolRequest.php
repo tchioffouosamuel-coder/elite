@@ -22,8 +22,6 @@ class UpdateSchoolRequest extends FormRequest
             // pas seulement le texte visible.
             'header_fr' => ['nullable', 'string', 'max:4000'],
             'header_en' => ['nullable', 'string', 'max:4000'],
-            'niveau_ids' => ['required', 'array', 'min:1'],
-            'niveau_ids.*' => ['integer', 'exists:niveaux,id'],
         ];
     }
 }

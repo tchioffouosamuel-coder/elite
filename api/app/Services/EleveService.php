@@ -32,6 +32,8 @@ class EleveService extends BaseService
             $tuteurs = $attributes['tuteurs'] ?? [];
             unset($attributes['tuteurs']);
 
+            $attributes['matricule'] = ($attributes['matricule'] ?? null) ?: Eleve::genererMatricule($schoolId);
+
             $eleve = $this->repository->create([...$attributes, 'school_id' => $schoolId]);
             $this->syncTuteurs($eleve, $schoolId, $tuteurs);
 
@@ -94,7 +96,7 @@ class EleveService extends BaseService
         $contents = ob_get_clean();
         imagedestroy($square);
 
-        $path = 'eleves/photos/'.$eleve->id.'.jpg';
+        $path = 'eleves/photos/' . $eleve->id . '.jpg';
         Storage::disk('public')->put($path, $contents);
 
         return $this->repository->update($eleve, ['photo_path' => $path]);
@@ -110,7 +112,7 @@ class EleveService extends BaseService
             ->groupBy('classe_id')
             ->with('classe:id,nom')
             ->get()
-            ->map(fn ($row) => ['classe' => $row->classe?->nom ?? 'Non affecté', 'total' => $row->total]);
+            ->map(fn($row) => ['classe' => $row->classe?->nom ?? 'Non affecté', 'total' => $row->total]);
 
         $parGenre = Eleve::forSchool($schoolId)
             ->selectRaw('sexe, count(*) as total')
@@ -139,14 +141,29 @@ class EleveService extends BaseService
         ];
     }
 
+    public function delete(Eleve $eleve): void
+    {
+        $this->transaction(function () use ($eleve) {
+            // Détacher les tuteurs
+            $eleve->tuteurs()->detach();
+
+            // Supprimer la photo si elle existe
+            if ($eleve->photo_path) {
+                Storage::disk('public')->delete($eleve->photo_path);
+            }
+
+            // Supprimer l'élève
+            $this->repository->delete($eleve);
+        });
+    }
+
     private function syncTuteurs(Eleve $eleve, int $schoolId, array $tuteurs): void
     {
         $eleve->tuteurs()->detach();
 
         foreach ($tuteurs as $data) {
             $baseAttributes = [
-                'nom' => $data['nom'],
-                'prenom' => $data['prenom'],
+                'nom_complet' => $data['nom_complet'],
                 'email' => $data['email'] ?? null,
                 'profession' => $data['profession'] ?? null,
                 'adresse' => $data['adresse'] ?? null,

@@ -19,8 +19,7 @@ class UpdateEleveRequest extends FormRequest
         return [
             'classe_id' => ['nullable', $this->scopedExists('classes')],
             'matricule' => ['nullable', 'string', 'max:50'],
-            'nom' => ['sometimes', 'required', 'string', 'max:100'],
-            'prenom' => ['sometimes', 'required', 'string', 'max:100'],
+            'nom_complet' => ['sometimes', 'required', 'string', 'max:200'],
             'sexe' => ['sometimes', 'required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
@@ -30,8 +29,7 @@ class UpdateEleveRequest extends FormRequest
             'statut' => ['nullable', 'in:actif,parti,exclu'],
 
             'tuteurs' => ['nullable', 'array'],
-            'tuteurs.*.nom' => ['required_with:tuteurs', 'string', 'max:100'],
-            'tuteurs.*.prenom' => ['required_with:tuteurs', 'string', 'max:100'],
+            'tuteurs.*.nom_complet' => ['required_with:tuteurs', 'string', 'max:200'],
             'tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
             'tuteurs.*.email' => ['nullable', 'email', 'max:150'],
             'tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 class ClasseService extends BaseService
 {
     private const RESPONSABLES = [
-        'niveau', 'niveauScolaire', 'professeurPrincipal', 'titulaire',
+        'niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire',
         'surveillantGeneral', 'censeur', 'conseillerOrientation',
     ];
 

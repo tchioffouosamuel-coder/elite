@@ -24,7 +24,7 @@ class PersonnelService extends BaseService
 
     public function find(int $schoolId, int $id): Personnel
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference'])->findOrFail($id);
     }
 
     public function create(int $schoolId, array $attributes): Personnel
@@ -56,7 +56,7 @@ class PersonnelService extends BaseService
             $plainPassword = $password ?: Str::password(12);
 
             $user = User::create([
-                'name' => $personnel->nomComplet(),
+                'name' => $personnel->nom_complet,
                 'email' => $email,
                 'password' => Hash::make($plainPassword),
                 'school_id' => $personnel->school_id,
@@ -88,8 +88,8 @@ class PersonnelService extends BaseService
     {
         $personnels = Personnel::forSchool($schoolId)
             ->where('statut', 'actif')
-            ->with('departement')
-            ->orderBy('nom')->orderBy('prenom')
+            ->with(['departement', 'fonctionReference', 'classesTenues.niveau'])
+            ->orderBy('nom_complet')
             ->get();
 
         $ventilation = static function (Collection $valeurs): array {
@@ -103,9 +103,9 @@ class PersonnelService extends BaseService
             'personnels' => $personnels,
             'total' => $personnels->count(),
             'avec_acces' => $personnels->whereNotNull('user_id')->count(),
-            'par_fonction' => $ventilation($personnels->map(fn (Personnel $p) => $p->fonction ?: 'Non précisée')),
+            'par_fonction' => $ventilation($personnels->map(fn(Personnel $p) => $p->fonction ?: 'Non précisée')),
             'par_departement' => $ventilation(
-                $personnels->map(fn (Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
+                $personnels->map(fn(Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
             ),
         ];
     }

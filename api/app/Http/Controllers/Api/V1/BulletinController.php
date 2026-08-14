@@ -29,7 +29,7 @@ class BulletinController extends Controller
         $trimestre = $this->trimestre($request);
         $donnees = $this->service->donneesClasse($eleve->classe, $trimestre, [$eleve->id]);
 
-        return $this->pdf($donnees, 'bulletin-'.Str::slug($eleve->nomComplet()).'-'.Str::slug($trimestre->libelle));
+        return $this->pdf($donnees, 'bulletin-'.Str::slug($eleve->nom_complet).'-'.Str::slug($trimestre->libelle));
     }
 
     /**

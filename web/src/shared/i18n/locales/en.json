@@ -7,6 +7,8 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
+    "create": "Create",
+    "update": "Update",
     "search": "Search…",
     "loading": "Loading…",
     "actions": "Actions",
@@ -24,8 +26,10 @@
   "nav": {
     "dashboard": "Dashboard",
     "personnel": "Staff",
+    "fonctionsReferentiel": "Positions",
     "departements": "Departments",
     "classes": "Classes",
+    "sousSystemes": "Subsystems",
     "eleves": "Students",
     "matieres": "Subjects",
     "sanctions": "Sanctions",
@@ -39,6 +43,8 @@
     "remplissage": "Marks completion",
     "identification": "Photos & ID cards",
     "openMenu": "Open menu",
+    "searchMenu": "Search menu…",
+    "noMenuFound": "No menu found.",
     "statsPedagogiques": "Academic statistics",
     "statsDisciplinaires": "Disciplinary statistics",
     "photosExamen": "DECC & OBC photos",
@@ -53,8 +59,10 @@
       "identification": "Identification & security"
     },
     "niveaux": "Levels",
+    "niveauxGlobaux": "Global levels",
     "progression": "Progress",
-    "maJournee": "My day"
+    "maJournee": "My day",
+    "transferts": "Bulk transfers"
   },
   "auth": {
     "login_title": "Sign in",
@@ -84,8 +92,8 @@
   "personnel": {
     "title": "Staff",
     "add": "Add a staff member",
-    "nom": "Last name",
-    "prenom": "First name",
+    "edit": "Edit staff member",
+    "nom_complet": "Full name",
     "fonction": "Role",
     "departement": "Department",
     "matricule": "Staff ID",
@@ -103,6 +111,7 @@
   "classes": {
     "title": "Classes",
     "add": "Add a class",
+    "edit": "Edit a class",
     "nom": "Class name",
     "niveau": "Level",
     "filiere": "Stream",
@@ -110,13 +119,13 @@
     "effectif": "Enrolled",
     "professeur_principal": "Homeroom teacher",
     "code_examen": "Examination code (optional)",
-    "titulaire": "Class teacher"
+    "titulaire": "Teacher"
   },
   "eleves": {
     "title": "Students",
     "add": "Enroll a student",
-    "nom": "Last name",
-    "prenom": "First name",
+    "edit": "Edit a student",
+    "nom_complet": "Full name",
     "sexe": "Sex",
     "masculin": "Male",
     "feminin": "Female",
@@ -126,17 +135,24 @@
     "tuteur": "Guardian",
     "tuteur_nom": "Guardian name",
     "tuteur_telephone": "Guardian phone",
-    "lien_parente": "Relationship"
+    "lien_parente": "Relationship",
+    "statut": "Status",
+    "actif": "Active",
+    "parti": "Left",
+    "exclu": "Expelled"
   },
   "matieres": {
     "title": "Subjects",
     "add": "Add a subject",
+    "edit": "Edit a subject",
     "nom": "Subject name",
     "abbreviation": "Abbreviation",
     "nom_en": "Name (English)",
     "notation": "Marked out of",
     "volets": "Assessment areas",
-    "evalue_pratique": "Also assess the practical area"
+    "evalue_pratique": "Also assess the practical area",
+    "repartition_volets": "Assessment area breakdown",
+    "repartition_somme": "Current total: {{somme}} / {{notation}}"
   },
   "pedagogie": {
     "title": "Subjects & assignments",
@@ -152,7 +168,8 @@
     "select_prompt": "Choose a subject and a sequence to display the grade sheet.",
     "saved": "{{count}} grade(s) saved.",
     "trimestre": "Term",
-    "bareme_hint": "Subject marked out of {{bareme}}, split across {{volets}} assessment areas — up to {{max}} points per area and per sequence."
+    "bareme_hint": "Subject marked out of {{bareme}}, split per assessment area and per sequence as follows: {{repartition}}.",
+    "saisir": "Enter marks"
   },
   "discipline": {
     "title": "Discipline",
@@ -168,6 +185,11 @@
     "date": "Date",
     "heures_justifiees": "Excused hours",
     "heures_non_justifiees": "Unexcused hours",
+    "jours_justifies": "Excused days",
+    "jours_non_justifies": "Unexcused days",
+    "total_jnj": "Total unexcused days",
+    "moyenne_jnj": "Average per student",
+    "jours_calcules": "Days derived from roll calls: a day counts as absent when the child was not marked present in any of that day's lessons.",
     "total_hnj": "Total unexcused hours",
     "moyenne_hnj": "Average per student",
     "plus_absent": "Most absent student"
@@ -187,8 +209,6 @@
     "title": "School settings",
     "saved": "Preferences saved.",
     "ecole": "School",
-    "niveaux_operes": "Levels operated by the school",
-    "niveaux_hint": "Determines which levels (Nursery, Primary, Secondary) appear in class forms and level-specific features.",
     "nom": "School name",
     "adresse": "Address",
     "telephone": "Phone",
@@ -227,13 +247,24 @@
     "template_hint": "Expected columns (first row as headers):"
   },
   "niveaux": {
-    "title": "Teaching levels",
-    "hint": "Classes of the same level (SIL, CP, CE1…) are placed under a level coordinator.",
+    "title": "Global levels",
+    "hint": "Manage the teaching levels in your school.",
+    "create": "Add a level",
+    "create_title": "Create a new level",
+    "edit_title": "Edit the level",
     "code": "Code",
-    "libelle": "Label",
-    "classes": "Classes",
-    "animateur": "Level coordinator",
-    "empty": "No level defined yet."
+    "label": "Label",
+    "name_fr": "French name",
+    "name_en": "English name",
+    "school": "School",
+    "sous_systeme": "Subsystem",
+    "ordre": "Display order",
+    "created": "Level created successfully.",
+    "updated": "Level updated successfully.",
+    "deleted": "Level deleted successfully.",
+    "error": "An error occurred.",
+    "confirm_delete": "Are you sure you want to delete this level?",
+    "empty": "No level created yet."
   },
   "progression": {
     "title": "Teaching progress",

@@ -1,47 +1,103 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, Plus } from 'lucide-react'
-import { fetchMatieres, createMatiere } from '@/features/pedagogie/api'
-import { fetchDepartements } from '@/features/personnel/api'
+import { useNavigate } from 'react-router-dom'
+import { BookOpen, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { useState } from 'react'
+import { fetchMatieres, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
-import { Modal } from '@/shared/ui/Modal'
-import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { useForm } from 'react-hook-form'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { estSecondaire } from '@/shared/lib/ecole'
-import type { Matiere, MatierePayload } from '@/features/pedagogie/api'
+import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
+import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
+import type { Matiere } from '@/features/pedagogie/api'
+import type { ApiError } from '@/shared/types/api'
 
 export function MatieresPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showImport, setShowImport] = useState(false)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
-  const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
 
-  const { register, handleSubmit, reset } = useForm<MatierePayload>()
-
-  // Au primaire une matière est notée sur un barème propre et se découpe en
-  // volets ; au secondaire elle est sur 20 et relève d'un département.
+  // Le secondaire classe ses matières par département ; le primaire les note
+  // sur un barème propre, réparti sur ses volets d'évaluation.
   const secondaire = estSecondaire()
 
-  const onSubmit = async (values: MatierePayload) => {
-    await createMatiere({
-      ...values,
-      departement_id: values.departement_id ? Number(values.departement_id) : null,
-      notation: values.notation ? Number(values.notation) : null,
-    })
-    reset()
-    setShowForm(false)
-    queryClient.invalidateQueries({ queryKey: ['matieres'] })
+  const handleDelete = async (matiere: Matiere) => {
+    const ok = await confirmerSuppression(`la matière ${matiere.nom}`)
+    if (!ok) return
+
+    try {
+      await deleteMatiere(matiere.id)
+      queryClient.invalidateQueries({ queryKey: ['matieres'] })
+      succes('Matière supprimée.')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const handleToggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleSelectAll = (matieres: Matiere[]) => {
+    if (selectedIds.size === matieres.length && matieres.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(matieres.map((m) => m.id)))
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const ok = await confirmerSuppression(`${ids.length} matière(s)`)
+    if (!ok) return
+
+    try {
+      await batchDeleteMatieres(ids)
+      setSelectedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['matieres'] })
+      succes(`${ids.length} matière(s) supprimée(s).`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
   }
 
   const colonnes: Colonne<Matiere>[] = [
+    {
+      cle: 'selection',
+      entete: data ? (
+        <input
+          type="checkbox"
+          checked={selectedIds.size === data.length && data.length > 0}
+          onChange={() => handleSelectAll(data)}
+          className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+        />
+      ) : null,
+      cellule: (m) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(m.id)}
+          onChange={() => handleToggleSelect(m.id)}
+          className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+        />
+      ),
+    },
     {
       cle: 'nom',
       entete: t('matieres.nom'),
@@ -54,33 +110,66 @@ export function MatieresPage() {
       valeur: (m) => m.abbreviation,
       cellule: (m) => m.abbreviation ?? '—',
     },
-    // Le secondaire classe ses matières par département ; le primaire les note
-    // sur un barème propre, réparti sur ses volets d'évaluation.
     ...(secondaire
       ? [
-          {
-            cle: 'departement',
-            entete: t('personnel.departement'),
-            valeur: (m: Matiere) => m.departement?.nom,
-            cellule: (m: Matiere) => m.departement?.nom ?? '—',
-            masquerMobile: true,
-          },
-        ]
+        {
+          cle: 'departement',
+          entete: t('personnel.departement'),
+          valeur: (m: Matiere) => m.departement?.nom,
+          cellule: (m: Matiere) => m.departement?.nom ?? '—',
+          masquerMobile: true,
+        },
+      ]
       : [
-          {
-            cle: 'notation',
-            entete: t('matieres.notation'),
-            valeur: (m: Matiere) => m.notation,
-            cellule: (m: Matiere) => (m.notation ? `/ ${m.notation}` : '—'),
-          },
-          {
-            cle: 'volets',
-            entete: t('matieres.volets'),
-            valeur: (m: Matiere) => m.composantes.length,
-            cellule: (m: Matiere) => m.composantes.length,
-            masquerMobile: true,
-          },
-        ]),
+        {
+          cle: 'notation',
+          entete: t('matieres.notation'),
+          valeur: (m: Matiere) => m.notation,
+          cellule: (m: Matiere) => (m.notation ? `/ ${m.notation}` : '—'),
+        },
+        {
+          cle: 'volets',
+          entete: t('matieres.volets'),
+          valeur: (m: Matiere) => m.composantes.length,
+          cellule: (m: Matiere) => (
+            <span title={m.composantes.map((c) => `${LIBELLES_COMPOSANTES[c as Composante]} : /${m.repartition_volets[c] ?? 0}`).join(' · ')}>
+              {m.composantes
+                .map((c) => `${LIBELLES_COMPOSANTES[c as Composante]} /${m.repartition_volets[c] ?? 0}`)
+                .join(' · ')}
+            </span>
+          ),
+          masquerMobile: true,
+        },
+      ]),
+    {
+      cle: 'actions',
+      entete: t('common.actions'),
+      cellule: (m) =>
+        can('pedagogie.manage') && (
+          <div className="flex items-center gap-1">
+            <button
+              title={t('common.edit')}
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/matieres/${m.id}/edit`)
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              title={t('common.delete')}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(m)
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+    },
   ]
 
   return (
@@ -89,12 +178,26 @@ export function MatieresPage() {
         titre={t('matieres.title')}
         icon={BookOpen}
         actions={
-          can('pedagogie.manage') && (
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="h-4 w-4" />
-              {t('matieres.add')}
-            </Button>
-          )
+          <>
+            {selectedIds.size > 0 && can('pedagogie.manage') && (
+              <Button variant="danger" onClick={handleBatchDelete}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer ({selectedIds.size})
+              </Button>
+            )}
+            {!secondaire && can('pedagogie.manage') && (
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.title')}
+              </Button>
+            )}
+            {can('pedagogie.manage') && (
+              <Button onClick={() => navigate('/matieres/nouvelle')}>
+                <Plus className="h-4 w-4" />
+                {t('matieres.add')}
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -109,46 +212,17 @@ export function MatieresPage() {
           cleLigne={(m) => m.id}
           placeholderRecherche="Rechercher une matière…"
           messageVide="Aucune matière pour cet établissement."
-        />      )}
+        />
+      )}
 
-      {showForm && (
-        <Modal title={t('matieres.add')} onClose={() => setShowForm(false)}>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <Input label={t('matieres.nom')} {...register('nom', { required: true })} />
-            <Input label={t('matieres.abbreviation')} {...register('abbreviation')} />
-            {secondaire ? (
-              <Select label={t('personnel.departement')} {...register('departement_id')}>
-                <option value="">—</option>
-                {departements?.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nom}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              <>
-                <Input label={t('matieres.nom_en')} {...register('nom_en')} />
-                <Input
-                  type="number"
-                  min={10}
-                  max={100}
-                  label={t('matieres.notation')}
-                  {...register('notation', { required: true })}
-                />
-                <label className="flex items-center gap-2 text-sm text-navy-700">
-                  <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
-                  {t('matieres.evalue_pratique')}
-                </label>
-              </>
-            )}
-            <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button type="submit">{t('common.save')}</Button>
-            </div>
-          </form>
-        </Modal>
+      {showImport && (
+        <ImportModal
+          title={t('import.title')}
+          url="/matieres/import"
+          columns={['nom', 'nom_en', 'abbreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']}
+          onClose={() => setShowImport(false)}
+          onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
+        />
       )}
     </div>
   )

@@ -7,6 +7,8 @@
     "cancel": "Annuler",
     "edit": "Modifier",
     "delete": "Supprimer",
+    "create": "Créer",
+    "update": "Mettre à jour",
     "search": "Rechercher…",
     "loading": "Chargement…",
     "actions": "Actions",
@@ -24,8 +26,10 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "personnel": "Personnel",
+    "fonctionsReferentiel": "Fonctions",
     "departements": "Départements",
     "classes": "Classes",
+    "sousSystemes": "Sous-systèmes",
     "eleves": "Élèves",
     "matieres": "Matières",
     "sanctions": "Sanctions",
@@ -39,6 +43,8 @@
     "remplissage": "Remplissage des notes",
     "identification": "Photos & cartes",
     "openMenu": "Ouvrir le menu",
+    "searchMenu": "Rechercher un menu…",
+    "noMenuFound": "Aucun menu trouvé.",
     "statsPedagogiques": "Stats pédagogiques",
     "statsDisciplinaires": "Stats disciplinaires",
     "photosExamen": "Photos DECC & OBC",
@@ -53,8 +59,10 @@
       "identification": "Identification & sécurité"
     },
     "niveaux": "Niveaux",
+    "niveauxGlobaux": "Niveaux globaux",
     "progression": "Progression",
-    "maJournee": "Ma journée"
+    "maJournee": "Ma journée",
+    "transferts": "Transferts en masse"
   },
   "auth": {
     "login_title": "Connexion",
@@ -84,8 +92,8 @@
   "personnel": {
     "title": "Personnel",
     "add": "Ajouter un membre du personnel",
-    "nom": "Nom",
-    "prenom": "Prénom",
+    "edit": "Modifier un membre du personnel",
+    "nom_complet": "Nom complet",
     "fonction": "Fonction",
     "departement": "Département",
     "matricule": "Matricule",
@@ -103,6 +111,7 @@
   "classes": {
     "title": "Classes",
     "add": "Ajouter une classe",
+    "edit": "Modifier une classe",
     "nom": "Nom de la classe",
     "niveau": "Niveau",
     "filiere": "Filière",
@@ -110,13 +119,13 @@
     "effectif": "Effectif",
     "professeur_principal": "Professeur principal",
     "code_examen": "Code d'examen (facultatif)",
-    "titulaire": "Titulaire"
+    "titulaire": "Enseignant"
   },
   "eleves": {
     "title": "Élèves",
     "add": "Inscrire un élève",
-    "nom": "Nom",
-    "prenom": "Prénom",
+    "edit": "Modifier un élève",
+    "nom_complet": "Nom complet",
     "sexe": "Sexe",
     "masculin": "Masculin",
     "feminin": "Féminin",
@@ -126,17 +135,24 @@
     "tuteur": "Tuteur / Parent",
     "tuteur_nom": "Nom du tuteur",
     "tuteur_telephone": "Téléphone du tuteur",
-    "lien_parente": "Lien de parenté"
+    "lien_parente": "Lien de parenté",
+    "statut": "Statut",
+    "actif": "Actif",
+    "parti": "Parti",
+    "exclu": "Exclu"
   },
   "matieres": {
     "title": "Matières",
     "add": "Ajouter une matière",
+    "edit": "Modifier une matière",
     "nom": "Nom de la matière",
     "abbreviation": "Abréviation",
     "nom_en": "Nom (anglais)",
     "notation": "Notée sur",
     "volets": "Volets",
-    "evalue_pratique": "Évaluer aussi le volet pratique"
+    "evalue_pratique": "Évaluer aussi le volet pratique",
+    "repartition_volets": "Répartition des volets",
+    "repartition_somme": "Somme actuelle : {{somme}} / {{notation}}"
   },
   "pedagogie": {
     "title": "Matières & affectations",
@@ -152,7 +168,8 @@
     "valeur": "Note / 20",
     "select_prompt": "Choisissez une matière et une séquence pour afficher la grille.",
     "saved": "{{count}} note(s) enregistrée(s).",
-    "bareme_hint": "Matière notée sur {{bareme}}, répartis sur {{volets}} volets — soit {{max}} points au maximum par volet et par séquence."
+    "bareme_hint": "Matière notée sur {{bareme}}, répartie ainsi par volet et par séquence : {{repartition}}.",
+    "saisir": "Saisir les notes"
   },
   "niveaux": {
     "title": "Niveaux d'enseignement",
@@ -177,6 +194,11 @@
     "date": "Date",
     "heures_justifiees": "Heures justifiées",
     "heures_non_justifiees": "Heures non justifiées",
+    "jours_justifies": "Jours justifiés",
+    "jours_non_justifies": "Jours non justifiés",
+    "total_jnj": "Total jours non justifiés",
+    "moyenne_jnj": "Moyenne par élève",
+    "jours_calcules": "Journées déduites des appels : un jour compte comme absent si l'enfant n'a répondu présent à aucun cours de la journée.",
     "total_hnj": "Total heures non justifiées",
     "moyenne_hnj": "Moyenne par élève",
     "plus_absent": "Élève le plus absent"
@@ -196,8 +218,6 @@
     "title": "Paramètres de l'établissement",
     "saved": "Préférences enregistrées.",
     "ecole": "Établissement",
-    "niveaux_operes": "Niveaux opérés par l'établissement",
-    "niveaux_hint": "Détermine les niveaux (Maternelle, Primaire, Collège) proposés dans les formulaires de classe et les fonctionnalités adaptées à chacun.",
     "nom": "Nom de l'établissement",
     "adresse": "Adresse",
     "telephone": "Téléphone",
@@ -262,5 +282,25 @@
     "appel": "Appel",
     "resume_appel": "{{presents}} présent(s), {{absents}} absent(s)",
     "saved": "Journée enregistrée."
+  },
+  "niveaux": {
+    "title": "Niveaux globaux",
+    "hint": "Gérez les niveaux d'enseignement de votre établissement.",
+    "create": "Ajouter un niveau",
+    "create_title": "Créer un nouveau niveau",
+    "edit_title": "Modifier le niveau",
+    "code": "Code",
+    "label": "Label",
+    "name_fr": "Nom français",
+    "name_en": "Nom anglais",
+    "school": "École",
+    "sous_systeme": "Sous-système",
+    "ordre": "Ordre d'affichage",
+    "created": "Niveau créé avec succès.",
+    "updated": "Niveau mis à jour avec succès.",
+    "deleted": "Niveau supprimé avec succès.",
+    "error": "Une erreur est survenue.",
+    "confirm_delete": "Êtes-vous certain de vouloir supprimer ce niveau ?",
+    "empty": "Aucun niveau créé."
   }
 }

@@ -250,6 +250,20 @@ class StatistiquesGenerator
         return $html.'<tr class="tot"><td class="cat">Total</td><td>'.$total.'</td><td>—</td></tr></table>';
     }
 
+    /**
+     * Unité d'absence de l'établissement : le secondaire cumule des heures de
+     * cours manquées, le primaire et la maternelle des journées entières.
+     */
+    private function suffixeAbsence(School $school): string
+    {
+        return $school->estSecondaire() ? ' h' : ' j';
+    }
+
+    private function libelleAbsences(School $school): string
+    {
+        return $school->estSecondaire() ? 'Heures non justifiées' : 'Jours non justifiés';
+    }
+
     private function pageSyntheseDisciplinaire(array $donnees, School $school): string
     {
         $c = $donnees['consolide'];
@@ -259,20 +273,20 @@ class StatistiquesGenerator
             .'<div class="sous-titre">Consolidé de l\'établissement</div>'
             .'<table><tr>'
             .'<th>Effectif</th><th>Élèves sanctionnés</th><th>Total sanctions</th>'
-            .'<th>Heures non justifiées</th><th>Moyenne / élève</th>'
+            .'<th>'.$this->libelleAbsences($school).'</th><th>Moyenne / élève</th>'
             .'</tr><tr>'
             .'<td>'.$c['effectif'].'</td>'
             .'<td>'.$c['eleves_sanctionnes'].'</td>'
             .'<td class="value">'.$c['total_sanctions'].'</td>'
-            .'<td>'.$this->nombre($c['heures_non_justifiees'], 1).' h</td>'
-            .'<td>'.$this->nombre($moyenne, 1).' h</td>'
+            .'<td>'.$this->nombre($c['heures_non_justifiees'], 1).$this->suffixeAbsence($school).'</td>'
+            .'<td>'.$this->nombre($moyenne, 1).$this->suffixeAbsence($school).'</td>'
             .'</tr></table>'
             .'<div class="sous-titre">Répartition des sanctions</div>'
             .$this->tableauSanctions($c['sanctions_par_type'], $c['total_sanctions'])
             .'<div class="sous-titre">Comparatif des classes</div>'
             .'<table><tr>'
             .'<th class="left">Classe</th><th>Effectif</th><th>Sanctions</th><th>Élèves sanctionnés</th>'
-            .'<th>Heures non justifiées</th><th>Moyenne / élève</th>'
+            .'<th>'.$this->libelleAbsences($school).'</th><th>Moyenne / élève</th>'
             .'</tr>';
 
         foreach ($donnees['classes'] as $classe) {
@@ -282,8 +296,8 @@ class StatistiquesGenerator
                 .'<td>'.$bilan['effectif'].'</td>'
                 .'<td>'.$classe['total_sanctions'].'</td>'
                 .'<td>'.$classe['eleves_sanctionnes'].'</td>'
-                .'<td>'.$this->nombre($bilan['total_hnj'], 1).' h</td>'
-                .'<td>'.$this->nombre($bilan['moyenne_hnj'], 1).' h</td>'
+                .'<td>'.$this->nombre($bilan['total_hnj'], 1).$this->suffixeAbsence($school).'</td>'
+                .'<td>'.$this->nombre($bilan['moyenne_hnj'], 1).$this->suffixeAbsence($school).'</td>'
                 .'</tr>';
         }
 
@@ -296,7 +310,7 @@ class StatistiquesGenerator
 
         $plusAbsent = $bilan['eleve_plus_absent']
             ? $this->e($bilan['eleve_plus_absent']['nom_complet'])
-                .' ('.$this->nombre($bilan['eleve_plus_absent']['heures_non_justifiees'], 1).' h)'
+                .' ('.$this->nombre($bilan['eleve_plus_absent']['heures_non_justifiees'], 1).$this->suffixeAbsence($school).')'
             : '—';
 
         return $this->titre(
@@ -306,21 +320,21 @@ class StatistiquesGenerator
             $donnees['trimestre']['libelle']
         )
             .'<table><tr>'
-            .'<th>Effectif</th><th>Élèves sanctionnés</th><th>Total sanctions</th><th>Heures non justifiées</th><th>Moyenne / élève</th>'
+            .'<th>Effectif</th><th>Élèves sanctionnés</th><th>Total sanctions</th><th>'.$this->libelleAbsences($school).'</th><th>Moyenne / élève</th>'
             .'</tr><tr>'
             .'<td>'.$bilan['effectif'].'</td>'
             .'<td>'.$classe['eleves_sanctionnes'].'</td>'
             .'<td class="value">'.$classe['total_sanctions'].'</td>'
-            .'<td>'.$this->nombre($bilan['total_hnj'], 1).' h</td>'
-            .'<td>'.$this->nombre($bilan['moyenne_hnj'], 1).' h</td>'
+            .'<td>'.$this->nombre($bilan['total_hnj'], 1).$this->suffixeAbsence($school).'</td>'
+            .'<td>'.$this->nombre($bilan['moyenne_hnj'], 1).$this->suffixeAbsence($school).'</td>'
             .'</tr></table>'
             .'<div class="sous-titre">Absences par genre</div>'
-            .'<table><tr><th class="left">Genre</th><th>Total heures non justifiées</th><th>Moyenne / élève</th></tr>'
-            .'<tr><td class="cat">Garçons</td><td>'.$this->nombre($bilan['total_hnj_garcons'], 1).' h</td>'
+            .'<table><tr><th class="left">Genre</th><th>Total '.mb_strtolower($this->libelleAbsences($school)).'</th><th>Moyenne / élève</th></tr>'
+            .'<tr><td class="cat">Garçons</td><td>'.$this->nombre($bilan['total_hnj_garcons'], 1).$this->suffixeAbsence($school).'</td>'
             .'<td>'.$this->nombre($bilan['moyenne_hnj_garcons'], 1).' h</td></tr>'
-            .'<tr><td class="cat">Filles</td><td>'.$this->nombre($bilan['total_hnj_filles'], 1).' h</td>'
+            .'<tr><td class="cat">Filles</td><td>'.$this->nombre($bilan['total_hnj_filles'], 1).$this->suffixeAbsence($school).'</td>'
             .'<td>'.$this->nombre($bilan['moyenne_hnj_filles'], 1).' h</td></tr>'
-            .'<tr class="tot"><td class="cat">Total</td><td>'.$this->nombre($bilan['total_hnj'], 1).' h</td>'
+            .'<tr class="tot"><td class="cat">Total</td><td>'.$this->nombre($bilan['total_hnj'], 1).$this->suffixeAbsence($school).'</td>'
             .'<td>'.$this->nombre($bilan['moyenne_hnj'], 1).' h</td></tr></table>'
             .'<div class="sous-titre">Répartition des sanctions</div>'
             .$this->tableauSanctions($classe['sanctions_par_type'], $classe['total_sanctions'])

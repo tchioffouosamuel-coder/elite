@@ -94,7 +94,7 @@ class BulletinGenerator
             .'<tr><td class="left" style="width:40%;'.$bandeau.'">'
             .'<span style="color:#fff;">Nom de l\'élève <i>/ Student\'s name</i> :</span></td>'
             .'<td class="left" style="width:60%;'.$bandeau.'text-transform:uppercase;">'
-            .'<b style="color:#fff;">'.$this->e($eleve->nomComplet()).'</b></td></tr>'
+            .'<b style="color:#fff;">'.$this->e($eleve->nom_complet).'</b></td></tr>'
             .'<tr><td class="left" style="width:12%;">'.$cellulephoto.'</td>'
             .'<td class="left">'
             .'<table class="no-border" style="font-size:2.6mm;"><tr>'
@@ -108,8 +108,8 @@ class BulletinGenerator
                 'M: '.$effectif['garcons'].'  F: '.$effectif['filles'].'  T: '.$effectif['total'])
             .'</tr><tr>'
             .$this->champ('Statut', 'Status', $eleve->redoublant ? 'Redoublant(e)' : 'Passant(e)')
-            .$this->champ('Prof. principal', 'Class master', $classe->professeurPrincipal?->nomComplet())
-            .$this->champ('Surveillant gén.', 'Discipline master', $classe->surveillantGeneral?->nomComplet())
+            .$this->champ('Prof. principal', 'Class master', $classe->professeurPrincipal?->nom_complet)
+            .$this->champ('Surveillant gén.', 'Discipline master', $classe->surveillantGeneral?->nom_complet)
             .'</tr></table>'
             .'</td></tr></table>';
     }
@@ -296,7 +296,22 @@ class BulletinGenerator
 
     private function initiales($eleve): string
     {
-        return mb_strtoupper(mb_substr($eleve->prenom, 0, 1).mb_substr($eleve->nom, 0, 1));
+        return self::initialesDe($eleve->nom_complet);
+    }
+
+    /**
+     * Initiales des deux premiers mots du nom complet (même règle que le
+     * frontend, cf. PhotoCell) : le nom n'étant plus découpé en base, on
+     * retombe sur la première lettre de chacun des deux premiers mots.
+     */
+    public static function initialesDe(?string $nomComplet): string
+    {
+        $mots = preg_split('/\s+/', trim((string) $nomComplet), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return mb_strtoupper(implode('', array_map(
+            fn (string $mot) => mb_substr($mot, 0, 1),
+            array_slice($mots, 0, 2)
+        )));
     }
 
     /** Chemin absolu d'une image du disque public, ou null si elle n'existe pas. */

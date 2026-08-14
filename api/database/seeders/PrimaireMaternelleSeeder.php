@@ -6,6 +6,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
+use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\NiveauScolaire;
@@ -106,7 +107,7 @@ class PrimaireMaternelleSeeder extends Seeder
         Setting::set($school->id, 'num_sequences', 3);
         Setting::set($school->id, 'passage_moyenne_min', 10);
 
-        $niveauReference = Niveau::where('code', $school->type)->first();
+        $niveauReference = Niveau::where('code', strtoupper($school->type))->first();
         $annee = AnneeScolaire::where('school_id', $school->id)->where('is_active', true)->first()
             ?? AnneeScolaire::where('school_id', $school->id)->first();
 
@@ -172,7 +173,7 @@ class PrimaireMaternelleSeeder extends Seeder
         $user = User::updateOrCreate(
             ['email' => $email],
             [
-                'name' => $titulaire->nomComplet(),
+                'name' => $titulaire->nom_complet,
                 'password' => 'password',
                 'school_id' => $school->id,
                 'niveau_id' => $niveauId,
@@ -221,14 +222,21 @@ class PrimaireMaternelleSeeder extends Seeder
             return Personnel::firstOrCreate(
                 ['school_id' => $school->id, 'matricule' => sprintf('%s-ENS-%02d', strtoupper(substr($school->type, 0, 3)), $i + 1)],
                 [
-                    'nom' => mb_strtoupper($nom),
-                    'prenom' => $prenom,
-                    'fonction' => 'Enseignant',
+                    'nom_complet' => $prenom.' '.mb_strtoupper($nom),
+                    'fonction_id' => $this->fonctionId($school, 'Enseignant', 'Teacher'),
                     'telephone' => '69'.str_pad((string) (1000000 + $i), 7, '0', STR_PAD_LEFT),
                     'statut' => 'actif',
                 ],
             );
         });
+    }
+
+    private function fonctionId(School $school, string $labelFr, ?string $labelEn = null): int
+    {
+        return FonctionReferentiel::firstOrCreate(
+            ['school_id' => $school->id, 'label_fr' => $labelFr],
+            ['label_en' => $labelEn],
+        )->id;
     }
 
     /** @return Collection<int, Matiere> */
@@ -275,8 +283,7 @@ class PrimaireMaternelleSeeder extends Seeder
                 ['school_id' => $school->id, 'matricule' => $matricule],
                 [
                     'classe_id' => $classe->id,
-                    'nom' => mb_strtoupper($nom),
-                    'prenom' => $prenom,
+                    'nom_complet' => $prenom.' '.mb_strtoupper($nom),
                     'sexe' => $sexe,
                     'date_naissance' => now()->subYears(6 + $classeIndex)->subDays($i * 37)->toDateString(),
                     'lieu_naissance' => 'Bertoua',
@@ -291,7 +298,7 @@ class PrimaireMaternelleSeeder extends Seeder
                     'school_id' => $school->id,
                     'telephone' => sprintf('6%02d%05d', $classeIndex + 70, $i + 1),
                 ],
-                ['nom' => mb_strtoupper($nom), 'prenom' => 'Parent de '.$prenom],
+                ['nom_complet' => 'Parent de '.$prenom.' '.mb_strtoupper($nom)],
             );
 
             $eleve->tuteurs()->syncWithoutDetaching(

@@ -127,7 +127,7 @@ class MaJourneeService extends BaseService
             'lecons' => $lecons,
             'appel' => $this->emploiDuTemps->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
-                'nom_complet' => $ligne['eleve']->nomComplet(),
+                'nom_complet' => $ligne['eleve']->nom_complet,
                 'matricule' => $ligne['eleve']->matricule,
                 'statut' => $ligne['statut'],
                 'motif' => $ligne['motif'],

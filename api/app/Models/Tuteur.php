@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Tuteur extends Model
 {
-    protected $fillable = ['school_id', 'user_id', 'nom', 'prenom', 'telephone', 'email', 'profession', 'adresse'];
+    protected $fillable = ['school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'adresse'];
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder
     {
@@ -26,10 +26,5 @@ class Tuteur extends Model
         return $this->belongsToMany(Eleve::class, 'eleve_tuteur')
             ->withPivot(['lien_parente', 'is_principal'])
             ->withTimestamps();
-    }
-
-    public function nomComplet(): string
-    {
-        return "{$this->prenom} {$this->nom}";
     }
 }

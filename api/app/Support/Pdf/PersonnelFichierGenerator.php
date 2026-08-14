@@ -95,7 +95,7 @@ class PersonnelFichierGenerator
         foreach ($donnees['personnels'] as $personnel) {
             $lignes .= '<tr>'
                 .'<td>'.$rang.'</td>'
-                .'<td class="left nom">'.$this->e($personnel->nomComplet()).'</td>'
+                .'<td class="left nom">'.$this->e($personnel->nom_complet).'</td>'
                 .'<td>'.$this->e($personnel->matricule ?: '—').'</td>'
                 .'<td class="left">'.$this->etiquette($personnel->fonction).'</td>';
 

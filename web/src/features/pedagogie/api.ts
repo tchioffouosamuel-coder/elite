@@ -1,91 +1,124 @@
-import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
-import type { Departement } from '@/features/personnel/api'
+import { http } from "@/shared/lib/http";
+import type { ApiResponse } from "@/shared/types/api";
+import type { Departement } from "@/features/personnel/api";
 
 export interface Matiere {
-  id: number
-  nom: string
-  nom_en: string | null
-  notation: number | null
-  evalue_pratique: boolean
-  composantes: string[]
-  abbreviation: string | null
-  statut: string
-  departement: Departement | null
+  id: number;
+  nom: string;
+  nom_en: string | null;
+  notation: number | null;
+  evalue_pratique: boolean;
+  composantes: string[];
+  /** Points par volet (oral, écrit, savoir-être, pratique) : toujours renseigné, à parts égales à défaut de réglage explicite. */
+  repartition_volets: Record<string, number>;
+  abbreviation: string | null;
+  statut: string;
+  departement: Departement | null;
 }
 
 export interface MatierePayload {
-  nom: string
-  nom_en?: string | null
-  abbreviation?: string | null
-  departement_id?: number | null
+  nom: string;
+  nom_en?: string | null;
+  abbreviation?: string | null;
+  departement_id?: number | null;
   /** Barème du primaire : la matière est notée sur cette valeur, pas sur 20. */
-  notation?: number | null
+  notation?: number | null;
   /** Ajoute le volet « pratique » aux trois volets systématiques. */
-  evalue_pratique?: boolean
+  evalue_pratique?: boolean;
+  /** Répartition du barème entre les volets ; la somme doit égaler `notation`. */
+  repartition_volets?: Record<string, number> | null;
 }
 
 export interface ClasseMatiere {
-  id: number
-  matiere: { id: number; nom: string; abbreviation: string | null }
-  enseignant: { id: number; nom_complet: string } | null
-  coefficient: number
-  quota_horaire: number | null
-  groupe: number
-  competences: string | null
-  statut: string
+  id: number;
+  matiere: { id: number; nom: string; abbreviation: string | null };
+  enseignant: { id: number; nom_complet: string } | null;
+  coefficient: number;
+  quota_horaire: number | null;
+  groupe: number;
+  competences: string | null;
+  statut: string;
 }
 
 export interface ClasseMatierePayload {
-  matiere_id: number
-  personnel_id?: number | null
-  coefficient: number
-  quota_horaire?: number | null
-  groupe?: number
+  matiere_id: number;
+  personnel_id?: number | null;
+  coefficient: number;
+  quota_horaire?: number | null;
+  groupe?: number;
 }
 
 export interface Sequence {
-  id: number
-  ordre: number
-  libelle: string
+  id: number;
+  ordre: number;
+  libelle: string;
 }
 
 export interface Trimestre {
-  id: number
-  annee_scolaire_id: number
-  libelle: string
-  ordre: number
-  date_debut: string | null
-  date_fin: string | null
-  is_active: boolean
-  sequences: Sequence[]
+  id: number;
+  annee_scolaire_id: number;
+  libelle: string;
+  ordre: number;
+  date_debut: string | null;
+  date_fin: string | null;
+  is_active: boolean;
+  sequences: Sequence[];
 }
 
 export async function fetchMatieres(): Promise<Matiere[]> {
-  const { data } = await http.get<ApiResponse<Matiere[]>>('/matieres')
-  return data.data
+  const { data } = await http.get<ApiResponse<Matiere[]>>("/matieres");
+  return data.data;
 }
 
 export async function createMatiere(payload: MatierePayload): Promise<Matiere> {
-  const { data } = await http.post<ApiResponse<Matiere>>('/matieres', payload)
-  return data.data
+  const { data } = await http.post<ApiResponse<Matiere>>("/matieres", payload);
+  return data.data;
 }
 
-export async function fetchClasseMatieres(classeId: number): Promise<ClasseMatiere[]> {
-  const { data } = await http.get<ApiResponse<ClasseMatiere[]>>(`/classes/${classeId}/matieres`)
-  return data.data
+export async function updateMatiere(
+  id: number,
+  payload: MatierePayload,
+): Promise<Matiere> {
+  const { data } = await http.put<ApiResponse<Matiere>>(
+    `/matieres/${id}`,
+    payload,
+  );
+  return data.data;
 }
 
-export async function affecterMatiere(classeId: number, payload: ClasseMatierePayload): Promise<ClasseMatiere> {
-  const { data } = await http.post<ApiResponse<ClasseMatiere>>(`/classes/${classeId}/matieres`, payload)
-  return data.data
+export async function deleteMatiere(id: number): Promise<void> {
+  await http.delete(`/matieres/${id}`);
+}
+
+export async function batchDeleteMatieres(ids: number[]): Promise<void> {
+  await http.post("/matieres/batch-delete", { ids });
+}
+
+export async function fetchClasseMatieres(
+  classeId: number,
+): Promise<ClasseMatiere[]> {
+  const { data } = await http.get<ApiResponse<ClasseMatiere[]>>(
+    `/classes/${classeId}/matieres`,
+  );
+  return data.data;
+}
+
+export async function affecterMatiere(
+  classeId: number,
+  payload: ClasseMatierePayload,
+): Promise<ClasseMatiere> {
+  const { data } = await http.post<ApiResponse<ClasseMatiere>>(
+    `/classes/${classeId}/matieres`,
+    payload,
+  );
+  return data.data;
 }
 
 export async function retirerMatiere(classeMatiereId: number): Promise<void> {
-  await http.delete(`/classe-matieres/${classeMatiereId}`)
+  await http.delete(`/classe-matieres/${classeMatiereId}`);
 }
 
 export async function fetchTrimestres(): Promise<Trimestre[]> {
-  const { data } = await http.get<ApiResponse<Trimestre[]>>('/trimestres')
-  return data.data
+  const { data } = await http.get<ApiResponse<Trimestre[]>>("/trimestres");
+  return data.data;
 }

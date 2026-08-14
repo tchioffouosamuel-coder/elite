@@ -68,7 +68,7 @@ export function PalmaresPage() {
           <Thead>
             <tr>
               <Th>#</Th>
-              <Th>{t('eleves.nom')}</Th>
+              <Th>{t('eleves.nom_complet')}</Th>
               <Th>{t('classes.title')}</Th>
               <Th>{t('resultats.moyenne')}</Th>
             </tr>

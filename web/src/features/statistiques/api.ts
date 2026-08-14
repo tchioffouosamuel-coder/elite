@@ -34,8 +34,14 @@ export interface StatsPedagogiques {
   consolide: Record<CleCategorie, CategoriePedagogique>
 }
 
+/** Heures au secondaire, journées au primaire et en maternelle : les clés
+ *  gardent leur nom d'origine, `unite` dit ce qu'elles comptent. */
+export type UniteAbsence = 'heures' | 'jours'
+
 export interface BilanDisciplinaire {
   effectif: number
+  unite: UniteAbsence
+  total_hj: number
   total_hnj: number
   moyenne_hnj: number
   total_hnj_garcons: number
@@ -60,6 +66,8 @@ export interface StatsDisciplinaires {
     total_sanctions: number
     eleves_sanctionnes: number
     effectif: number
+    unite: UniteAbsence
+    heures_justifiees: number
     heures_non_justifiees: number
     sanctions_par_type: Record<string, number>
   }

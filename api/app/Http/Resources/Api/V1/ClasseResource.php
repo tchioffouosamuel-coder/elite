@@ -12,22 +12,30 @@ class ClasseResource extends JsonResource
         return [
             'id' => $this->id,
             'nom' => $this->nom,
+            'sigle' => $this->sigle,
+            'niveau_classe' => $this->niveau_classe,
             'filiere' => $this->filiere,
             'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
             'niveau_id' => $this->niveau_id,
             'niveau_scolaire_id' => $this->niveau_scolaire_id,
+            'sous_systeme_id' => $this->sous_systeme_id,
             'annee_scolaire_id' => $this->annee_scolaire_id,
             'effectif' => $this->when(isset($this->eleves_count), $this->eleves_count),
-            'niveau' => $this->whenLoaded('niveau', fn () => [
+            'niveau' => $this->whenLoaded('niveau', fn() => [
                 'id' => $this->niveau?->id,
                 'code' => $this->niveau?->code,
                 'name_fr' => $this->niveau?->name_fr,
             ]),
-            'niveau_scolaire' => $this->whenLoaded('niveauScolaire', fn () => $this->niveauScolaire ? [
+            'niveau_scolaire' => $this->whenLoaded('niveauScolaire', fn() => $this->niveauScolaire ? [
                 'id' => $this->niveauScolaire->id,
                 'code' => $this->niveauScolaire->code,
                 'libelle' => $this->niveauScolaire->libelle,
+            ] : null),
+            'sous_systeme' => $this->whenLoaded('sousSysteme', fn() => $this->sousSysteme ? [
+                'id' => $this->sousSysteme->id,
+                'code' => $this->sousSysteme->code,
+                'nom' => $this->sousSysteme->nom,
             ] : null),
             'professeur_principal_id' => $this->professeur_principal_id,
             'titulaire_id' => $this->titulaire_id,
@@ -45,9 +53,9 @@ class ClasseResource extends JsonResource
     /** @return array{id: int, nom_complet: string}|null */
     private function responsable(string $relation): mixed
     {
-        return $this->whenLoaded($relation, fn () => $this->{$relation} ? [
+        return $this->whenLoaded($relation, fn() => $this->{$relation} ? [
             'id' => $this->{$relation}->id,
-            'nom_complet' => $this->{$relation}->nomComplet(),
+            'nom_complet' => $this->{$relation}->nom_complet,
         ] : null);
     }
 }

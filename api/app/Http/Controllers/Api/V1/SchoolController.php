@@ -10,14 +10,13 @@ use App\Models\School;
 use App\Support\Pdf\EnTeteHtml;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SchoolController extends Controller
 {
     public function show(): JsonResponse
     {
-        $school = School::with('niveaux')->findOrFail(app('tenant.school_id'));
+        $school = School::findOrFail(app('tenant.school_id'));
 
         return ApiResponse::success(new SchoolResource($school));
     }
@@ -27,19 +26,16 @@ class SchoolController extends Controller
         $school = School::findOrFail(app('tenant.school_id'));
         $data = $request->validated();
 
-        DB::transaction(function () use ($school, $data) {
-            $school->update([
-                'name' => $data['name'],
-                'address' => $data['address'] ?? null,
-                'phone' => $data['phone'] ?? null,
-                'email' => $data['email'] ?? null,
-                'header_fr' => EnTeteHtml::nettoyer($data['header_fr'] ?? null),
-                'header_en' => EnTeteHtml::nettoyer($data['header_en'] ?? null),
-            ]);
-            $school->niveaux()->sync($data['niveau_ids']);
-        });
+        $school->update([
+            'name' => $data['name'],
+            'address' => $data['address'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'email' => $data['email'] ?? null,
+            'header_fr' => EnTeteHtml::nettoyer($data['header_fr'] ?? null),
+            'header_en' => EnTeteHtml::nettoyer($data['header_en'] ?? null),
+        ]);
 
-        return ApiResponse::success(new SchoolResource($school->refresh()->load('niveaux')), 'Profil de l\'établissement mis à jour.');
+        return ApiResponse::success(new SchoolResource($school->refresh()), 'Profil de l\'établissement mis à jour.');
     }
 
     /**
@@ -64,7 +60,7 @@ class SchoolController extends Controller
         $school = School::findOrFail(app('tenant.school_id'));
         $fichier = $request->file('image');
         $extension = $fichier->extension();
-        $chemin = 'ecoles/'.$school->id.'/'.$type.'.'.$extension;
+        $chemin = 'ecoles/' . $school->id . '/' . $type . '.' . $extension;
 
         $ancien = $school->{$colonnes[$type]};
         if ($ancien && $ancien !== $chemin) {
@@ -75,7 +71,7 @@ class SchoolController extends Controller
         $school->update([$colonnes[$type] => $chemin]);
 
         return ApiResponse::success(
-            new SchoolResource($school->refresh()->load('niveaux')),
+            new SchoolResource($school->refresh()),
             'Image de l\'établissement mise à jour.'
         );
     }
@@ -83,13 +79,20 @@ class SchoolController extends Controller
     /** Plafonne le plus grand côté à 1000px (largement suffisant à l'impression) sans recadrer ni changer de format. */
     private function redimensionner(string $contenu, string $mime, int $maxCote = 1000): string
     {
+        $info = @getimagesizefromstring($contenu);
+        if ($info === false) {
+            return $contenu;
+        }
+
+        $largeur = $info[0];
+        $hauteur = $info[1];
+
+        $this->augmenterMemoirePourImage($largeur, $hauteur);
+
         $source = @imagecreatefromstring($contenu);
         if ($source === false) {
             return $contenu;
         }
-
-        $largeur = imagesx($source);
-        $hauteur = imagesy($source);
 
         if (max($largeur, $hauteur) <= $maxCote) {
             imagedestroy($source);
@@ -121,6 +124,41 @@ class SchoolController extends Controller
         return $sortie;
     }
 
+    private function augmenterMemoirePourImage(int $largeur, int $hauteur): void
+    {
+        $limit = trim((string) ini_get('memory_limit'));
+        if ($limit === '-1') {
+            return;
+        }
+
+        $limitBytes = $this->parseMemoryLimit($limit);
+        $estimation = max(64 * 1024 * 1024, $largeur * $hauteur * 12 * 2);
+
+        if ($limitBytes >= $estimation) {
+            return;
+        }
+
+        $nouvelleLimite = min(512 * 1024 * 1024, max($estimation * 2, 256 * 1024 * 1024));
+        ini_set('memory_limit', (string) ((int) ceil($nouvelleLimite / (1024 * 1024))) . 'M');
+    }
+
+    private function parseMemoryLimit(string $limit): int
+    {
+        if ($limit === '') {
+            return 0;
+        }
+
+        $suffixe = strtolower(substr($limit, -1));
+        $valeur = (float) $limit;
+
+        return match ($suffixe) {
+            'g' => (int) ($valeur * 1024 * 1024 * 1024),
+            'm' => (int) ($valeur * 1024 * 1024),
+            'k' => (int) ($valeur * 1024),
+            default => (int) $valeur,
+        };
+    }
+
     public function deleteImage(string $type): JsonResponse
     {
         $colonnes = ['logo' => 'logo_path', 'cachet' => 'stamp_path', 'signature' => 'signature_path'];
@@ -138,7 +176,7 @@ class SchoolController extends Controller
         $school->update([$colonnes[$type] => null]);
 
         return ApiResponse::success(
-            new SchoolResource($school->refresh()->load('niveaux')),
+            new SchoolResource($school->refresh()),
             'Image supprimée.'
         );
     }

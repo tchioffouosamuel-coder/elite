@@ -18,7 +18,7 @@ class ClasseMatiereResource extends JsonResource
             ],
             'enseignant' => $this->enseignant ? [
                 'id' => $this->enseignant->id,
-                'nom_complet' => $this->enseignant->nomComplet(),
+                'nom_complet' => $this->enseignant->nom_complet,
             ] : null,
             'coefficient' => (float) $this->coefficient,
             'quota_horaire' => $this->quota_horaire,

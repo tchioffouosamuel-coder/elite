@@ -17,9 +17,8 @@ class UpdatePersonnelRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nom' => ['sometimes', 'required', 'string', 'max:100'],
-            'prenom' => ['sometimes', 'required', 'string', 'max:100'],
-            'fonction' => ['sometimes', 'required', 'string', 'max:100'],
+            'nom_complet' => ['sometimes', 'required', 'string', 'max:200'],
+            'fonction_id' => ['sometimes', 'required', $this->scopedExists('fonction_referentiel')],
             'departement_id' => ['nullable', $this->scopedExists('departements')],
             'matricule' => ['nullable', 'string', 'max:50'],
             'telephone' => ['nullable', 'string', 'max:30'],

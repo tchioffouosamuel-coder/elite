@@ -26,6 +26,7 @@ class NotePrimaireService extends BaseService
      *     composantes: list<string>,
      *     sequences: list<array{id:int, libelle:string}>,
      *     bareme: int,
+     *     repartition: array<string, float>,
      *     lignes: Collection<int, array{eleve_id:int, nom_complet:string, notes: array<string, array<int, ?float>>}>
      * }
      */
@@ -38,7 +39,7 @@ class NotePrimaireService extends BaseService
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->get();
 
-        $lignes = $classeMatiere->classe->eleves()->where('statut', 'actif')->orderBy('nom')->get()
+        $lignes = $classeMatiere->classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get()
             ->map(function ($eleve) use ($notes, $composantes, $sequences) {
                 $parEleve = $notes->where('eleve_id', $eleve->id);
 
@@ -54,7 +55,7 @@ class NotePrimaireService extends BaseService
 
                 return [
                     'eleve_id' => $eleve->id,
-                    'nom_complet' => $eleve->nomComplet(),
+                    'nom_complet' => $eleve->nom_complet,
                     'notes' => $valeurs,
                 ];
             });
@@ -63,6 +64,7 @@ class NotePrimaireService extends BaseService
             'composantes' => $composantes,
             'sequences' => $sequences->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->libelle])->values()->all(),
             'bareme' => (int) ($classeMatiere->matiere->notation ?? 20),
+            'repartition' => $classeMatiere->matiere->repartitionVolets(),
             'lignes' => $lignes,
         ];
     }

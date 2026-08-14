@@ -2,15 +2,20 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, School } from 'lucide-react'
-import { fetchClasses, type Classe } from '@/features/classes/api'
+import { Plus, Pencil, Trash2, School, Upload } from 'lucide-react'
+import { fetchClasses, deleteClasse, fetchSousSystemes, fetchSchools, bulkUpdateClasses, fetchNiveaux, type Classe } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { ImportModal } from '@/shared/ui/ImportModal'
+import { Select } from '@/shared/ui/Select'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
+import { estSecondaire } from '@/shared/lib/ecole'
+import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 
 export function ClassesListPage() {
   const { t } = useTranslation()
@@ -18,10 +23,93 @@ export function ClassesListPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
+  const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
+  const secondaire = estSecondaire()
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classes'] })
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const { data: sousSystemes = [] } = useQuery({
+    queryKey: ['sous-systemes'],
+    queryFn: fetchSousSystemes,
+  })
+  const { data: schools = [] } = useQuery({
+    queryKey: ['schools'],
+    queryFn: fetchSchools,
+  })
+  const { data: niveaux = [] } = useQuery({
+    queryKey: ['niveaux'],
+    queryFn: fetchNiveaux,
+  })
+
+  const getSousSystemeNom = (classe: Classe) => {
+    if (classe.sous_systeme?.nom) return classe.sous_systeme.nom
+    if (!classe.sous_systeme_id) return '—'
+
+    return sousSystemes.find((item) => item.id === classe.sous_systeme_id)?.nom ?? '—'
+  }
+
+  const toggleSelection = (classeId: number) => {
+    const newSelection = new Set(selectedClasses)
+    if (newSelection.has(classeId)) {
+      newSelection.delete(classeId)
+    } else {
+      newSelection.add(classeId)
+    }
+    setSelectedClasses(newSelection)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedClasses.size === data?.length) {
+      setSelectedClasses(new Set())
+    } else {
+      setSelectedClasses(new Set(data?.map((c) => c.id) ?? []))
+    }
+  }
+
+  const handleBulkUpdate = async (updates: { school_id?: number | null; sous_systeme_id?: number | null; niveau_id?: number | null }) => {
+    try {
+      await bulkUpdateClasses(Array.from(selectedClasses), updates)
+      setSelectedClasses(new Set())
+      invalidate()
+      succes(`${selectedClasses.size} classe(s) mise(s) à jour.`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
 
   const colonnes: Colonne<Classe>[] = [
+    ...(can('classes.manage')
+      ? [
+        {
+          cle: 'checkbox',
+          entete: (
+            <input
+              type="checkbox"
+              checked={selectedClasses.size === data?.length && data?.length > 0}
+              onChange={toggleSelectAll}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300"
+            />
+          ),
+          cellule: (c) => (
+            <input
+              type="checkbox"
+              checked={selectedClasses.has(c.id)}
+              onChange={(e) => {
+                e.stopPropagation()
+                toggleSelection(c.id)
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300"
+            />
+          ),
+          largeur: 50,
+        } satisfies Colonne<Classe>,
+      ]
+      : []),
     {
       cle: 'nom',
       entete: t('classes.nom'),
@@ -29,18 +117,42 @@ export function ClassesListPage() {
       cellule: (c) => <span className="font-semibold text-navy-900">{c.nom}</span>,
     },
     {
+      cle: 'sigle',
+      entete: 'Sigle',
+      valeur: (c) => c.sigle,
+      cellule: (c) => (c.sigle ? <span className="font-mono font-semibold text-gold-600">{c.sigle}</span> : '—'),
+    },
+    {
+      cle: 'ecole',
+      entete: 'École',
+      valeur: (c) => c.school?.name,
+      cellule: (c) => (c.school ? <Badge tone="purple">{c.school.name}</Badge> : '—'),
+      masquerMobile: true,
+    },
+    {
+      cle: 'sous_systeme',
+      entete: 'Sous-système',
+      valeur: (c) => getSousSystemeNom(c),
+      cellule: (c) => (getSousSystemeNom(c) === '—' ? '—' : <Badge tone="blue">{getSousSystemeNom(c)}</Badge>),
+      masquerMobile: true,
+    },
+    {
       cle: 'niveau',
       entete: t('classes.niveau'),
       valeur: (c) => c.niveau?.name_fr,
       cellule: (c) => (c.niveau ? <Badge tone="gold">{c.niveau.name_fr}</Badge> : '—'),
     },
-    {
-      cle: 'filiere',
-      entete: t('classes.filiere'),
-      valeur: (c) => c.filiere,
-      cellule: (c) => c.filiere ?? '—',
-      masquerMobile: true,
-    },
+    ...(secondaire
+      ? [
+        {
+          cle: 'filiere',
+          entete: t('classes.filiere'),
+          valeur: (c: Classe) => c.filiere,
+          cellule: (c: Classe) => c.filiere ?? '—',
+          masquerMobile: true,
+        } satisfies Colonne<Classe>,
+      ]
+      : []),
     {
       cle: 'effectif',
       entete: t('classes.effectif'),
@@ -52,12 +164,63 @@ export function ClassesListPage() {
         </span>
       ),
     },
+    // Au primaire et en maternelle, la classe est tenue par un enseignant
+    // unique (le titulaire) ; le professeur principal est une fonction du
+    // secondaire, et la colonne resterait vide.
+    secondaire
+      ? {
+        cle: 'professeur_principal',
+        entete: t('classes.professeur_principal'),
+        valeur: (c) => c.professeur_principal?.nom_complet,
+        cellule: (c) => c.professeur_principal?.nom_complet ?? '—',
+        masquerMobile: true,
+      }
+      : {
+        cle: 'titulaire',
+        entete: t('classes.titulaire'),
+        valeur: (c) => c.titulaire?.nom_complet,
+        cellule: (c) => c.titulaire?.nom_complet ?? '—',
+        masquerMobile: true,
+      },
     {
-      cle: 'professeur_principal',
-      entete: t('classes.professeur_principal'),
-      valeur: (c) => c.professeur_principal?.nom_complet,
-      cellule: (c) => c.professeur_principal?.nom_complet ?? '—',
-      masquerMobile: true,
+      cle: 'actions',
+      entete: t('common.actions'),
+      cellule: (c) =>
+        can('classes.manage') && (
+          <div className="flex items-center gap-1">
+            <button
+              title={t('common.edit')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingClasse(c)
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              title={t('common.delete')}
+              onClick={async (e) => {
+                e.stopPropagation()
+                const confirme = await confirmerSuppression(
+                  `la classe ${c.nom}`,
+                  "Les affectations de matières, sanctions, séances et l'emploi du temps de cette classe seront définitivement supprimés. Les élèves inscrits seront simplement désaffectés. Cette action est irréversible.",
+                )
+                if (!confirme) return
+                try {
+                  await deleteClasse(c.id)
+                  invalidate()
+                  succes('Classe supprimée.')
+                } catch (err) {
+                  erreur((err as ApiError).message)
+                }
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ),
     },
   ]
 
@@ -68,13 +231,71 @@ export function ClassesListPage() {
         icon={School}
         actions={
           can('classes.manage') && (
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="h-4 w-4" />
-              {t('classes.add')}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.title')}
+              </Button>
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="h-4 w-4" />
+                {t('classes.add')}
+              </Button>
+            </>
           )
         }
       />
+
+      {selectedClasses.size > 0 && can('classes.manage') && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-medium text-navy-900">{selectedClasses.size} classe(s) sélectionnée(s)</p>
+            <div className="flex flex-wrap gap-2">
+              <div className="w-48">
+                <Select
+                  options={schools.map((s) => ({ value: s.id, label: s.name }))}
+                  placeholder="Définir l'école"
+                  onChange={(option) => {
+                    if (option) handleBulkUpdate({ school_id: option.value as number })
+                  }}
+                  isSearchable
+                  isClearable={false}
+                />
+              </div>
+
+              <div className="w-48">
+                <Select
+                  options={sousSystemes.map((s) => ({ value: s.id, label: `${s.nom} (${s.code})` }))}
+                  placeholder="Définir le sous-système"
+                  onChange={(option) => {
+                    if (option) handleBulkUpdate({ sous_systeme_id: option.value as number })
+                  }}
+                  isSearchable
+                  isClearable={false}
+                />
+              </div>
+
+              <div className="w-48">
+                <Select
+                  options={niveaux.map((n) => ({ value: n.id, label: n.name_fr }))}
+                  placeholder="Définir le niveau"
+                  onChange={(option) => {
+                    if (option) handleBulkUpdate({ niveau_id: option.value as number })
+                  }}
+                  isSearchable
+                  isClearable={false}
+                />
+              </div>
+
+              <button
+                onClick={() => setSelectedClasses(new Set())}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <Spinner />
@@ -96,8 +317,28 @@ export function ClassesListPage() {
           onClose={() => setShowForm(false)}
           onCreated={() => {
             setShowForm(false)
-            queryClient.invalidateQueries({ queryKey: ['classes'] })
+            invalidate()
           }}
+        />
+      )}
+      {editingClasse && (
+        <ClasseFormModal
+          classe={editingClasse}
+          onClose={() => setEditingClasse(null)}
+          onCreated={() => {
+            setEditingClasse(null)
+            invalidate()
+          }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title={t('import.title')}
+          url="/classes/import"
+          columns={['nom', 'sigle', 'capacite']}
+          onClose={() => setShowImport(false)}
+          onImported={invalidate}
         />
       )}
     </div>

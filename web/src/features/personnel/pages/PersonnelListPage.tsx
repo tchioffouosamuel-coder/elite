@@ -41,7 +41,7 @@ export function PersonnelListPage() {
   const colonnes: Colonne<Personnel>[] = [
     {
       cle: 'nom',
-      entete: t('personnel.nom'),
+      entete: t('personnel.nom_complet'),
       valeur: (p) => p.nom_complet,
       cellule: (p) => <span className="font-semibold text-navy-900">{p.nom_complet}</span>,
     },
@@ -212,7 +212,7 @@ export function PersonnelListPage() {
         <ImportModal
           title={t('personnel.import')}
           url="/personnels/import"
-          columns={['nom', 'prenom', 'fonction', 'matricule', 'telephone', 'email', 'date_embauche']}
+          columns={['nom_complet', 'fonction', 'matricule', 'telephone', 'email', 'date_embauche']}
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />

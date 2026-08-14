@@ -46,14 +46,13 @@ class PhotoExamenService extends BaseService
     {
         $eleves = $classe->eleves()
             ->where('statut', 'actif')
-            ->orderBy('nom')
-            ->orderBy('prenom')
+            ->orderBy('nom_complet')
             ->get();
 
         $candidats = $eleves->map(fn (Eleve $e) => [
             'eleve_id' => $e->id,
             'matricule' => $e->matricule,
-            'nom_complet' => $e->nomComplet(),
+            'nom_complet' => $e->nom_complet,
             'sexe' => $e->sexe,
             'photo_url' => $e->photo_path ? asset('storage/'.$e->photo_path) : null,
             'photo_prete' => $this->photoUtilisable($e),
@@ -91,16 +90,16 @@ class PhotoExamenService extends BaseService
         $ignores = [];
         $utilises = [];
 
-        foreach ($classe->eleves()->where('statut', 'actif')->orderBy('nom')->get() as $eleve) {
+        foreach ($classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get() as $eleve) {
             if (! $this->photoUtilisable($eleve)) {
-                $ignores[] = $eleve->nomComplet();
+                $ignores[] = $eleve->nom_complet;
 
                 continue;
             }
 
             $jpeg = $this->composer($eleve, $donnees['code_examen'], $donnees['centre']);
             if ($jpeg === null) {
-                $ignores[] = $eleve->nomComplet();
+                $ignores[] = $eleve->nom_complet;
 
                 continue;
             }
@@ -125,8 +124,8 @@ class PhotoExamenService extends BaseService
     private function nomFichier(Eleve $eleve, array &$utilises): string
     {
         $base = $eleve->matricule
-            ? Str::slug($eleve->matricule.'-'.$eleve->nomComplet())
-            : Str::slug($eleve->nomComplet());
+            ? Str::slug($eleve->matricule.'-'.$eleve->nom_complet)
+            : Str::slug($eleve->nom_complet);
 
         $nom = $base;
         $suffixe = 2;
@@ -194,7 +193,7 @@ class PhotoExamenService extends BaseService
         $police = base_path(self::POLICE);
 
         $this->texteCentre($canvas, $police, $bleu, date('d/m/Y'), 30);
-        $this->texteCentre($canvas, $police, $bleu, mb_strtoupper($eleve->nomComplet()), 470);
+        $this->texteCentre($canvas, $police, $bleu, mb_strtoupper($eleve->nom_complet), 470);
         $this->texteCentre($canvas, $police, $bleu, trim(($codeExamen ?? '').'  '.$centre), 490);
 
         ob_start();

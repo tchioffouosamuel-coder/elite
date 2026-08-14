@@ -12,9 +12,8 @@ class PersonnelResource extends JsonResource
         return [
             'id' => $this->id,
             'matricule' => $this->matricule,
-            'nom' => $this->nom,
-            'prenom' => $this->prenom,
-            'nom_complet' => $this->nomComplet(),
+            'nom_complet' => $this->nom_complet,
+            'fonction_id' => $this->fonction_id,
             'fonction' => $this->fonction,
             'departement' => $this->whenLoaded('departement', fn () => [
                 'id' => $this->departement?->id,

@@ -8,6 +8,7 @@ use App\Models\ClasseMatiere;
 use App\Models\Complexe;
 use App\Models\Departement;
 use App\Models\Eleve;
+use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Note;
@@ -76,7 +77,7 @@ class DemoDataSeeder extends Seeder
 
     public function run(): void
     {
-        $niveauCollege = Niveau::where('code', 'college')->firstOrFail();
+        $niveauCollege = Niveau::where('code', 'COLLEGE')->firstOrFail();
 
         // ELITES est un complexe : une maternelle, un primaire et un secondaire,
         // chacun avec son propre mode de fonctionnement. Ce seeder crée les trois
@@ -103,7 +104,6 @@ class DemoDataSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $school->niveaux()->syncWithoutDetaching([$niveauCollege->id]);
 
         $this->seedEcolesDuComplexe($complexe);
 
@@ -167,9 +167,8 @@ class DemoDataSeeder extends Seeder
         $enseignants = collect(self::ENSEIGNANTS)->map(fn ($data, $i) => Personnel::updateOrCreate(
             ['school_id' => $school->id, 'matricule' => sprintf('TID-%03d', $i + 1)],
             [
-                'nom' => $data['nom'],
-                'prenom' => $data['prenom'],
-                'fonction' => 'Enseignant',
+                'nom_complet' => $data['prenom'].' '.$data['nom'],
+                'fonction_id' => $this->fonctionId($school, 'Enseignant', 'Teacher'),
                 'departement_id' => $departements[$data['departement']]->id,
                 'statut' => 'actif',
             ]
@@ -186,7 +185,7 @@ class DemoDataSeeder extends Seeder
             Personnel::updateOrCreate(
                 ['school_id' => $school->id, 'matricule' => $matricule],
                 [
-                    'nom' => $nom, 'prenom' => $prenom, 'fonction' => $fonction,
+                    'nom_complet' => $prenom.' '.$nom, 'fonction_id' => $this->fonctionId($school, $fonction),
                     'departement_id' => $departements['Administration']->id, 'statut' => 'actif',
                     'user_id' => $compte->id, 'email' => $compte->email,
                 ]
@@ -201,7 +200,7 @@ class DemoDataSeeder extends Seeder
                 $school,
                 $niveauCollege->id,
                 sprintf('enseignant%d@elites-school.test', $i + 1),
-                $enseignant->nomComplet(),
+                $enseignant->nom_complet,
                 'enseignant',
             );
 
@@ -209,8 +208,11 @@ class DemoDataSeeder extends Seeder
         });
 
         // Chef de département (cf. _smapp departements.dept_head, ici une vraie FK).
-        $departements['Sciences']->update(['head_personnel_id' => $enseignants->firstWhere('nom', 'MELINGUI')->id]);
-        $departements['Lettres']->update(['head_personnel_id' => $enseignants->firstWhere('nom', 'ABENA')->id]);
+        // Repere par matricule : `nom` n'existe plus sur Personnel, et les
+        // matricules TID-001/TID-002 sont assignes juste au-dessus dans l'ordre
+        // de self::ENSEIGNANTS (MELINGUI, puis ABENA).
+        $departements['Sciences']->update(['head_personnel_id' => $enseignants->firstWhere('matricule', 'TID-001')->id]);
+        $departements['Lettres']->update(['head_personnel_id' => $enseignants->firstWhere('matricule', 'TID-002')->id]);
 
         $classesDefinition = ['6ème A', '5ème A', '4ème A', '3ème A'];
         $classes = collect($classesDefinition)->map(fn ($nom, $i) => Classe::updateOrCreate(
@@ -255,8 +257,7 @@ class DemoDataSeeder extends Seeder
                 ['school_id' => $school->id, 'matricule' => sprintf('ELV-%04d', $i + 1)],
                 [
                     'classe_id' => $classe->id,
-                    'nom' => $data['nom'],
-                    'prenom' => $data['prenom'],
+                    'nom_complet' => $data['prenom'].' '.$data['nom'],
                     'sexe' => $data['sexe'],
                     'statut' => 'actif',
                 ]
@@ -265,8 +266,7 @@ class DemoDataSeeder extends Seeder
             $tuteur = Tuteur::firstOrCreate(
                 ['school_id' => $school->id, 'telephone' => '69'.str_pad((string) (1000000 + $i), 7, '0', STR_PAD_LEFT)],
                 [
-                    'nom' => $data['nom'],
-                    'prenom' => $data['sexe'] === 'F' ? 'Père de '.$data['prenom'] : 'Mère de '.$data['prenom'],
+                    'nom_complet' => ($data['sexe'] === 'F' ? 'Père de ' : 'Mère de ').$data['prenom'].' '.$data['nom'],
                 ]
             );
 
@@ -286,6 +286,14 @@ class DemoDataSeeder extends Seeder
      * de direction rattaché, pour que la bascule d'établissement du super admin
      * soit démontrable. Leur flux pédagogique propre reste à construire.
      */
+    private function fonctionId(School $school, string $labelFr, ?string $labelEn = null): int
+    {
+        return FonctionReferentiel::firstOrCreate(
+            ['school_id' => $school->id, 'label_fr' => $labelFr],
+            ['label_en' => $labelEn],
+        )->id;
+    }
+
     /** Compte de connexion de démonstration, mot de passe `password`. */
     private function compte(School $school, ?int $niveauId, string $email, string $nom, string $role): User
     {
@@ -307,9 +315,9 @@ class DemoDataSeeder extends Seeder
     private function seedEcolesDuComplexe(Complexe $complexe): void
     {
         foreach ([
-            ['code' => 'ELITES-MAT', 'type' => 'maternelle', 'niveau' => 'maternelle',
+            ['code' => 'ELITES-MAT', 'type' => 'maternelle',
                 'name' => 'Elites Bilingual Nursery School', 'email' => 'maternelle@elites-school.test'],
-            ['code' => 'ELITES-PRI', 'type' => 'primaire', 'niveau' => 'primaire',
+            ['code' => 'ELITES-PRI', 'type' => 'primaire',
                 'name' => 'Elites Bilingual Primary School', 'email' => 'primaire@elites-school.test'],
         ] as $data) {
             $ecole = School::updateOrCreate(
@@ -322,11 +330,6 @@ class DemoDataSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
-
-            $niveau = Niveau::where('code', $data['niveau'])->first();
-            if ($niveau) {
-                $ecole->niveaux()->syncWithoutDetaching([$niveau->id]);
-            }
 
             AnneeScolaire::updateOrCreate(
                 ['school_id' => $ecole->id, 'libelle' => '2026-2027'],

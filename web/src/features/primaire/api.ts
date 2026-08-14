@@ -55,6 +55,8 @@ export interface GrillePrimaire {
   composantes: Composante[]
   sequences: { id: number; libelle: string }[]
   bareme: number
+  /** Points maximum par volet, tels que définis sur la matière. */
+  repartition: Record<Composante, number>
   lignes: {
     eleve_id: number
     nom_complet: string

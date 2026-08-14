@@ -55,7 +55,7 @@ class CarteScolaireGenerator extends FPDF
         $eleves = Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
             ->where('statut', 'actif')
-            ->orderBy('nom')
+            ->orderBy('nom_complet')
             ->get();
 
         if ($eleves->isEmpty()) {
@@ -223,7 +223,7 @@ class CarteScolaireGenerator extends FPDF
         } else {
             $this->SetFillColor(...self::SLATE);
             $this->Rect($photoX, $photoY, $photoSize, $photoSize, 'F');
-            $initiales = mb_strtoupper(mb_substr($eleve->prenom, 0, 1).mb_substr($eleve->nom, 0, 1));
+            $initiales = BulletinGenerator::initialesDe($eleve->nom_complet);
             $this->SetTextColor(...self::GOLD);
             $this->SetFont('Helvetica', 'B', 12);
             $this->SetXY($photoX, $photoY + 7);
@@ -234,7 +234,7 @@ class CarteScolaireGenerator extends FPDF
         $this->SetTextColor(...self::SLATE);
         $this->SetFont('Helvetica', 'B', 7.5);
         $this->SetXY($x + 2, $y + 41);
-        $this->MultiCell(self::CARD_W - 4, 3.2, $this->txt($eleve->nomComplet()), 0, 'C');
+        $this->MultiCell(self::CARD_W - 4, 3.2, $this->txt($eleve->nom_complet), 0, 'C');
 
         // Champs
         $this->SetFont('Helvetica', '', 6);

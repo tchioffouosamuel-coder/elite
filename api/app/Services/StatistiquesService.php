@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Classe;
 use App\Models\Sanction;
+use App\Models\School;
 use App\Models\Setting;
 use App\Models\Trimestre;
 
@@ -154,6 +155,10 @@ class StatistiquesService extends BaseService
             'total_sanctions' => collect($parClasse)->sum('total_sanctions'),
             'eleves_sanctionnes' => collect($parClasse)->sum('eleves_sanctionnes'),
             'effectif' => collect($parClasse)->sum(fn ($c) => $c['bilan']['effectif']),
+            // Heures au secondaire, journées au primaire et en maternelle : les
+            // clés gardent leur nom d'origine, `unite` dit ce qu'elles comptent.
+            'unite' => School::findOrFail($schoolId)->estSecondaire() ? 'heures' : 'jours',
+            'heures_justifiees' => round(collect($parClasse)->sum(fn ($c) => $c['bilan']['total_hj']), 1),
             'heures_non_justifiees' => round(collect($parClasse)->sum(fn ($c) => $c['bilan']['total_hnj']), 1),
             'sanctions_par_type' => $tousTypes
                 ->mapWithKeys(fn ($type) => [

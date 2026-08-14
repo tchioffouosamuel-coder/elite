@@ -17,16 +17,25 @@ import { estSecondaire } from '@/shared/lib/ecole'
 
 /**
  * Code couleur d'assiduité repris de _smapp (`getAbsenceColorClass`) :
- * vert en dessous de 10 h, orange jusqu'à 30 h, rouge au-delà.
+ * vert en dessous du premier seuil, orange jusqu'au second, rouge au-delà.
+ * Au primaire et en maternelle l'absence se compte en journées : 2 et 6 jours
+ * y valent la semaine de classe que représentent les 10 h et 30 h du secondaire.
  */
-function tonAbsence(heures: number): string {
-  if (heures > 30) return 'text-red-600'
-  if (heures >= 10) return 'text-gold-600'
+function tonAbsence(valeur: number, enJours: boolean): string {
+  const [seuilMoyen, seuilHaut] = enJours ? [2, 6] : [10, 30]
+  if (valeur > seuilHaut) return 'text-red-600'
+  if (valeur >= seuilMoyen) return 'text-gold-600'
   return 'text-green-600'
 }
 
 export function StatsDisciplinairesPage() {
   const secondaire = estSecondaire()
+  const enJours = !secondaire
+  const suffixe = enJours ? ' j' : ' h'
+  // Une journée est un entier : afficher « 1,0 j » laisserait croire à une demi-journée.
+  const decimales = enJours ? 0 : 1
+  const libelleJust = enJours ? 'Jours justifiés' : 'Heures justifiées'
+  const libelleNonJust = enJours ? 'Jours non justifiés' : 'Heures non justifiées'
   const { data, isLoading, isError } = useQuery({
     queryKey: ['stats-disciplinaires'],
     queryFn: () => fetchStatsDisciplinaires(),
@@ -45,28 +54,28 @@ export function StatsDisciplinairesPage() {
     // vraie matière du bilan disciplinaire de ces cycles.
     ...(secondaire
       ? [
-          {
-            cle: 'sanctions',
-            entete: 'Sanctions',
-            valeur: (c: StatsDisciplinairesClasse) => c.total_sanctions,
-            cellule: (c: StatsDisciplinairesClasse) => c.total_sanctions,
-          },
-          {
-            cle: 'sanctionnes',
-            entete: 'Élèves sanctionnés',
-            valeur: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
-            cellule: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
-            masquerMobile: true,
-          },
-        ]
+        {
+          cle: 'sanctions',
+          entete: 'Sanctions',
+          valeur: (c: StatsDisciplinairesClasse) => c.total_sanctions,
+          cellule: (c: StatsDisciplinairesClasse) => c.total_sanctions,
+        },
+        {
+          cle: 'sanctionnes',
+          entete: 'Élèves sanctionnés',
+          valeur: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
+          cellule: (c: StatsDisciplinairesClasse) => c.eleves_sanctionnes,
+          masquerMobile: true,
+        },
+      ]
       : []),
     {
       cle: 'hnj',
-      entete: 'Heures non justifiées',
+      entete: libelleNonJust,
       valeur: (c) => c.bilan.total_hnj,
       cellule: (c) => (
-        <span className={`font-semibold tabular-nums ${tonAbsence(c.bilan.total_hnj)}`}>
-          {c.bilan.total_hnj.toFixed(1)} h
+        <span className={`font-semibold tabular-nums ${tonAbsence(c.bilan.total_hnj ?? 0, enJours)}`}>
+          {(c.bilan.total_hnj ?? 0).toFixed(decimales)}{suffixe}
         </span>
       ),
     },
@@ -74,7 +83,7 @@ export function StatsDisciplinairesPage() {
       cle: 'moyenne',
       entete: 'Moyenne / élève',
       valeur: (c) => c.bilan.moyenne_hnj,
-      cellule: (c) => `${c.bilan.moyenne_hnj.toFixed(1)} h`,
+      cellule: (c) => `${(c.bilan.moyenne_hnj ?? 0).toFixed(1)}${suffixe}`,
       masquerMobile: true,
     },
     {
@@ -84,7 +93,9 @@ export function StatsDisciplinairesPage() {
       cellule: (c) =>
         c.bilan.eleve_plus_absent ? (
           <span className="text-navy-500">
-            {c.bilan.eleve_plus_absent.nom_complet} ({c.bilan.eleve_plus_absent.heures_non_justifiees.toFixed(1)} h)
+            {c.bilan.eleve_plus_absent.nom_complet} (
+            {c.bilan.eleve_plus_absent.heures_non_justifiees.toFixed(decimales)}
+            {suffixe})
           </span>
         ) : (
           '—'
@@ -129,53 +140,54 @@ export function StatsDisciplinairesPage() {
           />
         ) : (
           <StatCard
-            label="Heures justifiées"
-            value={`${c.heures_justifiees.toFixed(1)} h`}
+            label={libelleJust}
+            value={`${(c.heures_justifiees ?? 0).toFixed(decimales)}${suffixe}`}
             icon={Clock}
             accent="green"
           />
         )}
         <StatCard
-          label="Heures non justifiées"
-          value={`${c.heures_non_justifiees.toFixed(1)} h`}
+          label={libelleNonJust}
+          value={`${(c.heures_non_justifiees ?? 0).toFixed(decimales)}${suffixe}`}
           icon={Clock}
           accent="gold"
         />
-        <StatCard label="Moyenne / élève" value={`${moyenne.toFixed(1)} h`} icon={Clock} accent="navy" />
+        <StatCard label="Moyenne / élève" value={`${moyenne.toFixed(1)}${suffixe}`} icon={Clock} accent="navy" />
       </div>
 
       {secondaire && (
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-display text-base font-bold text-navy-900">Répartition des sanctions</h2>
-        <Table minWidth={420}>
-          <Thead>
-            <tr>
-              <Th>Type de sanction</Th>
-              <Th>Nombre</Th>
-              <Th>Part</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {types.map((type) => {
-              const nombre = c.sanctions_par_type[type] ?? 0
-              const part = c.total_sanctions > 0 ? (nombre / c.total_sanctions) * 100 : 0
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-display text-base font-bold text-navy-900">Répartition des sanctions</h2>
+          <Table minWidth={420}>
+            <Thead>
+              <tr>
+                <Th>Type de sanction</Th>
+                <Th>Nombre</Th>
+                <Th>Part</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {types.map((type) => {
+                const nombre = c.sanctions_par_type?.[type] ?? 0
+                const totalSanctions = c.total_sanctions ?? 0
+                const part = totalSanctions > 0 ? (nombre / totalSanctions) * 100 : 0
 
-              return (
-                <Tr key={type}>
-                  <Td className="text-left font-medium">{LIBELLES_SANCTION[type]}</Td>
-                  <Td>{nombre}</Td>
-                  <Td>{part.toFixed(1)} %</Td>
-                </Tr>
-              )
-            })}
-            <Tr className="bg-cream-100/70 font-semibold">
-              <Td className="text-left">Total</Td>
-              <Td>{c.total_sanctions}</Td>
-              <Td>—</Td>
-            </Tr>
-          </tbody>
-        </Table>
-      </Card>
+                return (
+                  <Tr key={type}>
+                    <Td className="text-left font-medium">{LIBELLES_SANCTION[type]}</Td>
+                    <Td>{nombre}</Td>
+                    <Td>{part.toFixed(1)} %</Td>
+                  </Tr>
+                )
+              })}
+              <Tr className="bg-cream-100/70 font-semibold">
+                <Td className="text-left">Total</Td>
+                <Td>{c.total_sanctions}</Td>
+                <Td>—</Td>
+              </Tr>
+            </tbody>
+          </Table>
+        </Card>
       )}
 
       <div className="flex flex-col gap-3">

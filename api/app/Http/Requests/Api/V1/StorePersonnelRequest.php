@@ -17,9 +17,8 @@ class StorePersonnelRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nom' => ['required', 'string', 'max:100'],
-            'prenom' => ['required', 'string', 'max:100'],
-            'fonction' => ['required', 'string', 'max:100'],
+            'nom_complet' => ['required', 'string', 'max:200'],
+            'fonction_id' => ['required', $this->scopedExists('fonction_referentiel')],
             'departement_id' => ['nullable', $this->scopedExists('departements')],
             'matricule' => ['nullable', 'string', 'max:50'],
             'telephone' => ['nullable', 'string', 'max:30'],

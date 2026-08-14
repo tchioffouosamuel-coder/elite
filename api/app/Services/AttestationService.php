@@ -36,7 +36,7 @@ class AttestationService extends BaseService
         $texte = sprintf(
             "Le Chef d'Établissement de %s certifie que l'élève %s, %s le %s%s, matricule n° %s, est régulièrement inscrit(e) en classe de %s au titre de l'année scolaire %s.",
             $school->name,
-            mb_strtoupper($eleve->nomComplet()),
+            mb_strtoupper($eleve->nom_complet),
             $eleve->sexe === 'F' ? 'née' : 'né',
             $eleve->date_naissance?->format('d/m/Y') ?? '—',
             $eleve->lieu_naissance ? " à {$eleve->lieu_naissance}" : '',

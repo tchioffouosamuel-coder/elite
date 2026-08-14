@@ -18,13 +18,13 @@ class EleveExport implements FromCollection, ShouldAutoSize, WithHeadings, WithM
         return Eleve::forSchool($this->schoolId)
             ->when($this->classeId, fn ($q, $id) => $q->where('classe_id', $id))
             ->with(['classe', 'tuteurs'])
-            ->orderBy('nom')
+            ->orderBy('nom_complet')
             ->get();
     }
 
     public function headings(): array
     {
-        return ['Matricule', 'Nom', 'Prénom', 'Sexe', 'Date de naissance', 'Classe', 'Statut', 'Tuteur', 'Téléphone tuteur'];
+        return ['Matricule', 'Nom complet', 'Sexe', 'Date de naissance', 'Classe', 'Statut', 'Tuteur', 'Téléphone tuteur'];
     }
 
     public function map($eleve): array
@@ -33,13 +33,12 @@ class EleveExport implements FromCollection, ShouldAutoSize, WithHeadings, WithM
 
         return [
             $eleve->matricule,
-            $eleve->nom,
-            $eleve->prenom,
+            $eleve->nom_complet,
             $eleve->sexe,
             $eleve->date_naissance?->format('Y-m-d'),
             $eleve->classe?->nom,
             $eleve->statut,
-            $tuteur?->nomComplet(),
+            $tuteur?->nom_complet,
             $tuteur?->telephone,
         ];
     }

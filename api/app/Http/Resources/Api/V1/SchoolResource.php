@@ -24,7 +24,6 @@ class SchoolResource extends JsonResource
             'logo_url' => $this->urlImage($this->logo_path),
             'cachet_url' => $this->urlImage($this->stamp_path),
             'signature_url' => $this->urlImage($this->signature_path),
-            'niveau_ids' => $this->whenLoaded('niveaux', fn () => $this->niveaux->pluck('id')->values()),
         ];
     }
 

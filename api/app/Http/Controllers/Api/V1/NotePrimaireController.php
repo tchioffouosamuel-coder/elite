@@ -45,14 +45,16 @@ class NotePrimaireController extends Controller
             return ApiResponse::forbidden("Vous n'êtes pas le titulaire de cette classe.");
         }
 
-        // Une note ne peut dépasser la part du barème allouée à son volet.
-        $bareme = (int) ($classeMatiere->matiere->notation ?? 20);
-        $maxParVolet = $bareme / max(count($classeMatiere->matiere->composantes()), 1);
+        // Une note ne peut dépasser la part du barème allouée à son volet —
+        // répartition propre à la matière, pas le barème divisé à parts égales.
+        $repartition = $classeMatiere->matiere->repartitionVolets();
 
         foreach ($request->input('notes') as $index => $row) {
-            if (isset($row['valeur']) && $row['valeur'] !== null && (float) $row['valeur'] > $maxParVolet) {
+            $maxVolet = $repartition[$row['composante']] ?? 0;
+
+            if (isset($row['valeur']) && $row['valeur'] !== null && (float) $row['valeur'] > $maxVolet) {
                 return ApiResponse::validationError(
-                    ["notes.{$index}.valeur" => ['Chaque volet est noté sur '.round($maxParVolet, 2).' au maximum.']],
+                    ["notes.{$index}.valeur" => ['Ce volet est noté sur '.round($maxVolet, 2).' au maximum.']],
                 );
             }
         }

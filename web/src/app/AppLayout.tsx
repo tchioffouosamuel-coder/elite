@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -26,6 +26,10 @@ import {
   Layers,
   GitBranch,
   CalendarCheck,
+  BriefcaseBusiness,
+  ChevronDown,
+  Search,
+  Repeat,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -49,6 +53,7 @@ const navGroups = [
     label: 'nav.group.staff',
     items: [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view' },
+      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true },
       {
         to: '/departements',
         label: 'nav.departements',
@@ -70,7 +75,9 @@ const navGroups = [
     label: 'nav.group.classes',
     items: [
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view' },
+      { to: '/sous-systemes', label: 'nav.sousSystemes', icon: Layers, permission: 'classes.manage' },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view' },
+      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage' },
     ],
   },
   {
@@ -78,7 +85,15 @@ const navGroups = [
     items: [
       { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view' },
       { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view' },
-      { to: '/ma-journee', label: 'nav.maJournee', icon: CalendarCheck, permission: 'appel.manage' },
+      {
+        to: '/ma-journee',
+        label: 'nav.maJournee',
+        icon: CalendarCheck,
+        permission: 'appel.manage',
+        // Un tableau de bord personnel au titulaire/enseignant — pas un outil
+        // de suivi pour l'administration, qui a ses propres écrans.
+        roles: ['enseignant'] as string[],
+      },
       { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view' },
       { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view' },
     ],
@@ -118,6 +133,7 @@ const navGroups = [
   {
     label: 'nav.group.admin',
     items: [
+      { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view' },
       { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage' },
       { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage' },
     ],
@@ -130,6 +146,13 @@ function initials(name?: string) {
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
 }
 
+function normaliserRecherche(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+}
+
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -137,11 +160,25 @@ export function AppLayout() {
   const { user, can, clearSession, activeSchool } = useAuthStore()
   const { locale, setLocale } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
+  const [rechercheMenu, setRechercheMenu] = useState('')
+  const [groupesOuverts, setGroupesOuverts] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navGroups.map((group) => [group.label, true])),
+  )
   const typeEcole = activeSchool()?.type
 
   // Le tiroir se referme à chaque navigation : sur mobile il recouvre la page,
   // le laisser ouvert masquerait l'écran qu'on vient d'ouvrir.
   useEffect(() => setMenuOuvert(false), [location.pathname])
+
+  useEffect(() => {
+    const groupeActif = navGroups.find((group) =>
+      group.items.some((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to))),
+    )
+
+    if (groupeActif) {
+      setGroupesOuverts((actuel) => ({ ...actuel, [groupeActif.label]: true }))
+    }
+  }, [location.pathname])
 
   const handleLogout = async () => {
     try {
@@ -152,16 +189,49 @@ export function AppLayout() {
     }
   }
 
-  const groupesVisibles = navGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter(
-        (item) =>
-          can(item.permission) &&
-          (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)),
-      ),
-    }))
-    .filter((group) => group.items.length > 0)
+  const requeteMenu = normaliserRecherche(rechercheMenu.trim())
+
+  const groupesVisibles = useMemo(
+    () =>
+      navGroups
+        .map((group) => {
+          const libelleGroupe = t(group.label)
+          const groupeCorrespond = requeteMenu !== '' && normaliserRecherche(libelleGroupe).includes(requeteMenu)
+          const itemsAutorises = group.items.filter(
+            (item) =>
+              can(item.permission) &&
+              (!('superAdminOnly' in item) || !item.superAdminOnly || user?.is_super_admin) &&
+              (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
+              (!('roles' in item) ||
+                !item.roles ||
+                user?.is_super_admin ||
+                (item.roles as string[]).some((r) => user?.roles.includes(r))),
+          )
+          const items = requeteMenu
+            ? itemsAutorises.filter((item) => groupeCorrespond || normaliserRecherche(t(item.label)).includes(requeteMenu))
+            : itemsAutorises
+
+          return { ...group, items }
+        })
+        .filter((group) => group.items.length > 0),
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin],
+  )
+
+  /**
+   * `/eleves` est un préfixe de `/eleves/transferts` : sans ceci, NavLink (en
+   * mode préfixe, cf. `end`) activerait les deux à la fois. On ne retient que
+   * l'entrée du menu dont le chemin correspond le plus précisément à l'URL.
+   */
+  const cheminActif = useMemo(() => {
+    let meilleur: string | null = null
+    for (const group of groupesVisibles) {
+      for (const item of group.items) {
+        const correspond = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+        if (correspond && (!meilleur || item.to.length > meilleur.length)) meilleur = item.to
+      }
+    }
+    return meilleur
+  }, [groupesVisibles, location.pathname])
 
   return (
     <div className="flex h-svh overflow-hidden bg-cream-50">
@@ -194,43 +264,79 @@ export function AppLayout() {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-4 px-3 pt-1 pb-4">
+        <div className="px-3 pb-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+            <input
+              value={rechercheMenu}
+              onChange={(e) => setRechercheMenu(e.target.value)}
+              placeholder={t('nav.searchMenu')}
+              className="h-10 w-full rounded-xl border border-white/10 bg-white/8 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-navy-400 focus:border-gold-400/50 focus:bg-white/12 focus:ring-4 focus:ring-gold-400/10"
+            />
+          </div>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-2 px-3 pt-1 pb-4">
           {groupesVisibles.map((group) => (
             <div key={group.label} className="flex flex-col gap-1">
-              <span className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-navy-400">
-                {t(group.label)}
-              </span>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) =>
-                    clsx(
-                      'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
-                        : 'text-navy-200 hover:bg-white/5 hover:text-white',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {isActive && (
-                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
-                      )}
-                      <item.icon
-                        className={clsx(
-                          'h-[18px] w-[18px] flex-none',
-                          isActive ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',                        )}
-                      />
-                      <span className="truncate">{t(item.label)}</span>
-                    </>
+              <button
+                type="button"
+                aria-expanded={Boolean(requeteMenu) || groupesOuverts[group.label]}
+                onClick={() =>
+                  setGroupesOuverts((actuel) => ({
+                    ...actuel,
+                    [group.label]: !actuel[group.label],
+                  }))
+                }
+                className="flex h-8 items-center justify-between gap-2 rounded-lg px-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200"
+              >
+                <span className="truncate">{t(group.label)}</span>
+                <ChevronDown
+                  className={clsx(
+                    'h-3.5 w-3.5 flex-none transition-transform',
+                    (requeteMenu || groupesOuverts[group.label]) && 'rotate-180',
                   )}
-                </NavLink>
-              ))}
+                />
+              </button>
+              {(requeteMenu || groupesOuverts[group.label]) && (
+                <div className="flex flex-col gap-1">
+                  {group.items.map((item) => {
+                    const estActif = item.to === cheminActif
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end
+                        aria-current={estActif ? 'page' : undefined}
+                        className={clsx(
+                          'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
+                          estActif
+                            ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
+                            : 'text-navy-200 hover:bg-white/5 hover:text-white',
+                        )}
+                      >
+                        {estActif && (
+                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
+                        )}
+                        <item.icon
+                          className={clsx(
+                            'h-[18px] w-[18px] flex-none',
+                            estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
+                          )}
+                        />
+                        <span className="truncate">{t(item.label)}</span>
+                      </NavLink>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ))}
+          {groupesVisibles.length === 0 && (
+            <div className="rounded-xl border border-white/10 px-3.5 py-4 text-sm text-navy-300">
+              {t('nav.noMenuFound')}
+            </div>
+          )}
         </nav>
 
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800 px-4 py-4">

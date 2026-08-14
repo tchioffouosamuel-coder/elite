@@ -17,7 +17,11 @@ class DashboardService extends BaseService
         $totalEleves = Eleve::forSchool($schoolId)->where('statut', 'actif')->count();
         $totalClasses = (clone $classesQuery)->count();
         $totalPersonnel = Personnel::forSchool($schoolId)->where('statut', 'actif')->count();
-        $totalEnseignants = Personnel::forSchool($schoolId)->where('statut', 'actif')->where('fonction', 'Enseignant')->count();
+        $totalEnseignants = Personnel::forSchool($schoolId)->where('statut', 'actif')
+            ->whereHas('fonctionReference', fn ($q) => $q
+                ->whereRaw('LOWER(label_fr) = ?', ['enseignant'])
+                ->orWhereRaw('LOWER(label_en) = ?', ['teacher']))
+            ->count();
 
         $parGenre = Eleve::forSchool($schoolId)->where('statut', 'actif')
             ->selectRaw('sexe, count(*) as total')->groupBy('sexe')->pluck('total', 'sexe');
@@ -29,10 +33,10 @@ class DashboardService extends BaseService
             ->map(fn ($c) => ['classe' => $c->nom, 'effectif' => $c->eleves_count]);
 
         $activiteRecente = Eleve::forSchool($schoolId)->latest()->limit(3)->get()
-            ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nomComplet()}", 'date' => $e->created_at->toIso8601String()])
+            ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
             ->concat(
                 Personnel::forSchool($schoolId)->latest()->limit(3)->get()
-                    ->map(fn ($p) => ['type' => 'personnel', 'libelle' => "Ajout de {$p->nomComplet()} ({$p->fonction})", 'date' => $p->created_at->toIso8601String()])
+                    ->map(fn ($p) => ['type' => 'personnel', 'libelle' => "Ajout de {$p->nom_complet} ({$p->fonction})", 'date' => $p->created_at->toIso8601String()])
             )
             ->sortByDesc('date')->take(5)->values();
 

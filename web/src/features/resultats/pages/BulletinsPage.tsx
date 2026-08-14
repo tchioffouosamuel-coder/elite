@@ -9,6 +9,7 @@ import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { estSecondaire } from '@/shared/lib/ecole'
 
 /**
  * Édition des bulletins par classe : comme report_cards.php dans _smapp, on
@@ -18,6 +19,9 @@ import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 export function BulletinsPage() {
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [enCours, setEnCours] = useState<number | null>(null)
+  // Le primaire et la maternelle n'ont pas de professeur principal : la classe
+  // est tenue par son enseignant titulaire.
+  const secondaire = estSecondaire()
 
   const { data: classes, isLoading } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
@@ -65,7 +69,7 @@ export function BulletinsPage() {
               <Th>Classe</Th>
               <Th>Niveau</Th>
               <Th>Effectif</Th>
-              <Th>Professeur principal</Th>
+              <Th>{secondaire ? 'Professeur principal' : 'Enseignant'}</Th>
               <Th />
             </tr>
           </Thead>
@@ -75,7 +79,7 @@ export function BulletinsPage() {
                 <Td className="font-semibold">{classe.nom}</Td>
                 <Td>{classe.niveau?.name_fr ?? '—'}</Td>
                 <Td>{classe.effectif ?? '—'}</Td>
-                <Td>{classe.professeur_principal?.nom_complet ?? '—'}</Td>
+                <Td>{(secondaire ? classe.professeur_principal : classe.titulaire)?.nom_complet ?? '—'}</Td>
                 <Td>
                   <Button size="sm" variant="secondary" onClick={() => editer(classe.id)} disabled={enCours === classe.id}>
                     <FileDown className="h-4 w-4" />

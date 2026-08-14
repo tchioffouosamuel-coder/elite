@@ -125,7 +125,11 @@ function VignetteEleve({
         <img src={eleve.photo_url} alt={eleve.nom_complet} className="h-24 w-24 rounded-xl object-cover" />
       ) : (
         <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-navy-800 text-lg font-bold text-gold-300">
-          {(eleve.prenom[0] ?? '') + (eleve.nom[0] ?? '')}
+          {eleve.nom_complet
+            .split(' ')
+            .map((p) => p[0])
+            .slice(0, 2)
+            .join('')}
         </div>
       )}
 

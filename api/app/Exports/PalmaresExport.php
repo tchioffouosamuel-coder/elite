@@ -15,7 +15,7 @@ class PalmaresExport implements FromCollection, ShouldAutoSize, WithHeadings
     {
         return $this->rows->values()->map(fn ($row, $i) => [
             $i + 1,
-            $row['eleve']->nomComplet(),
+            $row['eleve']->nom_complet,
             $row['eleve']->classe?->nom,
             number_format($row['moyenne'], 2),
         ]);

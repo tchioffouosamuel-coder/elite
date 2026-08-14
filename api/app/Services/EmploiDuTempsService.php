@@ -88,7 +88,7 @@ class EmploiDuTempsService extends BaseService
         $pointages = $seance->presences()->get()->keyBy('eleve_id');
 
         return $seance->classe->eleves()->where('statut', 'actif')
-            ->orderBy('nom')->orderBy('prenom')->get()
+            ->orderBy('nom_complet')->get()
             ->map(fn ($eleve) => [
                 'eleve' => $eleve,
                 // Tous présents par défaut : l'appel ne relève que les écarts.

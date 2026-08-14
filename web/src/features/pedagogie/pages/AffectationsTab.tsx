@@ -12,12 +12,18 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
+import { estSecondaire } from '@/shared/lib/ecole'
 
 export function AffectationsTab({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+
+  // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
+  // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
+  // valeur 1 côté payload (l'API l'exige) mais on ne la montre nulle part.
+  const secondaire = estSecondaire()
 
   const { data: affectations, isLoading } = useQuery({
     queryKey: ['classe-matieres', classeId],
@@ -41,7 +47,7 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
       ...values,
       matiere_id: Number(values.matiere_id),
       personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
-      coefficient: Number(values.coefficient),
+      coefficient: secondaire ? Number(values.coefficient) : 1,
       quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
       groupe: Number(values.groupe) || 1,
     })
@@ -81,7 +87,9 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
               </option>
             ))}
           </Select>
-          <Input label={t('pedagogie.coefficient')} type="number" step="0.5" {...register('coefficient', { required: true })} />
+          {secondaire && (
+            <Input label={t('pedagogie.coefficient')} type="number" step="0.5" {...register('coefficient', { required: true })} />
+          )}
           <Input label={t('pedagogie.quota_horaire')} type="number" {...register('quota_horaire')} />
           <div className="col-span-2 flex items-end gap-2 sm:col-span-4">
             <Button type="submit" size="sm">
@@ -102,7 +110,7 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
             <tr>
               <Th>{t('matieres.title')}</Th>
               <Th>{t('pedagogie.enseignant')}</Th>
-              <Th>{t('pedagogie.coefficient')}</Th>
+              {secondaire && <Th>{t('pedagogie.coefficient')}</Th>}
               <Th>{t('pedagogie.quota_horaire')}</Th>
               {can('pedagogie.manage') && <Th>{t('common.actions')}</Th>}
             </tr>
@@ -112,7 +120,7 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
               <Tr key={a.id}>
                 <Td className="font-medium">{a.matiere.nom}</Td>
                 <Td>{a.enseignant?.nom_complet ?? '—'}</Td>
-                <Td>{a.coefficient}</Td>
+                {secondaire && <Td>{a.coefficient}</Td>}
                 <Td>{a.quota_horaire ?? '—'}</Td>
                 {can('pedagogie.manage') && (
                   <Td>

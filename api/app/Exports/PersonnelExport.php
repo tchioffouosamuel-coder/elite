@@ -15,20 +15,19 @@ class PersonnelExport implements FromCollection, ShouldAutoSize, WithHeadings, W
 
     public function collection(): Collection
     {
-        return Personnel::forSchool($this->schoolId)->with('departement')->orderBy('nom')->get();
+        return Personnel::forSchool($this->schoolId)->with('departement')->orderBy('nom_complet')->get();
     }
 
     public function headings(): array
     {
-        return ['Matricule', 'Nom', 'Prénom', 'Fonction', 'Département', 'Téléphone', 'Email', 'Statut'];
+        return ['Matricule', 'Nom complet', 'Fonction', 'Département', 'Téléphone', 'Email', 'Statut'];
     }
 
     public function map($personnel): array
     {
         return [
             $personnel->matricule,
-            $personnel->nom,
-            $personnel->prenom,
+            $personnel->nom_complet,
             $personnel->fonction,
             $personnel->departement?->nom,
             $personnel->telephone,

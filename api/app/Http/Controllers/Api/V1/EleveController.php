@@ -12,6 +12,7 @@ use App\Models\Classe;
 use App\Services\EleveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -116,7 +117,98 @@ class EleveController extends Controller
 
         return ApiResponse::success(
             new EleveResource($eleve),
-            'Élève transféré vers '.$classe->school->name.' — '.$classe->nom.'.'
+            'Élève transféré vers ' . $classe->school->name . ' — ' . $classe->nom . '.'
         );
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $eleve = $this->service->find(app('tenant.school_id'), $id);
+        $this->service->delete($eleve);
+
+        return ApiResponse::success(null, 'Élève supprimé.');
+    }
+
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $schoolId = app('tenant.school_id');
+        $deleted = 0;
+
+        foreach ($data['ids'] as $id) {
+            $eleve = $this->service->find($schoolId, $id);
+            $this->service->delete($eleve);
+            $deleted++;
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], "{$deleted} élève(s) supprimé(s).");
+    }
+
+    /** Bascule un lot d'élèves vers une autre classe de la même école. */
+    public function batchTransfertClasse(Request $request): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'classe_id' => ['required', 'integer', Rule::exists('classes', 'id')->where('school_id', $schoolId)],
+        ]);
+
+        $transferes = 0;
+
+        foreach ($data['ids'] as $id) {
+            $eleve = $this->service->find($schoolId, $id);
+            $this->service->update($eleve, ['classe_id' => $data['classe_id']]);
+            $transferes++;
+        }
+
+        return ApiResponse::success(['transferes' => $transferes], "{$transferes} élève(s) transféré(s).");
+    }
+
+    /**
+     * Bascule un lot d'élèves vers une autre école du complexe — même
+     * restriction que le transfert unitaire : seul le super administrateur y
+     * est autorisé, et la classe d'arrivée doit appartenir à l'école visée.
+     */
+    public function batchTransfertEcole(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('super_admin')) {
+            return ApiResponse::forbidden('Seul le super administrateur peut transférer des élèves entre établissements.');
+        }
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'school_id' => ['required', 'integer'],
+            'classe_id' => ['required', 'integer'],
+        ]);
+
+        if (! $user->ecolesAccessibles()->contains('id', $data['school_id'])) {
+            return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
+        }
+
+        $classe = Classe::where('school_id', $data['school_id'])->find($data['classe_id']);
+
+        if (! $classe) {
+            return ApiResponse::error("La classe d'arrivée n'appartient pas à l'établissement de destination.", 422);
+        }
+
+        $schoolId = app('tenant.school_id');
+        $transferes = 0;
+
+        foreach ($data['ids'] as $id) {
+            $eleve = $this->service->find($schoolId, $id);
+            $this->service->transferer($eleve, $classe);
+            $transferes++;
+        }
+
+        return ApiResponse::success(['transferes' => $transferes], "{$transferes} élève(s) transféré(s) vers {$classe->school->name} — {$classe->nom}.");
     }
 }

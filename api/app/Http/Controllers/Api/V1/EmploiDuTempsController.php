@@ -121,7 +121,7 @@ class EmploiDuTempsController extends Controller
             'salle' => $creneau->salle,
             'classe_matiere_id' => $creneau->classe_matiere_id,
             'matiere' => $creneau->classeMatiere?->matiere?->nom,
-            'enseignant' => $creneau->classeMatiere?->enseignant?->nomComplet(),
+            'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
         ];
     }
 }

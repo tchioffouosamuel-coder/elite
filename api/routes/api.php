@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
+use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
+use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +45,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         // Référentiel global, non scopé par établissement.
         Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index');
+        Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.manage');
+        Route::get('niveaux/{id}', [NiveauController::class, 'show'])->name('niveaux.show')->middleware('permission:niveaux.view');
+        Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.manage');
+        Route::delete('niveaux/{id}', [NiveauController::class, 'destroy'])->name('niveaux.destroy')->middleware('permission:niveaux.manage');
+        Route::post('niveaux/batch-delete', [NiveauController::class, 'batchDestroy'])->name('niveaux.batch-destroy')->middleware('permission:niveaux.manage');
+        Route::post('niveaux/batch-update', [NiveauController::class, 'batchUpdate'])->name('niveaux.batch-update')->middleware('permission:niveaux.manage');
 
         // Toutes les routes métier (établissement, personnel, classes, élèves, ...)
         // sont scopées par établissement + niveau via le middleware `tenant`.
@@ -50,6 +58,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:personnel.view')->group(function () {
                 Route::get('departements', [DepartementController::class, 'index'])->name('departements.index');
+                Route::get('fonctions-referentiel', [FonctionReferentielController::class, 'index'])->name('fonctions-referentiel.index');
+                Route::get('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'show'])->name('fonctions-referentiel.show');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
@@ -60,6 +70,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('departements', [DepartementController::class, 'store'])->name('departements.store');
                 Route::put('departements/{id}', [DepartementController::class, 'update'])->name('departements.update');
                 Route::delete('departements/{id}', [DepartementController::class, 'destroy'])->name('departements.destroy');
+
+                Route::post('fonctions-referentiel', [FonctionReferentielController::class, 'store'])->name('fonctions-referentiel.store');
+                Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update');
+                Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy');
 
                 Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store');
                 Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update');
@@ -91,12 +105,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
                 Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
                 Route::get('classes/{id}', [ClasseController::class, 'show'])->name('classes.show');
+                Route::get('schools', [ClasseController::class, 'schools'])->name('schools.index');
+                Route::get('schools/{id}', [ClasseController::class, 'showSchool'])->name('schools.show');
             });
 
             Route::middleware('permission:classes.manage')->group(function () {
                 Route::post('classes', [ClasseController::class, 'store'])->name('classes.store');
+                Route::post('classes/import', [ClasseController::class, 'import'])->name('classes.import');
+                Route::put('classes/bulk-update', [ClasseController::class, 'bulkUpdate'])->name('classes.bulk-update');
                 Route::put('classes/{id}', [ClasseController::class, 'update'])->name('classes.update');
                 Route::delete('classes/{id}', [ClasseController::class, 'destroy'])->name('classes.destroy');
+
+                Route::get('sous-systemes', [SousSystemeController::class, 'index'])->name('sous-systemes.index');
+                Route::post('sous-systemes', [SousSystemeController::class, 'store'])->name('sous-systemes.store');
+                Route::get('sous-systemes/{id}', [SousSystemeController::class, 'show'])->name('sous-systemes.show');
+                Route::put('sous-systemes/{id}', [SousSystemeController::class, 'update'])->name('sous-systemes.update');
+                Route::delete('sous-systemes/{id}', [SousSystemeController::class, 'destroy'])->name('sous-systemes.destroy');
             });
 
             Route::middleware('permission:eleves.view')->group(function () {
@@ -114,6 +138,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:eleves.manage')->group(function () {
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
+                Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');
+                Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete');
+                Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe');
+                Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
                 Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
@@ -128,6 +156,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('matieres', [MatiereController::class, 'store'])->name('matieres.store');
                 Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update');
                 Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy');
+                Route::post('matieres/batch-delete', [MatiereController::class, 'batchDestroy'])->name('matieres.batch-destroy');
+                Route::post('matieres/import', [MatiereController::class, 'import'])->name('matieres.import');
 
                 Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');
                 Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update');

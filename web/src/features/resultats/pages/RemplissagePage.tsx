@@ -86,6 +86,7 @@ export function RemplissagePage() {
             <tr>
               <Th>Matière</Th>
               <Th>Enseignant</Th>
+              <Th>Total volets</Th>
               <Th>Avancement</Th>
               <Th>Taux</Th>
             </tr>
@@ -95,6 +96,7 @@ export function RemplissagePage() {
               <Tr key={ligne.classe_matiere_id}>
                 <Td className="font-medium">{ligne.matiere}</Td>
                 <Td>{ligne.enseignant ?? '—'}</Td>
+                <Td className="text-center font-semibold">{ligne.volets ? ligne.volets.length : '—'}</Td>
                 <Td>
                   <div className="h-2 w-40 overflow-hidden rounded-full bg-navy-100">
                     <div

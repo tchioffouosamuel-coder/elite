@@ -34,7 +34,6 @@ export interface EcoleProfile {
   logo_url: string | null
   cachet_url: string | null
   signature_url: string | null
-  niveau_ids: number[]
 }
 
 export type ImageEcole = 'logo' | 'cachet' | 'signature'
@@ -46,7 +45,6 @@ export interface EcoleProfilePayload {
   email?: string | null
   header_fr?: string | null
   header_en?: string | null
-  niveau_ids: number[]
 }
 
 export async function fetchEcole(): Promise<EcoleProfile> {

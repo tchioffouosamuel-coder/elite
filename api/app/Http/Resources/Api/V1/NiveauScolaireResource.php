@@ -17,7 +17,7 @@ class NiveauScolaireResource extends JsonResource
             'animateur_personnel_id' => $this->animateur_personnel_id,
             'animateur' => $this->whenLoaded('animateur', fn () => $this->animateur ? [
                 'id' => $this->animateur->id,
-                'nom_complet' => $this->animateur->nomComplet(),
+                'nom_complet' => $this->animateur->nom_complet,
             ] : null),
             'nb_classes' => $this->when(isset($this->classes_count), $this->classes_count),
         ];

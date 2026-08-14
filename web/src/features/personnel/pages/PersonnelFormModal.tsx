@@ -5,12 +5,39 @@ import { useState } from 'react'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
-import { fetchDepartements, createPersonnel, type PersonnelPayload } from '@/features/personnel/api'
+import {
+  fetchDepartements,
+  fetchFonctionsReferentiel,
+  createPersonnel,
+  updatePersonnel,
+  type Personnel,
+  type PersonnelPayload,
+} from '@/features/personnel/api'
+import { estSecondaire } from '@/shared/lib/ecole'
+import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 
-export function PersonnelFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function PersonnelFormModal({
+  personnel,
+  onClose,
+  onCreated,
+}: {
+  personnel?: Personnel
+  onClose: () => void
+  onCreated: () => void
+}) {
   const { t } = useTranslation()
-  const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
+  const avecDepartements = estSecondaire()
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const { data: departements } = useQuery({
+    queryKey: ['departements', activeSchoolId],
+    queryFn: fetchDepartements,
+    enabled: avecDepartements,
+  })
+  const { data: fonctions } = useQuery({
+    queryKey: ['fonctions-referentiel', activeSchoolId],
+    queryFn: fetchFonctionsReferentiel,
+  })
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -18,16 +45,33 @@ export function PersonnelFormModal({ onClose, onCreated }: { onClose: () => void
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<PersonnelPayload>()
+  } = useForm<PersonnelPayload>({
+    defaultValues: personnel
+      ? {
+          nom_complet: personnel.nom_complet,
+          fonction_id: personnel.fonction_id,
+          departement_id: personnel.departement?.id ?? undefined,
+          matricule: personnel.matricule ?? '',
+          telephone: personnel.telephone ?? '',
+          email: personnel.email ?? '',
+        }
+      : undefined,
+  })
 
   const onSubmit = async (values: PersonnelPayload) => {
     setServerError(null)
     setSubmitting(true)
     try {
-      await createPersonnel({
+      const payload = {
         ...values,
+        fonction_id: Number(values.fonction_id),
         departement_id: values.departement_id ? Number(values.departement_id) : null,
-      })
+      }
+      if (personnel) {
+        await updatePersonnel(personnel.id, payload)
+      } else {
+        await createPersonnel(payload)
+      }
       onCreated()
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -37,26 +81,41 @@ export function PersonnelFormModal({ onClose, onCreated }: { onClose: () => void
   }
 
   return (
-    <Modal title={t('personnel.add')} onClose={onClose}>
+    <Modal title={personnel ? t('personnel.edit') : t('personnel.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Input label={t('personnel.prenom')} error={errors.prenom?.message} {...register('prenom', { required: true })} />
-          <Input label={t('personnel.nom')} error={errors.nom?.message} {...register('nom', { required: true })} />
-        </div>
-        <Input label={t('personnel.fonction')} error={errors.fonction?.message} {...register('fonction', { required: true })} />
-        <Select label={t('personnel.departement')} {...register('departement_id')}>
+        <Input
+          label={t('personnel.nom_complet')}
+          error={errors.nom_complet?.message}
+          {...register('nom_complet', { required: true })}
+        />
+        <Select label={t('personnel.fonction')} error={errors.fonction_id?.message} {...register('fonction_id', { required: true })}>
           <option value="">—</option>
-          {departements?.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.nom}
+          {fonctions?.map((fonction) => (
+            <option key={fonction.id} value={fonction.id}>
+              {fonction.label}
             </option>
           ))}
         </Select>
+        {avecDepartements && (
+          <Select label={t('personnel.departement')} {...register('departement_id')}>
+            <option value="">—</option>
+            {departements?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nom}
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Input label={t('personnel.matricule')} {...register('matricule')} />
           <Input label={t('personnel.telephone')} {...register('telephone')} />
         </div>
-        <Input label={t('personnel.email')} type="email" {...register('email')} />
+        <Input
+          label={t('personnel.email')}
+          type="email"
+          disabled={!!personnel}
+          {...register('email', { disabled: !!personnel })}
+        />
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

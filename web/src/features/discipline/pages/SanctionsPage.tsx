@@ -42,7 +42,7 @@ export function SanctionsPage() {
   const colonnes: Colonne<Sanction>[] = [
     {
       cle: 'eleve',
-      entete: t('eleves.nom'),
+      entete: t('eleves.nom_complet'),
       valeur: (s) => s.eleve.nom_complet,
       cellule: (s) => <span className="font-semibold text-navy-900">{s.eleve.nom_complet}</span>,
     },

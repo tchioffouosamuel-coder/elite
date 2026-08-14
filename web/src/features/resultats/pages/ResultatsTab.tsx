@@ -72,7 +72,7 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
             <Thead>
               <tr>
                 <Th>{t('resultats.rang')}</Th>
-                <Th>{t('eleves.nom')}</Th>
+                <Th>{t('eleves.nom_complet')}</Th>
                 <Th>{t('resultats.moyenne')}</Th>
                 <Th>{t('resultats.cote')}</Th>
                 <Th>{t('resultats.mention')}</Th>

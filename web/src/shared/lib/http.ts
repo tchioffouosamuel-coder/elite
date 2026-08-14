@@ -17,8 +17,11 @@ http.interceptors.request.use((config) => {
 
   if (token) config.headers.Authorization = `Bearer ${token}`
 
+  // Un appel peut fixer son propre X-School-Id (ex. consulter les classes
+  // d'une autre école du complexe avant un transfert) sans faire basculer
+  // tout le contexte applicatif : on ne l'écrase alors pas.
   const schoolId = activeSchoolId ?? user?.school_id
-  if (schoolId) config.headers['X-School-Id'] = String(schoolId)
+  if (schoolId && !config.headers['X-School-Id']) config.headers['X-School-Id'] = String(schoolId)
   config.headers['X-Locale'] = locale
 
   return config

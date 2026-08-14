@@ -3,8 +3,19 @@ import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchMe } from '@/features/auth/api'
 
-export function ProtectedRoute({ children, permission }: { children: ReactNode; permission?: string }) {
-  const { token, can, refreshUser } = useAuthStore()
+export function ProtectedRoute({
+  children,
+  permission,
+  roles,
+  superAdminOnly = false,
+}: {
+  children: ReactNode
+  permission?: string
+  /** Restreint aux comptes portant l'un de ces rôles (le super admin passe toujours). */
+  roles?: string[]
+  superAdminOnly?: boolean
+}) {
+  const { token, user, can, refreshUser } = useAuthStore()
   const dejaRafraichi = useRef(false)
 
   // Le profil vient du stockage local et peut dater d'une version antérieure de
@@ -23,7 +34,9 @@ export function ProtectedRoute({ children, permission }: { children: ReactNode; 
   }, [token, refreshUser])
 
   if (!token) return <Navigate to="/connexion" replace />
+  if (superAdminOnly && !user?.is_super_admin) return <Navigate to="/" replace />
   if (permission && !can(permission)) return <Navigate to="/" replace />
+  if (roles && !user?.is_super_admin && !roles.some((r) => user?.roles.includes(r))) return <Navigate to="/" replace />
 
   return <>{children}</>
 }

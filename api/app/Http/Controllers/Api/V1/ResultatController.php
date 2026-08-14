@@ -62,7 +62,7 @@ class ResultatController extends Controller
 
         $eleves = $rows->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
-            'nom_complet' => $row['eleve']->nomComplet(),
+            'nom_complet' => $row['eleve']->nom_complet,
             'classe' => $row['eleve']->classe?->nom,
             'moyenne' => $row['moyenne'],
             'heures_non_justifiees' => $row['heures_non_justifiees'],
@@ -106,7 +106,7 @@ class ResultatController extends Controller
 
         return $this->service->classementGeneral($classe, $trimestre)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
-            'nom_complet' => $row['eleve']->nomComplet(),
+            'nom_complet' => $row['eleve']->nom_complet,
             'moyenne' => $row['moyenne'],
             'rang' => $row['rang'],
             'cote' => $this->service->lettreCote($row['moyenne']),

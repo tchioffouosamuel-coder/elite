@@ -1,15 +1,22 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 
+/** Le secondaire compte des heures saisies à la main, le primaire et la
+ *  maternelle des journées déduites des appels (`calculee`, donc non éditable). */
+export type UniteAbsence = 'heures' | 'jours'
+
 export interface AbsenceCellule {
   eleve_id: number
   nom_complet: string
-  heures_justifiees: number
-  heures_non_justifiees: number
+  unite: UniteAbsence
+  justifiees: number
+  non_justifiees: number
+  calculee: boolean
 }
 
 export interface BilanDisciplinaire {
   effectif: number
+  unite: UniteAbsence
   total_hnj: number
   moyenne_hnj: number
   total_hnj_garcons: number

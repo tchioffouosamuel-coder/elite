@@ -26,10 +26,11 @@ class StoreClasseRequest extends FormRequest
             // sections se suffisent à elles-mêmes.
             'niveau_scolaire_id' => [
                 'nullable',
-                Rule::prohibitedIf(fn () => ! $this->ecoleUtiliseNiveaux()),
+                Rule::prohibitedIf(fn() => ! $this->ecoleUtiliseNiveaux()),
                 $this->scopedExists('niveau_scolaires'),
             ],
             'annee_scolaire_id' => ['required', $this->scopedExists('annee_scolaires')],
+            'sous_systeme_id' => ['nullable', $this->scopedExists('sous_systemes')],
             'professeur_principal_id' => ['nullable', $this->scopedExists('personnels')],
             // Enseignant unique de la classe au primaire et en maternelle.
             'titulaire_id' => ['nullable', $this->scopedExists('personnels')],
@@ -37,6 +38,8 @@ class StoreClasseRequest extends FormRequest
             'censeur_id' => ['nullable', $this->scopedExists('personnels')],
             'conseiller_orientation_id' => ['nullable', $this->scopedExists('personnels')],
             'nom' => ['required', 'string', 'max:50'],
+            'sigle' => ['nullable', 'string', 'max:20'],
+            'niveau_classe' => ['nullable', 'string', 'max:100'],
             'filiere' => ['nullable', 'string', 'max:100'],
             // Non vide = classe présentant un examen officiel (BEPC, BAC, CEP…).
             'code_examen' => ['nullable', 'string', 'max:40'],

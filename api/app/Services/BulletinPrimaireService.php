@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\AbsenceTrimestre;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
@@ -17,7 +16,10 @@ use Illuminate\Support\Collection;
  */
 class BulletinPrimaireService extends BaseService
 {
-    public function __construct(private readonly MoyennePrimaireService $moyennes) {}
+    public function __construct(
+        private readonly MoyennePrimaireService $moyennes,
+        private readonly DisciplineService $discipline,
+    ) {}
 
     /**
      * @param  array<int>|null  $eleveIds  restreint le document à certains élèves
@@ -28,10 +30,15 @@ class BulletinPrimaireService extends BaseService
             ->with(['matiere', 'enseignant'])->orderBy('id')->get();
 
         $sequences = $trimestre->sequencesRetenues();
-        $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom')->orderBy('prenom')->get();
+        $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
 
         $classement = $this->moyennes->classementGeneral($classe, $trimestre);
-        $moyennes = $classement->pluck('moyenne')->filter(fn ($m) => $m !== null);
+        $moyennes = $classement->pluck('moyenne')->filter(fn($m) => $m !== null);
+
+        // Au primaire l'absence se compte en journées déduites des appels :
+        // calculées ici en un bloc pour toute la classe, plutôt qu'une requête
+        // par élève comme le faisait la lecture d'AbsenceTrimestre.
+        $jours = $this->discipline->joursAbsence($classe, $trimestre);
 
         $elevesDuDocument = $eleveIds === null
             ? $tousEleves
@@ -52,11 +59,11 @@ class BulletinPrimaireService extends BaseService
                 'moyenne_classe' => $moyennes->isNotEmpty() ? round((float) $moyennes->avg(), 2) : null,
                 'premier' => $moyennes->isNotEmpty() ? (float) $moyennes->max() : null,
                 'dernier' => $moyennes->isNotEmpty() ? (float) $moyennes->min() : null,
-                'admis' => $moyennes->filter(fn ($m) => $m >= 10)->count(),
+                'admis' => $moyennes->filter(fn($m) => $m >= 10)->count(),
                 'evalues' => $moyennes->count(),
             ],
             'eleves' => $elevesDuDocument
-                ->map(fn (Eleve $eleve) => $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement))
+                ->map(fn(Eleve $eleve) => $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours))
                 ->all(),
         ];
     }
@@ -70,11 +77,13 @@ class BulletinPrimaireService extends BaseService
         Collection $affectations,
         Collection $sequences,
         Collection $classement,
+        Collection $jours,
     ): array {
         $totauxParSequence = array_fill_keys($sequences->pluck('id')->all(), 0.0);
 
         $lignes = $affectations->map(function (ClasseMatiere $cm) use ($eleve, $trimestre, $sequences, &$totauxParSequence) {
             $resultat = $this->moyennes->noteMatiereEleve($eleve, $cm, $trimestre);
+            $repartition = $cm->matiere->repartitionVolets();
 
             foreach ($sequences as $sequence) {
                 $totauxParSequence[$sequence->id] += $resultat['totaux_sequences'][$sequence->id] ?? 0.0;
@@ -85,26 +94,26 @@ class BulletinPrimaireService extends BaseService
                 'matiere_en' => $cm->matiere->nom_en,
                 'abreviation' => $cm->matiere->abbreviation,
                 'bareme' => $resultat['bareme'],
-                'enseignant' => $cm->enseignant?->nomComplet() ?? '—',
-                // Une ligne par volet : le libellé, puis une note par séquence.
-                'volets' => collect($cm->matiere->composantes())->map(fn (string $composante) => [
+                'enseignant' => $cm->enseignant?->nom_complet ?? '—',
+                // Une ligne par volet : le libellé, son barème, puis une note par séquence.
+                'volets' => collect($cm->matiere->composantes())->map(fn(string $composante) => [
                     'code' => $composante,
                     'libelle' => self::LIBELLES_VOLETS[$composante]['fr'],
                     'libelle_en' => self::LIBELLES_VOLETS[$composante]['en'],
-                    'notes' => $sequences->map(fn ($s) => $resultat['volets'][$composante][$s->id] ?? null)->values()->all(),
+                    'bareme' => $repartition[$composante] ?? null,
+                    'notes' => $sequences->map(fn($s) => $resultat['volets'][$composante][$s->id] ?? null)->values()->all(),
                 ])->values()->all(),
-                'totaux_sequences' => $sequences->map(fn ($s) => $resultat['totaux_sequences'][$s->id] ?? null)->values()->all(),
+                'totaux_sequences' => $sequences->map(fn($s) => $resultat['totaux_sequences'][$s->id] ?? null)->values()->all(),
                 'note' => $resultat['note'],
                 'appreciation' => $this->moyennes->appreciationCompetence($resultat['note'], $resultat['bareme']),
             ];
         });
 
         $general = $this->moyennes->moyenneGeneraleEleve($eleve, $trimestre);
-        $absence = AbsenceTrimestre::where('eleve_id', $eleve->id)->where('trimestre_id', $trimestre->id)->first();
 
         // Moyenne de chaque séquence prise isolément, ramenée sur 20 :
         // `$al1 = ($total1 * 20) / $sum` dans archange.
-        $moyennesSequences = $sequences->map(fn ($s) => $general['total_bareme'] > 0
+        $moyennesSequences = $sequences->map(fn($s) => $general['total_bareme'] > 0
             ? round($totauxParSequence[$s->id] * 20 / $general['total_bareme'], 2)
             : null)->values()->all();
 
@@ -115,10 +124,10 @@ class BulletinPrimaireService extends BaseService
             'total_obtenu' => $general['total_obtenu'],
             'total_bareme' => $general['total_bareme'],
             'moyenne_generale' => $general['moyenne'],
-            'rang' => $classement->first(fn ($r) => $r['eleve']->id === $eleve->id)['rang'] ?? null,
+            'rang' => $classement->first(fn($r) => $r['eleve']->id === $eleve->id)['rang'] ?? null,
             'appreciation_generale' => $this->appreciationGenerale($general['moyenne']),
-            'heures_justifiees' => (float) ($absence?->heures_justifiees ?? 0),
-            'heures_non_justifiees' => (float) ($absence?->heures_non_justifiees ?? 0),
+            'jours_justifies' => (int) ($jours[$eleve->id]['jours_justifies'] ?? 0),
+            'jours_non_justifies' => (int) ($jours[$eleve->id]['jours_non_justifies'] ?? 0),
         ];
     }
 

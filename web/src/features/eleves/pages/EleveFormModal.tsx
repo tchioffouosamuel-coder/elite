@@ -7,10 +7,18 @@ import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { fetchClasses } from '@/features/classes/api'
-import { createEleve, type ElevePayload } from '@/features/eleves/api'
+import { createEleve, updateEleve, type Eleve, type ElevePayload } from '@/features/eleves/api'
 import type { ApiError } from '@/shared/types/api'
 
-export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function EleveFormModal({
+  eleve,
+  onClose,
+  onCreated,
+}: {
+  eleve?: Eleve
+  onClose: () => void
+  onCreated: () => void
+}) {
   const { t } = useTranslation()
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const [serverError, setServerError] = useState<string | null>(null)
@@ -21,7 +29,17 @@ export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; on
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<ElevePayload>({ defaultValues: { tuteurs: [] } })
+  } = useForm<ElevePayload>({
+    defaultValues: eleve
+      ? {
+          nom_complet: eleve.nom_complet,
+          sexe: eleve.sexe,
+          date_naissance: eleve.date_naissance ?? '',
+          classe_id: eleve.classe?.id,
+          tuteurs: [],
+        }
+      : { tuteurs: [] },
+  })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
 
@@ -29,7 +47,19 @@ export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; on
     setServerError(null)
     setSubmitting(true)
     try {
-      await createEleve({ ...values, classe_id: values.classe_id ? Number(values.classe_id) : null })
+      const { tuteurs, ...rest } = values
+      const payload: ElevePayload = {
+        ...rest,
+        classe_id: values.classe_id ? Number(values.classe_id) : null,
+        // En édition, on ne touche aux tuteurs que si l'utilisateur en a saisi
+        // ici : les envoyer vides écraserait les tuteurs déjà rattachés.
+        ...(!eleve || (tuteurs && tuteurs.length > 0) ? { tuteurs: tuteurs ?? [] } : {}),
+      }
+      if (eleve) {
+        await updateEleve(eleve.id, payload)
+      } else {
+        await createEleve(payload)
+      }
       onCreated()
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -39,12 +69,13 @@ export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; on
   }
 
   return (
-    <Modal title={t('eleves.add')} onClose={onClose}>
+    <Modal title={eleve ? t('eleves.edit') : t('eleves.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Input label={t('eleves.prenom')} error={errors.prenom?.message} {...register('prenom', { required: true })} />
-          <Input label={t('eleves.nom')} error={errors.nom?.message} {...register('nom', { required: true })} />
-        </div>
+        <Input
+          label={t('eleves.nom_complet')}
+          error={errors.nom_complet?.message}
+          {...register('nom_complet', { required: true })}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <Select label={t('eleves.sexe')} error={errors.sexe?.message} {...register('sexe', { required: true })}>
@@ -69,7 +100,7 @@ export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; on
             <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('eleves.tuteur')}</span>
             <button
               type="button"
-              onClick={() => append({ nom: '', prenom: '', telephone: '', lien_parente: '', is_principal: fields.length === 0 })}
+              onClick={() => append({ nom_complet: '', telephone: '', lien_parente: '', is_principal: fields.length === 0 })}
               className="flex items-center gap-1 text-xs font-semibold text-navy-600 hover:text-navy-800"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -77,10 +108,16 @@ export function EleveFormModal({ onClose, onCreated }: { onClose: () => void; on
             </button>
           </div>
 
+          {eleve && eleve.tuteurs.length > 0 && fields.length === 0 && (
+            <p className="mb-2 text-xs text-navy-400">
+              {eleve.tuteurs.map((tut) => tut.nom_complet).join(', ')} — {t('common.add')} {t('eleves.tuteur').toLowerCase()} ci-dessous
+              remplacera cette liste.
+            </p>
+          )}
+
           {fields.map((field, index) => (
-            <div key={field.id} className="mb-2 grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2 last:mb-0">
-              <Input placeholder={t('eleves.tuteur_nom')} {...register(`tuteurs.${index}.prenom` as const, { required: true })} />
-              <Input placeholder={t('eleves.nom')} {...register(`tuteurs.${index}.nom` as const, { required: true })} />
+            <div key={field.id} className="mb-2 grid grid-cols-[2fr_1fr_auto] items-end gap-2 last:mb-0">
+              <Input placeholder={t('eleves.tuteur_nom')} {...register(`tuteurs.${index}.nom_complet` as const, { required: true })} />
               <Input placeholder={t('eleves.tuteur_telephone')} {...register(`tuteurs.${index}.telephone` as const)} />
               <button
                 type="button"

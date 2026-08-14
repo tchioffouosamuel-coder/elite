@@ -35,7 +35,7 @@
     @forelse ($eleves as $i => $row)
         <tr>
             <td class="rang">{{ $i + 1 }}</td>
-            <td class="text-left">{{ $row['eleve']->nomComplet() }}</td>
+            <td class="text-left">{{ $row['eleve']->nom_complet }}</td>
             <td>{{ $row['eleve']->classe?->nom }}</td>
             <td><strong>{{ number_format($row['moyenne'], 2) }}</strong></td>
         </tr>

@@ -19,8 +19,7 @@ class StoreEleveRequest extends FormRequest
         return [
             'classe_id' => ['nullable', $this->scopedExists('classes')],
             'matricule' => ['nullable', 'string', 'max:50'],
-            'nom' => ['required', 'string', 'max:100'],
-            'prenom' => ['required', 'string', 'max:100'],
+            'nom_complet' => ['required', 'string', 'max:200'],
             'sexe' => ['required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
@@ -29,8 +28,7 @@ class StoreEleveRequest extends FormRequest
             'redoublant' => ['nullable', 'boolean'],
 
             'tuteurs' => ['nullable', 'array'],
-            'tuteurs.*.nom' => ['required_with:tuteurs', 'string', 'max:100'],
-            'tuteurs.*.prenom' => ['required_with:tuteurs', 'string', 'max:100'],
+            'tuteurs.*.nom_complet' => ['required_with:tuteurs', 'string', 'max:200'],
             'tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
             'tuteurs.*.email' => ['nullable', 'email', 'max:150'],
             'tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],

@@ -26,10 +26,10 @@ class NoteService extends BaseService
             ->get()
             ->keyBy('eleve_id');
 
-        return $classeMatiere->classe->eleves()->where('statut', 'actif')->orderBy('nom')->get()
+        return $classeMatiere->classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get()
             ->map(fn ($eleve) => [
                 'eleve_id' => $eleve->id,
-                'nom_complet' => $eleve->nomComplet(),
+                'nom_complet' => $eleve->nom_complet,
                 'note_id' => $notes->get($eleve->id)?->id,
                 'valeur' => $notes->get($eleve->id)?->valeur !== null ? (float) $notes->get($eleve->id)->valeur : null,
             ]);

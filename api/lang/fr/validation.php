@@ -164,7 +164,7 @@ return [
 
     'attributes' => [
         'nom' => 'nom',
-        'prenom' => 'prénom',
+        'nom_complet' => 'nom complet',
         'email' => 'e-mail',
         'password' => 'mot de passe',
         'telephone' => 'téléphone',

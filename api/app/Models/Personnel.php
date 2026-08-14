@@ -5,12 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Personnel extends Model
 {
     protected $fillable = [
-        'school_id', 'user_id', 'departement_id', 'matricule', 'nom', 'prenom',
-        'fonction', 'telephone', 'email', 'date_embauche', 'statut', 'photo_path',
+        'school_id',
+        'user_id',
+        'departement_id',
+        'fonction_id',
+        'matricule',
+        'nom_complet',
+        'telephone',
+        'email',
+        'date_embauche',
+        'statut',
+        'photo_path',
     ];
 
     protected function casts(): array
@@ -33,13 +43,29 @@ class Personnel extends Model
         return $this->belongsTo(Departement::class);
     }
 
+    public function fonctionReference(): BelongsTo
+    {
+        return $this->belongsTo(FonctionReferentiel::class, 'fonction_id');
+    }
+
+    /**
+     * Libelle de la fonction. La colonne texte a cede la place au referentiel,
+     * mais tout ce qui affiche une fiche de personnel — exports, fichier du
+     * personnel, tableau de bord — continue de lire `->fonction`.
+     */
+    public function getFonctionAttribute(): ?string
+    {
+        return $this->fonctionReference?->label();
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function nomComplet(): string
+    /** Classes enseignées au primaire/maternelle (ce personnel est titulaire). */
+    public function classesTenues(): HasMany
     {
-        return "{$this->prenom} {$this->nom}";
+        return $this->hasMany(Classe::class, 'titulaire_id');
     }
 }

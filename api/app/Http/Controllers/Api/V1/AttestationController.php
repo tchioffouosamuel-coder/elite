@@ -17,7 +17,7 @@ class AttestationController extends Controller
         $eleve = Eleve::forSchool(app('tenant.school_id'))->with(['classe.anneeScolaire', 'school'])->findOrFail($eleveId);
 
         $path = $this->service->genererScolarite($eleve);
-        $nomFichier = 'attestation-'.Str::slug($eleve->nomComplet()).'.docx';
+        $nomFichier = 'attestation-'.Str::slug($eleve->nom_complet).'.docx';
 
         return response()->download($path, $nomFichier)->deleteFileAfterSend();
     }

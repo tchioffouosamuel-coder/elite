@@ -31,7 +31,7 @@ class ResultatPrimaireController extends Controller
         // de résultats soient partagés entre les deux moteurs de notation.
         $rows = $this->service->classementGeneral($classe, $trimestre)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
-            'nom_complet' => $row['eleve']->nomComplet(),
+            'nom_complet' => $row['eleve']->nom_complet,
             'matricule' => $row['eleve']->matricule,
             'sexe' => $row['eleve']->sexe,
             'moyenne' => $row['moyenne'],
@@ -61,7 +61,7 @@ class ResultatPrimaireController extends Controller
                 'matiere' => $cm->matiere->nom,
                 'bareme' => (int) ($cm->matiere->notation ?? 20),
                 'volets' => $cm->matiere->composantes(),
-                'enseignant' => $cm->enseignant?->nomComplet() ?? $classe->titulaire?->nomComplet(),
+                'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
                 'taux' => $this->service->tauxRemplissage($cm, $trimestre),
             ]);
 
@@ -82,7 +82,7 @@ class ResultatPrimaireController extends Controller
 
         $rows = $this->service->decisionsAnnuelles($classe, $classe->annee_scolaire_id)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
-            'nom_complet' => $row['eleve']->nomComplet(),
+            'nom_complet' => $row['eleve']->nom_complet,
             'matricule' => $row['eleve']->matricule,
             'moyenne_annuelle' => $row['moyenne_annuelle'],
             'decision' => $row['decision'],
