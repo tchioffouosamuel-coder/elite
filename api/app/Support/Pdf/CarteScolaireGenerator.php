@@ -49,6 +49,7 @@ class CarteScolaireGenerator extends FPDF
         $this->anneeLabel = $anneeLabel;
         $this->school = $classe->school;
 
+        $this->registerMontserrat();
         $this->SetAutoPageBreak(false);
         $this->SetTitle($this->txt('Cartes scolaires - '.$classe->nom));
 
@@ -61,7 +62,7 @@ class CarteScolaireGenerator extends FPDF
         if ($eleves->isEmpty()) {
             $this->AddPage('L', 'A4');
             $this->drawPageHeaderIfNeeded();
-            $this->SetFont('Helvetica', '', 11);
+            $this->SetFont('Montserrat', '', 11);
             $this->SetXY(0, 100);
             $this->Cell(297, 8, $this->txt('Aucun élève actif dans cette classe.'), 0, 0, 'C');
 
@@ -90,6 +91,20 @@ class CarteScolaireGenerator extends FPDF
         return $this->Output('S');
     }
 
+    /**
+     * FPDF n'embarque que les polices core (Helvetica, Times…) : Montserrat
+     * doit être déclarée à partir des définitions générées par l'utilitaire
+     * MakeFont de FPDF (`vendor/setasign/fpdf/makefont`), commitées dans
+     * `storage/fonts/fpdf` pour ne pas régénérer les .json/.z à chaque déploiement.
+     */
+    private function registerMontserrat(): void
+    {
+        $dir = storage_path('fonts/fpdf').'/';
+        $this->AddFont('Montserrat', '', 'Montserrat-Regular.json', $dir);
+        $this->AddFont('Montserrat', 'B', 'Montserrat-Bold.json', $dir);
+        $this->AddFont('Montserrat', 'I', 'Montserrat-Italic.json', $dir);
+    }
+
     /** @return array{0: float, 1: float} coin supérieur gauche de la case $slot */
     private function slotPosition(int $slot): array
     {
@@ -108,12 +123,12 @@ class CarteScolaireGenerator extends FPDF
         }
         $this->headerDrawnOnPage = $this->PageNo();
 
-        $this->SetFont('Helvetica', 'B', 13);
+        $this->SetFont('Montserrat', 'B', 13);
         $this->SetTextColor(...self::SLATE);
         $this->SetXY(0, 8);
         $this->Cell(297, 7, $this->txt('Cartes scolaires — '.$this->classeName.' ('.$face.')'), 0, 0, 'C');
 
-        $this->SetFont('Helvetica', 'I', 9);
+        $this->SetFont('Montserrat', 'I', 9);
         $this->SetTextColor(120, 120, 120);
         $this->SetXY(0, 15);
         $this->Cell(297, 6, $this->txt('Année scolaire '.$this->anneeLabel), 0, 0, 'C');
@@ -136,12 +151,12 @@ class CarteScolaireGenerator extends FPDF
         $this->SetFillColor(...self::SLATE);
         $this->Rect($x + 1, $y + 1, self::CARD_W - 2, 8, 'F');
         $this->SetTextColor(...self::GOLD);
-        $this->SetFont('Helvetica', 'B', 6);
+        $this->SetFont('Montserrat', 'B', 6);
         $this->SetXY($x + 2, $y + 3);
         $this->Cell(self::CARD_W - 4, 4, $this->txt('RÈGLEMENT / REGULATIONS'), 0, 0, 'C');
 
         $this->SetTextColor(...self::SLATE);
-        $this->SetFont('Helvetica', '', 4.6);
+        $this->SetFont('Montserrat', '', 4.6);
         $this->SetXY($x + 3, $y + 11);
         $this->MultiCell(self::CARD_W - 6, 2.4, $this->txt(
             'Cette carte est strictement personnelle. Elle doit être présentée '
@@ -162,11 +177,11 @@ class CarteScolaireGenerator extends FPDF
         $this->SetDrawColor(209, 219, 217);
         $this->Line($x + 8, $y + self::CARD_H - 16, $x + self::CARD_W - 8, $y + self::CARD_H - 16);
         $this->SetTextColor(136, 136, 136);
-        $this->SetFont('Helvetica', 'I', 5);
+        $this->SetFont('Montserrat', 'I', 5);
         $this->SetXY($x + 2, $y + self::CARD_H - 14);
         $this->Cell(self::CARD_W - 4, 3, $this->txt("Le Chef d'établissement"), 0, 0, 'C');
 
-        $this->SetFont('Helvetica', '', 4.8);
+        $this->SetFont('Montserrat', '', 4.8);
         $this->SetXY($x + 2, $y + self::CARD_H - 9);
         $this->MultiCell(self::CARD_W - 4, 2.4, $this->txt($this->school?->name ?? ''), 0, 'C');
     }
@@ -201,12 +216,12 @@ class CarteScolaireGenerator extends FPDF
         }
 
         $this->SetTextColor(255, 255, 255);
-        $this->SetFont('Helvetica', 'B', 7.5);
+        $this->SetFont('Montserrat', 'B', 7.5);
         $this->SetXY($x + ($logo !== null ? 12 : 2), $y + 2.5);
         $this->MultiCell(self::CARD_W - ($logo !== null ? 14 : 4), 3.2, $this->txt(mb_strtoupper($this->school?->name ?? '')), 0, 'C');
 
         $this->SetTextColor(...self::GOLD);
-        $this->SetFont('Helvetica', 'B', 6);
+        $this->SetFont('Montserrat', 'B', 6);
         $this->SetXY($x + 2, $y + 11.5);
         $this->Cell(self::CARD_W - 4, 3.5, $this->txt('CARTE SCOLAIRE '.$this->anneeLabel), 0, 0, 'C');
 
@@ -225,19 +240,19 @@ class CarteScolaireGenerator extends FPDF
             $this->Rect($photoX, $photoY, $photoSize, $photoSize, 'F');
             $initiales = BulletinGenerator::initialesDe($eleve->nom_complet);
             $this->SetTextColor(...self::GOLD);
-            $this->SetFont('Helvetica', 'B', 12);
+            $this->SetFont('Montserrat', 'B', 12);
             $this->SetXY($photoX, $photoY + 7);
             $this->Cell($photoSize, 6, $this->txt($initiales), 0, 0, 'C');
         }
 
         // Nom
         $this->SetTextColor(...self::SLATE);
-        $this->SetFont('Helvetica', 'B', 7.5);
+        $this->SetFont('Montserrat', 'B', 7.5);
         $this->SetXY($x + 2, $y + 41);
         $this->MultiCell(self::CARD_W - 4, 3.2, $this->txt($eleve->nom_complet), 0, 'C');
 
         // Champs
-        $this->SetFont('Helvetica', '', 6);
+        $this->SetFont('Montserrat', '', 6);
         $lignes = [
             'Matricule : '.($eleve->matricule ?? '—'),
             'Classe : '.$this->classeName,
@@ -255,7 +270,7 @@ class CarteScolaireGenerator extends FPDF
         $this->SetDrawColor(209, 219, 217);
         $this->Line($x + 3, $y + self::CARD_H - 10, $x + self::CARD_W - 3, $y + self::CARD_H - 10);
         $this->SetTextColor(136, 136, 136);
-        $this->SetFont('Helvetica', 'I', 4.8);
+        $this->SetFont('Montserrat', 'I', 4.8);
         $this->SetXY($x + 2, $y + self::CARD_H - 8);
         $this->MultiCell(self::CARD_W - 4, 2.6, $this->txt('En cas de perte, retourner à l\'établissement'), 0, 'C');
     }

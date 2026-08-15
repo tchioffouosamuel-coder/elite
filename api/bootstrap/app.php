@@ -3,6 +3,8 @@
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\ScopeEtablissement;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\VerifierPermission;
+use App\Http\Middleware\VerifierSuperAdmin;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -10,7 +12,6 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -32,9 +33,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'permission' => PermissionMiddleware::class,
+            // Notre middleware plutôt que celui de spatie : lui seul connaît les
+            // privilèges hérités de la fonction et rend un 403 nommant le
+            // privilège manquant (cf. VerifierPermission).
+            'permission' => VerifierPermission::class,
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'super_admin' => VerifierSuperAdmin::class,
             'tenant' => ScopeEtablissement::class,
         ]);
     })

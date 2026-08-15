@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { FileDown, FileText } from 'lucide-react'
+import { FileDown, FileText, FileSpreadsheet } from 'lucide-react'
 import { fetchEleves, type Eleve } from '@/features/eleves/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
-import { telechargerFichier } from '@/shared/lib/download'
+import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 
@@ -83,6 +84,30 @@ export function ElevesTab({ classeId }: { classeId: number }) {
       placeholderRecherche="Rechercher un nom, un matricule…"
       messageVide="Aucun élève dans cette classe."
       largeurMin={760}
+      outils={
+        <>
+          <Button variant="secondary" size="sm" onClick={() => ouvrirDocument(`/classes/${classeId}/eleves/pdf`)}>
+            <FileDown className="h-4 w-4" />
+            PDF
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => telechargerFichier(`/classes/${classeId}/eleves/word`, undefined, 'liste-eleves.docx')}
+          >
+            <FileText className="h-4 w-4" />
+            Word
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => telechargerFichier('/eleves/export', { classe_id: classeId }, 'liste-eleves.xlsx')}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel
+          </Button>
+        </>
+      }
     />
   )
 }

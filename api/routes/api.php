@@ -14,12 +14,14 @@ use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
+use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
+use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\ProgressionController;
@@ -44,7 +46,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
         // Référentiel global, non scopé par établissement.
-        Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index');
+        Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index')->middleware('permission:niveaux.view');
         Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.manage');
         Route::get('niveaux/{id}', [NiveauController::class, 'show'])->name('niveaux.show')->middleware('permission:niveaux.view');
         Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.manage');
@@ -55,6 +57,17 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // Toutes les routes métier (établissement, personnel, classes, élèves, ...)
         // sont scopées par établissement + niveau via le middleware `tenant`.
         Route::middleware('tenant')->group(function () {
+
+            /*
+             * Administration des privilèges. Protégée par le rôle et non par un
+             * privilège : un droit qui permettrait de s'octroyer tous les
+             * autres ne protégerait rien.
+             */
+            Route::middleware('super_admin')->group(function () {
+                Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
+                Route::get('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'show'])->name('permissions.show');
+                Route::put('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'update'])->name('permissions.update');
+            });
 
             Route::middleware('permission:personnel.view')->group(function () {
                 Route::get('departements', [DepartementController::class, 'index'])->name('departements.index');
@@ -107,6 +120,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:classes.view')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
                 Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
+                Route::get('classes/{id}/eleves/pdf', [ListeElevesController::class, 'pdf'])->name('classes.eleves.pdf');
+                Route::get('classes/{id}/eleves/word', [ListeElevesController::class, 'word'])->name('classes.eleves.word');
                 Route::get('classes/{id}', [ClasseController::class, 'show'])->name('classes.show');
                 Route::get('schools', [ClasseController::class, 'schools'])->name('schools.index');
                 Route::get('schools/{id}', [ClasseController::class, 'showSchool'])->name('schools.show');

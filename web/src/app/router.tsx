@@ -31,6 +31,7 @@ import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
+import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
 export const router = createBrowserRouter([
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view"><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
+      { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
     ],
   },

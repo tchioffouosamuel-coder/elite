@@ -14,7 +14,7 @@ use App\Support\Pdf\EnTeteHtml;
  */
 trait RenduDocument
 {
-    protected const OR = '#d8a02e';
+    protected const ACCENT = '#39b54a';
 
     protected const ARDOISE = '#292F36';
 
@@ -55,20 +55,20 @@ trait RenduDocument
         return mb_strtoupper(implode('', $lettres));
     }
 
-    /** Styles partagés : tableaux à en-tête doré, titres bilingues, utilitaires. */
+    /** Styles partagés : tableaux à en-tête coloré, titres bilingues, utilitaires. */
     protected function stylesBase(): string
     {
-        return 'body{font-family:dejavusans,sans-serif;font-size:3.2mm;margin:0;padding:0;color:#333}'
+        return 'body{font-family:montserrat,sans-serif;font-size:3.2mm;margin:0;padding:0;color:#333}'
             . 'table{width:100%;border-collapse:collapse;margin-top:4px;margin-bottom:6px}'
             . 'th,td{border:0.5px solid #bdc3c7;text-align:center;padding:1px}'
-            . 'th{background-color:' . self::OR . ';color:#fff;font-weight:bold;font-size:2.6mm}'
+            . 'th{background-color:' . self::ACCENT . ';color:#fff;font-weight:bold;font-size:2.6mm}'
             . '.header-table{width:100%;table-layout:fixed;margin-bottom:6px}'
             . '.header-table td{text-align:center;vertical-align:top;border:none;font-size:2.5mm}'
             . '.lh-1{line-height:1.25}'
             . '.logo{width:' . self::LOGO_WIDTH . ';height:auto}'
             . '.no-border,.no-border td,.no-border tr{border:none!important}'
-            . '.titre{color:' . self::OR . ';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
-            . '.titre-en{color:' . self::OR . ';text-transform:uppercase;font-style:italic;font-size:3.2mm}'
+            . '.titre{color:' . self::ACCENT . ';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
+            . '.titre-en{color:' . self::ACCENT . ';text-transform:uppercase;font-style:italic;font-size:3.2mm}'
             . '.left{text-align:left!important}'
             . '.value{font-weight:bold;color:#000}'
             . '.mini{font-size:2.2mm}'
@@ -90,7 +90,7 @@ trait RenduDocument
         $logo = $this->cheminImage($school->logo_path);
         $celluleLogo = $logo !== null
             ? '<img src="' . $this->e($logo) . '" class="logo">'
-            : '<div class="value" style="font-size:5mm;color:' . self::OR . ';">' . $this->e($this->monogramme($school)) . '</div>';
+            : '<div class="value" style="font-size:5mm;color:' . self::ACCENT . ';">' . $this->e($this->monogramme($school)) . '</div>';
 
         return '<table class="header-table"><tr>'
             . '<td style="width:40%;"><div class="lh-1">' . $this->texteEnTete($school->header_fr, $school->name) . '</div></td>'

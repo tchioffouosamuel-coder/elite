@@ -1,9 +1,12 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Phone, Mail, UserRound } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, UserRound, ShieldCheck, Pencil, Check } from 'lucide-react'
 import { fetchFonctionReferentiel, fetchPersonnels } from '@/features/personnel/api'
+import { fetchMatricePermissions } from '@/features/permissions/api'
+import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
+import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 
 export function FonctionReferentielDetailPage() {
@@ -20,6 +23,20 @@ export function FonctionReferentielDetailPage() {
     queryFn: () => fetchPersonnels({ fonction_id: fonctionId, per_page: 500 }),
     enabled: !!fonction,
   })
+
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const { data: matrice, isLoading: chargementPermissions } = useQuery({
+    queryKey: ['permissions', activeSchoolId],
+    queryFn: fetchMatricePermissions,
+    enabled: !!fonction,
+  })
+  const fonctionPermissions = matrice?.fonctions.find((f) => f.id === fonctionId)
+  const modulesAccordes = (matrice?.modules ?? [])
+    .map((module) => ({
+      ...module,
+      permissions: module.permissions.filter((p) => fonctionPermissions?.permissions.includes(p.code)),
+    }))
+    .filter((module) => module.permissions.length > 0)
 
   if (isLoading) return <Spinner />
   if (isError || !fonction) return <ErrorState />
@@ -89,6 +106,49 @@ export function FonctionReferentielDetailPage() {
                     </span>
                   )}
                   <Badge tone={p.statut === 'actif' ? 'green' : 'neutral'}>{p.statut === 'actif' ? 'Actif' : 'Ex-employé'}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+            <ShieldCheck className="h-4 w-4 text-navy-400" />
+            Privilèges
+            <Badge tone={fonctionPermissions && fonctionPermissions.permissions.length > 0 ? 'gold' : 'neutral'}>
+              {fonctionPermissions?.permissions.length ?? 0}
+            </Badge>
+          </h2>
+          <Link to={`/permissions?fonction=${fonctionId}`}>
+            <Button variant="secondary" size="sm">
+              <Pencil className="h-4 w-4" />
+              Modifier les privilèges
+            </Button>
+          </Link>
+        </div>
+
+        {chargementPermissions ? (
+          <Spinner />
+        ) : modulesAccordes.length === 0 ? (
+          <EmptyState label="Cette fonction ne porte aucun privilège pour le moment." />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {modulesAccordes.map((module) => (
+              <div key={module.code}>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-400">{module.libelle}</h3>
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {module.permissions.map((permission) => (
+                    <div key={permission.code} className="flex items-start gap-2 rounded-xl px-2 py-1">
+                      <Check className="mt-0.5 h-4 w-4 flex-none text-green-600" />
+                      <span className="min-w-0">
+                        <span className="block text-sm text-navy-700">{permission.libelle}</span>
+                        <code className="text-xs text-navy-300">{permission.code}</code>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

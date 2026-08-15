@@ -61,7 +61,7 @@ class PersonnelFichierGenerator
             .'.registre td{font-size:2.6mm;padding:1.2mm 1mm}'
             .'.registre tbody tr:nth-child(even) td{background:#f7f7f5}'
             .'.nom{font-weight:bold;text-transform:uppercase}'
-            .'.etiquette{background:#f1ecdd;border:0.4px solid '.self::OR.';border-radius:2mm;'
+            .'.etiquette{background:#f1ecdd;border:0.4px solid '.self::ACCENT.';border-radius:2mm;'
             .'padding:0.4mm 1.4mm;font-size:2.4mm}'
             .'.total td{background:'.self::ARDOISE.';color:#fff;font-weight:bold;font-size:2.8mm}'
             // Les cellules du document sont centrées par défaut : une liste de
@@ -69,7 +69,7 @@ class PersonnelFichierGenerator
             .'.ventilation{text-align:left}'
             .'.ventilation h4{margin:0 0 1.5mm 0;padding-bottom:0.8mm;font-size:2.9mm;'
             .'color:'.self::ARDOISE.';text-transform:uppercase;letter-spacing:0.2mm;'
-            .'text-align:left;border-bottom:0.4mm solid '.self::OR.'}'
+            .'text-align:left;border-bottom:0.4mm solid '.self::ACCENT.'}'
             .'.ventilation .ligne{font-size:2.5mm;margin:0.8mm 0;text-align:left}'
             .'.ventilation .part{color:#888}';
     }

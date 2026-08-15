@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\CataloguePermissions;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -10,38 +11,15 @@ use Spatie\Permission\PermissionRegistrar;
 class RolePermissionSeeder extends Seeder
 {
     /**
-     * Taxonomie de permissions du MVP (notation pointée module.action).
-     * Étendue au fil des paliers plutôt que définie exhaustivement d'avance.
+     * Les privilèges existants viennent désormais du catalogue applicatif
+     * (App\Support\CataloguePermissions) : la liste suit les routes qui les
+     * exigent, et le seeder ne fait que la refléter en base.
+     *
+     * `FonctionPermissionSeeder` réutilise ces mêmes ensembles pour composer
+     * les groupes de privilèges des fonctions du référentiel — d'où la
+     * visibilité publique.
      */
-    private const PERMISSIONS = [
-        'ecoles.manage',
-        'personnel.view',
-        'personnel.manage',
-        'classes.view',
-        'classes.manage',
-        'niveaux.view',
-        'niveaux.manage',
-        'eleves.view',
-        'eleves.manage',
-        'pedagogie.view',
-        'pedagogie.manage',
-        'notes.view',
-        'notes.create',
-        'discipline.view',
-        'discipline.manage',
-        'finance.view',
-        'finance.manage',
-        'bulletins.view',
-        'bulletins.publish',
-        'annonces.view',
-        'annonces.publish',
-        'emploi_du_temps.view',
-        'emploi_du_temps.manage',
-        'appel.manage',
-        'dashboard.view',
-    ];
-
-    private const ROLE_PERMISSIONS = [
+    public const ROLE_PERMISSIONS = [
         'admin_etablissement' => [
             'ecoles.manage',
             'personnel.view',
@@ -141,13 +119,19 @@ class RolePermissionSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        foreach (self::PERMISSIONS as $permission) {
+        $catalogue = CataloguePermissions::codes();
+
+        foreach ($catalogue as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
+        // Un privilège retiré du catalogue ne protège plus rien : le laisser en
+        // base le laisserait apparaître dans l'écran d'administration.
+        Permission::where('guard_name', 'web')->whereNotIn('name', $catalogue)->delete();
+
         // super_admin : accès total, géré via Gate::before plutôt qu'une liste à maintenir.
         $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
-        $superAdminRole->syncPermissions(self::PERMISSIONS);
+        $superAdminRole->syncPermissions($catalogue);
 
         foreach (self::ROLE_PERMISSIONS as $roleName => $permissions) {
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);

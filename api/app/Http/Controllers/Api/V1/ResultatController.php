@@ -96,7 +96,41 @@ class ResultatController extends Controller
             'seuilAbsences' => Setting::get($schoolId, 'honour_attendance_max', 20),
         ])->setPaper('a4', 'portrait');
 
+        // La police n'est enregistrée qu'après `loadView` : la façade `Pdf`
+        // résout une instance Dompdf neuve à chaque appel statique (voir son
+        // `__callStatic`), donc l'enregistrer sur une résolution séparée
+        // n'aurait aucun effet sur le PDF réellement généré ci-dessous.
+        $this->enregistrerPoliceMontserrat($pdf->getDomPDF());
+
         return $pdf->stream("palmares-{$trimestre->libelle}.pdf");
+    }
+
+    /**
+     * dompdf n'embarque pas Montserrat : on l'enregistre à la volée depuis les
+     * fichiers du dépôt (`resources/fonts/montserrat`), mis en cache une fois
+     * pour toutes dans `storage/fonts` par le mécanisme natif de FontMetrics.
+     */
+    private function enregistrerPoliceMontserrat(\Dompdf\Dompdf $dompdf): void
+    {
+        if (! is_dir(storage_path('fonts'))) {
+            mkdir(storage_path('fonts'), 0755, true);
+        }
+
+        $dossier = resource_path('fonts/montserrat');
+        $fichiers = [
+            ['style' => 'normal', 'weight' => 'normal', 'file' => 'Montserrat-Regular.ttf'],
+            ['style' => 'normal', 'weight' => 'bold', 'file' => 'Montserrat-Bold.ttf'],
+            ['style' => 'italic', 'weight' => 'normal', 'file' => 'Montserrat-Italic.ttf'],
+            ['style' => 'italic', 'weight' => 'bold', 'file' => 'Montserrat-BoldItalic.ttf'],
+        ];
+
+        $metriques = $dompdf->getFontMetrics();
+        foreach ($fichiers as $police) {
+            $metriques->registerFont(
+                ['family' => 'Montserrat', 'style' => $police['style'], 'weight' => $police['weight']],
+                'file://'.str_replace('\\', '/', $dossier.'/'.$police['file'])
+            );
+        }
     }
 
     /** @return Collection<int, array<string, mixed>> */

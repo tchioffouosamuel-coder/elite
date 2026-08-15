@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,7 +22,24 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::before(function ($user, string $ability) {
-            return $user->hasRole('super_admin') ? true : null;
+            if (! $user instanceof User) {
+                return null;
+            }
+
+            if ($user->estSuperAdmin()) {
+                return true;
+            }
+
+            /*
+             * Un privilège hérité de la fonction doit ouvrir exactement les
+             * mêmes portes qu'un privilège porté par le rôle, sinon `can()`
+             * dans le code et le middleware `permission` diverge.
+             *
+             * On ne renvoie jamais `false` : rendre la main (null) laisse
+             * spatie évaluer les attributions directes et les rôles, puis les
+             * policies faire leur travail.
+             */
+            return $user->fonction()?->codesPermissions()->contains($ability) ? true : null;
         });
     }
 }

@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { AxiosError } from 'axios'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
+import { permissionManquante } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1'
@@ -43,6 +44,14 @@ http.interceptors.response.use(
       message: error.response?.data?.message ?? error.message,
       status: error.response?.status ?? 0,
       errors: error.response?.data?.errors ?? null,
+    }
+
+    // Un refus d'autorisation se signale ici, une fois pour toute l'application :
+    // l'API nomme le privilège manquant (cf. VerifierPermission), il n'y a donc
+    // rien à reformuler page par page. La promesse est tout de même rejetée,
+    // sans quoi l'appelant croirait son action réussie.
+    if (apiError.status === 403) {
+      permissionManquante(apiError.message)
     }
 
     return Promise.reject(apiError)

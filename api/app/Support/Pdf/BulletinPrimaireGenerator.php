@@ -27,10 +27,10 @@ class BulletinPrimaireGenerator
     private const VERT = '#92d050';
 
     /**
-     * Accent violet propre à ce bulletin : la constante OR de RenduDocument
-     * (orange doré) reste partagée avec les autres documents (bulletin du
-     * secondaire, fiche du personnel, statistiques) — un simple const violet
-     * local permet de la remplacer ici sans les affecter.
+     * Accent violet propre à ce bulletin : la constante ACCENT de RenduDocument
+     * reste partagée avec les autres documents (bulletin du secondaire, fiche
+     * du personnel, statistiques) — un simple const violet local permet de la
+     * remplacer ici sans les affecter.
      */
     private const VIOLET = '#672D92';
 
@@ -81,7 +81,7 @@ class BulletinPrimaireGenerator
     private function styles(): string
     {
         return '<style>' . $this->stylesBase()
-            // Accent violet propre à ce bulletin, à la place de l'orange doré
+            // Accent violet propre à ce bulletin, à la place de l'accent
             // partagé par les autres documents (cf. const VIOLET).
             . '.titre{color:' . self::VIOLET . ';}'
             . '.titre-en{color:' . self::VIOLET . ';}'

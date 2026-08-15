@@ -2,6 +2,8 @@
 
 namespace App\Support\Pdf;
 
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,11 +16,27 @@ class MpdfFactory
 {
     public static function make(array $options = []): Mpdf
     {
+        // mPDF remplace entièrement `fontDir`/`fontdata` si on les passe en
+        // option (pas de fusion récursive côté lib) : on repart donc de ses
+        // propres valeurs par défaut pour ne pas perdre DejaVu et les polices
+        // core en ajoutant Montserrat.
+        $fontDir = (new ConfigVariables())->getDefaults()['fontDir'];
+        $fontData = (new FontVariables())->getDefaults()['fontdata'];
+
         return new Mpdf(array_merge([
             'tempDir' => storage_path('app/mpdf'),
             'mode' => 'utf-8',
             'format' => 'A4',
-            'default_font' => 'dejavusans',
+            'default_font' => 'montserrat',
+            'fontDir' => array_merge($fontDir, [resource_path('fonts/montserrat')]),
+            'fontdata' => array_merge($fontData, [
+                'montserrat' => [
+                    'R' => 'Montserrat-Regular.ttf',
+                    'B' => 'Montserrat-Bold.ttf',
+                    'I' => 'Montserrat-Italic.ttf',
+                    'BI' => 'Montserrat-BoldItalic.ttf',
+                ],
+            ]),
             'margin_left' => 10,
             'margin_right' => 10,
             'margin_top' => 8,

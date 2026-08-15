@@ -16,7 +16,10 @@ export interface AuthUser {
   niveau_id: number | null
   roles: string[]
   is_super_admin: boolean
+  /** Privilèges effectifs : attribution directe, rôle et fonction confondus. */
   permissions: string[]
+  /** Fonction du référentiel, quand le compte représente un agent. */
+  fonction?: string | null
   ecoles_accessibles: EcoleAccessible[]
 }
 

@@ -4,7 +4,7 @@
     }
 
     body {
-        font-family: DejaVu Sans, sans-serif;
+        font-family: Montserrat, sans-serif;
         font-size: 10px;
         color: #292F36;
         background: #F9FBF9;

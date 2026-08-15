@@ -83,7 +83,7 @@ class BulletinGenerator
         $photo = $this->cheminImage($eleve->photo_path);
         $cellulephoto = $photo !== null
             ? '<img style="width:40px;height:40px;border:1px solid gray;" src="'.$this->e($photo).'">'
-            : '<div style="width:40px;height:40px;border:1px solid gray;background:'.self::ARDOISE.';color:'.self::OR
+            : '<div style="width:40px;height:40px;border:1px solid gray;background:'.self::ARDOISE.';color:'.self::ACCENT
                 .';font-weight:bold;font-size:5mm;">'.$this->e($this->initiales($eleve)).'</div>';
 
         // mPDF ne propage pas la couleur posée sur <tr> jusqu'au contenu des

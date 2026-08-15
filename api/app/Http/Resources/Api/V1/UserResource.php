@@ -19,8 +19,11 @@ class UserResource extends JsonResource
             'school_id' => $this->school_id,
             'niveau_id' => $this->niveau_id,
             'roles' => $this->getRoleNames(),
-            'is_super_admin' => $this->hasRole('super_admin'),
-            'permissions' => $this->getAllPermissions()->pluck('name'),
+            'is_super_admin' => $this->estSuperAdmin(),
+            // Privilèges effectifs, fonction comprise : l'interface masque ses
+            // actions sur la même base que celle où l'API les refuse.
+            'permissions' => $this->permissionsEffectives(),
+            'fonction' => $this->whenNotNull($this->fonction()?->label()),
             'ecoles_accessibles' => $this->ecolesAccessibles()->map(fn ($ecole) => [
                 'id' => $ecole->id,
                 'name' => $ecole->name,

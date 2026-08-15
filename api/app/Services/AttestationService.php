@@ -19,6 +19,7 @@ class AttestationService extends BaseService
         $annee = $classe?->anneeScolaire;
 
         $phpWord = new PhpWord;
+        $phpWord->setDefaultFontName('Montserrat');
         $section = $phpWord->addSection(['marginTop' => 1200, 'marginBottom' => 1200]);
 
         $section->addText(mb_strtoupper($school->name), ['bold' => true, 'size' => 13], ['alignment' => 'center']);

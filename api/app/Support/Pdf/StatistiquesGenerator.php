@@ -187,7 +187,7 @@ class StatistiquesGenerator
         $vide = 100.0 - $rempli;
 
         $cellules = $rempli > 0
-            ? '<td style="background-color:'.self::OR.';width:'.$rempli.'%;">&nbsp;</td>'
+            ? '<td style="background-color:'.self::ACCENT.';width:'.$rempli.'%;">&nbsp;</td>'
             : '';
 
         // Une cellule de largeur nulle décale la mise en page : on l'omet.

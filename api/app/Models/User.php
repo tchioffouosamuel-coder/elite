@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\CataloguePermissions;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -44,6 +45,53 @@ class User extends Authenticatable
     public function personnel(): HasOne
     {
         return $this->hasOne(Personnel::class);
+    }
+
+    public function estSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
+    /** Fonction du référentiel portée par l'agent, quand le compte en représente un. */
+    public function fonction(): ?FonctionReferentiel
+    {
+        return $this->personnel?->fonctionReference;
+    }
+
+    /**
+     * Privilèges effectifs du compte, toutes provenances confondues :
+     * attribution directe, rôle, et groupe de privilèges de la fonction.
+     *
+     * Le cumul est volontaire. La fonction dit ce que fait le métier (« un
+     * censeur saisit des notes »), le rôle et les attributions directes gèrent
+     * les cas particuliers (« ce censeur-là tient aussi la caisse ») sans
+     * obliger à créer une fonction par exception.
+     *
+     * @return Collection<int, string>
+     */
+    public function permissionsEffectives(): Collection
+    {
+        if ($this->estSuperAdmin()) {
+            return collect(CataloguePermissions::codes());
+        }
+
+        return $this->getAllPermissions()
+            ->pluck('name')
+            ->merge($this->fonction()?->codesPermissions() ?? [])
+            ->unique()
+            ->sort()
+            ->values();
+    }
+
+    /**
+     * Seul point de vérité pour « ce compte a-t-il le droit de… ». Le
+     * middleware, les services et la ressource JSON s'y réfèrent tous, pour
+     * qu'un droit accordé via la fonction se comporte exactement comme un droit
+     * accordé via le rôle.
+     */
+    public function aLaPermission(string $code): bool
+    {
+        return $this->estSuperAdmin() || $this->permissionsEffectives()->contains($code);
     }
 
     /**

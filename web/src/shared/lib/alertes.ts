@@ -33,13 +33,45 @@ const toast = Swal.mixin({
   customClass: { ...base.customClass, popup: 'rounded-xl border border-navy-100 shadow-lifted font-sans' },
 })
 
+/**
+ * Message du dernier refus de privilège affiché, et jusqu'à quand l'ignorer.
+ *
+ * Un 403 est présenté par l'intercepteur HTTP sous forme de fenêtre modale,
+ * puis la promesse est rejetée et le `onError` de l'appelant affiche son toast
+ * habituel — soit deux fois la même phrase à l'écran. On retient donc
+ * brièvement le message pour que `erreur()` le laisse passer.
+ */
+let refusRecent: { message: string; jusqua: number } | null = null
+
 export function succes(message: string): void {
   void toast.fire({ icon: 'success', title: message })
 }
 
 export function erreur(message: string): void {
+  if (refusRecent && refusRecent.message === message && Date.now() < refusRecent.jusqua) return
+
   // Pas de minuteur sur une erreur : elle porte souvent une consigne à lire.
   void toast.fire({ icon: 'error', title: message, timer: 6000 })
+}
+
+/**
+ * Refus d'autorisation renvoyé par l'API. Fenêtre modale et non toast : c'est
+ * une impasse, pas un incident passager — l'utilisateur doit comprendre qu'il
+ * n'obtiendra rien en réessayant et qu'il lui faut passer par son
+ * administrateur.
+ */
+export function permissionManquante(message: string): void {
+  refusRecent = { message, jusqua: Date.now() + 4000 }
+
+  void Swal.fire({
+    ...base,
+    icon: 'error',
+    iconColor: '#ac3527',
+    title: 'Permission manquante',
+    text: message,
+    footer: "Demandez à votre administrateur de rattacher ce privilège à votre fonction.",
+    confirmButtonText: 'Compris',
+  })
 }
 
 export function info(message: string): void {

@@ -64,9 +64,13 @@ class ApiResponse
         return self::error($message, 404);
     }
 
-    public static function forbidden(string $message = "Vous n'avez pas la permission d'effectuer cette action."): JsonResponse
+    /**
+     * @param  list<string>|null  $permissionsRequises  privilèges qui auraient permis l'action,
+     *                                                  pour que l'interface puisse les nommer.
+     */
+    public static function forbidden(string $message = "Vous n'avez pas la permission d'effectuer cette action.", ?array $permissionsRequises = null): JsonResponse
     {
-        return self::error($message, 403);
+        return self::error($message, 403, $permissionsRequises ? ['permissions_requises' => $permissionsRequises] : null);
     }
 
     public static function unauthorized(string $message = 'Authentification requise.'): JsonResponse

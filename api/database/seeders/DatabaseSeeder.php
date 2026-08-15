@@ -30,5 +30,9 @@ class DatabaseSeeder extends Seeder
             DemoDataSeeder::class,
             PrimaireMaternelleSeeder::class,
         ]);
+
+        // Après les écoles : le référentiel des fonctions est alimenté par
+        // école, il n'existe donc pas avant que celles-ci soient créées.
+        $this->call(FonctionPermissionSeeder::class);
     }
 }
