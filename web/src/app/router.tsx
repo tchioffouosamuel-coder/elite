@@ -6,10 +6,12 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
 import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsReferentielPage'
+import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
+import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
 import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
 import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
@@ -44,6 +46,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
+      { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },
       { path: 'niveaux', element: <ProtectedRoute permission="pedagogie.view"><NiveauxScolairesPage /></ProtectedRoute> },
       { path: 'niveaux-globaux', element: <ProtectedRoute permission="niveaux.view"><NiveauxListPage /></ProtectedRoute> },
@@ -51,6 +54,7 @@ export const router = createBrowserRouter([
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view"><ClasseDetailPage /></ProtectedRoute> },
       { path: 'sous-systemes', element: <ProtectedRoute permission="classes.manage"><SousSystemesListPage /></ProtectedRoute> },
       { path: 'eleves', element: <ProtectedRoute permission="eleves.view"><ElevesListPage /></ProtectedRoute> },
+      { path: 'eleves/:id', element: <ProtectedRoute permission="eleves.view"><EleveDetailPage /></ProtectedRoute> },
       { path: 'eleves/nouveau', element: <ProtectedRoute permission="eleves.manage"><EleveInscriptionPage /></ProtectedRoute> },
       { path: 'eleves/transferts', element: <ProtectedRoute permission="eleves.manage"><EleveTransfertsPage /></ProtectedRoute> },
       { path: 'eleves/:id/edit', element: <ProtectedRoute permission="eleves.manage"><EleveInscriptionPage /></ProtectedRoute> },

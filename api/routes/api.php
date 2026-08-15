@@ -74,6 +74,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('fonctions-referentiel', [FonctionReferentielController::class, 'store'])->name('fonctions-referentiel.store');
                 Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update');
                 Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy');
+                Route::post('fonctions-referentiel/batch-delete', [FonctionReferentielController::class, 'batchDelete'])->name('fonctions-referentiel.batch-delete');
 
                 Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store');
                 Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update');
@@ -81,6 +82,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('personnels/{id}/reactivate', [PersonnelController::class, 'reactivate'])->name('personnels.reactivate');
                 Route::post('personnels/{id}/compte', [PersonnelController::class, 'createAccount'])->name('personnels.compte');
                 Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
+                Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
+                Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete');
             });
 
             Route::middleware('permission:dashboard.view')->group(function () {

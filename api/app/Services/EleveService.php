@@ -127,7 +127,12 @@ class EleveService extends BaseService
     }
 
     /**
-     * @return array{imported: int, failed: int, errors: array}
+     * `ignored` compte les lignes d'une autre école du complexe (le fichier de
+     * situation couvre maternelle, primaire et secondaire d'un seul tenant) et
+     * `classes_introuvables` les libellés de classe non rattachés : sans ce
+     * retour, l'utilisateur ne verrait qu'un total d'import inexpliqué.
+     *
+     * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>}
      */
     public function importFromExcel(int $schoolId, UploadedFile $file): array
     {
@@ -136,8 +141,11 @@ class EleveService extends BaseService
 
         return [
             'imported' => $import->importedCount,
+            'updated' => $import->updatedCount,
+            'ignored' => $import->ignoredCount,
             'failed' => count($import->failures()),
             'errors' => $import->failures(),
+            'classes_introuvables' => $import->classesIntrouvables,
         ];
     }
 

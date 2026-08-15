@@ -71,7 +71,7 @@ class EleveController extends Controller
 
         $result = $this->service->importFromExcel(app('tenant.school_id'), $request->file('file'));
 
-        return ApiResponse::success($result, "{$result['imported']} ligne(s) importée(s).");
+        return ApiResponse::success($result, "{$result['imported']} élève(s) créé(s), {$result['updated']} mis à jour.");
     }
 
     public function photo(Request $request, int $id): JsonResponse

@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, KeyRound, Archive, RotateCcw, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
-import { fetchPersonnels, archivePersonnel, reactivatePersonnel, type Personnel } from '@/features/personnel/api'
+import { Plus, Pencil, KeyRound, Archive, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
+import {
+  fetchPersonnels,
+  archivePersonnel,
+  reactivatePersonnel,
+  deletePersonnel,
+  batchDeletePersonnel,
+  batchArchivePersonnel,
+  type Personnel,
+} from '@/features/personnel/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
@@ -13,8 +21,9 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { PersonnelFormModal } from '@/features/personnel/pages/PersonnelFormModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
-import { confirmer, succes } from '@/shared/lib/alertes'
+import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import type { ApiError } from '@/shared/types/api'
 
 export function PersonnelListPage() {
   const { t } = useTranslation()
@@ -25,6 +34,7 @@ export function PersonnelListPage() {
   const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [accountFor, setAccountFor] = useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Recherche, tri et pagination sont pris en charge par DataTable côté client :
   // on charge donc la liste entière plutôt que page par page. À l'échelle d'un
@@ -38,7 +48,92 @@ export function PersonnelListPage() {
 
   const secondaire = estSecondaire()
 
+  const handleToggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleSelectAll = (personnels: Personnel[]) => {
+    if (selectedIds.size === personnels.length && personnels.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(personnels.map((p) => p.id)))
+    }
+  }
+
+  const handleBatchArchive = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const confirme = await confirmer({
+      titre: `Archiver ${ids.length} membre(s) du personnel ?`,
+      message: "Ils n'apparaîtront plus comme actifs. La réactivation reste possible à tout moment.",
+      action: 'Archiver',
+      destructif: false,
+    })
+    if (!confirme) return
+
+    try {
+      await batchArchivePersonnel(ids)
+      setSelectedIds(new Set())
+      invalidate()
+      succes(`${ids.length} membre(s) du personnel archivé(s).`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const confirme = await confirmer({
+      titre: `Supprimer ${ids.length} membre(s) du personnel ?`,
+      message:
+        "Cette action est irréversible. Leurs comptes de connexion seront également supprimés ; les affectations (titulaire, professeur principal, matières…) seront simplement libérées.",
+      action: 'Supprimer',
+    })
+    if (!confirme) return
+
+    try {
+      const { deleted } = await batchDeletePersonnel(ids)
+      setSelectedIds(new Set())
+      invalidate()
+      succes(`${deleted} membre(s) du personnel supprimé(s).`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
   const colonnes: Colonne<Personnel>[] = [
+    ...(can('personnel.manage')
+      ? [
+          {
+            cle: 'selection',
+            entete: data?.items ? (
+              <input
+                type="checkbox"
+                checked={selectedIds.size === data.items.length && data.items.length > 0}
+                onChange={() => handleSelectAll(data?.items ?? [])}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ) : null,
+            cellule: (p: Personnel) => (
+              <input
+                type="checkbox"
+                checked={selectedIds.has(p.id)}
+                onChange={() => handleToggleSelect(p.id)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ),
+          } satisfies Colonne<Personnel>,
+        ]
+      : []),
     {
       cle: 'nom',
       entete: t('personnel.nom_complet'),
@@ -128,6 +223,30 @@ export function PersonnelListPage() {
                 <RotateCcw className="h-4 w-4" />
               </button>
             ))}
+          {can('personnel.manage') && (
+            <button
+              title={t('common.delete')}
+              onClick={async () => {
+                const confirme = await confirmer({
+                  titre: `Supprimer ${p.nom_complet} ?`,
+                  message:
+                    "Cette action est irréversible. Son compte de connexion sera également supprimé ; les affectations (titulaire, professeur principal, matières…) seront simplement libérées.",
+                  action: 'Supprimer',
+                })
+                if (!confirme) return
+                try {
+                  await deletePersonnel(p.id)
+                  invalidate()
+                  succes('Membre du personnel supprimé.')
+                } catch (err) {
+                  erreur((err as ApiError).message)
+                }
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -163,6 +282,30 @@ export function PersonnelListPage() {
           </>
         }
       />
+
+      {selectedIds.size > 0 && can('personnel.manage') && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="font-medium text-navy-900">{selectedIds.size} membre(s) du personnel sélectionné(s)</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={handleBatchArchive}>
+                <Archive className="h-4 w-4" />
+                Archiver
+              </Button>
+              <Button variant="danger" onClick={handleBatchDelete}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer
+              </Button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <Spinner />

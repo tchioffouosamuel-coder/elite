@@ -11,7 +11,11 @@ export function ProtectedRoute({
 }: {
   children: ReactNode
   permission?: string
-  /** Restreint aux comptes portant l'un de ces rôles (le super admin passe toujours). */
+  /**
+   * Restreint aux comptes portant l'un de ces rôles — y compris le super
+   * admin, qui a bien la permission technique mais n'est pas titulaire d'une
+   * classe : lui montrer « Ma journée » n'aurait pas de sens.
+   */
   roles?: string[]
   superAdminOnly?: boolean
 }) {
@@ -36,7 +40,7 @@ export function ProtectedRoute({
   if (!token) return <Navigate to="/connexion" replace />
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to="/" replace />
   if (permission && !can(permission)) return <Navigate to="/" replace />
-  if (roles && !user?.is_super_admin && !roles.some((r) => user?.roles.includes(r))) return <Navigate to="/" replace />
+  if (roles && !roles.some((r) => user?.roles.includes(r))) return <Navigate to="/" replace />
 
   return <>{children}</>
 }

@@ -52,6 +52,11 @@ export async function fetchFonctionsReferentiel(): Promise<FonctionReferentiel[]
   return data.data
 }
 
+export async function fetchFonctionReferentiel(id: number): Promise<FonctionReferentiel> {
+  const { data } = await http.get<ApiResponse<FonctionReferentiel>>(`/fonctions-referentiel/${id}`)
+  return data.data
+}
+
 export async function createFonctionReferentiel(payload: {
   label_fr: string
   label_en?: string | null
@@ -75,7 +80,19 @@ export async function deleteFonctionReferentiel(id: number): Promise<void> {
   await http.delete(`/fonctions-referentiel/${id}`)
 }
 
-export async function fetchPersonnels(params: { search?: string; page?: number; per_page?: number }): Promise<{ items: Personnel[]; pagination: Pagination }> {
+export async function batchDeleteFonctionsReferentiel(ids: number[]): Promise<{ deleted: number; ignorees: string[] }> {
+  const { data } = await http.post<ApiResponse<{ deleted: number; ignorees: string[] }>>('/fonctions-referentiel/batch-delete', { ids })
+  return data.data
+}
+
+export async function fetchPersonnels(params: {
+  search?: string
+  departement_id?: number
+  fonction_id?: number
+  statut?: string
+  page?: number
+  per_page?: number
+}): Promise<{ items: Personnel[]; pagination: Pagination }> {
   const { data } = await http.get<ApiResponse<Personnel[]>>('/personnels', { params })
   return { items: data.data, pagination: data.meta!.pagination! }
 }
@@ -96,6 +113,19 @@ export async function archivePersonnel(id: number): Promise<void> {
 
 export async function reactivatePersonnel(id: number): Promise<void> {
   await http.post(`/personnels/${id}/reactivate`)
+}
+
+export async function deletePersonnel(id: number): Promise<void> {
+  await http.delete(`/personnels/${id}`)
+}
+
+export async function batchDeletePersonnel(ids: number[]): Promise<{ deleted: number }> {
+  const { data } = await http.post<ApiResponse<{ deleted: number }>>('/personnels/batch-delete', { ids })
+  return data.data
+}
+
+export async function batchArchivePersonnel(ids: number[]): Promise<void> {
+  await Promise.all(ids.map((id) => archivePersonnel(id)))
 }
 
 export async function createLoginAccount(id: number, email: string, role: string): Promise<void> {

@@ -6,6 +6,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
+    "view": "View details",
     "delete": "Delete",
     "create": "Create",
     "update": "Update",
@@ -48,6 +49,7 @@
     "statsPedagogiques": "Academic statistics",
     "statsDisciplinaires": "Disciplinary statistics",
     "photosExamen": "DECC & OBC photos",
+    "photosExamenPrimaire": "DECC photos",
     "group": {
       "overview": "Overview",
       "staff": "Staff & structure",
@@ -244,6 +246,9 @@
     "file": "File (.xlsx, .xls, .csv)",
     "submit": "Import",
     "result": "{{imported}} row(s) imported, {{failed}} failure(s).",
+    "updated": "{{count}} existing pupil(s) updated.",
+    "ignored": "{{count}} row(s) skipped: they belong to another school of the complex.",
+    "classes_introuvables": "Unknown classes (pupils created without a class):",
     "template_hint": "Expected columns (first row as headers):"
   },
   "niveaux": {

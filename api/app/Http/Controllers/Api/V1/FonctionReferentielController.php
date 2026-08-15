@@ -44,7 +44,7 @@ class FonctionReferentielController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $fonction = FonctionReferentiel::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $fonction = FonctionReferentiel::forSchool(app('tenant.school_id'))->withCount('personnels')->findOrFail($id);
 
         return ApiResponse::success(new FonctionReferentielResource($fonction));
     }
@@ -87,6 +87,43 @@ class FonctionReferentielController extends Controller
         $fonction->delete();
 
         return ApiResponse::success(null, 'Fonction supprimée.');
+    }
+
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $this->authorizeSuperAdmin($request);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $schoolId = app('tenant.school_id');
+        $deleted = 0;
+        $ignorees = [];
+
+        foreach ($data['ids'] as $id) {
+            $fonction = FonctionReferentiel::forSchool($schoolId)->withCount('personnels')->findOrFail($id);
+
+            // Une fonction encore portée par du personnel ne peut pas disparaître
+            // silencieusement au milieu d'un lot : on la laisse de côté et on le
+            // signale, plutôt que d'échouer tout le lot ou de casser la référence.
+            if ($fonction->personnels_count > 0) {
+                $ignorees[] = $fonction->label_fr;
+
+                continue;
+            }
+
+            $fonction->delete();
+            $deleted++;
+        }
+
+        $message = "{$deleted} fonction(s) supprimée(s).";
+        if ($ignorees !== []) {
+            $message .= ' '.count($ignorees).' ignorée(s) car utilisée(s) par du personnel : '.implode(', ', $ignorees).'.';
+        }
+
+        return ApiResponse::success(['deleted' => $deleted, 'ignorees' => $ignorees], $message);
     }
 
     private function authorizeSuperAdmin(Request $request): void

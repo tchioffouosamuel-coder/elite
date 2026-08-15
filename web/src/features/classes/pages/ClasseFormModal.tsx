@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
@@ -49,12 +49,8 @@ export function ClasseFormModal({
 
   const activeAnnee = annees?.find((a) => a.is_active) ?? annees?.[0]
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ClassePayload>({
-    defaultValues: classe
+  const buildDefaultValues = (): Partial<ClassePayload> =>
+    classe
       ? {
         nom: classe.nom,
         sigle: classe.sigle ?? '',
@@ -69,8 +65,22 @@ export function ClasseFormModal({
         code_examen: classe.code_examen ?? '',
         capacite: classe.capacite ?? undefined,
       }
-      : { annee_scolaire_id: activeAnnee?.id },
-  })
+      : { annee_scolaire_id: activeAnnee?.id }
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ClassePayload>({ defaultValues: buildDefaultValues() })
+
+  // Les options des selects (écoles, niveaux, titulaire…) viennent de requêtes
+  // encore en vol au premier rendu : un <select> ne peut présélectionner une
+  // <option> qui n'existe pas encore dans le DOM. On resynchronise le
+  // formulaire dès que chaque source de données arrive.
+  useEffect(() => {
+    if (classe) reset(buildDefaultValues())
+  }, [classe, niveaux, annees, sousSystemes, schools, niveauxScolaires, personnels])
 
   const onSubmit = async (values: ClassePayload) => {
     setServerError(null)

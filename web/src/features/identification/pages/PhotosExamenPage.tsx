@@ -14,6 +14,7 @@ import { Select } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
+import { estSecondaire } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 
 /** Vignette d'un candidat, à l'image de ce que recevra l'organisme. */
@@ -90,7 +91,7 @@ export function PhotosExamenPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre="Photos DECC & OBC"
+        titre={estSecondaire() ? 'Photos DECC & OBC' : 'Photos DECC'}
         sousTitre="Photos des candidats aux examens officiels"
         icon={ScanFace}
         actions={

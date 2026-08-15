@@ -20,6 +20,7 @@ export interface Eleve {
   lieu_naissance: string | null;
   numero_acte_naissance: string | null;
   adresse: string | null;
+  nationalite: string | null;
   refugie: "Oui" | "Non" | null;
   deplace_interne: "Oui" | "Non" | null;
   photo_url: string | null;
@@ -62,6 +63,11 @@ export async function fetchEleves(params: {
 }> {
   const { data } = await http.get<ApiResponse<Eleve[]>>("/eleves", { params });
   return { items: data.data, pagination: data.meta!.pagination! };
+}
+
+export async function fetchEleve(id: number): Promise<Eleve> {
+  const { data } = await http.get<ApiResponse<Eleve>>(`/eleves/${id}`);
+  return data.data;
 }
 
 export async function createEleve(payload: ElevePayload): Promise<Eleve> {

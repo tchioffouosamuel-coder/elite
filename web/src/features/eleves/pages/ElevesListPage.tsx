@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus,
+  Eye,
   Pencil,
   Archive,
   RotateCcw,
@@ -28,7 +29,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
-import { DropdownMenu } from '@/shared/ui/DropdownMenu'
+import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes } from '@/shared/lib/alertes'
@@ -241,91 +242,76 @@ export function ElevesListPage() {
     {
       cle: 'actions',
       entete: t('common.actions'),
-      cellule: (e) => (
-        <div className="flex items-center gap-1">
-          {e.classe && (
-            <>
-              <button
-                onClick={() => ouvrirBulletin(e.id)}
-                title={t('resultats.bulletin')}
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
-              >
-                <FileDown className="h-3.5 w-3.5" />
-                PDF
-              </button>
-              <button
-                onClick={() => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx')}
-                title={t('export.attestation')}
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Word
-              </button>
-            </>
-          )}
-          {can('eleves.manage') && (
-            <button
-              title={t('common.edit')}
-              onClick={() => navigate(`/eleves/${e.id}/edit`)}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-          )}
-          {can('eleves.manage') &&
-            (e.statut === 'actif' ? (
-              <button
-                title={t('common.archive')}
-                onClick={async () => {
-                  const confirme = await confirmer({
-                    titre: `Archiver ${e.nom_complet} ?`,
-                    message: "L'élève n'apparaîtra plus comme actif. La réactivation reste possible à tout moment.",
-                    action: 'Archiver',
-                  })
-                  if (!confirme) return
-                  await archiveEleve(e.id)
-                  invalidate()
-                  succes('Élève archivé.')
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Archive className="h-4 w-4" />
-              </button>
-            ) : (
-              <button
-                title={t('common.reactivate')}
-                onClick={async () => {
-                  await reactivateEleve(e.id)
-                  invalidate()
-                  succes('Élève réactivé.')
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-green-600"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            ))}
-          {can('eleves.manage') && (
-            <button
-              title={t('common.delete')}
-              onClick={() => handleDeleteSingle(e)}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-          {can('eleves.manage') && (
-            <DropdownMenu
-              title="Transférer"
-              items={[
+      cellule: (e) => {
+        const menuItems: DropdownMenuItem[] = [
+          ...(e.classe
+            ? ([
+                { label: t('resultats.bulletin'), icon: FileDown, onClick: () => ouvrirBulletin(e.id) },
+                {
+                  label: t('export.attestation'),
+                  icon: FileText,
+                  onClick: () => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx'),
+                },
+              ] satisfies DropdownMenuItem[])
+            : []),
+          ...(can('eleves.manage')
+            ? ([
                 { label: 'Changer de classe', icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
                 ...(isSuperAdmin
                   ? [{ label: 'Transférer vers une autre école', icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
                   : []),
-              ]}
-            />
-          )}
-        </div>
-      ),
+                e.statut === 'actif'
+                  ? {
+                      label: t('common.archive'),
+                      icon: Archive,
+                      onClick: async () => {
+                        const confirme = await confirmer({
+                          titre: `Archiver ${e.nom_complet} ?`,
+                          message: "L'élève n'apparaîtra plus comme actif. La réactivation reste possible à tout moment.",
+                          action: 'Archiver',
+                        })
+                        if (!confirme) return
+                        await archiveEleve(e.id)
+                        invalidate()
+                        succes('Élève archivé.')
+                      },
+                    }
+                  : {
+                      label: t('common.reactivate'),
+                      icon: RotateCcw,
+                      onClick: async () => {
+                        await reactivateEleve(e.id)
+                        invalidate()
+                        succes('Élève réactivé.')
+                      },
+                    },
+                { label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true },
+              ] satisfies DropdownMenuItem[])
+            : []),
+        ]
+
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              title={t('common.view')}
+              onClick={() => navigate(`/eleves/${e.id}`)}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            {can('eleves.manage') && (
+              <button
+                title={t('common.edit')}
+                onClick={() => navigate(`/eleves/${e.id}/edit`)}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+            {menuItems.length > 0 && <DropdownMenu items={menuItems} />}
+          </div>
+        )
+      },
     },
   ]
 
@@ -387,7 +373,28 @@ export function ElevesListPage() {
         <ImportModal
           title={t('import.title')}
           url="/eleves/import"
-          columns={['nom_complet', 'sexe (M/F)', 'matricule', 'classe', 'date_naissance', 'lieu_naissance', 'tuteur_nom_complet', 'tuteur_telephone']}
+          columns={[
+            'IDEleves (matricule)',
+            'nom_eleves',
+            'sexe_eleves (M/F)',
+            'ddn_eleves (AAAAMMJJ)',
+            'lieu_naiss',
+            'nationalité',
+            'numero_acte_naissance',
+            'Nom_classe',
+            'niveau_classe',
+            'categorie_ecole',
+            'etat_eleves (Actif/Inactif)',
+            'redoublant / refugies / deplace_interne (OUI/NON)',
+            'nom_parents',
+            'tel_pere',
+            'fonction_pere',
+            'nom_mere',
+            'tel_mere',
+            'fonction_mere',
+            'tel_autre',
+            'adresse_parent',
+          ]}
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />

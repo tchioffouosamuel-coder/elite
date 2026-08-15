@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, School, Upload } from 'lucide-react'
+import { clsx } from 'clsx'
+import { Plus, Pencil, Trash2, School, Upload, AlertTriangle } from 'lucide-react'
 import { fetchClasses, deleteClasse, fetchSousSystemes, fetchSchools, bulkUpdateClasses, fetchNiveaux, type Classe } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
@@ -31,6 +32,7 @@ export function ClassesListPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classes'] })
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const classesPleines = (data ?? []).filter((c) => c.capacite != null && (c.effectif ?? 0) > c.capacite)
   const { data: sousSystemes = [] } = useQuery({
     queryKey: ['sous-systemes'],
     queryFn: fetchSousSystemes,
@@ -157,12 +159,22 @@ export function ClassesListPage() {
       cle: 'effectif',
       entete: t('classes.effectif'),
       valeur: (c) => c.effectif ?? 0,
-      cellule: (c) => (
-        <span className="tabular-nums">
-          <span className="font-semibold">{c.effectif ?? 0}</span>
-          {c.capacite && <span className="text-navy-300"> / {c.capacite}</span>}
-        </span>
-      ),
+      cellule: (c) => {
+        const depasse = c.capacite != null && (c.effectif ?? 0) > c.capacite
+        return (
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <span>
+              <span className={clsx('font-semibold', depasse && 'text-red-600')}>{c.effectif ?? 0}</span>
+              {c.capacite != null && <span className={depasse ? 'text-red-400' : 'text-navy-300'}> / {c.capacite}</span>}
+            </span>
+            {depasse && (
+              <span title={`Capacité dépassée : ${c.effectif ?? 0} élèves pour ${c.capacite} places`}>
+                <AlertTriangle className="h-3.5 w-3.5 flex-none text-red-500" />
+              </span>
+            )}
+          </span>
+        )
+      },
     },
     // Au primaire et en maternelle, la classe est tenue par un enseignant
     // unique (le titulaire) ; le professeur principal est une fonction du
@@ -244,6 +256,20 @@ export function ClassesListPage() {
           )
         }
       />
+
+      {classesPleines.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-red-500" />
+          <div>
+            <p className="font-medium text-navy-900">
+              {classesPleines.length > 1
+                ? `${classesPleines.length} classes ont dépassé leur capacité maximale`
+                : '1 classe a dépassé sa capacité maximale'}
+            </p>
+            <p className="text-sm text-red-700">{classesPleines.map((c) => `${c.nom} (${c.effectif ?? 0}/${c.capacite})`).join(', ')}</p>
+          </div>
+        </div>
+      )}
 
       {selectedClasses.size > 0 && can('classes.manage') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">

@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -67,6 +68,25 @@ class PersonnelService extends BaseService
             $personnel->update(['user_id' => $user->id, 'email' => $email]);
 
             return $user;
+        });
+    }
+
+    /**
+     * Les affectations (titulaire, professeur principal, matières…) référencent
+     * le personnel en `SET NULL` : elles sont donc simplement libérées, sans
+     * bloquer la suppression. Le compte de connexion, lui, n'a pas de raison de
+     * survivre à l'agent qu'il représentait.
+     */
+    public function delete(Personnel $personnel): void
+    {
+        $this->transaction(function () use ($personnel) {
+            if ($personnel->photo_path) {
+                Storage::disk('public')->delete($personnel->photo_path);
+            }
+
+            $personnel->user?->delete();
+
+            $this->repository->delete($personnel);
         });
     }
 

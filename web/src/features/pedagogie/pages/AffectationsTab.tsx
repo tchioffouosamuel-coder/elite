@@ -14,7 +14,7 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
 
-export function AffectationsTab({ classeId }: { classeId: number }) {
+export function AffectationsTab({ classeId, titulaireId }: { classeId: number; titulaireId?: number | null }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
@@ -35,7 +35,11 @@ export function AffectationsTab({ classeId }: { classeId: number }) {
     queryFn: () => fetchPersonnels({ per_page: 100 }),
   })
 
-  const { register, handleSubmit, reset } = useForm<ClasseMatierePayload>({ defaultValues: { coefficient: 1, groupe: 1 } })
+  // Au primaire et en maternelle, le titulaire tient seul la classe : on
+  // présélectionne son nom pour éviter de le resaisir à chaque matière.
+  const { register, handleSubmit, reset } = useForm<ClasseMatierePayload>({
+    defaultValues: { coefficient: 1, groupe: 1, personnel_id: !secondaire ? titulaireId : undefined },
+  })
 
   const affectedIds = new Set(affectations?.map((a) => a.matiere.id))
   const matieresDisponibles = matieres?.filter((m) => !affectedIds.has(m.id)) ?? []

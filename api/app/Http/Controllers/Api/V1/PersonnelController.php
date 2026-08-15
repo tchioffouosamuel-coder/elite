@@ -28,7 +28,7 @@ class PersonnelController extends Controller
     {
         $paginator = $this->service->list(
             app('tenant.school_id'),
-            $request->only(['search', 'departement_id', 'statut']),
+            $request->only(['search', 'departement_id', 'fonction_id', 'statut']),
             (int) $request->integer('per_page', 20),
         );
 
@@ -84,6 +84,33 @@ class PersonnelController extends Controller
         );
 
         return ApiResponse::created(['user_id' => $user->id], 'Compte de connexion créé.');
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $this->service->delete($personnel);
+
+        return ApiResponse::success(null, 'Membre du personnel supprimé.');
+    }
+
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $schoolId = app('tenant.school_id');
+        $deleted = 0;
+
+        foreach ($data['ids'] as $id) {
+            $personnel = $this->service->find($schoolId, $id);
+            $this->service->delete($personnel);
+            $deleted++;
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], "{$deleted} membre(s) du personnel supprimé(s).");
     }
 
     public function import(Request $request): JsonResponse

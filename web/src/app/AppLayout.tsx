@@ -127,7 +127,22 @@ const navGroups = [
     label: 'nav.group.identification',
     items: [
       { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view' },
-      { to: '/photos-examen', label: 'nav.photosExamen', icon: ScanFace, permission: 'eleves.view' },
+      {
+        to: '/photos-examen',
+        label: 'nav.photosExamen',
+        icon: ScanFace,
+        permission: 'eleves.view',
+        // BEPC/Probatoire/BAC (OBC) sont des examens du secondaire ; le
+        // primaire ne prépare que le CEP (DECC), la maternelle aucun examen.
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
+        to: '/photos-examen',
+        label: 'nav.photosExamenPrimaire',
+        icon: ScanFace,
+        permission: 'eleves.view',
+        types: ['primaire'] as TypeEcole[],
+      },
     ],
   },
   {
@@ -204,7 +219,6 @@ export function AppLayout() {
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
               (!('roles' in item) ||
                 !item.roles ||
-                user?.is_super_admin ||
                 (item.roles as string[]).some((r) => user?.roles.includes(r))),
           )
           const items = requeteMenu

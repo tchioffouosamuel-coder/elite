@@ -9,6 +9,10 @@ import type { ApiError } from '@/shared/types/api'
 interface ImportResult {
   imported: number
   failed: number
+  /** Renseignés uniquement par les imports qui savent réactualiser des lignes existantes (élèves). */
+  updated?: number
+  ignored?: number
+  classes_introuvables?: Record<string, number>
 }
 
 export function ImportModal({
@@ -73,9 +77,23 @@ export function ImportModal({
 
         {error && <p className="text-sm text-red-500">{error}</p>}
         {result && (
-          <p className="text-sm text-green-600">
-            {t('import.result', { imported: result.imported, failed: result.failed })}
-          </p>
+          <div className="flex flex-col gap-1.5 text-sm">
+            <p className="text-green-600">
+              {t('import.result', { imported: result.imported, failed: result.failed })}
+              {result.updated ? ` ${t('import.updated', { count: result.updated })}` : ''}
+            </p>
+            {!!result.ignored && <p className="text-navy-500">{t('import.ignored', { count: result.ignored })}</p>}
+            {result.classes_introuvables && Object.keys(result.classes_introuvables).length > 0 && (
+              <p className="text-amber-600">
+                {t('import.classes_introuvables')}{' '}
+                <span className="font-semibold">
+                  {Object.entries(result.classes_introuvables)
+                    .map(([nom, total]) => `${nom} (${total})`)
+                    .join(', ')}
+                </span>
+              </p>
+            )}
+          </div>
         )}
 
         <div className="mt-2 flex justify-end gap-2">

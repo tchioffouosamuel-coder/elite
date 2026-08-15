@@ -6,6 +6,7 @@
     "save": "Enregistrer",
     "cancel": "Annuler",
     "edit": "Modifier",
+    "view": "Voir les détails",
     "delete": "Supprimer",
     "create": "Créer",
     "update": "Mettre à jour",
@@ -48,6 +49,7 @@
     "statsPedagogiques": "Stats pédagogiques",
     "statsDisciplinaires": "Stats disciplinaires",
     "photosExamen": "Photos DECC & OBC",
+    "photosExamenPrimaire": "Photos DECC",
     "group": {
       "overview": "Vue d'ensemble",
       "staff": "Personnel & structure",
@@ -253,6 +255,9 @@
     "file": "Fichier (.xlsx, .xls, .csv)",
     "submit": "Importer",
     "result": "{{imported}} ligne(s) importée(s), {{failed}} échec(s).",
+    "updated": "{{count}} élève(s) existant(s) mis à jour.",
+    "ignored": "{{count}} ligne(s) ignorée(s) : elles concernent une autre école du complexe.",
+    "classes_introuvables": "Classes introuvables (élèves créés sans affectation) :",
     "template_hint": "Colonnes attendues (première ligne d'en-têtes) :"
   },
   "progression": {

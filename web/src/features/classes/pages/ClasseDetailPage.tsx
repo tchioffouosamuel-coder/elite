@@ -76,7 +76,7 @@ export function ClasseDetailPage() {
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {tab === 'affectations' && <AffectationsTab classeId={classeId} />}
+      {tab === 'affectations' && <AffectationsTab classeId={classeId} titulaireId={classe.titulaire_id} />}
       {tab === 'eleves' && <ElevesTab classeId={classeId} />}
       {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
       {tab === 'absences' && <AbsencesTab classeId={classeId} />}
