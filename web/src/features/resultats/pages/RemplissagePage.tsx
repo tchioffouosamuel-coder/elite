@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchRemplissage } from '@/features/resultats/api'
+import { fetchMesAffectations } from '@/features/progression/api'
+import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
@@ -17,13 +19,38 @@ function couleurTaux(taux: number): string {
 }
 
 export function RemplissagePage() {
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const [classeId, setClasseId] = useState<number | ''>('')
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
 
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  // Un enseignant ne doit choisir que parmi les classes où il intervient
+  // (titulaire ou matière affectée) — pas la liste complète de l'établissement,
+  // qui n'aurait pour lui aucun sens et exposerait des classes hors de son périmètre.
+  const { data: toutesLesClasses } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !estEnseignant })
+  const { data: mesAffectations } = useQuery({
+    queryKey: ['mes-affectations'],
+    queryFn: fetchMesAffectations,
+    enabled: estEnseignant,
+  })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
+  const classesEnseignant = useMemo(
+    () => [...new Map((mesAffectations ?? []).map((a) => [a.classe_id, { id: a.classe_id, nom: a.classe }])).values()],
+    [mesAffectations],
+  )
+  const classes = estEnseignant ? classesEnseignant : (toutesLesClasses ?? [])
+
+  // Un seul rattachement : rien à choisir, la classe est déjà connue — le
+  // select n'aurait qu'une option et n'apporterait rien.
+  useEffect(() => {
+    if (estEnseignant && classeId === '' && classesEnseignant.length === 1) {
+      setClasseId(classesEnseignant[0].id)
+    }
+  }, [estEnseignant, classesEnseignant, classeId])
+
+  const masquerSelectClasse = estEnseignant && classesEnseignant.length === 1
   const classeActive = classeId ? Number(classeId) : null
+  const classeActiveNom = classes.find((c) => c.id === classeActive)?.nom
 
   const { data, isLoading } = useQuery({
     queryKey: ['remplissage', classeActive, trimestreId],
@@ -40,20 +67,27 @@ export function RemplissagePage() {
         </h1>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Select
-          label="Classe"
-          value={classeId}
-          onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-          className="max-w-xs"
-        >
-          <option value="">Sélectionner une classe…</option>
-          {classes?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </Select>
+      <div className="flex flex-wrap items-end gap-3">
+        {masquerSelectClasse ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
+            <span className="text-sm font-semibold text-navy-800">{classeActiveNom}</span>
+          </div>
+        ) : (
+          <Select
+            label="Classe"
+            value={classeId}
+            onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
+            className="max-w-xs"
+          >
+            <option value="">Sélectionner une classe…</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <Select
           label="Trimestre"
@@ -70,7 +104,11 @@ export function RemplissagePage() {
         </Select>
       </div>
 
-      {!classeActive ? (
+      {estEnseignant && classesEnseignant.length === 0 ? (
+        <Card>
+          <EmptyState label="Aucune matière ne vous est affectée pour le moment." />
+        </Card>
+      ) : !classeActive ? (
         <Card>
           <EmptyState label="Choisissez une classe pour suivre la saisie des notes." />
         </Card>

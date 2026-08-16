@@ -54,7 +54,7 @@ export function SessionPage() {
     try {
       await activerAnneeScolaire(id)
       invalidateAnnees()
-      succes(`Année ${libelle} activée.`)
+      succes(t('session.annee_activated', { libelle }))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {
@@ -75,7 +75,7 @@ export function SessionPage() {
     try {
       await activerTrimestre(id)
       invalidateTrimestres()
-      succes(`${libelle} activé.`)
+      succes(t('session.trimestre_activated', { libelle }))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {

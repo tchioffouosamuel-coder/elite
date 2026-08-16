@@ -24,6 +24,12 @@ export interface AuthUser {
   permissions: string[]
   /** Fonction du référentiel, quand le compte représente un agent. */
   fonction?: string | null
+  /**
+   * Exerce une fonction d'enseignement (cf. User::estEnseignant côté API) —
+   * distinct des rôles/permissions : un censeur ou un économe peut porter
+   * `appel.manage` sans être enseignant pour autant.
+   */
+  est_enseignant?: boolean
   ecoles_accessibles: EcoleAccessible[]
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown } from 'lucide-react'
+import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown, FileText } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -9,6 +9,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { annulerDepense, fetchDepenses, francs, payerDepense, type Depense } from '@/features/finance/api'
 import { DepenseFormModal } from '@/features/finance/pages/DepenseFormModal'
@@ -149,12 +150,23 @@ export function DepensesPage() {
         sousTitre="Saisie, justificatifs et ventilation par poste comptable."
         icon={ReceiptText}
         actions={
-          can('finance.depenses') && (
+          <>
+            {can('finance.rapports') && (
+              <Button
+                variant="secondary"
+                onClick={() => ouvrirDocument('/depenses/bilan/pdf', { du: du || undefined, au: au || undefined })}
+              >
+                <FileText className="h-4 w-4" />
+                Bilan PDF
+              </Button>
+            )}
+            {can('finance.depenses') && (
             <Button onClick={() => setFormOuvert(true)}>
               <Plus className="h-4 w-4" />
               Nouvelle dépense
             </Button>
-          )
+            )}
+          </>
         }
       />
 

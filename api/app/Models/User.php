@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\CataloguePermissions;
+use App\Support\FonctionRoles;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -57,6 +58,17 @@ class User extends Authenticatable
     public function fonction(): ?FonctionReferentiel
     {
         return $this->personnel?->fonctionReference;
+    }
+
+    /**
+     * Exerce une fonction d'enseignement — au sens où « Ma journée » (tableau
+     * de bord personnel de saisie d'appel) lui est réservé. Un censeur ou un
+     * économe peut porter `appel.manage` sans être enseignant pour autant :
+     * la fonction tranche là où le seul privilège ne le permettrait pas.
+     */
+    public function estEnseignant(): bool
+    {
+        return FonctionRoles::role($this->fonction()?->label_fr) === 'enseignant';
     }
 
     /**

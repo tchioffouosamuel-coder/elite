@@ -154,7 +154,7 @@ export function NiveauxListPage() {
     },
     {
       cle: 'code',
-      entete: t('niveaux.code'),
+      entete: t('niveauxGlobaux.code'),
       valeur: (niveau) => niveau.code,
       cellule: (niveau) => <span className="font-mono text-sm font-semibold text-navy-900">{niveau.code}</span>,
     },
@@ -210,8 +210,8 @@ export function NiveauxListPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre={t('niveaux.title')}
-        sousTitre={t('niveaux.hint')}
+        titre={t('niveauxGlobaux.title')}
+        sousTitre={t('niveauxGlobaux.hint')}
         icon={Layers}
         actions={
           <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ export function NiveauxListPage() {
           lignes={data}
           cleLigne={(niveau) => niveau.id}
           placeholderRecherche="Rechercher un niveau…"
-          messageVide={t('niveaux.empty')}
+          messageVide={t('niveauxGlobaux.empty')}
           largeurMin={800}
         />
       )}

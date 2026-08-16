@@ -69,7 +69,7 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
       }
       await onSubmit(payload)
     } catch (err: any) {
-      erreur(err.message || 'Une erreur est survenue.')
+      erreur(err.message || t('common.error_generic'))
     }
   }
 
@@ -86,7 +86,7 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
         </Select>
 
         <Input
-          label={t('niveaux.code')}
+          label={t('niveauxGlobaux.code')}
           placeholder="ex: CE1, CLASS1"
           className="uppercase"
           {...register('code', {

@@ -82,6 +82,31 @@ class PaieController extends Controller
         ));
     }
 
+    /** Arrête en une fois tous les bulletins encore en brouillon parmi la sélection. */
+    public function arreterLot(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $bulletins = BulletinPaie::forSchool(app('tenant.school_id'))->whereIn('id', $data['ids'])->get();
+
+        $arretes = 0;
+        foreach ($bulletins as $bulletin) {
+            // Un bulletin déjà arrêté ou payé n'est simplement pas repris,
+            // plutôt que de faire échouer tout le lot pour une sélection large.
+            if (! $bulletin->estModifiable()) {
+                continue;
+            }
+
+            $this->service->arreter($bulletin, $request->user()?->id);
+            $arretes++;
+        }
+
+        return ApiResponse::success(['arretes' => $arretes], "{$arretes} bulletin(s) arrêté(s).");
+    }
+
     public function payer(Request $request, int $id): JsonResponse
     {
         $bulletin = $this->bulletin($id);
@@ -95,6 +120,34 @@ class PaieController extends Controller
             $this->resumer($this->service->payer($bulletin, $donnees['mode'], $donnees['date_paiement'] ?? null)),
             'Règlement enregistré.',
         ));
+    }
+
+    /** Règle en une fois tous les bulletins arrêtés (statut « valide ») parmi la sélection. */
+    public function payerLot(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'mode' => ['required', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
+            'date_paiement' => ['nullable', 'date'],
+        ]);
+
+        $bulletins = BulletinPaie::forSchool(app('tenant.school_id'))->whereIn('id', $data['ids'])->get();
+
+        $regles = 0;
+        foreach ($bulletins as $bulletin) {
+            // Un bulletin encore en brouillon ou déjà payé n'est simplement pas
+            // repris, plutôt que de faire échouer tout le lot pour une
+            // sélection large.
+            if ($bulletin->statut !== 'valide') {
+                continue;
+            }
+
+            $this->service->payer($bulletin, $data['mode'], $data['date_paiement'] ?? null);
+            $regles++;
+        }
+
+        return ApiResponse::success(['regles' => $regles], "{$regles} bulletin(s) réglé(s).");
     }
 
     /** L'agent atteste avoir perçu son salaire. */

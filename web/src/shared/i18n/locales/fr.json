@@ -32,6 +32,7 @@
     "fonctionsReferentiel": "Fonctions",
     "departements": "Départements",
     "classes": "Classes",
+    "maClasse": "Ma classe",
     "sousSystemes": "Sous-systèmes",
     "eleves": "Élèves",
     "matieres": "Matières",
@@ -39,7 +40,9 @@
     "palmares": "Palmarès",
     "session": "Année scolaire",
     "caisse": "Caisse",
+    "tarifs": "Tarifs",
     "depenses": "Dépenses",
+    "salaires": "Salaires",
     "paie": "Paie",
     "rapportsFinanciers": "Rapports financiers",
     "permissions": "Privilèges",
@@ -98,7 +101,8 @@
     "top_classes": "Classes les plus nombreuses",
     "recent_activity": "Activité récente",
     "girls_rate": "Taux de filles",
-    "avg_students_per_class": "Élèves par classe (moyenne)"
+    "avg_students_per_class": "Élèves par classe (moyenne)",
+    "classSubjects": "Matières affectées"
   },
   "personnel": {
     "title": "Personnel",
@@ -131,7 +135,8 @@
     "effectif": "Effectif",
     "professeur_principal": "Professeur principal",
     "code_examen": "Code d'examen (facultatif)",
-    "titulaire": "Enseignant"
+    "titulaire": "Enseignant",
+    "maClasse": "Ma classe"
   },
   "eleves": {
     "title": "Élèves",
@@ -151,7 +156,8 @@
     "statut": "Statut",
     "actif": "Actif",
     "parti": "Parti",
-    "exclu": "Exclu"
+    "exclu": "Exclu",
+    "transferred": "{{transferes}} élève(s) transféré(s)."
   },
   "matieres": {
     "title": "Matières",
@@ -165,7 +171,9 @@
     "volets": "Volets",
     "evalue_pratique": "Évaluer aussi le volet pratique",
     "repartition_volets": "Répartition des volets",
-    "repartition_somme": "Somme actuelle : {{somme}} / {{notation}}"
+    "repartition_somme": "Somme actuelle : {{somme}} / {{notation}}",
+    "created": "Matière créée.",
+    "updated": "Matière mise à jour."
   },
   "pedagogie": {
     "title": "Matières & affectations",
@@ -227,6 +235,9 @@
     "mention": "Mention",
     "bulletin": "Bulletin"
   },
+  "alerts": {
+    "sanction_deleted": "Sanction supprimée."
+  },
   "settings": {
     "title": "Paramètres de l'établissement",
     "saved": "Préférences enregistrées.",
@@ -252,7 +263,9 @@
     "active": "Active",
     "activate": "Activer",
     "select_annee": "Sélectionnez une année scolaire pour gérer ses trimestres.",
-    "no_trimestres": "Aucun trimestre pour cette année."
+    "no_trimestres": "Aucun trimestre pour cette année.",
+    "annee_activated": "Année {{libelle}} activée.",
+    "trimestre_activated": "{{libelle}} activé."
   },
   "export": {
     "excel": "Exporter en Excel",
@@ -294,14 +307,14 @@
     "classe_matiere": "Classe et matière",
     "date": "Date",
     "choisir": "Choisissez la classe dans laquelle vous êtes intervenu.",
-    "aucune_affectation": "Aucune classe ne vous est affectée.",
+    "aucune_affectation": "Aucune matière ne vous est affectée pour le moment.",
     "aucun_programme": "Aucune leçon au programme de cette matière.",
     "lecons": "Leçons traitées",
     "appel": "Appel",
     "resume_appel": "{{presents}} présent(s), {{absents}} absent(s)",
     "saved": "Journée enregistrée."
   },
-  "niveaux": {
+  "niveauxGlobaux": {
     "title": "Niveaux globaux",
     "hint": "Gérez les niveaux d'enseignement de votre établissement.",
     "create": "Ajouter un niveau",
@@ -320,5 +333,22 @@
     "error": "Une erreur est survenue.",
     "confirm_delete": "Êtes-vous certain de vouloir supprimer ce niveau ?",
     "empty": "Aucun niveau créé."
+  },
+  "finance": {
+    "title": "Finances",
+    "receipt_cancelled": "Reçu annulé.",
+    "receipt_recorded": "Reçu {{numero}} enregistré.",
+    "bulletins_prepared": "{{prepares}} bulletin(s) préparé(s).",
+    "staff_without_remuneration": "{{count}} agent(s) sans rémunération définie : {{names}}",
+    "bulletin_stopped": "Bulletin arrêté.",
+    "expense_recorded": "Dépense enregistrée.",
+    "tariff_recorded": "Tarif enregistré.",
+    "additional_fee_added": "Frais annexe ajouté.",
+    "tariff_removed": "Tarif retiré."
+  },
+  "emploiDuTemps": {
+    "title": "Emploi du temps",
+    "timeslot_deleted": "Créneau supprimé.",
+    "deletion_failed": "Suppression impossible."
   }
 }

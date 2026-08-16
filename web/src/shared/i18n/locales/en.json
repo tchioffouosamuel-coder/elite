@@ -32,6 +32,7 @@
     "fonctionsReferentiel": "Positions",
     "departements": "Departments",
     "classes": "Classes",
+    "maClasse": "My class",
     "sousSystemes": "Subsystems",
     "eleves": "Students",
     "matieres": "Subjects",
@@ -39,7 +40,9 @@
     "palmares": "Honor roll",
     "session": "School year",
     "caisse": "Cash desk",
+    "tarifs": "Fee schedule",
     "depenses": "Expenses",
+    "salaires": "Salaries",
     "paie": "Payroll",
     "rapportsFinanciers": "Financial reports",
     "permissions": "Privileges",
@@ -98,7 +101,8 @@
     "top_classes": "Largest classes",
     "recent_activity": "Recent activity",
     "girls_rate": "Girls' rate",
-    "avg_students_per_class": "Average students per class"
+    "avg_students_per_class": "Average students per class",
+    "classSubjects": "Assigned subjects"
   },
   "personnel": {
     "title": "Staff",
@@ -131,7 +135,8 @@
     "effectif": "Enrolled",
     "professeur_principal": "Homeroom teacher",
     "code_examen": "Examination code (optional)",
-    "titulaire": "Teacher"
+    "titulaire": "Teacher",
+    "maClasse": "My class"
   },
   "eleves": {
     "title": "Students",
@@ -151,7 +156,8 @@
     "statut": "Status",
     "actif": "Active",
     "parti": "Left",
-    "exclu": "Expelled"
+    "exclu": "Expelled",
+    "transferred": "{{transferes}} student(s) transferred."
   },
   "matieres": {
     "title": "Subjects",
@@ -165,7 +171,9 @@
     "volets": "Assessment areas",
     "evalue_pratique": "Also assess the practical area",
     "repartition_volets": "Assessment area breakdown",
-    "repartition_somme": "Current total: {{somme}} / {{notation}}"
+    "repartition_somme": "Current total: {{somme}} / {{notation}}",
+    "created": "Subject created.",
+    "updated": "Subject updated."
   },
   "pedagogie": {
     "title": "Subjects & assignments",
@@ -218,6 +226,9 @@
     "mention": "Mention",
     "bulletin": "Report card"
   },
+  "alerts": {
+    "sanction_deleted": "Sanction deleted."
+  },
   "settings": {
     "title": "School settings",
     "saved": "Preferences saved.",
@@ -243,7 +254,9 @@
     "active": "Active",
     "activate": "Activate",
     "select_annee": "Select a school year to manage its terms.",
-    "no_trimestres": "No terms for this school year."
+    "no_trimestres": "No terms for this school year.",
+    "annee_activated": "School year {{libelle}} activated.",
+    "trimestre_activated": "{{libelle}} activated."
   },
   "export": {
     "excel": "Export to Excel",
@@ -265,6 +278,15 @@
     "template_hint": "Expected columns (first row as headers):"
   },
   "niveaux": {
+    "title": "Teaching levels",
+    "hint": "Classes of the same level (SIL, CP, CE1…) are placed under the responsibility of a level coordinator.",
+    "code": "Code",
+    "libelle": "Label",
+    "classes": "Classes",
+    "animateur": "Level coordinator",
+    "empty": "No level defined yet."
+  },
+  "niveauxGlobaux": {
     "title": "Global levels",
     "hint": "Manage the teaching levels in your school.",
     "create": "Add a level",
@@ -305,11 +327,28 @@
     "classe_matiere": "Class and subject",
     "date": "Date",
     "choisir": "Choose the class you taught in.",
-    "aucune_affectation": "No class is assigned to you.",
+    "aucune_affectation": "No subject is assigned to you yet.",
     "aucun_programme": "No lesson in this subject syllabus.",
     "lecons": "Lessons covered",
     "appel": "Register",
     "resume_appel": "{{presents}} present, {{absents}} absent",
     "saved": "Day saved."
+  },
+  "finance": {
+    "title": "Finance",
+    "receipt_cancelled": "Receipt cancelled.",
+    "receipt_recorded": "Receipt {{numero}} recorded.",
+    "bulletins_prepared": "{{prepares}} bulletin(s) prepared.",
+    "staff_without_remuneration": "{{count}} staff member(s) without defined remuneration: {{names}}",
+    "bulletin_stopped": "Bulletin stopped.",
+    "expense_recorded": "Expense recorded.",
+    "tariff_recorded": "Tariff recorded.",
+    "additional_fee_added": "Additional fee added.",
+    "tariff_removed": "Tariff removed."
+  },
+  "emploiDuTemps": {
+    "title": "Schedule",
+    "timeslot_deleted": "Timeslot deleted.",
+    "deletion_failed": "Deletion failed."
   }
 }

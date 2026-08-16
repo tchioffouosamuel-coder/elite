@@ -1,0 +1,463 @@
+{
+  "files_with_hardcoded_messages": [
+    {
+      "file": "features/auth/pages/ChangerMotDePassePage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Mot de passe mis à jour.", "line": 51 }
+      ]
+    },
+    {
+      "file": "features/classes/pages/ClassesListPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${selectedClasses.size} classe(s) mise(s) à jour.",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "file": "features/classes/sous-systemes/SousSystemeFormModal.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Sous-système mis à jour.", "line": 42 },
+        { "type": "succes", "text": "Sous-système créé.", "line": 45 },
+        { "type": "erreur", "text": "Une erreur est survenue.", "line": 48 }
+      ]
+    },
+    {
+      "file": "features/classes/sous-systemes/SousSystemesListPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Sous-système supprimé.", "line": 36 }
+      ]
+    },
+    {
+      "file": "features/discipline/pages/SanctionsPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Sanction supprimée.", "line": 62 }
+      ]
+    },
+    {
+      "file": "features/eleves/pages/ElevesListPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${ids.length} élève(s) supprimé(s).",
+          "line": 231
+        },
+        { "type": "succes", "text": "Élève supprimé.", "line": 249 },
+        { "type": "succes", "text": "Élève archivé.", "line": 279 },
+        { "type": "succes", "text": "Élève réactivé.", "line": 290 }
+      ]
+    },
+    {
+      "file": "features/eleves/pages/EleveTransfertsPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${resultat.transferes} élève(s) transféré(s).",
+          "line": 69
+        }
+      ]
+    },
+    {
+      "file": "features/eleves/TransfererClasseModal.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${eleve.nom_complet} transféré(e).",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "file": "features/eleves/TransfererEcoleModal.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${eleve.nom_complet} transféré(e).",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "file": "features/emploiDuTemps/pages/EmploiDuTempsPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Créneau supprimé.", "line": 56 },
+        { "type": "erreur", "text": "Suppression impossible.", "line": 59 },
+        { "type": "succes", "text": "Créneau ajouté.", "line": 249 },
+        { "type": "erreur", "text": "Enregistrement impossible.", "line": 252 }
+      ]
+    },
+    {
+      "file": "features/emploiDuTemps/pages/SeancesPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "Appel enregistré (${data.enregistres} élève(s)).",
+          "line": 119
+        },
+        {
+          "type": "erreur",
+          "text": "Enregistrement de l'appel impossible.",
+          "line": 121
+        }
+      ]
+    },
+    {
+      "file": "features/finance/pages/CaissePage.tsx",
+      "functions_used": ["succes"],
+      "messages": [{ "type": "succes", "text": "Reçu annulé.", "line": 80 }]
+    },
+    {
+      "file": "features/finance/pages/CopierRemunerationModal.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "Rémunération appliquée à ${appliquee} agent(s).",
+          "line": 81
+        }
+      ]
+    },
+    {
+      "file": "features/finance/pages/DepenseFormModal.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Dépense enregistrée.", "line": 61 }
+      ]
+    },
+    {
+      "file": "features/finance/pages/DepensesPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Dépense annulée.", "line": 51 },
+        { "type": "succes", "text": "Règlement enregistré.", "line": 51 }
+      ]
+    },
+    {
+      "file": "features/finance/pages/EncaissementModal.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "Reçu ${numero_recu} enregistré.",
+          "line": 62
+        }
+      ]
+    },
+    {
+      "file": "features/finance/pages/PaiePage.tsx",
+      "functions_used": ["succes", "info", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${prepares} bulletin(s) préparé(s).",
+          "line": 79
+        },
+        {
+          "type": "info",
+          "text": "${ignores.length} agent(s) sans rémunération définie : ${ignores.slice(0, 3).join(' · ')}",
+          "line": 86
+        },
+        { "type": "succes", "text": "Bulletin arrêté.", "line": 126 },
+        { "type": "succes", "text": "Règlement enregistré.", "line": 162 },
+        { "type": "succes", "text": "Émargement enregistré.", "line": 177 }
+      ]
+    },
+    {
+      "file": "features/finance/pages/RemunerationModal.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "Rémunération de ${personnel.nom_complet} enregistrée.",
+          "line": 94
+        }
+      ]
+    },
+    {
+      "file": "features/finance/pages/TarifsPage.tsx",
+      "functions_used": ["succes"],
+      "messages": [
+        { "type": "succes", "text": "Tarif enregistré.", "line": 64 },
+        { "type": "succes", "text": "Tarif retiré.", "line": 81 },
+        { "type": "succes", "text": "Frais annexe ajouté.", "line": 90 }
+      ]
+    },
+    {
+      "file": "features/identification/pages/PhotosExamenPage.tsx",
+      "functions_used": ["succes", "info", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "Archive générée : ${traites} photo(s).",
+          "line": 74
+        },
+        {
+          "type": "info",
+          "text": "${ignores} candidat(s) écarté(s) faute de photo exploitable.",
+          "line": 75
+        },
+        {
+          "type": "erreur",
+          "text": "Génération de l'archive impossible.",
+          "line": 77
+        }
+      ]
+    },
+    {
+      "file": "features/niveaux/NiveauFormModal.tsx",
+      "functions_used": ["erreur"],
+      "messages": [
+        { "type": "erreur", "text": "Une erreur est survenue.", "line": 71 }
+      ]
+    },
+    {
+      "file": "features/niveaux/pages/NiveauxListPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Niveau mis à jour.", "line": 60 },
+        { "type": "succes", "text": "Niveau créé.", "line": 60 },
+        { "type": "succes", "text": "Niveau supprimé.", "line": 71 },
+        {
+          "type": "erreur",
+          "text": "Erreur lors de la suppression.",
+          "line": 73
+        },
+        {
+          "type": "succes",
+          "text": "${selectedIds.size} niveau(x) supprimé(s).",
+          "line": 108
+        },
+        {
+          "type": "erreur",
+          "text": "Erreur lors de la mise à jour.",
+          "line": 131
+        }
+      ]
+    },
+    {
+      "file": "features/pedagogie/pages/AffectationsTab.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Affectation retirée.", "line": 68 },
+        {
+          "type": "erreur",
+          "text": "Impossible de supprimer les affectations sélectionnées.",
+          "line": 83
+        },
+        {
+          "type": "succes",
+          "text": "${ids.length} affectation(s) retirée(s).",
+          "line": 85
+        },
+        {
+          "type": "erreur",
+          "text": "Sélectionnez au moins une matière.",
+          "line": 106
+        },
+        {
+          "type": "succes",
+          "text": "${matiereIds.size} matière(s) affectée(s).",
+          "line": 115
+        }
+      ]
+    },
+    {
+      "file": "features/pedagogie/pages/MatiereFormPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Matière mise à jour.", "line": 137 },
+        { "type": "succes", "text": "Matière créée.", "line": 137 }
+      ]
+    },
+    {
+      "file": "features/pedagogie/pages/MatieresPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Matière supprimée.", "line": 44 },
+        {
+          "type": "succes",
+          "text": "${ids.length} matière(s) supprimée(s).",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "file": "features/permissions/pages/PermissionsPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": []
+    },
+    {
+      "file": "features/personnel/pages/FonctionReferentielFormModal.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Fonction mise à jour.", "line": 50 },
+        { "type": "succes", "text": "Fonction créée.", "line": 52 },
+        { "type": "erreur", "text": "Une erreur est survenue.", "line": 55 }
+      ]
+    },
+    {
+      "file": "features/personnel/pages/FonctionsReferentielPage.tsx",
+      "functions_used": ["succes", "erreur", "info"],
+      "messages": [
+        { "type": "succes", "text": "Fonction supprimée.", "line": 45 },
+        {
+          "type": "erreur",
+          "text": "Erreur lors de la suppression.",
+          "line": 47
+        },
+        {
+          "type": "succes",
+          "text": "${deleted} fonction(s) supprimée(s).",
+          "line": 96
+        },
+        {
+          "type": "info",
+          "text": "${ignorees.length} fonction(s) ignorée(s) car utilisée(s) par du personnel : ${ignorees.join(', ')}",
+          "line": 97
+        }
+      ]
+    },
+    {
+      "file": "features/personnel/pages/PersonnelListPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        {
+          "type": "succes",
+          "text": "${ids.length} membre(s) du personnel archivé(s).",
+          "line": 82
+        },
+        {
+          "type": "succes",
+          "text": "${deleted} membre(s) du personnel supprimé(s).",
+          "line": 108
+        },
+        { "type": "succes", "text": "Personnel archivé.", "line": 169 },
+        { "type": "succes", "text": "Personnel réactivé.", "line": 180 },
+        {
+          "type": "succes",
+          "text": "Membre du personnel supprimé.",
+          "line": 196
+        }
+      ]
+    },
+    {
+      "file": "features/primaire/pages/NotesPrimaireTab.tsx",
+      "functions_used": ["erreur"],
+      "messages": []
+    },
+    {
+      "file": "features/session/pages/SessionPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "Année ${libelle} activée.", "line": 47 },
+        { "type": "succes", "text": "${libelle} activé.", "line": 63 }
+      ]
+    },
+    {
+      "file": "features/settings/pages/EcoleImagesCard.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": [
+        { "type": "succes", "text": "${image.titre} mis à jour.", "line": 78 },
+        { "type": "erreur", "text": "Envoi impossible.", "line": 80 },
+        { "type": "succes", "text": "${image.titre} supprimé.", "line": 86 },
+        { "type": "erreur", "text": "Suppression impossible.", "line": 88 }
+      ]
+    },
+    {
+      "file": "features/settings/pages/SettingsPage.tsx",
+      "functions_used": ["succes", "erreur"],
+      "messages": []
+    },
+    {
+      "file": "features/statistiques/pages/StatsDisciplinairesPage.tsx",
+      "functions_used": ["erreur"],
+      "messages": [
+        {
+          "type": "erreur",
+          "text": "Génération du PDF impossible.",
+          "line": 119
+        }
+      ]
+    },
+    {
+      "file": "features/statistiques/pages/StatsPedagogiquesPage.tsx",
+      "functions_used": ["erreur"],
+      "messages": [
+        {
+          "type": "erreur",
+          "text": "Génération du PDF impossible.",
+          "line": 89
+        }
+      ]
+    },
+    {
+      "file": "shared/lib/http.ts",
+      "functions_used": ["permissionManquante"],
+      "messages": []
+    }
+  ],
+  "unique_messages_not_translated": [
+    "Mot de passe mis à jour.",
+    "Une erreur est survenue.",
+    "Sous-système mis à jour.",
+    "Sous-système créé.",
+    "Sous-système supprimé.",
+    "Sanction supprimée.",
+    "Élève supprimé.",
+    "Élève archivé.",
+    "Élève réactivé.",
+    "Créneau supprimé.",
+    "Suppression impossible.",
+    "Créneau ajouté.",
+    "Enregistrement impossible.",
+    "Enregistrement de l'appel impossible.",
+    "Reçu annulé.",
+    "Dépense enregistrée.",
+    "Dépense annulée.",
+    "Règlement enregistré.",
+    "Envoi impossible.",
+    "Tarif enregistré.",
+    "Tarif retiré.",
+    "Frais annexe ajouté.",
+    "Génération de l'archive impossible.",
+    "Niveau supprimé.",
+    "Erreur lors de la suppression.",
+    "Erreur lors de la mise à jour.",
+    "Affectation retirée.",
+    "Impossible de supprimer les affectations sélectionnées.",
+    "Sélectionnez au moins une matière.",
+    "Matière supprimée.",
+    "Fonction supprimée.",
+    "Fonction mise à jour.",
+    "Fonction créée.",
+    "Membre du personnel supprimé.",
+    "Personnel archivé.",
+    "Personnel réactivé.",
+    "Émargement enregistré.",
+    "Bulletin arrêté.",
+    "Génération du PDF impossible."
+  ],
+  "stats": {
+    "total_files": 33,
+    "total_hardcoded_messages": 89,
+    "total_unique_messages": 39,
+    "functions_used": {
+      "succes": 62,
+      "erreur": 25,
+      "info": 2
+    }
+  }
+}

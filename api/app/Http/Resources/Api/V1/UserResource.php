@@ -26,6 +26,9 @@ class UserResource extends JsonResource
             // actions sur la même base que celle où l'API les refuse.
             'permissions' => $this->permissionsEffectives(),
             'fonction' => $this->whenNotNull($this->fonction()?->label()),
+            // Distingue un enseignant d'un censeur/économe qui partage pourtant
+            // certains privilèges (ex : appel.manage) — cf. User::estEnseignant.
+            'est_enseignant' => $this->estEnseignant(),
             'ecoles_accessibles' => $this->ecolesAccessibles()->map(fn ($ecole) => [
                 'id' => $ecole->id,
                 'name' => $ecole->name,

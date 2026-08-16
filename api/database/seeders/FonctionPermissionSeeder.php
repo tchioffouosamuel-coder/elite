@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\FonctionReferentiel;
+use App\Support\FonctionRoles;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -16,29 +16,13 @@ use Spatie\Permission\PermissionRegistrar;
  * exactement les droits du rôle `enseignant`. Le super administrateur ajuste
  * ensuite depuis l'écran des permissions ; ce seeder ne réécrit que les
  * fonctions encore vierges, pour ne jamais écraser un réglage fait à la main.
+ *
+ * La correspondance libellé → rôle vit dans `App\Support\FonctionRoles`,
+ * partagée avec `User::estEnseignant()` : les deux doivent s'accorder sur ce
+ * qui fait « la » fonction d'enseignant.
  */
 class FonctionPermissionSeeder extends Seeder
 {
-    /**
-     * Libellé de fonction (normalisé, sans accent ni casse) => rôle dont elle
-     * reprend les privilèges. `null` = aucun accès à l'application : la
-     * fonction existe pour le fichier du personnel, pas pour ouvrir un compte.
-     */
-    private const CORRESPONDANCES = [
-        'enseignant' => 'enseignant',
-        'principal' => 'admin_etablissement',
-        'directeur' => 'admin_etablissement',
-        'censeur' => 'censeur_sg',
-        'surveillant general' => 'surveillant_general',
-        'conseiller d orientation' => 'surveillant_general',
-        'econome' => 'econome',
-        'secretaire' => 'econome',
-        'documentaliste' => null,
-        'infirmier' => null,
-        'gardien' => null,
-        'agent d entretien' => null,
-    ];
-
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -54,18 +38,12 @@ class FonctionPermissionSeeder extends Seeder
                     return;
                 }
 
-                $role = self::CORRESPONDANCES[self::normaliser($fonction->label_fr)] ?? null;
+                $role = FonctionRoles::role($fonction->label_fr);
                 $codes = $role ? (RolePermissionSeeder::ROLE_PERMISSIONS[$role] ?? []) : [];
 
                 $fonction->permissions()->sync($idsParCode->only($codes)->values());
             });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-    }
-
-    /** « Surveillant Général » et « surveillant general » désignent la même fonction. */
-    private static function normaliser(string $label): string
-    {
-        return trim(preg_replace('/[^a-z0-9]+/', ' ', Str::lower(Str::ascii($label))) ?? '');
     }
 }

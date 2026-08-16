@@ -6,20 +6,28 @@ import { fetchMe } from '@/features/auth/api'
 export function ProtectedRoute({
   children,
   permission,
-  roles,
+  enseignantOnly = false,
   superAdminOnly = false,
+  masquerPourTitulaire = false,
 }: {
   children: ReactNode
   permission?: string
   /**
-   * Restreint aux comptes portant l'un de ces rôles — y compris le super
-   * admin, qui a bien la permission technique mais n'est pas titulaire d'une
-   * classe : lui montrer « Ma journée » n'aurait pas de sens.
+   * Restreint aux comptes exerçant une fonction d'enseignement — y compris le
+   * super admin, qui a bien la permission technique mais n'est titulaire
+   * d'aucune classe : lui montrer « Ma journée » n'aurait pas de sens.
    */
-  roles?: string[]
+  enseignantOnly?: boolean
   superAdminOnly?: boolean
+  /**
+   * Ferme cette route aux titulaires de primaire/maternelle : leur périmètre
+   * se limite à « Ma classe », pas à la liste complète des classes/élèves —
+   * sans ce garde-fou, masquer le lien du menu n'empêcherait pas d'y entrer
+   * par une URL directe.
+   */
+  masquerPourTitulaire?: boolean
 }) {
-  const { token, user, can, refreshUser } = useAuthStore()
+  const { token, user, can, activeSchool, refreshUser } = useAuthStore()
   const dejaRafraichi = useRef(false)
 
   // Le profil vient du stockage local et peut dater d'une version antérieure de
@@ -46,7 +54,11 @@ export function ProtectedRoute({
 
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to="/" replace />
   if (permission && !can(permission)) return <Navigate to="/" replace />
-  if (roles && !roles.some((r) => user?.roles.includes(r))) return <Navigate to="/" replace />
+  if (enseignantOnly && !user?.est_enseignant) return <Navigate to="/" replace />
+
+  const typeEcole = activeSchool()?.type
+  const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
+  if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to="/" replace />
 
   return <>{children}</>
 }

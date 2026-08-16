@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -13,10 +14,12 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import {
   arreterBulletin,
+  arreterBulletins,
   emargerBulletin,
   fetchPaie,
   francs,
   payerBulletin,
+  payerBulletins,
   preparerPaie,
   type BulletinPaie,
 } from '@/features/finance/api'
@@ -38,6 +41,7 @@ const LIBELLES = { brouillon: 'Brouillon', valide: 'Arrêté', paye: 'Payé' } a
  * fait émarger. Chaque action n'apparaît qu'à l'étape où elle a un sens.
  */
 export function PaiePage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
@@ -46,6 +50,7 @@ export function PaiePage() {
   const [annee, setAnnee] = useState(aujourdhui.getFullYear())
   const [mois, setMois] = useState(aujourdhui.getMonth() + 1)
   const [enCours, setEnCours] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['paie', activeSchoolId, annee, mois],
@@ -53,6 +58,79 @@ export function PaiePage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['paie'] })
+
+  const handleToggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleSelectAll = (bulletins: BulletinPaie[]) => {
+    if (selectedIds.size === bulletins.length && bulletins.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(bulletins.map((b) => b.id)))
+    }
+  }
+
+  const arreterSelection = async () => {
+    // Seuls les brouillons se laissent arrêter : un bulletin déjà arrêté ou
+    // payé, s'il traîne dans la sélection, est simplement ignoré plutôt que
+    // de faire échouer tout le lot.
+    const cibles = (data?.bulletins ?? []).filter((b) => selectedIds.has(b.id) && b.statut === 'brouillon')
+    if (cibles.length === 0) return
+
+    const ok = await confirmer({
+      titre: `Arrêter ${cibles.length} bulletin(s) ?`,
+      message: 'Un bulletin arrêté ne se recalcule plus et rejoint la comptabilité. Cette action est irréversible.',
+      action: 'Arrêter',
+      destructif: false,
+    })
+    if (!ok) return
+
+    try {
+      const { arretes } = await arreterBulletins(cibles.map((b) => b.id))
+      setSelectedIds(new Set())
+      succes(`${arretes} bulletin(s) arrêté(s).`)
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    }
+  }
+
+  const payerSelection = async () => {
+    // Seuls les bulletins arrêtés se règlent : un brouillon ou un bulletin
+    // déjà payé, s'il traîne dans la sélection, est simplement ignoré plutôt
+    // que de faire échouer tout le lot.
+    const cibles = (data?.bulletins ?? []).filter((b) => selectedIds.has(b.id) && b.statut === 'valide')
+    if (cibles.length === 0) return
+
+    const ok = await confirmer({
+      titre: `Marquer réglés ${cibles.length} bulletin(s) ?`,
+      message: `Net total à décaisser : ${francs(cibles.reduce((s, b) => s + b.net_a_payer, 0))}, réglé en espèces.`,
+      action: 'Payer',
+      destructif: false,
+    })
+    if (!ok) return
+
+    try {
+      const { regles } = await payerBulletins(
+        cibles.map((b) => b.id),
+        'especes',
+      )
+      setSelectedIds(new Set())
+      succes(`${regles} bulletin(s) réglé(s).`)
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    }
+  }
 
   const agir = async (action: () => Promise<void>, message: string) => {
     try {
@@ -69,12 +147,12 @@ export function PaiePage() {
     setEnCours(true)
     try {
       const { prepares, ignores } = await preparerPaie({ annee, mois }, { jours_ouvrables: 22 })
-      succes(`${prepares} bulletin(s) préparé(s).`)
+      succes(t('finance.bulletins_prepared', { prepares }))
 
       // Un agent sans rémunération définie est presque toujours un oubli de
       // saisie : le taire reviendrait à le payer zéro sans le dire.
       if (ignores.length > 0) {
-        info(`${ignores.length} agent(s) sans rémunération définie : ${ignores.slice(0, 3).join(' · ')}`)
+        info(t('finance.staff_without_remuneration', { count: ignores.length, names: ignores.slice(0, 3).join(' · ') }))
       }
       rafraichir()
     } catch (e) {
@@ -92,18 +170,44 @@ export function PaiePage() {
       action: 'Arrêter',
       destructif: false,
     })
-    if (ok) await agir(() => arreterBulletin(bulletin.id), 'Bulletin arrêté.')
+    if (ok) await agir(() => arreterBulletin(bulletin.id), t('finance.bulletin_stopped'))
   }
 
   const colonnes: Colonne<BulletinPaie>[] = [
+    ...(can('finance.paie')
+      ? [
+          {
+            cle: 'selection',
+            sticky: 'left',
+            largeur: '44px',
+            entete: data?.bulletins ? (
+              <input
+                type="checkbox"
+                checked={selectedIds.size === data.bulletins.length && data.bulletins.length > 0}
+                onChange={() => handleSelectAll(data?.bulletins ?? [])}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ) : null,
+            cellule: (b: BulletinPaie) => (
+              <input
+                type="checkbox"
+                checked={selectedIds.has(b.id)}
+                onChange={() => handleToggleSelect(b.id)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ),
+          } satisfies Colonne<BulletinPaie>,
+        ]
+      : []),
     {
       cle: 'agent',
       entete: 'Agent',
+      largeur: '220px',
       valeur: (b) => `${b.personnel.nom_complet} ${b.personnel.matricule ?? ''}`,
       cellule: (b) => (
         <div className="min-w-0">
           <div className="truncate font-semibold text-navy-900">{b.personnel.nom_complet}</div>
-          <div className="text-xs text-navy-400">
+          <div className="truncate text-xs text-navy-400">
             {b.personnel.matricule ?? '—'} · {b.personnel.fonction ?? 'Sans fonction'}
           </div>
         </div>
@@ -112,6 +216,7 @@ export function PaiePage() {
     {
       cle: 'brut',
       entete: 'Brut',
+      largeur: '100px',
       valeur: (b) => b.salaire_brut,
       cellule: (b) => <span className="tabular-nums">{francs(b.salaire_brut)}</span>,
       masquerMobile: true,
@@ -119,6 +224,7 @@ export function PaiePage() {
     {
       cle: 'retenues',
       entete: 'Retenues',
+      largeur: '100px',
       valeur: (b) => b.charges_salariales + b.total_deductions,
       cellule: (b) => (
         <span className="tabular-nums text-red-500">{francs(b.charges_salariales + b.total_deductions)}</span>
@@ -128,12 +234,14 @@ export function PaiePage() {
     {
       cle: 'net',
       entete: 'Net à payer',
+      largeur: '120px',
       valeur: (b) => b.net_a_payer,
       cellule: (b) => <span className="font-semibold tabular-nums text-green-600">{francs(b.net_a_payer)}</span>,
     },
     {
       cle: 'statut',
       entete: 'Statut',
+      largeur: '150px',
       valeur: (b) => b.statut,
       cellule: (b) => (
         <div className="flex items-center gap-1.5">
@@ -145,6 +253,8 @@ export function PaiePage() {
     {
       cle: 'actions',
       entete: '',
+      sticky: 'right',
+      largeur: '110px',
       cellule: (b) => (
         <div className="flex justify-end gap-1.5">
           <Button
@@ -187,6 +297,9 @@ export function PaiePage() {
     },
   ]
 
+  const eligiblesArreter = (data?.bulletins ?? []).filter((b) => selectedIds.has(b.id) && b.statut === 'brouillon').length
+  const eligiblesPayer = (data?.bulletins ?? []).filter((b) => selectedIds.has(b.id) && b.statut === 'valide').length
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -208,6 +321,39 @@ export function PaiePage() {
           </>
         }
       />
+
+      {selectedIds.size > 0 && can('finance.paie') && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="font-medium text-navy-900">
+              {selectedIds.size} bulletin(s) sélectionné(s)
+              {eligiblesArreter === 0 && eligiblesPayer === 0 && (
+                <span className="ml-1.5 font-normal text-navy-500">— déjà arrêtés ou payés, aucune action possible</span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {eligiblesArreter > 0 && (
+                <Button onClick={arreterSelection}>
+                  <Lock className="h-4 w-4" />
+                  Arrêter ({eligiblesArreter})
+                </Button>
+              )}
+              {eligiblesPayer > 0 && (
+                <Button onClick={payerSelection}>
+                  <Wallet className="h-4 w-4" />
+                  Payer ({eligiblesPayer})
+                </Button>
+              )}
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <Spinner />
@@ -240,7 +386,7 @@ export function PaiePage() {
             cleLigne={(b) => b.id}
             placeholderRecherche="Rechercher un agent…"
             messageVide="Aucun bulletin pour ce mois — lancez la préparation."
-            largeurMin={900}
+            largeurMin={600}
             outils={
               <div className="flex gap-2">
                 <Select value={mois} onChange={(e) => setMois(Number(e.target.value))}>

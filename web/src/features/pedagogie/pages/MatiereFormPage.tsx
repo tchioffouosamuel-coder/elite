@@ -41,14 +41,14 @@ export function MatiereFormPage() {
   const { register, handleSubmit, watch } = useForm<MatierePayload>({
     defaultValues: matiere
       ? {
-          nom: matiere.nom,
-          nom_en: matiere.nom_en ?? '',
-          abbreviation: matiere.abbreviation ?? '',
-          departement_id: matiere.departement?.id ?? null,
-          notation: matiere.notation ?? null,
-          evalue_pratique: matiere.composantes.includes('pratique'),
-          repartition_volets: matiere.repartition_volets,
-        }
+        nom: matiere.nom,
+        nom_en: matiere.nom_en ?? '',
+        abbreviation: matiere.abbreviation ?? '',
+        departement_id: matiere.departement?.id ?? null,
+        notation: matiere.notation ?? null,
+        evalue_pratique: matiere.composantes.includes('pratique'),
+        repartition_volets: matiere.repartition_volets,
+      }
       : undefined,
   })
 
@@ -83,7 +83,7 @@ export function MatiereFormPage() {
         await createMatiere(payload)
       }
       queryClient.invalidateQueries({ queryKey: ['matieres'] })
-      succes(matiere ? 'Matière mise à jour.' : 'Matière créée.')
+      succes(matiere ? t('matieres.updated') : t('matieres.created'))
       navigate('/matieres')
     } catch (err) {
       setServerError((err as ApiError).message)

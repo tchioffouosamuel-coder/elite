@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
@@ -29,6 +30,7 @@ interface FormValues {
  * le disponible en caisse sans qu'aucun écran ne le signale.
  */
 export function DepenseFormModal({ onClose, onEnregistre }: { onClose: () => void; onEnregistre: () => void }) {
+  const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [justificatif, setJustificatif] = useState<File | null>(null)
@@ -69,7 +71,7 @@ export function DepenseFormModal({ onClose, onEnregistre }: { onClose: () => voi
         justificatif: justificatif ?? undefined,
       })
 
-      succes('Dépense enregistrée.')
+      succes(t('finance.expense_recorded'))
       onEnregistre()
     } catch (e) {
       const err = e as ApiError

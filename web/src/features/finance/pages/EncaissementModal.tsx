@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { Receipt, Wallet } from 'lucide-react'
 import { Modal } from '@/shared/ui/Modal'
@@ -33,6 +34,7 @@ export function EncaissementModal({
   onClose: () => void
   onEncaisse: () => void
 }) {
+  const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -64,7 +66,7 @@ export function EncaissementModal({
         note: valeurs.note || undefined,
       })
 
-      succes(`Reçu ${numero_recu} enregistré.`)
+      succes(t('finance.receipt_recorded', { numero: numero_recu }))
       ouvrirDocument(`/versements/${versement_id}/recu`)
       onEncaisse()
     } catch (e) {

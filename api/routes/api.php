@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
+use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\SanctionController;
@@ -129,6 +130,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:classes.view')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
+                Route::get('ma-classe', [ClasseController::class, 'maClasse'])->name('classes.ma-classe');
                 Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
                 Route::get('classes/{id}/eleves/pdf', [ListeElevesController::class, 'pdf'])->name('classes.eleves.pdf');
                 Route::get('classes/{id}/eleves/word', [ListeElevesController::class, 'word'])->name('classes.eleves.word');
@@ -386,12 +388,21 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * un bulletin sans pouvoir le mener au bout.
              */
             Route::middleware('permission:finance.paie')->group(function () {
+                Route::get('remunerations', [RemunerationController::class, 'index'])->name('remunerations.index');
+                Route::get('remunerations/{personnelId}/historique', [RemunerationController::class, 'historique'])->name('remunerations.historique');
+                Route::get('remunerations/{personnelId}/anciennete', [RemunerationController::class, 'anciennete'])->name('remunerations.anciennete');
+                Route::post('remunerations/appliquer', [RemunerationController::class, 'appliquer'])->name('remunerations.appliquer');
+                Route::post('remunerations/simuler', [RemunerationController::class, 'simuler'])->name('remunerations.simuler');
+                Route::post('remunerations/{personnelId}', [RemunerationController::class, 'store'])->name('remunerations.store');
+
                 Route::get('paie', [PaieController::class, 'index'])->name('paie.index');
                 Route::get('paie/etat-emargement', [PaieController::class, 'etatEmargement'])->name('paie.emargement');
                 Route::post('paie/preparer', [PaieController::class, 'preparerLot'])->name('paie.preparer-lot');
                 Route::post('paie/personnels/{personnelId}/preparer', [PaieController::class, 'preparer'])->name('paie.preparer');
                 Route::get('paie/bulletins/{id}/pdf', [PaieController::class, 'bulletinPdf'])->name('paie.bulletin-pdf');
+                Route::post('paie/bulletins/arreter-lot', [PaieController::class, 'arreterLot'])->name('paie.arreter-lot');
                 Route::post('paie/bulletins/{id}/arreter', [PaieController::class, 'arreter'])->name('paie.arreter');
+                Route::post('paie/bulletins/payer-lot', [PaieController::class, 'payerLot'])->name('paie.payer-lot');
                 Route::post('paie/bulletins/{id}/payer', [PaieController::class, 'payer'])->name('paie.payer');
                 Route::post('paie/bulletins/{id}/emarger', [PaieController::class, 'emarger'])->name('paie.emarger');
             });

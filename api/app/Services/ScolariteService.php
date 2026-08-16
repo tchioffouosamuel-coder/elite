@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AnneeScolaire;
 use App\Models\CompteComptable;
+use App\Models\DossierFraisAnnexe;
 use App\Models\DossierScolarite;
 use App\Models\EcritureComptable;
 use App\Models\Eleve;
@@ -11,6 +12,7 @@ use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\Versement;
 use App\Models\VersementLigne;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -315,39 +317,101 @@ class ScolariteService extends BaseService
      */
     public function situation(int $schoolId, int $anneeScolaireId, array $filtres = []): array
     {
+        $annee = AnneeScolaire::findOrFail($anneeScolaireId);
+
+        /*
+         * On part des **élèves**, pas des dossiers.
+         *
+         * Un dossier ne naît qu'au premier encaissement : le lister seul
+         * laissait la caisse vide tant que personne n'avait payé, donc
+         * indéfiniment — on ne pouvait jamais encaisser un premier versement.
+         * Les élèves sans dossier apparaissent avec le montant projeté depuis
+         * la grille tarifaire, et leur dossier s'ouvrira au comptoir.
+         */
+        $eleves = Eleve::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->when($filtres['classe_id'] ?? null, fn ($q, $classeId) => $q->where('classe_id', $classeId))
+            ->with(['classe', 'tuteurs'])
+            ->orderBy('nom_complet')
+            ->get();
+
         $dossiers = DossierScolarite::forSchool($schoolId)
             ->where('annee_scolaire_id', $anneeScolaireId)
-            ->when(
-                $filtres['classe_id'] ?? null,
-                fn ($q, $classeId) => $q->whereHas('eleve', fn ($e) => $e->where('classe_id', $classeId)),
-            )
-            ->with(['eleve.classe', 'eleve.tuteurs'])
+            ->whereIn('eleve_id', $eleves->pluck('id'))
             ->avecTotaux()
             ->get()
+            ->keyBy('eleve_id');
+
+        // Projection commune aux élèves sans dossier : le tarif ne dépend que
+        // de la classe, autant ne pas relire la grille élève par élève.
+        $fraisObligatoires = (int) $this->fraisObligatoires($schoolId, $anneeScolaireId)->sum('montant');
+
+        $lignes = $eleves
+            ->map(function (Eleve $eleve) use ($dossiers, $annee, $fraisObligatoires) {
+                $dossier = $dossiers->get($eleve->id);
+
+                if ($dossier) {
+                    $dossier->setRelation('eleve', $eleve);
+
+                    return $dossier;
+                }
+
+                // Dossier projeté, non enregistré : il porte `id = null`, ce qui
+                // signale à l'interface qu'il faut l'ouvrir avant d'encaisser.
+                return $this->dossierProjete($eleve, $annee, $fraisObligatoires);
+            })
             // Le statut se déduit des versements : il ne peut pas se filtrer en
             // SQL sans dupliquer le calcul des soldes dans la requête.
             ->when(
                 $filtres['statut'] ?? null,
                 fn ($c, $statut) => $c->where('statut_paiement', $statut),
             )
-            ->sortBy(fn (DossierScolarite $d) => $d->eleve->nom_complet)
             ->values();
 
-        $attendu = (int) $dossiers->sum('total_du');
-        $recouvre = (int) $dossiers->sum('total_paye');
+        $attendu = (int) $lignes->sum('total_du');
+        $recouvre = (int) $lignes->sum('total_paye');
 
         return [
-            'dossiers' => $dossiers,
+            'dossiers' => $lignes,
             'totaux' => [
-                'effectif' => $dossiers->count(),
+                'effectif' => $lignes->count(),
                 'attendu' => $attendu,
                 'recouvre' => $recouvre,
-                'reste' => (int) $dossiers->sum('reste_a_payer'),
-                'avances' => (int) $dossiers->sum('avance'),
+                'reste' => (int) $lignes->sum('reste_a_payer'),
+                'avances' => (int) $lignes->sum('avance'),
                 'taux_recouvrement' => $attendu > 0 ? round($recouvre * 100 / $attendu, 2) : 0.0,
-                'insolvables' => $dossiers->whereIn('statut_paiement', ['impaye', 'partiel'])->count(),
+                'insolvables' => $lignes->whereIn('statut_paiement', ['impaye', 'partiel'])->count(),
             ],
         ];
+    }
+
+    /**
+     * Ce que devra l'élève si son dossier était ouvert aujourd'hui. Non
+     * persisté : ouvrir 269 dossiers à la simple consultation d'un écran
+     * écrirait en base sur une lecture, et créerait un dossier à des élèves
+     * qui ne paieront jamais par ce guichet.
+     */
+    private function dossierProjete(Eleve $eleve, AnneeScolaire $annee, int $fraisObligatoires): DossierScolarite
+    {
+        $dossier = new DossierScolarite([
+            'school_id' => $eleve->school_id,
+            'annee_scolaire_id' => $annee->id,
+            'eleve_id' => $eleve->id,
+            'montant_scolarite' => $this->tarif($eleve, $annee),
+            'report_dette' => $this->reliquatAnneePrecedente($eleve, $annee),
+        ]);
+
+        $dossier->setRelation('eleve', $eleve);
+        $dossier->setRelation('versements', new EloquentCollection);
+        // Une seule ligne fictive porte le total des frais obligatoires : le
+        // détail n'a d'intérêt qu'une fois le dossier réellement ouvert.
+        $dossier->setRelation('fraisAnnexes', new EloquentCollection(
+            $fraisObligatoires > 0
+                ? [new DossierFraisAnnexe(['libelle' => 'Frais annexes obligatoires', 'montant' => $fraisObligatoires])]
+                : [],
+        ));
+
+        return $dossier;
     }
 
     /**

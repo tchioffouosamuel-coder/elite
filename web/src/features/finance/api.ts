@@ -211,12 +211,180 @@ export async function arreterBulletin(id: number): Promise<void> {
   await http.post(`/paie/bulletins/${id}/arreter`)
 }
 
+export async function arreterBulletins(ids: number[]): Promise<{ arretes: number }> {
+  const { data } = await http.post<ApiResponse<{ arretes: number }>>('/paie/bulletins/arreter-lot', { ids })
+  return data.data
+}
+
 export async function payerBulletin(id: number, mode: ModePaiement, date_paiement?: string): Promise<void> {
   await http.post(`/paie/bulletins/${id}/payer`, { mode, date_paiement })
 }
 
+export async function payerBulletins(
+  ids: number[],
+  mode: ModePaiement,
+  date_paiement?: string,
+): Promise<{ regles: number }> {
+  const { data } = await http.post<ApiResponse<{ regles: number }>>('/paie/bulletins/payer-lot', {
+    ids,
+    mode,
+    date_paiement,
+  })
+  return data.data
+}
+
 export async function emargerBulletin(id: number, reference?: string): Promise<void> {
   await http.post(`/paie/bulletins/${id}/emarger`, { reference })
+}
+
+// ----------------------------------------------------------- Rémunérations
+
+/** Les six gains du bulletin, dans leur ordre d'affichage. */
+export const GAINS = [
+  { champ: 'salaire_base', libelle: 'Salaire de base', exonere: false },
+  { champ: 'prime_anciennete', libelle: 'Ancienneté', exonere: false },
+  { champ: 'prime_communication', libelle: 'Communication', exonere: true },
+  { champ: 'prime_transport', libelle: 'Transport', exonere: true },
+  { champ: 'prime_recherche', libelle: 'Recherche & leçon', exonere: false },
+  { champ: 'prime_performance', libelle: 'Performance', exonere: false },
+] as const
+
+export type ChampGain = (typeof GAINS)[number]['champ']
+
+export interface Remuneration extends Record<ChampGain, number> {
+  id: number
+  date_effet: string
+  categorie: string | null
+  brut: number
+  base_taxable: number
+  charges_salariales: number
+  charges_patronales: number
+  net: number
+  cout_employeur: number
+}
+
+export interface LigneRemuneration {
+  id: number
+  nom_complet: string
+  matricule: string | null
+  fonction: string | null
+  statut: string
+  remuneration: Remuneration | null
+}
+
+export interface TotauxRemunerations {
+  effectif: number
+  definies: number
+  sans_remuneration: number
+  masse_brute: number
+  cout_employeur: number
+  net_mensuel: number
+}
+
+export interface Simulation {
+  brut: number
+  base_taxable: number
+  charges_salariales: number
+  charges_patronales: number
+  net_avant_deductions: number
+  cout_employeur: number
+  retenues: {
+    libelle: string
+    base: number
+    taux_salarial: number | null
+    taux_patronal: number | null
+    montant_salarial: number
+    montant_patronal: number
+  }[]
+}
+
+export async function fetchRemunerations(): Promise<{
+  personnels: LigneRemuneration[]
+  totaux: TotauxRemunerations
+}> {
+  const { data } = await http.get<ApiResponse<never>>('/remunerations')
+  return data.data as never
+}
+
+export async function fetchHistoriqueRemunerations(personnelId: number): Promise<{
+  personnel: { id: number; nom_complet: string }
+  historique: Remuneration[]
+}> {
+  const { data } = await http.get<ApiResponse<never>>(`/remunerations/${personnelId}/historique`)
+  return data.data as never
+}
+
+export async function enregistrerRemuneration(
+  personnelId: number,
+  payload: Partial<Record<ChampGain, number>> & { date_effet: string; categorie?: string },
+): Promise<Remuneration> {
+  const { data } = await http.post<ApiResponse<Remuneration>>(`/remunerations/${personnelId}`, payload)
+  return data.data
+}
+
+/**
+ * Applique une même rémunération à plusieurs agents — copiée d'un collègue
+ * (`source_personnel_id`) ou saisie directement.
+ */
+export async function appliquerRemuneration(payload: {
+  personnel_ids: number[]
+  date_effet: string
+  source_personnel_id?: number
+  categorie?: string
+} & Partial<Record<ChampGain, number>>): Promise<{ appliquee: number; ignores: number }> {
+  const { data } = await http.post<ApiResponse<{ appliquee: number; ignores: number }>>(
+    '/remunerations/appliquer',
+    payload,
+  )
+  return data.data
+}
+
+/** Applique le barème sans rien enregistrer, pour l'aperçu du net. */
+export async function simulerRemuneration(gains: Partial<Record<ChampGain, number>>): Promise<Simulation> {
+  const { data } = await http.post<ApiResponse<Simulation>>('/remunerations/simuler', gains)
+  return data.data
+}
+
+// ------------------------------------------------------------------ Tarifs
+
+export interface Tarifs {
+  annee_scolaire: { id: number; libelle: string }
+  tarif_par_defaut: number | null
+  classes: { id: number; nom: string; montant: number | null; dossiers_ouverts: number }[]
+  frais_annexes: { id: number; libelle: string; montant: number; obligatoire: boolean; is_active: boolean }[]
+}
+
+export async function fetchTarifs(): Promise<Tarifs> {
+  const { data } = await http.get<ApiResponse<Tarifs>>('/tarifs')
+  return data.data
+}
+
+/** `classe_id` nul = tarif par défaut de l'établissement. */
+export async function definirTarif(classeId: number | null, montant: number): Promise<void> {
+  await http.post('/tarifs', { classe_id: classeId, montant })
+}
+
+export async function supprimerTarif(classeId: number): Promise<void> {
+  await http.delete(`/tarifs/classes/${classeId}`)
+}
+
+export async function creerFraisAnnexe(payload: {
+  libelle: string
+  montant: number
+  obligatoire: boolean
+}): Promise<void> {
+  await http.post('/tarifs/frais-annexes', payload)
+}
+
+export async function modifierFraisAnnexe(
+  id: number,
+  payload: Partial<{ libelle: string; montant: number; obligatoire: boolean; is_active: boolean }>,
+): Promise<void> {
+  await http.put(`/tarifs/frais-annexes/${id}`, payload)
+}
+
+export async function desactiverFraisAnnexe(id: number): Promise<void> {
+  await http.delete(`/tarifs/frais-annexes/${id}`)
 }
 
 // ---------------------------------------------------------------- Rapports

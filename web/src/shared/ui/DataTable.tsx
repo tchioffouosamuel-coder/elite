@@ -17,6 +17,18 @@ export interface Colonne<T> {
   className?: string
   /** Masque la colonne en dessous de `sm` pour alléger l'affichage mobile. */
   masquerMobile?: boolean
+  /**
+   * Fixe la colonne sur le côté indiqué pendant le défilement horizontal —
+   * utile pour garder une case à cocher ou des actions toujours visibles sur
+   * un tableau large plutôt que de les laisser sortir du cadre.
+   */
+  sticky?: 'left' | 'right'
+  /**
+   * Largeur figée (ex. `'220px'`) plutôt que la largeur naturelle du contenu —
+   * nécessaire pour qu'un texte long tronque au lieu d'élargir tout le
+   * tableau. Dès qu'une colonne la définit, le tableau bascule en layout figé.
+   */
+  largeur?: string
 }
 
 interface DataTableProps<T> {
@@ -57,6 +69,7 @@ export function DataTable<T>({
   const [terme, setTerme] = useState('')
   const [tri, setTri] = useState<{ cle: string; sens: Sens } | null>(null)
   const [page, setPage] = useState(1)
+  const layoutFixe = colonnes.some((c) => c.largeur)
 
   const texteDe = (ligne: T, colonne: Colonne<T>) => String(colonne.valeur?.(ligne) ?? '').toLowerCase()
 
@@ -121,7 +134,24 @@ export function DataTable<T>({
       )}
 
       <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-navy-100/70 bg-white/75 shadow-card">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: `${largeurMin}px` }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{
+            minWidth: `${largeurMin}px`,
+            tableLayout: layoutFixe ? 'fixed' : undefined,
+          }}
+        >
+          {layoutFixe && (
+            <colgroup>
+              {colonnes.map((colonne) => (
+                <col
+                  key={colonne.cle}
+                  style={colonne.largeur ? { width: colonne.largeur } : undefined}
+                  className={colonne.masquerMobile ? 'hidden sm:table-column' : undefined}
+                />
+              ))}
+            </colgroup>
+          )}
           <thead className="bg-linear-to-b from-cream-100 to-cream-100/80 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
             <tr>
               {colonnes.map((colonne) => {
@@ -132,8 +162,12 @@ export function DataTable<T>({
                   <th
                     key={colonne.cle}
                     className={clsx(
-                      'whitespace-nowrap px-4 py-3.5 font-semibold',
+                      'px-4 py-3.5 font-semibold',
+                      colonne.largeur ? 'break-words' : 'whitespace-nowrap',
                       colonne.masquerMobile && 'hidden sm:table-cell',
+                      colonne.sticky && 'sticky z-20 bg-cream-100',
+                      colonne.sticky === 'left' && 'left-0',
+                      colonne.sticky === 'right' && 'right-0',
                     )}
                   >
                     {triable ? (
@@ -172,7 +206,15 @@ export function DataTable<T>({
                     key={colonne.cle}
                     className={clsx(
                       'px-4 py-3.5 align-middle text-navy-800',
+                      // `overflow:hidden` sur la cellule court-circuite le
+                      // minimum automatique du navigateur (calé sur le
+                      // contenu) : sans lui, une colonne figée ne rétrécit
+                      // jamais sous la largeur naturelle de son texte.
+                      colonne.largeur && 'overflow-hidden',
                       colonne.masquerMobile && 'hidden sm:table-cell',
+                      colonne.sticky && 'sticky z-10 bg-white',
+                      colonne.sticky === 'left' && 'left-0',
+                      colonne.sticky === 'right' && 'right-0',
                       colonne.className,
                     )}
                   >

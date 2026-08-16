@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, Plus, Trash2, Wand2 } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
@@ -29,6 +30,7 @@ function enMinutes(heure: string): number {
 }
 
 export function EmploiDuTempsPage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const peutGerer = can('emploi_du_temps.manage')
   const queryClient = useQueryClient()
@@ -57,9 +59,9 @@ export function EmploiDuTempsPage() {
     mutationFn: (id: number) => deleteCreneau(classeActive!, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
-      succes('Créneau supprimé.')
+      succes(t('emploiDuTemps.timeslot_deleted'))
     },
-    onError: (e: { message?: string }) => erreur(e.message ?? 'Suppression impossible.'),
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.deletion_failed')),
   })
 
   const supprimerCreneau = async (creneau: Creneau) => {

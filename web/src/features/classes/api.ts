@@ -120,6 +120,12 @@ export async function fetchClasse(id: number): Promise<Classe> {
   return data.data;
 }
 
+/** Classe dont l'utilisateur connecté est titulaire (primaire/maternelle), ou null. */
+export async function fetchMaClasse(): Promise<Classe | null> {
+  const { data } = await http.get<ApiResponse<Classe | null>>("/ma-classe");
+  return data.data;
+}
+
 export async function updateClasse(
   id: number,
   payload: ClassePayload,

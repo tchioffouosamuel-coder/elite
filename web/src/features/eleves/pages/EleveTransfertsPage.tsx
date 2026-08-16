@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Repeat } from 'lucide-react'
@@ -18,6 +19,7 @@ import type { ApiError } from '@/shared/types/api'
 type Mode = 'classe' | 'ecole'
 
 export function EleveTransfertsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
@@ -84,7 +86,7 @@ export function EleveTransfertsPage() {
           ? await batchChangerClasseEleves(ids, Number(classeDestId))
           : await batchTransfererEleveEcole(ids, Number(ecoleDestId), Number(classeDestEcoleId))
 
-      succes(`${resultat.transferes} élève(s) transféré(s).`)
+      succes(t('eleves.transferred', { transferes: resultat.transferes }))
       setSelectedIds(new Set())
       queryClient.invalidateQueries({ queryKey: ['eleves'] })
       queryClient.invalidateQueries({ queryKey: ['classes'] })
@@ -163,9 +165,8 @@ export function EleveTransfertsPage() {
           <button
             type="button"
             onClick={() => setMode('classe')}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              mode === 'classe' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
-            }`}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${mode === 'classe' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
+              }`}
           >
             Vers une classe
           </button>
@@ -173,9 +174,8 @@ export function EleveTransfertsPage() {
             <button
               type="button"
               onClick={() => setMode('ecole')}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                mode === 'ecole' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
-              }`}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${mode === 'ecole' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
+                }`}
             >
               Vers une autre école
             </button>

@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, FileDown, FileSpreadsheet } from 'lucide-react'
 import { clsx } from 'clsx'
-import { fetchRemplissage, fetchClassement, ouvrirBulletin } from '@/features/resultats/api'
+import { fetchRemplissage, fetchClassement, ouvrirBulletin, type Classement } from '@/features/resultats/api'
 import { telechargerFichier } from '@/shared/lib/download'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner } from '@/shared/ui/Feedback'
 
@@ -80,46 +80,13 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
         {loadingClassement ? (
           <Spinner />
         ) : (
-          <Table>
-            <Thead>
-              <tr>
-                <Th>{t('resultats.rang')}</Th>
-                <Th>{t('eleves.nom_complet')}</Th>
-                <Th>{t('resultats.moyenne')}</Th>
-                <Th>{t('resultats.cote')}</Th>
-                <Th>{t('resultats.mention')}</Th>
-                <Th>{t('resultats.bulletin')}</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {classement?.eleves.map((e) => (
-                <Tr key={e.eleve_id}>
-                  <Td className="font-semibold">{e.rang ?? '—'}</Td>
-                  <Td className="font-medium">{e.nom_complet}</Td>
-                  <Td>{e.moyenne !== null ? e.moyenne.toFixed(2) : '—'}</Td>
-                  <Td>
-                    <Badge tone={e.cote?.startsWith('A') ? 'green' : e.cote === 'D' ? 'red' : 'gold'}>{e.cote}</Badge>
-                  </Td>
-                  <Td>
-                    {e.mention && MENTION_LABEL[e.mention] && (
-                      <Badge tone={MENTION_LABEL[e.mention].tone}>
-                        {isFr ? MENTION_LABEL[e.mention].fr : MENTION_LABEL[e.mention].en}
-                      </Badge>
-                    )}
-                  </Td>
-                  <Td>
-                    <button
-                      onClick={() => ouvrirBulletin(e.eleve_id)}
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
-                    >
-                      <FileDown className="h-3.5 w-3.5" />
-                      PDF
-                    </button>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+          <DataTable
+            colonnes={colonnesClassement}
+            lignes={classement?.eleves ?? []}
+            cleLigne={(e) => e.eleve_id}
+            placeholderRecherche="Rechercher un élève…"
+            messageVide="Aucun élève dans cette classe."
+          />
         )}
       </Card>
     </div>

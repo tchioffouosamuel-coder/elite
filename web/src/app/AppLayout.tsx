@@ -34,6 +34,8 @@ import {
   Wallet,
   ReceiptText,
   Banknote,
+  HandCoins,
+  Tags,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -80,25 +82,36 @@ const navGroups = [
   {
     label: 'nav.group.classes',
     items: [
-      { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view' },
+      {
+        to: '/ma-classe',
+        label: 'nav.maClasse',
+        icon: School,
+        permission: 'classes.view',
+        // Titulaire d'une seule classe : la liste complète et la fiche
+        // classe générique n'ont pas leur place, sa propre classe suffit.
+        estEnseignant: true,
+        types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
+      { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
       { to: '/sous-systemes', label: 'nav.sousSystemes', icon: Layers, permission: 'classes.manage' },
-      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view' },
-      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage' },
+      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true },
+      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
     ],
   },
   {
     label: 'nav.group.pedagogie',
     items: [
-      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view' },
-      { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view' },
+      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true },
+      { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view', masquerPourTitulaire: true },
       {
         to: '/ma-journee',
         label: 'nav.maJournee',
         icon: CalendarCheck,
         permission: 'appel.manage',
-        // Un tableau de bord personnel au titulaire/enseignant — pas un outil
-        // de suivi pour l'administration, qui a ses propres écrans.
-        roles: ['enseignant'] as string[],
+        // Un tableau de bord personnel à qui enseigne — pas un outil de suivi
+        // pour l'administration, qui a ses propres écrans (censeur/économe
+        // portent pourtant `appel.manage` sans être enseignants).
+        estEnseignant: true,
       },
       { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view' },
       { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view' },
@@ -132,7 +145,7 @@ const navGroups = [
   {
     label: 'nav.group.identification',
     items: [
-      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view' },
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true },
       {
         to: '/photos-examen',
         label: 'nav.photosExamen',
@@ -148,6 +161,7 @@ const navGroups = [
         icon: ScanFace,
         permission: 'eleves.view',
         types: ['primaire'] as TypeEcole[],
+        masquerPourTitulaire: true,
       },
     ],
   },
@@ -155,7 +169,9 @@ const navGroups = [
     label: 'nav.group.finance',
     items: [
       { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view' },
+      { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view' },
       { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view' },
+      { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie' },
       { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
       { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
     ],
@@ -223,6 +239,10 @@ export function AppLayout() {
 
   const requeteMenu = normaliserRecherche(rechercheMenu.trim())
 
+  // Titulaire d'une classe unique de primaire/maternelle : sa sidebar se
+  // limite à « Ma classe » et aux écrans qui la concernent directement.
+  const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
+
   const groupesVisibles = useMemo(
     () =>
       navGroups
@@ -234,9 +254,8 @@ export function AppLayout() {
               can(item.permission) &&
               (!('superAdminOnly' in item) || !item.superAdminOnly || user?.is_super_admin) &&
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
-              (!('roles' in item) ||
-                !item.roles ||
-                (item.roles as string[]).some((r) => user?.roles.includes(r))),
+              (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
+              (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse),
           )
           const items = requeteMenu
             ? itemsAutorises.filter((item) => groupeCorrespond || normaliserRecherche(t(item.label)).includes(requeteMenu))
@@ -245,7 +264,7 @@ export function AppLayout() {
           return { ...group, items }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, estTitulaireDeClasse],
   )
 
   /**
@@ -391,7 +410,7 @@ export function AppLayout() {
           </span>
           <div className={clsx('min-w-0 flex-1', !sidebarOpen && 'lg:hidden')}>
             <p className="truncate text-sm font-semibold text-white">{user?.name}</p>
-            <p className="truncate text-xs text-navy-300">{user?.roles.join(', ')}</p>
+            <p className="truncate text-xs text-navy-300">{user?.fonction || user?.roles.join(', ')}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -444,7 +463,7 @@ export function AppLayout() {
           <div className="hidden items-center gap-3 xl:flex">
             <div className="text-right text-sm leading-tight">
               <p className="font-semibold text-navy-800">{user?.name}</p>
-              <p className="text-xs text-navy-400">{user?.roles.join(', ')}</p>
+              <p className="text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
             </div>
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
               {initials(user?.name)}

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Classe;
+use App\Models\User;
 use App\Repositories\ClasseRepository;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -23,6 +24,22 @@ class ClasseService extends BaseService
     public function find(int $schoolId, int $id): Classe
     {
         return $this->repository->query()->forSchool($schoolId)->with(self::RESPONSABLES)->findOrFail($id);
+    }
+
+    /**
+     * Classe tenue par l'utilisateur connecté, s'il en est titulaire (primaire
+     * et maternelle uniquement — le secondaire n'a pas de titulaire unique).
+     */
+    public function maClasse(User $user, int $schoolId): ?Classe
+    {
+        $personnelId = $user->personnel?->id;
+
+        if ($personnelId === null) {
+            return null;
+        }
+
+        return $this->repository->query()->forSchool($schoolId)->with(self::RESPONSABLES)
+            ->where('titulaire_id', $personnelId)->first();
     }
 
     public function create(int $schoolId, array $attributes): Classe

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\BulletinPaie;
-use App\Models\DossierScolarite;
 use App\Models\EcritureComptable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -27,6 +26,8 @@ class BilanFinancierService
     private const CLASSE_PRODUITS = 7;
 
     private const CLASSE_TRESORERIE = 5;
+
+    public function __construct(private readonly ScolariteService $scolarite) {}
 
     /**
      * Compte de résultat de la période : produits, charges, et le solde entre
@@ -116,25 +117,23 @@ class BilanFinancierService
     {
         $filtres = [...$filtres, 'annee_scolaire_id' => $anneeScolaireId];
 
-        $dossiers = DossierScolarite::forSchool($schoolId)
-            ->where('annee_scolaire_id', $anneeScolaireId)
-            ->avecTotaux()
-            ->get();
-
-        $attendu = (int) $dossiers->sum('total_du');
-        $recouvre = (int) $dossiers->sum('total_paye');
+        // Même calcul que la Caisse (`ScolariteService::situation`) : un
+        // dossier ne naît qu'au premier encaissement, donc interroger
+        // `dossiers_scolarite` seule ne compte que les élèves déjà passés au
+        // comptoir et sous-évalue le recouvrement pour tous les autres.
+        $situation = $this->scolarite->situation($schoolId, $anneeScolaireId)['totaux'];
 
         $bulletins = BulletinPaie::forSchool($schoolId)->arretes()->get();
         $resultat = $this->resultat($schoolId, $filtres);
 
         return [
             'scolarite' => [
-                'effectif' => $dossiers->count(),
-                'attendu' => $attendu,
-                'recouvre' => $recouvre,
-                'reste' => (int) $dossiers->sum('reste_a_payer'),
-                'taux_recouvrement' => $attendu > 0 ? round($recouvre * 100 / $attendu, 2) : 0.0,
-                'insolvables' => $dossiers->whereIn('statut_paiement', ['impaye', 'partiel'])->count(),
+                'effectif' => $situation['effectif'],
+                'attendu' => $situation['attendu'],
+                'recouvre' => $situation['recouvre'],
+                'reste' => $situation['reste'],
+                'taux_recouvrement' => $situation['taux_recouvrement'],
+                'insolvables' => $situation['insolvables'],
             ],
             'paie' => [
                 'bulletins' => $bulletins->count(),

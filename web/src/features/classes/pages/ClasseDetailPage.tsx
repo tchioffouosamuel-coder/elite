@@ -1,48 +1,21 @@
-import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, IdCard } from 'lucide-react'
 import { fetchClasse } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
-import { Tabs } from '@/shared/ui/Tabs'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ouvrirDocument } from '@/shared/lib/download'
-import { AffectationsTab } from '@/features/pedagogie/pages/AffectationsTab'
-import { NotesTab } from '@/features/notes/pages/NotesTab'
-import { AbsencesTab } from '@/features/discipline/pages/AbsencesTab'
-import { ResultatsTab } from '@/features/resultats/pages/ResultatsTab'
-import { ResponsablesTab } from '@/features/classes/pages/ResponsablesTab'
-import { ElevesTab } from '@/features/classes/pages/ElevesTab'
-import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
+import { ClasseTabs } from '@/features/classes/pages/ClasseTabs'
 
 export function ClasseDetailPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
-  const activeSchool = useAuthStore((s) => s.activeSchool)
   const { id } = useParams<{ id: string }>()
   const classeId = Number(id)
-  const [tab, setTab] = useState('affectations')
-
-  // Le primaire et la maternelle notent par volets d'évaluation, le secondaire
-  // par séquence : deux grilles de saisie distinctes.
-  const estSecondaire = (activeSchool()?.type ?? 'secondaire') === 'secondaire'
 
   const { data: classe, isLoading, isError } = useQuery({ queryKey: ['classe', classeId], queryFn: () => fetchClasse(classeId) })
-
-  const tabs = [
-    can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },
-    can('eleves.view') && { key: 'eleves', label: t('eleves.title') },
-    can('notes.view') && { key: 'notes', label: t('notes.title') },
-    can('discipline.view') && { key: 'absences', label: t('discipline.title') },
-    can('notes.view') && { key: 'resultats', label: t('resultats.title') },
-    // Professeur principal, censeur, surveillant général et conseiller
-    // d'orientation sont des fonctions du secondaire. Au primaire et en
-    // maternelle, le titulaire tient seul la classe : l'onglet n'aurait que
-    // des listes vides à proposer.
-    estSecondaire && can('classes.view') && { key: 'responsables', label: 'Responsables' },
-  ].filter(Boolean) as { key: string; label: string }[]
 
   if (isLoading) return <Spinner />
   if (isError || !classe) return <ErrorState />
@@ -74,14 +47,7 @@ export function ClasseDetailPage() {
         )}
       </div>
 
-      <Tabs tabs={tabs} active={tab} onChange={setTab} />
-
-      {tab === 'affectations' && <AffectationsTab classeId={classeId} titulaireId={classe.titulaire_id} />}
-      {tab === 'eleves' && <ElevesTab classeId={classeId} />}
-      {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
-      {tab === 'absences' && <AbsencesTab classeId={classeId} />}
-      {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
-      {tab === 'responsables' && estSecondaire && <ResponsablesTab classeId={classeId} />}
+      <ClasseTabs classe={classe} />
     </div>
   )
 }

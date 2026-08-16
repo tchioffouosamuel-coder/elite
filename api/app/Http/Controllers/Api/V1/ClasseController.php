@@ -41,6 +41,14 @@ class ClasseController extends Controller
         return ApiResponse::success(new ClasseResource($classe));
     }
 
+    /** Classe dont l'utilisateur connecté est titulaire (primaire/maternelle), ou null. */
+    public function maClasse(Request $request): JsonResponse
+    {
+        $classe = $this->service->maClasse($request->user(), app('tenant.school_id'));
+
+        return ApiResponse::success($classe ? new ClasseResource($classe) : null);
+    }
+
     public function update(StoreClasseRequest $request, int $id): JsonResponse
     {
         $classe = $this->service->find(app('tenant.school_id'), $id);

@@ -73,24 +73,24 @@ export function SanctionsPage() {
     },
     ...(can('discipline.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (s: Sanction) => (
-              <button
-                onClick={async () => {
-                  if (!(await confirmerSuppression(`la sanction de ${s.eleve.nom_complet}`))) return
-                  await deleteSanction(s.id)
-                  invalidate()
-                  succes('Sanction supprimée.')
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            ),
-          } satisfies Colonne<Sanction>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (s: Sanction) => (
+            <button
+              onClick={async () => {
+                if (!(await confirmerSuppression(`la sanction de ${s.eleve.nom_complet}`))) return
+                await deleteSanction(s.id)
+                invalidate()
+                succes(t('alerts.sanction_deleted'))
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ),
+        } satisfies Colonne<Sanction>,
+      ]
       : []),
   ]
 

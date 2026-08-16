@@ -8,6 +8,7 @@ use App\Models\CompteComptable;
 use App\Models\Depense;
 use App\Models\School;
 use App\Services\DepenseService;
+use App\Support\Pdf\BilanDepensesGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -23,7 +24,7 @@ class DepenseController extends Controller
         $bilan = $this->service->bilan(app('tenant.school_id'), $this->filtres($request));
 
         return ApiResponse::success([
-            'depenses' => $bilan['depenses']->map(fn (Depense $d) => $this->resumer($d))->values(),
+            'depenses' => $bilan['depenses']->map(fn(Depense $d) => $this->resumer($d))->values(),
             'par_compte' => $bilan['par_compte'],
             'totaux' => $bilan['totaux'],
         ]);
@@ -119,7 +120,7 @@ class DepenseController extends Controller
                 'libelle' => $depense->compte->libelle,
             ] : null,
             'justificatif_url' => $depense->justificatif_path
-                ? asset('storage/'.$depense->justificatif_path)
+                ? asset('storage/' . $depense->justificatif_path)
                 : null,
             'saisi_par' => $depense->saisisseur?->name,
             'motif_annulation' => $depense->motif_annulation,
