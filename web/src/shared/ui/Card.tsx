@@ -1,11 +1,16 @@
 import { type ComponentType, type ReactNode } from 'react'
 import { clsx } from 'clsx'
 
+/**
+ * `bg-white/75` et non `bg-white` : les panneaux laissent transparaître le
+ * filigrane de l'établissement posé sous la zone de travail (cf. AppLayout).
+ * Les repasser en blanc opaque le masquerait partout où il compte.
+ */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={clsx(
-        'rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card transition-shadow duration-200 sm:p-5',
+        'rounded-2xl border border-navy-100/70 bg-white/75 p-4 shadow-card transition-shadow duration-200 sm:p-5',
         className,
       )}
     >

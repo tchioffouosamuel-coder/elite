@@ -34,6 +34,10 @@ import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
+import { CaissePage } from '@/features/finance/pages/CaissePage'
+import { DepensesPage } from '@/features/finance/pages/DepensesPage'
+import { PaiePage } from '@/features/finance/pages/PaiePage'
+import { RapportsFinanciersPage } from '@/features/finance/pages/RapportsFinanciersPage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
 export const router = createBrowserRouter([
@@ -82,6 +86,10 @@ export const router = createBrowserRouter([
       { path: 'identification', element: <ProtectedRoute permission="eleves.view"><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view"><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
+      { path: 'caisse', element: <ProtectedRoute permission="finance.view"><CaissePage /></ProtectedRoute> },
+      { path: 'depenses', element: <ProtectedRoute permission="finance.view"><DepensesPage /></ProtectedRoute> },
+      { path: 'paie', element: <ProtectedRoute permission="finance.paie"><PaiePage /></ProtectedRoute> },
+      { path: 'rapports-financiers', element: <ProtectedRoute permission="finance.rapports"><RapportsFinanciersPage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
     ],

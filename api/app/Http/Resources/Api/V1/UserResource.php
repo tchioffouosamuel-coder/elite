@@ -4,6 +4,7 @@ namespace App\Http\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
@@ -30,6 +31,9 @@ class UserResource extends JsonResource
                 'name' => $ecole->name,
                 'code' => $ecole->code,
                 'type' => $ecole->type,
+                // Filigrane de l'interface : le logo doit être connu de tous les
+                // comptes, alors que `/ecole` est réservé à `ecoles.manage`.
+                'logo_url' => $ecole->logo_path ? Storage::disk('public')->url($ecole->logo_path) : null,
             ])->values(),
         ];
     }

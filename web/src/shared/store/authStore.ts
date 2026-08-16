@@ -6,6 +6,8 @@ export interface EcoleAccessible {
   name: string
   code: string
   type: 'maternelle' | 'primaire' | 'secondaire'
+  /** Sert au filigrane de l'interface — livré à tous les comptes, pas seulement aux gestionnaires. */
+  logo_url?: string | null
 }
 
 export interface AuthUser {

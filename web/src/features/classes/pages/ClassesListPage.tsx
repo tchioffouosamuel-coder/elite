@@ -288,7 +288,7 @@ export function ClassesListPage() {
                 />
               </div>
 
-              <div className="w-48">
+              <div className="w-56">
                 <Select
                   options={sousSystemes.map((s) => ({ value: s.id, label: `${s.nom} (${s.code})` }))}
                   placeholder="Définir le sous-système"

@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
  */
 export function Table({ children, minWidth = 560 }: { children: ReactNode; minWidth?: number }) {
   return (
-    <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-navy-100/70 bg-white shadow-card">
+    <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-navy-100/70 bg-white/75 shadow-card">
       <table className="w-full border-collapse text-sm" style={{ minWidth: `${minWidth}px` }}>
         {children}
       </table>

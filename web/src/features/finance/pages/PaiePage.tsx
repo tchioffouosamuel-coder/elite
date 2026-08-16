@@ -1,0 +1,270 @@
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play } from 'lucide-react'
+import { PageHeader } from '@/shared/ui/PageHeader'
+import { StatCard } from '@/shared/ui/Card'
+import { Button } from '@/shared/ui/Button'
+import { Badge } from '@/shared/ui/Badge'
+import { Select } from '@/shared/ui/Field'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
+import { ouvrirDocument } from '@/shared/lib/download'
+import { useAuthStore } from '@/shared/store/authStore'
+import {
+  arreterBulletin,
+  emargerBulletin,
+  fetchPaie,
+  francs,
+  payerBulletin,
+  preparerPaie,
+  type BulletinPaie,
+} from '@/features/finance/api'
+import type { ApiError } from '@/shared/types/api'
+
+const MOIS = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+]
+
+const TONS = { brouillon: 'neutral', valide: 'gold', paye: 'green' } as const
+const LIBELLES = { brouillon: 'Brouillon', valide: 'Arrêté', paye: 'Payé' } as const
+
+/**
+ * Paie du mois.
+ *
+ * Les trois états du bulletin structurent l'écran : on prépare en lot, on
+ * arrête bulletin par bulletin — c'est irréversible —, puis on règle et on
+ * fait émarger. Chaque action n'apparaît qu'à l'étape où elle a un sens.
+ */
+export function PaiePage() {
+  const can = useAuthStore((s) => s.can)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const queryClient = useQueryClient()
+
+  const aujourdhui = new Date()
+  const [annee, setAnnee] = useState(aujourdhui.getFullYear())
+  const [mois, setMois] = useState(aujourdhui.getMonth() + 1)
+  const [enCours, setEnCours] = useState(false)
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['paie', activeSchoolId, annee, mois],
+    queryFn: () => fetchPaie({ annee, mois }),
+  })
+
+  const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['paie'] })
+
+  const agir = async (action: () => Promise<void>, message: string) => {
+    try {
+      await action()
+      succes(message)
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    }
+  }
+
+  const preparer = async () => {
+    setEnCours(true)
+    try {
+      const { prepares, ignores } = await preparerPaie({ annee, mois }, { jours_ouvrables: 22 })
+      succes(`${prepares} bulletin(s) préparé(s).`)
+
+      // Un agent sans rémunération définie est presque toujours un oubli de
+      // saisie : le taire reviendrait à le payer zéro sans le dire.
+      if (ignores.length > 0) {
+        info(`${ignores.length} agent(s) sans rémunération définie : ${ignores.slice(0, 3).join(' · ')}`)
+      }
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  const arreter = async (bulletin: BulletinPaie) => {
+    const ok = await confirmer({
+      titre: `Arrêter le bulletin de ${bulletin.personnel.nom_complet} ?`,
+      message: `Net à payer : ${francs(bulletin.net_a_payer)}. Un bulletin arrêté ne se recalcule plus et rejoint la comptabilité.`,
+      action: 'Arrêter',
+      destructif: false,
+    })
+    if (ok) await agir(() => arreterBulletin(bulletin.id), 'Bulletin arrêté.')
+  }
+
+  const colonnes: Colonne<BulletinPaie>[] = [
+    {
+      cle: 'agent',
+      entete: 'Agent',
+      valeur: (b) => `${b.personnel.nom_complet} ${b.personnel.matricule ?? ''}`,
+      cellule: (b) => (
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-navy-900">{b.personnel.nom_complet}</div>
+          <div className="text-xs text-navy-400">
+            {b.personnel.matricule ?? '—'} · {b.personnel.fonction ?? 'Sans fonction'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      cle: 'brut',
+      entete: 'Brut',
+      valeur: (b) => b.salaire_brut,
+      cellule: (b) => <span className="tabular-nums">{francs(b.salaire_brut)}</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'retenues',
+      entete: 'Retenues',
+      valeur: (b) => b.charges_salariales + b.total_deductions,
+      cellule: (b) => (
+        <span className="tabular-nums text-red-500">{francs(b.charges_salariales + b.total_deductions)}</span>
+      ),
+      masquerMobile: true,
+    },
+    {
+      cle: 'net',
+      entete: 'Net à payer',
+      valeur: (b) => b.net_a_payer,
+      cellule: (b) => <span className="font-semibold tabular-nums text-green-600">{francs(b.net_a_payer)}</span>,
+    },
+    {
+      cle: 'statut',
+      entete: 'Statut',
+      valeur: (b) => b.statut,
+      cellule: (b) => (
+        <div className="flex items-center gap-1.5">
+          <Badge tone={TONS[b.statut]}>{LIBELLES[b.statut]}</Badge>
+          {b.emarge && <Badge tone="blue">Émargé</Badge>}
+        </div>
+      ),
+    },
+    {
+      cle: 'actions',
+      entete: '',
+      cellule: (b) => (
+        <div className="flex justify-end gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            title="Bulletin PDF"
+            onClick={() => ouvrirDocument(`/paie/bulletins/${b.id}/pdf`)}
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </Button>
+
+          {can('finance.paie') && b.statut === 'brouillon' && (
+            <Button size="sm" title="Arrêter" onClick={() => arreter(b)}>
+              <Lock className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          {can('finance.paie') && b.statut === 'valide' && (
+            <Button
+              size="sm"
+              title="Marquer réglé"
+              onClick={() => agir(() => payerBulletin(b.id, 'especes'), 'Règlement enregistré.')}
+            >
+              <Wallet className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          {can('finance.paie') && b.statut === 'paye' && !b.emarge && (
+            <Button
+              size="sm"
+              variant="secondary"
+              title="Enregistrer l'émargement"
+              onClick={() => agir(() => emargerBulletin(b.id), 'Émargement enregistré.')}
+            >
+              <PenLine className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        titre="Paie du personnel"
+        sousTitre="Préparation, arrêté, règlement et émargement."
+        icon={Banknote}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => ouvrirDocument('/paie/etat-emargement', { annee, mois })}>
+              <ListChecks className="h-4 w-4" />
+              État d'émargement
+            </Button>
+            {can('finance.paie') && (
+              <Button onClick={preparer} disabled={enCours}>
+                <Play className="h-4 w-4" />
+                {enCours ? 'Préparation…' : 'Préparer la paie'}
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {isLoading ? (
+        <Spinner />
+      ) : isError || !data ? (
+        <ErrorState />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Effectif" value={data.totaux.effectif} icon={Users} accent="navy" />
+            <StatCard label="Masse brute" value={francs(data.totaux.brut)} icon={Banknote} accent="gold" />
+            <StatCard
+              label="Coût employeur"
+              value={francs(data.totaux.cout_employeur)}
+              icon={Banknote}
+              accent="red"
+              hint="charges patronales comprises"
+            />
+            <StatCard
+              label="Net à décaisser"
+              value={francs(data.totaux.net_a_payer)}
+              icon={Wallet}
+              accent="green"
+              hint={`${data.totaux.regles} réglé(s) · ${data.totaux.emarges} émargé(s)`}
+            />
+          </div>
+
+          <DataTable
+            colonnes={colonnes}
+            lignes={data.bulletins}
+            cleLigne={(b) => b.id}
+            placeholderRecherche="Rechercher un agent…"
+            messageVide="Aucun bulletin pour ce mois — lancez la préparation."
+            largeurMin={900}
+            outils={
+              <div className="flex gap-2">
+                <Select value={mois} onChange={(e) => setMois(Number(e.target.value))}>
+                  {MOIS.map((libelle, index) => (
+                    <option key={libelle} value={index + 1}>
+                      {libelle}
+                    </option>
+                  ))}
+                </Select>
+                <Select value={annee} onChange={(e) => setAnnee(Number(e.target.value))}>
+                  {[0, 1, 2, 3].map((decalage) => {
+                    const valeur = aujourdhui.getFullYear() - decalage
+                    return (
+                      <option key={valeur} value={valeur}>
+                        {valeur}
+                      </option>
+                    )
+                  })}
+                </Select>
+              </div>
+            }
+          />
+        </>
+      )}
+    </div>
+  )
+}

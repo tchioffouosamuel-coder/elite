@@ -31,6 +31,9 @@ import {
   ChevronDown,
   Search,
   Repeat,
+  Wallet,
+  ReceiptText,
+  Banknote,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
@@ -149,6 +152,15 @@ const navGroups = [
     ],
   },
   {
+    label: 'nav.group.finance',
+    items: [
+      { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view' },
+      { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view' },
+      { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
+      { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
+    ],
+  },
+  {
     label: 'nav.group.admin',
     items: [
       { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view' },
@@ -184,6 +196,7 @@ export function AppLayout() {
     Object.fromEntries(navGroups.map((group) => [group.label, true])),
   )
   const typeEcole = activeSchool()?.type
+  const logoEcole = activeSchool()?.logo_url ?? null
 
   // Le tiroir se referme à chaque navigation : sur mobile il recouvre la page,
   // le laisser ouvert masquerait l'écran qu'on vient d'ouvrir.
@@ -439,8 +452,35 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="relative min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {logoEcole && (
+            /*
+             * Filigrane : logo de l'établissement actif, fixe au centre de la
+             * zone de travail. `fixed` plutôt qu'`absolute` pour qu'il reste
+             * en place au défilement, et `pointer-events-none` pour qu'il ne
+             * capte jamais un clic destiné au contenu par-dessus.
+             *
+             * Beaucoup d'écrans (barres de recherche, cartes de statistiques,
+             * bandeaux de sélection…) posent leur contenu à même le fond de
+             * page, sans panneau opaque par-dessus : le filigrane doit donc
+             * rester lisible-mais-discret tout seul, sans compter sur un
+             * habillage supplémentaire pour l'atténuer. `grayscale` désature
+             * le logo pour qu'il se fonde dans le fond crème plutôt que de
+             * ressortir comme une image en couleur.
+             */
+            <div
+              aria-hidden
+              className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+            >
+              <img
+                src={logoEcole}
+                alt=""
+                className="w-[min(36vw,20rem)] max-w-none grayscale opacity-[0.05] select-none"
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 mx-auto max-w-7xl">
             <Outlet />
           </div>
         </main>

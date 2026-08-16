@@ -11,6 +11,7 @@ use App\Http\Requests\Api\V1\UpdatePersonnelRequest;
 use App\Http\Resources\Api\V1\PersonnelResource;
 use App\Models\AnneeScolaire;
 use App\Models\School;
+use App\Services\AttestationEmployeurService;
 use App\Services\PersonnelService;
 use App\Support\Pdf\PersonnelFichierGenerator;
 use Illuminate\Http\JsonResponse;
@@ -146,5 +147,26 @@ class PersonnelController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="fichier-personnel-'.Str::slug($school->name).'.pdf"',
         ]);
+    }
+
+    /**
+     * Attestation de l'employeur, avec periode d'absence facultative.
+     */
+    public function attestationEmployeur(Request $request, int $id): BinaryFileResponse
+    {
+        $personnel = $this->service->find(app('tenant.school_id'), $id);
+
+        $conge = $request->validate([
+            'debut' => ['nullable', 'date'],
+            'fin' => ['nullable', 'date', 'after_or_equal:debut'],
+            'prolongation' => ['nullable', 'date', 'after_or_equal:fin'],
+            'motif' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $path = app(AttestationEmployeurService::class)->generer($personnel, $conge, $request->user()?->id);
+
+        return response()
+            ->download($path, 'attestation-employeur-'.Str::slug($personnel->nom_complet).'.docx')
+            ->deleteFileAfterSend();
     }
 }

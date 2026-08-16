@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
+use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
@@ -21,18 +22,22 @@ use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
+use App\Http\Controllers\Api\V1\PaieController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\ProgressionController;
+use App\Http\Controllers\Api\V1\RapportFinancierController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
+use App\Http\Controllers\Api\V1\ScolariteController;
 use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
+use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +104,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('personnels/{id}/reactivate', [PersonnelController::class, 'reactivate'])->name('personnels.reactivate');
                 Route::post('personnels/{id}/compte', [PersonnelController::class, 'createAccount'])->name('personnels.compte');
                 Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
+                Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
                 Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
                 Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete');
             });
@@ -310,6 +316,84 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/bilan-disciplinaire', [AbsenceController::class, 'bilan'])->name('absences.bilan');
                 Route::get('classes/{classeId}/bilan-disciplinaire/pdf', [AbsenceController::class, 'bilanPdf'])->name('absences.bilan.pdf');
                 Route::get('sanctions', [SanctionController::class, 'index'])->name('sanctions.index');
+            });
+
+            /*
+             * Finances — scolarité. La consultation, l'encaissement et
+             * l'annulation relèvent de privilèges distincts : l'économe encaisse
+             * au comptoir sans pouvoir défaire un reçu déjà remis.
+             */
+            Route::middleware('permission:finance.view')->group(function () {
+                Route::get('scolarite/situation', [ScolariteController::class, 'situation'])->name('scolarite.situation');
+                Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
+                Route::get('versements/{id}/recu', [ScolariteController::class, 'recu'])->name('scolarite.recu');
+            });
+
+            Route::middleware('permission:finance.encaisser')->group(function () {
+                Route::post('scolarite/dossiers/{id}/versements', [ScolariteController::class, 'encaisser'])->name('scolarite.encaisser');
+            });
+
+            Route::middleware('permission:finance.annuler')->group(function () {
+                Route::post('versements/{id}/annuler', [ScolariteController::class, 'annuler'])->name('scolarite.annuler');
+            });
+
+            /*
+             * Finances — dépenses. La consultation relève de `finance.view`,
+             * la saisie et l'annulation de `finance.depenses` : lire le bilan
+             * ne doit pas permettre d'y ajouter une ligne.
+             */
+            Route::middleware('permission:finance.view')->group(function () {
+                Route::get('depenses', [DepenseController::class, 'index'])->name('depenses.index');
+                Route::get('comptes-comptables', [DepenseController::class, 'comptes'])->name('comptes.index');
+            });
+
+            Route::middleware('permission:finance.depenses')->group(function () {
+                Route::post('depenses', [DepenseController::class, 'store'])->name('depenses.store');
+                Route::post('depenses/{id}/payer', [DepenseController::class, 'payer'])->name('depenses.payer');
+                Route::post('depenses/{id}/annuler', [DepenseController::class, 'annuler'])->name('depenses.annuler');
+            });
+
+            Route::middleware('permission:finance.rapports')->group(function () {
+                Route::get('depenses/bilan/pdf', [DepenseController::class, 'bilanPdf'])->name('depenses.bilan-pdf');
+            });
+
+            /*
+             * Tarifs : `finance.view` pour consulter la grille, `finance.manage`
+             * pour la fixer — décider d'un prix n'est pas le métier du caissier.
+             */
+            Route::middleware('permission:finance.view')->group(function () {
+                Route::get('tarifs', [TarifsController::class, 'index'])->name('tarifs.index');
+            });
+
+            Route::middleware('permission:finance.manage')->group(function () {
+                Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir');
+                Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer');
+                Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store');
+                Route::put('tarifs/frais-annexes/{id}', [TarifsController::class, 'modifierFraisAnnexe'])->name('tarifs.frais.update');
+                Route::delete('tarifs/frais-annexes/{id}', [TarifsController::class, 'desactiverFraisAnnexe'])->name('tarifs.frais.destroy');
+            });
+
+            Route::middleware('permission:finance.rapports')->group(function () {
+                Route::get('rapports/tableau-de-bord', [RapportFinancierController::class, 'tableauDeBord'])->name('rapports.bord');
+                Route::get('rapports/resultat', [RapportFinancierController::class, 'resultat'])->name('rapports.resultat');
+                Route::get('rapports/tresorerie', [RapportFinancierController::class, 'tresorerie'])->name('rapports.tresorerie');
+                Route::get('rapports/balance', [RapportFinancierController::class, 'balance'])->name('rapports.balance');
+            });
+
+            /*
+             * Finances — paie. Un seul privilège : préparer, arrêter et régler
+             * la paie forment une même responsabilité, et personne ne prépare
+             * un bulletin sans pouvoir le mener au bout.
+             */
+            Route::middleware('permission:finance.paie')->group(function () {
+                Route::get('paie', [PaieController::class, 'index'])->name('paie.index');
+                Route::get('paie/etat-emargement', [PaieController::class, 'etatEmargement'])->name('paie.emargement');
+                Route::post('paie/preparer', [PaieController::class, 'preparerLot'])->name('paie.preparer-lot');
+                Route::post('paie/personnels/{personnelId}/preparer', [PaieController::class, 'preparer'])->name('paie.preparer');
+                Route::get('paie/bulletins/{id}/pdf', [PaieController::class, 'bulletinPdf'])->name('paie.bulletin-pdf');
+                Route::post('paie/bulletins/{id}/arreter', [PaieController::class, 'arreter'])->name('paie.arreter');
+                Route::post('paie/bulletins/{id}/payer', [PaieController::class, 'payer'])->name('paie.payer');
+                Route::post('paie/bulletins/{id}/emarger', [PaieController::class, 'emarger'])->name('paie.emarger');
             });
 
             Route::middleware('permission:discipline.manage')->group(function () {

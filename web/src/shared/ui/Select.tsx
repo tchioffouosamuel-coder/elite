@@ -47,13 +47,23 @@ const customStyles = {
         ...base,
         padding: 0,
     }),
+    valueContainer: (base: any) => ({
+        ...base,
+        flexWrap: 'nowrap',
+    }),
     singleValue: (base: any) => ({
         ...base,
         color: '#111827',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
     }),
     placeholder: (base: any) => ({
         ...base,
         color: '#9ca3af',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
     }),
     input: (base: any) => ({
         ...base,

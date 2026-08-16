@@ -120,7 +120,7 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-navy-100/70 bg-white shadow-card">
+      <div className="overflow-x-auto overscroll-x-contain rounded-2xl border border-navy-100/70 bg-white/75 shadow-card">
         <table className="w-full border-collapse text-sm" style={{ minWidth: `${largeurMin}px` }}>
           <thead className="bg-linear-to-b from-cream-100 to-cream-100/80 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
             <tr>

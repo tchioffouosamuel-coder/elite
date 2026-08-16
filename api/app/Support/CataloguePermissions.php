@@ -70,9 +70,21 @@ class CataloguePermissions
             'emploi_du_temps.view' => ["Consulter l'emploi du temps et les séances", 'View the timetable'],
             'emploi_du_temps.manage' => ["Gérer l'emploi du temps et les séances", 'Manage the timetable'],
         ]],
+        /*
+         * Les finances se découpent plus finement que le reste : l'économe
+         * encaisse au comptoir sans avoir à connaître les salaires, et le chef
+         * d'établissement consulte les états sans tenir la caisse. Un couple
+         * view/manage aurait obligé à tout accorder pour permettre une seule
+         * de ces tâches.
+         */
         'finance' => ['Finances', 'Finance', [
-            'finance.view' => ['Consulter les finances', 'View finances'],
-            'finance.manage' => ['Gérer les finances', 'Manage finances'],
+            'finance.view' => ['Consulter la situation financière', 'View financial position'],
+            'finance.manage' => ['Paramétrer les tarifs et les frais annexes', 'Configure fees'],
+            'finance.encaisser' => ['Encaisser les frais de scolarité et délivrer les reçus', 'Collect fees and issue receipts'],
+            'finance.annuler' => ['Annuler un encaissement', 'Cancel a payment'],
+            'finance.depenses' => ['Enregistrer et suivre les dépenses', 'Record and track expenses'],
+            'finance.paie' => ['Préparer et arrêter la paie du personnel', 'Prepare and close payroll'],
+            'finance.rapports' => ['Consulter les rapports et le bilan financier', 'View financial reports'],
         ]],
         'annonces' => ['Annonces', 'Announcements', [
             'annonces.view' => ['Consulter les annonces', 'View announcements'],

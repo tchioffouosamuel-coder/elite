@@ -101,7 +101,7 @@ export function StepForm({
         </div>
       )}
 
-      <div className={clsx(compact ? 'mb-5' : 'mb-6 rounded-xl border border-navy-100 bg-white p-6 shadow-soft')}>
+      <div className={clsx(compact ? 'mb-5' : 'mb-6 rounded-xl border border-navy-100 bg-white/75 p-6 shadow-soft')}>
         {children}
       </div>
 

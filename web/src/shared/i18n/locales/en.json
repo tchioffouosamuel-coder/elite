@@ -38,6 +38,10 @@
     "sanctions": "Sanctions",
     "palmares": "Honor roll",
     "session": "School year",
+    "caisse": "Cash desk",
+    "depenses": "Expenses",
+    "paie": "Payroll",
+    "rapportsFinanciers": "Financial reports",
     "permissions": "Privileges",
     "parametres": "Settings",
     "logout": "Log out",
@@ -61,6 +65,7 @@
       "pedagogie": "Academics",
       "discipline": "Discipline",
       "resultats": "Results",
+      "finance": "Finance",
       "admin": "Administration",
       "identification": "Identification & security"
     },

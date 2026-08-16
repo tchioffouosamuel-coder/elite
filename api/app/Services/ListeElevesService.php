@@ -39,6 +39,7 @@ class ListeElevesService extends BaseService
         // Même en-tête que la version PDF (cf. ListeElevesGenerator) : mentions
         // officielles FR, logo, mentions EN. Sans lui, le document Word ne
         // valait pas pièce administrative.
+        EnTeteWord::filigrane($section, $school);
         EnTeteWord::ajouter($section, $school);
 
         $section->addText('LISTE DES ÉLÈVES', ['bold' => true, 'size' => 14, 'color' => self::ACCENT], ['alignment' => 'center', 'spaceAfter' => 0]);

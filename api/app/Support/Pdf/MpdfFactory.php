@@ -31,8 +31,8 @@ class MpdfFactory
         // option (pas de fusion récursive côté lib) : on repart donc de ses
         // propres valeurs par défaut pour ne pas perdre DejaVu et les polices
         // core en ajoutant Montserrat.
-        $fontDir = (new ConfigVariables())->getDefaults()['fontDir'];
-        $fontData = (new FontVariables())->getDefaults()['fontdata'];
+        $fontDir = (new ConfigVariables)->getDefaults()['fontDir'];
+        $fontData = (new FontVariables)->getDefaults()['fontdata'];
 
         $mpdf = new Mpdf(array_merge([
             'tempDir' => storage_path('app/mpdf'),

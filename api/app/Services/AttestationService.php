@@ -50,6 +50,7 @@ class AttestationService extends BaseService
             'marginTop' => 720, 'marginBottom' => 720, 'marginLeft' => 900, 'marginRight' => 900,
         ]);
 
+        EnTeteWord::filigrane($section, $school);
         EnTeteWord::ajouter($section, $school);
 
         $section->addText('CERTIFICAT DE SCOLARITE', ['bold' => true, 'size' => 15], ['alignment' => 'center', 'spaceAfter' => 0]);

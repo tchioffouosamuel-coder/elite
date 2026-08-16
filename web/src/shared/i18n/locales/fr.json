@@ -38,6 +38,10 @@
     "sanctions": "Sanctions",
     "palmares": "Palmarès",
     "session": "Année scolaire",
+    "caisse": "Caisse",
+    "depenses": "Dépenses",
+    "paie": "Paie",
+    "rapportsFinanciers": "Rapports financiers",
     "permissions": "Privilèges",
     "parametres": "Paramètres",
     "logout": "Déconnexion",
@@ -61,6 +65,7 @@
       "pedagogie": "Pédagogie",
       "discipline": "Discipline",
       "resultats": "Résultats",
+      "finance": "Finances",
       "admin": "Administration",
       "identification": "Identification & sécurité"
     },

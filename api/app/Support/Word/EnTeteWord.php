@@ -34,6 +34,39 @@ class EnTeteWord
     /** Largeurs en twips (twentieths of a point) : 40 % / 20 % / 40 % d'une page A4 utile. */
     private const LARGEURS = [4000, 2000, 4000];
 
+    /**
+     * Logo de l'établissement en filigrane, centré et répété sur chaque page.
+     *
+     * Word ne connaît le filigrane que porté par un en-tête de section : posé
+     * dans le corps, il décalerait le texte et n'apparaîtrait que sur la
+     * première page. `addWatermark` compose l'image derrière le contenu.
+     */
+    public static function filigrane(Section $section, School $school): void
+    {
+        $logo = self::cheminImage($school->logo_path);
+
+        if ($logo === null) {
+            return;
+        }
+
+        $section->addHeader()->addWatermark($logo, [
+            'width' => 260,
+            'height' => 260,
+            // Pas de marge : elles se cumuleraient au centrage relatif à la
+            // page et décaleraient le filigrane vers le bas à droite.
+            'marginTop' => 0,
+            'marginLeft' => 0,
+            'positioning' => 'absolute',
+            'posHorizontal' => 'center',
+            'posHorizontalRel' => 'page',
+            'posVertical' => 'center',
+            'posVerticalRel' => 'page',
+            // Sans quoi l'image reste dans le flux du texte de l'en-tête au
+            // lieu de passer sous le contenu de la page.
+            'wrappingStyle' => 'behind',
+        ]);
+    }
+
     public static function ajouter(Section $section, School $school): void
     {
         $table = $section->addTable(['width' => 100 * 50, 'unit' => 'pct', 'cellMargin' => 40]);
