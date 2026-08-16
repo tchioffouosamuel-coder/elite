@@ -50,7 +50,7 @@ class StatistiquesGenerator
             $pages[] = $this->pageClassePedagogique($classe, $donnees, $school);
         }
 
-        return $this->rendre($pages);
+        return $this->rendre($pages, $school);
     }
 
     public function disciplinaires(array $donnees, School $school): string
@@ -61,12 +61,12 @@ class StatistiquesGenerator
             $pages[] = $this->pageClasseDisciplinaire($classe, $donnees, $school);
         }
 
-        return $this->rendre($pages);
+        return $this->rendre($pages, $school);
     }
 
-    private function rendre(array $pages): string
+    private function rendre(array $pages, School $school): string
     {
-        $mpdf = MpdfFactory::make(['format' => 'A4']);
+        $mpdf = MpdfFactory::make(['format' => 'A4'], $school);
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8">'
             .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'

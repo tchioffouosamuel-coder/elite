@@ -9,10 +9,14 @@ import type { ApiError } from '@/shared/types/api'
 interface ImportResult {
   imported: number
   failed: number
-  /** Renseignés uniquement par les imports qui savent réactualiser des lignes existantes (élèves). */
+  /** Renseignés uniquement par les imports qui savent réactualiser des lignes existantes. */
   updated?: number
   ignored?: number
+  /** Accès de connexion ouverts par l'import (personnel). */
+  comptes_ouverts?: number
+  /** Libellés que l'import n'a pas su rattacher, avec le nombre de lignes concernées. */
   classes_introuvables?: Record<string, number>
+  affectations_non_rattachees?: Record<string, number>
 }
 
 export function ImportModal({
@@ -83,15 +87,25 @@ export function ImportModal({
               {result.updated ? ` ${t('import.updated', { count: result.updated })}` : ''}
             </p>
             {!!result.ignored && <p className="text-navy-500">{t('import.ignored', { count: result.ignored })}</p>}
-            {result.classes_introuvables && Object.keys(result.classes_introuvables).length > 0 && (
-              <p className="text-amber-600">
-                {t('import.classes_introuvables')}{' '}
-                <span className="font-semibold">
-                  {Object.entries(result.classes_introuvables)
-                    .map(([nom, total]) => `${nom} (${total})`)
-                    .join(', ')}
-                </span>
-              </p>
+            {!!result.comptes_ouverts && (
+              <p className="text-navy-500">{t('import.comptes_ouverts', { count: result.comptes_ouverts })}</p>
+            )}
+            {(
+              [
+                ['import.classes_introuvables', result.classes_introuvables],
+                ['import.affectations_non_rattachees', result.affectations_non_rattachees],
+              ] as const
+            ).map(([cle, libelles]) =>
+              libelles && Object.keys(libelles).length > 0 ? (
+                <p key={cle} className="text-amber-600">
+                  {t(cle)}{' '}
+                  <span className="font-semibold">
+                    {Object.entries(libelles)
+                      .map(([nom, total]) => `${nom} (${total})`)
+                      .join(', ')}
+                  </span>
+                </p>
+              ) : null,
             )}
           </div>
         )}

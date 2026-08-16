@@ -2,6 +2,7 @@
 
 namespace App\Support\Pdf;
 
+use App\Services\VisaComposeService;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Mpdf\Output\Destination;
 
@@ -48,7 +49,7 @@ class BulletinPrimaireGenerator
             'orientation' => 'P',
             'margin_top' => 8,
             'margin_bottom' => 8,
-        ]);
+        ], $donnees['school']);
         $mpdf->SetTitle('Bulletins ' . $donnees['classe']->nom . ' — ' . $donnees['trimestre']->libelle);
 
         $mpdf->WriteHTML($this->html($donnees));
@@ -370,8 +371,11 @@ class BulletinPrimaireGenerator
     private function piedDroite(array $bulletin, array $donnees): string
     {
         $stats = $donnees['stats'];
-        $cachet = $this->cheminImage($donnees['school']->stamp_path);
-        $celluleCachet = $cachet !== null ? '<img src="' . $this->e($cachet) . '" style="width:16mm;">' : '';
+        $visa = (new VisaComposeService)->chemin($donnees['school']);
+        $celluleVisa = $visa !== null ? '<img src="'.$this->e($visa).'" style="height:20mm;">' : '';
+        // Sans cachet ni signature scannés, la ligne de soulignement reste le
+        // seul repère pour une signature manuscrite ; avec eux, elle ferait doublon.
+        $ligneSignature = $visa === null ? '<br>_______________' : '';
         $pctReussite = $stats['evalues'] > 0 ? $this->nombre($stats['admis'] / $stats['evalues'] * 100, 1) . ' %' : '—';
 
         return '<table class="pied-bloc"><tr><td class="th-pied">Observations Générales<br><i>General remarks</i></td></tr>'
@@ -382,6 +386,6 @@ class BulletinPrimaireGenerator
             . $this->nombre($stats['premier']) . ' / ' . $this->nombre($stats['dernier']) . '</td></tr>'
             . '<tr><td class="stat-lbl">% Réussite</td><td class="stat-val">' . $pctReussite . '</td></tr></table>'
             . '<table class="no-border" style="margin-top:2mm;"><tr><td style="border:none;text-align:center;">'
-            . '<b>Le Directeur</b><br><i>Head teacher</i><br>' . $celluleCachet . '<br>_______________</td></tr></table>';
+            . '<b>Le Directeur</b><br><i>Head teacher</i><br>' . $celluleVisa . $ligneSignature . '</td></tr></table>';
     }
 }

@@ -7,6 +7,7 @@ import { EcoleProfileCard, type EcoleProfileHandle } from '@/features/settings/p
 import { EcoleImagesCard } from '@/features/settings/pages/EcoleImagesCard'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
+import { RichTextEditor } from '@/shared/ui/RichTextEditor'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -96,32 +97,42 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {data
               .filter((s) => s.groupe === groupe)
-              .map((s) => (
-                <label key={s.key} className="flex flex-col gap-1.5">
-                  <span className="text-xs font-semibold text-navy-500">{isFr ? s.label_fr : s.label_en}</span>
-                  {s.type === 'select' ? (
-                    <select
-                      value={valeurs[s.key] ?? ''}
-                      onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
-                      className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
-                    >
-                      {s.options?.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={s.type === 'text' ? 'text' : 'number'}
-                      step={s.type === 'text' ? undefined : '0.5'}
-                      value={valeurs[s.key] ?? ''}
-                      onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
-                      className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+              .map((s) =>
+                s.type === 'richtext' ? (
+                  <div key={s.key} className="sm:col-span-2">
+                    <RichTextEditor
+                      label={isFr ? s.label_fr : s.label_en}
+                      value={String(valeurs[s.key] ?? '')}
+                      onChange={(html) => setValeurs((v) => ({ ...v, [s.key]: html }))}
                     />
-                  )}
-                </label>
-              ))}
+                  </div>
+                ) : (
+                  <label key={s.key} className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold text-navy-500">{isFr ? s.label_fr : s.label_en}</span>
+                    {s.type === 'select' ? (
+                      <select
+                        value={valeurs[s.key] ?? ''}
+                        onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
+                        className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+                      >
+                        {s.options?.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={s.type === 'text' ? 'text' : 'number'}
+                        step={s.type === 'text' ? undefined : '0.5'}
+                        value={valeurs[s.key] ?? ''}
+                        onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
+                        className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+                      />
+                    )}
+                  </label>
+                ),
+              )}
           </div>
         </Card>
       ))}

@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { FileDown } from 'lucide-react'
 import { fetchTrimestres } from '@/features/pedagogie/api'
-import { fetchAbsences, sauvegarderAbsences, fetchBilanDisciplinaire } from '@/features/discipline/api'
+import { fetchAbsences, sauvegarderAbsences, fetchBilanDisciplinaire, type AbsenceCellule } from '@/features/discipline/api'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner } from '@/shared/ui/Feedback'
 
 export function AbsencesTab({ classeId }: { classeId: number }) {
@@ -66,6 +66,51 @@ export function AbsencesTab({ classeId }: { classeId: number }) {
     }
   }
 
+  const colonnes: Colonne<AbsenceCellule>[] = [
+    {
+      cle: 'nom',
+      entete: t('eleves.nom_complet'),
+      valeur: (row) => row.nom_complet,
+      cellule: (row) => <span className="font-medium">{row.nom_complet}</span>,
+    },
+    {
+      cle: 'justifiees',
+      entete: t(secondaire ? 'discipline.heures_justifiees' : 'discipline.jours_justifies'),
+      valeur: (row) => (row.calculee ? row.justifiees : Number(valeurs[row.eleve_id]?.hj ?? 0)),
+      cellule: (row) =>
+        row.calculee ? (
+          row.justifiees
+        ) : (
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={valeurs[row.eleve_id]?.hj ?? ''}
+            onChange={(e) => setValeurs((v) => ({ ...v, [row.eleve_id]: { ...v[row.eleve_id], hj: e.target.value } }))}
+            className="w-20 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+          />
+        ),
+    },
+    {
+      cle: 'non_justifiees',
+      entete: t(secondaire ? 'discipline.heures_non_justifiees' : 'discipline.jours_non_justifies'),
+      valeur: (row) => (row.calculee ? row.non_justifiees : Number(valeurs[row.eleve_id]?.hnj ?? 0)),
+      cellule: (row) =>
+        row.calculee ? (
+          <span className={row.non_justifiees > 0 ? 'font-semibold text-navy-900' : undefined}>{row.non_justifiees}</span>
+        ) : (
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={valeurs[row.eleve_id]?.hnj ?? ''}
+            onChange={(e) => setValeurs((v) => ({ ...v, [row.eleve_id]: { ...v[row.eleve_id], hnj: e.target.value } }))}
+            className="w-20 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+          />
+        ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3">
@@ -101,47 +146,18 @@ export function AbsencesTab({ classeId }: { classeId: number }) {
         <Spinner />
       ) : (
         <>
-          <Table>
-            <Thead>
-              <tr>
-                <Th>{t('eleves.nom_complet')}</Th>
-                <Th>{t(secondaire ? 'discipline.heures_justifiees' : 'discipline.jours_justifies')}</Th>
-                <Th>{t(secondaire ? 'discipline.heures_non_justifiees' : 'discipline.jours_non_justifies')}</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {grille?.map((row) => (
-                <Tr key={row.eleve_id}>
-                  <Td className="font-medium">{row.nom_complet}</Td>
-                  {row.calculee ? (
-                    <>
-                      <Td>{row.justifiees}</Td>
-                      <Td className={row.non_justifiees > 0 ? 'font-semibold text-navy-900' : undefined}>{row.non_justifiees}</Td>
-                    </>
-                  ) : (
-                    <>
-                      <Td>
-                        <input
-                          type="number" min={0} step={0.5}
-                          value={valeurs[row.eleve_id]?.hj ?? ''}
-                          onChange={(e) => setValeurs((v) => ({ ...v, [row.eleve_id]: { ...v[row.eleve_id], hj: e.target.value } }))}
-                          className="w-20 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
-                        />
-                      </Td>
-                      <Td>
-                        <input
-                          type="number" min={0} step={0.5}
-                          value={valeurs[row.eleve_id]?.hnj ?? ''}
-                          onChange={(e) => setValeurs((v) => ({ ...v, [row.eleve_id]: { ...v[row.eleve_id], hnj: e.target.value } }))}
-                          className="w-20 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
-                        />
-                      </Td>
-                    </>
-                  )}
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+          <DataTable
+            colonnes={colonnes}
+            lignes={grille ?? []}
+            cleLigne={(row) => row.eleve_id}
+            placeholderRecherche="Rechercher un élève…"
+            messageVide="Aucun élève dans cette classe."
+            largeurMin={520}
+            // La saisie des heures (secondaire) doit garder toutes les lignes
+            // visibles à la fois : paginer forcerait à changer de page pour
+            // remplir chaque élève avant d'enregistrer.
+            parPage={secondaire ? 0 : 15}
+          />
           {secondaire ? (
             <div>
               <Button onClick={handleSave} disabled={submitting}>

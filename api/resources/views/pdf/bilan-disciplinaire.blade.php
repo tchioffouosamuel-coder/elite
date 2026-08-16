@@ -78,7 +78,7 @@
     </span>
 </div>
 
-@include('pdf.partials.signatures', ['roles' => [
+@include('pdf.partials.signatures', ['school' => $classe->school, 'roles' => [
     ['fr' => 'Le Surveillant Général', 'en' => 'Discipline Master'],
     ['fr' => "Le Chef d'Établissement", 'en' => "Principal"],
 ]])

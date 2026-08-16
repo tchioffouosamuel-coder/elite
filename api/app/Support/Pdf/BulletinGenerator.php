@@ -3,6 +3,7 @@
 namespace App\Support\Pdf;
 
 use App\Models\School;
+use App\Services\VisaComposeService;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Mpdf\Output\Destination;
 
@@ -25,7 +26,7 @@ class BulletinGenerator
             'orientation' => 'P',
             'margin_top' => 8,
             'margin_bottom' => 8,
-        ]);
+        ], $donnees['school']);
         $mpdf->SetTitle('Bulletins '.$donnees['classe']->nom.' — '.$donnees['trimestre']->libelle);
 
         $mpdf->WriteHTML($this->html($donnees));
@@ -255,18 +256,12 @@ class BulletinGenerator
             .'<table>'.$entete.$corps.'</table>';
     }
 
-    /** Cachet et signature scannés de l'établissement, superposés dans le cartouche de visa. */
+    /** Cachet et signature composés en une image (la signature traverse le cachet), dans le cartouche de visa. */
     private function visa(School $school): string
     {
-        $images = array_filter([
-            $this->cheminImage($school->signature_path),
-            $this->cheminImage($school->stamp_path),
-        ]);
+        $visa = (new VisaComposeService)->chemin($school);
 
-        return implode('', array_map(
-            fn ($chemin) => '<div><img src="'.$this->e($chemin).'" style="height:36px;"></div>',
-            $images
-        ));
+        return $visa !== null ? '<img src="'.$this->e($visa).'" style="height:40px;">' : '';
     }
 
     private function libelleAppreciation(string $code): string

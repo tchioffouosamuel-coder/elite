@@ -29,6 +29,34 @@ class AuthService extends BaseService
     }
 
     /**
+     * Renouvellement du mot de passe par l'intéressé.
+     *
+     * L'ancien mot de passe est exigé même lors du changement obligatoire :
+     * l'agent vient de le saisir pour entrer, et une session laissée ouverte
+     * sur un poste partagé ne doit pas suffire à s'approprier le compte.
+     *
+     * Les autres jetons sont révoqués : si le mot de passe commun avait servi
+     * à quelqu'un d'autre, sa session tombe.
+     */
+    public function changerMotDePasse(User $user, string $ancien, string $nouveau): bool
+    {
+        if (! Hash::check($ancien, $user->password)) {
+            return false;
+        }
+
+        $courant = $user->currentAccessToken();
+
+        $user->forceFill([
+            'password' => Hash::make($nouveau),
+            'doit_changer_mot_de_passe' => false,
+        ])->save();
+
+        $user->tokens()->whereKeyNot($courant?->getKey())->delete();
+
+        return true;
+    }
+
+    /**
      * @return array{user: User, token: string}
      */
     public function refresh(User $user, string $deviceName = 'web'): array

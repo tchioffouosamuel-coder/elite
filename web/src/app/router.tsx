@@ -2,8 +2,10 @@ import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from '@/app/AppLayout'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { ChangerMotDePassePage } from '@/features/auth/pages/ChangerMotDePassePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
+import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
 import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsReferentielPage'
 import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
@@ -36,6 +38,9 @@ import { SessionPage } from '@/features/session/pages/SessionPage'
 
 export const router = createBrowserRouter([
   { path: '/connexion', element: <LoginPage /> },
+  // Hors du gabarit applicatif : tant que le mot de passe est provisoire, il
+  // n'y a ni menu ni tableau de bord à afficher autour.
+  { path: '/mot-de-passe', element: <ChangerMotDePassePage /> },
   {
     path: '/',
     element: (
@@ -46,6 +51,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
+      { path: 'personnel/nouveau', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
+      { path: 'personnel/:id/edit', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },

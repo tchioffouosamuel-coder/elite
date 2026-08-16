@@ -16,8 +16,10 @@ use Tests\TestCase;
 class RoutesProtegeesTest extends TestCase
 {
     /**
-     * Seules exceptions admises : l'authentification elle-même et la lecture du
-     * profil courant, qui ne peuvent pas dépendre d'un privilège.
+     * Seules exceptions admises : l'authentification elle-même, la lecture du
+     * profil courant et le renouvellement de son propre mot de passe. Aucune ne
+     * peut dépendre d'un privilège — la dernière est même la seule route
+     * ouverte à un compte dont le mot de passe est encore provisoire.
      *
      * @var list<string>
      */
@@ -26,6 +28,7 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.auth.me',
         'api.v1.auth.refresh',
         'api.v1.auth.logout',
+        'api.v1.auth.mot-de-passe',
     ];
 
     public function test_toute_route_api_controle_les_privileges(): void

@@ -38,6 +38,12 @@ export function ProtectedRoute({
   }, [token, refreshUser])
 
   if (!token) return <Navigate to="/connexion" replace />
+
+  // Mot de passe provisoire : l'API refuse déjà tout le reste (423), autant
+  // conduire directement à la seule page utile plutôt qu'afficher des écrans
+  // vides suivis d'un message d'erreur.
+  if (user?.doit_changer_mot_de_passe) return <Navigate to="/mot-de-passe" replace />
+
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to="/" replace />
   if (permission && !can(permission)) return <Navigate to="/" replace />
   if (roles && !roles.some((r) => user?.roles.includes(r))) return <Navigate to="/" replace />

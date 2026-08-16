@@ -1,6 +1,7 @@
 <?php
 
 use App\Helpers\ApiResponse;
+use App\Http\Middleware\ExigerMotDePasseRenouvele;
 use App\Http\Middleware\ScopeEtablissement;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifierPermission;
@@ -40,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'super_admin' => VerifierSuperAdmin::class,
+            'mot_de_passe' => ExigerMotDePasseRenouvele::class,
             'tenant' => ScopeEtablissement::class,
         ]);
     })

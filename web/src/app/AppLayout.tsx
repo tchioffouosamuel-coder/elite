@@ -31,6 +31,8 @@ import {
   ChevronDown,
   Search,
   Repeat,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -175,7 +177,7 @@ export function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, can, clearSession, activeSchool } = useAuthStore()
-  const { locale, setLocale } = useUiStore()
+  const { locale, setLocale, sidebarOpen, toggleSidebar } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
   const [rechercheMenu, setRechercheMenu] = useState('')
   const [groupesOuverts, setGroupesOuverts] = useState<Record<string, boolean>>(() =>
@@ -262,15 +264,18 @@ export function AppLayout() {
       <aside
         className={clsx(
           'fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-none flex-col overflow-y-auto bg-navy-800 text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
-          'lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:shadow-none',
+          'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
           menuOuvert ? 'translate-x-0' : '-translate-x-full',
+          sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
         )}
       >
-        <div className="flex items-center gap-2.5 px-5 py-5">
+        <div className={clsx('flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
           <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-gold-500/15 ring-1 ring-gold-500/30">
             <GraduationCap className="h-5 w-5 text-gold-300" />
           </span>
-          <span className="font-display text-lg font-bold tracking-tight">{t('app.name')}</span>
+          <span className={clsx('font-display text-lg font-bold tracking-tight', !sidebarOpen && 'lg:hidden')}>
+            {t('app.name')}
+          </span>
           <button
             onClick={() => setMenuOuvert(false)}
             className="ml-auto rounded-lg p-1.5 text-navy-300 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
@@ -280,7 +285,7 @@ export function AppLayout() {
           </button>
         </div>
 
-        <div className="px-3 pb-3">
+        <div className={clsx('px-3 pb-3', !sidebarOpen && 'lg:hidden')}>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
             <input
@@ -304,7 +309,10 @@ export function AppLayout() {
                     [group.label]: !actuel[group.label],
                   }))
                 }
-                className="flex h-8 items-center justify-between gap-2 rounded-lg px-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200"
+                className={clsx(
+                  'flex h-8 items-center justify-between gap-2 rounded-lg px-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
+                  !sidebarOpen && 'lg:hidden',
+                )}
               >
                 <span className="truncate">{t(group.label)}</span>
                 <ChevronDown
@@ -314,7 +322,9 @@ export function AppLayout() {
                   )}
                 />
               </button>
-              {(requeteMenu || groupesOuverts[group.label]) && (
+              {/* Réduite, la sidebar n'a plus d'accordéon à replier : chaque
+                  groupe reste visible pour garder ses icônes accessibles. */}
+              {(requeteMenu || groupesOuverts[group.label] || !sidebarOpen) && (
                 <div className="flex flex-col gap-1">
                   {group.items.map((item) => {
                     const estActif = item.to === cheminActif
@@ -324,8 +334,10 @@ export function AppLayout() {
                         to={item.to}
                         end
                         aria-current={estActif ? 'page' : undefined}
+                        title={!sidebarOpen ? t(item.label) : undefined}
                         className={clsx(
                           'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
+                          !sidebarOpen && 'lg:justify-center lg:px-2',
                           estActif
                             ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
                             : 'text-navy-200 hover:bg-white/5 hover:text-white',
@@ -340,7 +352,7 @@ export function AppLayout() {
                             estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
                           )}
                         />
-                        <span className="truncate">{t(item.label)}</span>
+                        <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
                       </NavLink>
                     )
                   })}
@@ -355,11 +367,16 @@ export function AppLayout() {
           )}
         </nav>
 
-        <div className="sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800 px-4 py-4">
+        <div
+          className={clsx(
+            'sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800 px-4 py-4',
+            !sidebarOpen && 'lg:flex-col lg:gap-2 lg:px-2',
+          )}
+        >
           <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
             {initials(user?.name)}
           </span>
-          <div className="min-w-0 flex-1">
+          <div className={clsx('min-w-0 flex-1', !sidebarOpen && 'lg:hidden')}>
             <p className="truncate text-sm font-semibold text-white">{user?.name}</p>
             <p className="truncate text-xs text-navy-300">{user?.roles.join(', ')}</p>
           </div>
@@ -381,6 +398,15 @@ export function AppLayout() {
             aria-label={t('nav.openMenu')}
           >
             <Menu className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={toggleSidebar}
+            className="-ml-1 hidden h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:flex"
+            aria-label={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
+            title={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
+          >
+            {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">

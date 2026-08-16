@@ -14,18 +14,50 @@ class Personnel extends Model
         'user_id',
         'departement_id',
         'fonction_id',
+        'affectation',
         'matricule',
         'nom_complet',
+        'civilite',
+        'sexe',
+        'date_naissance',
+        'numero_cni',
+        'numero_cnps',
+        'departement_origine',
+        'residence',
         'telephone',
+        'telephone_2',
+        'situation_matrimoniale',
+        'nombre_enfants',
+        'diplome_professionnel',
+        'diplome_academique',
         'email',
         'date_embauche',
+        'date_fin',
+        'date_retraite',
         'statut',
         'photo_path',
     ];
 
     protected function casts(): array
     {
-        return ['date_embauche' => 'date'];
+        return [
+            'date_embauche' => 'date',
+            'date_naissance' => 'date',
+            'date_fin' => 'date',
+            'date_retraite' => 'date',
+            'nombre_enfants' => 'integer',
+        ];
+    }
+
+    /**
+     * Départ à la retraite à 60 ans quand la date n'est pas saisie — c'est
+     * l'âge retenu par le tableau de mise en place, et le calculer évite de
+     * laisser la colonne vide sur les deux tiers des fiches.
+     */
+    public function getDateRetraiteCalculeeAttribute(): ?string
+    {
+        return $this->date_retraite?->format('Y-m-d')
+            ?? $this->date_naissance?->addYears(60)->format('Y-m-d');
     }
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder

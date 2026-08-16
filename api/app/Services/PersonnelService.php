@@ -11,12 +11,15 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
+use RuntimeException;
 
 class PersonnelService extends BaseService
 {
-    public function __construct(private readonly PersonnelRepository $repository) {}
+    public function __construct(
+        private readonly PersonnelRepository $repository,
+        private readonly CompteAgentService $comptes,
+    ) {}
 
     public function list(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
@@ -28,9 +31,19 @@ class PersonnelService extends BaseService
         return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference'])->findOrFail($id);
     }
 
+    /**
+     * L'accès de l'agent est ouvert dans la foulée : une fiche sans compte est
+     * une fiche que personne ne peut utiliser, et l'oubli se découvrait le
+     * jour où l'agent essayait de se connecter.
+     */
     public function create(int $schoolId, array $attributes): Personnel
     {
-        return $this->repository->create([...$attributes, 'school_id' => $schoolId]);
+        return $this->transaction(function () use ($schoolId, $attributes) {
+            $personnel = $this->repository->create([...$attributes, 'school_id' => $schoolId]);
+            $this->comptes->assurer($personnel);
+
+            return $personnel->refresh();
+        });
     }
 
     public function update(Personnel $personnel, array $attributes): Personnel
@@ -49,23 +62,34 @@ class PersonnelService extends BaseService
     }
 
     /**
-     * Crée un compte de connexion pour un membre du personnel et lui attribue un rôle.
+     * Ouverture manuelle d'un accès — pour les fiches créées avant que
+     * l'ouverture soit automatique, ou pour imposer une adresse précise.
+     *
+     * Aucun rôle n'est attribué, ici non plus : un compte d'agent tient ses
+     * droits de sa fonction. Attribuer en plus un rôle rendrait deux agents de
+     * même fonction inégaux sans que rien ne l'explique à l'écran.
      */
-    public function createLoginAccount(Personnel $personnel, string $email, string $role, ?string $password = null): User
+    public function createLoginAccount(Personnel $personnel, ?string $email = null, ?string $password = null): User
     {
-        return $this->transaction(function () use ($personnel, $email, $role, $password) {
-            $plainPassword = $password ?: Str::password(12);
+        return $this->transaction(function () use ($personnel, $email, $password) {
+            if ($email !== null && trim($email) !== '') {
+                $personnel->forceFill(['email' => trim($email)])->save();
+            }
 
-            $user = User::create([
-                'name' => $personnel->nom_complet,
-                'email' => $email,
-                'password' => Hash::make($plainPassword),
-                'school_id' => $personnel->school_id,
-                'is_active' => true,
-            ]);
-            $user->assignRole($role);
+            $user = $this->comptes->assurer($personnel);
 
-            $personnel->update(['user_id' => $user->id, 'email' => $email]);
+            if ($user === null) {
+                throw new RuntimeException("Cet agent n'est plus en poste : aucun accès ne peut lui être ouvert.");
+            }
+
+            // Un mot de passe posé par un administrateur reste provisoire :
+            // lui aussi devra être remplacé à la première connexion.
+            if ($password !== null && trim($password) !== '') {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'doit_changer_mot_de_passe' => true,
+                ])->save();
+            }
 
             return $user;
         });
@@ -123,15 +147,15 @@ class PersonnelService extends BaseService
             'personnels' => $personnels,
             'total' => $personnels->count(),
             'avec_acces' => $personnels->whereNotNull('user_id')->count(),
-            'par_fonction' => $ventilation($personnels->map(fn(Personnel $p) => $p->fonction ?: 'Non précisée')),
+            'par_fonction' => $ventilation($personnels->map(fn (Personnel $p) => $p->fonction ?: 'Non précisée')),
             'par_departement' => $ventilation(
-                $personnels->map(fn(Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
+                $personnels->map(fn (Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
             ),
         ];
     }
 
     /**
-     * @return array{imported: int, failed: int, errors: array}
+     * @return array{imported: int, updated: int, comptes_ouverts: int, failed: int, errors: array, affectations_non_rattachees: array<string, int>}
      */
     public function importFromExcel(int $schoolId, UploadedFile $file): array
     {
@@ -140,8 +164,11 @@ class PersonnelService extends BaseService
 
         return [
             'imported' => $import->importedCount,
+            'updated' => $import->updatedCount,
+            'comptes_ouverts' => $import->comptesOuverts,
             'failed' => count($import->failures()),
             'errors' => $import->failures(),
+            'affectations_non_rattachees' => $import->affectationsNonRattachees,
         ];
     }
 }

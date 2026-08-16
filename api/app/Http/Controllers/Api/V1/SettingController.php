@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Services\SettingsCatalog;
+use App\Support\Pdf\EnTeteHtml;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +28,7 @@ class SettingController extends Controller
     public function update(Request $request): JsonResponse
     {
         $schoolId = app('tenant.school_id');
-        $validKeys = collect(SettingsCatalog::definitions())->pluck('key');
+        $types = collect(SettingsCatalog::definitions())->pluck('type', 'key');
 
         $data = $request->validate([
             'settings' => ['required', 'array'],
@@ -35,9 +36,20 @@ class SettingController extends Controller
         ]);
 
         foreach ($data['settings'] as $key => $value) {
-            if (! $validKeys->contains($key) || $value === null || $value === '') {
+            if (! $types->has($key) || $value === null || $value === '') {
                 continue;
             }
+
+            // Comme header_fr/header_en : le HTML saisi via l'éditeur WYSIWYG
+            // est filtré à la sauvegarde plutôt que d'être imprimé tel quel
+            // dans un PDF généré côté serveur.
+            if ($types->get($key) === 'richtext') {
+                $value = EnTeteHtml::nettoyer((string) $value);
+                if ($value === null) {
+                    continue;
+                }
+            }
+
             Setting::set($schoolId, $key, $value);
         }
 

@@ -16,6 +16,8 @@ export interface AuthUser {
   niveau_id: number | null
   roles: string[]
   is_super_admin: boolean
+  /** Compte ouvert avec le mot de passe commun : rien d'autre n'est accessible tant qu'il n'est pas remplacé. */
+  doit_changer_mot_de_passe?: boolean
   /** Privilèges effectifs : attribution directe, rôle et fonction confondus. */
   permissions: string[]
   /** Fonction du référentiel, quand le compte représente un agent. */

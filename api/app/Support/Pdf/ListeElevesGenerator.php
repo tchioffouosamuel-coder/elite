@@ -4,6 +4,7 @@ namespace App\Support\Pdf;
 
 use App\Models\Classe;
 use App\Models\School;
+use App\Services\VisaComposeService;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Illuminate\Database\Eloquent\Collection;
 use Mpdf\Output\Destination;
@@ -19,7 +20,7 @@ class ListeElevesGenerator
             'format' => 'A4',
             'margin_top' => 10,
             'margin_bottom' => 12,
-        ]);
+        ], $classe->school);
         $mpdf->SetTitle('Liste des élèves — '.$classe->nom);
 
         $mpdf->WriteHTML(
@@ -103,8 +104,18 @@ class ListeElevesGenerator
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
             .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'
-            .'<br><br><br><br>'
+            .$this->visa($school)
             .'<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature et cachet</span>'
             .'</td></tr></table>';
+    }
+
+    /** Cachet et signature composés en une image (la signature traverse le cachet), si chargés. */
+    private function visa(School $school): string
+    {
+        $visa = (new VisaComposeService)->chemin($school);
+
+        return $visa !== null
+            ? '<img src="'.$this->e($visa).'" style="height:46px;">'
+            : '<br><br><br><br>';
     }
 }

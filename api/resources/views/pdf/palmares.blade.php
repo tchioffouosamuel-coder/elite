@@ -10,6 +10,8 @@
 </head>
 <body>
 
+@include('pdf.partials.filigrane', ['school' => $school])
+
 @include('pdf.partials.header', ['school' => $school])
 
 <div class="doc-title">
@@ -45,7 +47,7 @@
     </tbody>
 </table>
 
-@include('pdf.partials.signatures', ['roles' => [
+@include('pdf.partials.signatures', ['school' => $school, 'roles' => [
     ['fr' => 'Le Censeur / Surveillant Général', 'en' => 'Vice-Principal / Discipline Master'],
     ['fr' => "Le Chef d'Établissement", 'en' => "Principal"],
 ]])

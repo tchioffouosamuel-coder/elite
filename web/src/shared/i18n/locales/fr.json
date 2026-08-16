@@ -19,6 +19,8 @@
     "back": "Retour",
     "confirm": "Confirmer",
     "all": "Tous",
+    "created_successfully": "Enregistrement créé.",
+    "updated_successfully": "Modifications enregistrées.",
     "error_generic": "Une erreur est survenue.",
     "empty": "Aucun résultat.",
     "total": "Total",
@@ -45,6 +47,7 @@
     "remplissage": "Remplissage des notes",
     "identification": "Photos & cartes",
     "openMenu": "Ouvrir le menu",
+    "hideMenu": "Réduire le menu",
     "searchMenu": "Rechercher un menu…",
     "noMenuFound": "Aucun menu trouvé.",
     "statsPedagogiques": "Stats pédagogiques",
@@ -97,6 +100,7 @@
     "add": "Ajouter un membre du personnel",
     "edit": "Modifier un membre du personnel",
     "nom_complet": "Nom complet",
+    "enseignant": "Enseignant",
     "fonction": "Fonction",
     "departement": "Département",
     "matricule": "Matricule",
@@ -151,6 +155,7 @@
     "nom": "Nom de la matière",
     "abbreviation": "Abréviation",
     "nom_en": "Nom (anglais)",
+    "coefficient": "Coefficient",
     "notation": "Notée sur",
     "volets": "Volets",
     "evalue_pratique": "Évaluer aussi le volet pratique",
@@ -249,7 +254,7 @@
     "word": "Exporter en Word",
     "pdf": "Exporter en PDF",
     "carte": "Carte scolaire",
-    "attestation": "Attestation de scolarité"
+    "attestation": "Certificat de scolarité"
   },
   "import": {
     "title": "Importer un fichier Excel",
@@ -257,8 +262,10 @@
     "submit": "Importer",
     "result": "{{imported}} ligne(s) importée(s), {{failed}} échec(s).",
     "updated": "{{count}} élève(s) existant(s) mis à jour.",
+    "comptes_ouverts": "{{count}} accès de connexion ouvert(s) — adresses en prenom.nom@elite.school, mot de passe par défaut.",
     "ignored": "{{count}} ligne(s) ignorée(s) : elles concernent une autre école du complexe.",
     "classes_introuvables": "Classes introuvables (élèves créés sans affectation) :",
+    "affectations_non_rattachees": "Affectations conservées en texte, faute de classe correspondante :",
     "template_hint": "Colonnes attendues (première ligne d'en-têtes) :"
   },
   "progression": {

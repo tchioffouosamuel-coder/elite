@@ -65,6 +65,6 @@ class AbsenceController extends Controller
             'trimestre' => $trimestre,
             'bilan' => $this->service->bilanClasse($classe, $trimestre),
             'eleves' => $this->service->lignesDetail($classe, $trimestre),
-        ], "bilan-disciplinaire-{$classe->nom}.pdf");
+        ], "bilan-disciplinaire-{$classe->nom}.pdf", school: $classe->school);
     }
 }

@@ -14,10 +14,14 @@ class AttestationController extends Controller
 
     public function scolarite(int $eleveId): BinaryFileResponse
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->with(['classe.anneeScolaire', 'school'])->findOrFail($eleveId);
+        // `tuteurs` : le modèle de certificat mentionne la filiation
+        // (« Fils de… Et de… »), résolue depuis les rattachements de l'élève.
+        $eleve = Eleve::forSchool(app('tenant.school_id'))
+            ->with(['classe.anneeScolaire', 'school', 'tuteurs'])
+            ->findOrFail($eleveId);
 
         $path = $this->service->genererScolarite($eleve);
-        $nomFichier = 'attestation-'.Str::slug($eleve->nom_complet).'.docx';
+        $nomFichier = 'certificat-scolarite-'.Str::slug($eleve->nom_complet).'.docx';
 
         return response()->download($path, $nomFichier)->deleteFileAfterSend();
     }

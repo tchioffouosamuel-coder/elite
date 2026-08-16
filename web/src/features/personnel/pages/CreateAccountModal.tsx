@@ -2,18 +2,24 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Modal } from '@/shared/ui/Modal'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { createLoginAccount } from '@/features/personnel/api'
 import type { ApiError } from '@/shared/types/api'
 
-const ASSIGNABLE_ROLES = ['enseignant', 'censeur_sg', 'econome', 'admin_etablissement']
-
 interface FormValues {
   email: string
-  role: string
 }
 
+/**
+ * Ouverture manuelle d'un accès.
+ *
+ * Depuis que le compte est ouvert à la création de la fiche, cet écran ne sert
+ * plus qu'aux agents enregistrés avant ce changement, ou pour imposer une
+ * adresse précise. Le choix du rôle a disparu : un compte d'agent tient ses
+ * droits de sa fonction, et le laisser cocher rendait deux agents de même
+ * fonction inégaux sans que rien ne l'explique.
+ */
 export function CreateAccountModal({
   personnelId,
   onClose,
@@ -31,13 +37,13 @@ export function CreateAccountModal({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({ defaultValues: { role: 'enseignant' } })
+  } = useForm<FormValues>({ defaultValues: { email: '' } })
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null)
     setSubmitting(true)
     try {
-      await createLoginAccount(personnelId, values.email, values.role)
+      await createLoginAccount(personnelId, values.email || undefined)
       onCreated()
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -50,19 +56,17 @@ export function CreateAccountModal({
     <Modal title={t('personnel.create_account')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input
-          label={t('personnel.email')}
+          label={`${t('personnel.email')} (facultatif)`}
           type="email"
+          placeholder="laissez vide pour une adresse dérivée du nom"
           error={errors.email?.message}
-          {...register('email', { required: true })}
+          {...register('email')}
         />
-        <Select label="Rôle" {...register('role', { required: true })}>
-          {ASSIGNABLE_ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-        <p className="text-xs text-navy-400">Un mot de passe temporaire sera généré et à transmettre à l'intéressé.</p>
+        <p className="rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
+          Sans adresse saisie, l'accès est ouvert sous la forme{' '}
+          <code className="font-semibold">prenom.nom@elite.school</code>, avec le mot de passe par défaut de
+          l'établissement. L'agent reçoit les privilèges de sa fonction, et uniquement ceux-là.
+        </p>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

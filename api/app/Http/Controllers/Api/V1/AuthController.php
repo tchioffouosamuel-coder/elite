@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ChangerMotDePasseRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\AuthService;
@@ -48,6 +49,26 @@ class AuthController extends Controller
             'user' => new UserResource($result['user']),
             'token' => $result['token'],
         ], 'Jeton renouvelé.');
+    }
+
+    public function changerMotDePasse(ChangerMotDePasseRequest $request): JsonResponse
+    {
+        $change = $this->authService->changerMotDePasse(
+            $request->user(),
+            $request->string('ancien_mot_de_passe')->toString(),
+            $request->string('nouveau_mot_de_passe')->toString(),
+        );
+
+        if (! $change) {
+            return ApiResponse::validationError(
+                ['ancien_mot_de_passe' => ['Le mot de passe actuel est incorrect.']],
+            );
+        }
+
+        return ApiResponse::success(
+            new UserResource($request->user()->fresh()),
+            'Mot de passe mis à jour.',
+        );
     }
 
     public function logout(Request $request): JsonResponse

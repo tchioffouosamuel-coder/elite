@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, KeyRound, Archive, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
@@ -19,7 +20,6 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
-import { PersonnelFormModal } from '@/features/personnel/pages/PersonnelFormModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
@@ -30,8 +30,7 @@ export function PersonnelListPage() {
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
 
-  const [showForm, setShowForm] = useState(false)
-  const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null)
+  const navigate = useNavigate()
   const [showImport, setShowImport] = useState(false)
   const [accountFor, setAccountFor] = useState<number | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -175,7 +174,7 @@ export function PersonnelListPage() {
           {can('personnel.manage') && (
             <button
               title={t('common.edit')}
-              onClick={() => setEditingPersonnel(p)}
+              onClick={() => navigate(`/personnel/${p.id}/edit`)}
               className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
             >
               <Pencil className="h-4 w-4" />
@@ -274,7 +273,7 @@ export function PersonnelListPage() {
             </Button>
           )}
             {can('personnel.manage') && (
-              <Button onClick={() => setShowForm(true)}>
+              <Button onClick={() => navigate('/personnel/nouveau')}>
                 <Plus className="h-4 w-4" />
                 {t('personnel.add')}
               </Button>
@@ -322,25 +321,6 @@ export function PersonnelListPage() {
         />
       )}
 
-      {showForm && (
-        <PersonnelFormModal
-          onClose={() => setShowForm(false)}
-          onCreated={() => {
-            setShowForm(false)
-            invalidate()
-          }}
-        />
-      )}
-      {editingPersonnel && (
-        <PersonnelFormModal
-          personnel={editingPersonnel}
-          onClose={() => setEditingPersonnel(null)}
-          onCreated={() => {
-            setEditingPersonnel(null)
-            invalidate()
-          }}
-        />
-      )}
       {accountFor && (
         <CreateAccountModal
           personnelId={accountFor}
@@ -355,7 +335,26 @@ export function PersonnelListPage() {
         <ImportModal
           title={t('personnel.import')}
           url="/personnels/import"
-          columns={['nom_complet', 'fonction', 'matricule', 'telephone', 'email', 'date_embauche']}
+          columns={[
+            'Teachers name / NOMS DES ENSEIGNANTS',
+            'Civilité (Mr/Mrs/Mlle)',
+            'Matricules',
+            'Numéro unique (CNI)',
+            'N°CNPS',
+            'Births',
+            'Date Start',
+            'Date end',
+            'Date retraite',
+            'Division of Origine',
+            'Residence',
+            'ORANGE',
+            'MTN',
+            'Married?',
+            'NB children <21yrs',
+            'Diplôme Prof',
+            'Diplôme Academic',
+            'Affectations / Duty post',
+          ]}
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />

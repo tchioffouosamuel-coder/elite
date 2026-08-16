@@ -11,11 +11,15 @@ class CreateLoginAccountRequest extends FormRequest
         return true;
     }
 
+    /**
+     * L'adresse est facultative : sans elle, le service en dérive une du nom
+     * sur le domaine de l'établissement. Le rôle a disparu — un compte d'agent
+     * tient ses droits de sa fonction (cf. CompteAgentService).
+     */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'unique:users,email'],
-            'role' => ['required', 'string', 'exists:roles,name'],
+            'email' => ['nullable', 'email', 'unique:users,email'],
             'password' => ['nullable', 'string', 'min:8'],
         ];
     }

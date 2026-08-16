@@ -27,7 +27,14 @@ class ListeElevesService extends BaseService
 
         $phpWord = new PhpWord;
         $phpWord->setDefaultFontName('Montserrat');
-        $section = $phpWord->addSection(['marginTop' => 900, 'marginBottom' => 900]);
+        // Marges « étroites » de Word (1,27 cm / 0,5 po de chaque côté) : la
+        // liste gagne en largeur utile sans empiéter sur la zone imprimable.
+        $section = $phpWord->addSection([
+            'marginTop' => 720,
+            'marginBottom' => 720,
+            'marginLeft' => 720,
+            'marginRight' => 720,
+        ]);
 
         // Même en-tête que la version PDF (cf. ListeElevesGenerator) : mentions
         // officielles FR, logo, mentions EN. Sans lui, le document Word ne
@@ -38,14 +45,19 @@ class ListeElevesService extends BaseService
         $section->addText('STUDENT LIST', ['italic' => true, 'size' => 11, 'color' => self::ACCENT], ['alignment' => 'center', 'spaceAfter' => 120]);
 
         $this->ajouterBandeau($section, $classe, $eleves->count());
+        $this->ajouterEffectifs($section, $eleves);
 
         $table = $section->addTable([
             'borderSize' => 6,
             'borderColor' => '999999',
             'cellMargin' => 60,
+            'alignment' => JcTable::CENTER,
         ]);
 
-        $largeurs = [500, 1600, 4200, 800, 3200, 2200];
+        // Somme = largeur imprimable avec les marges étroites ci-dessus
+        // (page A4 11906 twips − 2×720 de marge = 10466) : le tableau occupe
+        // toute la largeur disponible sans la dépasser.
+        $largeurs = [500, 1500, 3800, 700, 2800, 1166];
         // Intitulés bilingues comme sur le PDF : FR au-dessus, EN en italique.
         $entetes = [
             ['N°', 'No.'],
@@ -104,7 +116,7 @@ class ListeElevesService extends BaseService
     /** Bandeau ardoise classe / année / effectif, comme sur le PDF. */
     private function ajouterBandeau(Section $section, Classe $classe, int $effectif): void
     {
-        $bandeau = $section->addTable(['width' => 100 * 50, 'unit' => 'pct', 'cellMargin' => 60]);
+        $bandeau = $section->addTable(['width' => 100 * 50, 'unit' => 'pct', 'cellMargin' => 60, 'alignment' => JcTable::CENTER]);
         $bandeau->addRow();
         $ligne = $bandeau->addCell(null, ['bgColor' => self::ARDOISE])
             ->addTextRun(['alignment' => JcTable::CENTER, 'spaceAfter' => 0]);
@@ -128,6 +140,48 @@ class ListeElevesService extends BaseService
         $section->addTextBreak(1, null, ['spaceAfter' => 0]);
     }
 
+    /**
+     * Petit tableau des effectifs (filles / garçons / total), calé à gauche
+     * sur 30 % de la largeur de page — avant les en-têtes du tableau
+     * nominatif, comme une synthèse rapide avant le détail.
+     */
+    private function ajouterEffectifs(Section $section, Collection $eleves): void
+    {
+        $filles = $eleves->where('sexe', 'F')->count();
+        $garcons = $eleves->where('sexe', 'M')->count();
+
+        $table = $section->addTable([
+            'width' => 30 * 50,
+            'unit' => 'pct',
+            'alignment' => JcTable::START,
+            'borderSize' => 6,
+            'borderColor' => '999999',
+            'cellMargin' => 60,
+        ]);
+
+        $colonnes = [
+            ['Filles', 'Girls', $filles],
+            ['Garçons', 'Boys', $garcons],
+            ['Total', 'Total', $eleves->count()],
+        ];
+
+        $table->addRow();
+        foreach ($colonnes as [$fr, $en, $valeur]) {
+            $cellule = $table->addCell(null, ['bgColor' => self::ARDOISE]);
+            $ligne = $cellule->addTextRun(['alignment' => JcTable::CENTER, 'spaceAfter' => 0]);
+            $ligne->addText($fr, ['bold' => true, 'color' => 'FFFFFF', 'size' => 8]);
+            $ligne->addTextBreak();
+            $ligne->addText($en, ['italic' => true, 'color' => 'FFFFFF', 'size' => 6]);
+        }
+
+        $table->addRow();
+        foreach ($colonnes as [$fr, $en, $valeur]) {
+            $table->addCell(null)->addText((string) $valeur, ['bold' => true, 'size' => 11], ['alignment' => JcTable::CENTER, 'spaceAfter' => 0]);
+        }
+
+        $section->addTextBreak(1, null, ['spaceAfter' => 0]);
+    }
+
     /** Lieu et date à gauche, bloc de signature du chef d'établissement à droite. */
     private function ajouterSignature(Section $section, $school): void
     {
@@ -136,7 +190,7 @@ class ListeElevesService extends BaseService
         $ville = trim(explode(',', (string) $school->address)[0] ?? '');
         $lieu = $ville !== '' ? "Fait à {$ville}, le " : 'Fait le ';
 
-        $table = $section->addTable(['width' => 100 * 50, 'unit' => 'pct']);
+        $table = $section->addTable(['width' => 100 * 50, 'unit' => 'pct', 'alignment' => JcTable::CENTER]);
         $table->addRow();
 
         $table->addCell(5000, ['valign' => 'top'])
@@ -148,11 +202,28 @@ class ListeElevesService extends BaseService
         $titre->addTextBreak();
         $titre->addText('The Principal', ['italic' => true, 'size' => 8]);
 
-        $droite->addTextBreak(3);
+        $this->ajouterVisa($droite, $school);
         $droite->addText(
             'Signature et cachet',
             ['size' => 8],
             ['alignment' => JcTable::CENTER, 'spaceAfter' => 0, 'borderTopSize' => 4, 'borderTopColor' => '000000'],
         );
+    }
+
+    /**
+     * Cachet et signature composés en une image (la signature traverse le
+     * cachet), s'ils ont été chargés ; sinon un simple blanc à signer.
+     */
+    private function ajouterVisa($cellule, $school): void
+    {
+        $visa = (new VisaComposeService)->chemin($school);
+
+        if ($visa === null) {
+            $cellule->addTextBreak(3);
+
+            return;
+        }
+
+        $cellule->addImage($visa, ['height' => 46, 'alignment' => JcTable::CENTER]);
     }
 }

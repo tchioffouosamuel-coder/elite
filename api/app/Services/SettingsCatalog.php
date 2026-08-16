@@ -125,7 +125,7 @@ class SettingsCatalog
                 'label_en' => 'Signatory title',
             ],
             [
-                'key' => 'mentions_legales', 'groupe' => 'documents', 'type' => 'text',
+                'key' => 'mentions_legales', 'groupe' => 'documents', 'type' => 'richtext',
                 'default' => '',
                 'label_fr' => 'Mentions légales en pied de document (arrêté, comptes, immatriculation)',
                 'label_en' => 'Legal notices in document footer (order, accounts, registration)',

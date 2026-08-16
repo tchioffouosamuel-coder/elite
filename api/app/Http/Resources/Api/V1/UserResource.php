@@ -16,6 +16,7 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'locale' => $this->locale,
             'is_active' => $this->is_active,
+            'doit_changer_mot_de_passe' => (bool) $this->doit_changer_mot_de_passe,
             'school_id' => $this->school_id,
             'niveau_id' => $this->niveau_id,
             'roles' => $this->getRoleNames(),

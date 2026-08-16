@@ -78,12 +78,14 @@ class PersonnelController extends Controller
         $personnel = $this->service->find(app('tenant.school_id'), $id);
         $user = $this->service->createLoginAccount(
             $personnel,
-            $request->string('email')->toString(),
-            $request->string('role')->toString(),
+            $request->string('email')->toString() ?: null,
             $request->string('password')->toString() ?: null,
         );
 
-        return ApiResponse::created(['user_id' => $user->id], 'Compte de connexion créé.');
+        return ApiResponse::created(
+            ['user_id' => $user->id, 'email' => $user->email],
+            "Accès ouvert : {$user->email}.",
+        );
     }
 
     public function destroy(int $id): JsonResponse

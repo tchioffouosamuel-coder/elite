@@ -14,6 +14,27 @@
         margin: 2px 0;
     }
 
+    /*
+     * Filigrane : logo de l'établissement, centré et répété sur chaque page.
+     * dompdf ne gère ni `opacity` ni les transformations — le logo est donc
+     * atténué en le posant derrière le contenu (`z-index` négatif) sur le fond
+     * de page. Les documents rendus par mPDF utilisent son filigrane natif
+     * (cf. MpdfFactory::appliquerFiligrane) et n'incluent pas ce partiel.
+     */
+    .filigrane {
+        position: fixed;
+        top: 40%;
+        left: 25%;
+        width: 50%;
+        text-align: center;
+        z-index: -1000;
+    }
+
+    .filigrane img {
+        width: 100%;
+        opacity: 0.07;
+    }
+
     hr {
         border: none;
         border-top: 2px solid #FFAB02;
@@ -32,13 +53,21 @@
         padding: 0 4px;
     }
 
+    /*
+     * Les trois colonnes portent chacune une largeur explicite : sans ça,
+     * mPDF (contrairement à un navigateur ou à dompdf) ne répartit pas
+     * correctement la largeur restante entre les colonnes non contraintes,
+     * et écrase les deux blocs de texte au profit du logo.
+     */
     table.header-table .fr {
+        width: 38%;
         text-align: left;
         font-size: 8px;
         line-height: 1.35;
     }
 
     table.header-table .en {
+        width: 38%;
         text-align: right;
         font-size: 8px;
         line-height: 1.35;
@@ -47,14 +76,17 @@
     }
 
     table.header-table .logo-cell {
-        width: 120px;
+        width: 24%;
         text-align: center;
     }
 
+    /* `object-fit` n'est pas supporté par mPDF : la mise à l'échelle passe
+       par une largeur fixe et une hauteur automatique, comme pour le logo
+       des autres documents (cf. RenduDocument::stylesBase). */
     table.header-table .logo-cell img {
         width: 100px;
-        height: 100px;
-        object-fit: contain;
+        height: auto;
+        max-height: 100px;
     }
 
     table.header-table .monogram {

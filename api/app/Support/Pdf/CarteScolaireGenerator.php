@@ -164,14 +164,12 @@ class CarteScolaireGenerator extends FPDF
             ."doit être déclarée immédiatement à l'administration."
         ), 0, 'J');
 
-        $cachet = $this->cheminImage($this->school?->stamp_path);
-        if ($cachet !== null) {
-            $this->Image($cachet, $x + 21, $y + 40, 11, 11);
-        }
-
-        $signature = $this->cheminImage($this->school?->signature_path);
-        if ($signature !== null) {
-            $this->Image($signature, $x + 18, $y + 52, 17, 12);
+        // Cachet et signature composés en une seule image (la signature
+        // traverse le cachet, comme sur un tampon physique) : cf. VisaComposeService.
+        $visa = $this->school !== null ? (new \App\Services\VisaComposeService)->chemin($this->school) : null;
+        if ($visa !== null) {
+            $largeur = 19.0;
+            $this->Image($visa, $x + (self::CARD_W - $largeur) / 2, $y + 39, $largeur, 0);
         }
 
         $this->SetDrawColor(209, 219, 217);

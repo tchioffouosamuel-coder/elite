@@ -16,7 +16,7 @@ use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'phone', 'locale', 'is_active', 'school_id', 'niveau_id'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'locale', 'is_active', 'school_id', 'niveau_id', 'doit_changer_mot_de_passe'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,6 +29,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'doit_changer_mot_de_passe' => 'boolean',
         ];
     }
 

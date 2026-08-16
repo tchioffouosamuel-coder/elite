@@ -40,10 +40,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
     Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
 
-    Route::middleware('auth:sanctum')->group(function () {
+    // `mot_de_passe` barre tout l'espace authentifié tant que le mot de passe
+    // provisoire n'a pas été remplacé, à l'exception des routes qui permettent
+    // justement d'en sortir (cf. ExigerMotDePasseRenouvele).
+    Route::middleware(['auth:sanctum', 'mot_de_passe'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+        Route::post('auth/mot-de-passe', [AuthController::class, 'changerMotDePasse'])->name('auth.mot-de-passe');
 
         // Référentiel global, non scopé par établissement.
         Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index')->middleware('permission:niveaux.view');

@@ -6,26 +6,48 @@ export interface Departement {
   nom: string
 }
 
-export interface Personnel {
+export type SituationMatrimoniale = 'celibataire' | 'marie' | 'divorce' | 'veuf'
+
+/** Dossier administratif de l'agent, hors identité et fonction. */
+export interface DossierPersonnel {
+  affectation: string | null
+  civilite: string | null
+  sexe: 'M' | 'F' | null
+  date_naissance: string | null
+  numero_cni: string | null
+  numero_cnps: string | null
+  departement_origine: string | null
+  residence: string | null
+  telephone: string | null
+  telephone_2: string | null
+  situation_matrimoniale: SituationMatrimoniale | null
+  nombre_enfants: number | null
+  diplome_professionnel: string | null
+  diplome_academique: string | null
+  email: string | null
+  date_embauche: string | null
+  date_fin: string | null
+  /** Retombe sur naissance + 60 ans quand la date n'est pas saisie. */
+  date_retraite: string | null
+}
+
+export interface Personnel extends DossierPersonnel {
   id: number
   matricule: string | null
   nom_complet: string
   fonction_id: number
   fonction: string
   departement: Departement | null
-  telephone: string | null
-  email: string | null
   statut: 'actif' | 'ex_employe'
   a_un_compte: boolean
 }
 
-export interface PersonnelPayload {
+export type PersonnelPayload = Partial<DossierPersonnel> & {
   nom_complet: string
   fonction_id: number
   departement_id?: number | null
   matricule?: string | null
-  telephone?: string | null
-  email?: string | null
+  statut?: 'actif' | 'ex_employe'
 }
 
 export interface FonctionReferentiel {
@@ -97,6 +119,11 @@ export async function fetchPersonnels(params: {
   return { items: data.data, pagination: data.meta!.pagination! }
 }
 
+export async function fetchPersonnel(id: number): Promise<Personnel> {
+  const { data } = await http.get<ApiResponse<Personnel>>(`/personnels/${id}`)
+  return data.data
+}
+
 export async function createPersonnel(payload: PersonnelPayload): Promise<Personnel> {
   const { data } = await http.post<ApiResponse<Personnel>>('/personnels', payload)
   return data.data
@@ -128,6 +155,7 @@ export async function batchArchivePersonnel(ids: number[]): Promise<void> {
   await Promise.all(ids.map((id) => archivePersonnel(id)))
 }
 
-export async function createLoginAccount(id: number, email: string, role: string): Promise<void> {
-  await http.post(`/personnels/${id}/compte`, { email, role })
+/** Sans `email`, l'API dérive l'adresse du nom sur le domaine de l'établissement. */
+export async function createLoginAccount(id: number, email?: string): Promise<void> {
+  await http.post(`/personnels/${id}/compte`, email ? { email } : {})
 }

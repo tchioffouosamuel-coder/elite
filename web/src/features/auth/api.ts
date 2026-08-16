@@ -25,3 +25,12 @@ export async function fetchMe(): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   await http.post('/auth/logout')
 }
+
+export async function changerMotDePasse(payload: {
+  ancien_mot_de_passe: string
+  nouveau_mot_de_passe: string
+  nouveau_mot_de_passe_confirmation: string
+}): Promise<AuthUser> {
+  const { data } = await http.post<ApiResponse<AuthUser>>('/auth/mot-de-passe', payload)
+  return data.data
+}

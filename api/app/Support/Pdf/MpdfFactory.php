@@ -2,6 +2,7 @@
 
 namespace App\Support\Pdf;
 
+use App\Models\School;
 use Mpdf\Config\ConfigVariables;
 use Mpdf\Config\FontVariables;
 use Mpdf\Mpdf;
@@ -14,7 +15,17 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class MpdfFactory
 {
-    public static function make(array $options = []): Mpdf
+    /** Largeur du filigrane en millimètres — un peu moins de la moitié d'une A4. */
+    private const FILIGRANE_LARGEUR = 90;
+
+    /**
+     * Opacité du filigrane. Assez marqué pour identifier l'établissement d'un
+     * coup d'œil sur une photocopie, assez discret pour ne pas gêner la
+     * lecture d'un tableau de notes par-dessus.
+     */
+    private const FILIGRANE_OPACITE = 0.07;
+
+    public static function make(array $options = [], ?School $school = null): Mpdf
     {
         // mPDF remplace entièrement `fontDir`/`fontdata` si on les passe en
         // option (pas de fusion récursive côté lib) : on repart donc de ses
@@ -23,7 +34,7 @@ class MpdfFactory
         $fontDir = (new ConfigVariables())->getDefaults()['fontDir'];
         $fontData = (new FontVariables())->getDefaults()['fontdata'];
 
-        return new Mpdf(array_merge([
+        $mpdf = new Mpdf(array_merge([
             'tempDir' => storage_path('app/mpdf'),
             'mode' => 'utf-8',
             'format' => 'A4',
@@ -42,12 +53,37 @@ class MpdfFactory
             'margin_top' => 8,
             'margin_bottom' => 10,
         ], $options));
+
+        self::appliquerFiligrane($mpdf, $school);
+
+        return $mpdf;
     }
 
-    public static function streamFromView(string $view, array $data, string $filename, array $options = []): Response
+    /**
+     * Logo de l'établissement en filigrane, centré sur chaque page.
+     *
+     * mPDF le compose sous le contenu et le répète de lui-même : inutile de
+     * l'insérer dans le flux HTML, où il aurait décalé la mise en page et ne
+     * serait apparu que sur la première page.
+     */
+    public static function appliquerFiligrane(Mpdf $mpdf, ?School $school): void
+    {
+        $logo = $school?->logo_path
+            ? storage_path('app/public/'.ltrim($school->logo_path, '/'))
+            : null;
+
+        if ($logo === null || ! is_file($logo)) {
+            return;
+        }
+
+        $mpdf->SetWatermarkImage($logo, self::FILIGRANE_OPACITE, self::FILIGRANE_LARGEUR, 'P');
+        $mpdf->showWatermarkImage = true;
+    }
+
+    public static function streamFromView(string $view, array $data, string $filename, array $options = [], ?School $school = null): Response
     {
         $html = view($view, $data)->render();
-        $mpdf = self::make($options);
+        $mpdf = self::make($options, $school);
         $mpdf->WriteHTML($html);
 
         return response($mpdf->Output($filename, Destination::STRING_RETURN), 200, [

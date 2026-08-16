@@ -3,15 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Plus, Trash2 } from 'lucide-react'
-import { fetchClasseMatieres, affecterMatiere, retirerMatiere, fetchMatieres } from '@/features/pedagogie/api'
+import { fetchClasseMatieres, affecterMatiere, retirerMatiere, fetchMatieres, type Matiere } from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
-import { confirmerSuppression, succes } from '@/shared/lib/alertes'
+import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
 
 export function AffectationsTab({ classeId, titulaireId }: { classeId: number; titulaireId?: number | null }) {
@@ -19,6 +19,9 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [matiereIds, setMatiereIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
@@ -46,26 +49,200 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
 
-  const onSubmit = async (values: ClasseMatierePayload) => {
-    await affecterMatiere(classeId, {
-      ...values,
-      matiere_id: Number(values.matiere_id),
-      personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
-      coefficient: secondaire ? Number(values.coefficient) : 1,
-      quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
-      groupe: Number(values.groupe) || 1,
+  const basculerMatiere = (id: number) =>
+    setMatiereIds((courant) => {
+      const suivant = new Set(courant)
+      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      return suivant
     })
+
+  const basculerSelection = (id: number) =>
+    setSelectedIds((courant) => {
+      const suivant = new Set(courant)
+      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      return suivant
+    })
+
+  const selectionnerTout = () => {
+    if (!affectations) return
+
+    if (selectedIds.size === affectations.length && affectations.length > 0) {
+      setSelectedIds(new Set())
+      return
+    }
+
+    setSelectedIds(new Set(affectations.map((a) => a.id)))
+  }
+
+  const retirerAffectation = async (id: number, nom: string) => {
+    if (!(await confirmerSuppression(`l'affectation de ${nom}`, 'Les notes déjà saisies pour cette matière seront également retirées du bulletin.'))) return
+
+    await retirerMatiere(id)
+    setSelectedIds((courant) => {
+      const suivant = new Set(courant)
+      suivant.delete(id)
+      return suivant
+    })
+    invalidate()
+    succes('Affectation retirée.')
+  }
+
+  const supprimerSelection = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const ok = await confirmerSuppression(`${ids.length} affectation(s)`)
+    if (!ok) return
+
+    try {
+      await Promise.all(ids.map((id) => retirerMatiere(id)))
+      setSelectedIds(new Set())
+      invalidate()
+      succes(`${ids.length} affectation(s) retirée(s).`)
+    } catch {
+      erreur('Impossible de supprimer les affectations sélectionnées.')
+    }
+  }
+
+  const onSubmit = async (values: ClasseMatierePayload) => {
+    // Au primaire et en maternelle, le titulaire enseigne seul la classe :
+    // cocher plusieurs matières les affecte toutes d'un coup à ce même
+    // enseignant, plutôt que de répéter le formulaire matière par matière.
+    if (!secondaire) {
+      if (matiereIds.size === 0) {
+        erreur('Sélectionnez au moins une matière.')
+        return
+      }
+
+      setSubmitting(true)
+      try {
+        await Promise.all(
+          [...matiereIds].map((matiereId) =>
+            affecterMatiere(classeId, {
+              matiere_id: matiereId,
+              personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
+              coefficient: 1,
+              quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
+              groupe: 1,
+            }),
+          ),
+        )
+        succes(`${matiereIds.size} matière(s) affectée(s).`)
+      } finally {
+        setSubmitting(false)
+      }
+    } else {
+      await affecterMatiere(classeId, {
+        ...values,
+        matiere_id: Number(values.matiere_id),
+        personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
+        coefficient: Number(values.coefficient),
+        quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
+        groupe: Number(values.groupe) || 1,
+      })
+    }
+
     reset()
+    setMatiereIds(new Set())
     setShowForm(false)
     invalidate()
   }
+
+  const colonnes: Colonne<typeof affectations extends (infer T)[] ? (T extends { id: number } ? T : never) : never>[] =
+    affectations
+      ? [
+        ...(can('pedagogie.manage')
+          ? [
+            {
+              cle: 'selection',
+              entete: (
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={affectations.length > 0 && selectedIds.size === affectations.length}
+                    onChange={selectionnerTout}
+                    className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                    aria-label="Tout sélectionner"
+                  />
+                </div>
+              ),
+              cellule: (a) => (
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(a.id)}
+                    onChange={() => basculerSelection(a.id)}
+                    className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                    aria-label={`Sélectionner ${a.matiere.nom}`}
+                  />
+                </div>
+              ),
+              className: 'w-12',
+            },
+          ]
+          : []),
+        {
+          cle: 'matiere',
+          entete: t('matieres.title'),
+          valeur: (a) => a.matiere.nom,
+          cellule: (a) => <span className="font-medium text-navy-900">{a.matiere.nom}</span>,
+        },
+        {
+          cle: 'enseignant',
+          entete: t('pedagogie.enseignant'),
+          valeur: (a) => a.enseignant?.nom_complet ?? '',
+          cellule: (a) => a.enseignant?.nom_complet ?? '—',
+        },
+        ...(secondaire
+          ? [
+            {
+              cle: 'coefficient',
+              entete: t('pedagogie.coefficient'),
+              valeur: (a: (typeof affectations)[number]) => a.coefficient,
+              cellule: (a: (typeof affectations)[number]) => a.coefficient,
+            },
+          ]
+          : []),
+        {
+          cle: 'quota_horaire',
+          entete: t('pedagogie.quota_horaire'),
+          valeur: (a) => a.quota_horaire ?? 0,
+          cellule: (a) => a.quota_horaire ?? '—',
+        },
+        ...(can('pedagogie.manage')
+          ? [
+            {
+              cle: 'actions',
+              entete: t('common.actions'),
+              cellule: (a) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    retirerAffectation(a.id, a.matiere.nom)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ),
+            },
+          ]
+          : []),
+      ]
+      : []
 
   if (isLoading) return <Spinner />
 
   return (
     <div className="flex flex-col gap-4">
       {can('pedagogie.manage') && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {selectedIds.size > 0 && (
+            <Button size="sm" variant="danger" onClick={supprimerSelection}>
+              <Trash2 className="h-4 w-4" />
+              Supprimer ({selectedIds.size})
+            </Button>
+          )}
           <Button size="sm" onClick={() => setShowForm((v) => !v)}>
             <Plus className="h-4 w-4" />
             {t('pedagogie.affecter')}
@@ -75,14 +252,54 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
 
       {showForm && (
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-3 rounded-xl border border-navy-100 bg-white p-4 sm:grid-cols-4">
-          <Select label={t('matieres.title')} {...register('matiere_id', { required: true })}>
-            <option value="">—</option>
-            {matieresDisponibles.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nom}
-              </option>
-            ))}
-          </Select>
+          {secondaire ? (
+            <Select label={t('matieres.title')} {...register('matiere_id', { required: true })}>
+              <option value="">—</option>
+              {matieresDisponibles.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nom}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('matieres.title')}</span>
+                {matieresDisponibles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMatiereIds((courant) =>
+                        courant.size === matieresDisponibles.length ? new Set() : new Set(matieresDisponibles.map((m) => m.id)),
+                      )
+                    }
+                    className="text-xs font-semibold text-navy-400 transition-colors hover:text-navy-700"
+                  >
+                    {matiereIds.size === matieresDisponibles.length ? 'Tout décocher' : 'Tout cocher'}
+                  </button>
+                )}
+              </div>
+              {matieresDisponibles.length === 0 ? (
+                <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-400">
+                  Toutes les matières sont déjà affectées.
+                </p>
+              ) : (
+                <div className="grid max-h-48 grid-cols-2 gap-1.5 overflow-y-auto rounded-xl border border-navy-200 bg-white p-3 sm:grid-cols-3">
+                  {matieresDisponibles.map((m: Matiere) => (
+                    <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-cream-50">
+                      <input
+                        type="checkbox"
+                        checked={matiereIds.has(m.id)}
+                        onChange={() => basculerMatiere(m.id)}
+                        className="h-4 w-4 rounded border-navy-300 text-navy-700 focus:ring-navy-200"
+                      />
+                      <span className="truncate text-navy-700">{m.nom}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <Select label={t('pedagogie.enseignant')} {...register('personnel_id')}>
             <option value="">—</option>
             {personnels?.items.map((p) => (
@@ -96,10 +313,18 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
           )}
           <Input label={t('pedagogie.quota_horaire')} type="number" {...register('quota_horaire')} />
           <div className="col-span-2 flex items-end gap-2 sm:col-span-4">
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" disabled={submitting}>
               {t('common.save')}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setShowForm(false)}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setShowForm(false)
+                setMatiereIds(new Set())
+              }}
+            >
               {t('common.cancel')}
             </Button>
           </div>
@@ -109,43 +334,22 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
       {!affectations || affectations.length === 0 ? (
         <EmptyState />
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>{t('matieres.title')}</Th>
-              <Th>{t('pedagogie.enseignant')}</Th>
-              {secondaire && <Th>{t('pedagogie.coefficient')}</Th>}
-              <Th>{t('pedagogie.quota_horaire')}</Th>
-              {can('pedagogie.manage') && <Th>{t('common.actions')}</Th>}
-            </tr>
-          </Thead>
-          <tbody>
-            {affectations.map((a) => (
-              <Tr key={a.id}>
-                <Td className="font-medium">{a.matiere.nom}</Td>
-                <Td>{a.enseignant?.nom_complet ?? '—'}</Td>
-                {secondaire && <Td>{a.coefficient}</Td>}
-                <Td>{a.quota_horaire ?? '—'}</Td>
-                {can('pedagogie.manage') && (
-                  <Td>
-                    <button
-                      onClick={async () => {
-                        if (!(await confirmerSuppression(`l'affectation de ${a.matiere.nom}`,
-                          'Les notes déjà saisies pour cette matière seront également retirées du bulletin.'))) return
-                        await retirerMatiere(a.id)
-                        invalidate()
-                        succes('Affectation retirée.')
-                      }}
-                      className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </Td>
-                )}
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={affectations}
+          cleLigne={(a) => a.id}
+          placeholderRecherche="Rechercher une matière ou un enseignant…"
+          messageVide="Aucune affectation pour cette classe."
+          parPage={10}
+          outils={
+            selectedIds.size > 0 && can('pedagogie.manage') ? (
+              <Button variant="danger" size="sm" onClick={supprimerSelection}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer ({selectedIds.size})
+              </Button>
+            ) : undefined
+          }
+        />
       )}
     </div>
   )

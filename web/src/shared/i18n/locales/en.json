@@ -19,6 +19,8 @@
     "back": "Back",
     "confirm": "Confirm",
     "all": "All",
+    "created_successfully": "Record created.",
+    "updated_successfully": "Changes saved.",
     "error_generic": "Something went wrong.",
     "empty": "No results.",
     "total": "Total",
@@ -45,6 +47,7 @@
     "remplissage": "Marks completion",
     "identification": "Photos & ID cards",
     "openMenu": "Open menu",
+    "hideMenu": "Collapse menu",
     "searchMenu": "Search menu…",
     "noMenuFound": "No menu found.",
     "statsPedagogiques": "Academic statistics",
@@ -98,6 +101,7 @@
     "edit": "Edit staff member",
     "nom_complet": "Full name",
     "fonction": "Role",
+    "enseignant": "Teacher",
     "departement": "Department",
     "matricule": "Staff ID",
     "telephone": "Phone",
@@ -150,6 +154,7 @@
     "edit": "Edit a subject",
     "nom": "Subject name",
     "abbreviation": "Abbreviation",
+    "coefficient": "Coefficient",
     "nom_en": "Name (English)",
     "notation": "Marked out of",
     "volets": "Assessment areas",
@@ -240,7 +245,7 @@
     "word": "Export to Word",
     "pdf": "Export to PDF",
     "carte": "ID card",
-    "attestation": "Enrollment certificate"
+    "attestation": "School attendance certificate"
   },
   "import": {
     "title": "Import an Excel file",
@@ -248,8 +253,10 @@
     "submit": "Import",
     "result": "{{imported}} row(s) imported, {{failed}} failure(s).",
     "updated": "{{count}} existing pupil(s) updated.",
+    "comptes_ouverts": "{{count}} login account(s) created — addresses as firstname.lastname@elite.school, default password.",
     "ignored": "{{count}} row(s) skipped: they belong to another school of the complex.",
     "classes_introuvables": "Unknown classes (pupils created without a class):",
+    "affectations_non_rattachees": "Duty posts kept as plain text, with no matching class:",
     "template_hint": "Expected columns (first row as headers):"
   },
   "niveaux": {

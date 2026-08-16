@@ -46,6 +46,13 @@ http.interceptors.response.use(
       errors: error.response?.data?.errors ?? null,
     }
 
+    // 423 : mot de passe provisoire encore en place. L'API ferme tout le reste,
+    // on conduit à la page de renouvellement sans alerte — ce n'est pas un
+    // incident, c'est une étape d'ouverture de compte.
+    if (error.response?.status === 423 && !window.location.pathname.startsWith('/mot-de-passe')) {
+      window.location.href = '/mot-de-passe'
+    }
+
     // Un refus d'autorisation se signale ici, une fois pour toute l'application :
     // l'API nomme le privilège manquant (cf. VerifierPermission), il n'y a donc
     // rien à reformuler page par page. La promesse est tout de même rejetée,
