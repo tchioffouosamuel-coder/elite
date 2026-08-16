@@ -144,8 +144,8 @@ export function PermissionsPage() {
         <EmptyState label="Aucune fonction dans le référentiel de cet établissement." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-          <Card className="h-fit p-0">
-            <ul className="divide-y divide-navy-100/70">
+          <Card className="h-fit overflow-hidden p-0 lg:sticky lg:top-0 lg:self-start">
+            <ul className="divide-y divide-navy-100/70 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
               {data.fonctions.map((fonction) => (
                 <li key={fonction.id}>
                   <button
