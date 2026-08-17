@@ -89,8 +89,8 @@ export function DepartementDetailPage() {
 
             {message && (
                 <div className={`rounded-lg p-4 flex items-center justify-between ${message.type === 'success'
-                        ? 'bg-green-50 text-green-800 border border-green-200'
-                        : 'bg-red-50 text-red-800 border border-red-200'
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
                     }`}>
                     <span>{message.text}</span>
                     <button onClick={() => setMessage(null)} className="ml-4">

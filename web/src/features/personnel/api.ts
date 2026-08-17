@@ -132,36 +132,39 @@ export async function fetchStatsPedagogiquesParDepartement(
 export async function exportStatistiquesAsPdf(
   id: number,
   trimestreId?: number,
-  deptNom: string = 'departement',
+  deptNom: string = "departement",
 ): Promise<void> {
   const url = `/departements/${id}/statistiques/pedagogiques/export-pdf`;
   const params = new URLSearchParams();
   if (trimestreId) {
-    params.append('trimestre_id', trimestreId.toString());
+    params.append("trimestre_id", trimestreId.toString());
   }
 
   try {
-    const response = await fetch(`${http.defaults.baseURL}${url}?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
+    const response = await fetch(
+      `${http.defaults.baseURL}${url}?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to export PDF');
+      throw new Error("Failed to export PDF");
     }
 
     const blob = await response.blob();
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `statistiques_${deptNom}_${new Date().toISOString().split('T')[0]}.pdf`;
+    link.download = `statistiques_${deptNom}_${new Date().toISOString().split("T")[0]}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
   } catch (error) {
-    console.error('Error exporting PDF:', error);
+    console.error("Error exporting PDF:", error);
     throw error;
   }
 }
