@@ -62,6 +62,14 @@ class CataloguePermissions
             'discipline.view' => ['Consulter absences et sanctions', 'View discipline records'],
             'discipline.manage' => ['Enregistrer absences et sanctions', 'Manage discipline records'],
         ]],
+        'infirmerie' => ['Infirmerie', 'Infirmary', [
+            'infirmerie.view' => ["Consulter les visites à l'infirmerie", 'View infirmary visits'],
+            'infirmerie.manage' => ["Enregistrer et modifier les visites à l'infirmerie", 'Manage infirmary visits'],
+        ]],
+        'bus' => ['Transport scolaire', 'School transport', [
+            'bus.view' => ['Consulter véhicules, trajets et affectations', 'View vehicles, routes and assignments'],
+            'bus.manage' => ['Gérer la flotte, les trajets et les affectations des élèves', 'Manage the fleet, routes and pupil assignments'],
+        ]],
         'bulletins' => ['Bulletins et statistiques', 'Reports and statistics', [
             'bulletins.view' => ['Consulter bulletins, palmarès et statistiques', 'View reports'],
             'bulletins.publish' => ['Publier les bulletins', 'Publish reports'],

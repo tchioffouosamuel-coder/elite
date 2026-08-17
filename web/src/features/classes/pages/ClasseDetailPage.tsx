@@ -1,19 +1,22 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, IdCard } from 'lucide-react'
+import { ArrowLeft, IdCard, QrCode } from 'lucide-react'
 import { fetchClasse } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { ClasseTabs } from '@/features/classes/pages/ClasseTabs'
+import { ClasseQrModal } from '@/features/classes/pages/ClasseQrModal'
 
 export function ClasseDetailPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const { id } = useParams<{ id: string }>()
   const classeId = Number(id)
+  const [qrOuvert, setQrOuvert] = useState(false)
 
   const { data: classe, isLoading, isError } = useQuery({ queryKey: ['classe', classeId], queryFn: () => fetchClasse(classeId) })
 
@@ -39,15 +42,25 @@ export function ClasseDetailPage() {
               .join(' · ')}
           </p>
         </div>
-        {can('eleves.view') && (
-          <Button variant="secondary" onClick={() => ouvrirDocument(`/classes/${classeId}/cartes-scolaires`)}>
-            <IdCard className="h-4 w-4" />
-            {t('export.carte')}
-          </Button>
-        )}
+        <div className="flex flex-none items-center gap-2">
+          {can('emploi_du_temps.manage') && classe.qr_token && (
+            <Button variant="secondary" onClick={() => setQrOuvert(true)}>
+              <QrCode className="h-4 w-4" />
+              Code QR
+            </Button>
+          )}
+          {can('eleves.view') && (
+            <Button variant="secondary" onClick={() => ouvrirDocument(`/classes/${classeId}/cartes-scolaires`)}>
+              <IdCard className="h-4 w-4" />
+              {t('export.carte')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <ClasseTabs classe={classe} />
+
+      {qrOuvert && <ClasseQrModal classe={classe} onClose={() => setQrOuvert(false)} />}
     </div>
   )
 }

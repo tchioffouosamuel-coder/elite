@@ -33,6 +33,12 @@ class SaveProgressionRequest extends FormRequest
             $regles[$chemin.'.*.titre'] = ['required', 'string', 'max:255'];
             $regles[$chemin.'.*.description'] = ['nullable', 'string', 'max:2000'];
             $regles[$chemin.'.*.duree_prevue'] = ['nullable', 'integer', 'min:1', 'max:200'];
+            // Fiche de préparation : uniquement pertinente sur une leçon, mais
+            // validée à plat comme le reste plutôt que par une règle conditionnelle.
+            $regles[$chemin.'.*.objectifs'] = ['nullable', 'string', 'max:2000'];
+            $regles[$chemin.'.*.materiel'] = ['nullable', 'string', 'max:2000'];
+            $regles[$chemin.'.*.activites'] = ['nullable', 'string', 'max:2000'];
+            $regles[$chemin.'.*.devoirs'] = ['nullable', 'string', 'max:2000'];
             // La séquence cible doit appartenir à l'établissement courant.
             $regles[$chemin.'.*.sequence_id'] = ['nullable', $this->scopedExistsSequence()];
         }

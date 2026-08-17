@@ -32,6 +32,54 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
     queryFn: () => fetchClassement(classeId),
   })
 
+  const colonnesClassement: Colonne<Classement['eleves'][number]>[] = [
+    {
+      cle: 'rang',
+      entete: t('resultats.rang'),
+      valeur: (e) => e.rang,
+      cellule: (e) => <span className="font-semibold">{e.rang ?? '—'}</span>,
+    },
+    {
+      cle: 'nom',
+      entete: t('eleves.nom_complet'),
+      valeur: (e) => e.nom_complet,
+      cellule: (e) => <span className="font-medium">{e.nom_complet}</span>,
+    },
+    {
+      cle: 'moyenne',
+      entete: t('resultats.moyenne'),
+      valeur: (e) => e.moyenne,
+      cellule: (e) => (e.moyenne !== null ? e.moyenne.toFixed(2) : '—'),
+    },
+    {
+      cle: 'cote',
+      entete: t('resultats.cote'),
+      valeur: (e) => e.cote,
+      cellule: (e) => <Badge tone={e.cote?.startsWith('A') ? 'green' : e.cote === 'D' ? 'red' : 'gold'}>{e.cote}</Badge>,
+    },
+    {
+      cle: 'mention',
+      entete: t('resultats.mention'),
+      cellule: (e) =>
+        e.mention && MENTION_LABEL[e.mention] ? (
+          <Badge tone={MENTION_LABEL[e.mention].tone}>{isFr ? MENTION_LABEL[e.mention].fr : MENTION_LABEL[e.mention].en}</Badge>
+        ) : null,
+    },
+    {
+      cle: 'bulletin',
+      entete: t('resultats.bulletin'),
+      cellule: (e) => (
+        <button
+          onClick={() => ouvrirBulletin(e.eleve_id)}
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          PDF
+        </button>
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       <Card>

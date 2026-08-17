@@ -20,6 +20,10 @@ import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
+import { InfirmeriePage } from '@/features/infirmerie/pages/InfirmeriePage'
+import { BusVehiculesPage } from '@/features/bus/pages/BusVehiculesPage'
+import { BusTrajetsPage } from '@/features/bus/pages/BusTrajetsPage'
+import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
 import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
@@ -33,6 +37,7 @@ import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolaires
 import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
+import { QrScanPage } from '@/features/progression/pages/QrScanPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
@@ -78,6 +83,10 @@ export const router = createBrowserRouter([
       { path: 'matieres/nouvelle', element: <ProtectedRoute permission="pedagogie.manage" masquerPourTitulaire><MatiereFormPage /></ProtectedRoute> },
       { path: 'matieres/:id/edit', element: <ProtectedRoute permission="pedagogie.manage" masquerPourTitulaire><MatiereFormPage /></ProtectedRoute> },
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },
+      { path: 'infirmerie', element: <ProtectedRoute permission="infirmerie.view"><InfirmeriePage /></ProtectedRoute> },
+      { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view"><BusVehiculesPage /></ProtectedRoute> },
+      { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view"><BusTrajetsPage /></ProtectedRoute> },
+      { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
@@ -87,6 +96,7 @@ export const router = createBrowserRouter([
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
+      { path: 'qr/:token', element: <ProtectedRoute permission="appel.manage" enseignantOnly><QrScanPage /></ProtectedRoute> },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },

@@ -36,6 +36,7 @@ export interface Classe {
   filiere: string | null;
   code_examen: string | null;
   capacite: number | null;
+  qr_token: string | null;
   effectif?: number;
   school_id?: number;
   niveau_id: number;

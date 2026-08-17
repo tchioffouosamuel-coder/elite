@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Trash2, Save, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Save, ChevronRight, NotebookPen } from 'lucide-react'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import {
   fetchProgramme,
@@ -10,8 +10,74 @@ import {
   type TypeItem,
 } from '@/features/progression/api'
 import { Button } from '@/shared/ui/Button'
+import { Modal } from '@/shared/ui/Modal'
+import { Textarea } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import type { ApiError } from '@/shared/types/api'
+
+/** Fiche de préparation d'une leçon : objectifs, matériel, activités, devoirs. */
+function PreparationModal({
+  item,
+  onClose,
+  onSave,
+}: {
+  item: ProgressionItem
+  onClose: () => void
+  onSave: (champ: Partial<ProgressionItem>) => void
+}) {
+  const [objectifs, setObjectifs] = useState(item.objectifs ?? '')
+  const [materiel, setMateriel] = useState(item.materiel ?? '')
+  const [activites, setActivites] = useState(item.activites ?? '')
+  const [devoirs, setDevoirs] = useState(item.devoirs ?? '')
+
+  return (
+    <Modal title={`Préparer « ${item.titre || 'la leçon'} »`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <Textarea
+          label="Objectifs d'apprentissage"
+          value={objectifs}
+          onChange={(e) => setObjectifs(e.target.value)}
+          placeholder="Ce que l'élève doit savoir faire à l'issue de la leçon"
+        />
+        <Textarea
+          label="Matériel pédagogique"
+          value={materiel}
+          onChange={(e) => setMateriel(e.target.value)}
+          placeholder="Livres, supports numériques, matériel de manipulation…"
+          rows={2}
+        />
+        <Textarea
+          label="Activités prévues"
+          value={activites}
+          onChange={(e) => setActivites(e.target.value)}
+          placeholder="Déroulé des activités en classe"
+        />
+        <Textarea
+          label="Devoirs"
+          value={devoirs}
+          onChange={(e) => setDevoirs(e.target.value)}
+          placeholder="Travail à donner aux élèves"
+          rows={2}
+        />
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button
+            onClick={() => {
+              onSave({ objectifs, materiel, activites, devoirs })
+              onClose()
+            }}
+          >
+            <Save className="h-4 w-4" />
+            Valider
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 /** Ce qu'un élément peut contenir : la leçon est toujours terminale. */
 const ENFANTS_AUTORISES: Record<TypeItem, TypeItem[]> = {
@@ -89,6 +155,13 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
     setItems((liste) => transformer(liste, chemin, (l, i) => l.filter((_, j) => j !== i)))
   }
 
+  const [preparationChemin, setPreparationChemin] = useState<number[] | null>(null)
+
+  const trouver = (liste: ProgressionItem[], chemin: number[]): ProgressionItem => {
+    const [index, ...reste] = chemin
+    return reste.length === 0 ? liste[index] : trouver(liste[index].enfants, reste)
+  }
+
   const enregistrer = async () => {
     setSubmitting(true)
     setMessage(null)
@@ -147,6 +220,21 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
               <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">
                 {t('progression.traitee')}
               </span>
+            )}
+
+            {estLecon && (
+              <button
+                onClick={() => setPreparationChemin(monChemin)}
+                title="Fiche de préparation"
+                className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold hover:bg-cream-100 ${
+                  item.objectifs || item.materiel || item.activites || item.devoirs
+                    ? 'text-gold-600'
+                    : 'text-navy-500'
+                }`}
+              >
+                <NotebookPen className="h-3.5 w-3.5" />
+                Préparer
+              </button>
             )}
 
             {ENFANTS_AUTORISES[item.type].map((type) => (
@@ -222,6 +310,14 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
           ))}
         </div>
       </div>
+
+      {preparationChemin && (
+        <PreparationModal
+          item={trouver(items, preparationChemin)}
+          onClose={() => setPreparationChemin(null)}
+          onSave={(champ) => modifier(preparationChemin, champ)}
+        />
+      )}
     </div>
   )
 }

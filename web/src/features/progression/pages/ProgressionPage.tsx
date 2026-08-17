@@ -11,6 +11,8 @@ import { Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { ProgrammeEditor } from '@/features/progression/pages/ProgrammeEditor'
+import { EvaluationsEditor } from '@/features/progression/pages/EvaluationsEditor'
+import { ChampsPersonnalisesEditor } from '@/features/progression/pages/ChampsPersonnalisesEditor'
 
 /** Barre d'avancement, lue d'un coup d'œil dans un tableau. */
 function Jauge({ taux }: { taux: number }) {
@@ -80,7 +82,13 @@ export function ProgressionPage() {
       </div>
 
       {classeMatiereId !== '' ? (
-        can('pedagogie.view') && <ProgrammeEditor classeMatiereId={Number(classeMatiereId)} />
+        can('pedagogie.view') && (
+          <div className="flex flex-col gap-5">
+            <ProgrammeEditor classeMatiereId={Number(classeMatiereId)} />
+            <EvaluationsEditor classeMatiereId={Number(classeMatiereId)} />
+            <ChampsPersonnalisesEditor classeMatiereId={Number(classeMatiereId)} />
+          </div>
+        )
       ) : isLoading ? (
         <Spinner />
       ) : !etablissement || etablissement.length === 0 ? (

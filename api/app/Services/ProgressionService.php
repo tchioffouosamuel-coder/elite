@@ -54,6 +54,10 @@ class ProgressionService extends BaseService
                 'description' => $item->description,
                 'ordre' => $item->ordre,
                 'duree_prevue' => $item->duree_prevue,
+                'objectifs' => $item->objectifs,
+                'materiel' => $item->materiel,
+                'activites' => $item->activites,
+                'devoirs' => $item->devoirs,
                 'sequence' => $item->sequence ? [
                     'id' => $item->sequence->id,
                     'libelle' => $item->sequence->libelle,
@@ -188,9 +192,13 @@ class ProgressionService extends BaseService
                 'titre' => $noeud['titre'],
                 'description' => $noeud['description'] ?? null,
                 'ordre' => $ordre + 1,
-                // Seule une leçon porte une séquence cible.
+                // Seule une leçon porte une séquence cible et une préparation.
                 'sequence_id' => $noeud['type'] === 'lecon' ? ($noeud['sequence_id'] ?? null) : null,
                 'duree_prevue' => $noeud['type'] === 'lecon' ? ($noeud['duree_prevue'] ?? null) : null,
+                'objectifs' => $noeud['type'] === 'lecon' ? ($noeud['objectifs'] ?? null) : null,
+                'materiel' => $noeud['type'] === 'lecon' ? ($noeud['materiel'] ?? null) : null,
+                'activites' => $noeud['type'] === 'lecon' ? ($noeud['activites'] ?? null) : null,
+                'devoirs' => $noeud['type'] === 'lecon' ? ($noeud['devoirs'] ?? null) : null,
             ];
 
             $item = isset($noeud['id'])

@@ -9,10 +9,24 @@ import { Button } from '@/shared/ui/Button'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 
-export function NotesTab({ classeId }: { classeId: number }) {
+export function NotesTab({
+  classeId,
+  initialMatiereId,
+  onBack,
+}: {
+  classeId: number
+  initialMatiereId?: number | null
+  onBack?: () => void
+}) {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedMatiereId, setSelectedMatiereId] = useState<number | null>(null)
+  const [selectedMatiereId, setSelectedMatiereId] = useState<number | null>(initialMatiereId ?? null)
+
+  useEffect(() => {
+    if (initialMatiereId !== undefined) {
+      setSelectedMatiereId(initialMatiereId)
+    }
+  }, [initialMatiereId])
 
   const { data: affectations } = useQuery({
     queryKey: ['classe-matieres', classeId],
@@ -31,7 +45,10 @@ export function NotesTab({ classeId }: { classeId: number }) {
     return (
       <div className="flex flex-col gap-4">
         <button
-          onClick={() => setSelectedMatiereId(null)}
+          onClick={() => {
+            setSelectedMatiereId(null)
+            onBack?.()
+          }}
           className="flex items-center gap-2 text-sm text-navy-600 hover:text-navy-800 font-medium"
         >
           ← {t('common.back')}

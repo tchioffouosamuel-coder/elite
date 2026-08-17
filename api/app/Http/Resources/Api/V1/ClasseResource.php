@@ -17,6 +17,7 @@ class ClasseResource extends JsonResource
             'filiere' => $this->filiere,
             'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
+            'qr_token' => $this->qr_token,
             'niveau_id' => $this->niveau_id,
             'niveau_scolaire_id' => $this->niveau_scolaire_id,
             'sous_systeme_id' => $this->sous_systeme_id,

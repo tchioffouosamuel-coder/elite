@@ -174,7 +174,11 @@ export function DataTable<T>({
                       <button
                         onClick={() => basculerTri(colonne.cle)}
                         className={clsx(
-                          'inline-flex items-center gap-1.5 transition-colors hover:text-navy-800',
+                          // Les boutons ne suivent pas naturellement le `uppercase` posé sur
+                          // <thead> (feuille de style par défaut des navigateurs pour les
+                          // contrôles de formulaire) : sans ce rappel explicite, seules les
+                          // colonnes non triables (texte brut) apparaîtraient en majuscules.
+                          'inline-flex items-center gap-1.5 uppercase transition-colors hover:text-navy-800',
                           actif && 'text-navy-800',
                         )}
                       >

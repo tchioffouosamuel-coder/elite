@@ -1,6 +1,7 @@
 import {
   type InputHTMLAttributes,
   type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
   type ReactNode,
   type ComponentType,
   type Ref,
@@ -56,6 +57,24 @@ export function Input({ label, error, className, id, icon: Icon, ...props }: Inp
           {...props}
         />
       </div>
+    </FieldWrapper>
+  )
+}
+
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string
+  error?: string
+}
+
+export function Textarea({ label, error, className, id, rows = 3, ...props }: TextareaProps) {
+  return (
+    <FieldWrapper label={label} error={error} htmlFor={id}>
+      <textarea
+        id={id}
+        rows={rows}
+        className={clsx(fieldClasses, 'resize-y', error && 'border-red-400 focus:border-red-400 focus:ring-red-100', className)}
+        {...props}
+      />
     </FieldWrapper>
   )
 }

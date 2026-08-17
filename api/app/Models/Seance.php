@@ -13,11 +13,12 @@ class Seance extends Model
     protected $fillable = [
         'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id',
         'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'statut',
+        'observations', 'donnees_personnalisees',
     ];
 
     protected function casts(): array
     {
-        return ['date_seance' => 'date'];
+        return ['date_seance' => 'date', 'donnees_personnalisees' => 'array'];
     }
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder

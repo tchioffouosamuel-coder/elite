@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
+use App\Http\Controllers\Api\V1\BusAffectationController;
+use App\Http\Controllers\Api\V1\BusTrajetController;
+use App\Http\Controllers\Api\V1\BusVehiculeController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
@@ -14,6 +17,7 @@ use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
+use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
@@ -40,6 +44,7 @@ use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
+use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
@@ -202,18 +207,28 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
+                Route::get('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'champs'])->name('champs-personnalises.index');
+                Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
+                Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');
+                Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
+                Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');
+                Route::delete('evaluations/{id}', [EvaluationController::class, 'destroy'])->name('evaluations.destroy');
             });
 
             /*
              * « Ma journée » : déclarer les leçons traitées et faire l'appel.
              * Ouvert à qui peut pointer une classe — l'enseignant y est en outre
-             * restreint à ses propres affectations par le service.
+             * restreint à ses propres affectations par le service. Les routes
+             * littérales (couverture, qr/{token}) précèdent le paramètre
+             * générique {classeMatiereId} pour ne pas s'y faire happer.
              */
             Route::middleware('permission:appel.manage')->group(function () {
+                Route::get('ma-journee/couverture', [MaJourneeController::class, 'couverture'])->name('ma-journee.couverture');
+                Route::get('ma-journee/qr/{token}', [MaJourneeController::class, 'resoudreQr'])->name('ma-journee.qr');
                 Route::get('ma-journee', [MaJourneeController::class, 'affectations'])->name('ma-journee.affectations');
                 Route::get('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'feuille'])->name('ma-journee.feuille');
                 Route::post('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'enregistrer'])->name('ma-journee.enregistrer');
@@ -411,6 +426,40 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes/{classeId}/absences', [AbsenceController::class, 'bulkStore'])->name('absences.bulk-store');
                 Route::post('sanctions', [SanctionController::class, 'store'])->name('sanctions.store');
                 Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy');
+            });
+
+            Route::middleware('permission:infirmerie.view')->group(function () {
+                Route::get('infirmerie/visites', [VisiteInfirmerieController::class, 'index'])->name('infirmerie.visites.index');
+            });
+
+            Route::middleware('permission:infirmerie.manage')->group(function () {
+                Route::post('infirmerie/visites', [VisiteInfirmerieController::class, 'store'])->name('infirmerie.visites.store');
+                Route::put('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'update'])->name('infirmerie.visites.update');
+                Route::delete('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'destroy'])->name('infirmerie.visites.destroy');
+            });
+
+            Route::middleware('permission:bus.view')->group(function () {
+                Route::get('bus/vehicules', [BusVehiculeController::class, 'index'])->name('bus.vehicules.index');
+                Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
+                Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
+                Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
+            });
+
+            Route::middleware('permission:bus.manage')->group(function () {
+                Route::post('bus/vehicules', [BusVehiculeController::class, 'store'])->name('bus.vehicules.store');
+                Route::put('bus/vehicules/{id}', [BusVehiculeController::class, 'update'])->name('bus.vehicules.update');
+                Route::delete('bus/vehicules/{id}', [BusVehiculeController::class, 'destroy'])->name('bus.vehicules.destroy');
+
+                Route::post('bus/trajets', [BusTrajetController::class, 'store'])->name('bus.trajets.store');
+                Route::put('bus/trajets/{id}', [BusTrajetController::class, 'update'])->name('bus.trajets.update');
+                Route::delete('bus/trajets/{id}', [BusTrajetController::class, 'destroy'])->name('bus.trajets.destroy');
+                Route::post('bus/trajets/{trajetId}/arrets', [BusTrajetController::class, 'ajouterArret'])->name('bus.arrets.store');
+                Route::put('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'modifierArret'])->name('bus.arrets.update');
+                Route::delete('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'supprimerArret'])->name('bus.arrets.destroy');
+
+                Route::post('bus/affectations', [BusAffectationController::class, 'store'])->name('bus.affectations.store');
+                Route::put('bus/affectations/{id}', [BusAffectationController::class, 'update'])->name('bus.affectations.update');
+                Route::delete('bus/affectations/{id}', [BusAffectationController::class, 'destroy'])->name('bus.affectations.destroy');
             });
         });
     });

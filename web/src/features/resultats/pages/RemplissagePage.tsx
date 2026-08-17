@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ListChecks } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
-import { fetchRemplissage } from '@/features/resultats/api'
+import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
 import { fetchMesAffectations } from '@/features/progression/api'
+import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { useAuthStore } from '@/shared/store/authStore'
+import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
-import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 
 /** Vert au-delà de ce taux, rouge en dessous de la moitié — repère visuel de _smapp. */
 function couleurTaux(taux: number): string {
@@ -19,9 +22,11 @@ function couleurTaux(taux: number): string {
 }
 
 export function RemplissagePage() {
+  const { t } = useTranslation()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const [classeId, setClasseId] = useState<number | ''>('')
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
+  const [matiereSelectionnee, setMatiereSelectionnee] = useState<number | null>(null)
 
   // Un enseignant ne doit choisir que parmi les classes où il intervient
   // (titulaire ou matière affectée) — pas la liste complète de l'établissement,
@@ -57,6 +62,58 @@ export function RemplissagePage() {
     queryFn: () => fetchRemplissage(classeActive!, trimestreId ? Number(trimestreId) : undefined),
     enabled: classeActive !== null,
   })
+
+  const colonnes: Colonne<Remplissage['matieres'][number]>[] = [
+    {
+      cle: 'matiere',
+      entete: 'Matière',
+      valeur: (ligne) => ligne.matiere,
+      cellule: (ligne) => <span className="font-medium">{ligne.matiere}</span>,
+    },
+    ...(estEnseignant
+      ? []
+      : [
+        {
+          cle: 'enseignant',
+          entete: 'Enseignant',
+          valeur: (ligne: Remplissage['matieres'][number]) => ligne.enseignant,
+          cellule: (ligne: Remplissage['matieres'][number]) => ligne.enseignant ?? '—',
+        } satisfies Colonne<Remplissage['matieres'][number]>,
+      ]),
+    {
+      cle: 'volets',
+      entete: 'Total volets',
+      valeur: (ligne) => ligne.volets?.length ?? null,
+      cellule: (ligne) => <span className="text-center font-semibold">{ligne.volets ? ligne.volets.length : '—'}</span>,
+    },
+    {
+      cle: 'avancement',
+      entete: 'Avancement',
+      cellule: (ligne) => (
+        <div className="h-2 w-40 overflow-hidden rounded-full bg-navy-100">
+          <div className={`h-full rounded-full ${couleurTaux(ligne.taux)}`} style={{ width: `${Math.min(ligne.taux, 100)}%` }} />
+        </div>
+      ),
+    },
+    {
+      cle: 'taux',
+      entete: 'Taux',
+      valeur: (ligne) => ligne.taux,
+      cellule: (ligne) => <span className="font-semibold">{ligne.taux.toFixed(1)} %</span>,
+    },
+  ]
+
+  if (matiereSelectionnee && classeActive !== null) {
+    return (
+      <div className="flex flex-col gap-4">
+        <NotesTab
+          classeId={classeActive}
+          initialMatiereId={matiereSelectionnee}
+          onBack={() => setMatiereSelectionnee(null)}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,35 +176,14 @@ export function RemplissagePage() {
           <EmptyState label="Aucune matière affectée à cette classe." />
         </Card>
       ) : (
-        <Table>
-          <Thead>
-            <tr>
-              <Th>Matière</Th>
-              <Th>Enseignant</Th>
-              <Th>Total volets</Th>
-              <Th>Avancement</Th>
-              <Th>Taux</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {data.matieres.map((ligne) => (
-              <Tr key={ligne.classe_matiere_id}>
-                <Td className="font-medium">{ligne.matiere}</Td>
-                <Td>{ligne.enseignant ?? '—'}</Td>
-                <Td className="text-center font-semibold">{ligne.volets ? ligne.volets.length : '—'}</Td>
-                <Td>
-                  <div className="h-2 w-40 overflow-hidden rounded-full bg-navy-100">
-                    <div
-                      className={`h-full rounded-full ${couleurTaux(ligne.taux)}`}
-                      style={{ width: `${Math.min(ligne.taux, 100)}%` }}
-                    />
-                  </div>
-                </Td>
-                <Td className="font-semibold">{ligne.taux.toFixed(1)} %</Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable
+          colonnes={colonnes}
+          lignes={data.matieres}
+          cleLigne={(ligne) => ligne.classe_matiere_id}
+          placeholderRecherche="Rechercher une matière…"
+          messageVide="Aucune matière affectée à cette classe."
+          onLigneClick={(ligne) => setMatiereSelectionnee(ligne.classe_matiere_id)}
+        />
       )}
     </div>
   )

@@ -38,6 +38,9 @@ import {
   Tags,
   PanelLeftClose,
   PanelLeftOpen,
+  HeartPulse,
+  Bus,
+  Route as RouteIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -130,6 +133,19 @@ const navGroups = [
         // suivent l'assiduité par l'appel, sans sanctionner.
         types: ['secondaire'] as TypeEcole[],
       },
+    ],
+  },
+  {
+    label: 'nav.group.sante',
+    items: [
+      { to: '/infirmerie', label: 'nav.infirmerie', icon: HeartPulse, permission: 'infirmerie.view', masquerPourTitulaire: true },
+    ],
+  },
+  {
+    label: 'nav.group.transport',
+    items: [
+      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true },
+      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true },
     ],
   },
   {
@@ -264,7 +280,7 @@ export function AppLayout() {
           return { ...group, items }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, estTitulaireDeClasse],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse],
   )
 
   /**

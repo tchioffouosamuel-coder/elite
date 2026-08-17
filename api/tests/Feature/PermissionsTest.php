@@ -146,7 +146,7 @@ class PermissionsTest extends TestCase
 
         $this->actingAs($root, 'sanctum')->getJson('/api/v1/permissions')
             ->assertOk()
-            ->assertJsonCount(14, 'data.modules');
+            ->assertJsonCount(CataloguePermissions::parModule()->count(), 'data.modules');
     }
 
     public function test_le_super_admin_modifie_le_groupe_de_privileges_d_une_fonction(): void

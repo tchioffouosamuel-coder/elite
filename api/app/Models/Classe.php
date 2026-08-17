@@ -6,9 +6,17 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Classe extends Model
 {
+    protected static function booted(): void
+    {
+        // Chaque classe porte un jeton dès sa création : la salle qu'on lui
+        // affecte peut ainsi afficher son QR code sans étape supplémentaire.
+        static::creating(fn (self $classe) => $classe->qr_token ??= (string) Str::uuid());
+    }
+
     protected $fillable = [
         'school_id',
         'niveau_id',
@@ -26,6 +34,7 @@ class Classe extends Model
         'filiere',
         'code_examen',
         'capacite',
+        'qr_token',
     ];
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder

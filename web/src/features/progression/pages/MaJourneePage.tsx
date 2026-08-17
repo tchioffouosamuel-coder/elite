@@ -1,20 +1,62 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarCheck, Save } from 'lucide-react'
+import { CalendarCheck, Save, Clock } from 'lucide-react'
 import {
   fetchMesAffectations,
   fetchFeuilleJournee,
   enregistrerJournee,
+  fetchHeuresCouverture,
   MOTIFS,
   type MotifAbsence,
   type LigneAppel,
 } from '@/features/progression/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { Select, Input } from '@/shared/ui/Field'
+import { Select, Input, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import type { ApiError } from '@/shared/types/api'
+
+/** Heures de cours prévues vs réalisées de l'enseignant, depuis le début de l'année. */
+function CouvertureStats() {
+  const { data } = useQuery({ queryKey: ['heures-couverture'], queryFn: fetchHeuresCouverture })
+
+  if (!data || data.heures_prevues === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
+      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-navy-50 text-navy-600">
+        <Clock className="h-4.5 w-4.5" />
+      </span>
+      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-1">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">Heures de couverture</p>
+          <p className="text-sm text-navy-700">
+            <span className="font-bold tabular-nums text-navy-900">{data.heures_realisees}h</span>
+            {' réalisées sur '}
+            <span className="font-semibold tabular-nums">{data.heures_prevues}h</span>
+            {' prévues'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-28 overflow-hidden rounded-full bg-navy-100">
+            <div
+              className={`h-full rounded-full ${data.taux >= 90 ? 'bg-green-500' : data.taux >= 60 ? 'bg-gold-500' : 'bg-red-500'}`}
+              style={{ width: `${Math.min(100, data.taux)}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold tabular-nums text-navy-600">{data.taux}%</span>
+        </div>
+        {data.seances_en_retard > 0 && (
+          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+            {data.seances_en_retard} séance{data.seances_en_retard > 1 ? 's' : ''} en retard
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 /**
  * L'enseignant déclare ce qu'il vient de faire : les leçons traitées et
@@ -23,11 +65,17 @@ import type { ApiError } from '@/shared/types/api'
  */
 export function MaJourneePage() {
   const { t } = useTranslation()
+  const location = useLocation()
+  // Arrivée depuis le scan d'un QR code de salle : l'affectation résolue est
+  // déjà connue, pas besoin de la faire choisir une seconde fois.
+  const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
 
-  const [affectationId, setAffectationId] = useState<number | ''>('')
+  const [affectationId, setAffectationId] = useState<number | ''>(preselection ?? '')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [lecons, setLecons] = useState<Set<number>>(new Set())
   const [appel, setAppel] = useState<LigneAppel[]>([])
+  const [observations, setObservations] = useState('')
+  const [donneesPersonnalisees, setDonneesPersonnalisees] = useState<Record<string, string | number | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -54,6 +102,8 @@ export function MaJourneePage() {
     if (!feuille) return
     setLecons(new Set(feuille.lecons.filter((l) => l.faite_aujourdhui).map((l) => l.id)))
     setAppel(feuille.appel)
+    setObservations(feuille.seance.observations ?? '')
+    setDonneesPersonnalisees(feuille.seance.donnees_personnalisees ?? {})
   }, [feuille])
 
   const basculerLecon = (id: number) => {
@@ -93,6 +143,8 @@ export function MaJourneePage() {
         date,
         lecons: [...lecons],
         appel: appel.map((l) => ({ eleve_id: l.eleve_id, statut: l.statut, motif: l.motif })),
+        observations: observations || null,
+        donnees_personnalisees: donneesPersonnalisees,
       })
       setMessage(t('journee.saved'))
       refetch()
@@ -108,6 +160,8 @@ export function MaJourneePage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader titre={t('journee.title')} sousTitre={t('journee.hint')} icon={CalendarCheck} />
+
+      <CouvertureStats />
 
       {chargementAffectations ? (
         <Spinner />
@@ -214,6 +268,51 @@ export function MaJourneePage() {
                     )
                   })}
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
+                <h2 className="mb-3 font-display text-base font-bold text-navy-800">Observations</h2>
+
+                  {feuille.champs_personnalises.length > 0 && (
+                    <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {feuille.champs_personnalises.map((champ) => (
+                        <label key={champ.id} className="flex flex-col gap-1.5">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                            {champ.libelle}
+                          </span>
+                          {champ.type === 'case' ? (
+                            <input
+                              type="checkbox"
+                              checked={Boolean(donneesPersonnalisees[champ.id])}
+                              onChange={(e) =>
+                                setDonneesPersonnalisees((d) => ({ ...d, [champ.id]: e.target.checked }))
+                              }
+                              className="h-4 w-4 rounded border-navy-300"
+                            />
+                          ) : (
+                            <input
+                              type={champ.type === 'nombre' ? 'number' : 'text'}
+                              value={(donneesPersonnalisees[champ.id] as string | number | undefined) ?? ''}
+                              onChange={(e) =>
+                                setDonneesPersonnalisees((d) => ({
+                                  ...d,
+                                  [champ.id]: champ.type === 'nombre' ? Number(e.target.value) : e.target.value,
+                                }))
+                              }
+                              className="rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+                            />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <Textarea
+                    label="Note de fin de cours"
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                    placeholder="Difficultés rencontrées, points à revoir, comportement de la classe…"
+                  />
               </div>
 
               <div className="flex items-center gap-3">

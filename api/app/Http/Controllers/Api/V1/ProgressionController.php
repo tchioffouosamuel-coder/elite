@@ -7,9 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveProgressionRequest;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\ChampPersonnalise;
 use App\Services\ProgressionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Programme d'enseignement annuel — modules, chapitres et leçons — et taux
@@ -59,6 +61,61 @@ class ProgressionController extends Controller
             app('tenant.school_id'),
             $request->integer('annee_scolaire_id') ?: null,
         ));
+    }
+
+    /** Champs personnalisés définis pour une matière (tableaux d'informations spécifiques). */
+    public function champs(int $classeMatiereId): JsonResponse
+    {
+        $classeMatiere = $this->affectation($classeMatiereId);
+
+        return ApiResponse::success(
+            ChampPersonnalise::where('classe_matiere_id', $classeMatiere->id)
+                ->orderBy('ordre')->orderBy('id')
+                ->get(['id', 'libelle', 'type', 'ordre'])
+        );
+    }
+
+    public function enregistrerChamps(Request $request, int $classeMatiereId): JsonResponse
+    {
+        $classeMatiere = $this->affectation($classeMatiereId);
+
+        $data = $request->validate([
+            'champs' => ['present', 'array'],
+            'champs.*.id' => ['nullable', 'integer'],
+            'champs.*.libelle' => ['required', 'string', 'max:100'],
+            'champs.*.type' => ['required', Rule::in(ChampPersonnalise::TYPES)],
+        ]);
+
+        $conserves = [];
+
+        foreach (array_values($data['champs']) as $ordre => $champ) {
+            $attributs = [
+                'classe_matiere_id' => $classeMatiere->id,
+                'libelle' => $champ['libelle'],
+                'type' => $champ['type'],
+                'ordre' => $ordre + 1,
+            ];
+
+            $item = isset($champ['id'])
+                ? ChampPersonnalise::where('classe_matiere_id', $classeMatiere->id)->find($champ['id'])
+                : null;
+
+            $item = $item ? tap($item)->update($attributs) : ChampPersonnalise::create($attributs);
+            $conserves[] = $item->id;
+        }
+
+        // Un champ retiré de l'éditeur disparaît ; les valeurs déjà saisies
+        // dans les séances passées restent en base, simplement orphelines.
+        ChampPersonnalise::where('classe_matiere_id', $classeMatiere->id)
+            ->whereNotIn('id', $conserves ?: [0])
+            ->delete();
+
+        return ApiResponse::success(
+            ChampPersonnalise::where('classe_matiere_id', $classeMatiere->id)
+                ->orderBy('ordre')->orderBy('id')
+                ->get(['id', 'libelle', 'type', 'ordre']),
+            'Champs personnalisés enregistrés.'
+        );
     }
 
     private function affectation(int $id): ClasseMatiere
