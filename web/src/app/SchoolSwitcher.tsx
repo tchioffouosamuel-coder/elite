@@ -15,7 +15,7 @@ const LIBELLE_TYPE: Record<string, string> = {
  * Bascule d'un établissement du complexe à l'autre. N'apparaît que si le compte
  * en couvre plusieurs — un compte rattaché à une seule école n'a rien à choisir.
  */
-export function SchoolSwitcher() {
+export function SchoolSwitcher({ redirectTo = '/' }: { redirectTo?: string }) {
   const [ouvert, setOuvert] = useState(false)
   const { user, activeSchoolId, setActiveSchool } = useAuthStore()
   const queryClient = useQueryClient()
@@ -34,7 +34,7 @@ export function SchoolSwitcher() {
     // Tout le cache est scopé par établissement : le vider évite d'afficher
     // les classes de l'école précédente le temps du rechargement.
     queryClient.clear()
-    navigate('/')
+    navigate(redirectTo)
   }
 
   return (

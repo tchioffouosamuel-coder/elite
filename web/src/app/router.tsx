@@ -3,6 +3,7 @@ import { AppLayout } from '@/app/AppLayout'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ChangerMotDePassePage } from '@/features/auth/pages/ChangerMotDePassePage'
+import { UserProfilePage } from '@/features/auth/pages/UserProfilePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
@@ -11,6 +12,7 @@ import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsRe
 import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
+import { QrCodesPage } from '@/features/classes/pages/QrCodesPage'
 import { MaClassePage } from '@/features/classes/pages/MaClassePage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
@@ -25,6 +27,7 @@ import { VisiteInfirmerieFormPage } from '@/features/infirmerie/pages/VisiteInfi
 import { BusVehiculesPage } from '@/features/bus/pages/BusVehiculesPage'
 import { BusTrajetsPage } from '@/features/bus/pages/BusTrajetsPage'
 import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
+import { BusArretsPage } from '@/features/bus/pages/BusArretsPage'
 import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
 import { BusSouscriptionPage } from '@/features/bus/pages/BusSouscriptionPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
@@ -42,9 +45,11 @@ import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { QrScanPage } from '@/features/progression/pages/QrScanPage'
+import { QrScannerPage } from '@/features/progression/pages/QrScannerPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
+import { EncaissementPage } from '@/features/finance/pages/EncaissementPage'
 import { DepensesPage } from '@/features/finance/pages/DepensesPage'
 import { PaiePage } from '@/features/finance/pages/PaiePage'
 import { RapportsFinanciersPage } from '@/features/finance/pages/RapportsFinanciersPage'
@@ -66,6 +71,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
+      { path: 'profil', element: <ProtectedRoute><UserProfilePage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
       { path: 'personnel/nouveau', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'personnel/:id/edit', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
@@ -93,6 +99,7 @@ export const router = createBrowserRouter([
       { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view"><BusVehiculesPage /></ProtectedRoute> },
       { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view"><BusTrajetsPage /></ProtectedRoute> },
       { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
+      { path: 'bus/arrets', element: <ProtectedRoute permission="bus.view"><BusArretsPage /></ProtectedRoute> },
       { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
       { path: 'bus/souscription', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
@@ -104,8 +111,10 @@ export const router = createBrowserRouter([
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'seances/:id/appel', element: <ProtectedRoute permission="appel.manage"><AppelPage /></ProtectedRoute> },
+      { path: 'codes-qr', element: <ProtectedRoute permission="emploi_du_temps.manage"><QrCodesPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
+      { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
       {
         path: 'qr/:token',
         // Un censeur ou un admin peut aussi scanner pour dépanner une classe —
@@ -117,6 +126,7 @@ export const router = createBrowserRouter([
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
       { path: 'caisse', element: <ProtectedRoute permission="finance.view"><CaissePage /></ProtectedRoute> },
+      { path: 'caisse/encaisser/:eleveId', element: <ProtectedRoute permission="finance.encaisser"><EncaissementPage /></ProtectedRoute> },
       { path: 'tarifs', element: <ProtectedRoute permission="finance.view"><TarifsPage /></ProtectedRoute> },
       { path: 'depenses', element: <ProtectedRoute permission="finance.view"><DepensesPage /></ProtectedRoute> },
       { path: 'salaires', element: <ProtectedRoute permission="finance.paie"><RemunerationsPage /></ProtectedRoute> },

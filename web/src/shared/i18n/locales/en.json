@@ -42,6 +42,7 @@
     "infirmerie": "Infirmary",
     "busVehicules": "Vehicles",
     "busTrajets": "Routes",
+    "busArrets": "Stops",
     "busAffectations": "Bus students",
     "palmares": "Honor roll",
     "session": "School year",
@@ -53,14 +54,17 @@
     "rapportsFinanciers": "Financial reports",
     "permissions": "Privileges",
     "parametres": "Settings",
+    "profile": "User profile",
     "logout": "Log out",
     "emploiDuTemps": "Timetable",
     "seances": "Sessions & roll call",
+    "codesQr": "QR codes",
     "bulletins": "Report cards",
     "remplissage": "Marks completion",
     "identification": "Photos & ID cards",
     "openMenu": "Open menu",
     "hideMenu": "Collapse menu",
+    "topbarMenu": "Top navigation",
     "searchMenu": "Search menu…",
     "noMenuFound": "No menu found.",
     "statsPedagogiques": "Academic statistics",
@@ -84,6 +88,7 @@
     "niveauxGlobaux": "Global levels",
     "progression": "Progress",
     "maJournee": "My day",
+    "scannerQr": "Scan a QR code",
     "transferts": "Bulk transfers"
   },
   "auth": {
@@ -343,11 +348,18 @@
     "toutes_classes": "All classes",
     "souscription_created": "Subscription saved.",
     "no_tarif_defini": "No fare set for this option — set it on the route.",
-    "voir_trajet": "View route"
+    "voir_trajet": "View route",
+    "arrets_title": "Bus stops",
+    "arrets_subtitle": "Every stop, across all routes.",
+    "search_arret": "Search a stop…",
+    "empty_arrets_page": "No stop registered.",
+    "trajet_select": "Route"
   },
   "settings": {
     "title": "School settings",
     "saved": "Preferences saved.",
+    "active_school": "Active school",
+    "switch_school_hint": "Choose the school to configure. Page data reloads after switching.",
     "ecole": "School",
     "nom": "School name",
     "adresse": "Address",
@@ -356,6 +368,27 @@
     "header_fr": "Document header (French)",
     "header_en": "Document header (English)",
     "profil_saved": "School profile saved."
+  },
+  "profile": {
+    "title": "User profile",
+    "subtitle": "Signed-in account, active school and available privileges.",
+    "super_admin": "Super admin",
+    "teacher": "Teacher",
+    "account_id": "Account ID",
+    "roles": "Roles",
+    "active_school": "Active school",
+    "permissions_count": "Privileges",
+    "quick_actions": "Quick actions",
+    "quick_actions_hint": "Access settings available for this account.",
+    "open_settings": "Open settings",
+    "accessible_schools": "Accessible schools",
+    "permissions": "Effective privileges",
+    "no_permissions": "No direct privilege to display.",
+    "school_type": {
+      "maternelle": "Nursery",
+      "primaire": "Primary",
+      "secondaire": "Secondary"
+    }
   },
   "session": {
     "title": "School year",
@@ -450,7 +483,9 @@
     "lecons": "Lessons covered",
     "appel": "Register",
     "resume_appel": "{{presents}} present, {{absents}} absent",
-    "saved": "Day saved."
+    "saved": "Day saved.",
+    "scanner_title": "Scan a QR code",
+    "scanner_hint": "Point the camera at the code on the classroom wall to open the scheduled lesson."
   },
   "finance": {
     "title": "Finance",
@@ -490,6 +525,44 @@
         "prime_recherche": "Research & lesson",
         "prime_performance": "Performance"
       }
+    },
+    "reports": {
+      "title": "Financial reports",
+      "subtitle": "Income statement, cash position and trial balance — rebuilt from the accounting journal.",
+      "from": "From",
+      "to": "To",
+      "tabs": {
+        "dashboard": "Dashboard",
+        "income_statement": "Income statement",
+        "cash_flow": "Cash position",
+        "balance": "Trial balance"
+      },
+      "tuition_recovery": "Tuition recovery",
+      "recovered_on_expected": "{{recovered}} of {{expected}}",
+      "remaining_to_collect": "Remaining to collect",
+      "insolvent_count": "{{count}} insolvent",
+      "staff_cost": "Staff cost",
+      "stopped_payslips_count": "{{count}} closed payslip(s)",
+      "available_cash": "Available cash",
+      "fiscal_year_result": "Fiscal year result",
+      "income": "Income",
+      "expenses": "Expenses",
+      "result": "Result",
+      "pending_stopped_salaries": "{{amount}} in closed salaries still needs to be paid.",
+      "period_result": "Period result",
+      "expense_ratio": "Expense ratio",
+      "revenue_absorbed": "of revenue absorbed",
+      "cash_balances": "Cash balances",
+      "available": "Available",
+      "general_balance": "General trial balance",
+      "balanced": "Balanced",
+      "unbalanced": "Unbalanced — incomplete entry",
+      "account": "Account",
+      "debit": "Debit",
+      "credit": "Credit",
+      "balance_column": "Balance",
+      "totals": "Totals",
+      "no_movement": "No movement over the period."
     }
   },
   "emploiDuTemps": {

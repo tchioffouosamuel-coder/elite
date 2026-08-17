@@ -13,6 +13,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Spinner } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { SchoolSwitcher } from '@/app/SchoolSwitcher'
 
 const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   evaluations: { fr: 'Évaluations', en: 'Grading' },
@@ -23,6 +24,7 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
 
 export function SettingsPage() {
   const ecoleActive = useAuthStore((s) => s.activeSchool())
+  const nbEcolesAccessibles = useAuthStore((s) => s.user?.ecoles_accessibles.length ?? 0)
   const { t, i18n } = useTranslation()
   const isFr = i18n.language === 'fr'
   const queryClient = useQueryClient()
@@ -73,6 +75,20 @@ export function SettingsPage() {
           </Button>
         }
       />
+
+      {nbEcolesAccessibles > 1 && (
+        <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-base font-bold tracking-tight text-navy-900">
+              {t('settings.active_school')}
+            </h2>
+            <p className="mt-1 text-sm text-navy-500">{t('settings.switch_school_hint')}</p>
+          </div>
+          <div className="w-full sm:w-auto sm:min-w-80">
+            <SchoolSwitcher redirectTo="/parametres" />
+          </div>
+        </Card>
+      )}
 
       {/* Chaque école du complexe a ses propres seuils : le rappeler évite de
           croire qu'on règle le complexe entier depuis cet écran. */}

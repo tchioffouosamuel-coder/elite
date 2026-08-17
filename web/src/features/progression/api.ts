@@ -88,9 +88,8 @@ export interface AffectationJournee {
   classe_id: number
   classe: string
   matiere: string
-  /** Nul au primaire/maternelle : seul le secondaire dépend d'un créneau fixe. */
-  heure_debut: string | null
-  heure_fin: string | null
+  heure_debut: string
+  heure_fin: string
 }
 
 export interface LigneAppel {
@@ -172,10 +171,15 @@ export async function fetchHeuresCouverture(): Promise<HeuresCouverture> {
 }
 
 /** Résout le cours en cours dans une salle à partir de son QR code. */
-export async function resoudreQr(token: string): Promise<{ classe_matiere_id: number; classe: string; matiere: string }> {
-  const { data } = await http.get<ApiResponse<{ classe_matiere_id: number; classe: string; matiere: string }>>(
-    `/ma-journee/qr/${token}`,
-  )
+export interface ResolutionQr {
+  classe_matiere_id: number
+  classe_id: number
+  classe: string
+  matiere: string
+}
+
+export async function resoudreQr(token: string): Promise<ResolutionQr> {
+  const { data } = await http.get<ApiResponse<ResolutionQr>>(`/ma-journee/qr/${token}`)
   return data.data
 }
 

@@ -85,15 +85,15 @@ export function MaJourneePage() {
     queryFn: () => fetchMesAffectations(date),
   })
 
-  // Un seul rattachement — cas du titulaire au primaire : rien à choisir.
+  // Un seul rattachement ce jour-là : rien à choisir.
   useEffect(() => {
     if (affectationId === '' && affectations?.length === 1) {
       setAffectationId(affectations[0].classe_matiere_id)
     }
   }, [affectations, affectationId])
 
-  // Au secondaire, la liste dépend de l'emploi du temps du jour : un
-  // changement de date peut faire disparaître le créneau sélectionné.
+  // La liste dépend de l'emploi du temps du jour : un changement de date peut
+  // faire disparaître le créneau sélectionné.
   useEffect(() => {
     if (affectationId === '' || !affectations) return
     if (!affectations.some((a) => a.classe_matiere_id === affectationId)) {
@@ -192,8 +192,7 @@ export function MaJourneePage() {
               <option value="">—</option>
               {affectations.map((a) => (
                 <option key={a.classe_matiere_id} value={a.classe_matiere_id}>
-                  {a.classe} — {a.matiere}
-                  {a.heure_debut && a.heure_fin ? ` (${a.heure_debut} - ${a.heure_fin})` : ''}
+                  {a.classe} — {a.matiere} ({a.heure_debut} - {a.heure_fin})
                 </option>
               ))}
             </Select>

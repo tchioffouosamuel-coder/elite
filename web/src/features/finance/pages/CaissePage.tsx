@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -13,15 +14,7 @@ import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchClasses } from '@/features/classes/api'
-import {
-  fetchDossier,
-  fetchSituation,
-  annulerVersement,
-  francs,
-  type DossierScolarite,
-  type StatutPaiement,
-} from '@/features/finance/api'
-import { EncaissementModal } from '@/features/finance/pages/EncaissementModal'
+import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
@@ -60,12 +53,11 @@ export function CaissePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
-  const [dossierActif, setDossierActif] = useState<DossierScolarite | null>(null)
-  const [ouverture, setOuverture] = useState<number | null>(null)
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -78,28 +70,6 @@ export function CaissePage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] })
-
-  /**
-   * Un eleve sans dossier en porte un projete (`id` nul) : on l'ouvre au
-   * moment d'encaisser, pas a l'affichage de la liste. Consulter la caisse
-   * ne doit pas creer 269 dossiers a des familles qui n'ont rien verse.
-   */
-  const ouvrirEtEncaisser = async (dossier: DossierScolarite) => {
-    if (dossier.id !== null) {
-      setDossierActif(dossier)
-      return
-    }
-
-    try {
-      setOuverture(dossier.eleve.id)
-      setDossierActif(await fetchDossier(dossier.eleve.id))
-    } catch (e) {
-      const err = e as ApiError
-      if (err.status !== 403) erreur(err.message)
-    } finally {
-      setOuverture(null)
-    }
-  }
 
   const annuler = async (dossier: DossierScolarite) => {
     const dernier = dossier.versements?.filter((v) => !v.annule).at(-1)
@@ -181,9 +151,9 @@ export function CaissePage() {
         return (
           <div className="flex justify-end gap-1.5">
             {can('finance.encaisser') && (
-              <Button size="sm" disabled={ouverture === d.eleve.id} onClick={() => ouvrirEtEncaisser(d)}>
+              <Button size="sm" onClick={() => navigate(`/caisse/encaisser/${d.eleve.id}`)}>
                 <Wallet className="h-3.5 w-3.5" />
-                {ouverture === d.eleve.id ? 'Ouverture…' : 'Encaisser'}
+                Encaisser
               </Button>
             )}
             {dernier && (
@@ -268,17 +238,6 @@ export function CaissePage() {
             }
           />
         </>
-      )}
-
-      {dossierActif && (
-        <EncaissementModal
-          dossier={dossierActif}
-          onClose={() => setDossierActif(null)}
-          onEncaisse={() => {
-            setDossierActif(null)
-            rafraichir()
-          }}
-        />
       )}
     </div>
   )

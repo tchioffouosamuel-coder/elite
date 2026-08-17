@@ -48,6 +48,7 @@ class RecuVersementGenerator
                 .$this->enTete($school)
                 .$this->titre()
                 .$this->mentions($versement, $dossier)
+                .$this->repartitionVersement($versement)
                 .$this->historiqueVersements($dossier, $versement)
                 .$this->historiqueAccessoires($dossier)
                 .$this->pied($versement)
@@ -134,6 +135,30 @@ class RecuVersementGenerator
 
         return '<tr><td class="cle'.$classe.'">'.$this->e($libelle).'</td>'
             .'<td class="montant'.$classe.'">'.$this->francs($montant).'</td></tr>';
+    }
+
+    /**
+     * Ce que couvre ce versement précisément — scolarité, tel frais annexe,
+     * transport — pas seulement son total. Une famille qui verse un montant
+     * partiel doit savoir sur quoi il a été imputé, sans avoir à recalculer
+     * la ventilation automatique elle-même.
+     */
+    private function repartitionVersement(Versement $versement): string
+    {
+        $lignes = $versement->lignes->where('montant', '>', 0);
+
+        if ($lignes->isEmpty()) {
+            return '';
+        }
+
+        $html = '<div class="sep"></div><div class="section">Répartition du versement</div><table class="hist">';
+
+        foreach ($lignes as $ligne) {
+            $html .= '<tr><td>'.$this->e($ligne->libelle).'</td>'
+                .'<td class="montant">'.$this->francs($ligne->montant).'</td></tr>';
+        }
+
+        return $html.'</table>';
     }
 
     /**

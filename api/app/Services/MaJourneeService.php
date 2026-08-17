@@ -7,7 +7,6 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\ProgressionItem;
-use App\Models\School;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
@@ -18,13 +17,10 @@ use RuntimeException;
 /**
  * Journée de l'enseignant : ce qu'il a enseigné et qui était là.
  *
- * Le point d'entrée diffère selon le cycle. Au secondaire l'enseignant
- * intervient dans plusieurs classes selon un emploi du temps précis : « Ma
- * journée » ne lui propose donc que les créneaux réellement prévus ce
- * jour-là, à leur horaire réel — il ne déclare pas un cours qui n'existe pas
- * sur sa grille. Au primaire et en maternelle il est titulaire d'une seule
- * classe qu'il tient toute la journée, sans grille aussi fine à respecter ;
- * le choix reste donc libre pour ce cycle.
+ * Uniforme sur tous les cycles : l'emploi du temps fait foi partout. « Ma
+ * journée » ne propose donc que les créneaux réellement prévus ce jour-là, à
+ * leur horaire réel — jamais un cours ou un horaire inventé, que ce soit en
+ * maternelle, au primaire ou au secondaire.
  */
 class MaJourneeService extends BaseService
 {
@@ -32,7 +28,8 @@ class MaJourneeService extends BaseService
 
     /**
      * Affectations sur lesquelles l'enseignant peut travailler à la date
-     * donnée (aujourd'hui par défaut).
+     * donnée (aujourd'hui par défaut) — uniquement celles prévues ce jour-là
+     * dans l'emploi du temps.
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -54,24 +51,6 @@ class MaJourneeService extends BaseService
             ->with(['classe', 'matiere'])
             ->get();
 
-        $secondaire = School::find($schoolId)?->estSecondaire() ?? false;
-
-        if (! $secondaire) {
-            return $classeMatieres
-                ->sortBy(fn (ClasseMatiere $cm) => $cm->classe->nom.' '.$cm->matiere->nom)
-                ->map(fn (ClasseMatiere $cm) => [
-                    'classe_matiere_id' => $cm->id,
-                    'classe_id' => $cm->classe->id,
-                    'classe' => $cm->classe->nom,
-                    'matiere' => $cm->matiere->nom,
-                    'heure_debut' => null,
-                    'heure_fin' => null,
-                ])
-                ->values();
-        }
-
-        // Secondaire : seuls les créneaux réellement prévus ce jour-là dans
-        // l'emploi du temps, à leur horaire réel — jamais un horaire inventé.
         $jour = Carbon::parse($date ?? now())->dayOfWeekIso;
 
         // Le premier créneau du jour par affectation : « Ma journée » ne garde
@@ -106,23 +85,20 @@ class MaJourneeService extends BaseService
     /**
      * Séance du jour pour une affectation, créée à la volée si l'enseignant
      * n'en a pas encore ouvert une : il déclare ce qu'il vient de faire, il
-     * n'a pas à planifier d'abord. Au secondaire l'horaire vient toujours du
-     * créneau réel de l'emploi du temps — jamais d'un horaire par défaut
-     * inventé, qui rendrait la déclaration incohérente avec la grille.
+     * n'a pas à planifier d'abord. L'horaire vient toujours du créneau réel
+     * de l'emploi du temps — jamais d'un horaire par défaut inventé, qui
+     * rendrait la déclaration incohérente avec la grille.
      */
     public function seanceDuJour(ClasseMatiere $classeMatiere, string $date): Seance
     {
         $classe = $classeMatiere->classe;
-        $secondaire = $classe->school?->estSecondaire() ?? false;
 
-        $creneau = $secondaire
-            ? EmploiDuTemps::where('classe_matiere_id', $classeMatiere->id)
-                ->where('jour', Carbon::parse($date)->dayOfWeekIso)
-                ->orderBy('heure_debut')
-                ->first()
-            : null;
+        $creneau = EmploiDuTemps::where('classe_matiere_id', $classeMatiere->id)
+            ->where('jour', Carbon::parse($date)->dayOfWeekIso)
+            ->orderBy('heure_debut')
+            ->first();
 
-        if ($secondaire && ! $creneau) {
+        if (! $creneau) {
             throw new RuntimeException(
                 "Aucun créneau n'est prévu pour {$classeMatiere->matiere->nom} ce jour-là dans l'emploi du temps."
             );
@@ -137,8 +113,8 @@ class MaJourneeService extends BaseService
                 'school_id' => $classe->school_id,
                 'classe_id' => $classe->id,
                 'trimestre_id' => $this->trimestreDe($classe, $date)?->id,
-                'heure_debut' => $creneau?->heure_debut ?? '08:00',
-                'heure_fin' => $creneau?->heure_fin ?? '09:00',
+                'heure_debut' => $creneau->heure_debut,
+                'heure_fin' => $creneau->heure_fin,
                 'statut' => 'prevue',
             ]
         );

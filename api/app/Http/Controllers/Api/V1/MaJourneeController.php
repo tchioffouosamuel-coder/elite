@@ -125,6 +125,7 @@ class MaJourneeController extends Controller
 
         return ApiResponse::success([
             'classe_matiere_id' => $classeMatiere->id,
+            'classe_id' => $classe->id,
             'classe' => $classe->nom,
             'matiere' => $classeMatiere->matiere?->nom,
         ]);

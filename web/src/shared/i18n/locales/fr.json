@@ -42,6 +42,7 @@
     "infirmerie": "Infirmerie",
     "busVehicules": "Véhicules",
     "busTrajets": "Trajets",
+    "busArrets": "Arrêts",
     "busAffectations": "Élèves du bus",
     "palmares": "Palmarès",
     "session": "Année scolaire",
@@ -53,14 +54,17 @@
     "rapportsFinanciers": "Rapports financiers",
     "permissions": "Privilèges",
     "parametres": "Paramètres",
+    "profile": "Profil utilisateur",
     "logout": "Déconnexion",
     "emploiDuTemps": "Emploi du temps",
     "seances": "Séances & appel",
+    "codesQr": "Codes QR",
     "bulletins": "Bulletins",
     "remplissage": "Remplissage des notes",
     "identification": "Photos & cartes",
     "openMenu": "Ouvrir le menu",
     "hideMenu": "Réduire le menu",
+    "topbarMenu": "Navigation supérieure",
     "searchMenu": "Rechercher un menu…",
     "noMenuFound": "Aucun menu trouvé.",
     "statsPedagogiques": "Stats pédagogiques",
@@ -84,6 +88,7 @@
     "niveauxGlobaux": "Niveaux globaux",
     "progression": "Progression",
     "maJournee": "Ma journée",
+    "scannerQr": "Scanner un code QR",
     "transferts": "Transferts en masse"
   },
   "auth": {
@@ -352,11 +357,18 @@
     "toutes_classes": "Toutes les classes",
     "souscription_created": "Souscription enregistrée.",
     "no_tarif_defini": "Aucun tarif défini pour cette option — renseignez-le sur le trajet.",
-    "voir_trajet": "Voir le trajet"
+    "voir_trajet": "Voir le trajet",
+    "arrets_title": "Arrêts de bus",
+    "arrets_subtitle": "Tous les arrêts, tous trajets confondus.",
+    "search_arret": "Rechercher un arrêt…",
+    "empty_arrets_page": "Aucun arrêt enregistré.",
+    "trajet_select": "Trajet"
   },
   "settings": {
     "title": "Paramètres de l'établissement",
     "saved": "Préférences enregistrées.",
+    "active_school": "Établissement actif",
+    "switch_school_hint": "Choisissez l'école à paramétrer. Les données de la page se rechargent après bascule.",
     "ecole": "Établissement",
     "nom": "Nom de l'établissement",
     "adresse": "Adresse",
@@ -365,6 +377,27 @@
     "header_fr": "En-tête des documents (Français)",
     "header_en": "En-tête des documents (Anglais)",
     "profil_saved": "Profil de l'établissement enregistré."
+  },
+  "profile": {
+    "title": "Profil utilisateur",
+    "subtitle": "Compte connecté, établissement actif et privilèges disponibles.",
+    "super_admin": "Super administrateur",
+    "teacher": "Enseignant",
+    "account_id": "Identifiant",
+    "roles": "Rôles",
+    "active_school": "École active",
+    "permissions_count": "Privilèges",
+    "quick_actions": "Actions rapides",
+    "quick_actions_hint": "Accès aux réglages disponibles pour ce compte.",
+    "open_settings": "Ouvrir les paramètres",
+    "accessible_schools": "Écoles accessibles",
+    "permissions": "Privilèges effectifs",
+    "no_permissions": "Aucun privilège direct à afficher.",
+    "school_type": {
+      "maternelle": "Maternelle",
+      "primaire": "Primaire",
+      "secondaire": "Secondaire"
+    }
   },
   "session": {
     "title": "Année scolaire",
@@ -430,7 +463,9 @@
     "lecons": "Leçons traitées",
     "appel": "Appel",
     "resume_appel": "{{presents}} présent(s), {{absents}} absent(s)",
-    "saved": "Journée enregistrée."
+    "saved": "Journée enregistrée.",
+    "scanner_title": "Scanner un code QR",
+    "scanner_hint": "Visez le code affiché au mur de la salle pour ouvrir directement le cours prévu."
   },
   "niveauxGlobaux": {
     "title": "Niveaux globaux",
@@ -490,6 +525,44 @@
         "prime_recherche": "Recherche & leçon",
         "prime_performance": "Performance"
       }
+    },
+    "reports": {
+      "title": "Rapports financiers",
+      "subtitle": "Résultat, trésorerie et balance — reconstruits depuis le journal comptable.",
+      "from": "Du",
+      "to": "Au",
+      "tabs": {
+        "dashboard": "Tableau de bord",
+        "income_statement": "Compte de résultat",
+        "cash_flow": "Trésorerie",
+        "balance": "Balance"
+      },
+      "tuition_recovery": "Recouvrement scolarité",
+      "recovered_on_expected": "{{recovered}} sur {{expected}}",
+      "remaining_to_collect": "Reste à recouvrer",
+      "insolvent_count": "{{count}} insolvable(s)",
+      "staff_cost": "Coût du personnel",
+      "stopped_payslips_count": "{{count}} bulletin(s) arrêté(s)",
+      "available_cash": "Trésorerie disponible",
+      "fiscal_year_result": "Résultat de l'exercice",
+      "income": "Produits",
+      "expenses": "Charges",
+      "result": "Résultat",
+      "pending_stopped_salaries": "{{amount}} de salaires arrêtés restent à régler.",
+      "period_result": "Résultat de la période",
+      "expense_ratio": "Taux de charges",
+      "revenue_absorbed": "des recettes absorbées",
+      "cash_balances": "Soldes de trésorerie",
+      "available": "Disponible",
+      "general_balance": "Balance générale",
+      "balanced": "Équilibrée",
+      "unbalanced": "Déséquilibrée — écriture incomplète",
+      "account": "Compte",
+      "debit": "Débit",
+      "credit": "Crédit",
+      "balance_column": "Solde",
+      "totals": "Totaux",
+      "no_movement": "Aucun mouvement sur la période."
     }
   },
   "emploiDuTemps": {
