@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchGrilleNotes, sauvegarderNotes } from '@/features/notes/api'
 import { Input, Select } from '@/shared/ui/Field'
@@ -64,7 +64,7 @@ export function NotesTab({
         placeholder={t('common.search')}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        icon="search"
+        icon={Search}
       />
 
       {!filteredMatieres || filteredMatieres.length === 0 ? (
@@ -109,7 +109,7 @@ interface NotesDetailProps {
   matiere: any
 }
 
-function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
+function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [sequenceId, setSequenceId] = useState<number | ''>('')

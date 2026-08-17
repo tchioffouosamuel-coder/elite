@@ -1,6 +1,6 @@
 import { clsx } from 'clsx'
 
-type Tone = 'neutral' | 'green' | 'red' | 'gold' | 'blue'
+type Tone = 'neutral' | 'green' | 'red' | 'gold' | 'blue' | 'purple'
 
 export function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: Tone }) {
   const toneClasses: Record<Tone, string> = {
@@ -9,6 +9,7 @@ export function Badge({ children, tone = 'neutral' }: { children: React.ReactNod
     red: 'bg-red-50 text-red-600 ring-red-100',
     gold: 'bg-gold-50 text-gold-600 ring-gold-100',
     blue: 'bg-blue-50 text-blue-600 ring-blue-100',
+    purple: 'bg-purple-50 text-purple-600 ring-purple-100',
   }
 
   return (

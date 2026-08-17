@@ -1,16 +1,16 @@
-import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Input, Select } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
-import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses } from '@/features/classes/api'
-import { createEleve, updateEleve, fetchEleves, type Eleve, type ElevePayload } from '@/features/eleves/api'
+import { createEleve, updateEleve, fetchEleves, type ElevePayload } from '@/features/eleves/api'
 import type { ApiError } from '@/shared/types/api'
 import { succes } from '@/shared/lib/alertes'
 
@@ -27,9 +27,31 @@ function useLienParenteOptions() {
 interface TuteurFormData {
     nom_complet: string
     telephone?: string
+    profession?: string
     lien_parente?: string
+    // Précision libre saisie quand `lien_parente` vaut "autre" — combinée avec
+    // lui à la soumission ("autre: <précision>"), jamais envoyée telle quelle.
     lien_parente_autre?: string
     is_principal?: boolean
+}
+
+/**
+ * Type du formulaire, distinct de `ElevePayload` : le champ `lien_parente_autre`
+ * n'existe que côté saisie (fusionné dans `lien_parente` à la soumission), et
+ * `refugie`/`deplace_interne` transitent par `''` tant que le select n'a pas
+ * été choisi — deux états que l'API elle-même n'accepte pas.
+ */
+interface EleveFormValues {
+    nom_complet: string
+    sexe: 'M' | 'F' | ''
+    date_naissance?: string
+    lieu_naissance?: string
+    numero_acte_naissance?: string
+    adresse?: string
+    refugie?: 'Oui' | 'Non' | ''
+    deplace_interne?: 'Oui' | 'Non' | ''
+    classe_id?: number
+    tuteurs: TuteurFormData[]
 }
 
 export function EleveInscriptionPage() {
@@ -60,7 +82,7 @@ export function EleveInscriptionPage() {
         reset,
         formState: { errors },
         watch,
-    } = useForm<ElevePayload>({
+    } = useForm<EleveFormValues>({
         defaultValues: eleve
             ? {
                 nom_complet: eleve.nom_complet,
@@ -117,12 +139,12 @@ export function EleveInscriptionPage() {
         { id: 'confirmation', label: t('eleves.inscription.step_confirmation_label'), description: t('eleves.inscription.step_confirmation_description') },
     ]
 
-    const onSubmit = async (values: any) => {
+    const onSubmit = async (values: EleveFormValues) => {
         setServerError(null)
         setSubmitting(true)
         try {
             // Traiter les tuteurs pour combiner lien_parente et lien_parente_autre
-            const tuteurs = (values.tuteurs ?? []).map((tuteur: any) => {
+            const tuteurs = (values.tuteurs ?? []).map((tuteur) => {
                 const { lien_parente_autre, ...rest } = tuteur
                 let lien_parente = rest.lien_parente
 
@@ -139,7 +161,7 @@ export function EleveInscriptionPage() {
 
             const payload: ElevePayload = {
                 nom_complet: values.nom_complet,
-                sexe: values.sexe,
+                sexe: values.sexe as 'M' | 'F',
                 date_naissance: values.date_naissance,
                 lieu_naissance: values.lieu_naissance,
                 adresse: values.adresse,
@@ -164,10 +186,13 @@ export function EleveInscriptionPage() {
 
     return (
         <div className="min-h-screen bg-navy-50 py-8 px-4">
+            <Link to="/eleves" className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
+                <ArrowLeft className="h-4 w-4" />
+                {t('common.back')}
+            </Link>
             <PageHeader
-                title={eleve ? t('eleves.edit') : t('eleves.add')}
-                description={eleve ? t('eleves.inscription.page_description_edit') : t('eleves.inscription.page_description_create')}
-                onBack={() => navigate('/eleves')}
+                titre={eleve ? t('eleves.edit') : t('eleves.add')}
+                sousTitre={eleve ? t('eleves.inscription.page_description_edit') : t('eleves.inscription.page_description_create')}
             />
 
             {isLoading && eleveId ? (

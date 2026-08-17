@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
 import {
   fetchGrillePrimaire,
@@ -92,7 +92,7 @@ export function NotesPrimaireTab({
         placeholder={t('common.search')}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        icon="search"
+        icon={Search}
       />
 
       {!filteredMatieres || filteredMatieres.length === 0 ? (
@@ -133,7 +133,7 @@ interface NotesPrimaireDetailProps {
   matiere: any
 }
 
-function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: NotesPrimaireDetailProps) {
+function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [trimestreId, setTrimestreId] = useState<number | ''>('')

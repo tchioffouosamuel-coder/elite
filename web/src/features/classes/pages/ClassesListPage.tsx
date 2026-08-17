@@ -108,7 +108,7 @@ export function ClassesListPage() {
               className="rounded border-gray-300"
             />
           ),
-          largeur: 50,
+          largeur: '50px',
         } satisfies Colonne<Classe>,
       ]
       : []),

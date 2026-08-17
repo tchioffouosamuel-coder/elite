@@ -21,12 +21,6 @@ function debutJour(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function maintenantLocal(): string {
-  const date = new Date()
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
-  return date.toISOString().slice(0, 16)
-}
-
 function formatDateHeure(valeur: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     day: '2-digit',

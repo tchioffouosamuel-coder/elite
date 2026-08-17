@@ -6,7 +6,6 @@ import { StatCard, Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 
 export function DashboardPage() {
-  const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboardStats })
 
   if (isLoading) return <Spinner />

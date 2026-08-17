@@ -162,6 +162,15 @@ const navGroups = [
         // suivent l'assiduité par l'appel, sans sanctionner.
         types: ['secondaire'] as TypeEcole[],
       },
+      // Classée ici plutôt que sous « Résultats » : c'est un suivi de la
+      // discipline (sanctions, exclusions), pas des notes — même si la
+      // permission qui la protège reste `bulletins.view`, côté API.
+      {
+        to: '/stats-disciplinaires',
+        label: 'nav.statsDisciplinaires',
+        icon: BarChart3,
+        permission: 'bulletins.view',
+      },
     ],
   },
   {
@@ -192,7 +201,6 @@ const navGroups = [
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view' },
-      { to: '/stats-disciplinaires', label: 'nav.statsDisciplinaires', icon: ShieldAlert, permission: 'bulletins.view' },
     ],
   },
   {

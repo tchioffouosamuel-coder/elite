@@ -214,7 +214,7 @@ export function MaJourneePage() {
           {affectationId === '' ? (
             <EmptyState label={t('journee.choisir')} />
           ) : isError ? (
-            <EmptyState label={(erreurFeuille as ApiError)?.message ?? t('journee.aucun_creneau_ce_jour')} />
+            <EmptyState label={(erreurFeuille as unknown as ApiError)?.message ?? t('journee.aucun_creneau_ce_jour')} />
           ) : isLoading || !feuille ? (
             <Spinner />
           ) : (

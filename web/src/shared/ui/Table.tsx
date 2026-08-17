@@ -24,8 +24,8 @@ export function Thead({ children }: { children: ReactNode }) {
 }
 
 /** children optionnel : les colonnes d'actions n'ont pas d'intitulé. */
-export function Th({ children }: { children?: ReactNode }) {
-  return <th className="whitespace-nowrap px-4 py-3.5 font-semibold">{children}</th>
+export function Th({ children, className }: { children?: ReactNode; className?: string }) {
+  return <th className={clsx('whitespace-nowrap px-4 py-3.5 font-semibold', className)}>{children}</th>
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {

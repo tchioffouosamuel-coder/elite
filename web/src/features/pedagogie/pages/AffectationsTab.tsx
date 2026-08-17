@@ -169,7 +169,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
     invalidate()
   }
 
-  const colonnes: Colonne<typeof affectations extends (infer T)[] ? (T extends { id: number } ? T : never) : never>[] =
+  const colonnes: Colonne<ClasseMatiere>[] =
     affectations
       ? [
         ...(can('pedagogie.manage')
@@ -187,7 +187,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
                   />
                 </div>
               ),
-              cellule: (a) => (
+              cellule: (a: ClasseMatiere) => (
                 <div className="flex justify-center">
                   <input
                     type="checkbox"
@@ -213,14 +213,14 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
             {
               cle: 'enseignant',
               entete: t('pedagogie.enseignant'),
-              valeur: (a: (typeof affectations)[number]) => a.enseignant?.nom_complet ?? '',
-              cellule: (a: (typeof affectations)[number]) => a.enseignant?.nom_complet ?? '—',
+              valeur: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '',
+              cellule: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '—',
             },
             {
               cle: 'coefficient',
               entete: t('pedagogie.coefficient'),
-              valeur: (a: (typeof affectations)[number]) => a.coefficient,
-              cellule: (a: (typeof affectations)[number]) => a.coefficient,
+              valeur: (a: ClasseMatiere) => a.coefficient,
+              cellule: (a: ClasseMatiere) => a.coefficient,
             },
           ]
           : [
@@ -230,8 +230,8 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
             {
               cle: 'notation',
               entete: t('matieres.notation'),
-              valeur: (a: (typeof affectations)[number]) => matieresById.get(a.matiere.id)?.notation ?? 0,
-              cellule: (a: (typeof affectations)[number]) => {
+              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.notation ?? 0,
+              cellule: (a: ClasseMatiere) => {
                 const notation = matieresById.get(a.matiere.id)?.notation
                 return notation ? `/${notation}` : '—'
               },
@@ -239,7 +239,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
             {
               cle: 'volets',
               entete: t('matieres.repartition_volets'),
-              cellule: (a: (typeof affectations)[number]) => {
+              cellule: (a: ClasseMatiere) => {
                 const matiere = matieresById.get(a.matiere.id)
                 if (!matiere) return '—'
 
@@ -264,7 +264,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
             {
               cle: 'actions',
               entete: t('common.actions'),
-              cellule: (a) => (
+              cellule: (a: ClasseMatiere) => (
                 <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => {
