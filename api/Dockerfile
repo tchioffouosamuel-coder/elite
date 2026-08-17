@@ -2,7 +2,7 @@
 #
 # Image de production pour l'API Laravel, pensée pour Render (Docker Web
 # Service, un seul conteneur qui doit écouter sur $PORT). Apache + PHP-FPM
-# intégré (php:8.3-apache) plutôt que nginx+php-fpm séparés : un seul
+# intégré (php:8.4-apache) plutôt que nginx+php-fpm séparés : un seul
 # processus web à superviser, suffisant pour une API sans usage massif.
 #
 # Le planificateur Laravel (`withSchedule` dans bootstrap/app.php — rapport
@@ -19,51 +19,49 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-# --no-scripts : les scripts composer (ex. package:discover) ont besoin du
-# reste de l'application, pas encore copiée à ce stade — on les rejoue après.
+# Suppression de --ignore-platform-reqs afin que Composer vérifie la compatibilité
 RUN composer install \
     --no-dev \
     --no-interaction \
     --no-scripts \
-    --no-autoloader \
-    --ignore-platform-reqs
+    --no-autoloader
 
 COPY . .
 
 RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
 
 # ---------------------------------------------------------------------------
-# Étape 2 — image d'exécution
+# Étape 2 — image d'exécution (Mise à jour vers PHP 8.4)
 # ---------------------------------------------------------------------------
-FROM php:8.3-apache AS app
+FROM php:8.4-apache AS app
 
 # Bibliothèques système requises par les extensions PHP ci-dessous et par les
 # packages composer qui en dépendent (mpdf, dompdf, phpoffice/phpword,
 # maatwebsite/excel, endroid/qr-code génèrent des PDF/QR/Excel avec gd, zip,
 # xml, mbstring…).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        cron \
-        supervisor \
-        libzip-dev \
-        libpng-dev \
-        libjpeg62-turbo-dev \
-        libfreetype6-dev \
-        libonig-dev \
-        libxml2-dev \
-        libicu-dev \
-        unzip \
-        git \
+    cron \
+    supervisor \
+    libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libicu-dev \
+    unzip \
+    git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
-        pdo_mysql \
-        gd \
-        zip \
-        bcmath \
-        intl \
-        exif \
-        mbstring \
-        xml \
-        opcache \
+    pdo_mysql \
+    gd \
+    zip \
+    bcmath \
+    intl \
+    exif \
+    mbstring \
+    xml \
+    opcache \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
