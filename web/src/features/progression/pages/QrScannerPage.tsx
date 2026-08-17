@@ -33,6 +33,9 @@ export function QrScannerPage() {
   const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<QrScanner | null>(null)
+  // Le callback de décodage est capturé une fois par QrScanner (effet à deps
+  // vides) : un state serait figé dans cette fermeture, une ref reste à jour.
+  const resolutionEnCoursRef = useRef(false)
 
   const [etat, setEtat] = useState<'demarrage' | 'scan' | 'resolution' | 'erreur' | 'pas_de_camera'>('demarrage')
   const [erreur, setErreur] = useState<string | null>(null)
@@ -85,11 +88,12 @@ export function QrScannerPage() {
   const traiterDecodage = async (texteDecode: string) => {
     // Un seul décodage à la fois : sans ça, chaque frame suivante relancerait
     // une résolution tant que le QR reste dans le cadre.
-    if (etat === 'resolution') return
+    if (resolutionEnCoursRef.current) return
 
     const token = extraireToken(texteDecode)
     if (!token) return
 
+    resolutionEnCoursRef.current = true
     scannerRef.current?.stop()
     setEtat('resolution')
     setErreur(null)
@@ -100,6 +104,8 @@ export function QrScannerPage() {
     } catch (e) {
       setErreur((e as ApiError).message)
       setEtat('erreur')
+    } finally {
+      resolutionEnCoursRef.current = false
     }
   }
 
