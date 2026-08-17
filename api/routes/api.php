@@ -443,6 +443,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
+                Route::get('bus/eleves', [BusAffectationController::class, 'eleves'])->name('bus.eleves');
             });
 
             Route::middleware('permission:bus.manage')->group(function () {
@@ -459,6 +460,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'supprimerArret'])->name('bus.arrets.destroy');
 
                 Route::post('bus/affectations', [BusAffectationController::class, 'store'])->name('bus.affectations.store');
+                Route::post('bus/souscriptions-lot', [BusAffectationController::class, 'souscrireLot'])->name('bus.affectations.souscrire-lot');
                 Route::put('bus/affectations/{id}', [BusAffectationController::class, 'update'])->name('bus.affectations.update');
                 Route::delete('bus/affectations/{id}', [BusAffectationController::class, 'destroy'])->name('bus.affectations.destroy');
             });

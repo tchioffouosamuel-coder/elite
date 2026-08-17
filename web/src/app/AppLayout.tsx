@@ -146,7 +146,7 @@ const navGroups = [
     items: [
       { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true },
       { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true },
-      { to: '/bus/affectations', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true },
+      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true },
     ],
   },
   {
@@ -156,7 +156,7 @@ const navGroups = [
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view' },
-      { to: '/stats-disciplinaires', label: 'nav.statsDisciplinaires', icon: ShieldAlert, permission: 'discipline.view' },
+      { to: '/stats-disciplinaires', label: 'nav.statsDisciplinaires', icon: ShieldAlert, permission: 'bulletins.view' },
     ],
   },
   {

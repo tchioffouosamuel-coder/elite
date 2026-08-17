@@ -44,4 +44,37 @@ class BusAffectation extends Model
     {
         return $this->belongsTo(AnneeScolaire::class);
     }
+
+    /**
+     * Part de la souscription déjà réglée, tous versements non annulés
+     * confondus — dérivée du registre de versements, jamais stockée : c'est le
+     * même principe que pour le reste de la scolarité (cf. `DossierScolarite`).
+     */
+    public function getMontantRegleAttribute(): int
+    {
+        return (int) VersementLigne::where('affectation', 'bus')
+            ->whereHas(
+                'versement',
+                fn ($q) => $q->valides()->whereHas(
+                    'dossier',
+                    fn ($q2) => $q2->where('eleve_id', $this->eleve_id)->where('annee_scolaire_id', $this->annee_scolaire_id)
+                )
+            )
+            ->sum('montant');
+    }
+
+    public function getStatutPaiementAttribute(): string
+    {
+        if (! $this->tarif_mensuel) {
+            return 'sans_frais';
+        }
+
+        $regle = $this->montant_regle;
+
+        return match (true) {
+            $regle <= 0 => 'impaye',
+            $regle >= $this->tarif_mensuel => 'solde',
+            default => 'partiel',
+        };
+    }
 }

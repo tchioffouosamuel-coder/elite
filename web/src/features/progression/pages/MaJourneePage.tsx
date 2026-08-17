@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -16,6 +16,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Select, Input, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 /** Heures de cours prévues vs réalisées de l'enseignant, depuis le début de l'année. */
@@ -70,19 +71,18 @@ export function MaJourneePage() {
   // déjà connue, pas besoin de la faire choisir une seconde fois.
   const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
 
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const [affectationId, setAffectationId] = useState<number | ''>(preselection ?? '')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(todayIso)
   const [lecons, setLecons] = useState<Set<number>>(new Set())
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
   const [donneesPersonnalisees, setDonneesPersonnalisees] = useState<Record<string, string | number | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [erreur, setErreur] = useState<string | null>(null)
 
   const { data: affectations, isLoading: chargementAffectations } = useQuery({
-    queryKey: ['mes-affectations'],
-    queryFn: fetchMesAffectations,
+    queryKey: ['mes-affectations', date],
+    queryFn: () => fetchMesAffectations(date),
   })
 
   // Un seul rattachement — cas du titulaire au primaire : rien à choisir.
@@ -92,10 +92,26 @@ export function MaJourneePage() {
     }
   }, [affectations, affectationId])
 
-  const { data: feuille, isLoading, refetch } = useQuery({
+  // Au secondaire, la liste dépend de l'emploi du temps du jour : un
+  // changement de date peut faire disparaître le créneau sélectionné.
+  useEffect(() => {
+    if (affectationId === '' || !affectations) return
+    if (!affectations.some((a) => a.classe_matiere_id === affectationId)) {
+      setAffectationId('')
+    }
+  }, [affectations, affectationId])
+
+  const {
+    data: feuille,
+    isLoading,
+    isError,
+    error: erreurFeuille,
+    refetch,
+  } = useQuery({
     queryKey: ['feuille-journee', affectationId, date],
     queryFn: () => fetchFeuilleJournee(Number(affectationId), date),
     enabled: affectationId !== '',
+    retry: false,
   })
 
   useEffect(() => {
@@ -136,8 +152,6 @@ export function MaJourneePage() {
 
   const enregistrer = async () => {
     setSubmitting(true)
-    setMessage(null)
-    setErreur(null)
     try {
       await enregistrerJournee(Number(affectationId), {
         date,
@@ -146,10 +160,10 @@ export function MaJourneePage() {
         observations: observations || null,
         donnees_personnalisees: donneesPersonnalisees,
       })
-      setMessage(t('journee.saved'))
+      succes(t('journee.saved'))
       refetch()
     } catch (err) {
-      setErreur((err as ApiError).message)
+      erreur((err as ApiError).message)
     } finally {
       setSubmitting(false)
     }
@@ -166,7 +180,7 @@ export function MaJourneePage() {
       {chargementAffectations ? (
         <Spinner />
       ) : !affectations || affectations.length === 0 ? (
-        <EmptyState label={t('journee.aucune_affectation')} />
+        <EmptyState label={t(date === todayIso ? 'journee.aucune_affectation' : 'journee.aucun_creneau_ce_jour')} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -179,14 +193,29 @@ export function MaJourneePage() {
               {affectations.map((a) => (
                 <option key={a.classe_matiere_id} value={a.classe_matiere_id}>
                   {a.classe} — {a.matiere}
+                  {a.heure_debut && a.heure_fin ? ` (${a.heure_debut} - ${a.heure_fin})` : ''}
                 </option>
               ))}
             </Select>
             <Input type="date" label={t('journee.date')} value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
+          {feuille && (
+            <div className="flex items-center gap-2 text-sm text-navy-500">
+              <Clock className="h-4 w-4" />
+              <span>
+                {t('journee.horaire')} :{' '}
+                <span className="font-semibold text-navy-800">
+                  {feuille.seance.heure_debut.slice(0, 5)} - {feuille.seance.heure_fin.slice(0, 5)}
+                </span>
+              </span>
+            </div>
+          )}
+
           {affectationId === '' ? (
             <EmptyState label={t('journee.choisir')} />
+          ) : isError ? (
+            <EmptyState label={(erreurFeuille as ApiError)?.message ?? t('journee.aucun_creneau_ce_jour')} />
           ) : isLoading || !feuille ? (
             <Spinner />
           ) : (
@@ -320,8 +349,6 @@ export function MaJourneePage() {
                   <Save className="h-4 w-4" />
                   {t('common.save')}
                 </Button>
-                {message && <span className="text-sm text-green-600">{message}</span>}
-                {erreur && <span className="text-sm text-red-500">{erreur}</span>}
               </div>
             </>
           )}

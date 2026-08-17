@@ -113,11 +113,10 @@ class SeanceController extends Controller
         $data = $request->validate([
             'lignes' => ['required', 'array', 'min:1'],
             'lignes.*.eleve_id' => ['required', 'integer'],
-            'lignes.*.statut' => ['required', 'in:present,absent,retard,renvoye'],
+            'lignes.*.statut' => ['required', 'in:present,absent'],
             // Une absence sans motif ne se traite pas : le surveillant général
             // ne saurait pas s'il faut relancer la famille ou classer l'affaire.
             'lignes.*.motif' => ['nullable', 'required_if:lignes.*.statut,absent', Rule::in(Presence::MOTIFS)],
-            'lignes.*.justifie' => ['nullable', 'boolean'],
             'lignes.*.remarque' => ['nullable', 'string', 'max:255'],
         ]);
 

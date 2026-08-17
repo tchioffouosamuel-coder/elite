@@ -49,8 +49,10 @@ class ScolariteController extends Controller
         $eleve = Eleve::forSchool(app('tenant.school_id'))->with('classe')->findOrFail($eleveId);
 
         $dossier = $this->service->dossier($eleve, $this->annee($request));
+        $dossier->load('eleve.classe');
+        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn ($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
 
-        return ApiResponse::success(new DossierScolariteResource($dossier->load('eleve.classe')));
+        return ApiResponse::success(new DossierScolariteResource($dossier, avecRubriques: true));
     }
 
     public function encaisser(Request $request, int $dossierId): JsonResponse
@@ -64,7 +66,7 @@ class ScolariteController extends Controller
             'reference_externe' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
             'lignes' => ['nullable', 'array', 'min:1'],
-            'lignes.*.affectation' => ['required_with:lignes', 'in:scolarite,frais_annexe,report_dette'],
+            'lignes.*.affectation' => ['required_with:lignes', 'in:scolarite,frais_annexe,report_dette,bus'],
             'lignes.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
             'lignes.*.libelle' => ['nullable', 'string', 'max:150'],
             'lignes.*.montant' => ['required_with:lignes', 'integer', 'min:1'],

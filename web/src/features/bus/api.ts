@@ -31,15 +31,6 @@ export interface BusArretPayload {
   heure_passage?: string | null
 }
 
-export interface BusTrajet {
-  id: number
-  nom: string
-  description: string | null
-  vehicule: { id: number; immatriculation: string } | null
-  arrets: BusArret[]
-  effectif: number | null
-}
-
 export type OptionTrajet = 'aller_simple' | 'retour_simple' | 'aller_retour'
 
 export const LIBELLES_OPTION_TRAJET: Record<OptionTrajet, string> = {
@@ -48,11 +39,42 @@ export const LIBELLES_OPTION_TRAJET: Record<OptionTrajet, string> = {
   aller_retour: 'Aller-retour',
 }
 
+export type StatutPaiementBus = 'sans_frais' | 'impaye' | 'partiel' | 'solde'
+
+export const LIBELLES_STATUT_PAIEMENT_BUS: Record<StatutPaiementBus, string> = {
+  sans_frais: 'Sans frais',
+  impaye: 'Non payée',
+  partiel: 'Partielle',
+  solde: 'Payée',
+}
+
+export interface BusTrajet {
+  id: number
+  nom: string
+  description: string | null
+  tarif_aller_simple: number | null
+  tarif_retour_simple: number | null
+  tarif_aller_retour: number | null
+  vehicule: { id: number; immatriculation: string } | null
+  arrets: BusArret[]
+  effectif: number | null
+}
+
+/** Tarif du trajet pour l'option choisie — même règle que côté serveur, pour l'aperçu avant envoi. */
+export function tarifPourOption(trajet: BusTrajet, option: OptionTrajet): number | null {
+  return option === 'aller_simple'
+    ? trajet.tarif_aller_simple
+    : option === 'retour_simple'
+      ? trajet.tarif_retour_simple
+      : trajet.tarif_aller_retour
+}
+
 export interface BusTrajetDetail extends BusTrajet {
   affectations: {
     id: number
     statut: 'actif' | 'suspendu'
     tarif_mensuel: number | null
+    statut_paiement: StatutPaiementBus
     option_trajet: OptionTrajet
     eleve: { id: number; nom_complet: string; matricule: string | null }
     arret: { id: number; nom: string } | null
@@ -63,25 +85,43 @@ export interface BusTrajetPayload {
   nom: string
   description?: string | null
   vehicule_id?: number | null
+  tarif_aller_simple?: number | null
+  tarif_retour_simple?: number | null
+  tarif_aller_retour?: number | null
 }
 
 export interface BusAffectation {
   id: number
   statut: 'actif' | 'suspendu'
   tarif_mensuel: number | null
+  statut_paiement: StatutPaiementBus
   option_trajet: OptionTrajet
   eleve: { id: number; nom_complet: string; matricule: string | null; classe: string | null }
   trajet: { id: number; nom: string }
   arret: { id: number; nom: string } | null
 }
 
-export interface BusAffectationPayload {
-  eleve_id: number
+/** Le tarif ne se saisit jamais : il vient du trajet, calculé côté serveur depuis l'option choisie. */
+export interface BusSouscriptionPayload {
   trajet_id: number
   arret_id?: number | null
   annee_scolaire_id?: number | null
-  tarif_mensuel?: number | null
-  option_trajet?: OptionTrajet
+  option_trajet: OptionTrajet
+}
+
+export interface EleveTransport {
+  id: number
+  nom_complet: string
+  matricule: string | null
+  classe: { id: number; nom: string } | null
+  bus: {
+    affectation_id: number
+    trajet: { id: number; nom: string }
+    arret: { id: number; nom: string } | null
+    option_trajet: OptionTrajet
+    tarif_mensuel: number | null
+    statut_paiement: StatutPaiementBus
+  } | null
 }
 
 // ---- Véhicules ---------------------------------------------------------
@@ -154,8 +194,27 @@ export async function fetchAffectations(trajetId?: number): Promise<BusAffectati
   return data.data
 }
 
-export async function affecterEleve(payload: BusAffectationPayload): Promise<BusAffectation> {
-  const { data } = await http.post<ApiResponse<BusAffectation>>('/bus/affectations', payload)
+/** Tous les élèves de l'école, souscription bus incluse — la vue qui remplace de deviner sur quel trajet chercher un élève. */
+export async function fetchElevesTransport(classeId?: number): Promise<EleveTransport[]> {
+  const { data } = await http.get<ApiResponse<EleveTransport[]>>('/bus/eleves', {
+    params: classeId ? { classe_id: classeId } : undefined,
+  })
+  return data.data
+}
+
+export async function souscrireEleve(eleveId: number, payload: BusSouscriptionPayload): Promise<BusAffectation> {
+  const { data } = await http.post<ApiResponse<BusAffectation>>('/bus/affectations', { ...payload, eleve_id: eleveId })
+  return data.data
+}
+
+export async function souscrireLot(
+  eleveIds: number[],
+  payload: BusSouscriptionPayload,
+): Promise<{ souscrits: number; ignores: string[] }> {
+  const { data } = await http.post<ApiResponse<{ souscrits: number; ignores: string[] }>>('/bus/souscriptions-lot', {
+    ...payload,
+    eleve_ids: eleveIds,
+  })
   return data.data
 }
 
@@ -163,7 +222,6 @@ export async function modifierAffectation(
   id: number,
   payload: {
     arret_id?: number | null
-    tarif_mensuel?: number | null
     statut?: BusAffectation['statut']
     option_trajet?: OptionTrajet
   },

@@ -44,12 +44,21 @@ export interface Seance {
   absents: number
 }
 
+export type MotifAbsence = 'maladie' | 'inconnu' | 'scolarite' | 'permission'
+
+export const MOTIFS: Record<MotifAbsence, string> = {
+  maladie: 'Maladie',
+  inconnu: 'Inconnu',
+  scolarite: 'Scolarité',
+  permission: 'Permission',
+}
+
 export interface LigneAppel {
   eleve_id: number
   nom_complet: string
   matricule: string | null
-  statut: 'present' | 'absent' | 'retard' | 'renvoye'
-  justifie: boolean
+  statut: 'present' | 'absent'
+  motif: MotifAbsence | null
   remarque: string | null
   pointe: boolean
 }
@@ -99,7 +108,7 @@ export async function fetchAppel(seanceId: number): Promise<{ seance: Seance; li
 
 export async function enregistrerAppel(
   seanceId: number,
-  lignes: Pick<LigneAppel, 'eleve_id' | 'statut' | 'justifie' | 'remarque'>[],
+  lignes: Pick<LigneAppel, 'eleve_id' | 'statut' | 'motif' | 'remarque'>[],
 ): Promise<{ enregistres: number }> {
   const { data } = await http.post<ApiResponse<{ enregistres: number }>>(`/seances/${seanceId}/appel`, { lignes })
   return data.data

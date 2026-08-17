@@ -74,6 +74,20 @@ export function BusTrajetsPage() {
         </span>
       ),
     },
+    {
+      cle: 'tarifs',
+      entete: t('bus.tarifs_title'),
+      cellule: (r) =>
+        r.tarif_aller_retour || r.tarif_aller_simple || r.tarif_retour_simple ? (
+          <span className="text-xs text-navy-500">
+            {r.tarif_aller_retour ? `${t('bus.aller_retour')} ${r.tarif_aller_retour.toLocaleString('fr-FR')}` : null}
+            {r.tarif_aller_simple ? ` · ${t('bus.aller_simple')} ${r.tarif_aller_simple.toLocaleString('fr-FR')}` : null}
+          </span>
+        ) : (
+          <span className="text-navy-300">—</span>
+        ),
+      masquerMobile: true,
+    },
     ...(can('bus.manage')
       ? [
           {
@@ -182,7 +196,14 @@ function TrajetFormModal({
     formState: { isSubmitting, errors },
   } = useForm<BusTrajetPayload>({
     defaultValues: trajet
-      ? { nom: trajet.nom, description: trajet.description ?? '', vehicule_id: trajet.vehicule?.id }
+      ? {
+          nom: trajet.nom,
+          description: trajet.description ?? '',
+          vehicule_id: trajet.vehicule?.id,
+          tarif_aller_simple: trajet.tarif_aller_simple ?? undefined,
+          tarif_retour_simple: trajet.tarif_retour_simple ?? undefined,
+          tarif_aller_retour: trajet.tarif_aller_retour ?? undefined,
+        }
       : {},
   })
 
@@ -191,6 +212,9 @@ function TrajetFormModal({
     const payload: BusTrajetPayload = {
       ...values,
       vehicule_id: values.vehicule_id ? Number(values.vehicule_id) : null,
+      tarif_aller_simple: values.tarif_aller_simple ? Number(values.tarif_aller_simple) : null,
+      tarif_retour_simple: values.tarif_retour_simple ? Number(values.tarif_retour_simple) : null,
+      tarif_aller_retour: values.tarif_aller_retour ? Number(values.tarif_aller_retour) : null,
     }
 
     try {
@@ -225,6 +249,15 @@ function TrajetFormModal({
             </option>
           ))}
         </Select>
+
+        <div className="rounded-xl border border-navy-100 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">{t('bus.tarifs_title')}</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Input label={t('bus.aller_simple')} type="number" min={0} {...register('tarif_aller_simple')} />
+            <Input label={t('bus.retour_simple')} type="number" min={0} {...register('tarif_retour_simple')} />
+            <Input label={t('bus.aller_retour')} type="number" min={0} {...register('tarif_aller_retour')} />
+          </div>
+        </div>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

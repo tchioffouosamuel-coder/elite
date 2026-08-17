@@ -7,6 +7,16 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class DossierScolariteResource extends JsonResource
 {
+    /**
+     * `avecRubriques` n'est demandé que sur la fiche d'un seul dossier (pour
+     * l'écran d'encaissement) — l'inclure par défaut alourdirait chaque ligne
+     * de la liste de recouvrement, qui n'en a pas l'usage.
+     */
+    public function __construct($resource, private readonly bool $avecRubriques = false)
+    {
+        parent::__construct($resource);
+    }
+
     public function toArray(Request $request): array
     {
         return [
@@ -28,6 +38,12 @@ class DossierScolariteResource extends JsonResource
                 'libelle' => $f->libelle,
                 'montant' => $f->montant,
             ])->values()),
+            'bus' => $this->when($this->montant_bus > 0, fn () => [
+                'trajet' => $this->bus_actif?->trajet?->nom,
+                'option_trajet' => $this->bus_actif?->option_trajet,
+                'montant' => $this->montant_bus,
+            ]),
+            'rubriques' => $this->when($this->avecRubriques, fn () => $this->rubriques),
             'total_du' => $this->total_du,
             'total_paye' => $this->total_paye,
             'reste_a_payer' => $this->reste_a_payer,

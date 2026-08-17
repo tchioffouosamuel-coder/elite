@@ -19,7 +19,12 @@ class TrimestreController extends Controller
         $trimestres = Trimestre::whereHas(
             'anneeScolaire',
             fn ($q) => $q->where('school_id', app('tenant.school_id'))
-        )->with('sequences')->orderBy('ordre')->get();
+        )->with('anneeScolaire')->orderBy('ordre')->get();
+
+        // Les séquences excédentaires (réglage `num_sequences` baissé après
+        // coup) restent en base pour ne rien perdre, mais ne doivent jamais
+        // apparaître dans les écrans de saisie : cf. `sequencesRetenues()`.
+        $trimestres->each(fn (Trimestre $t) => $t->setRelation('sequences', $t->sequencesRetenues()));
 
         return ApiResponse::success(TrimestreResource::collection($trimestres));
     }
@@ -53,6 +58,9 @@ class TrimestreController extends Controller
             $trimestre->update(['is_active' => true]);
         });
 
-        return ApiResponse::success(new TrimestreResource($trimestre->refresh()->load('sequences')), 'Trimestre activé.');
+        $trimestre->refresh()->load('anneeScolaire');
+        $trimestre->setRelation('sequences', $trimestre->sequencesRetenues());
+
+        return ApiResponse::success(new TrimestreResource($trimestre), 'Trimestre activé.');
     }
 }

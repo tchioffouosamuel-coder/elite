@@ -26,6 +26,7 @@ import { BusVehiculesPage } from '@/features/bus/pages/BusVehiculesPage'
 import { BusTrajetsPage } from '@/features/bus/pages/BusTrajetsPage'
 import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
 import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
+import { BusSouscriptionPage } from '@/features/bus/pages/BusSouscriptionPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
 import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
@@ -34,6 +35,7 @@ import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
+import { AppelPage } from '@/features/emploiDuTemps/pages/AppelPage'
 import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
 import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolairesPage'
 import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
@@ -91,17 +93,26 @@ export const router = createBrowserRouter([
       { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view"><BusVehiculesPage /></ProtectedRoute> },
       { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view"><BusTrajetsPage /></ProtectedRoute> },
       { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
-      { path: 'bus/affectations', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
+      { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
+      { path: 'bus/souscription', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
+      { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
       { path: 'stats-pedagogiques', element: <ProtectedRoute permission="bulletins.view"><StatsPedagogiquesPage /></ProtectedRoute> },
-      { path: 'stats-disciplinaires', element: <ProtectedRoute permission="discipline.view"><StatsDisciplinairesPage /></ProtectedRoute> },
+      { path: 'stats-disciplinaires', element: <ProtectedRoute permission="bulletins.view"><StatsDisciplinairesPage /></ProtectedRoute> },
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
+      { path: 'seances/:id/appel', element: <ProtectedRoute permission="appel.manage"><AppelPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
-      { path: 'qr/:token', element: <ProtectedRoute permission="appel.manage" enseignantOnly><QrScanPage /></ProtectedRoute> },
+      {
+        path: 'qr/:token',
+        // Un censeur ou un admin peut aussi scanner pour dépanner une classe —
+        // le service `peutIntervenir()` les autorise déjà, la route ne doit
+        // pas les bloquer avant même d'y arriver.
+        element: <ProtectedRoute permission="appel.manage"><QrScanPage /></ProtectedRoute>,
+      },
       { path: 'identification', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><IdentificationPage /></ProtectedRoute> },
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },

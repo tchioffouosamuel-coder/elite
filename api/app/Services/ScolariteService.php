@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AnneeScolaire;
+use App\Models\BusAffectation;
 use App\Models\CompteComptable;
 use App\Models\DossierFraisAnnexe;
 use App\Models\DossierScolarite;
@@ -11,7 +12,6 @@ use App\Models\Eleve;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\Versement;
-use App\Models\VersementLigne;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -79,7 +79,7 @@ class ScolariteService extends BaseService
                 ]);
             }
 
-            return $dossier->load(['fraisAnnexes', 'versements']);
+            return $dossier->load(['fraisAnnexes', 'versements', 'busAffectations.trajet']);
         });
     }
 
@@ -179,38 +179,32 @@ class ScolariteService extends BaseService
      * Le reliquat de l'an dernier s'éteint en premier, puis la scolarité, puis
      * les frais annexes : c'est l'ordre que suit le comptoir, et il évite
      * qu'une dette ancienne traîne pendant qu'on solde l'année en cours.
+     * S'appuie sur `DossierScolarite::rubriques`, qui décompose déjà le dû et
+     * le réglé poste par poste — c'est la même donnée qui alimente l'écran
+     * d'encaissement, pour que la ventilation automatique corresponde
+     * exactement à ce que l'utilisateur y a vu.
      *
      * @return list<array{affectation: string, dossier_frais_annexe_id: ?int, libelle: string, montant: int}>
      */
     private function ventilationAutomatique(DossierScolarite $dossier, int $montant): array
     {
-        $dossier->loadMissing(['fraisAnnexes', 'versements']);
         $lignes = [];
         $restant = $montant;
 
-        $postes = [
-            ['report_dette', 'Reliquat année précédente', null, $dossier->report_dette],
-            ['scolarite', 'Frais de scolarité', null, $dossier->scolarite_nette],
-        ];
-
-        foreach ($dossier->fraisAnnexes as $frais) {
-            $postes[] = ['frais_annexe', $frais->libelle, $frais->id, $frais->montant];
-        }
-
-        // Ce qui a déjà été réglé sur chaque poste, pour ne pas le réclamer deux fois.
-        $dejaRegle = $this->dejaReglePoste($dossier);
-
-        foreach ($postes as [$affectation, $libelle, $fraisId, $du]) {
+        foreach ($dossier->rubriques as $rubrique) {
             if ($restant <= 0) {
                 break;
             }
 
-            $cle = $affectation.':'.($fraisId ?? '');
-            $solde = max(0, $du - ($dejaRegle[$cle] ?? 0));
-            $part = min($restant, $solde);
+            $part = min($restant, $rubrique['reste']);
 
             if ($part > 0) {
-                $lignes[] = compact('affectation', 'libelle') + ['dossier_frais_annexe_id' => $fraisId, 'montant' => $part];
+                $lignes[] = [
+                    'affectation' => $rubrique['cle'],
+                    'libelle' => $rubrique['libelle'],
+                    'dossier_frais_annexe_id' => $rubrique['dossier_frais_annexe_id'],
+                    'montant' => $part,
+                ];
                 $restant -= $part;
             }
         }
@@ -227,24 +221,6 @@ class ScolariteService extends BaseService
         }
 
         return $lignes;
-    }
-
-    /** @return array<string, int> */
-    private function dejaReglePoste(DossierScolarite $dossier): array
-    {
-        $regles = [];
-
-        $lignes = VersementLigne::whereIn(
-            'versement_id',
-            $dossier->versements->whereNull('annule_le')->pluck('id'),
-        )->get();
-
-        foreach ($lignes as $ligne) {
-            $cle = $ligne->affectation.':'.($ligne->dossier_frais_annexe_id ?? '');
-            $regles[$cle] = ($regles[$cle] ?? 0) + $ligne->montant;
-        }
-
-        return $regles;
     }
 
     /** @param  list<array{montant: int}>  $lignes */
@@ -264,6 +240,7 @@ class ScolariteService extends BaseService
         return match ($affectation) {
             'report_dette' => 'Reliquat année précédente',
             'frais_annexe' => 'Frais annexe',
+            'bus' => 'Transport scolaire',
             default => 'Frais de scolarité',
         };
     }
@@ -296,7 +273,9 @@ class ScolariteService extends BaseService
                 'montant' => $ligne->montant,
                 'sens' => 'credit',
                 'compte_comptable_id' => $this->compte(
-                    $ligne->affectation === 'frais_annexe' ? self::COMPTE_FRAIS_ANNEXES : self::COMPTE_SCOLARITE,
+                    in_array($ligne->affectation, ['frais_annexe', 'bus'], true)
+                        ? self::COMPTE_FRAIS_ANNEXES
+                        : self::COMPTE_SCOLARITE,
                 ),
             ]);
         }
@@ -346,8 +325,18 @@ class ScolariteService extends BaseService
         // de la classe, autant ne pas relire la grille élève par élève.
         $fraisObligatoires = (int) $this->fraisObligatoires($schoolId, $anneeScolaireId)->sum('montant');
 
+        // Souscriptions bus actives, groupées par élève : un dossier projeté
+        // (jamais ouvert) n'a aucune relation chargée depuis la base et doit
+        // les recevoir explicitement pour que le transport compte dans le dû.
+        $busParEleve = BusAffectation::whereIn('eleve_id', $eleves->pluck('id'))
+            ->where('annee_scolaire_id', $anneeScolaireId)
+            ->actives()
+            ->with('trajet')
+            ->get()
+            ->groupBy('eleve_id');
+
         $lignes = $eleves
-            ->map(function (Eleve $eleve) use ($dossiers, $annee, $fraisObligatoires) {
+            ->map(function (Eleve $eleve) use ($dossiers, $annee, $fraisObligatoires, $busParEleve) {
                 $dossier = $dossiers->get($eleve->id);
 
                 if ($dossier) {
@@ -358,7 +347,7 @@ class ScolariteService extends BaseService
 
                 // Dossier projeté, non enregistré : il porte `id = null`, ce qui
                 // signale à l'interface qu'il faut l'ouvrir avant d'encaisser.
-                return $this->dossierProjete($eleve, $annee, $fraisObligatoires);
+                return $this->dossierProjete($eleve, $annee, $fraisObligatoires, $busParEleve->get($eleve->id, new EloquentCollection));
             })
             // Le statut se déduit des versements : il ne peut pas se filtrer en
             // SQL sans dupliquer le calcul des soldes dans la requête.
@@ -391,7 +380,7 @@ class ScolariteService extends BaseService
      * écrirait en base sur une lecture, et créerait un dossier à des élèves
      * qui ne paieront jamais par ce guichet.
      */
-    private function dossierProjete(Eleve $eleve, AnneeScolaire $annee, int $fraisObligatoires): DossierScolarite
+    private function dossierProjete(Eleve $eleve, AnneeScolaire $annee, int $fraisObligatoires, ?EloquentCollection $busAffectations = null): DossierScolarite
     {
         $dossier = new DossierScolarite([
             'school_id' => $eleve->school_id,
@@ -403,6 +392,7 @@ class ScolariteService extends BaseService
 
         $dossier->setRelation('eleve', $eleve);
         $dossier->setRelation('versements', new EloquentCollection);
+        $dossier->setRelation('busAffectations', $busAffectations ?? new EloquentCollection);
         // Une seule ligne fictive porte le total des frais obligatoires : le
         // détail n'a d'intérêt qu'une fois le dossier réellement ouvert.
         $dossier->setRelation('fraisAnnexes', new EloquentCollection(

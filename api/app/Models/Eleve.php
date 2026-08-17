@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Eleve extends Model
 {
@@ -80,5 +81,10 @@ class Eleve extends Model
         return $this->belongsToMany(Tuteur::class, 'eleve_tuteur')
             ->withPivot(['lien_parente', 'is_principal'])
             ->withTimestamps();
+    }
+
+    public function busAffectations(): HasMany
+    {
+        return $this->hasMany(BusAffectation::class);
     }
 }

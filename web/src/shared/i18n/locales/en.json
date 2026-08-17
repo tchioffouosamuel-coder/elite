@@ -331,7 +331,19 @@
     "affectations_subtitle": "Every student assigned to transport, across all routes.",
     "affectation_edit": "Edit assignment",
     "affectation_updated": "Assignment updated.",
-    "all_trajets": "All routes"
+    "all_trajets": "All routes",
+    "tarifs_title": "Fares",
+    "souscrire": "Subscribe to bus",
+    "souscrire_lot": "Subscribe to bus",
+    "souscription_title": "Bus subscription",
+    "souscription_edit_title": "Edit subscription",
+    "eleves_selectionnes": "{{count}} student(s) selected",
+    "aucune_souscription": "No bus subscription",
+    "statut_paiement": "Payment",
+    "toutes_classes": "All classes",
+    "souscription_created": "Subscription saved.",
+    "no_tarif_defini": "No fare set for this option — set it on the route.",
+    "voir_trajet": "View route"
   },
   "settings": {
     "title": "School settings",
@@ -432,7 +444,9 @@
     "date": "Date",
     "choisir": "Choose the class you taught in.",
     "aucune_affectation": "No subject is assigned to you yet.",
+    "aucun_creneau_ce_jour": "No class is scheduled on your timetable for this date.",
     "aucun_programme": "No lesson in this subject syllabus.",
+    "horaire": "Time",
     "lecons": "Lessons covered",
     "appel": "Register",
     "resume_appel": "{{presents}} present, {{absents}} absent",
@@ -448,7 +462,35 @@
     "expense_recorded": "Expense recorded.",
     "tariff_recorded": "Tariff recorded.",
     "additional_fee_added": "Additional fee added.",
-    "tariff_removed": "Tariff removed."
+    "tariff_removed": "Tariff removed.",
+    "remuneration": {
+      "modal_title_create": "Set salary — {{name}}",
+      "modal_title_edit": "Revise salary — {{name}}",
+      "saved_for": "{{name}}'s remuneration saved.",
+      "saving": "Saving…",
+      "effective_date": "Effective date",
+      "category_optional": "Category (optional)",
+      "category_placeholder": "E.g. 6, executive…",
+      "exempt_until": "Exempt up to {{amount}}",
+      "preview_title": "Projected result",
+      "calculating": "calculating…",
+      "gross": "Gross",
+      "taxable_base": "Taxable base",
+      "deductions": "Deductions",
+      "net_to_receive": "Net pay",
+      "employer_cost_included": "Cost for the institution, including employer contributions:",
+      "legal_deductions_detail": "Legal deductions detail",
+      "employer_amount_short": "{{amount}} (empl.)",
+      "history_notice": "The previous remuneration is kept: already issued payslips retain their amounts, and the new one only applies from its effective date.",
+      "gains": {
+        "salaire_base": "Base salary",
+        "prime_anciennete": "Seniority",
+        "prime_communication": "Communication",
+        "prime_transport": "Transport",
+        "prime_recherche": "Research & lesson",
+        "prime_performance": "Performance"
+      }
+    }
   },
   "emploiDuTemps": {
     "title": "Schedule",

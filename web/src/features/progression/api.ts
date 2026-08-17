@@ -88,6 +88,9 @@ export interface AffectationJournee {
   classe_id: number
   classe: string
   matiere: string
+  /** Nul au primaire/maternelle : seul le secondaire dépend d'un créneau fixe. */
+  heure_debut: string | null
+  heure_fin: string | null
 }
 
 export interface LigneAppel {
@@ -127,8 +130,10 @@ export interface FeuilleJournee {
   champs_personnalises: ChampPersonnaliseDef[]
 }
 
-export async function fetchMesAffectations(): Promise<AffectationJournee[]> {
-  const { data } = await http.get<ApiResponse<AffectationJournee[]>>('/ma-journee')
+export async function fetchMesAffectations(date?: string): Promise<AffectationJournee[]> {
+  const { data } = await http.get<ApiResponse<AffectationJournee[]>>('/ma-journee', {
+    params: date ? { date } : undefined,
+  })
   return data.data
 }
 

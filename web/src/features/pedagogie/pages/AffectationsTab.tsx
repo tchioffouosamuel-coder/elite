@@ -6,6 +6,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { fetchClasseMatieres, affecterMatiere, retirerMatiere, fetchMatieres, type Matiere } from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
+import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
@@ -33,9 +34,13 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
     queryFn: () => fetchClasseMatieres(classeId),
   })
   const { data: matieres } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
+  // Uniquement pour le select « Enseignant » du formulaire d'affectation, réservé
+  // à qui peut gérer — un titulaire en lecture seule n'a pas le privilège
+  // « Consulter le personnel » et n'a de toute façon pas accès à ce formulaire.
   const { data: personnels } = useQuery({
     queryKey: ['personnels', 'all'],
     queryFn: () => fetchPersonnels({ per_page: 100 }),
+    enabled: can('pedagogie.manage'),
   })
 
   // Au primaire et en maternelle, le titulaire tient seul la classe : on
@@ -46,6 +51,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
 
   const affectedIds = new Set(affectations?.map((a) => a.matiere.id))
   const matieresDisponibles = matieres?.filter((m) => !affectedIds.has(m.id)) ?? []
+  const matieresById = new Map((matieres ?? []).map((m) => [m.id, m]))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
 
@@ -187,14 +193,14 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
           valeur: (a) => a.matiere.nom,
           cellule: (a) => <span className="font-medium text-navy-900">{a.matiere.nom}</span>,
         },
-        {
-          cle: 'enseignant',
-          entete: t('pedagogie.enseignant'),
-          valeur: (a) => a.enseignant?.nom_complet ?? '',
-          cellule: (a) => a.enseignant?.nom_complet ?? '—',
-        },
         ...(secondaire
           ? [
+            {
+              cle: 'enseignant',
+              entete: t('pedagogie.enseignant'),
+              valeur: (a: (typeof affectations)[number]) => a.enseignant?.nom_complet ?? '',
+              cellule: (a: (typeof affectations)[number]) => a.enseignant?.nom_complet ?? '—',
+            },
             {
               cle: 'coefficient',
               entete: t('pedagogie.coefficient'),
@@ -202,7 +208,36 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
               cellule: (a: (typeof affectations)[number]) => a.coefficient,
             },
           ]
-          : []),
+          : [
+            // Le titulaire enseigne déjà seul sa classe : plutôt que de
+            // réafficher son propre nom, on montre ce qu'il ne connaît pas
+            // par cœur — la notation et la répartition par volet de la matière.
+            {
+              cle: 'notation',
+              entete: t('matieres.notation'),
+              valeur: (a: (typeof affectations)[number]) => matieresById.get(a.matiere.id)?.notation ?? 0,
+              cellule: (a: (typeof affectations)[number]) => {
+                const notation = matieresById.get(a.matiere.id)?.notation
+                return notation ? `/${notation}` : '—'
+              },
+            },
+            {
+              cle: 'volets',
+              entete: t('matieres.repartition_volets'),
+              cellule: (a: (typeof affectations)[number]) => {
+                const matiere = matieresById.get(a.matiere.id)
+                if (!matiere) return '—'
+
+                return (
+                  <span className="text-xs text-navy-600">
+                    {matiere.composantes
+                      .map((c) => `${LIBELLES_COMPOSANTES[c as Composante] ?? c} ${matiere.repartition_volets[c] ?? 0}`)
+                      .join(' · ')}
+                  </span>
+                )
+              },
+            },
+          ]),
         {
           cle: 'quota_horaire',
           entete: t('pedagogie.quota_horaire'),
@@ -338,7 +373,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
           colonnes={colonnes}
           lignes={affectations}
           cleLigne={(a) => a.id}
-          placeholderRecherche="Rechercher une matière ou un enseignant…"
+          placeholderRecherche={secondaire ? 'Rechercher une matière ou un enseignant…' : 'Rechercher une matière…'}
           messageVide="Aucune affectation pour cette classe."
           parPage={10}
           outils={

@@ -11,6 +11,7 @@ use App\Services\MaJourneeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 
 /**
  * « Ma journée » : l'enseignant déclare les leçons qu'il vient de traiter et
@@ -23,8 +24,10 @@ class MaJourneeController extends Controller
     /** Classes et matières sur lesquelles l'enseignant connecté intervient. */
     public function affectations(Request $request): JsonResponse
     {
+        $date = $request->date('date')?->format('Y-m-d');
+
         return ApiResponse::success(
-            $this->service->mesAffectations($request->user(), app('tenant.school_id'))
+            $this->service->mesAffectations($request->user(), app('tenant.school_id'), $date)
         );
     }
 
@@ -37,7 +40,12 @@ class MaJourneeController extends Controller
         }
 
         $date = $request->date('date')?->format('Y-m-d') ?? now()->format('Y-m-d');
-        $seance = $this->service->seanceDuJour($classeMatiere, $date);
+
+        try {
+            $seance = $this->service->seanceDuJour($classeMatiere, $date);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success($this->service->feuilleDuJour($classeMatiere, $seance));
     }
@@ -56,7 +64,7 @@ class MaJourneeController extends Controller
             'lecons.*' => ['integer'],
             'appel' => ['present', 'array'],
             'appel.*.eleve_id' => ['required', 'integer'],
-            'appel.*.statut' => ['required', 'in:present,absent,retard,renvoye'],
+            'appel.*.statut' => ['required', 'in:present,absent'],
             // Une absence sans motif ne se traite pas en aval : le surveillant
             // général ne saurait pas s'il faut relancer la famille.
             'appel.*.motif' => ['nullable', 'required_if:appel.*.statut,absent', Rule::in(Presence::MOTIFS)],
@@ -65,7 +73,12 @@ class MaJourneeController extends Controller
         ]);
 
         $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
-        $seance = $this->service->seanceDuJour($classeMatiere, $date);
+
+        try {
+            $seance = $this->service->seanceDuJour($classeMatiere, $date);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         $resultat = $this->service->enregistrer(
             $classeMatiere,

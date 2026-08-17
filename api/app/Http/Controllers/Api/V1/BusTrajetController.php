@@ -33,6 +33,9 @@ class BusTrajetController extends Controller
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
             'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', app('tenant.school_id'))],
+            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $trajet = $this->service->creerTrajet(app('tenant.school_id'), $donnees);
@@ -48,6 +51,9 @@ class BusTrajetController extends Controller
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
             'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', app('tenant.school_id'))],
+            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $trajet = $this->service->modifierTrajet($trajet, $donnees);
@@ -126,6 +132,9 @@ class BusTrajetController extends Controller
             'id' => $trajet->id,
             'nom' => $trajet->nom,
             'description' => $trajet->description,
+            'tarif_aller_simple' => $trajet->tarif_aller_simple,
+            'tarif_retour_simple' => $trajet->tarif_retour_simple,
+            'tarif_aller_retour' => $trajet->tarif_aller_retour,
             'vehicule' => $trajet->vehicule ? [
                 'id' => $trajet->vehicule->id,
                 'immatriculation' => $trajet->vehicule->immatriculation,
@@ -144,6 +153,7 @@ class BusTrajetController extends Controller
                 'id' => $a->id,
                 'statut' => $a->statut,
                 'tarif_mensuel' => $a->tarif_mensuel,
+                'statut_paiement' => $a->statut_paiement,
                 'option_trajet' => $a->option_trajet,
                 'eleve' => [
                     'id' => $a->eleve->id,

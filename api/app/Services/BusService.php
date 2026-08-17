@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AnneeScolaire;
 use App\Models\BusAffectation;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
@@ -80,6 +81,9 @@ class BusService extends BaseService
             'vehicule_id' => $donnees['vehicule_id'] ?? null,
             'nom' => $donnees['nom'],
             'description' => $donnees['description'] ?? null,
+            'tarif_aller_simple' => $donnees['tarif_aller_simple'] ?? null,
+            'tarif_retour_simple' => $donnees['tarif_retour_simple'] ?? null,
+            'tarif_aller_retour' => $donnees['tarif_aller_retour'] ?? null,
         ]);
     }
 
@@ -151,13 +155,25 @@ class BusService extends BaseService
             throw new RuntimeException("{$eleve->nom_complet} est déjà affecté(e) à un trajet. Retirez d'abord l'affectation en cours.");
         }
 
-        return $this->transaction(function () use ($eleve, $trajet, $donnees) {
+        return $this->transaction(function () use ($eleve, $trajet, $donnees, $schoolId) {
+            $option = $donnees['option_trajet'] ?? 'aller_retour';
+
+            // Sans année précisée, celle qui compte est l'année active : c'est
+            // elle que la caisse regarde pour savoir ce qu'un élève doit
+            // aujourd'hui, et une souscription orpheline (année nulle) ne
+            // remonterait jamais dans son dû.
+            $anneeScolaireId = $donnees['annee_scolaire_id']
+                ?? AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->value('id');
+
             $affectation = BusAffectation::create([
                 'eleve_id' => $eleve->id,
                 'trajet_id' => $trajet->id,
                 'arret_id' => $donnees['arret_id'] ?? null,
-                'annee_scolaire_id' => $donnees['annee_scolaire_id'] ?? null,
-                'tarif_mensuel' => $donnees['tarif_mensuel'] ?? null,
+                'annee_scolaire_id' => $anneeScolaireId,
+                'option_trajet' => $option,
+                // Le tarif vient du trajet, jamais saisi à la main : il se fige
+                // ici pour ne plus bouger si le trajet change de prix ensuite.
+                'tarif_mensuel' => $trajet->tarifPour($option),
                 'statut' => 'actif',
             ]);
 
@@ -165,9 +181,43 @@ class BusService extends BaseService
         });
     }
 
+    /**
+     * Souscrit plusieurs élèves d'un coup au même trajet — une fratrie ou une
+     * classe entière n'a pas à repasser un par un dans le même formulaire.
+     * Un élève déjà affecté est simplement ignoré plutôt que de faire
+     * échouer tout le lot.
+     *
+     * @param  array<int, int>  $eleveIds
+     * @param  array<string, mixed>  $donnees
+     * @return array{souscrits: int, ignores: list<string>}
+     */
+    public function souscrireEnLot(int $schoolId, array $eleveIds, array $donnees): array
+    {
+        $souscrits = 0;
+        $ignores = [];
+
+        foreach ($eleveIds as $eleveId) {
+            try {
+                $this->affecterEleve($schoolId, [...$donnees, 'eleve_id' => $eleveId]);
+                $souscrits++;
+            } catch (RuntimeException $e) {
+                $eleve = Eleve::find($eleveId);
+                $ignores[] = $eleve?->nom_complet ?? "#{$eleveId}";
+            }
+        }
+
+        return ['souscrits' => $souscrits, 'ignores' => $ignores];
+    }
+
     /** @param array<string, mixed> $donnees */
     public function modifierAffectation(BusAffectation $affectation, array $donnees): BusAffectation
     {
+        // Un changement d'option (aller simple ↔ aller-retour) doit relire le
+        // tarif du trajet : c'est lui qui fait foi, jamais une saisie manuelle.
+        if (isset($donnees['option_trajet']) && $donnees['option_trajet'] !== $affectation->option_trajet) {
+            $donnees['tarif_mensuel'] = $affectation->trajet->tarifPour($donnees['option_trajet']);
+        }
+
         $affectation->update($donnees);
 
         return $affectation->fresh(['eleve.classe', 'trajet', 'arret']);
@@ -176,6 +226,24 @@ class BusService extends BaseService
     public function retirerAffectation(BusAffectation $affectation): void
     {
         $affectation->delete();
+    }
+
+    /**
+     * Tous les élèves actifs de l'école, filtrables par classe, avec leur
+     * souscription bus active si elle existe — la vue d'ensemble qui
+     * remplace le fait de devoir deviner sur quel trajet chercher un élève.
+     */
+    public function listerElevesTransport(int $schoolId, ?int $classeId, ?int $anneeScolaireId): Collection
+    {
+        return Eleve::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
+            ->with(['classe', 'busAffectations' => fn ($q) => $q
+                ->when($anneeScolaireId, fn ($qq, $id) => $qq->where('annee_scolaire_id', $id))
+                ->actives()
+                ->with(['trajet', 'arret'])])
+            ->orderBy('nom_complet')
+            ->get();
     }
 
     // ---- Notifications ------------------------------------------------

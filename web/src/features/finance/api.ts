@@ -16,6 +16,16 @@ export type StatutPaiement = 'impaye' | 'partiel' | 'solde' | 'avance' | 'sans_f
 
 // ---------------------------------------------------------------- Scolarité
 
+/** Un poste du dû — scolarité, un frais annexe, le bus… — avec ce qui est déjà réglé dessus. */
+export interface RubriqueScolarite {
+  cle: 'report_dette' | 'scolarite' | 'frais_annexe' | 'bus'
+  dossier_frais_annexe_id: number | null
+  libelle: string
+  montant_du: number
+  montant_paye: number
+  reste: number
+}
+
 export interface DossierScolarite {
   id: number
   eleve: {
@@ -30,6 +40,9 @@ export interface DossierScolarite {
   remise: number
   report_dette: number
   frais_annexes?: { id: number; libelle: string; montant: number }[]
+  bus?: { trajet: string | null; option_trajet: string | null; montant: number } | null
+  /** Décomposition du dû poste par poste — présente uniquement sur la fiche d'un seul dossier. */
+  rubriques?: RubriqueScolarite[]
   total_du: number
   total_paye: number
   reste_a_payer: number
@@ -73,9 +86,23 @@ export async function fetchDossier(eleveId: number): Promise<DossierScolarite> {
   return data.data
 }
 
+export interface LigneVentilation {
+  affectation: RubriqueScolarite['cle']
+  dossier_frais_annexe_id?: number | null
+  libelle?: string
+  montant: number
+}
+
 export async function encaisser(
   dossierId: number,
-  payload: { montant: number; mode: ModePaiement; date_versement?: string; reference_externe?: string; note?: string },
+  payload: {
+    montant: number
+    mode: ModePaiement
+    date_versement?: string
+    reference_externe?: string
+    note?: string
+    lignes?: LigneVentilation[]
+  },
 ): Promise<{ versement_id: number; numero_recu: string }> {
   const { data } = await http.post<ApiResponse<{ versement_id: number; numero_recu: string }>>(
     `/scolarite/dossiers/${dossierId}/versements`,
@@ -290,6 +317,7 @@ export interface Simulation {
   cout_employeur: number
   retenues: {
     libelle: string
+    libelle_en: string
     base: number
     taux_salarial: number | null
     taux_patronal: number | null

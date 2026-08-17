@@ -11,11 +11,31 @@ class BusTrajet extends Model
 {
     protected $fillable = [
         'school_id', 'vehicule_id', 'nom', 'description',
+        'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'tarif_aller_simple' => 'integer',
+            'tarif_retour_simple' => 'integer',
+            'tarif_aller_retour' => 'integer',
+        ];
+    }
 
     public function scopeForSchool(Builder $query, int $schoolId): Builder
     {
         return $query->where('school_id', $schoolId);
+    }
+
+    /** Tarif du trajet pour l'option choisie — figé sur la souscription à sa création. */
+    public function tarifPour(string $option): ?int
+    {
+        return match ($option) {
+            'aller_simple' => $this->tarif_aller_simple,
+            'retour_simple' => $this->tarif_retour_simple,
+            default => $this->tarif_aller_retour,
+        };
     }
 
     public function vehicule(): BelongsTo

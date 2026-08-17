@@ -101,7 +101,7 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
-     * @param  array<int, array{eleve_id:int, statut:string, motif?:?string, justifie?:bool, remarque?:?string}>  $lignes
+     * @param  array<int, array{eleve_id:int, statut:string, motif?:?string, remarque?:?string}>  $lignes
      */
     public function enregistrerAppel(Seance $seance, array $lignes): int
     {
@@ -115,14 +115,19 @@ class EmploiDuTempsService extends BaseService
                     continue; // un élève d'une autre classe n'a rien à faire dans cet appel
                 }
 
+                // Le motif ne qualifie qu'une absence : le conserver sur un
+                // élève repassé présent laisserait une trace fausse.
+                $motif = $ligne['statut'] === 'absent' ? ($ligne['motif'] ?? null) : null;
+
                 Presence::updateOrCreate(
                     ['seance_id' => $seance->id, 'eleve_id' => $ligne['eleve_id']],
                     [
                         'statut' => $ligne['statut'],
-                        // Le motif ne qualifie qu'une absence : le conserver sur
-                        // un élève repassé présent laisserait une trace fausse.
-                        'motif' => $ligne['statut'] === 'absent' ? ($ligne['motif'] ?? null) : null,
-                        'justifie' => $ligne['justifie'] ?? false,
+                        'motif' => $motif,
+                        // Maladie, permission et raison scolaire sont des motifs
+                        // reconnus par l'établissement ; « inconnu » ne l'est pas
+                        // encore et compte comme une absence non justifiée.
+                        'justifie' => $motif !== null && $motif !== 'inconnu',
                         'remarque' => $ligne['remarque'] ?? null,
                     ]
                 );

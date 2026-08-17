@@ -340,7 +340,19 @@
     "affectations_subtitle": "Tous les élèves affectés au transport, tous trajets confondus.",
     "affectation_edit": "Modifier l'affectation",
     "affectation_updated": "Affectation mise à jour.",
-    "all_trajets": "Tous les trajets"
+    "all_trajets": "Tous les trajets",
+    "tarifs_title": "Tarifs",
+    "souscrire": "Souscrire au bus",
+    "souscrire_lot": "Souscrire au bus",
+    "souscription_title": "Souscription au bus",
+    "souscription_edit_title": "Modifier la souscription",
+    "eleves_selectionnes": "{{count}} élève(s) sélectionné(s)",
+    "aucune_souscription": "Pas de souscription au bus",
+    "statut_paiement": "Paiement",
+    "toutes_classes": "Toutes les classes",
+    "souscription_created": "Souscription enregistrée.",
+    "no_tarif_defini": "Aucun tarif défini pour cette option — renseignez-le sur le trajet.",
+    "voir_trajet": "Voir le trajet"
   },
   "settings": {
     "title": "Paramètres de l'établissement",
@@ -412,7 +424,9 @@
     "date": "Date",
     "choisir": "Choisissez la classe dans laquelle vous êtes intervenu.",
     "aucune_affectation": "Aucune matière ne vous est affectée pour le moment.",
+    "aucun_creneau_ce_jour": "Aucun cours ne figure à votre emploi du temps pour cette date.",
     "aucun_programme": "Aucune leçon au programme de cette matière.",
+    "horaire": "Horaire",
     "lecons": "Leçons traitées",
     "appel": "Appel",
     "resume_appel": "{{presents}} présent(s), {{absents}} absent(s)",
@@ -448,7 +462,35 @@
     "expense_recorded": "Dépense enregistrée.",
     "tariff_recorded": "Tarif enregistré.",
     "additional_fee_added": "Frais annexe ajouté.",
-    "tariff_removed": "Tarif retiré."
+    "tariff_removed": "Tarif retiré.",
+    "remuneration": {
+      "modal_title_create": "Définir le salaire — {{name}}",
+      "modal_title_edit": "Réviser le salaire — {{name}}",
+      "saved_for": "Rémunération de {{name}} enregistrée.",
+      "saving": "Enregistrement…",
+      "effective_date": "Date d'effet",
+      "category_optional": "Catégorie (facultatif)",
+      "category_placeholder": "Ex. : 6, cadre…",
+      "exempt_until": "Exonéré jusqu’à {{amount}}",
+      "preview_title": "Ce que cela donne",
+      "calculating": "calcul…",
+      "gross": "Brut",
+      "taxable_base": "Base taxable",
+      "deductions": "Retenues",
+      "net_to_receive": "Net à percevoir",
+      "employer_cost_included": "Coût pour l'établissement, charges patronales comprises :",
+      "legal_deductions_detail": "Détail des retenues légales",
+      "employer_amount_short": "{{amount}} (empl.)",
+      "history_notice": "La rémunération précédente est conservée : les bulletins déjà émis gardent leurs montants, la nouvelle ne s'applique qu'à partir de sa date d'effet.",
+      "gains": {
+        "salaire_base": "Salaire de base",
+        "prime_anciennete": "Ancienneté",
+        "prime_communication": "Communication",
+        "prime_transport": "Transport",
+        "prime_recherche": "Recherche & leçon",
+        "prime_performance": "Performance"
+      }
+    }
   },
   "emploiDuTemps": {
     "title": "Emploi du temps",

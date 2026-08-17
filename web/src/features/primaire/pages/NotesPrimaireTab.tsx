@@ -27,7 +27,16 @@ function cle(eleveId: number, composante: Composante, sequenceId: number): strin
  * séquence), une matière se note ici sur plusieurs volets, chacun évalué à
  * chaque séquence du trimestre. La grille couvre donc tout le trimestre.
  */
-export function NotesPrimaireTab({ classeId }: { classeId: number }) {
+export function NotesPrimaireTab({
+  classeId,
+  initialMatiereId,
+  onBack,
+}: {
+  classeId: number
+  /** Matière déjà choisie ailleurs (ex. depuis « Remplissage des notes ») : saute la liste interne. */
+  initialMatiereId?: number | null
+  onBack?: () => void
+}) {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMatiereId, setSelectedMatiereId] = useState<number | null>(null)
@@ -39,9 +48,27 @@ export function NotesPrimaireTab({ classeId }: { classeId: number }) {
 
   // Filtrer les matières selon la recherche
   const filteredMatieres = affectations?.filter((a) =>
-    a.matiere.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.enseignant?.nom_complet.toLowerCase().includes(searchQuery.toLowerCase())
+    a.matiere.nom.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const controleExterne = initialMatiereId != null
+
+  if (controleExterne) {
+    if (!affectations) return <Spinner />
+
+    const matiere = affectations.find((a) => a.id === initialMatiereId)
+    return (
+      <div className="flex flex-col gap-4">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm text-navy-600 hover:text-navy-800 font-medium"
+        >
+          ← {t('common.back')}
+        </button>
+        <NotesPrimaireDetail classeId={classeId} classeMatiereId={initialMatiereId} matiere={matiere} />
+      </div>
+    )
+  }
 
   if (selectedMatiereId && affectations) {
     // Afficher la vue détaillée de saisie de notes
@@ -75,8 +102,6 @@ export function NotesPrimaireTab({ classeId }: { classeId: number }) {
           <Thead>
             <tr>
               <Th>{t('matieres.title')}</Th>
-              <Th>{t('personnel.enseignant')}</Th>
-              <Th>{t('matieres.coefficient')}</Th>
               <Th className="text-center">{t('common.actions')}</Th>
             </tr>
           </Thead>
@@ -84,8 +109,6 @@ export function NotesPrimaireTab({ classeId }: { classeId: number }) {
             {filteredMatieres.map((affectation) => (
               <Tr key={affectation.id}>
                 <Td className="font-medium">{affectation.matiere.nom}</Td>
-                <Td>{affectation.enseignant?.nom_complet ?? '—'}</Td>
-                <Td>{affectation.coefficient}</Td>
                 <Td className="text-center">
                   <button
                     onClick={() => setSelectedMatiereId(affectation.id)}

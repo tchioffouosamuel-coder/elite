@@ -7,6 +7,7 @@ import { fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
 import { fetchMesAffectations } from '@/features/progression/api'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
+import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
@@ -194,11 +195,19 @@ export function RemplissagePage() {
   if (matiereSelectionnee && classeActive !== null) {
     return (
       <div className="flex flex-col gap-4">
-        <NotesTab
-          classeId={classeActive}
-          initialMatiereId={matiereSelectionnee}
-          onBack={() => setMatiereSelectionnee(null)}
-        />
+        {secondaire ? (
+          <NotesTab
+            classeId={classeActive}
+            initialMatiereId={matiereSelectionnee}
+            onBack={() => setMatiereSelectionnee(null)}
+          />
+        ) : (
+          <NotesPrimaireTab
+            classeId={classeActive}
+            initialMatiereId={matiereSelectionnee}
+            onBack={() => setMatiereSelectionnee(null)}
+          />
+        )}
       </div>
     )
   }

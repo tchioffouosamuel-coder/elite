@@ -1,24 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { ArrowLeft, Bell, Clock, MapPin, Pencil, Plus, Trash2, UserPlus } from 'lucide-react'
 import {
-  affecterEleve,
   ajouterArret,
   fetchTrajet,
   modifierArret,
   notifierParents,
   retirerAffectation,
   supprimerArret,
+  LIBELLES_STATUT_PAIEMENT_BUS,
   type BusArret,
   type BusArretPayload,
-  type BusTrajetDetail,
-  type OptionTrajet,
   type TypeNotificationBus,
 } from '@/features/bus/api'
-import { fetchEleves, type Eleve } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -28,6 +25,13 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+const TONE_PAIEMENT: Record<string, 'green' | 'gold' | 'red' | 'neutral'> = {
+  solde: 'green',
+  partiel: 'gold',
+  impaye: 'red',
+  sans_frais: 'neutral',
+}
 
 export function BusTrajetDetailPage() {
   const { t } = useTranslation()
@@ -39,7 +43,6 @@ export function BusTrajetDetailPage() {
 
   const [showArretForm, setShowArretForm] = useState(false)
   const [arretEnEdition, setArretEnEdition] = useState<BusArret | null>(null)
-  const [showAffectationForm, setShowAffectationForm] = useState(false)
   const [showNotifyForm, setShowNotifyForm] = useState(false)
 
   const { data: trajet, isLoading } = useQuery({
@@ -159,7 +162,10 @@ export function BusTrajetDetailPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-navy-500">{t('bus.affectations')}</h2>
           {can('bus.manage') && (
-            <Button size="sm" onClick={() => setShowAffectationForm(true)}>
+            <Button
+              size="sm"
+              onClick={() => navigate('/bus/souscription', { state: { trajetId, retour: `/bus/trajets/${trajetId}` } })}
+            >
               <UserPlus className="h-4 w-4" />
               {t('bus.affectation_add')}
             </Button>
@@ -170,13 +176,14 @@ export function BusTrajetDetailPage() {
           <EmptyState label={t('bus.empty_affectations')} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-400">
                   <th className="py-2">{t('bus.eleve')}</th>
                   <th className="py-2">{t('bus.arret_select')}</th>
                   <th className="py-2">{t('bus.option_trajet')}</th>
                   <th className="py-2">{t('bus.tarif_mensuel')}</th>
+                  <th className="py-2">{t('bus.statut_paiement')}</th>
                   <th className="py-2">{t('bus.statut')}</th>
                   {can('bus.manage') && <th className="py-2 text-right">{t('common.actions')}</th>}
                 </tr>
@@ -200,26 +207,54 @@ export function BusTrajetDetailPage() {
                       {a.tarif_mensuel ? `${a.tarif_mensuel.toLocaleString('fr-FR')} FCFA` : '—'}
                     </td>
                     <td className="py-2.5">
+                      <Badge tone={TONE_PAIEMENT[a.statut_paiement] ?? 'neutral'}>
+                        {LIBELLES_STATUT_PAIEMENT_BUS[a.statut_paiement]}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5">
                       <Badge tone={a.statut === 'actif' ? 'green' : 'neutral'}>{t(`bus.${a.statut}`)}</Badge>
                     </td>
                     {can('bus.manage') && (
                       <td className="py-2.5 text-right">
-                        <button
-                          title={t('bus.affectation_remove')}
-                          onClick={async () => {
-                            if (!(await confirmerSuppression(a.eleve.nom_complet))) return
-                            try {
-                              await retirerAffectation(a.id)
-                              invalidate()
-                              succes(t('bus.affectation_deleted'))
-                            } catch (err) {
-                              erreur((err as ApiError).message)
+                        <div className="flex justify-end gap-1">
+                          <button
+                            title={t('common.edit')}
+                            onClick={() =>
+                              navigate('/bus/souscription', {
+                                state: {
+                                  eleveIds: [a.eleve.id],
+                                  eleveNoms: [a.eleve.nom_complet],
+                                  affectationId: a.id,
+                                  affectationActuelle: {
+                                    trajet_id: trajetId,
+                                    arret_id: a.arret?.id ?? null,
+                                    option_trajet: a.option_trajet,
+                                  },
+                                  retour: `/bus/trajets/${trajetId}`,
+                                },
+                              })
                             }
-                          }}
-                          className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            title={t('bus.affectation_remove')}
+                            onClick={async () => {
+                              if (!(await confirmerSuppression(a.eleve.nom_complet))) return
+                              try {
+                                await retirerAffectation(a.id)
+                                invalidate()
+                                succes(t('bus.affectation_deleted'))
+                              } catch (err) {
+                                erreur((err as ApiError).message)
+                              }
+                            }}
+                            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -238,17 +273,6 @@ export function BusTrajetDetailPage() {
           onSaved={() => {
             setShowArretForm(false)
             setArretEnEdition(null)
-            invalidate()
-          }}
-        />
-      )}
-
-      {showAffectationForm && (
-        <AffectationFormModal
-          trajet={trajet}
-          onClose={() => setShowAffectationForm(false)}
-          onSaved={() => {
-            setShowAffectationForm(false)
             invalidate()
           }}
         />
@@ -384,104 +408,3 @@ function ArretFormModal({
   )
 }
 
-function AffectationFormModal({
-  trajet,
-  onClose,
-  onSaved,
-}: {
-  trajet: BusTrajetDetail
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const { t } = useTranslation()
-  const [serverError, setServerError] = useState<string | null>(null)
-  const [rechercheEleve, setRechercheEleve] = useState('')
-
-  const { data: eleves } = useQuery({
-    queryKey: ['eleves', 'bus-affectation', rechercheEleve],
-    queryFn: () => fetchEleves({ search: rechercheEleve || undefined, per_page: 30 }),
-  })
-
-  const elevesDejaAffectes = useMemo(() => new Set(trajet.affectations.map((a) => a.eleve.id)), [trajet.affectations])
-
-  const {
-    register,
-    handleSubmit,
-    formState: { isSubmitting, errors },
-  } = useForm<{ eleve_id: number; arret_id?: number; tarif_mensuel?: number; option_trajet: OptionTrajet }>({
-    defaultValues: { option_trajet: 'aller_retour' },
-  })
-
-  const onSubmit = async (values: {
-    eleve_id: number
-    arret_id?: number
-    tarif_mensuel?: number
-    option_trajet: OptionTrajet
-  }) => {
-    setServerError(null)
-    try {
-      await affecterEleve({
-        eleve_id: Number(values.eleve_id),
-        trajet_id: trajet.id,
-        arret_id: values.arret_id ? Number(values.arret_id) : null,
-        tarif_mensuel: values.tarif_mensuel ? Number(values.tarif_mensuel) : null,
-        option_trajet: values.option_trajet,
-      })
-      succes(t('bus.affectation_created'))
-      onSaved()
-    } catch (err) {
-      setServerError((err as ApiError).message)
-    }
-  }
-
-  return (
-    <Modal title={t('bus.affectation_add')} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Input
-          label={t('bus.search_eleve')}
-          value={rechercheEleve}
-          onChange={(e) => setRechercheEleve(e.target.value)}
-        />
-
-        <Select label={t('bus.eleve')} error={errors.eleve_id?.message} {...register('eleve_id', { required: t('bus.field_required') as string })}>
-          <option value="">—</option>
-          {eleves?.items
-            .filter((e: Eleve) => !elevesDejaAffectes.has(e.id))
-            .map((e: Eleve) => (
-              <option key={e.id} value={e.id}>
-                {e.nom_complet}
-              </option>
-            ))}
-        </Select>
-
-        <Select label={t('bus.arret_select')} {...register('arret_id')}>
-          <option value="">—</option>
-          {trajet.arrets.map((arret) => (
-            <option key={arret.id} value={arret.id}>
-              {arret.nom}
-            </option>
-          ))}
-        </Select>
-
-        <Select label={t('bus.option_trajet')} {...register('option_trajet', { required: true })}>
-          <option value="aller_retour">{t('bus.aller_retour')}</option>
-          <option value="aller_simple">{t('bus.aller_simple')}</option>
-          <option value="retour_simple">{t('bus.retour_simple')}</option>
-        </Select>
-
-        <Input label={t('bus.tarif_mensuel')} type="number" min={0} {...register('tarif_mensuel')} />
-
-        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {t('common.save')}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}

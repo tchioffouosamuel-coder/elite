@@ -21,7 +21,7 @@ const MENTION_LABEL: Record<string, { fr: string; en: string; tone: 'green' | 'g
 export function ResultatsTab({ classeId }: { classeId: number }) {
   const { t, i18n } = useTranslation()
   const isFr = i18n.language === 'fr'
-  const [remplissageOuvert, setRemplissageOuvert] = useState(true)
+  const [remplissageOuvert, setRemplissageOuvert] = useState(false)
 
   const { data: remplissage, isLoading: loadingRemplissage } = useQuery({
     queryKey: ['remplissage', classeId],

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, Plus, Trash2, Wand2 } from 'lucide-react'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
 import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
 import {
   JOURS,
@@ -13,6 +13,7 @@ import {
   type Creneau,
 } from '@/features/emploiDuTemps/api'
 import { useAuthStore } from '@/shared/store/authStore'
+import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
@@ -32,14 +33,30 @@ function enMinutes(heure: string): number {
 export function EmploiDuTempsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const peutGerer = can('emploi_du_temps.manage')
   const queryClient = useQueryClient()
+
+  // Au primaire et à la maternelle, un enseignant est titulaire d'une seule
+  // classe : son propre emploi du temps directement, pas un sélecteur à parcourir.
+  const restreintATitulaire = estEnseignant && !estSecondaire()
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [formOuvert, setFormOuvert] = useState(false)
   const [generationOuverte, setGenerationOuverte] = useState(false)
 
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !restreintATitulaire })
+  const { data: maClasse, isLoading: maClasseEnChargement } = useQuery({
+    queryKey: ['ma-classe'],
+    queryFn: fetchMaClasse,
+    enabled: restreintATitulaire,
+  })
+
+  useEffect(() => {
+    if (restreintATitulaire && maClasse && classeId === '') {
+      setClasseId(maClasse.id)
+    }
+  }, [restreintATitulaire, maClasse, classeId])
 
   const classeActive = classeId ? Number(classeId) : null
 
@@ -102,21 +119,36 @@ export function EmploiDuTempsPage() {
         )}
       </div>
 
-      <Select
-        label="Classe"
-        value={classeId}
-        onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-        className="max-w-xs"
-      >
-        <option value="">Sélectionner une classe…</option>
-        {classes?.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-          </option>
-        ))}
-      </Select>
+      {restreintATitulaire ? (
+        maClasse && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
+            <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
+          </div>
+        )
+      ) : (
+        <Select
+          label="Classe"
+          value={classeId}
+          onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
+          className="max-w-xs"
+        >
+          <option value="">Sélectionner une classe…</option>
+          {classes?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </Select>
+      )}
 
-      {!classeActive ? (
+      {restreintATitulaire && maClasseEnChargement ? (
+        <Spinner />
+      ) : restreintATitulaire && !maClasse ? (
+        <Card>
+          <EmptyState label="Aucune classe ne vous est confiée pour le moment." />
+        </Card>
+      ) : !classeActive ? (
         <Card>
           <EmptyState label="Choisissez une classe pour afficher son emploi du temps." />
         </Card>
