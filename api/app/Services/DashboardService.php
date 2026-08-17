@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
@@ -53,13 +54,16 @@ class DashboardService extends BaseService
             ->orderByDesc('eleves_count')->limit(5)->get(['id', 'nom'])
             ->map(fn ($c) => ['classe' => $c->nom, 'effectif' => $c->eleves_count]);
 
-        $activiteRecente = Eleve::forSchool($schoolId)->latest()->limit(3)->get()
-            ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
-            ->concat(
-                Personnel::forSchool($schoolId)->latest()->limit(3)->get()
-                    ->map(fn ($p) => ['type' => 'personnel', 'libelle' => "Ajout de {$p->nom_complet} ({$p->fonction})", 'date' => $p->created_at->toIso8601String()])
-            )
-            ->sortByDesc('date')->take(5)->values();
+        // Journal réel des connexions et actions marquantes (qui a fait quoi),
+        // pas une reconstruction a posteriori à partir des dates de création —
+        // cf. cahier des charges §5.5.
+        $activiteRecente = ActivityLog::forSchool($schoolId)
+            ->latest('created_at')->limit(6)->get()
+            ->map(function (ActivityLog $log) {
+                $qui = $log->causer_role ? "{$log->causer_nom} — {$log->causer_role}" : $log->causer_nom;
+
+                return ['type' => $log->action, 'libelle' => "{$qui} : {$log->description}", 'date' => $log->created_at->toIso8601String()];
+            });
 
         return [
             'scope' => 'ecole',

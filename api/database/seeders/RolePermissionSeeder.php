@@ -55,6 +55,8 @@ class RolePermissionSeeder extends Seeder
             'emploi_du_temps.view',
             'emploi_du_temps.manage',
             'appel.manage',
+            'revendications.view',
+            'revendications.manage',
         ],
         'censeur_sg' => [
             'personnel.view',
@@ -76,6 +78,8 @@ class RolePermissionSeeder extends Seeder
             'emploi_du_temps.view',
             'emploi_du_temps.manage',
             'appel.manage',
+            'revendications.view',
+            'revendications.manage',
         ],
         /*
          * Le surveillant général tient la discipline : absences, sanctions,
@@ -99,6 +103,7 @@ class RolePermissionSeeder extends Seeder
             'appel.manage',
             'annonces.view',
             'dashboard.view',
+            'revendications.view',
         ],
         'enseignant' => [
             'classes.view',
@@ -111,6 +116,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard.view',
             'emploi_du_temps.view',
             'appel.manage',
+            'revendications.view',
         ],
         'econome' => [
             'eleves.view',

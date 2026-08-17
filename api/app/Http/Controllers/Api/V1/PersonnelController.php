@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\CreateLoginAccountRequest;
 use App\Http\Requests\Api\V1\StorePersonnelRequest;
 use App\Http\Requests\Api\V1\UpdatePersonnelRequest;
 use App\Http\Resources\Api\V1\PersonnelResource;
+use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
 use App\Models\School;
 use App\Services\AttestationEmployeurService;
@@ -39,6 +40,8 @@ class PersonnelController extends Controller
     public function store(StorePersonnelRequest $request): JsonResponse
     {
         $personnel = $this->service->create(app('tenant.school_id'), $request->validated());
+
+        ActivityLog::enregistrer($request->user(), 'personnel.cree', "Ajout de {$personnel->nom_complet}.", $personnel);
 
         return ApiResponse::created(new PersonnelResource($personnel), 'Membre du personnel créé.');
     }

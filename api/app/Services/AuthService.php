@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,6 +20,8 @@ class AuthService extends BaseService
         }
 
         $token = $user->createToken($deviceName)->plainTextToken;
+
+        ActivityLog::enregistrer($user, 'connexion', 'Connexion à l’application.');
 
         return ['user' => $user, 'token' => $token];
     }

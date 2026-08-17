@@ -33,6 +33,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command(EnvoyerRapportHebdomadaireParents::class)->weeklyOn(6, '18:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        // Render (comme tout hébergeur derrière un load balancer) termine le
+        // TLS puis nous parle en HTTP interne : sans ceci, Laravel croit
+        // chaque requête non chiffrée et génère des URLs en http:// (liens
+        // de fichiers, cookies Sanctum sans l'attribut Secure).
+        $middleware->trustProxies(at: '*');
+
         // API pure, sans route web "login" : ne jamais tenter de rediriger un
         // invité, toujours laisser l'exception JSON standard (401) répondre.
         $middleware->redirectGuestsTo(fn () => null);

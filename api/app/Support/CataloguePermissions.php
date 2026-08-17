@@ -102,6 +102,10 @@ class CataloguePermissions
             'annonces.view' => ['Consulter les annonces', 'View announcements'],
             'annonces.publish' => ['Publier des annonces', 'Publish announcements'],
         ]],
+        'revendications' => ['Réclamations', 'Complaints', [
+            'revendications.view' => ['Consulter les réclamations', 'View complaints'],
+            'revendications.manage' => ['Enregistrer et traiter les réclamations', 'Record and process complaints'],
+        ]],
     ];
 
     /**

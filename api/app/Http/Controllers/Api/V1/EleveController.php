@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreEleveRequest;
 use App\Http\Requests\Api\V1\UpdateEleveRequest;
 use App\Http\Resources\Api\V1\EleveResource;
+use App\Models\ActivityLog;
 use App\Models\Classe;
 use App\Services\EleveService;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,8 @@ class EleveController extends Controller
     public function store(StoreEleveRequest $request): JsonResponse
     {
         $eleve = $this->service->create(app('tenant.school_id'), $request->validated());
+
+        ActivityLog::enregistrer($request->user(), 'eleve.cree', "Inscription de {$eleve->nom_complet}.", $eleve);
 
         return ApiResponse::created(new EleveResource($eleve), 'Élève inscrit.');
     }

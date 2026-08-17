@@ -47,6 +47,7 @@ import {
   Megaphone,
   Boxes,
   PiggyBank,
+  Gavel,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -201,6 +202,7 @@ const navGroups = [
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view' },
+      { to: '/revendications', label: 'nav.revendications', icon: Gavel, permission: 'revendications.view' },
     ],
   },
   {

@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\RapportFinancierController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
+use App\Http\Controllers\Api\V1\RevendicationController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\ScolariteController;
@@ -338,6 +339,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('statistiques/pedagogiques/pdf', [StatistiqueController::class, 'pedagogiquesPdf'])->name('statistiques.pedagogiques.pdf');
                 Route::get('statistiques/disciplinaires', [StatistiqueController::class, 'disciplinaires'])->name('statistiques.disciplinaires');
                 Route::get('statistiques/disciplinaires/pdf', [StatistiqueController::class, 'disciplinairesPdf'])->name('statistiques.disciplinaires.pdf');
+            });
+
+            Route::middleware('permission:revendications.view')->group(function () {
+                Route::get('revendications', [RevendicationController::class, 'index'])->name('revendications.index');
+            });
+
+            Route::middleware('permission:revendications.manage')->group(function () {
+                Route::post('revendications', [RevendicationController::class, 'store'])->name('revendications.store');
+                Route::put('revendications/{id}', [RevendicationController::class, 'update'])->name('revendications.update');
+                Route::delete('revendications/{id}', [RevendicationController::class, 'destroy'])->name('revendications.destroy');
             });
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {

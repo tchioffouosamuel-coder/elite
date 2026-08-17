@@ -1,0 +1,5 @@
+# Déclencheur du planificateur Laravel (rapport hebdomadaire aux parents,
+# cf. bootstrap/app.php -> withSchedule). Laravel décide lui-même, à chaque
+# minute, si une tâche est réellement due — le rôle de cron s'arrête à
+# l'appeler.
+* * * * * www-data cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1
