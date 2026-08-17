@@ -2,9 +2,13 @@
 
 namespace App\Support\Pdf;
 
+use App\Models\Eleve;
 use App\Models\School;
+use App\Models\Trimestre;
 use App\Services\VisaComposeService;
 use App\Support\Pdf\Concerns\RenduDocument;
+use App\Support\SignatureBulletin;
+use Endroid\QrCode\Builder\Builder;
 use Mpdf\Output\Destination;
 
 /**
@@ -29,6 +33,11 @@ class BulletinGenerator
         ], $donnees['school']);
         $mpdf->SetTitle('Bulletins '.$donnees['classe']->nom.' — '.$donnees['trimestre']->libelle);
 
+        // Filigrane plus marqué que sur les autres documents : une page aussi
+        // dense en tableaux porte mieux un repère visuel large qu'un document
+        // court comme le PV de conseil ou le bilan disciplinaire.
+        MpdfFactory::appliquerFiligrane($mpdf, $donnees['school'], largeurMm: 150);
+
         $mpdf->WriteHTML($this->html($donnees));
 
         return $mpdf->Output('', Destination::STRING_RETURN);
@@ -43,7 +52,8 @@ class BulletinGenerator
                 .$this->infosEleve($bulletin, $donnees)
                 .$this->tableauNotes($bulletin, $donnees)
                 .$this->tableauSynthese($bulletin, $donnees)
-                .$this->tableauRappel($bulletin, $donnees['school']);
+                .$this->tableauRappel($bulletin, $donnees['school'])
+                .$this->qrAuthenticite($bulletin['eleve'], $donnees['trimestre']);
         }
 
         if ($pages === []) {
@@ -56,9 +66,16 @@ class BulletinGenerator
             .'</body></html>';
     }
 
+    /**
+     * Le logo commun aux documents (`RenduDocument::LOGO_WIDTH`) domine trop la
+     * page sur un bulletin, dense en tableaux : on le réduit ici sans toucher
+     * au réglage partagé, qui reste adapté aux autres documents (PV, bilans…).
+     */
+    private const LOGO_WIDTH_BULLETIN = '85px';
+
     private function styles(): string
     {
-        return '<style>'.$this->stylesBase().'</style>';
+        return '<style>'.$this->stylesBase().'.logo{width:'.self::LOGO_WIDTH_BULLETIN.';}</style>';
     }
 
     /** En-tête bilingue à trois colonnes : mentions FR, logo, mentions EN. */
@@ -67,7 +84,7 @@ class BulletinGenerator
         $school = $donnees['school'];
 
         return $this->enTeteEcole($school)
-            .'<table class="no-border"><tr><td class="left" style="line-height:1.4;">'
+            .'<table class="no-border"><tr><td style="line-height:1.4;text-align:center;">'
             .'<span class="titre">Bulletin de notes du '.$this->e($donnees['trimestre']->libelle).'</span><br>'
             .'<span class="titre-en">'.$this->e($donnees['trimestre']->libelle).' report card</span><br>'
             .'<span style="font-size:2.8mm;">Année scolaire <i>/ Academic year</i> : <b>'
@@ -91,35 +108,52 @@ class BulletinGenerator
         // cellules : le fond et la couleur du bandeau sont répétés sur chaque td.
         $bandeau = 'background:'.self::ARDOISE.';color:#fff;padding:1.5mm;';
 
-        return '<table class="no-border" style="font-size:2.8mm;">'
+        return '<table class="no-border" style="font-size:2.8mm;" width="100%">'
             .'<tr><td class="left" style="width:40%;'.$bandeau.'">'
             .'<span style="color:#fff;">Nom de l\'élève <i>/ Student\'s name</i> :</span></td>'
             .'<td class="left" style="width:60%;'.$bandeau.'text-transform:uppercase;">'
-            .'<b style="color:#fff;">'.$this->e($eleve->nom_complet).'</b></td></tr>'
-            .'<tr><td class="left" style="width:12%;">'.$cellulephoto.'</td>'
-            .'<td class="left">'
-            .'<table class="no-border" style="font-size:2.6mm;"><tr>'
-            .$this->champ('Né(e) le', 'Born on', $eleve->date_naissance?->format('d/m/Y'))
-            .$this->champ('À', 'At', $eleve->lieu_naissance)
-            .$this->champ('Classe', 'Class', $classe->nom)
+            .'<b style="color:#fff;font-size:4.2mm;">'.$this->e($eleve->nom_complet).'</b></td></tr>'
+            .'<tr><td class="left" style="width:10%;">'.$cellulephoto.'</td>'
+            // mPDF ne fiabilise la largeur d'un tableau imbriqué que si elle est
+            // posée en attribut HTML : la seule CSS `width:100%` de la classe
+            // laissait ce bloc rétrécir à la largeur de son contenu, avec une
+            // bande vide à droite de la page.
+            .'<td class="left" style="width:90%;" width="90%">'
+            // Trois champs par ligne à largeur explicite (1/3 chacun) : sans ça,
+            // chaque cellule ne prend que la largeur de son texte et laisse une
+            // bande vide à droite de la ligne au lieu de se répartir sur toute
+            // la largeur du bloc.
+            .'<table class="no-border" style="font-size:3.1mm;" width="100%"><tr>'
+            .$this->champ('Né(e) le', 'Born on', $eleve->date_naissance?->format('d/m/Y'), 32)
+            .$this->champ('À', 'At', $eleve->lieu_naissance, 30)
+            .$this->champ('Classe', 'Class', $classe->nom, 38)
             .'</tr><tr>'
-            .$this->champ('Matricule', 'ID', $eleve->matricule)
-            .$this->champ('Sexe', 'Gender', $eleve->sexe)
+            .$this->champ('Matricule', 'ID', $eleve->matricule, 30)
+            .$this->champ('Sexe', 'Gender', $eleve->sexe, 18)
             .$this->champ('Effectif', 'Enrolment',
-                'M: '.$effectif['garcons'].'  F: '.$effectif['filles'].'  T: '.$effectif['total'])
+                'M: '.$effectif['garcons'].'  F: '.$effectif['filles'].'  T: '.$effectif['total'], 52)
             .'</tr><tr>'
-            .$this->champ('Statut', 'Status', $eleve->redoublant ? 'Redoublant(e)' : 'Passant(e)')
-            .$this->champ('Prof. principal', 'Class master', $classe->professeurPrincipal?->nom_complet)
-            .$this->champ('Surveillant gén.', 'Discipline master', $classe->surveillantGeneral?->nom_complet)
+            .$this->champ('Statut', 'Status', $eleve->redoublant ? 'Redoublant(e)' : 'Passant(e)', 22)
+            .$this->champ('Prof. principal', 'Class master', $classe->professeurPrincipal?->nom_complet, 39)
+            .$this->champ('Surveillant gén.', 'Discipline master', $classe->surveillantGeneral?->nom_complet, 39)
             .'</tr></table>'
             .'</td></tr></table>';
     }
 
-    private function champ(string $fr, string $en, ?string $valeur): string
+    /**
+     * Largeurs inégales plutôt que trois colonnes fixes à 33 % : un champ
+     * court comme « Sexe » (M/F) n'a pas besoin du même espace qu'« Effectif »
+     * (« M: 19 F: 1 T: 20 ») ou qu'un nom de professeur. La ligne pointillée
+     * sous la valeur absorbe ensuite ce qui reste sans jamais paraître vide —
+     * posée sur un `<span>` plutôt que sur le `<td>` : mPDF perd silencieusement
+     * toute bordure de cellule dans un tableau imbriqué (vérifié isolément),
+     * alors qu'un simple soulignement de texte y survit sans problème.
+     */
+    private function champ(string $fr, string $en, ?string $valeur, int $largeur = 33): string
     {
-        return '<td class="left" style="border:none;padding:0.5mm;">'
+        return '<td class="left" style="padding:0.5mm;width:'.$largeur.'%;" width="'.$largeur.'%">'
             .'<span>'.$this->e($fr).' <i>/ '.$this->e($en).'</i> : </span>'
-            .'<span class="value">'.$this->e($valeur ?: '—').'</span></td>';
+            .'<span class="value" style="border-bottom:0.3mm dotted #9aa0a6;">'.$this->e($valeur ?: '—').'</span></td>';
     }
 
     /**
@@ -130,12 +164,15 @@ class BulletinGenerator
     {
         $sequences = $donnees['sequences'];
 
+        // « Eval. N » plutôt que le libellé brut de la séquence (« Séquence N ») :
+        // plus court, ça libère de la place dans une colonne déjà étroite.
         $entete = '<tr><th class="left">Matières<br><i>Subjects</i></th>'
             .'<th>Compétences évaluées<br><i>Competencies</i></th>';
         foreach ($sequences as $sequence) {
-            $entete .= '<th>'.$this->e($sequence->libelle).'</th>';
+            $entete .= '<th>Eval. '.$sequence->ordre.'</th>';
         }
-        $entete .= '<th>Trim.<br><i>Term</i></th><th>Coef</th><th>TxC</th>'
+        $ordreTrimestre = $donnees['trimestre']->ordre;
+        $entete .= '<th>Trim '.$ordreTrimestre.'.<br><i>Term '.$ordreTrimestre.'</i></th><th>Coef</th><th>TxC</th>'
             .'<th>Cote<br><i>Grade</i></th><th>Min</th><th>Max</th><th>Rang<br><i>Pos.</i></th>'
             .'<th>Obs. &amp; Sign.</th></tr>';
 
@@ -225,8 +262,11 @@ class BulletinGenerator
         foreach ($trimestres as $trimestre) {
             $entete .= '<th colspan="2">'.$this->e($trimestre['libelle']).'</th>';
         }
-        $entete .= '<th rowspan="'.($nbLignes + 3).'" style="width:14%;">Prof. principal<br><i>Class master</i></th>'
-            .'<th rowspan="'.($nbLignes + 3).'" style="width:14%;">Visa chef d\'établ.<br><i>Principal\'s visa</i>'
+        // Le parent signe avant que le titulaire ne vise, comme sur le bulletin
+        // papier : la case précède donc « Prof. principal » plutôt que de la suivre.
+        $entete .= '<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Signature Parent</th>'
+            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Prof. principal<br><i>Class master</i></th>'
+            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Visa chef d\'établ.<br><i>Principal\'s visa</i>'
             .$this->visa($school).'</th></tr><tr>';
         foreach ($trimestres as $unused) {
             $entete .= '<th>Moy<i>/Av</i></th><th>Rang<i>/Pos</i></th>';
@@ -235,7 +275,10 @@ class BulletinGenerator
 
         $corps = '';
         for ($i = 0; $i < $nbLignes; $i++) {
-            $corps .= '<tr><th>'.$this->e($trimestres[0]['sequences'][$i]['libelle'] ?? ('Éval. '.($i + 1))).'</th>';
+            // Même libellé « Eval. N » que la grille de notes — jamais le libellé
+            // brut de la séquence, pour ne pas afficher deux vocabulaires différents
+            // sur le même bulletin.
+            $corps .= '<tr><th>Eval. '.($i + 1).'</th>';
             foreach ($trimestres as $trimestre) {
                 $sequence = $trimestre['sequences'][$i] ?? null;
                 $corps .= '<td>'.$this->nombre($sequence['moyenne'] ?? null).'</td>'
@@ -254,6 +297,27 @@ class BulletinGenerator
         return '<span class="legende">Compétences très bien acquises (<b>CTBA</b>) — bien acquises (<b>CBA</b>) — '
             .'acquises (<b>CA</b>) — moyennement acquises (<b>CMA</b>) — non acquises (<b>CNA</b>)</span>'
             .'<table>'.$entete.$corps.'</table>';
+    }
+
+    /**
+     * Code QR pointant vers la page publique de vérification d'authenticité
+     * (cf. `SignatureBulletin`) : dissuade la présentation d'un bulletin
+     * falsifié à un tiers, sans rien stocker en base pour chaque bulletin émis.
+     */
+    private function qrAuthenticite(Eleve $eleve, Trimestre $trimestre): string
+    {
+        $qr = (new Builder)->build(
+            data: SignatureBulletin::lienVerification($eleve->id, $trimestre->id),
+            size: 140,
+            margin: 2,
+        );
+
+        return '<table class="no-border" style="margin-top:1mm;"><tr>'
+            .'<td style="width:12%;border:none;padding:0;"><img src="'.$qr->getDataUri().'" style="width:16mm;height:16mm;"></td>'
+            .'<td style="border:none;padding:0 0 0 2mm;font-size:2.3mm;color:'.self::ARDOISE.';">'
+            .'Authenticité <i>/ Authenticity</i> : scannez ce code pour vérifier ce bulletin en ligne.<br>'
+            .'<i>Scan this code to verify this report card online.</i></td>'
+            .'</tr></table>';
     }
 
     /** Cachet et signature composés en une image (la signature traverse le cachet), dans le cartouche de visa. */

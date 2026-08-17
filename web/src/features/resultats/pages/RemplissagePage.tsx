@@ -5,7 +5,7 @@ import { ArrowLeft, ListChecks } from 'lucide-react'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
-import { fetchMesAffectations } from '@/features/progression/api'
+import { fetchMesAffectationsActives } from '@/features/pedagogie/api'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -44,8 +44,8 @@ export function RemplissagePage() {
   // qui n'aurait pour lui aucun sens et exposerait des classes hors de son périmètre.
   const { data: toutesLesClasses } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !estEnseignant })
   const { data: mesAffectations } = useQuery({
-    queryKey: ['mes-affectations'],
-    queryFn: fetchMesAffectations,
+    queryKey: ['mes-affectations-actives'],
+    queryFn: fetchMesAffectationsActives,
     enabled: estEnseignant,
   })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
@@ -258,15 +258,15 @@ export function RemplissagePage() {
           colonnes={colonnesClasses}
           lignes={lignesClasses}
           cleLigne={(l) => l.id}
-          placeholderRecherche="Rechercher une classe…"
-          messageVide="Aucune classe disponible."
+          placeholderRecherche={t('resultats.search_classe')}
+          messageVide={t('resultats.empty_classe')}
           onLigneClick={(l) => setClasseId(l.id)}
         />
       ) : isLoading ? (
         <Spinner />
       ) : !data?.matieres.length ? (
         <Card>
-          <EmptyState label="Aucune matière affectée à cette classe." />
+          <EmptyState label={t('progression.aucune_matiere_classe')} />
         </Card>
       ) : (
         <>
@@ -275,8 +275,8 @@ export function RemplissagePage() {
             colonnes={colonnesMatieres}
             lignes={data.matieres}
             cleLigne={(ligne) => ligne.classe_matiere_id}
-            placeholderRecherche="Rechercher une matière…"
-            messageVide="Aucune matière affectée à cette classe."
+            placeholderRecherche={t('matieres.search_placeholder')}
+            messageVide={t('progression.aucune_matiere_classe')}
             onLigneClick={(ligne) => setMatiereSelectionnee(ligne.classe_matiere_id)}
           />
         </>

@@ -81,8 +81,8 @@ export function ElevesTab({ classeId }: { classeId: number }) {
       colonnes={colonnes}
       lignes={data.items}
       cleLigne={(e) => e.id}
-      placeholderRecherche="Rechercher un nom, un matricule…"
-      messageVide="Aucun élève dans cette classe."
+      placeholderRecherche={t('classes.eleves_tab_search_placeholder')}
+      messageVide={t('classes.eleves_tab_empty')}
       largeurMin={760}
       outils={
         <>

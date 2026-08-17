@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown, FileText } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -26,6 +27,7 @@ const LIBELLES = { payee: 'Payée', engagee: 'Engagée', annulee: 'Annulée' } a
  * ce mois-ci ». Les deux questions se posent en même temps.
  */
 export function DepensesPage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
@@ -193,8 +195,8 @@ export function DepensesPage() {
               colonnes={colonnes}
               lignes={data.depenses}
               cleLigne={(d) => d.id}
-              placeholderRecherche="Rechercher un libellé, un bénéficiaire…"
-              messageVide="Aucune dépense sur cette période."
+              placeholderRecherche={t('finance.search_depense')}
+              messageVide={t('finance.empty_depense')}
               largeurMin={860}
               outils={
                 <div className="flex flex-wrap items-end gap-2">

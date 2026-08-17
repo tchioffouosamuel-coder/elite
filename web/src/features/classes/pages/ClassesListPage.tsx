@@ -76,7 +76,7 @@ export function ClassesListPage() {
       await bulkUpdateClasses(Array.from(selectedClasses), updates)
       setSelectedClasses(new Set())
       invalidate()
-      succes(`${selectedClasses.size} classe(s) mise(s) à jour.`)
+      succes(t('classes.bulk_updated', { count: selectedClasses.size }))
     } catch (err) {
       erreur((err as ApiError).message)
     }
@@ -125,36 +125,12 @@ export function ClassesListPage() {
       cellule: (c) => (c.sigle ? <span className="font-mono font-semibold text-gold-600">{c.sigle}</span> : '—'),
     },
     {
-      cle: 'ecole',
-      entete: 'École',
-      valeur: (c) => c.school?.name,
-      cellule: (c) => (c.school ? <Badge tone="purple">{c.school.name}</Badge> : '—'),
-      masquerMobile: true,
-    },
-    {
       cle: 'sous_systeme',
       entete: 'Sous-système',
       valeur: (c) => getSousSystemeNom(c),
       cellule: (c) => (getSousSystemeNom(c) === '—' ? '—' : <Badge tone="blue">{getSousSystemeNom(c)}</Badge>),
       masquerMobile: true,
     },
-    {
-      cle: 'niveau',
-      entete: t('classes.niveau'),
-      valeur: (c) => c.niveau?.name_fr,
-      cellule: (c) => (c.niveau ? <Badge tone="gold">{c.niveau.name_fr}</Badge> : '—'),
-    },
-    ...(secondaire
-      ? [
-        {
-          cle: 'filiere',
-          entete: t('classes.filiere'),
-          valeur: (c: Classe) => c.filiere,
-          cellule: (c: Classe) => c.filiere ?? '—',
-          masquerMobile: true,
-        } satisfies Colonne<Classe>,
-      ]
-      : []),
     {
       cle: 'effectif',
       entete: t('classes.effectif'),
@@ -215,14 +191,14 @@ export function ClassesListPage() {
               onClick={async (e) => {
                 e.stopPropagation()
                 const confirme = await confirmerSuppression(
-                  `la classe ${c.nom}`,
-                  "Les affectations de matières, sanctions, séances et l'emploi du temps de cette classe seront définitivement supprimés. Les élèves inscrits seront simplement désaffectés. Cette action est irréversible.",
+                  t('classes.delete_confirm_quoi', { nom: c.nom }),
+                  t('classes.delete_confirm_precision'),
                 )
                 if (!confirme) return
                 try {
                   await deleteClasse(c.id)
                   invalidate()
-                  succes('Classe supprimée.')
+                  succes(t('classes.deleted'))
                 } catch (err) {
                   erreur((err as ApiError).message)
                 }
@@ -332,8 +308,8 @@ export function ClassesListPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(c) => c.id}
-          placeholderRecherche="Rechercher une classe…"
-          messageVide="Aucune classe pour cet établissement."
+          placeholderRecherche={t('classes.search_placeholder')}
+          messageVide={t('classes.empty')}
           onLigneClick={(c) => navigate(`/classes/${c.id}`)}
         />
       )}

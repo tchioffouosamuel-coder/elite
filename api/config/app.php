@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Origine de l'application React — distincte de `url` ci-dessus, qui est
+    | celle de cette API. Sert à composer des liens publics à destination du
+    | frontend (ex. la page de vérification d'authenticité d'un bulletin,
+    | dont le QR code pointe forcément sur l'app, jamais sur l'API).
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

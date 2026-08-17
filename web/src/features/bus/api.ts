@@ -41,13 +41,6 @@ export const LIBELLES_OPTION_TRAJET: Record<OptionTrajet, string> = {
 
 export type StatutPaiementBus = 'sans_frais' | 'impaye' | 'partiel' | 'solde'
 
-export const LIBELLES_STATUT_PAIEMENT_BUS: Record<StatutPaiementBus, string> = {
-  sans_frais: 'Sans frais',
-  impaye: 'Non payée',
-  partiel: 'Partielle',
-  solde: 'Payée',
-}
-
 export interface BusTrajet {
   id: number
   nom: string

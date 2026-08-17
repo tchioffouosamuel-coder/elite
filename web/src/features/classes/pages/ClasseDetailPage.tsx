@@ -46,7 +46,7 @@ export function ClasseDetailPage() {
           {can('emploi_du_temps.manage') && classe.qr_token && (
             <Button variant="secondary" onClick={() => setQrOuvert(true)}>
               <QrCode className="h-4 w-4" />
-              Code QR
+              {t('classes.qr_button')}
             </Button>
           )}
           {can('eleves.view') && (

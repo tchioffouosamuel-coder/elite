@@ -214,8 +214,8 @@ export function CaissePage() {
             colonnes={colonnes}
             lignes={data.dossiers}
             cleLigne={(d) => d.eleve.id}
-            placeholderRecherche="Rechercher un nom, un matricule…"
-            messageVide="Aucun dossier pour ce filtre."
+            placeholderRecherche={t('finance.search_caisse')}
+            messageVide={t('finance.empty_caisse')}
             largeurMin={900}
             outils={
               <div className="flex flex-wrap gap-2">

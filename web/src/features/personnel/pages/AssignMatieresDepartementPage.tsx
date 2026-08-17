@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, Plus, Trash2, X } from 'lucide-react'
 import { fetchDepartements } from '@/features/personnel/api'
@@ -14,6 +15,7 @@ import { Card } from '@/shared/ui/Card'
 type MatiereAvecDept = Matiere
 
 export function AssignMatieresDepartementPage() {
+    const { t } = useTranslation()
     const can = useAuthStore((s) => s.can)
     const queryClient = useQueryClient()
 
@@ -187,8 +189,8 @@ export function AssignMatieresDepartementPage() {
                     colonnes={colonnes}
                     lignes={matieres.filter((m) => m.departement)}
                     cleLigne={(m) => m.id}
-                    placeholderRecherche="Rechercher une matière…"
-                    messageVide="Aucune matière assignée à un département"
+                    placeholderRecherche={t('personnel.assign_matieres_search_placeholder')}
+                    messageVide={t('personnel.assign_matieres_empty_assignees')}
                     largeurMin={320}
                 />
             </div>
@@ -199,8 +201,8 @@ export function AssignMatieresDepartementPage() {
                     colonnes={colonnes}
                     lignes={matieresSansDept}
                     cleLigne={(m) => m.id}
-                    placeholderRecherche="Rechercher une matière…"
-                    messageVide="Toutes les matières sont assignées à un département"
+                    placeholderRecherche={t('personnel.assign_matieres_search_placeholder')}
+                    messageVide={t('personnel.assign_matieres_empty_sans_dept')}
                     largeurMin={320}
                 />
             </div>

@@ -19,6 +19,7 @@ class MatiereResource extends JsonResource
             'composantes' => $this->composantes(),
             'repartition_volets' => $this->repartitionVolets(),
             'statut' => $this->statut,
+            'classes_count' => $this->whenCounted('classeMatieres'),
             'departement' => $this->whenLoaded('departement', fn () => $this->departement ? [
                 'id' => $this->departement->id,
                 'nom' => $this->departement->nom,

@@ -69,12 +69,9 @@ export function EleveTransfertsPage() {
     if (ids.length === 0 || !destinationValide) return
 
     const confirme = await confirmer({
-      titre: `Transférer ${ids.length} élève(s) ?`,
-      message:
-        mode === 'classe'
-          ? `Ces élèves rejoindront la classe sélectionnée.`
-          : `Ces élèves rejoindront l'établissement et la classe sélectionnés. Cette action est irréversible.`,
-      action: 'Transférer',
+      titre: t('eleves.transfer_confirm_title', { count: ids.length }),
+      message: mode === 'classe' ? t('eleves.transfer_message_classe') : t('eleves.transfer_message_ecole'),
+      action: t('eleves.transferer'),
       destructif: false,
     })
     if (!confirme) return
@@ -120,27 +117,27 @@ export function EleveTransfertsPage() {
     },
     {
       cle: 'matricule',
-      entete: 'Matricule',
+      entete: t('eleves.matricule'),
       valeur: (e) => e.matricule,
       cellule: (e) => <span className="font-mono text-xs">{e.matricule ?? '—'}</span>,
     },
     {
       cle: 'nom',
-      entete: 'Nom complet',
+      entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,
       cellule: (e) => <span className="font-semibold text-navy-900">{e.nom_complet}</span>,
     },
     {
       cle: 'classe',
-      entete: 'Classe actuelle',
+      entete: t('eleves.classe_actuelle'),
       valeur: (e) => e.classe?.nom,
       cellule: (e) => e.classe?.nom ?? '—',
     },
     {
       cle: 'statut',
-      entete: 'Statut',
+      entete: t('eleves.statut'),
       valeur: (e) => e.statut,
-      cellule: (e) => <Badge tone={e.statut === 'actif' ? 'green' : 'neutral'}>{e.statut}</Badge>,
+      cellule: (e) => <Badge tone={e.statut === 'actif' ? 'green' : 'neutral'}>{t(`eleves.${e.statut}`)}</Badge>,
       masquerMobile: true,
     },
   ]
@@ -150,13 +147,13 @@ export function EleveTransfertsPage() {
       <div>
         <Link to="/eleves" className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
           <ArrowLeft className="h-4 w-4" />
-          Retour
+          {t('common.back')}
         </Link>
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-linear-to-br from-gold-50 to-gold-100 shadow-soft ring-1 ring-gold-100">
             <Repeat className="h-5 w-5 text-gold-600" />
           </span>
-          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Transferts en masse</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">{t('nav.transferts')}</h1>
         </div>
       </div>
 
@@ -168,7 +165,7 @@ export function EleveTransfertsPage() {
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${mode === 'classe' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
               }`}
           >
-            Vers une classe
+            {t('eleves.vers_classe')}
           </button>
           {isSuperAdmin && (
             <button
@@ -177,13 +174,13 @@ export function EleveTransfertsPage() {
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${mode === 'ecole' ? 'bg-navy-800 text-cream-50 shadow-soft' : 'bg-cream-100 text-navy-600 hover:bg-cream-200'
                 }`}
             >
-              Vers une autre école
+              {t('eleves.vers_ecole')}
             </button>
           )}
         </div>
 
         {mode === 'classe' ? (
-          <Select label="Classe de destination" value={classeDestId} onChange={(e) => setClasseDestId(e.target.value ? Number(e.target.value) : '')}>
+          <Select label={t('eleves.classe_destination')} value={classeDestId} onChange={(e) => setClasseDestId(e.target.value ? Number(e.target.value) : '')}>
             <option value="">—</option>
             {classes?.map((c) => (
               <option key={c.id} value={c.id}>
@@ -194,7 +191,7 @@ export function EleveTransfertsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
-              label="École de destination"
+              label={t('eleves.ecole_destination')}
               value={ecoleDestId}
               onChange={(e) => {
                 setEcoleDestId(e.target.value ? Number(e.target.value) : '')
@@ -209,7 +206,7 @@ export function EleveTransfertsPage() {
               ))}
             </Select>
             <Select
-              label="Classe de destination"
+              label={t('eleves.classe_destination')}
               value={classeDestEcoleId}
               onChange={(e) => setClasseDestEcoleId(e.target.value ? Number(e.target.value) : '')}
               disabled={!ecoleDestId}
@@ -228,12 +225,12 @@ export function EleveTransfertsPage() {
       <Card className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Select
-            label="Filtrer par classe actuelle"
+            label={t('eleves.filtrer_classe_actuelle')}
             value={classeFiltreId}
             onChange={(e) => setClasseFiltreId(e.target.value ? Number(e.target.value) : '')}
             className="max-w-xs"
           >
-            <option value="">Toutes les classes</option>
+            <option value="">{t('eleves.toutes_classes')}</option>
             {classes?.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nom}
@@ -243,7 +240,7 @@ export function EleveTransfertsPage() {
 
           <Button onClick={handleTransferer} disabled={submitting || selectedIds.size === 0 || !destinationValide}>
             <Repeat className="h-4 w-4" />
-            Transférer ({selectedIds.size})
+            {t('eleves.transferer_count', { count: selectedIds.size })}
           </Button>
         </div>
 
@@ -256,8 +253,8 @@ export function EleveTransfertsPage() {
             colonnes={colonnes}
             lignes={data.items}
             cleLigne={(e) => e.id}
-            placeholderRecherche="Rechercher un nom, un matricule…"
-            messageVide="Aucun élève pour ce filtre."
+            placeholderRecherche={t('eleves.transferts_search_placeholder')}
+            messageVide={t('eleves.empty_filtre')}
             largeurMin={700}
           />
         )}

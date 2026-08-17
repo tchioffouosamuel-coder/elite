@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, UserCog } from 'lucide-react'
 import { fetchClasse, updateClasse, type Classe } from '@/features/classes/api'
@@ -12,26 +13,27 @@ import type { ApiError } from '@/shared/types/api'
 
 type ChampResponsable = 'professeur_principal_id' | 'surveillant_general_id' | 'censeur_id' | 'conseiller_orientation_id'
 
-const RESPONSABLES: { champ: ChampResponsable; libelle: string; aide: string }[] = [
+const RESPONSABLES: { champ: ChampResponsable; libeleKey: string; aideKey: string }[] = [
   {
     champ: 'professeur_principal_id',
-    libelle: 'Professeur principal',
-    aide: 'Signe le bulletin et suit la classe au quotidien.',
+    libeleKey: 'classes.responsable_professeur_principal',
+    aideKey: 'classes.responsable_professeur_principal_aide',
   },
   {
     champ: 'surveillant_general_id',
-    libelle: 'Surveillant général',
-    aide: "Responsable de la discipline et du suivi des absences.",
+    libeleKey: 'classes.responsable_surveillant_general',
+    aideKey: 'classes.responsable_surveillant_general_aide',
   },
-  { champ: 'censeur_id', libelle: 'Censeur', aide: "Encadre l'organisation pédagogique de la classe." },
+  { champ: 'censeur_id', libeleKey: 'classes.responsable_censeur', aideKey: 'classes.responsable_censeur_aide' },
   {
     champ: 'conseiller_orientation_id',
-    libelle: "Conseiller d'orientation",
-    aide: "Accompagne les élèves dans leurs choix d'orientation.",
+    libeleKey: 'classes.responsable_conseiller_orientation',
+    aideKey: 'classes.responsable_conseiller_orientation_aide',
   },
 ]
 
 export function ResponsablesTab({ classeId }: { classeId: number }) {
+  const { t } = useTranslation()
   const peutGerer = useAuthStore((s) => s.can('classes.manage'))
   const queryClient = useQueryClient()
 
@@ -88,14 +90,14 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
     <Card className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <UserCog className="h-4 w-4 text-gold-500" />
-        <h2 className="font-display text-base font-bold text-navy-900">Responsables de la classe</h2>
+        <h2 className="font-display text-base font-bold text-navy-900">{t('classes.responsables_title')}</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {RESPONSABLES.map((responsable) => (
           <div key={responsable.champ} className="flex flex-col gap-1">
             <Select
-              label={responsable.libelle}
+              label={t(responsable.libeleKey)}
               value={form[responsable.champ]}
               disabled={!peutGerer}
               onChange={(e) => {
@@ -103,26 +105,26 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
                 setForm({ ...form, [responsable.champ]: e.target.value ? Number(e.target.value) : '' })
               }}
             >
-              <option value="">Non défini</option>
+              <option value="">{t('classes.responsable_non_defini')}</option>
               {personnels?.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nom_complet}
                 </option>
               ))}
             </Select>
-            <span className="text-[11px] leading-snug text-navy-400">{responsable.aide}</span>
+            <span className="text-[11px] leading-snug text-navy-400">{t(responsable.aideKey)}</span>
           </div>
         ))}
       </div>
 
       {erreur && <p className="text-sm text-red-500">{erreur}</p>}
-      {enregistre && <p className="text-sm text-green-600">Responsables enregistrés.</p>}
+      {enregistre && <p className="text-sm text-green-600">{t('classes.responsables_saved')}</p>}
 
       {peutGerer && (
         <div className="flex justify-end">
           <Button onClick={() => enregistrement.mutate(classe)} disabled={enregistrement.isPending}>
             <Save className="h-4 w-4" />
-            Enregistrer
+            {t('common.save')}
           </Button>
         </div>
       )}

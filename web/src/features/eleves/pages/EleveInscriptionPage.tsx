@@ -14,12 +14,15 @@ import { createEleve, updateEleve, fetchEleves, type Eleve, type ElevePayload } 
 import type { ApiError } from '@/shared/types/api'
 import { succes } from '@/shared/lib/alertes'
 
-const LIEN_PARENTE_OPTIONS = [
-    { value: 'père', label: 'Père' },
-    { value: 'mère', label: 'Mère' },
-    { value: 'tuteur', label: 'Tuteur' },
-    { value: 'autre', label: 'Autre (À préciser)' },
-]
+function useLienParenteOptions() {
+    const { t } = useTranslation()
+    return [
+        { value: 'père', label: t('eleves.inscription.lien_pere') },
+        { value: 'mère', label: t('eleves.inscription.lien_mere') },
+        { value: 'tuteur', label: t('eleves.inscription.lien_tuteur') },
+        { value: 'autre', label: t('eleves.inscription.lien_autre') },
+    ]
+}
 
 interface TuteurFormData {
     nom_complet: string
@@ -31,6 +34,7 @@ interface TuteurFormData {
 
 export function EleveInscriptionPage() {
     const { t } = useTranslation()
+    const LIEN_PARENTE_OPTIONS = useLienParenteOptions()
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
     const eleveId = id ? Number(id) : undefined
@@ -107,10 +111,10 @@ export function EleveInscriptionPage() {
     const tuteurs = watch('tuteurs')
 
     const steps = [
-        { id: 'identite', label: 'Identité', description: 'Informations de l\'élève' },
-        { id: 'scolarite', label: 'Scolarité', description: 'Classe et dates' },
-        { id: 'tuteurs', label: 'Tuteurs/Parents', description: 'Contacts des parents' },
-        { id: 'confirmation', label: 'Confirmation', description: 'Vérification des données' },
+        { id: 'identite', label: t('eleves.inscription.step_identite_label'), description: t('eleves.inscription.step_identite_description') },
+        { id: 'scolarite', label: t('eleves.inscription.step_scolarite_label'), description: t('eleves.inscription.step_scolarite_description') },
+        { id: 'tuteurs', label: t('eleves.inscription.step_tuteurs_label'), description: t('eleves.inscription.step_tuteurs_description') },
+        { id: 'confirmation', label: t('eleves.inscription.step_confirmation_label'), description: t('eleves.inscription.step_confirmation_description') },
     ]
 
     const onSubmit = async (values: any) => {
@@ -162,7 +166,7 @@ export function EleveInscriptionPage() {
         <div className="min-h-screen bg-navy-50 py-8 px-4">
             <PageHeader
                 title={eleve ? t('eleves.edit') : t('eleves.add')}
-                description={eleve ? 'Modifier les informations de l\'élève' : 'Inscrire un nouvel élève'}
+                description={eleve ? t('eleves.inscription.page_description_edit') : t('eleves.inscription.page_description_create')}
                 onBack={() => navigate('/eleves')}
             />
 
@@ -184,20 +188,20 @@ export function EleveInscriptionPage() {
                             {/* Étape 1: Identité */}
                             {currentStep === 0 && (
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-navy-900 mb-4">Identité de l'élève</h3>
+                                    <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.identite_title')}</h3>
                                     <Input
                                         label={t('eleves.nom_complet')}
                                         error={errors.nom_complet?.message}
-                                        {...register('nom_complet', { required: 'Le nom complet est requis' })}
-                                        placeholder="Nom complet"
+                                        {...register('nom_complet', { required: t('eleves.inscription.nom_complet_required') })}
+                                        placeholder={t('eleves.inscription.nom_complet_placeholder')}
                                     />
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select
                                             label={t('eleves.sexe')}
                                             error={errors.sexe?.message}
-                                            {...register('sexe', { required: 'Le sexe est requis' })}
+                                            {...register('sexe', { required: t('eleves.inscription.sexe_required') })}
                                         >
-                                            <option value="">— Sélectionner —</option>
+                                            <option value="">{t('eleves.inscription.select_placeholder')}</option>
                                             <option value="F">{t('eleves.feminin')}</option>
                                             <option value="M">{t('eleves.masculin')}</option>
                                         </Select>
@@ -209,41 +213,41 @@ export function EleveInscriptionPage() {
                                         />
                                     </div>
                                     <Input
-                                        label="Lieu de naissance"
-                                        placeholder="Lieu de naissance"
+                                        label={t('eleves.inscription.lieu_naissance_placeholder')}
+                                        placeholder={t('eleves.inscription.lieu_naissance_placeholder')}
                                         {...register('lieu_naissance')}
                                         error={errors.lieu_naissance?.message}
                                     />
                                     <Input
-                                        label="Numéro d'acte de naissance"
-                                        placeholder="Numéro d'acte de naissance"
+                                        label={t('eleves.inscription.numero_acte_naissance')}
+                                        placeholder={t('eleves.inscription.numero_acte_naissance')}
                                         {...register('numero_acte_naissance')}
                                         error={errors.numero_acte_naissance?.message}
                                     />
                                     <Input
-                                        label="Adresse"
-                                        placeholder="Adresse complète"
+                                        label={t('eleves.inscription.adresse')}
+                                        placeholder={t('eleves.inscription.adresse_placeholder')}
                                         {...register('adresse')}
                                         error={errors.adresse?.message}
                                     />
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select
-                                            label="Réfugié"
+                                            label={t('eleves.inscription.refugie')}
                                             {...register('refugie')}
                                             error={errors.refugie?.message}
                                         >
-                                            <option value="">— Non applicable —</option>
-                                            <option value="Oui">Oui</option>
-                                            <option value="Non">Non</option>
+                                            <option value="">{t('eleves.inscription.non_applicable_placeholder')}</option>
+                                            <option value="Oui">{t('eleves.inscription.oui')}</option>
+                                            <option value="Non">{t('eleves.inscription.non')}</option>
                                         </Select>
                                         <Select
-                                            label="Déplacé interne"
+                                            label={t('eleves.inscription.deplace_interne')}
                                             {...register('deplace_interne')}
                                             error={errors.deplace_interne?.message}
                                         >
-                                            <option value="">— Non applicable —</option>
-                                            <option value="Oui">Oui</option>
-                                            <option value="Non">Non</option>
+                                            <option value="">{t('eleves.inscription.non_applicable_placeholder')}</option>
+                                            <option value="Oui">{t('eleves.inscription.oui')}</option>
+                                            <option value="Non">{t('eleves.inscription.non')}</option>
                                         </Select>
                                     </div>
                                 </div>
@@ -252,13 +256,13 @@ export function EleveInscriptionPage() {
                             {/* Étape 2: Scolarité */}
                             {currentStep === 1 && (
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-navy-900 mb-4">Informations scolaires</h3>
+                                    <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.scolarite_title')}</h3>
                                     <Select
                                         label={t('eleves.classe')}
                                         {...register('classe_id')}
                                         error={errors.classe_id?.message}
                                     >
-                                        <option value="">— Sélectionner une classe —</option>
+                                        <option value="">{t('eleves.inscription.select_classe_placeholder')}</option>
                                         {classes?.map((c) => (
                                             <option key={c.id} value={c.id}>
                                                 {c.nom}
@@ -266,9 +270,7 @@ export function EleveInscriptionPage() {
                                         ))}
                                     </Select>
                                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm text-blue-800">
-                                            📋 La classe pourra être modifiée ultérieurement dans les paramètres de l'élève.
-                                        </p>
+                                        <p className="text-sm text-blue-800">{t('eleves.inscription.classe_hint')}</p>
                                     </div>
                                 </div>
                             )}
@@ -277,7 +279,7 @@ export function EleveInscriptionPage() {
                             {currentStep === 2 && (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-navy-900">Tuteurs/Parents</h3>
+                                        <h3 className="text-lg font-semibold text-navy-900">{t('eleves.inscription.tuteurs_title')}</h3>
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -286,24 +288,22 @@ export function EleveInscriptionPage() {
                                             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-navy-600 hover:text-navy-800 hover:bg-navy-50 rounded-lg transition-colors"
                                         >
                                             <Plus className="h-4 w-4" />
-                                            Ajouter un tuteur
+                                            {t('eleves.inscription.ajouter_tuteur')}
                                         </button>
                                     </div>
 
                                     {eleve && eleve.tuteurs.length > 0 && fields.length === 0 && (
                                         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
                                             <p className="text-sm text-amber-800">
-                                                Tuteurs actuels: {eleve.tuteurs.map((tut) => tut.nom_complet).join(', ')}
+                                                {t('eleves.inscription.tuteurs_actuels', { noms: eleve.tuteurs.map((tut) => tut.nom_complet).join(', ') })}
                                             </p>
-                                            <p className="text-xs text-amber-700 mt-1">
-                                                Ajouter un tuteur ci-dessous remplacera cette liste.
-                                            </p>
+                                            <p className="text-xs text-amber-700 mt-1">{t('eleves.inscription.tuteurs_remplacement_hint')}</p>
                                         </div>
                                     )}
 
                                     {fields.length === 0 ? (
                                         <div className="p-6 text-center border-2 border-dashed border-navy-200 rounded-lg">
-                                            <p className="text-navy-400 text-sm">Aucun tuteur ajouté. Cliquez sur « Ajouter un tuteur » pour commencer.</p>
+                                            <p className="text-navy-400 text-sm">{t('eleves.inscription.aucun_tuteur')}</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
@@ -311,18 +311,18 @@ export function EleveInscriptionPage() {
                                                 <Card key={field.id} className="p-4 bg-cream-50">
                                                     <div className="grid grid-cols-1 gap-3">
                                                         <Input
-                                                            label="Nom complet"
-                                                            placeholder="Nom complet"
-                                                            {...register(`tuteurs.${index}.nom_complet` as const, { required: 'Nom complet requis' })}
+                                                            label={t('eleves.inscription.champ_nom_complet')}
+                                                            placeholder={t('eleves.inscription.champ_nom_complet')}
+                                                            {...register(`tuteurs.${index}.nom_complet` as const, { required: t('eleves.inscription.tuteur_nom_complet_required') })}
                                                             error={errors.tuteurs?.[index]?.nom_complet?.message}
                                                         />
 
                                                         <Select
-                                                            label="Lien de parenté"
-                                                            {...register(`tuteurs.${index}.lien_parente` as const, { required: 'Lien de parenté requis' })}
+                                                            label={t('eleves.inscription.lien_parente')}
+                                                            {...register(`tuteurs.${index}.lien_parente` as const, { required: t('eleves.inscription.lien_parente_required') })}
                                                             error={errors.tuteurs?.[index]?.lien_parente?.message}
                                                         >
-                                                            <option value="">— Sélectionner —</option>
+                                                            <option value="">{t('eleves.inscription.select_placeholder')}</option>
                                                             {LIEN_PARENTE_OPTIONS.map((opt) => (
                                                                 <option key={opt.value} value={opt.value}>
                                                                     {opt.label}
@@ -331,24 +331,24 @@ export function EleveInscriptionPage() {
                                                         </Select>
                                                         {tuteurs?.[index]?.lien_parente === 'autre' && (
                                                             <Input
-                                                                label="Préciser le lien"
-                                                                placeholder="Ex: Grand-mère, oncle, cousin…"
-                                                                {...register(`tuteurs.${index}.lien_parente_autre` as const, { required: 'Veuillez préciser le lien' })}
+                                                                label={t('eleves.inscription.preciser_lien')}
+                                                                placeholder={t('eleves.inscription.preciser_lien_placeholder')}
+                                                                {...register(`tuteurs.${index}.lien_parente_autre` as const, { required: t('eleves.inscription.preciser_lien_required') })}
                                                                 error={errors.tuteurs?.[index]?.lien_parente_autre?.message}
                                                             />
                                                         )}
 
                                                         <Input
-                                                            label="Téléphone"
+                                                            label={t('eleves.tuteur_telephone')}
                                                             type="tel"
-                                                            placeholder="Numéro de téléphone"
+                                                            placeholder={t('eleves.inscription.telephone_placeholder')}
                                                             {...register(`tuteurs.${index}.telephone` as const)}
                                                             error={errors.tuteurs?.[index]?.telephone?.message}
                                                         />
 
                                                         <Input
-                                                            label="Profession"
-                                                            placeholder="Profession"
+                                                            label={t('eleves.inscription.profession')}
+                                                            placeholder={t('eleves.inscription.profession')}
                                                             {...register(`tuteurs.${index}.profession` as const)}
                                                             error={errors.tuteurs?.[index]?.profession?.message}
                                                         />
@@ -360,13 +360,13 @@ export function EleveInscriptionPage() {
                                                                     {...register(`tuteurs.${index}.is_principal` as const)}
                                                                     className="rounded border-navy-300"
                                                                 />
-                                                                <span className="text-navy-700">Tuteur principal</span>
+                                                                <span className="text-navy-700">{t('eleves.inscription.tuteur_principal')}</span>
                                                             </label>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => remove(index)}
                                                                 className="rounded-lg p-2 text-navy-400 hover:bg-red-100 hover:text-red-500 transition-colors"
-                                                                title="Supprimer ce tuteur"
+                                                                title={t('eleves.inscription.supprimer_tuteur')}
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
                                                             </button>
@@ -382,7 +382,7 @@ export function EleveInscriptionPage() {
                             {/* Étape 4: Confirmation */}
                             {currentStep === 3 && (
                                 <div className="space-y-6">
-                                    <h3 className="text-lg font-semibold text-navy-900">Vérification des informations</h3>
+                                    <h3 className="text-lg font-semibold text-navy-900">{t('eleves.inscription.confirmation_title')}</h3>
 
                                     {serverError && (
                                         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -392,50 +392,50 @@ export function EleveInscriptionPage() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Card className="p-4 bg-cream-50">
-                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">Identité</h4>
+                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">{t('eleves.inscription.confirmation_identite_title')}</h4>
                                             <div className="space-y-2 text-sm">
                                                 <div>
-                                                    <span className="text-navy-400">Nom complet: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_nom_complet')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('nom_complet')}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Sexe: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_sexe')}: </span>
                                                     <span className="font-medium text-navy-900">
-                                                        {watch('sexe') === 'M' ? 'Masculin' : watch('sexe') === 'F' ? 'Féminin' : '—'}
+                                                        {watch('sexe') === 'M' ? t('eleves.masculin') : watch('sexe') === 'F' ? t('eleves.feminin') : '—'}
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Naissance: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_naissance')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('date_naissance') || '—'}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Lieu de naissance: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_lieu_naissance')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('lieu_naissance') || '—'}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Acte de naissance: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_acte_naissance')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('numero_acte_naissance') || '—'}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Adresse: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_adresse')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('adresse') || '—'}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Réfugié: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_refugie')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('refugie') || '—'}</span>
                                                 </div>
                                                 <div>
-                                                    <span className="text-navy-400">Déplacé interne: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_deplace_interne')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('deplace_interne') || '—'}</span>
                                                 </div>
                                             </div>
                                         </Card>
 
                                         <Card className="p-4 bg-cream-50">
-                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">Scolarité</h4>
+                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">{t('eleves.inscription.confirmation_scolarite_title')}</h4>
                                             <div className="space-y-2 text-sm">
                                                 <div>
-                                                    <span className="text-navy-400">Classe: </span>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_classe')}: </span>
                                                     <span className="font-medium text-navy-900">
                                                         {watch('classe_id')
                                                             ? classes?.find((c) => c.id === Number(watch('classe_id')))?.nom || '—'
@@ -448,7 +448,7 @@ export function EleveInscriptionPage() {
 
                                     {fields.length > 0 && (
                                         <Card className="p-4 bg-cream-50">
-                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">Tuteurs/Parents</h4>
+                                            <h4 className="text-sm font-semibold text-navy-700 mb-3">{t('eleves.inscription.confirmation_tuteurs_title')}</h4>
                                             <div className="space-y-3">
                                                 {fields.map((field, index) => (
                                                     <div key={field.id} className="text-sm border-t border-navy-100 pt-3 first:border-t-0 first:pt-0">
@@ -456,13 +456,13 @@ export function EleveInscriptionPage() {
                                                             {watch(`tuteurs.${index}.nom_complet`)}
                                                             {watch(`tuteurs.${index}.is_principal`) && (
                                                                 <span className="ml-2 text-xs bg-gold-100 text-gold-700 px-2 py-1 rounded-full font-semibold">
-                                                                    Principal
+                                                                    {t('eleves.principal')}
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="text-navy-600 text-xs mt-1">
                                                             {watch(`tuteurs.${index}.lien_parente`) === 'autre'
-                                                                ? `Autre: ${watch(`tuteurs.${index}.lien_parente_autre`)}`
+                                                                ? t('eleves.inscription.lien_autre_valeur', { valeur: watch(`tuteurs.${index}.lien_parente_autre`) })
                                                                 : LIEN_PARENTE_OPTIONS.find((o) => o.value === watch(`tuteurs.${index}.lien_parente`))
                                                                     ?.label || '—'}
                                                         </div>
@@ -483,9 +483,7 @@ export function EleveInscriptionPage() {
                                     )}
 
                                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                                        <p className="text-sm text-green-800">
-                                            ✓ Vérifiez toutes les informations avant de valider l'inscription.
-                                        </p>
+                                        <p className="text-sm text-green-800">{t('eleves.inscription.confirmation_footer')}</p>
                                     </div>
                                 </div>
                             )}

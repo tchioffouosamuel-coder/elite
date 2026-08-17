@@ -37,7 +37,7 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
     // d'orientation sont des fonctions du secondaire. Au primaire et en
     // maternelle, le titulaire tient seul la classe : l'onglet n'aurait que
     // des listes vides à proposer.
-    estSecondaire && can('classes.view') && { key: 'responsables', label: 'Responsables' },
+    estSecondaire && can('classes.view') && { key: 'responsables', label: t('classes.responsables_tab') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   return (

@@ -16,9 +16,32 @@ class MatiereController extends Controller
 {
     public function index(): JsonResponse
     {
-        $matieres = Matiere::forSchool(app('tenant.school_id'))->with('departement')->orderBy('nom')->get();
+        $matieres = Matiere::forSchool(app('tenant.school_id'))
+            ->with('departement')
+            ->withCount('classeMatieres')
+            ->orderBy('nom')
+            ->get();
 
         return ApiResponse::success(MatiereResource::collection($matieres));
+    }
+
+    /** Classes où cette matière est enseignée — pour la modale « Enseignée dans X classe(s) ». */
+    public function classes(int $id): JsonResponse
+    {
+        $matiere = Matiere::forSchool(app('tenant.school_id'))->findOrFail($id);
+
+        $affectations = $matiere->classeMatieres()
+            ->with(['classe', 'enseignant'])
+            ->get()
+            ->sortBy(fn ($a) => $a->classe?->nom)
+            ->values();
+
+        return ApiResponse::success($affectations->map(fn ($a) => [
+            'classe_matiere_id' => $a->id,
+            'classe' => $a->classe ? ['id' => $a->classe->id, 'nom' => $a->classe->nom] : null,
+            'enseignant' => $a->enseignant ? ['id' => $a->enseignant->id, 'nom_complet' => $a->enseignant->nom_complet] : null,
+            'coefficient' => $a->coefficient,
+        ])->values());
     }
 
     public function store(StoreMatiereRequest $request): JsonResponse

@@ -30,18 +30,18 @@ export function SousSystemesListPage() {
 
     const handleDelete = async (sousSysteme: SousSysteme) => {
         const confirme = await confirmer({
-            titre: `Supprimer ${sousSysteme.nom} ?`,
-            message: 'Cette action est irréversible.',
-            action: 'Supprimer',
+            titre: t('sousSystemes.delete_title', { nom: sousSysteme.nom }),
+            message: t('alerts.irreversible'),
+            action: t('common.delete'),
         })
         if (!confirme) return
 
         try {
             await deleteSousSysteme(sousSysteme.id)
             invalidate()
-            succes('Sous-système supprimé.')
+            succes(t('sousSystemes.deleted'))
         } catch (error: any) {
-            const errorMsg = error.response?.data?.message || 'Erreur lors de la suppression'
+            const errorMsg = error.response?.data?.message || t('sousSystemes.delete_error')
             console.error('Erreur:', errorMsg)
         }
     }
@@ -49,25 +49,25 @@ export function SousSystemesListPage() {
     const colonnes: Colonne<SousSysteme>[] = [
         {
             cle: 'code',
-            entete: 'Code',
+            entete: t('sousSystemes.code'),
             valeur: (s) => s.code,
             cellule: (s) => <span className="font-mono font-semibold text-navy-900">{s.code}</span>,
         },
         {
             cle: 'nom',
-            entete: 'Nom',
+            entete: t('sousSystemes.nom'),
             valeur: (s) => s.nom,
             cellule: (s) => <span className="font-semibold text-navy-900">{s.nom}</span>,
         },
         {
             cle: 'description',
-            entete: 'Description',
+            entete: t('sousSystemes.description'),
             valeur: (s) => s.description,
             cellule: (s) => <span className="text-navy-600">{s.description ?? '—'}</span>,
         },
         {
             cle: 'nb_classes',
-            entete: 'Nombre de classes',
+            entete: t('sousSystemes.nb_classes'),
             valeur: (s) => s.nb_classes,
             cellule: (s) => <span className="text-navy-600">{s.nb_classes ?? 0}</span>,
         },
@@ -99,13 +99,13 @@ export function SousSystemesListPage() {
     return (
         <div className="flex flex-col gap-5">
             <PageHeader
-                titre="Sous-systèmes d'enseignement"
+                titre={t('sousSystemes.title')}
                 icon={Layers}
                 actions={
                     can('classes.manage') && (
                         <Button onClick={() => setShowForm(true)}>
                             <Plus className="h-4 w-4" />
-                            Créer un sous-système
+                            {t('sousSystemes.create')}
                         </Button>
                     )
                 }
@@ -120,8 +120,8 @@ export function SousSystemesListPage() {
                     colonnes={colonnes}
                     lignes={data}
                     cleLigne={(s) => s.id}
-                    placeholderRecherche="Rechercher un code, un nom…"
-                    messageVide="Aucun sous-système pour cet établissement."
+                    placeholderRecherche={t('sousSystemes.search_placeholder')}
+                    messageVide={t('sousSystemes.empty')}
                     largeurMin={800}
                 />
             )}

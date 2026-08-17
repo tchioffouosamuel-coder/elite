@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { createFonctionReferentiel, updateFonctionReferentiel, type FonctionReferentiel } from '@/features/personnel/api'
 import { Modal } from '@/shared/ui/Modal'
@@ -18,6 +19,7 @@ interface FormValues {
 }
 
 export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: FonctionReferentielFormModalProps) {
+  const { t } = useTranslation()
   const {
     register,
     handleSubmit,
@@ -46,35 +48,35 @@ export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: Fon
     try {
       if (fonction) {
         await updateFonctionReferentiel(fonction.id, payload)
-        succes('Fonction mise à jour.')
+        succes(t('fonctionsReferentiel.updated'))
       } else {
         await createFonctionReferentiel(payload)
-        succes('Fonction créée.')
+        succes(t('fonctionsReferentiel.created'))
       }
       onSaved()
       onClose()
     } catch (err: any) {
-      erreur(err.message || 'Une erreur est survenue.')
+      erreur(err.message || t('common.error_generic'))
     }
   }
 
   return (
-    <Modal title={fonction ? 'Modifier une fonction' : 'Créer une fonction'} onClose={onClose}>
+    <Modal title={fonction ? t('fonctionsReferentiel.edit') : t('fonctionsReferentiel.create')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
-          label="Libellé français"
-          placeholder="ex: Enseignant"
+          label={t('fonctionsReferentiel.label_fr')}
+          placeholder={t('fonctionsReferentiel.label_fr_placeholder')}
           error={errors.label_fr?.message}
-          {...register('label_fr', { required: 'Le libellé français est requis' })}
+          {...register('label_fr', { required: t('fonctionsReferentiel.label_fr_required') })}
         />
-        <Input label="Libellé anglais" placeholder="ex: Teacher" {...register('label_en')} />
+        <Input label={t('fonctionsReferentiel.label_en')} placeholder={t('fonctionsReferentiel.label_en_placeholder')} {...register('label_en')} />
 
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="secondary" onClick={onClose} type="button">
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'En cours...' : fonction ? 'Mettre à jour' : 'Créer'}
+            {isSubmitting ? t('common.saving') : fonction ? t('common.update') : t('common.create')}
           </Button>
         </div>
       </form>

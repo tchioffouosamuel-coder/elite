@@ -384,8 +384,8 @@ export function PaiePage() {
             colonnes={colonnes}
             lignes={data.bulletins}
             cleLigne={(b) => b.id}
-            placeholderRecherche="Rechercher un agent…"
-            messageVide="Aucun bulletin pour ce mois — lancez la préparation."
+            placeholderRecherche={t('finance.search_paie')}
+            messageVide={t('finance.empty_paie')}
             largeurMin={600}
             outils={
               <div className="flex gap-2">

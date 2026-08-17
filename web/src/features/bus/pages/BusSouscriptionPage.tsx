@@ -114,8 +114,8 @@ export function BusSouscriptionPage() {
         succes(t('bus.souscription_created'))
       } else {
         const { souscrits, ignores } = await souscrireLot(eleveIds, payload)
-        succes(`${souscrits} souscription(s) enregistrée(s).`)
-        if (ignores.length > 0) erreur(`Déjà affecté(s) : ${ignores.join(', ')}.`)
+        succes(t('bus.souscriptions_lot_created', { count: souscrits }))
+        if (ignores.length > 0) erreur(t('bus.souscriptions_deja_affectes', { list: ignores.join(', ') }))
       }
       retour()
     } catch (err) {

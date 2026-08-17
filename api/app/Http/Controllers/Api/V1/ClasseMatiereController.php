@@ -51,6 +51,39 @@ class ClasseMatiereController extends Controller
     }
 
     /**
+     * Classes et matières où l'utilisateur connecté enseigne, toute l'année —
+     * contrairement à « Ma journée » (`MaJourneeService::mesAffectations`),
+     * qui ne garde que les créneaux prévus le jour même. Un enseignant doit
+     * pouvoir consulter le remplissage de n'importe laquelle de ses
+     * affectations, pas seulement celle programmée aujourd'hui.
+     */
+    public function mesAffectations(Request $request): JsonResponse
+    {
+        $personnelId = $request->user()->personnel?->id;
+
+        if ($personnelId === null) {
+            return ApiResponse::success([]);
+        }
+
+        $affectations = ClasseMatiere::forSchool(app('tenant.school_id'))
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnelId)
+                // Le titulaire du primaire enseigne toutes les matières de sa
+                // classe sans être nommé sur chaque affectation.
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+            ->with(['classe', 'matiere'])
+            ->get();
+
+        return ApiResponse::success($affectations->map(fn (ClasseMatiere $cm) => [
+            'classe_matiere_id' => $cm->id,
+            'classe_id' => $cm->classe->id,
+            'classe' => $cm->classe->nom,
+            'matiere' => $cm->matiere->nom,
+        ])->values());
+    }
+
+    /**
      * Duplique une ou plusieurs affectations (matière, enseignant, coefficient,
      * quota horaire) vers une ou plusieurs autres classes — évite de ressaisir
      * à la main la même configuration classe par classe. Une matière déjà

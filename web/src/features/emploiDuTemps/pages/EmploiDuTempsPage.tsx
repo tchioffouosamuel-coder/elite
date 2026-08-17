@@ -83,8 +83,8 @@ export function EmploiDuTempsPage() {
 
   const supprimerCreneau = async (creneau: Creneau) => {
     const confirme = await confirmerSuppression(
-      `le créneau de ${creneau.matiere}`,
-      'Les séances déjà générées depuis ce créneau sont conservées.',
+      t('emploiDuTemps.creneau_delete_quoi', { matiere: creneau.matiere }),
+      t('emploiDuTemps.creneau_delete_precision'),
     )
     if (confirme) suppression.mutate(creneau.id)
   }
@@ -103,17 +103,17 @@ export function EmploiDuTempsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <CalendarClock className="h-6 w-6 text-gold-500" />
-          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">Emploi du temps</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('emploiDuTemps.title')}</h1>
         </div>
         {peutGerer && classeActive && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setGenerationOuverte(true)}>
               <Wand2 className="h-4 w-4" />
-              Générer les séances
+              {t('emploiDuTemps.generer_seances')}
             </Button>
             <Button onClick={() => setFormOuvert(true)}>
               <Plus className="h-4 w-4" />
-              Ajouter un créneau
+              {t('emploiDuTemps.ajouter_creneau')}
             </Button>
           </div>
         )}
@@ -122,18 +122,18 @@ export function EmploiDuTempsPage() {
       {restreintATitulaire ? (
         maClasse && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('emploiDuTemps.classe_label')}</span>
             <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
           </div>
         )
       ) : (
         <Select
-          label="Classe"
+          label={t('emploiDuTemps.classe_label')}
           value={classeId}
           onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
           className="max-w-xs"
         >
-          <option value="">Sélectionner une classe…</option>
+          <option value="">{t('emploiDuTemps.select_classe_placeholder')}</option>
           {classes?.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
@@ -146,17 +146,17 @@ export function EmploiDuTempsPage() {
         <Spinner />
       ) : restreintATitulaire && !maClasse ? (
         <Card>
-          <EmptyState label="Aucune classe ne vous est confiée pour le moment." />
+          <EmptyState label={t('classes.aucune_classe_confiee')} />
         </Card>
       ) : !classeActive ? (
         <Card>
-          <EmptyState label="Choisissez une classe pour afficher son emploi du temps." />
+          <EmptyState label={t('emploiDuTemps.choisir_classe_hint')} />
         </Card>
       ) : isLoading ? (
         <Spinner />
       ) : !creneaux?.length ? (
         <Card>
-          <EmptyState label="Aucun créneau défini pour cette classe." />
+          <EmptyState label={t('emploiDuTemps.empty_creneaux')} />
         </Card>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-navy-100 bg-white">
@@ -164,14 +164,14 @@ export function EmploiDuTempsPage() {
             <thead>
               <tr>
                 <th className="w-20 border-b border-navy-100 px-2 py-2.5 text-xs font-bold uppercase tracking-wide text-navy-400">
-                  Heure
+                  {t('emploiDuTemps.heure_col')}
                 </th>
                 {JOURS.map((jour) => (
                   <th
                     key={jour.valeur}
                     className="border-b border-l border-navy-100 px-2 py-2.5 text-xs font-bold uppercase tracking-wide text-navy-500"
                   >
-                    {jour.libelle}
+                    {t(`emploiDuTemps.jours.${jour.libelle}`)}
                   </th>
                 ))}
               </tr>
@@ -233,6 +233,7 @@ function CelluleCreneau({
   peutGerer: boolean
   onSupprimer: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="group relative mb-1 rounded-lg bg-gold-50 px-2 py-1.5 ring-1 ring-gold-200">
       <p className="truncate text-xs font-bold text-navy-800">{creneau.matiere}</p>
@@ -244,7 +245,7 @@ function CelluleCreneau({
       {peutGerer && (
         <button
           onClick={onSupprimer}
-          title="Supprimer le créneau"
+          title={t('emploiDuTemps.supprimer_creneau_title')}
           // Toujours présent plutôt qu'au survol : sur écran tactile un contrôle
           // qui n'apparaît qu'au hover est inatteignable.
           className="absolute right-1 top-1 rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-red-500 hover:opacity-100 focus-visible:opacity-100"
@@ -265,6 +266,7 @@ function CreneauModal({
   matieres: { id: number; matiere: { nom: string } }[]
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     classe_matiere_id: matieres[0]?.id ?? 0,
@@ -278,14 +280,14 @@ function CreneauModal({
     mutationFn: () => createCreneau(classeId, { ...form, salle: form.salle || null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeId] })
-      succes('Créneau ajouté.')
+      succes(t('emploiDuTemps.creneau_ajoute'))
       onClose()
     },
-    onError: (e: { message?: string }) => erreur(e.message ?? 'Enregistrement impossible.'),
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.enregistrement_impossible')),
   })
 
   return (
-    <Modal title="Nouveau créneau" onClose={onClose}>
+    <Modal title={t('emploiDuTemps.nouveau_creneau')} onClose={onClose}>
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
@@ -294,7 +296,7 @@ function CreneauModal({
         }}
       >
         <Select
-          label="Matière"
+          label={t('emploiDuTemps.matiere_label')}
           value={form.classe_matiere_id}
           onChange={(e) => setForm({ ...form, classe_matiere_id: Number(e.target.value) })}
           required
@@ -306,24 +308,24 @@ function CreneauModal({
           ))}
         </Select>
 
-        <Select label="Jour" value={form.jour} onChange={(e) => setForm({ ...form, jour: Number(e.target.value) })}>
+        <Select label={t('emploiDuTemps.jour_label')} value={form.jour} onChange={(e) => setForm({ ...form, jour: Number(e.target.value) })}>
           {JOURS.map((j) => (
             <option key={j.valeur} value={j.valeur}>
-              {j.libelle}
+              {t(`emploiDuTemps.jours.${j.libelle}`)}
             </option>
           ))}
         </Select>
 
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Début"
+            label={t('emploiDuTemps.debut_label')}
             type="time"
             value={form.heure_debut}
             onChange={(e) => setForm({ ...form, heure_debut: e.target.value })}
             required
           />
           <Input
-            label="Fin"
+            label={t('emploiDuTemps.fin_label')}
             type="time"
             value={form.heure_fin}
             onChange={(e) => setForm({ ...form, heure_fin: e.target.value })}
@@ -331,14 +333,14 @@ function CreneauModal({
           />
         </div>
 
-        <Input label="Salle" value={form.salle} onChange={(e) => setForm({ ...form, salle: e.target.value })} />
+        <Input label={t('emploiDuTemps.salle_label')} value={form.salle} onChange={(e) => setForm({ ...form, salle: e.target.value })} />
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={creation.isPending || matieres.length === 0}>
-            Enregistrer
+            {t('common.save')}
           </Button>
         </div>
       </form>
@@ -347,6 +349,7 @@ function CreneauModal({
 }
 
 function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () => void }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
   const [form, setForm] = useState({ date_debut: '', date_fin: '', trimestre_id: '' as number | '' })
@@ -360,15 +363,15 @@ function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () 
         trimestre_id: form.trimestre_id ? Number(form.trimestre_id) : undefined,
       }),
     onSuccess: (data) => {
-      setResultat(`${data.creees} séance(s) créée(s).`)
+      setResultat(t('emploiDuTemps.seances_creees', { count: data.creees }))
       queryClient.invalidateQueries({ queryKey: ['seances'] })
-      succes(data.creees > 0 ? `${data.creees} séance(s) générée(s).` : 'Aucune nouvelle séance à générer.')
+      succes(data.creees > 0 ? t('emploiDuTemps.seances_generees', { count: data.creees }) : t('emploiDuTemps.aucune_nouvelle_seance'))
     },
-    onError: (e: { message?: string }) => erreur(e.message ?? 'Génération impossible.'),
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.generation_impossible')),
   })
 
   return (
-    <Modal title="Générer les séances" onClose={onClose}>
+    <Modal title={t('emploiDuTemps.generer_seances')} onClose={onClose}>
       <form
         className="flex flex-col gap-4"
         onSubmit={(e) => {
@@ -376,21 +379,18 @@ function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () 
           generation.mutate()
         }}
       >
-        <p className="text-sm text-navy-500">
-          Chaque créneau de l'emploi du temps est transformé en séance datée sur la période choisie. Les séances déjà
-          créées ne sont pas dupliquées.
-        </p>
+        <p className="text-sm text-navy-500">{t('emploiDuTemps.generation_hint')}</p>
 
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Du"
+            label={t('emploiDuTemps.du')}
             type="date"
             value={form.date_debut}
             onChange={(e) => setForm({ ...form, date_debut: e.target.value })}
             required
           />
           <Input
-            label="Au"
+            label={t('emploiDuTemps.au')}
             type="date"
             value={form.date_fin}
             onChange={(e) => setForm({ ...form, date_fin: e.target.value })}
@@ -399,14 +399,14 @@ function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () 
         </div>
 
         <Select
-          label="Trimestre"
+          label={t('notes.trimestre')}
           value={form.trimestre_id}
           onChange={(e) => setForm({ ...form, trimestre_id: e.target.value ? Number(e.target.value) : '' })}
         >
-          <option value="">Aucun</option>
-          {trimestres?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.libelle}
+          <option value="">{t('niveauxGlobaux.aucun')}</option>
+          {trimestres?.map((trimestre) => (
+            <option key={trimestre.id} value={trimestre.id}>
+              {trimestre.libelle}
             </option>
           ))}
         </Select>
@@ -415,10 +415,10 @@ function GenerationModal({ classeId, onClose }: { classeId: number; onClose: () 
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Fermer
+            {t('common.close')}
           </Button>
           <Button type="submit" disabled={generation.isPending}>
-            Générer
+            {t('emploiDuTemps.generer')}
           </Button>
         </div>
       </form>

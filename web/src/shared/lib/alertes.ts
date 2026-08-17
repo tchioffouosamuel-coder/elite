@@ -1,5 +1,6 @@
 import Swal from 'sweetalert2'
 import type { SweetAlertOptions } from 'sweetalert2'
+import i18n from '@/shared/i18n'
 
 /**
  * SweetAlert habillé aux couleurs de la charte. Les classes Tailwind sont
@@ -67,10 +68,10 @@ export function permissionManquante(message: string): void {
     ...base,
     icon: 'error',
     iconColor: '#ac3527',
-    title: 'Permission manquante',
+    title: i18n.t('alerts.missing_permission_title'),
     text: message,
-    footer: "Demandez à votre administrateur de rattacher ce privilège à votre fonction.",
-    confirmButtonText: 'Compris',
+    footer: i18n.t('alerts.missing_permission_footer'),
+    confirmButtonText: i18n.t('alerts.understood'),
   })
 }
 
@@ -133,7 +134,7 @@ export async function confirmer({ titre, message, action, destructif = true }: C
     text: message,
     showCancelButton: true,
     confirmButtonText: action,
-    cancelButtonText: 'Annuler',
+    cancelButtonText: i18n.t('common.cancel'),
     customClass: {
       ...base.customClass,
       confirmButton: destructif
@@ -148,8 +149,8 @@ export async function confirmer({ titre, message, action, destructif = true }: C
 /** Confirmation de suppression, formulée à partir de ce qui est supprimé. */
 export function confirmerSuppression(quoi: string, precision?: string): Promise<boolean> {
   return confirmer({
-    titre: `Supprimer ${quoi} ?`,
-    message: precision ?? 'Cette action est irréversible.',
-    action: 'Supprimer',
+    titre: i18n.t('alerts.delete_title', { quoi }),
+    message: precision ?? i18n.t('alerts.irreversible'),
+    action: i18n.t('common.delete'),
   })
 }

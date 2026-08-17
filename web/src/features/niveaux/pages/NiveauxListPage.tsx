@@ -45,23 +45,23 @@ export function NiveauxListPage() {
     invalidate()
     setIsModalOpen(false)
     setSelectedNiveau(null)
-    succes(selectedNiveau ? 'Niveau mis à jour.' : 'Niveau créé.')
+    succes(selectedNiveau ? t('niveauxGlobaux.updated') : t('niveauxGlobaux.created'))
   }
 
   const handleDelete = async (niveau: Niveau) => {
     const ok = await confirmer({
-      titre: `Supprimer ${niveau.code} ?`,
-      message: 'Cette action est irréversible.',
-      action: 'Supprimer',
+      titre: t('niveauxGlobaux.delete_title', { code: niveau.code }),
+      message: t('alerts.irreversible'),
+      action: t('common.delete'),
     })
     if (!ok) return
 
     try {
       await deleteNiveau(niveau.id)
       invalidate()
-      succes('Niveau supprimé.')
+      succes(t('niveauxGlobaux.deleted'))
     } catch (err: any) {
-      erreur(err.message || 'Erreur lors de la suppression.')
+      erreur(err.message || t('niveauxGlobaux.delete_error'))
     }
   }
 
@@ -88,9 +88,9 @@ export function NiveauxListPage() {
     if (selectedIds.size === 0) return
 
     const ok = await confirmer({
-      titre: `Supprimer ${selectedIds.size} niveau(x) ?`,
-      message: 'Cette action est irréversible.',
-      action: 'Supprimer',
+      titre: t('niveauxGlobaux.delete_batch_title', { count: selectedIds.size }),
+      message: t('alerts.irreversible'),
+      action: t('common.delete'),
     })
     if (!ok) return
 
@@ -98,9 +98,9 @@ export function NiveauxListPage() {
       await batchDeleteNiveaux(Array.from(selectedIds))
       invalidate()
       setSelectedIds(new Set())
-      succes(`${selectedIds.size} niveau(x) supprimé(s).`)
+      succes(t('niveauxGlobaux.batch_deleted', { count: selectedIds.size }))
     } catch (err: any) {
-      erreur(err.message || 'Erreur lors de la suppression.')
+      erreur(err.message || t('niveauxGlobaux.delete_error'))
     }
   }
 
@@ -108,9 +108,9 @@ export function NiveauxListPage() {
     if (selectedIds.size === 0) return
 
     const ok = await confirmer({
-      titre: `Définir le sous-système pour ${selectedIds.size} niveau(x) ?`,
-      message: 'Cette action affectera le même sous-système à tous les niveaux sélectionnés.',
-      action: 'Appliquer',
+      titre: t('niveauxGlobaux.batch_assign_title', { count: selectedIds.size }),
+      message: t('niveauxGlobaux.batch_assign_message'),
+      action: t('niveauxGlobaux.apply'),
     })
     if (!ok) return
 
@@ -124,9 +124,9 @@ export function NiveauxListPage() {
       setSelectedIds(new Set())
       setBatchSousSystemeId('')
       setBatchSchoolId('')
-      succes(`${selectedIds.size} niveau(x) mis à jour.`)
+      succes(t('niveauxGlobaux.batch_updated', { count: selectedIds.size }))
     } catch (err: any) {
-      erreur(err.message || 'Erreur lors de la mise à jour.')
+      erreur(err.message || t('niveauxGlobaux.update_error'))
     }
   }
 
@@ -160,7 +160,7 @@ export function NiveauxListPage() {
     },
     {
       cle: 'name',
-      entete: 'Nom',
+      entete: t('niveauxGlobaux.nom'),
       valeur: (niveau) => (i18n.language === 'en' ? niveau.name_en : niveau.name_fr),
       cellule: (niveau) => (
         <span className="font-semibold text-navy-900">{i18n.language === 'en' ? niveau.name_en : niveau.name_fr}</span>
@@ -168,14 +168,14 @@ export function NiveauxListPage() {
     },
     {
       cle: 'sous_systeme',
-      entete: 'Sous-système',
+      entete: t('niveauxGlobaux.sous_systeme'),
       valeur: (niveau) => getSousSystemeNom(niveau),
       cellule: (niveau) => <span className="text-navy-600">{getSousSystemeNom(niveau)}</span>,
       masquerMobile: true,
     },
     {
       cle: 'school',
-      entete: 'École',
+      entete: t('niveauxGlobaux.school'),
       valeur: (niveau) => niveau.school?.name,
       cellule: (niveau) => <span className="text-navy-600">{niveau.school?.name ?? '—'}</span>,
       masquerMobile: true,
@@ -222,8 +222,8 @@ export function NiveauxListPage() {
                   onChange={(e) => setBatchSousSystemeId(e.target.value)}
                   className="rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 outline-none focus:border-navy-400"
                 >
-                  <option value="">Sous-système</option>
-                  <option value="">Aucun</option>
+                  <option value="">{t('niveauxGlobaux.sous_systeme')}</option>
+                  <option value="">{t('niveauxGlobaux.aucun')}</option>
                   {sousSystemes.map((sousSysteme) => (
                     <option key={sousSysteme.id} value={sousSysteme.id}>
                       {sousSysteme.nom}
@@ -235,8 +235,8 @@ export function NiveauxListPage() {
                   onChange={(e) => setBatchSchoolId(e.target.value)}
                   className="rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 outline-none focus:border-navy-400"
                 >
-                  <option value="">École</option>
-                  <option value="">Aucune</option>
+                  <option value="">{t('niveauxGlobaux.school')}</option>
+                  <option value="">{t('niveauxGlobaux.aucune')}</option>
                   {ecoles.map((ecole) => (
                     <option key={ecole.id} value={ecole.id}>
                       {ecole.name}
@@ -244,11 +244,11 @@ export function NiveauxListPage() {
                   ))}
                 </select>
                 <Button variant="secondary" onClick={handleBatchAssignSousSysteme} disabled={!batchSousSystemeId && !batchSchoolId}>
-                  Appliquer
+                  {t('niveauxGlobaux.apply')}
                 </Button>
                 <Button variant="secondary" onClick={handleBatchDelete}>
                   <Trash2 className="h-4 w-4" />
-                  Supprimer ({selectedIds.size})
+                  {t('niveauxGlobaux.delete_selection', { count: selectedIds.size })}
                 </Button>
               </>
             )}
@@ -259,7 +259,7 @@ export function NiveauxListPage() {
               }}
             >
               <Plus className="h-4 w-4" />
-              Créer un niveau
+              {t('niveauxGlobaux.create')}
             </Button>
           </div>
         }
@@ -274,7 +274,7 @@ export function NiveauxListPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(niveau) => niveau.id}
-          placeholderRecherche="Rechercher un niveau…"
+          placeholderRecherche={t('niveauxGlobaux.search_placeholder')}
           messageVide={t('niveauxGlobaux.empty')}
           largeurMin={800}
         />

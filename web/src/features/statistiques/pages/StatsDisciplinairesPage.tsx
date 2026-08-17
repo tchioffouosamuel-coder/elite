@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Clock, FileDown, ShieldAlert, Users } from 'lucide-react'
 import {
@@ -29,6 +30,7 @@ function tonAbsence(valeur: number, enJours: boolean): string {
 }
 
 export function StatsDisciplinairesPage() {
+  const { t } = useTranslation()
   const secondaire = estSecondaire()
   const enJours = !secondaire
   const suffixe = enJours ? ' j' : ' h'
@@ -196,8 +198,8 @@ export function StatsDisciplinairesPage() {
           colonnes={colonnes}
           lignes={data.classes}
           cleLigne={(c) => c.classe.id}
-          placeholderRecherche="Rechercher une classe…"
-          messageVide="Aucune classe pour cet établissement."
+          placeholderRecherche={t('classes.search_placeholder')}
+          messageVide={t('classes.empty')}
           largeurMin={900}
         />
       </div>

@@ -4,8 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Pencil, FileDown, FileText, Phone, Mail, Briefcase, UserRound } from 'lucide-react'
 import { fetchEleve } from '@/features/eleves/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
+import { DossierDisciplinaireCard } from '@/features/discipline/pages/DossierDisciplinaireCard'
+import { SanteEleveCard } from '@/features/infirmerie/pages/SanteEleveCard'
+import { StatutFinancierCard } from '@/features/finance/pages/StatutFinancierCard'
 import { telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
+import { estSecondaire } from '@/shared/lib/ecole'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -26,6 +30,7 @@ export function EleveDetailPage() {
   const can = useAuthStore((s) => s.can)
   const { id } = useParams<{ id: string }>()
   const eleveId = Number(id)
+  const secondaire = estSecondaire()
 
   const { data: eleve, isLoading, isError } = useQuery({ queryKey: ['eleve', eleveId], queryFn: () => fetchEleve(eleveId) })
 
@@ -89,16 +94,16 @@ export function EleveDetailPage() {
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={eleve.statut === 'actif' ? 'green' : 'neutral'}>{t(`eleves.${eleve.statut}`)}</Badge>
         <Badge tone={eleve.sexe === 'F' ? 'gold' : 'neutral'}>{eleve.sexe === 'F' ? t('eleves.feminin') : t('eleves.masculin')}</Badge>
-        {eleve.redoublant && <Badge tone="red">Redoublant</Badge>}
+        {eleve.redoublant && <Badge tone="red">{t('eleves.redoublant')}</Badge>}
       </div>
 
       <Card>
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Informations personnelles</h2>
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">{t('eleves.informations_personnelles')}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Champ label={t('eleves.matricule')} valeur={eleve.matricule} />
           <Champ label={t('eleves.date_naissance')} valeur={eleve.date_naissance} />
-          <Champ label="Lieu de naissance" valeur={eleve.lieu_naissance} />
-          <Champ label="Nationalité" valeur={eleve.nationalite} />
+          <Champ label={t('eleves.lieu_naissance')} valeur={eleve.lieu_naissance} />
+          <Champ label={t('eleves.nationalite')} valeur={eleve.nationalite} />
           <Champ label={t('eleves.classe')} valeur={eleve.classe?.nom} />
         </div>
       </Card>
@@ -106,7 +111,7 @@ export function EleveDetailPage() {
       <Card>
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">{t('eleves.tuteur')}</h2>
         {eleve.tuteurs.length === 0 ? (
-          <p className="text-sm text-navy-400">Aucun tuteur enregistré.</p>
+          <p className="text-sm text-navy-400">{t('eleves.aucun_tuteur')}</p>
         ) : (
           <div className="flex flex-col divide-y divide-navy-100">
             {eleve.tuteurs.map((tuteur) => (
@@ -119,7 +124,7 @@ export function EleveDetailPage() {
                     <p className="text-sm font-semibold text-navy-800">
                       {tuteur.nom_complet}
                       {tuteur.is_principal && (
-                        <span className="ml-2 text-xs font-medium text-gold-600">Principal</span>
+                        <span className="ml-2 text-xs font-medium text-gold-600">{t('eleves.principal')}</span>
                       )}
                     </p>
                     <p className="text-xs text-navy-400">{tuteur.lien_parente || '—'}</p>
@@ -150,6 +155,10 @@ export function EleveDetailPage() {
           </div>
         )}
       </Card>
+
+      {can('finance.view') && <StatutFinancierCard eleveId={eleve.id} />}
+      {can('infirmerie.view') && <SanteEleveCard eleveId={eleve.id} />}
+      {secondaire && can('discipline.view') && <DossierDisciplinaireCard eleveId={eleve.id} />}
     </div>
   )
 }

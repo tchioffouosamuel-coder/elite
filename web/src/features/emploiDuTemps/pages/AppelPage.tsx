@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { clsx } from 'clsx'
@@ -11,6 +12,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { erreur, succes } from '@/shared/lib/alertes'
 
 export function AppelPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const seanceId = Number(id)
   const navigate = useNavigate()
@@ -37,10 +39,10 @@ export function AppelPage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['seances', data?.seance.classe_id] })
       queryClient.invalidateQueries({ queryKey: ['appel', seanceId] })
-      succes(`Appel enregistré (${res.enregistres} élève(s)).`)
+      succes(t('emploiDuTemps.appel_enregistre', { count: res.enregistres }))
       navigate('/seances')
     },
-    onError: (e: { message?: string }) => erreur(e.message ?? "Enregistrement de l'appel impossible."),
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.appel_erreur')),
   })
 
   const marquerPresent = (eleveId: number) =>
@@ -62,10 +64,10 @@ export function AppelPage() {
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-800"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour aux séances
+          {t('emploiDuTemps.retour_seances')}
         </button>
         <PageHeader
-          titre={`Appel — ${data.seance.matiere ?? ''}`}
+          titre={t('emploiDuTemps.appel_titre', { matiere: data.seance.matiere ?? '' })}
           sousTitre={`${new Date(data.seance.date_seance).toLocaleDateString('fr-FR')} · ${data.seance.heure_debut}–${data.seance.heure_fin}`}
           icon={ClipboardCheck}
         />
@@ -74,7 +76,7 @@ export function AppelPage() {
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-navy-500">
-            {lignes.length} élève(s) · {lignes.length - absents} présent(s) · {absents} absent(s)
+            {t('emploiDuTemps.appel_resume', { total: lignes.length, presents: lignes.length - absents, absents })}
           </p>
         </div>
 
@@ -98,7 +100,7 @@ export function AppelPage() {
                     )}
                   >
                     {present && <Check className="h-3.5 w-3.5" />}
-                    Présent
+                    {t('emploiDuTemps.present')}
                   </button>
 
                   <details className="group relative">
@@ -108,12 +110,14 @@ export function AppelPage() {
                         !present ? 'bg-red-500 text-white shadow-sm' : 'bg-navy-50 text-navy-400 hover:bg-navy-100',
                       )}
                     >
-                      {!present ? `Absent — ${MOTIFS[ligne.motif ?? 'inconnu']}` : 'Absent'}
+                      {!present
+                        ? t('emploiDuTemps.absent_motif', { motif: t(`emploiDuTemps.motifs.${ligne.motif ?? 'inconnu'}`) })
+                        : t('emploiDuTemps.absent')}
                       <ChevronDown className="h-3.5 w-3.5" />
                     </summary>
 
                     <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
-                      {Object.entries(MOTIFS).map(([cle, libelle]) => (
+                      {MOTIFS.map((cle) => (
                         <button
                           key={cle}
                           type="button"
@@ -123,7 +127,7 @@ export function AppelPage() {
                           }}
                           className="block w-full px-3 py-1.5 text-left text-xs text-navy-700 hover:bg-cream-100"
                         >
-                          {libelle}
+                          {t(`emploiDuTemps.motifs.${cle}`)}
                         </button>
                       ))}
                     </div>
@@ -137,10 +141,10 @@ export function AppelPage() {
 
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={() => navigate('/seances')}>
-          Annuler
+          {t('common.cancel')}
         </Button>
         <Button onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending || lignes.length === 0}>
-          Enregistrer l'appel
+          {t('emploiDuTemps.enregistrer_appel')}
         </Button>
       </div>
     </div>

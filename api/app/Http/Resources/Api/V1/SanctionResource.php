@@ -18,8 +18,13 @@ class SanctionResource extends JsonResource
             'classe' => $this->whenLoaded('classe', fn () => $this->classe->nom),
             'type' => $this->type,
             'duree_jours' => $this->duree_jours,
+            'date_debut' => $this->date_debut?->format('Y-m-d'),
+            'date_fin' => $this->date_fin?->format('Y-m-d'),
             'motif' => $this->motif,
+            'commentaire' => $this->commentaire,
             'date_sanction' => $this->date_sanction?->format('Y-m-d'),
+            'statut' => $this->statut,
+            'impacte_bulletin' => $this->impacte_bulletin,
             'enregistre_par' => $this->enregistrePar?->nom_complet,
         ];
     }

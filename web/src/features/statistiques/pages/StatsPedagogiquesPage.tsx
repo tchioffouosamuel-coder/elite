@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, FileDown, GraduationCap, Percent, Trophy, Users } from 'lucide-react'
 import {
@@ -37,6 +38,7 @@ function Jauge({ valeur }: { valeur: number }) {
 }
 
 export function StatsPedagogiquesPage() {
+  const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['stats-pedagogiques'],
     queryFn: () => fetchStatsPedagogiques(),
@@ -185,8 +187,8 @@ export function StatsPedagogiquesPage() {
           colonnes={colonnes}
           lignes={data.classes}
           cleLigne={(c) => c.classe.id}
-          placeholderRecherche="Rechercher une classe…"
-          messageVide="Aucune classe pour cet établissement."
+          placeholderRecherche={t('classes.search_placeholder')}
+          messageVide={t('classes.empty')}
           largeurMin={820}
         />
       </div>

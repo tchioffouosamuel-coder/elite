@@ -41,30 +41,26 @@ export function DepartementsPage() {
     },
     {
       cle: 'chef',
-      entete: 'Chef de département',
+      entete: t('departements.chef'),
       valeur: (d) => d.head_personnel?.nom_complet || '—',
       cellule: (d) => <span className="text-navy-700">{d.head_personnel?.nom_complet || '—'}</span>,
     },
     {
       cle: 'matieres',
-      entete: 'Matières',
+      entete: t('departements.matieres'),
       valeur: (d) => (d.matieres?.length || 0).toString(),
-      cellule: (d) => (
-        <span className="text-navy-700">
-          {d.matieres?.length || 0} matière{d.matieres && d.matieres.length > 1 ? 's' : ''}
-        </span>
-      ),
+      cellule: (d) => <span className="text-navy-700">{t('departements.matieres_count', { count: d.matieres?.length || 0 })}</span>,
     },
     {
       cle: 'actions',
-      entete: 'Actions',
+      entete: t('common.actions'),
       cellule: (d) => (
         <button
           onClick={() => navigate(`/departements/${d.id}`)}
           className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gold-600 hover:bg-gold-50"
         >
           <Eye className="h-4 w-4" />
-          Détails
+          {t('departements.details')}
         </button>
       ),
     },
@@ -93,8 +89,8 @@ export function DepartementsPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(d) => d.id}
-          placeholderRecherche="Rechercher un département…"
-          messageVide="Aucun département pour cet établissement."
+          placeholderRecherche={t('departements.search_placeholder')}
+          messageVide={t('departements.empty')}
           largeurMin={320}
         />
       )}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Boxes, Package, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
@@ -25,20 +26,8 @@ import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
-const LIBELLES_CATEGORIE: Record<CategorieArticle, string> = {
-  mobilier: 'Mobilier',
-  informatique: 'Informatique',
-  pedagogique: 'Pédagogique',
-  sport: 'Sport',
-  autre: 'Autre',
-}
-
-const LIBELLES_ETAT: Record<EtatArticle, string> = {
-  bon: 'Bon',
-  moyen: 'Moyen',
-  mauvais: 'Mauvais',
-  hors_service: 'Hors service',
-}
+const CATEGORIES: CategorieArticle[] = ['mobilier', 'informatique', 'pedagogique', 'sport', 'autre']
+const ETATS: EtatArticle[] = ['bon', 'moyen', 'mauvais', 'hors_service']
 
 const TONE_ETAT: Record<EtatArticle, 'green' | 'gold' | 'red' | 'neutral'> = {
   bon: 'green',
@@ -48,6 +37,7 @@ const TONE_ETAT: Record<EtatArticle, 'green' | 'gold' | 'red' | 'neutral'> = {
 }
 
 export function InventairePage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [categorie, setCategorie] = useState<CategorieArticle | ''>('')
@@ -65,38 +55,38 @@ export function InventairePage() {
   const colonnes: Colonne<ArticleInventaire>[] = [
     {
       cle: 'nom',
-      entete: 'Article',
+      entete: t('inventaire.article_col'),
       valeur: (a) => a.nom,
       cellule: (a) => <span className="font-semibold text-navy-900">{a.nom}</span>,
     },
     {
       cle: 'categorie',
-      entete: 'Catégorie',
-      valeur: (a) => LIBELLES_CATEGORIE[a.categorie],
-      cellule: (a) => LIBELLES_CATEGORIE[a.categorie],
+      entete: t('inventaire.categorie_col'),
+      valeur: (a) => t(`inventaire.categorie_${a.categorie}`),
+      cellule: (a) => t(`inventaire.categorie_${a.categorie}`),
     },
     {
       cle: 'quantite',
-      entete: 'Quantité',
+      entete: t('inventaire.quantite_col'),
       valeur: (a) => a.quantite,
       cellule: (a) => <span className="tabular-nums">{a.quantite}</span>,
     },
     {
       cle: 'etat',
-      entete: 'État',
+      entete: t('inventaire.etat_col'),
       valeur: (a) => a.etat,
-      cellule: (a) => <Badge tone={TONE_ETAT[a.etat]}>{LIBELLES_ETAT[a.etat]}</Badge>,
+      cellule: (a) => <Badge tone={TONE_ETAT[a.etat]}>{t(`inventaire.etat_${a.etat}`)}</Badge>,
     },
     {
       cle: 'localisation',
-      entete: 'Localisation',
+      entete: t('inventaire.localisation_col'),
       valeur: (a) => a.localisation,
       cellule: (a) => a.localisation ?? '—',
       masquerMobile: true,
     },
     {
       cle: 'valeur',
-      entete: 'Valeur totale',
+      entete: t('inventaire.valeur_totale_col'),
       valeur: (a) => a.valeur_totale,
       cellule: (a) => (a.valeur_totale > 0 ? <span className="tabular-nums">{francs(a.valeur_totale)}</span> : '—'),
       masquerMobile: true,
@@ -105,11 +95,11 @@ export function InventairePage() {
       ? [
           {
             cle: 'actions',
-            entete: 'Actions',
+            entete: t('common.actions'),
             cellule: (a: ArticleInventaire) => (
               <div className="flex items-center gap-1">
                 <button
-                  title="Modifier"
+                  title={t('common.edit')}
                   onClick={() => {
                     setArticleEnEdition(a)
                     setShowForm(true)
@@ -119,13 +109,13 @@ export function InventairePage() {
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button
-                  title="Supprimer"
+                  title={t('common.delete')}
                   onClick={async () => {
                     if (!(await confirmerSuppression(a.nom))) return
                     try {
                       await supprimerArticle(a.id)
                       invalidate()
-                      succes('Article supprimé.')
+                      succes(t('inventaire.deleted'))
                     } catch (err) {
                       erreur((err as ApiError).message)
                     }
@@ -144,8 +134,8 @@ export function InventairePage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre="Inventaire"
-        sousTitre="Mobilier, matériel informatique et pédagogique de l'établissement."
+        titre={t('inventaire.title')}
+        sousTitre={t('inventaire.subtitle')}
         icon={Boxes}
         actions={
           can('inventaire.manage') && (
@@ -156,7 +146,7 @@ export function InventairePage() {
               }}
             >
               <Plus className="h-4 w-4" />
-              Ajouter un article
+              {t('inventaire.add')}
             </Button>
           )
         }
@@ -164,9 +154,9 @@ export function InventairePage() {
 
       {data && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <StatCard label="Articles distincts" value={data.stats.effectif_articles} icon={Package} accent="navy" />
-          <StatCard label="Quantité totale" value={data.stats.quantite_totale} icon={Boxes} accent="gold" />
-          <StatCard label="Valeur totale" value={francs(data.stats.valeur_totale)} icon={Wallet} accent="green" />
+          <StatCard label={t('inventaire.stat_articles_distincts')} value={data.stats.effectif_articles} icon={Package} accent="navy" />
+          <StatCard label={t('inventaire.stat_quantite_totale')} value={data.stats.quantite_totale} icon={Boxes} accent="gold" />
+          <StatCard label={t('inventaire.valeur_totale_col')} value={francs(data.stats.valeur_totale)} icon={Wallet} accent="green" />
         </div>
       )}
 
@@ -177,24 +167,24 @@ export function InventairePage() {
           colonnes={colonnes}
           lignes={data?.articles ?? []}
           cleLigne={(a) => a.id}
-          placeholderRecherche="Rechercher un article, une localisation…"
-          messageVide="Aucun article enregistré."
+          placeholderRecherche={t('inventaire.search_placeholder')}
+          messageVide={t('inventaire.empty')}
           largeurMin={760}
           outils={
             <div className="flex flex-wrap gap-2">
               <Select value={categorie} onChange={(e) => setCategorie(e.target.value as CategorieArticle | '')}>
-                <option value="">Toutes les catégories</option>
-                {Object.entries(LIBELLES_CATEGORIE).map(([valeur, libelle]) => (
+                <option value="">{t('inventaire.all_categories')}</option>
+                {CATEGORIES.map((valeur) => (
                   <option key={valeur} value={valeur}>
-                    {libelle}
+                    {t(`inventaire.categorie_${valeur}`)}
                   </option>
                 ))}
               </Select>
               <Select value={etat} onChange={(e) => setEtat(e.target.value as EtatArticle | '')}>
-                <option value="">Tous les états</option>
-                {Object.entries(LIBELLES_ETAT).map(([valeur, libelle]) => (
+                <option value="">{t('inventaire.all_etats')}</option>
+                {ETATS.map((valeur) => (
                   <option key={valeur} value={valeur}>
-                    {libelle}
+                    {t(`inventaire.etat_${valeur}`)}
                   </option>
                 ))}
               </Select>
@@ -227,6 +217,7 @@ function ArticleFormModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -260,10 +251,10 @@ function ArticleFormModal({
     try {
       if (article) {
         await modifierArticle(article.id, payload)
-        succes('Article mis à jour.')
+        succes(t('inventaire.updated'))
       } else {
         await creerArticle(payload)
-        succes('Article ajouté.')
+        succes(t('inventaire.created'))
       }
       onSaved()
     } catch (err) {
@@ -272,26 +263,26 @@ function ArticleFormModal({
   }
 
   return (
-    <Modal title={article ? "Modifier l'article" : 'Ajouter un article'} onClose={onClose}>
+    <Modal title={article ? t('inventaire.edit_title') : t('inventaire.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input
-          label="Nom"
+          label={t('inventaire.nom_label')}
           error={errors.nom?.message}
-          {...register('nom', { required: 'Ce champ est requis.' })}
+          {...register('nom', { required: t('bus.field_required') as string })}
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Catégorie" {...register('categorie', { required: true })}>
-            {Object.entries(LIBELLES_CATEGORIE).map(([valeur, libelle]) => (
+          <Select label={t('inventaire.categorie_col')} {...register('categorie', { required: true })}>
+            {CATEGORIES.map((valeur) => (
               <option key={valeur} value={valeur}>
-                {libelle}
+                {t(`inventaire.categorie_${valeur}`)}
               </option>
             ))}
           </Select>
-          <Select label="État" {...register('etat', { required: true })}>
-            {Object.entries(LIBELLES_ETAT).map(([valeur, libelle]) => (
+          <Select label={t('inventaire.etat_col')} {...register('etat', { required: true })}>
+            {ETATS.map((valeur) => (
               <option key={valeur} value={valeur}>
-                {libelle}
+                {t(`inventaire.etat_${valeur}`)}
               </option>
             ))}
           </Select>
@@ -299,27 +290,27 @@ function ArticleFormModal({
 
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Quantité"
+            label={t('inventaire.quantite_col')}
             type="number"
             min={1}
             error={errors.quantite?.message}
-            {...register('quantite', { required: true, min: { value: 1, message: 'La quantité doit être au moins 1.' } })}
+            {...register('quantite', { required: true, min: { value: 1, message: t('inventaire.quantite_min') } })}
           />
-          <Input label="Valeur unitaire (F CFA)" type="number" min={0} {...register('valeur_unitaire')} />
+          <Input label={t('inventaire.valeur_unitaire_label')} type="number" min={0} {...register('valeur_unitaire')} />
         </div>
 
-        <Input label="Localisation" placeholder="Ex. : Salle CM2-A, Bibliothèque…" {...register('localisation')} />
-        <Input label="Date d'acquisition" type="date" {...register('date_acquisition')} />
-        <Input label="Notes" placeholder="Facultatif" {...register('notes')} />
+        <Input label={t('inventaire.localisation_col')} placeholder={t('inventaire.localisation_placeholder')} {...register('localisation')} />
+        <Input label={t('inventaire.date_acquisition_label')} type="date" {...register('date_acquisition')} />
+        <Input label={t('inventaire.notes_label')} placeholder={t('inventaire.notes_placeholder')} {...register('notes')} />
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            Enregistrer
+            {t('common.save')}
           </Button>
         </div>
       </form>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { useTranslation } from 'react-i18next'
 import { Printer } from 'lucide-react'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
@@ -13,6 +14,7 @@ import type { Classe } from '@/features/classes/api'
  * classe — pas d'application dédiée à installer, un lien profond suffit.
  */
 export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: () => void }) {
+  const { t } = useTranslation()
   const [image, setImage] = useState<string | null>(null)
   const url = `${window.location.origin}/qr/${classe.qr_token}`
 
@@ -31,11 +33,11 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
     if (!fenetre || !image) return
 
     fenetre.document.write(`
-      <!doctype html><html><head><title>QR code — ${classe.nom}</title></head>
+      <!doctype html><html><head><title>${t('classes.qr_modal_title', { nom: classe.nom })}</title></head>
       <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;gap:16px;">
         <h1 style="font-size:20px;margin:0;">${classe.nom}</h1>
         <img src="${image}" width="320" height="320" />
-        <p style="font-size:13px;color:#555;">À scanner en début de cours pour ouvrir l'appel.</p>
+        <p style="font-size:13px;color:#555;">${t('classes.qr_print_hint')}</p>
       </body></html>
     `)
     fenetre.document.close()
@@ -44,15 +46,18 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
   }
 
   return (
-    <Modal title={`Code QR — ${classe.nom}`} onClose={onClose}>
+    <Modal title={t('classes.qr_modal_title', { nom: classe.nom })} onClose={onClose}>
       <div className="flex flex-col items-center gap-4">
-        <p className="text-center text-sm text-navy-500">
-          À afficher au mur de la salle. Scanné par un enseignant en début de cours, il ouvre directement le cours
-          prévu à cette heure pour cette classe.
-        </p>
+        <p className="text-center text-sm text-navy-500">{t('classes.qr_modal_hint')}</p>
 
         {image ? (
-          <img src={image} alt={`QR code de ${classe.nom}`} width={220} height={220} className="rounded-xl border border-navy-100" />
+          <img
+            src={image}
+            alt={t('classes.qr_modal_alt', { nom: classe.nom })}
+            width={220}
+            height={220}
+            className="rounded-xl border border-navy-100"
+          />
         ) : (
           <div className="flex h-[220px] w-[220px] items-center justify-center">
             <Spinner />
@@ -61,7 +66,7 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
 
         <Button onClick={imprimer} disabled={!image}>
           <Printer className="h-4 w-4" />
-          Imprimer
+          {t('classes.qr_imprimer')}
         </Button>
       </div>
     </Modal>

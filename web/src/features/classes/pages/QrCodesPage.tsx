@@ -32,7 +32,7 @@ export function QrCodesPage() {
     },
     {
       cle: 'ecole',
-      entete: 'École',
+      entete: t('classes.ecole'),
       valeur: (c) => c.school?.name,
       cellule: (c) => (c.school ? <Badge tone="purple">{c.school.name}</Badge> : '—'),
       masquerMobile: true,
@@ -57,7 +57,7 @@ export function QrCodesPage() {
           disabled={!c.qr_token}
         >
           <QrCode className="h-4 w-4" />
-          Voir le code
+          {t('classes.qr_voir')}
         </Button>
       ),
     },
@@ -65,11 +65,7 @@ export function QrCodesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        titre="Codes QR des classes"
-        sousTitre="À imprimer et afficher au mur de chaque salle pour l'appel par scan."
-        icon={QrCode}
-      />
+      <PageHeader titre={t('classes.qr_title')} sousTitre={t('classes.qr_subtitle')} icon={QrCode} />
 
       {isLoading ? (
         <Spinner />
@@ -80,8 +76,8 @@ export function QrCodesPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(c) => c.id}
-          placeholderRecherche="Rechercher une classe…"
-          messageVide="Aucune classe pour cet établissement."
+          placeholderRecherche={t('classes.search_placeholder')}
+          messageVide={t('classes.empty')}
         />
       )}
 

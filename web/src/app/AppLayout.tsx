@@ -604,9 +604,9 @@ export function AppLayout() {
             onClick={() => navigate('/profil')}
             className="hidden items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-cream-100 xl:flex"
           >
-            <div className="text-right text-sm leading-tight">
-              <p className="font-semibold text-navy-800">{user?.name}</p>
-              <p className="text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
+            <div className="max-w-[160px] text-right text-sm leading-tight">
+              <p className="truncate font-semibold text-navy-800" title={user?.name}>{user?.name}</p>
+              <p className="truncate text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
             </div>
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
               {initials(user?.name)}

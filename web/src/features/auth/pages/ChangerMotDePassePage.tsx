@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes } from '@/shared/lib/alertes'
@@ -24,6 +25,7 @@ interface FormValues {
  * est donc la seule sortie, et n'offre pas de bouton « plus tard ».
  */
 export function ChangerMotDePassePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const refreshUser = useAuthStore((s) => s.refreshUser)
@@ -45,7 +47,7 @@ export function ChangerMotDePassePage() {
     setSubmitting(true)
     try {
       refreshUser(await changerMotDePasse(values))
-      succes('Mot de passe mis à jour.')
+      succes(t('auth.password_updated'))
       navigate('/', { replace: true })
     } catch (err) {
       const e = err as ApiError
@@ -71,45 +73,43 @@ export function ChangerMotDePassePage() {
         </span>
 
         <h1 className="mt-4 font-display text-xl font-bold tracking-tight text-navy-900">
-          {obligatoire ? 'Choisissez votre mot de passe' : 'Changer de mot de passe'}
+          {obligatoire ? t('auth.change_password_title_obligatoire') : t('auth.change_password_title')}
         </h1>
         <p className="mt-1.5 text-sm text-navy-500">
-          {obligatoire
-            ? "Votre accès a été ouvert avec le mot de passe commun de l'établissement. Remplacez-le pour entrer dans l'application."
-            : 'Vos autres sessions seront fermées.'}
+          {obligatoire ? t('auth.change_password_subtitle_obligatoire') : t('auth.change_password_subtitle')}
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
           <Input
-            label={obligatoire ? 'Mot de passe reçu' : 'Mot de passe actuel'}
+            label={obligatoire ? t('auth.label_mot_de_passe_recu') : t('auth.label_mot_de_passe_actuel')}
             type="password"
             autoComplete="current-password"
             error={errors.ancien_mot_de_passe?.message}
-            {...register('ancien_mot_de_passe', { required: 'Saisissez votre mot de passe actuel.' })}
+            {...register('ancien_mot_de_passe', { required: t('auth.error_mot_de_passe_actuel_requis') })}
           />
           <Input
-            label="Nouveau mot de passe"
+            label={t('auth.label_nouveau_mot_de_passe')}
             type="password"
             autoComplete="new-password"
             error={errors.nouveau_mot_de_passe?.message}
             {...register('nouveau_mot_de_passe', {
-              required: 'Choisissez un nouveau mot de passe.',
-              minLength: { value: 8, message: 'Huit caractères au minimum.' },
+              required: t('auth.error_nouveau_mot_de_passe_requis'),
+              minLength: { value: 8, message: t('auth.error_min_length') },
               validate: {
                 lettresEtChiffres: (v) =>
-                  (/[a-zA-Z]/.test(v) && /\d/.test(v)) || 'Mélangez lettres et chiffres.',
+                  (/[a-zA-Z]/.test(v) && /\d/.test(v)) || t('auth.error_lettres_chiffres'),
                 different: (v, champs) =>
-                  v !== champs.ancien_mot_de_passe || 'Choisissez un mot de passe différent du précédent.',
+                  v !== champs.ancien_mot_de_passe || t('auth.error_mot_de_passe_different'),
               },
             })}
           />
           <Input
-            label="Confirmez le nouveau mot de passe"
+            label={t('auth.label_confirmer_mot_de_passe')}
             type="password"
             autoComplete="new-password"
             error={errors.nouveau_mot_de_passe_confirmation?.message}
             {...register('nouveau_mot_de_passe_confirmation', {
-              validate: (v) => v === watch('nouveau_mot_de_passe') || 'La confirmation ne correspond pas.',
+              validate: (v) => v === watch('nouveau_mot_de_passe') || t('auth.error_confirmation_mismatch'),
             })}
           />
 
@@ -117,7 +117,7 @@ export function ChangerMotDePassePage() {
 
           <Button type="submit" disabled={submitting} className="mt-2 w-full">
             <ShieldCheck className="h-4 w-4" />
-            {submitting ? 'Enregistrement…' : 'Enregistrer et continuer'}
+            {submitting ? t('common.saving') : t('auth.submit_save_continue')}
           </Button>
         </form>
       </div>

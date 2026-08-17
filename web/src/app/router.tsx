@@ -38,6 +38,7 @@ import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedago
 import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
 import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
 import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
+import { VerificationBulletinPage } from '@/features/resultats/pages/VerificationBulletinPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
@@ -67,6 +68,12 @@ export const router = createBrowserRouter([
   // Hors du gabarit applicatif : tant que le mot de passe est provisoire, il
   // n'y a ni menu ni tableau de bord à afficher autour.
   { path: '/mot-de-passe', element: <ChangerMotDePassePage /> },
+  // Ouverte en scannant le QR code d'un bulletin : aucune connexion requise,
+  // un tiers externe au personnel de l'établissement doit pouvoir y accéder.
+  {
+    path: '/verification-bulletin/:eleveId/:trimestreId/:signature',
+    element: <VerificationBulletinPage />,
+  },
   {
     path: '/',
     element: (
@@ -121,6 +128,8 @@ export const router = createBrowserRouter([
       { path: 'codes-qr', element: <ProtectedRoute permission="emploi_du_temps.manage"><QrCodesPage /></ProtectedRoute> },
       { path: 'annonces', element: <ProtectedRoute permission="annonces.view"><AnnoncesPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
+      { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
+      { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
       { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
       {

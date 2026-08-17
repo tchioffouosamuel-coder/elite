@@ -114,11 +114,11 @@ export function PersonnelListPage() {
       ? [
           {
             cle: 'selection',
-            entete: data?.items ? (
+            entete: data ? (
               <input
                 type="checkbox"
-                checked={selectedIds.size === data.items.length && data.items.length > 0}
-                onChange={() => handleSelectAll(data?.items ?? [])}
+                checked={selectedIds.size === data.length && data.length > 0}
+                onChange={() => handleSelectAll(data ?? [])}
                 className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
               />
             ) : null,
@@ -313,10 +313,10 @@ export function PersonnelListPage() {
       ) : (
         <DataTable
           colonnes={colonnes}
-          lignes={data.items}
+          lignes={data}
           cleLigne={(p) => p.id}
-          placeholderRecherche="Rechercher un nom, une fonction…"
-          messageVide="Aucun personnel pour cet établissement."
+          placeholderRecherche={t('personnel.search_placeholder')}
+          messageVide={t('personnel.empty')}
           largeurMin={760}
         />
       )}

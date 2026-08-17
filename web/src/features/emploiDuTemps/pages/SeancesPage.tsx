@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardCheck, UserCheck } from 'lucide-react'
@@ -15,6 +16,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 
 export function SeancesPage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const navigate = useNavigate()
@@ -48,42 +50,46 @@ export function SeancesPage() {
   const colonnes: Colonne<Seance>[] = [
     {
       cle: 'date',
-      entete: 'Date',
+      entete: t('emploiDuTemps.date_col'),
       valeur: (s) => s.date_seance,
       cellule: (s) => <span className="font-medium">{new Date(s.date_seance).toLocaleDateString('fr-FR')}</span>,
     },
     {
       cle: 'horaire',
-      entete: 'Horaire',
+      entete: t('emploiDuTemps.horaire_col'),
       valeur: (s) => s.heure_debut,
       cellule: (s) => `${s.heure_debut}–${s.heure_fin}`,
     },
     {
       cle: 'matiere',
-      entete: 'Matière',
+      entete: t('emploiDuTemps.matiere_label'),
       valeur: (s) => s.matiere,
       cellule: (s) => <span className="font-semibold text-navy-900">{s.matiere}</span>,
     },
     {
       cle: 'enseignant',
-      entete: 'Enseignant',
+      entete: t('emploiDuTemps.enseignant_col'),
       valeur: (s) => s.enseignant,
       cellule: (s) => s.enseignant ?? '—',
       masquerMobile: true,
     },
     {
       cle: 'statut',
-      entete: 'Statut',
+      entete: t('emploiDuTemps.statut_col'),
       valeur: (s) => s.statut,
       cellule: (s) => (
         <Badge tone={s.statut === 'effectuee' ? 'green' : s.statut === 'annulee' ? 'red' : 'neutral'}>
-          {s.statut === 'effectuee' ? 'Effectuée' : s.statut === 'annulee' ? 'Annulée' : 'Prévue'}
+          {s.statut === 'effectuee'
+            ? t('emploiDuTemps.statut_effectuee')
+            : s.statut === 'annulee'
+              ? t('emploiDuTemps.statut_annulee')
+              : t('emploiDuTemps.statut_prevue')}
         </Badge>
       ),
     },
     {
       cle: 'absents',
-      entete: 'Absents',
+      entete: t('emploiDuTemps.absents_col'),
       valeur: (s) => s.absents,
       cellule: (s) => (s.absents > 0 ? <Badge tone="red">{s.absents}</Badge> : '—'),
     },
@@ -94,7 +100,7 @@ export function SeancesPage() {
         can('appel.manage') ? (
           <Button size="sm" variant="secondary" onClick={() => navigate(`/seances/${s.id}/appel`)}>
             <UserCheck className="h-4 w-4" />
-            Faire l'appel
+            {t('emploiDuTemps.faire_appel')}
           </Button>
         ) : null,
     },
@@ -102,23 +108,23 @@ export function SeancesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre="Séances & appel" icon={ClipboardCheck} />
+      <PageHeader titre={t('nav.seances')} icon={ClipboardCheck} />
 
       {restreintATitulaire ? (
         maClasse && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('emploiDuTemps.classe_label')}</span>
             <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
           </div>
         )
       ) : (
         <Select
-          label="Classe"
+          label={t('emploiDuTemps.classe_label')}
           value={classeId}
           onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
           className="max-w-xs"
         >
-          <option value="">Sélectionner une classe…</option>
+          <option value="">{t('emploiDuTemps.select_classe_placeholder')}</option>
           {classes?.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
@@ -131,11 +137,11 @@ export function SeancesPage() {
         <Spinner />
       ) : restreintATitulaire && !maClasse ? (
         <Card>
-          <EmptyState label="Aucune classe ne vous est confiée pour le moment." />
+          <EmptyState label={t('classes.aucune_classe_confiee')} />
         </Card>
       ) : !classeActive ? (
         <Card>
-          <EmptyState label="Choisissez une classe pour afficher ses séances." />
+          <EmptyState label={t('emploiDuTemps.choisir_classe_seances_hint')} />
         </Card>
       ) : isLoading ? (
         <Spinner />
@@ -144,8 +150,8 @@ export function SeancesPage() {
           colonnes={colonnes}
           lignes={seances ?? []}
           cleLigne={(s) => s.id}
-          placeholderRecherche="Rechercher une matière, une date…"
-          messageVide="Aucune séance. Générez-les depuis l'emploi du temps de la classe."
+          placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+          messageVide={t('emploiDuTemps.empty_seances')}
           largeurMin={820}
         />
       )}

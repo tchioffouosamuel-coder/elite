@@ -74,10 +74,10 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
   }
 
   return (
-    <Modal title={niveau ? 'Modifier le niveau' : 'Créer un niveau'} onClose={onClose}>
+    <Modal title={niveau ? t('niveauxGlobaux.edit_title') : t('niveauxGlobaux.create_title')} onClose={onClose}>
       <form onSubmit={handleSubmit(submit)} className="space-y-4">
-        <Select label="École" {...register('school_id', { required: true, valueAsNumber: true })}>
-          <option value="">Sélectionner une école</option>
+        <Select label={t('niveauxGlobaux.school')} {...register('school_id', { required: true, valueAsNumber: true })}>
+          <option value="">{t('niveauxGlobaux.select_school_placeholder')}</option>
           {ecoles.map((ecole) => (
             <option key={ecole.id} value={ecole.id}>
               {ecole.name}
@@ -87,7 +87,7 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
 
         <Input
           label={t('niveauxGlobaux.code')}
-          placeholder="ex: CE1, CLASS1"
+          placeholder={t('niveauxGlobaux.code_placeholder')}
           className="uppercase"
           {...register('code', {
             required: true,
@@ -96,11 +96,11 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
             },
           })}
         />
-        <Input label="Nom français" placeholder="Cours Élémentaire 1" {...register('name_fr', { required: true })} />
-        <Input label="Nom anglais" placeholder="Elementary Course 1" {...register('name_en', { required: true })} />
+        <Input label={t('niveauxGlobaux.name_fr')} placeholder={t('niveauxGlobaux.name_fr_placeholder')} {...register('name_fr', { required: true })} />
+        <Input label={t('niveauxGlobaux.name_en')} placeholder={t('niveauxGlobaux.name_en_placeholder')} {...register('name_en', { required: true })} />
 
-        <Select label="Sous-système" {...register('sous_system_id', { valueAsNumber: true })}>
-          <option value="">Aucun</option>
+        <Select label={t('niveauxGlobaux.sous_systeme')} {...register('sous_system_id', { valueAsNumber: true })}>
+          <option value="">{t('niveauxGlobaux.aucun')}</option>
           {sousSystemes?.map((sousSysteme) => (
             <option key={sousSysteme.id} value={sousSysteme.id}>
               {sousSysteme.nom}
@@ -113,7 +113,7 @@ export function NiveauFormModal({ isOpen, niveau, onClose, onSubmit, isLoading =
             {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={isLoading || isSubmitting}>
-            {niveau ? 'Mettre à jour' : 'Créer'}
+            {niveau ? t('common.update') : t('common.create')}
           </Button>
         </div>
       </form>

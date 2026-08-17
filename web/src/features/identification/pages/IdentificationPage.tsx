@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Camera, IdCard, Upload } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
@@ -17,6 +18,7 @@ import { EmptyState, Spinner } from '@/shared/ui/Feedback'
  * la classe puis on édite la planche de cartes recto-verso en un seul PDF.
  */
 export function IdentificationPage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const [classeId, setClasseId] = useState<number | ''>('')
   const [editionEnCours, setEditionEnCours] = useState(false)
@@ -47,23 +49,23 @@ export function IdentificationPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <IdCard className="h-6 w-6 text-gold-500" />
-          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">Photos &amp; cartes scolaires</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('identification.title')}</h1>
         </div>
         {classeActive && (
           <Button onClick={editerCartes} disabled={editionEnCours || eleves.length === 0}>
             <IdCard className="h-4 w-4" />
-            {editionEnCours ? 'Génération…' : 'Éditer les cartes de la classe'}
+            {editionEnCours ? t('identification.generating') : t('identification.edit_cards')}
           </Button>
         )}
       </div>
 
       <Select
-        label="Classe"
+        label={t('eleves.classe')}
         value={classeId}
         onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
         className="max-w-xs"
       >
-        <option value="">Sélectionner une classe…</option>
+        <option value="">{t('identification.select_classe_placeholder')}</option>
         {classes?.map((c) => (
           <option key={c.id} value={c.id}>
             {c.nom}
@@ -73,22 +75,24 @@ export function IdentificationPage() {
 
       {!classeActive ? (
         <Card>
-          <EmptyState label="Choisissez une classe pour gérer ses photos et éditer ses cartes." />
+          <EmptyState label={t('identification.empty_select_classe')} />
         </Card>
       ) : isLoading ? (
         <Spinner />
       ) : eleves.length === 0 ? (
         <Card>
-          <EmptyState label="Aucun élève dans cette classe." />
+          <EmptyState label={t('identification.empty_eleves_classe')} />
         </Card>
       ) : (
         <>
           <Card className="flex items-center gap-3 text-sm">
             <Camera className="h-4 w-4 text-gold-500" />
             <span className="font-medium text-navy-700">
-              {avecPhoto} / {eleves.length} élève(s) disposent d'une photo
+              {t('identification.photo_coverage', { avec: avecPhoto, total: eleves.length })}
             </span>
-            {avecPhoto < eleves.length && <Badge tone="red">{eleves.length - avecPhoto} manquante(s)</Badge>}
+            {avecPhoto < eleves.length && (
+              <Badge tone="red">{t('identification.missing_count', { count: eleves.length - avecPhoto })}</Badge>
+            )}
           </Card>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -111,6 +115,7 @@ function VignetteEleve({
   classeId: number
   peutModifier: boolean
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -151,7 +156,7 @@ function VignetteEleve({
           />
           <Button size="sm" variant="secondary" onClick={() => inputRef.current?.click()} disabled={envoi.isPending}>
             <Upload className="h-3.5 w-3.5" />
-            {envoi.isPending ? 'Envoi…' : eleve.photo_url ? 'Remplacer' : 'Ajouter'}
+            {envoi.isPending ? t('identification.sending') : eleve.photo_url ? t('identification.replace_photo') : t('identification.add_photo')}
           </Button>
         </>
       )}

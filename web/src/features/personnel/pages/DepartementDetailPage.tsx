@@ -61,10 +61,10 @@ export function DepartementDetailPage() {
         setExporting(true)
         try {
             await exportStatistiquesAsPdf(dept.id, undefined, dept.nom)
-            setMessage({ type: 'success', text: 'PDF exporté avec succès' })
+            setMessage({ type: 'success', text: t('departements.detail.export_success') })
             setTimeout(() => setMessage(null), 3000)
         } catch (err) {
-            setMessage({ type: 'error', text: 'Erreur lors de l\'export PDF' })
+            setMessage({ type: 'error', text: t('departements.detail.export_error') })
         } finally {
             setExporting(false)
         }
@@ -105,15 +105,15 @@ export function DepartementDetailPage() {
                     <div className="flex flex-col gap-4">
                         <h2 className="text-lg font-semibold text-navy-900 flex items-center gap-2">
                             <Users className="h-5 w-5 text-gold-500" />
-                            Chef de département
+                            {t('departements.detail.chef_title')}
                         </h2>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <Select
                                 value={headPersonnelId?.toString() || ''}
                                 onChange={(e) => setHeadPersonnelId(e.target.value ? parseInt(e.target.value) : null)}
-                                label="Chef du département"
+                                label={t('departements.detail.chef_label')}
                             >
-                                <option value="">Aucun</option>
+                                <option value="">{t('departements.detail.none')}</option>
                                 {enseignants.map((p) => (
                                     <option key={p.id} value={p.id}>
                                         {p.nom_complet}
@@ -126,7 +126,7 @@ export function DepartementDetailPage() {
                                 onClick={handleUpdateHead}
                                 disabled={submitting || headPersonnelId === dept.head_personnel_id}
                             >
-                                {submitting ? 'Enregistrement...' : 'Enregistrer'}
+                                {submitting ? t('common.saving') : t('departements.detail.save')}
                             </Button>
                         </div>
                     </div>
@@ -138,7 +138,7 @@ export function DepartementDetailPage() {
                 <div className="flex flex-col gap-4">
                     <h2 className="text-lg font-semibold text-navy-900 flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-gold-500" />
-                        Matières du département
+                        {t('departements.detail.matieres_title')}
                     </h2>
                     {dept.matieres && dept.matieres.length > 0 ? (
                         <div className="grid gap-2">
@@ -150,14 +150,14 @@ export function DepartementDetailPage() {
                                     <span className="font-medium text-navy-900">{matiere.nom}</span>
                                     {can('pedagogie.manage') && (
                                         <Button size="sm" variant="secondary">
-                                            Modifier
+                                            {t('departements.detail.modify')}
                                         </Button>
                                     )}
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-navy-500">Aucune matière assignée</p>
+                        <p className="text-navy-500">{t('departements.detail.no_matiere')}</p>
                     )}
                 </div>
             </Card>
@@ -169,7 +169,7 @@ export function DepartementDetailPage() {
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-navy-900 flex items-center gap-2">
                                 <BarChart3 className="h-5 w-5 text-gold-500" />
-                                Statistiques pédagogiques - {stats.trimestre.libelle}
+                                {t('departements.detail.stats_title', { trimestre: stats.trimestre.libelle })}
                             </h2>
                             <Button
                                 onClick={handleExportPdf}
@@ -179,23 +179,23 @@ export function DepartementDetailPage() {
                                 className="flex items-center gap-2"
                             >
                                 <Download className="h-4 w-4" />
-                                {exporting ? 'Export...' : 'Exporter PDF'}
+                                {exporting ? t('departements.detail.exporting') : t('departements.detail.export_pdf')}
                             </Button>
                         </div>
 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="rounded-lg bg-cream-50 p-4">
-                                <p className="text-sm text-navy-600">Effectif total</p>
+                                <p className="text-sm text-navy-600">{t('departements.detail.effectif_total')}</p>
                                 <p className="text-2xl font-bold text-navy-900">{stats.stats_consolidees.effectif_total}</p>
                             </div>
                             <div className="rounded-lg bg-cream-50 p-4">
-                                <p className="text-sm text-navy-600">Moyenne générale</p>
+                                <p className="text-sm text-navy-600">{t('departements.detail.moyenne_generale')}</p>
                                 <p className="text-2xl font-bold text-navy-900">
                                     {stats.stats_consolidees.moyenne_generale?.toFixed(2) || '—'}
                                 </p>
                             </div>
                             <div className="rounded-lg bg-cream-50 p-4">
-                                <p className="text-sm text-navy-600">Taux de réussite</p>
+                                <p className="text-sm text-navy-600">{t('departements.detail.taux_reussite')}</p>
                                 <p className="text-2xl font-bold text-navy-900">
                                     {stats.stats_consolidees.taux_reussite_moyen?.toFixed(1) || '—'}%
                                 </p>
@@ -205,14 +205,14 @@ export function DepartementDetailPage() {
                         <StatistiquesChart stats={stats} />
 
                         <div className="mt-4">
-                            <h3 className="mb-3 text-base font-semibold text-navy-900">Récapitulatif par matière</h3>
+                            <h3 className="mb-3 text-base font-semibold text-navy-900">{t('departements.detail.recap_matiere')}</h3>
                             <div className="grid gap-3">
                                 {stats.matieres.map((m) => (
                                     <div key={m.id} className="flex items-center justify-between rounded border border-navy-100 p-3">
                                         <div>
                                             <p className="font-medium text-navy-900">{m.nom}</p>
                                             <p className="text-sm text-navy-600">
-                                                {m.effectif_eleves} élèves · Moyenne: {m.moyenne?.toFixed(2) || '—'}
+                                                {t('departements.detail.eleves_moyenne', { count: m.effectif_eleves, moyenne: m.moyenne?.toFixed(2) || '—' })}
                                             </p>
                                         </div>
                                         <span className="text-sm font-semibold text-gold-600">

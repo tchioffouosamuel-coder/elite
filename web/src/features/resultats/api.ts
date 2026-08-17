@@ -109,6 +109,31 @@ export async function ouvrirBulletinsClasse(
   return ouvrirPdf(endpoint(classeId, "bulletins"), trimestreId);
 }
 
+export interface VerificationBulletin {
+  eleve: { nom_complet: string; matricule: string | null };
+  classe: string;
+  ecole: string;
+  trimestre: string;
+  annee_scolaire: string | null;
+  moyenne_generale: number | null;
+  rang: number | null;
+  effectif: number;
+  cote: string;
+  appreciation: string;
+}
+
+/** Page publique de vérification (QR code du bulletin) : aucune authentification requise. */
+export async function fetchVerificationBulletin(
+  eleveId: number,
+  trimestreId: number,
+  signature: string,
+): Promise<VerificationBulletin> {
+  const { data } = await http.get<ApiResponse<VerificationBulletin>>(
+    `/verification-bulletin/${eleveId}/${trimestreId}/${signature}`,
+  );
+  return data.data;
+}
+
 async function ouvrirPdf(url: string, trimestreId?: number): Promise<void> {
   const fenetre = window.open("", "_blank");
 

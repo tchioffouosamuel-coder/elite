@@ -114,7 +114,7 @@ export function AbsencesTab({ classeId }: { classeId: number }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3">
-        <Select label="Trimestre" value={trimestreId} onChange={(e) => setTrimestreId(e.target.value ? Number(e.target.value) : '')} className="max-w-xs">
+        <Select label={t('notes.trimestre')} value={trimestreId} onChange={(e) => setTrimestreId(e.target.value ? Number(e.target.value) : '')} className="max-w-xs">
           {trimestres?.map((tr) => (
             <option key={tr.id} value={tr.id}>
               {tr.libelle}
@@ -150,8 +150,8 @@ export function AbsencesTab({ classeId }: { classeId: number }) {
             colonnes={colonnes}
             lignes={grille ?? []}
             cleLigne={(row) => row.eleve_id}
-            placeholderRecherche="Rechercher un élève…"
-            messageVide="Aucun élève dans cette classe."
+            placeholderRecherche={t('discipline.search_eleve_placeholder')}
+            messageVide={t('discipline.empty_eleves_classe')}
             largeurMin={520}
             // La saisie des heures (secondaire) doit garder toutes les lignes
             // visibles à la fois : paginer forcerait à changer de page pour

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fetchClassesForSchool } from '@/features/classes/api'
 import { transfererEleveEcole } from '@/features/eleves/api'
@@ -23,6 +24,7 @@ export function TransfererEcoleModal({
   onClose: () => void
   onDone: () => void
 }) {
+  const { t } = useTranslation()
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const ecoles = useAuthStore((s) => s.user?.ecoles_accessibles ?? []).filter((e) => e.id !== activeSchoolId)
 
@@ -41,7 +43,7 @@ export function TransfererEcoleModal({
     setSubmitting(true)
     try {
       await transfererEleveEcole(eleve.id, Number(schoolId), Number(classeId))
-      succes(`${eleve.nom_complet} transféré(e).`)
+      succes(t('eleves.transfered_singular', { nom: eleve.nom_complet }))
       onDone()
     } catch (err) {
       erreur((err as ApiError).message)
@@ -51,10 +53,10 @@ export function TransfererEcoleModal({
   }
 
   return (
-    <Modal title={`Transférer ${eleve.nom_complet} vers une autre école`} onClose={onClose}>
+    <Modal title={t('eleves.transferer_ecole_titre', { nom: eleve.nom_complet })} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Select
-          label="École de destination"
+          label={t('eleves.ecole_destination')}
           value={schoolId}
           onChange={(e) => {
             setSchoolId(e.target.value ? Number(e.target.value) : '')
@@ -70,7 +72,7 @@ export function TransfererEcoleModal({
         </Select>
 
         <Select
-          label="Classe de destination"
+          label={t('eleves.classe_destination')}
           value={classeId}
           onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
           disabled={!schoolId}
@@ -85,10 +87,10 @@ export function TransfererEcoleModal({
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={submitting} type="button">
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button onClick={submit} disabled={submitting || !schoolId || !classeId}>
-            Transférer
+            {t('eleves.transferer')}
           </Button>
         </div>
       </div>

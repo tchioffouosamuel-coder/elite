@@ -35,6 +35,7 @@ import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes } from '@/shared/lib/alertes'
 
 function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: string; photo_url: string | null }; canManage: boolean }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -70,7 +71,7 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            title="Photo"
+            title={t('eleves.photo_title')}
             className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-navy-900 shadow-soft hover:bg-gold-600"
           >
             <Camera className="h-3 w-3" />
@@ -135,9 +136,9 @@ export function ElevesListPage() {
     if (ids.length === 0) return
 
     const confirme = await confirmer({
-      titre: `Supprimer ${ids.length} élève(s) ?`,
-      message: 'Cette action est irréversible. Les données de ces élèves seront définitivement supprimées.',
-      action: 'Supprimer',
+      titre: t('eleves.delete_batch_title', { count: ids.length }),
+      message: t('eleves.delete_batch_message'),
+      action: t('common.delete'),
     })
     if (!confirme) return
 
@@ -145,7 +146,7 @@ export function ElevesListPage() {
       await batchDeleteEleves(ids)
       setSelectedIds(new Set())
       invalidate()
-      succes(`${ids.length} élève(s) supprimé(s).`)
+      succes(t('eleves.batch_deleted', { count: ids.length }))
     } catch (error) {
       console.error('Erreur lors de la suppression:', error)
     }
@@ -153,16 +154,16 @@ export function ElevesListPage() {
 
   const handleDeleteSingle = async (eleve: Eleve) => {
     const confirme = await confirmer({
-      titre: `Supprimer ${eleve.nom_complet} ?`,
-      message: 'Cette action est irréversible. Les données de cet élève seront définitivement supprimées.',
-      action: 'Supprimer',
+      titre: t('eleves.delete_title', { nom: eleve.nom_complet }),
+      message: t('eleves.delete_message'),
+      action: t('common.delete'),
     })
     if (!confirme) return
 
     try {
       await deleteEleve(eleve.id)
       invalidate()
-      succes('Élève supprimé.')
+      succes(t('eleves.deleted'))
     } catch (error) {
       console.error('Erreur lors de la suppression:', error)
     }
@@ -256,9 +257,9 @@ export function ElevesListPage() {
             : []),
           ...(can('eleves.manage')
             ? ([
-                { label: 'Changer de classe', icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
+                { label: t('eleves.changer_classe'), icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
                 ...(isSuperAdmin
-                  ? [{ label: 'Transférer vers une autre école', icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
+                  ? [{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
                   : []),
                 e.statut === 'actif'
                   ? {
@@ -266,14 +267,14 @@ export function ElevesListPage() {
                       icon: Archive,
                       onClick: async () => {
                         const confirme = await confirmer({
-                          titre: `Archiver ${e.nom_complet} ?`,
-                          message: "L'élève n'apparaîtra plus comme actif. La réactivation reste possible à tout moment.",
-                          action: 'Archiver',
+                          titre: t('eleves.archive_title', { nom: e.nom_complet }),
+                          message: t('eleves.archive_message'),
+                          action: t('common.archive'),
                         })
                         if (!confirme) return
                         await archiveEleve(e.id)
                         invalidate()
-                        succes('Élève archivé.')
+                        succes(t('eleves.archived'))
                       },
                     }
                   : {
@@ -282,7 +283,7 @@ export function ElevesListPage() {
                       onClick: async () => {
                         await reactivateEleve(e.id)
                         invalidate()
-                        succes('Élève réactivé.')
+                        succes(t('eleves.reactivated'))
                       },
                     },
                 { label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true },
@@ -325,7 +326,7 @@ export function ElevesListPage() {
             {selectedIds.size > 0 && can('eleves.manage') && (
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
-                Supprimer ({selectedIds.size})
+                {t('eleves.delete_selection', { count: selectedIds.size })}
               </Button>
             )}
             <Button variant="secondary" onClick={() => telechargerFichier('/eleves/export', undefined, 'eleves.xlsx')}>
@@ -341,7 +342,7 @@ export function ElevesListPage() {
             {can('eleves.manage') && (
               <Button variant="secondary" onClick={() => navigate('/eleves/transferts')}>
                 <Repeat className="h-4 w-4" />
-                Transferts en masse
+                {t('nav.transferts')}
               </Button>
             )}
             {can('eleves.manage') && (
@@ -363,8 +364,8 @@ export function ElevesListPage() {
           colonnes={colonnes}
           lignes={data.items}
           cleLigne={(e) => e.id}
-          placeholderRecherche="Rechercher un nom, un matricule, une classe…"
-          messageVide="Aucun élève pour cet établissement."
+          placeholderRecherche={t('eleves.search_placeholder')}
+          messageVide={t('eleves.empty')}
           largeurMin={900}
         />
       )}

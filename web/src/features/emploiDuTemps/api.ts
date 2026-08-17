@@ -1,13 +1,18 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 
+/**
+ * `libelle` est une clé de traduction (`emploiDuTemps.jours.*`), pas le texte
+ * affiché : le composant appelant doit la résoudre via `t()` pour rester
+ * réactif à un changement de langue en cours de session.
+ */
 export const JOURS = [
-  { valeur: 1, libelle: 'Lundi' },
-  { valeur: 2, libelle: 'Mardi' },
-  { valeur: 3, libelle: 'Mercredi' },
-  { valeur: 4, libelle: 'Jeudi' },
-  { valeur: 5, libelle: 'Vendredi' },
-  { valeur: 6, libelle: 'Samedi' },
+  { valeur: 1, libelle: 'lundi' },
+  { valeur: 2, libelle: 'mardi' },
+  { valeur: 3, libelle: 'mercredi' },
+  { valeur: 4, libelle: 'jeudi' },
+  { valeur: 5, libelle: 'vendredi' },
+  { valeur: 6, libelle: 'samedi' },
 ] as const
 
 export interface Creneau {
@@ -46,12 +51,8 @@ export interface Seance {
 
 export type MotifAbsence = 'maladie' | 'inconnu' | 'scolarite' | 'permission'
 
-export const MOTIFS: Record<MotifAbsence, string> = {
-  maladie: 'Maladie',
-  inconnu: 'Inconnu',
-  scolarite: 'Scolarité',
-  permission: 'Permission',
-}
+/** Codes des motifs d'absence ; le libellé affiché vient de `emploiDuTemps.motifs.*` via `t()`. */
+export const MOTIFS: MotifAbsence[] = ['maladie', 'inconnu', 'scolarite', 'permission']
 
 export interface LigneAppel {
   eleve_id: number

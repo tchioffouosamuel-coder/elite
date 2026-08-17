@@ -21,7 +21,7 @@ export function MaClassePage() {
       <div className="flex flex-col gap-5">
         <PageHeader titre={t('classes.maClasse')} icon={School} />
         <Card>
-          <EmptyState label="Aucune classe ne vous est confiée pour le moment." />
+          <EmptyState label={t('classes.aucune_classe_confiee')} />
         </Card>
       </div>
     )

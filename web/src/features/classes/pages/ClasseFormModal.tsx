@@ -114,9 +114,9 @@ export function ClasseFormModal({
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input label={t('classes.nom')} error={errors.nom?.message} {...register('nom', { required: true })} />
 
-        <Input label="Sigle" placeholder="ex: GS-A, CE1-B" {...register('sigle')} />
+        <Input label={t('classes.sigle')} placeholder={t('classes.sigle_placeholder')} {...register('sigle')} />
 
-        <Select label="École" {...register('school_id')}>
+        <Select label={t('classes.ecole')} {...register('school_id')}>
           <option value="">—</option>
           {schools?.map((s) => (
             <option key={s.id} value={String(s.id)}>
@@ -135,7 +135,7 @@ export function ClasseFormModal({
         </Select>
 
         <Select
-          label="Année scolaire"
+          label={t('session.title')}
           error={errors.annee_scolaire_id?.message}
           {...register('annee_scolaire_id', { required: true })}
         >
@@ -146,7 +146,7 @@ export function ClasseFormModal({
           ))}
         </Select>
 
-        <Select label="Sous-système" {...register('sous_systeme_id')}>
+        <Select label={t('classes.sous_systeme')} {...register('sous_systeme_id')}>
           <option value="">—</option>
           {sousSystemes?.map((s) => (
             <option key={s.id} value={String(s.id)}>
@@ -185,7 +185,7 @@ export function ClasseFormModal({
               et l'imprime sous chaque photo de candidat. */}
           <Input
             label={t('classes.code_examen')}
-            placeholder="BEPC, Probatoire, BAC, CEP…"
+            placeholder={t('classes.code_examen_placeholder')}
             {...register('code_examen')}
           />
           <Input label={t('classes.capacite')} type="number" {...register('capacite')} />

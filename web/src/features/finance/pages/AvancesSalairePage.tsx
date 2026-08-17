@@ -49,6 +49,7 @@ const STATUTS: { valeur: StatutAvance | ''; libelle: string }[] = [
 ]
 
 export function AvancesSalairePage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [statut, setStatut] = useState<StatutAvance | ''>('')
@@ -184,8 +185,8 @@ export function AvancesSalairePage() {
           colonnes={colonnes}
           lignes={data?.avances ?? []}
           cleLigne={(a) => a.id}
-          placeholderRecherche="Rechercher un employé…"
-          messageVide="Aucune avance enregistrée."
+          placeholderRecherche={t('finance.search_avance')}
+          messageVide={t('finance.empty_avance')}
           largeurMin={780}
           outils={
             <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutAvance | '')}>

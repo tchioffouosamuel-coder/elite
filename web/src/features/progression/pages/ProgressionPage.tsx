@@ -1,15 +1,14 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { GitBranch } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, BookOpen, ChevronRight, GitBranch } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
-import { fetchClasseMatieres } from '@/features/pedagogie/api'
-import { fetchProgressionEtablissement } from '@/features/progression/api'
+import { fetchProgressionClasse, fetchProgressionEtablissement, fetchProgramme } from '@/features/progression/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { Select } from '@/shared/ui/Field'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { Button } from '@/shared/ui/Button'
 import { ProgrammeEditor } from '@/features/progression/pages/ProgrammeEditor'
 import { EvaluationsEditor } from '@/features/progression/pages/EvaluationsEditor'
 import { ChampsPersonnalisesEditor } from '@/features/progression/pages/ChampsPersonnalisesEditor'
@@ -27,18 +26,24 @@ function Jauge({ taux }: { taux: number }) {
 }
 
 export function ProgressionPage() {
+  const { classeId, classeMatiereId } = useParams()
+  const classeIdNumber = classeId ? Number(classeId) : null
+  const classeMatiereIdNumber = classeMatiereId ? Number(classeMatiereId) : null
+
+  if (classeMatiereIdNumber) {
+    return <ProgrammeMatiereView classeMatiereId={classeMatiereIdNumber} />
+  }
+
+  if (classeIdNumber) {
+    return <MatieresClasseView classeId={classeIdNumber} />
+  }
+
+  return <ClassesProgressionView />
+}
+
+function ClassesProgressionView() {
   const { t } = useTranslation()
-  const can = useAuthStore((s) => s.can)
-
-  const [classeId, setClasseId] = useState<number | ''>('')
-  const [classeMatiereId, setClasseMatiereId] = useState<number | ''>('')
-
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
-  const { data: affectations } = useQuery({
-    queryKey: ['classe-matieres', classeId],
-    queryFn: () => fetchClasseMatieres(Number(classeId)),
-    enabled: !!classeId,
-  })
+  const navigate = useNavigate()
   const { data: etablissement, isLoading } = useQuery({
     queryKey: ['progression-etablissement'],
     queryFn: fetchProgressionEtablissement,
@@ -48,48 +53,7 @@ export function ProgressionPage() {
     <div className="flex flex-col gap-5">
       <PageHeader titre={t('progression.title')} sousTitre={t('progression.hint')} icon={GitBranch} />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Select
-          label={t('eleves.classe')}
-          value={classeId}
-          onChange={(e) => {
-            setClasseId(e.target.value ? Number(e.target.value) : '')
-            setClasseMatiereId('')
-          }}
-        >
-          <option value="">{t('progression.vue_ensemble')}</option>
-          {classes?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </Select>
-
-        {classeId !== '' && (
-          <Select
-            label={t('matieres.title')}
-            value={classeMatiereId}
-            onChange={(e) => setClasseMatiereId(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">—</option>
-            {affectations?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.matiere.nom}
-              </option>
-            ))}
-          </Select>
-        )}
-      </div>
-
-      {classeMatiereId !== '' ? (
-        can('pedagogie.view') && (
-          <div className="flex flex-col gap-5">
-            <ProgrammeEditor classeMatiereId={Number(classeMatiereId)} />
-            <EvaluationsEditor classeMatiereId={Number(classeMatiereId)} />
-            <ChampsPersonnalisesEditor classeMatiereId={Number(classeMatiereId)} />
-          </div>
-        )
-      ) : isLoading ? (
+      {isLoading ? (
         <Spinner />
       ) : !etablissement || etablissement.length === 0 ? (
         <EmptyState label={t('progression.vide_etablissement')} />
@@ -105,9 +69,24 @@ export function ProgressionPage() {
           </Thead>
           <tbody>
             {etablissement.map((ligne) => (
-              <Tr key={ligne.classe_id}>
+              <Tr
+                key={ligne.classe_id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/progression/classes/${ligne.classe_id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    navigate(`/progression/classes/${ligne.classe_id}`)
+                  }
+                }}
+                className="cursor-pointer"
+              >
                 <Td className="font-medium">
-                  {ligne.classe}
+                  <span className="flex items-center gap-2 text-navy-900">
+                    {ligne.classe}
+                    <ChevronRight className="h-4 w-4 text-navy-300" />
+                  </span>
                   {ligne.niveau && <span className="block text-xs text-navy-400">{ligne.niveau}</span>}
                 </Td>
                 <Td className="tabular-nums">
@@ -134,6 +113,116 @@ export function ProgressionPage() {
             ))}
           </tbody>
         </Table>
+      )}
+    </div>
+  )
+}
+
+function MatieresClasseView({ classeId }: { classeId: number }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const { data: matieres, isLoading } = useQuery({
+    queryKey: ['progression-classe', classeId],
+    queryFn: () => fetchProgressionClasse(classeId),
+  })
+
+  const classe = classes?.find((c) => c.id === classeId)
+  const titre = classe?.nom ?? t('eleves.classe')
+  const sousTitre = classe
+    ? [classe.niveau?.name_fr, classe.niveau_scolaire?.libelle, classe.filiere].filter(Boolean).join(' • ')
+    : t('progression.matieres_classe_hint')
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader titre={titre} sousTitre={sousTitre || t('progression.matieres_classe_hint')} icon={BookOpen} />
+        <Button type="button" variant="secondary" onClick={() => navigate('/progression')}>
+          <ArrowLeft className="h-4 w-4" />
+          {t('progression.retour_classes')}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <Spinner />
+      ) : !matieres || matieres.length === 0 ? (
+        <EmptyState label={t('progression.aucune_matiere_classe')} />
+      ) : (
+        <Table>
+          <Thead>
+            <tr>
+              <Th>{t('matieres.title')}</Th>
+              <Th>{t('pedagogie.enseignant')}</Th>
+              <Th>{t('progression.lecons')}</Th>
+              <Th>{t('progression.avancement_court')}</Th>
+            </tr>
+          </Thead>
+          <tbody>
+            {matieres.map((matiere) => (
+              <Tr
+                key={matiere.classe_matiere_id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/progression/matieres/${matiere.classe_matiere_id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    navigate(`/progression/matieres/${matiere.classe_matiere_id}`)
+                  }
+                }}
+                className="cursor-pointer"
+              >
+                <Td className="font-medium">
+                  <span className="flex items-center gap-2 text-navy-900">
+                    {matiere.matiere}
+                    <ChevronRight className="h-4 w-4 text-navy-300" />
+                  </span>
+                </Td>
+                <Td>{matiere.enseignant ?? '—'}</Td>
+                <Td className="tabular-nums">
+                  {matiere.traitees} / {matiere.lecons}
+                </Td>
+                <Td>
+                  <Jauge taux={matiere.taux} />
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </div>
+  )
+}
+
+function ProgrammeMatiereView({ classeMatiereId }: { classeMatiereId: number }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const can = useAuthStore((s) => s.can)
+  const { data: programme } = useQuery({
+    queryKey: ['programme', classeMatiereId],
+    queryFn: () => fetchProgramme(classeMatiereId),
+  })
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader titre={t('progression.title')} sousTitre={t('progression.programme_matiere_hint')} icon={GitBranch} />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => navigate(programme ? `/progression/classes/${programme.classe.id}` : '/progression')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {programme ? t('progression.retour_matieres') : t('common.back')}
+        </Button>
+      </div>
+
+      {can('pedagogie.view') && (
+        <div className="flex flex-col gap-5">
+          <ProgrammeEditor classeMatiereId={classeMatiereId} />
+          <EvaluationsEditor classeMatiereId={classeMatiereId} />
+          <ChampsPersonnalisesEditor classeMatiereId={classeMatiereId} />
+        </div>
       )}
     </div>
   )

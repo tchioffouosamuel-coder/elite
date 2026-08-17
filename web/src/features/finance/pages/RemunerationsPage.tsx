@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, Pencil, Users, AlertTriangle, TrendingUp, History, Copy } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -22,6 +23,7 @@ import { CopierRemunerationModal } from '@/features/finance/pages/CopierRemunera
  * de la paie, et l'oubli ne se découvre autrement qu'au moment de payer.
  */
 export function RemunerationsPage() {
+  const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
@@ -252,8 +254,8 @@ export function RemunerationsPage() {
             colonnes={colonnes}
             lignes={data.personnels}
             cleLigne={(p) => p.id}
-            placeholderRecherche="Rechercher un agent, une fonction…"
-            messageVide="Aucun agent en poste."
+            placeholderRecherche={t('finance.search_remuneration')}
+            messageVide={t('finance.empty_remuneration')}
             largeurMin={600}
           />
         </>

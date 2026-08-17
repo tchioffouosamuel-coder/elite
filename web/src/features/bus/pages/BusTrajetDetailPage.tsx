@@ -11,7 +11,6 @@ import {
   notifierParents,
   retirerAffectation,
   supprimerArret,
-  LIBELLES_STATUT_PAIEMENT_BUS,
   type BusArret,
   type BusArretPayload,
   type TypeNotificationBus,
@@ -208,7 +207,7 @@ export function BusTrajetDetailPage() {
                     </td>
                     <td className="py-2.5">
                       <Badge tone={TONE_PAIEMENT[a.statut_paiement] ?? 'neutral'}>
-                        {LIBELLES_STATUT_PAIEMENT_BUS[a.statut_paiement]}
+                        {t(`bus.statut_paiement_${a.statut_paiement}`)}
                       </Badge>
                     </td>
                     <td className="py-2.5">

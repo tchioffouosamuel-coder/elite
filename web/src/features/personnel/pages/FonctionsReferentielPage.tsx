@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BriefcaseBusiness, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -17,6 +18,7 @@ import { confirmer, erreur, succes, info } from '@/shared/lib/alertes'
 import { FonctionReferentielFormModal } from './FonctionReferentielFormModal'
 
 export function FonctionsReferentielPage() {
+  const { t } = useTranslation()
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -36,18 +38,18 @@ export function FonctionsReferentielPage() {
 
   const handleDelete = async (fonction: FonctionReferentiel) => {
     const confirme = await confirmer({
-      titre: `Supprimer ${fonction.label_fr} ?`,
-      message: 'Cette action est irréversible si la fonction n’est pas utilisée.',
-      action: 'Supprimer',
+      titre: t('fonctionsReferentiel.delete_title', { label: fonction.label_fr }),
+      message: t('fonctionsReferentiel.delete_message'),
+      action: t('common.delete'),
     })
     if (!confirme) return
 
     try {
       await deleteFonctionReferentiel(fonction.id)
       invalidate()
-      succes('Fonction supprimée.')
+      succes(t('fonctionsReferentiel.deleted'))
     } catch (err: any) {
-      erreur(err.message || 'Erreur lors de la suppression.')
+      erreur(err.message || t('fonctionsReferentiel.delete_error'))
     }
   }
 
@@ -74,9 +76,9 @@ export function FonctionsReferentielPage() {
     if (ids.length === 0) return
 
     const confirme = await confirmer({
-      titre: `Supprimer ${ids.length} fonction(s) ?`,
-      message: 'Cette action est irréversible. Les fonctions encore utilisées par du personnel seront ignorées.',
-      action: 'Supprimer',
+      titre: t('fonctionsReferentiel.delete_batch_title', { count: ids.length }),
+      message: t('fonctionsReferentiel.delete_batch_message'),
+      action: t('common.delete'),
     })
     if (!confirme) return
 
@@ -84,10 +86,10 @@ export function FonctionsReferentielPage() {
       const { deleted, ignorees } = await batchDeleteFonctionsReferentiel(ids)
       setSelectedIds(new Set())
       invalidate()
-      if (deleted > 0) succes(`${deleted} fonction(s) supprimée(s).`)
-      if (ignorees.length > 0) info(`${ignorees.length} fonction(s) ignorée(s) car utilisée(s) par du personnel : ${ignorees.join(', ')}.`)
+      if (deleted > 0) succes(t('fonctionsReferentiel.batch_deleted', { count: deleted }))
+      if (ignorees.length > 0) info(t('fonctionsReferentiel.batch_ignored', { count: ignorees.length, noms: ignorees.join(', ') }))
     } catch (err: any) {
-      erreur(err.message || 'Erreur lors de la suppression.')
+      erreur(err.message || t('fonctionsReferentiel.delete_error'))
     }
   }
 
@@ -113,43 +115,43 @@ export function FonctionsReferentielPage() {
     },
     {
       cle: 'label_fr',
-      entete: 'Libellé français',
+      entete: t('fonctionsReferentiel.label_fr'),
       valeur: (f) => f.label_fr,
       cellule: (f) => <span className="font-semibold text-navy-900">{f.label_fr}</span>,
     },
     {
       cle: 'label_en',
-      entete: 'Libellé anglais',
+      entete: t('fonctionsReferentiel.label_en'),
       valeur: (f) => f.label_en,
       cellule: (f) => <span className="text-navy-600">{f.label_en ?? '—'}</span>,
     },
     {
       cle: 'personnels_count',
-      entete: 'Personnel',
+      entete: t('personnel.title'),
       valeur: (f) => f.personnels_count,
       cellule: (f) => <span className="text-navy-600">{f.personnels_count ?? 0}</span>,
     },
     {
       cle: 'actions',
-      entete: 'Actions',
+      entete: t('common.actions'),
       cellule: (f) => (
         <div className="flex items-center gap-1">
           <button
-            title="Voir"
+            title={t('common.view')}
             onClick={() => navigate(`/fonctions-referentiel/${f.id}`)}
             className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
           >
             <Eye className="h-4 w-4" />
           </button>
           <button
-            title="Modifier"
+            title={t('common.edit')}
             onClick={() => setEditingFonction(f)}
             className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
-            title="Supprimer"
+            title={t('common.delete')}
             onClick={() => handleDelete(f)}
             className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
           >
@@ -163,12 +165,12 @@ export function FonctionsReferentielPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre="Référentiel des fonctions"
+        titre={t('fonctionsReferentiel.title')}
         icon={BriefcaseBusiness}
         actions={
           <Button onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4" />
-            Créer une fonction
+            {t('fonctionsReferentiel.create')}
           </Button>
         }
       />
@@ -176,17 +178,17 @@ export function FonctionsReferentielPage() {
       {selectedIds.size > 0 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="font-medium text-navy-900">{selectedIds.size} fonction(s) sélectionnée(s)</p>
+            <p className="font-medium text-navy-900">{t('fonctionsReferentiel.selected_count', { count: selectedIds.size })}</p>
             <div className="flex flex-wrap gap-2">
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
-                Supprimer
+                {t('common.delete')}
               </Button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
               >
-                Annuler
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -202,8 +204,8 @@ export function FonctionsReferentielPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(f) => f.id}
-          placeholderRecherche="Rechercher une fonction…"
-          messageVide="Aucune fonction définie pour cet établissement."
+          placeholderRecherche={t('fonctionsReferentiel.search_placeholder')}
+          messageVide={t('fonctionsReferentiel.empty')}
           largeurMin={760}
         />
       )}

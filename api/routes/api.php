@@ -48,12 +48,18 @@ use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
+use App\Http\Controllers\Api\V1\VerificationBulletinController;
 use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
 
     Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
+
+    // Vérification publique d'authenticité d'un bulletin (QR code) : accessible
+    // sans authentification, un tiers externe scanne depuis son téléphone.
+    Route::get('verification-bulletin/{eleveId}/{trimestreId}/{signature}', [VerificationBulletinController::class, 'show'])
+        ->name('verification-bulletin.show');
 
     // `mot_de_passe` barre tout l'espace authentifié tant que le mot de passe
     // provisoire n'a pas été remplacé, à l'exception des routes qui permettent
@@ -207,6 +213,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:pedagogie.view')->group(function () {
                 Route::get('matieres', [MatiereController::class, 'index'])->name('matieres.index');
+                Route::get('matieres/{id}/classes', [MatiereController::class, 'classes'])->name('matieres.classes');
                 Route::get('classes/{classeId}/matieres', [ClasseMatiereController::class, 'index'])->name('classes.matieres.index');
             });
 
@@ -312,6 +319,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:notes.view')->group(function () {
+                Route::get('classe-matieres/mes-affectations', [ClasseMatiereController::class, 'mesAffectations'])->name('classe-matieres.mes-affectations');
                 Route::get('classes/{classeId}/remplissage', [ResultatController::class, 'remplissage'])->name('resultats.remplissage');
                 Route::get('classes/{classeId}/classement', [ResultatController::class, 'classement'])->name('resultats.classement');
                 Route::get('classes/{classeId}/classement/export', [ResultatController::class, 'exportClassement'])->name('resultats.classement.export');
@@ -357,6 +365,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/bilan-disciplinaire', [AbsenceController::class, 'bilan'])->name('absences.bilan');
                 Route::get('classes/{classeId}/bilan-disciplinaire/pdf', [AbsenceController::class, 'bilanPdf'])->name('absences.bilan.pdf');
                 Route::get('sanctions', [SanctionController::class, 'index'])->name('sanctions.index');
+                Route::get('eleves/{eleveId}/sanctions', [SanctionController::class, 'dossier'])->name('sanctions.dossier');
+                Route::get('sanctions/pv-conseil/pdf', [SanctionController::class, 'pvConseilPdf'])->name('sanctions.pv-conseil-pdf');
             });
 
             /*
@@ -454,6 +464,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:discipline.manage')->group(function () {
                 Route::post('classes/{classeId}/absences', [AbsenceController::class, 'bulkStore'])->name('absences.bulk-store');
                 Route::post('sanctions', [SanctionController::class, 'store'])->name('sanctions.store');
+                Route::put('sanctions/{id}', [SanctionController::class, 'update'])->name('sanctions.update');
                 Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy');
             });
 

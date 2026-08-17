@@ -1,4 +1,5 @@
 import { http } from '@/shared/lib/http'
+import { ouvrirDocument } from '@/shared/lib/download'
 import type { ApiResponse } from '@/shared/types/api'
 
 /** Le secondaire compte des heures saisies à la main, le primaire et la
@@ -26,24 +27,43 @@ export interface BilanDisciplinaire {
   eleve_plus_absent: { nom_complet: string; heures_non_justifiees: number } | null
 }
 
+export type TypeSanction = 'avertissement' | 'blame' | 'corvee' | 'exclusion_temporaire' | 'exclusion_definitive' | 'autre'
+export type StatutSanction = 'en_attente' | 'confirmee' | 'annulee'
+
 export interface Sanction {
   id: number
   eleve: { id: number; nom_complet: string }
   classe: string
-  type: 'corvee' | 'exclusion_temporaire' | 'exclusion_definitive' | 'autre'
+  type: TypeSanction
   duree_jours: number | null
+  date_debut: string | null
+  date_fin: string | null
   motif: string
+  commentaire: string | null
   date_sanction: string
+  statut: StatutSanction
+  impacte_bulletin: boolean
   enregistre_par: string | null
 }
 
 export interface SanctionPayload {
   eleve_id: number
   trimestre_id: number
-  type: Sanction['type']
+  type: TypeSanction
   duree_jours?: number | null
   motif: string
+  commentaire?: string | null
   date_sanction: string
+  impacte_bulletin?: boolean
+}
+
+export interface DossierDisciplinaire {
+  total_sanctions: number
+  sanctions_en_cours: number
+  est_exclu: boolean
+  motif_exclusion: string | null
+  date_exclusion: string | null
+  sanctions: Sanction[]
 }
 
 export async function fetchAbsences(classeId: number, trimestreId: number): Promise<AbsenceCellule[]> {
@@ -82,6 +102,24 @@ export async function createSanction(payload: SanctionPayload): Promise<Sanction
   return data.data
 }
 
+/** PV du conseil de discipline : les sanctions en attente pour ce trimestre (et cette classe si précisée). */
+export function ouvrirPvConseil(trimestreId: number, classeId?: number): Promise<void> {
+  return ouvrirDocument('/sanctions/pv-conseil/pdf', { trimestre_id: trimestreId, classe_id: classeId })
+}
+
+export async function updateSanction(
+  id: number,
+  payload: { statut?: StatutSanction; commentaire?: string | null; impacte_bulletin?: boolean },
+): Promise<Sanction> {
+  const { data } = await http.put<ApiResponse<Sanction>>(`/sanctions/${id}`, payload)
+  return data.data
+}
+
 export async function deleteSanction(id: number): Promise<void> {
   await http.delete(`/sanctions/${id}`)
+}
+
+export async function fetchDossierDisciplinaire(eleveId: number): Promise<DossierDisciplinaire> {
+  const { data } = await http.get<ApiResponse<DossierDisciplinaire>>(`/eleves/${eleveId}/sanctions`)
+  return data.data
 }

@@ -65,8 +65,12 @@ class MpdfFactory
      * mPDF le compose sous le contenu et le répète de lui-même : inutile de
      * l'insérer dans le flux HTML, où il aurait décalé la mise en page et ne
      * serait apparu que sur la première page.
+     *
+     * `$largeurMm`/`$opacite` permettent à un document précis (le bulletin,
+     * par exemple) de s'écarter du filigrane par défaut sans changer le
+     * réglage commun à tous les autres documents.
      */
-    public static function appliquerFiligrane(Mpdf $mpdf, ?School $school): void
+    public static function appliquerFiligrane(Mpdf $mpdf, ?School $school, ?float $largeurMm = null, ?float $opacite = null): void
     {
         $logo = $school?->logo_path
             ? storage_path('app/public/'.ltrim($school->logo_path, '/'))
@@ -76,8 +80,32 @@ class MpdfFactory
             return;
         }
 
-        $mpdf->SetWatermarkImage($logo, self::FILIGRANE_OPACITE, self::FILIGRANE_LARGEUR, 'P');
+        // Passé en nombre simple, le 3e argument de SetWatermarkImage n'est PAS
+        // une largeur en mm mais une marge retranchée de chaque bord de page
+        // (cf. Mpdf::Image(), branche `watermark`) : plus la valeur est grande,
+        // plus l'image rétrécit — au-delà d'environ 100 sur une A4 (210mm), la
+        // largeur calculée devient négative et le filigrane disparaît purement
+        // et simplement. Une taille explicite ne peut donc s'obtenir qu'en
+        // passant un tableau [largeur, hauteur] en mm, calculé ici à partir du
+        // ratio réel de l'image pour ne pas la déformer.
+        $taille = $largeurMm !== null
+            ? self::tailleFiligrane($logo, $largeurMm)
+            : self::FILIGRANE_LARGEUR;
+
+        $mpdf->SetWatermarkImage($logo, $opacite ?? self::FILIGRANE_OPACITE, $taille, 'P');
         $mpdf->showWatermarkImage = true;
+    }
+
+    /** @return array{0: float, 1: float} */
+    private static function tailleFiligrane(string $chemin, float $largeurMm): array
+    {
+        $dimensions = @getimagesize($chemin);
+
+        if ($dimensions === false || $dimensions[0] <= 0) {
+            return [$largeurMm, $largeurMm];
+        }
+
+        return [$largeurMm, $largeurMm * $dimensions[1] / $dimensions[0]];
     }
 
     public static function streamFromView(string $view, array $data, string $filename, array $options = [], ?School $school = null): Response

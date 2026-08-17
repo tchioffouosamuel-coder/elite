@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, Download, ImageOff, ScanFace } from 'lucide-react'
 import {
@@ -19,6 +20,7 @@ import type { ApiError } from '@/shared/types/api'
 
 /** Vignette d'un candidat, à l'image de ce que recevra l'organisme. */
 function Vignette({ candidat }: { candidat: CandidatExamen }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div className="relative aspect-4/5 w-full overflow-hidden rounded-xl border border-navy-100 bg-cream-50 shadow-soft">
@@ -27,7 +29,7 @@ function Vignette({ candidat }: { candidat: CandidatExamen }) {
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-navy-300">
             <ImageOff className="h-6 w-6" />
-            <span className="text-[10px] font-semibold uppercase">Sans photo</span>
+            <span className="text-[10px] font-semibold uppercase">{t('identification.no_photo')}</span>
           </div>
         )}
         {!candidat.photo_prete && <span className="absolute inset-0 ring-2 ring-inset ring-red-300" />}
@@ -41,6 +43,7 @@ function Vignette({ candidat }: { candidat: CandidatExamen }) {
 }
 
 export function PhotosExamenPage() {
+  const { t } = useTranslation()
   const [classeId, setClasseId] = useState<number | ''>('')
   const [enCours, setEnCours] = useState(false)
 
@@ -65,10 +68,9 @@ export function PhotosExamenPage() {
 
     if (dossier.manquants > 0) {
       const suite = await confirmer({
-        titre: `${dossier.manquants} candidat(s) sans photo`,
-        message:
-          "Ils seront absents de l'archive. Vous pouvez générer un envoi partiel maintenant, ou charger les photos manquantes depuis la page Photos & cartes scolaires.",
-        action: 'Générer quand même',
+        titre: t('identification.confirm_missing_title', { count: dossier.manquants }),
+        message: t('identification.confirm_missing_message'),
+        action: t('identification.confirm_missing_action'),
         destructif: false,
       })
       if (!suite) return
@@ -77,10 +79,10 @@ export function PhotosExamenPage() {
     setEnCours(true)
     try {
       const { traites, ignores } = await telechargerArchiveExamen(Number(classeId))
-      succes(`Archive générée : ${traites} photo(s).`)
-      if (ignores > 0) info(`${ignores} candidat(s) écarté(s) faute de photo exploitable.`)
+      succes(t('identification.archive_generated', { count: traites }))
+      if (ignores > 0) info(t('identification.photos_skipped', { count: ignores }))
     } catch (e) {
-      erreur((e as ApiError).message ?? "Génération de l'archive impossible.")
+      erreur((e as ApiError).message ?? t('identification.archive_error'))
     } finally {
       setEnCours(false)
     }
@@ -91,14 +93,14 @@ export function PhotosExamenPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre={estSecondaire() ? 'Photos DECC & OBC' : 'Photos DECC'}
-        sousTitre="Photos des candidats aux examens officiels"
+        titre={estSecondaire() ? t('nav.photosExamen') : t('nav.photosExamenPrimaire')}
+        sousTitre={t('identification.photos_examen_subtitle')}
         icon={ScanFace}
         actions={
           dossier && (
             <Button onClick={telecharger} disabled={enCours || dossier.prets === 0}>
               <Download className="h-4 w-4" />
-              {enCours ? 'Génération…' : "Télécharger l'archive"}
+              {enCours ? t('identification.generating') : t('identification.download_archive')}
             </Button>
           )
         }
@@ -106,41 +108,41 @@ export function PhotosExamenPage() {
 
       {!classes?.length ? (
         <Card>
-          <EmptyState label="Aucune classe d'examen. Renseignez le code d'examen d'une classe (BEPC, Probatoire, BAC, CEP…) sur sa fiche pour l'inscrire ici." />
+          <EmptyState label={t('identification.empty_classes_examen')} />
         </Card>
       ) : (
         <>
           <Select
-            label="Classe d'examen"
+            label={t('identification.classe_examen_label')}
             value={classeId}
             onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
             className="max-w-sm"
           >
-            <option value="">Sélectionner une classe…</option>
+            <option value="">{t('identification.select_classe_placeholder')}</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nom} — {c.code_examen} ({c.effectif} élève(s))
+                {t('identification.classe_option_label', { nom: c.nom, code: c.code_examen, count: c.effectif })}
               </option>
             ))}
           </Select>
 
           {classeId === '' ? (
             <Card>
-              <EmptyState label="Choisissez une classe pour afficher ses candidats." />
+              <EmptyState label={t('identification.empty_select_classe_candidats')} />
             </Card>
           ) : isLoading || !dossier ? (
             <Spinner />
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCard label="Candidats" value={dossier.candidats.length} accent="navy" />
-                <StatCard label="Photos prêtes" value={dossier.prets} icon={CheckCircle2} accent="green" />
-                <StatCard label="Sans photo" value={dossier.manquants} icon={ImageOff} accent="red" />
+                <StatCard label={t('identification.stat_candidats')} value={dossier.candidats.length} accent="navy" />
+                <StatCard label={t('identification.stat_photos_pretes')} value={dossier.prets} icon={CheckCircle2} accent="green" />
+                <StatCard label={t('identification.no_photo')} value={dossier.manquants} icon={ImageOff} accent="red" />
                 <StatCard
-                  label="Code examen"
+                  label={t('identification.stat_code_examen')}
                   value={dossier.code_examen ?? '—'}
                   accent="gold"
-                  hint={dossier.centre ? `Centre ${dossier.centre}` : 'Centre non renseigné'}
+                  hint={dossier.centre ? t('identification.hint_centre', { centre: dossier.centre }) : t('identification.hint_centre_non_renseigne')}
                 />
               </div>
 
@@ -148,17 +150,18 @@ export function PhotosExamenPage() {
                 <Card className="flex items-start gap-3 border-gold-100 bg-gold-50/50">
                   <ImageOff className="mt-0.5 h-4 w-4 flex-none text-gold-600" />
                   <p className="text-sm text-navy-600">
-                    Le <strong className="text-navy-800">code du centre d'examen</strong> n'est pas renseigné : il
-                    apparaîtra vide sous chaque photo. Réglez-le dans Paramètres, section « Examens officiels ».
+                    {t('identification.centre_missing_before')}
+                    <strong className="text-navy-800">{t('identification.centre_missing_bold')}</strong>
+                    {t('identification.centre_missing_after')}
                   </p>
                 </Card>
               )}
 
               <Card className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-display text-base font-bold text-navy-900">Candidats</h2>
+                  <h2 className="font-display text-base font-bold text-navy-900">{t('identification.stat_candidats')}</h2>
                   {dossier.manquants > 0 && (
-                    <Badge tone="red">{dossier.manquants} sans photo</Badge>
+                    <Badge tone="red">{t('identification.badge_sans_photo_count', { count: dossier.manquants })}</Badge>
                   )}
                 </div>
                 {/* Chaque photo est recomposée à la génération : fond blanc,

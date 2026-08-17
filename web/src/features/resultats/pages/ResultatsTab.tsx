@@ -132,8 +132,8 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
             colonnes={colonnesClassement}
             lignes={classement?.eleves ?? []}
             cleLigne={(e) => e.eleve_id}
-            placeholderRecherche="Rechercher un élève…"
-            messageVide="Aucun élève dans cette classe."
+            placeholderRecherche={t('resultats.search_eleve')}
+            messageVide={t('resultats.empty_classement')}
           />
         )}
       </Card>

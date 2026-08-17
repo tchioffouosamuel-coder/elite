@@ -13,7 +13,16 @@ export interface Matiere {
   repartition_volets: Record<string, number>;
   abbreviation: string | null;
   statut: string;
+  /** Absent des réponses de création/modification, qui ne comptent pas les classes. */
+  classes_count?: number;
   departement: Departement | null;
+}
+
+export interface ClasseEnseignantMatiere {
+  classe_matiere_id: number;
+  classe: { id: number; nom: string } | null;
+  enseignant: { id: number; nom_complet: string } | null;
+  coefficient: number;
 }
 
 export interface MatierePayload {
@@ -67,6 +76,12 @@ export interface Trimestre {
 
 export async function fetchMatieres(): Promise<Matiere[]> {
   const { data } = await http.get<ApiResponse<Matiere[]>>("/matieres");
+  return data.data;
+}
+
+/** Classes où cette matière est enseignée, pour la modale « Enseignée dans X classe(s) ». */
+export async function fetchMatiereClasses(id: number): Promise<ClasseEnseignantMatiere[]> {
+  const { data } = await http.get<ApiResponse<ClasseEnseignantMatiere[]>>(`/matieres/${id}/classes`);
   return data.data;
 }
 
@@ -148,5 +163,22 @@ export async function copierAffectations(payload: {
 
 export async function fetchTrimestres(): Promise<Trimestre[]> {
   const { data } = await http.get<ApiResponse<Trimestre[]>>("/trimestres");
+  return data.data;
+}
+
+export interface MonAffectation {
+  classe_matiere_id: number;
+  classe_id: number;
+  classe: string;
+  matiere: string;
+}
+
+/**
+ * Classes et matières où l'utilisateur connecté enseigne, toute l'année —
+ * contrairement à `fetchMesAffectations` de « Ma journée », qui ne garde que
+ * les créneaux prévus le jour même.
+ */
+export async function fetchMesAffectationsActives(): Promise<MonAffectation[]> {
+  const { data } = await http.get<ApiResponse<MonAffectation[]>>("/classe-matieres/mes-affectations");
   return data.data;
 }

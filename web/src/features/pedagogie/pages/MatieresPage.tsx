@@ -1,15 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { BookOpen, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { fetchMatieres, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
+import { fetchMatieres, fetchMatiereClasses, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { Modal } from '@/shared/ui/Modal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
@@ -23,6 +24,7 @@ export function MatieresPage() {
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showImport, setShowImport] = useState(false)
+  const [matiereClasses, setMatiereClasses] = useState<Matiere | null>(null)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
 
@@ -142,6 +144,25 @@ export function MatieresPage() {
         },
       ]),
     {
+      cle: 'enseignee',
+      entete: t('matieres.enseignee_dans'),
+      valeur: (m) => m.classes_count ?? 0,
+      cellule: (m) =>
+        m.classes_count ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setMatiereClasses(m)
+            }}
+            className="font-medium text-navy-600 hover:text-gold-600 hover:underline"
+          >
+            {t('matieres.enseignee_dans_count', { count: m.classes_count })}
+          </button>
+        ) : (
+          <span className="text-navy-300">{t('matieres.enseignee_dans_aucune')}</span>
+        ),
+    },
+    {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (m) =>
@@ -210,8 +231,8 @@ export function MatieresPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(m) => m.id}
-          placeholderRecherche="Rechercher une matière…"
-          messageVide="Aucune matière pour cet établissement."
+          placeholderRecherche={t('matieres.search_placeholder')}
+          messageVide={t('matieres.empty')}
         />
       )}
 
@@ -224,6 +245,55 @@ export function MatieresPage() {
           onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
         />
       )}
+
+      {matiereClasses && (
+        <ClassesMatiereModal matiere={matiereClasses} onClose={() => setMatiereClasses(null)} />
+      )}
     </div>
+  )
+}
+
+function ClassesMatiereModal({ matiere, onClose }: { matiere: Matiere; onClose: () => void }) {
+  const { t } = useTranslation()
+  const secondaire = estSecondaire()
+  const { data, isLoading } = useQuery({
+    queryKey: ['matiere-classes', matiere.id],
+    queryFn: () => fetchMatiereClasses(matiere.id),
+  })
+
+  return (
+    <Modal title={t('matieres.enseignee_dans_titre', { nom: matiere.nom })} onClose={onClose}>
+      {isLoading ? (
+        <Spinner />
+      ) : !data || data.length === 0 ? (
+        <EmptyState label={t('matieres.enseignee_dans_aucune')} />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
+            <thead>
+              <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-400">
+                <th className="py-2">{t('classes.title')}</th>
+                <th className="py-2">{t('pedagogie.enseignant')}</th>
+                {secondaire && <th className="py-2">{t('pedagogie.coefficient')}</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-navy-50">
+              {data.map((ligne) => (
+                <tr key={ligne.classe_matiere_id}>
+                  <td className="py-2.5">
+                    <span className="flex items-center gap-2 font-semibold text-navy-900">
+                      <School className="h-4 w-4 text-navy-400" />
+                      {ligne.classe?.nom ?? '—'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-navy-600">{ligne.enseignant?.nom_complet ?? '—'}</td>
+                  {secondaire && <td className="py-2.5 tabular-nums text-navy-600">{ligne.coefficient}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
   )
 }

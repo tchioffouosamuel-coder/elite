@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fetchClasses } from '@/features/classes/api'
 import { changerClasseEleve } from '@/features/eleves/api'
@@ -23,6 +24,7 @@ export function TransfererClasseModal({
   onClose: () => void
   onDone: () => void
 }) {
+  const { t } = useTranslation()
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const [classeId, setClasseId] = useState<number | ''>(eleve.classe?.id ?? '')
   const [submitting, setSubmitting] = useState(false)
@@ -32,7 +34,7 @@ export function TransfererClasseModal({
     setSubmitting(true)
     try {
       await changerClasseEleve(eleve.id, Number(classeId))
-      succes(`${eleve.nom_complet} transféré(e).`)
+      succes(t('eleves.transfered_singular', { nom: eleve.nom_complet }))
       onDone()
     } catch (err) {
       erreur((err as ApiError).message)
@@ -42,9 +44,9 @@ export function TransfererClasseModal({
   }
 
   return (
-    <Modal title={`Changer la classe de ${eleve.nom_complet}`} onClose={onClose}>
+    <Modal title={t('eleves.changer_classe_titre', { nom: eleve.nom_complet })} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <Select label="Classe de destination" value={classeId} onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}>
+        <Select label={t('eleves.classe_destination')} value={classeId} onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}>
           <option value="">—</option>
           {classes?.map((c) => (
             <option key={c.id} value={c.id}>
@@ -55,10 +57,10 @@ export function TransfererClasseModal({
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={submitting} type="button">
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button onClick={submit} disabled={submitting || !classeId || classeId === eleve.classe?.id}>
-            Transférer
+            {t('eleves.transferer')}
           </Button>
         </div>
       </div>

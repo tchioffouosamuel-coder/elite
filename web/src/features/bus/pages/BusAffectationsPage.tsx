@@ -7,7 +7,6 @@ import { fetchClasses } from '@/features/classes/api'
 import {
   fetchElevesTransport,
   retirerAffectation,
-  LIBELLES_STATUT_PAIEMENT_BUS,
   type EleveTransport,
 } from '@/features/bus/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -195,7 +194,7 @@ export function BusAffectationsPage() {
       cellule: (e) =>
         e.bus ? (
           <Badge tone={TONE_PAIEMENT[e.bus.statut_paiement] ?? 'neutral'}>
-            {LIBELLES_STATUT_PAIEMENT_BUS[e.bus.statut_paiement]}
+            {t(`bus.statut_paiement_${e.bus.statut_paiement}`)}
           </Badge>
         ) : (
           '—'
@@ -262,7 +261,7 @@ export function BusAffectationsPage() {
           lignes={eleves ?? []}
           cleLigne={(e) => e.id}
           placeholderRecherche={t('bus.search_eleve')}
-          messageVide="Aucun élève."
+          messageVide={t('bus.empty_eleves')}
           largeurMin={600}
           outils={
             <Select value={classeFiltre} onChange={(e) => setClasseFiltre(e.target.value ? Number(e.target.value) : '')}>

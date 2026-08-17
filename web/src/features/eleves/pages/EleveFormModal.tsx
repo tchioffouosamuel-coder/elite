@@ -110,8 +110,7 @@ export function EleveFormModal({
 
           {eleve && eleve.tuteurs.length > 0 && fields.length === 0 && (
             <p className="mb-2 text-xs text-navy-400">
-              {eleve.tuteurs.map((tut) => tut.nom_complet).join(', ')} — {t('common.add')} {t('eleves.tuteur').toLowerCase()} ci-dessous
-              remplacera cette liste.
+              {t('eleves.tuteur_liste_remplacement', { noms: eleve.tuteurs.map((tut) => tut.nom_complet).join(', ') })}
             </p>
           )}
 

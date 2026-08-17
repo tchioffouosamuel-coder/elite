@@ -24,7 +24,10 @@ class MaJourneeController extends Controller
     /** Classes et matières sur lesquelles l'enseignant connecté intervient. */
     public function affectations(Request $request): JsonResponse
     {
-        $date = $request->date('date')?->format('Y-m-d');
+        // `date()` plante sur une valeur non scalaire (ex. `date[]=...`) au lieu
+        // de la rejeter proprement : on valide nous-mêmes, comme `enregistrer()`
+        // le fait déjà plus bas, pour ne renvoyer qu'un 422 dans ce cas.
+        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? null;
 
         return ApiResponse::success(
             $this->service->mesAffectations($request->user(), app('tenant.school_id'), $date)
@@ -39,7 +42,7 @@ class MaJourneeController extends Controller
             return $classeMatiere;
         }
 
-        $date = $request->date('date')?->format('Y-m-d') ?? now()->format('Y-m-d');
+        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
 
         try {
             $seance = $this->service->seanceDuJour($classeMatiere, $date);
