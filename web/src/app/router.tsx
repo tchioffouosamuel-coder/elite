@@ -8,11 +8,14 @@ import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
+import { DepartementDetailPage } from '@/features/personnel/pages/DepartementDetailPage'
+import { AssignMatieresDepartementPage } from '@/features/personnel/pages/AssignMatieresDepartementPage'
 import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsReferentielPage'
 import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { QrCodesPage } from '@/features/classes/pages/QrCodesPage'
+import { AnnoncesPage } from '@/features/annonces/pages/AnnoncesPage'
 import { MaClassePage } from '@/features/classes/pages/MaClassePage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
@@ -55,6 +58,8 @@ import { PaiePage } from '@/features/finance/pages/PaiePage'
 import { RapportsFinanciersPage } from '@/features/finance/pages/RapportsFinanciersPage'
 import { TarifsPage } from '@/features/finance/pages/TarifsPage'
 import { RemunerationsPage } from '@/features/finance/pages/RemunerationsPage'
+import { AvancesSalairePage } from '@/features/finance/pages/AvancesSalairePage'
+import { InventairePage } from '@/features/inventaire/pages/InventairePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 
 export const router = createBrowserRouter([
@@ -78,6 +83,8 @@ export const router = createBrowserRouter([
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },
+      { path: 'departements/:id', element: <ProtectedRoute permission="personnel.view"><DepartementDetailPage /></ProtectedRoute> },
+      { path: 'departements-matieres', element: <ProtectedRoute permission="pedagogie.manage"><AssignMatieresDepartementPage /></ProtectedRoute> },
       { path: 'niveaux', element: <ProtectedRoute permission="pedagogie.view"><NiveauxScolairesPage /></ProtectedRoute> },
       { path: 'niveaux-globaux', element: <ProtectedRoute permission="niveaux.view"><NiveauxListPage /></ProtectedRoute> },
       { path: 'classes', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClassesListPage /></ProtectedRoute> },
@@ -112,6 +119,7 @@ export const router = createBrowserRouter([
       { path: 'seances', element: <ProtectedRoute permission="emploi_du_temps.view"><SeancesPage /></ProtectedRoute> },
       { path: 'seances/:id/appel', element: <ProtectedRoute permission="appel.manage"><AppelPage /></ProtectedRoute> },
       { path: 'codes-qr', element: <ProtectedRoute permission="emploi_du_temps.manage"><QrCodesPage /></ProtectedRoute> },
+      { path: 'annonces', element: <ProtectedRoute permission="annonces.view"><AnnoncesPage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
       { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
@@ -131,7 +139,9 @@ export const router = createBrowserRouter([
       { path: 'depenses', element: <ProtectedRoute permission="finance.view"><DepensesPage /></ProtectedRoute> },
       { path: 'salaires', element: <ProtectedRoute permission="finance.paie"><RemunerationsPage /></ProtectedRoute> },
       { path: 'paie', element: <ProtectedRoute permission="finance.paie"><PaiePage /></ProtectedRoute> },
+      { path: 'avances-salaire', element: <ProtectedRoute permission="finance.paie"><AvancesSalairePage /></ProtectedRoute> },
       { path: 'rapports-financiers', element: <ProtectedRoute permission="finance.rapports"><RapportsFinanciersPage /></ProtectedRoute> },
+      { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
     ],

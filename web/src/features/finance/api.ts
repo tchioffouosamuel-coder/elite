@@ -264,6 +264,71 @@ export async function emargerBulletin(id: number, reference?: string): Promise<v
   await http.post(`/paie/bulletins/${id}/emarger`, { reference })
 }
 
+// ------------------------------------------------------- Avances sur salaire
+
+export type ModeRemboursement = 'retenue_salaire' | 'versement_direct'
+export type StatutAvance = 'en_cours' | 'partielle' | 'remboursee' | 'annulee'
+
+export interface RemboursementAvance {
+  id: number
+  montant: number
+  date_remboursement: string
+  mode: ModeRemboursement
+  note: string | null
+}
+
+export interface AvanceSalaire {
+  id: number
+  personnel: { id: number; nom_complet: string; matricule: string | null; fonction: string | null }
+  montant: number
+  date_avance: string
+  motif: string | null
+  montant_rembourse: number
+  solde: number
+  statut: StatutAvance
+  annule: boolean
+  motif_annulation: string | null
+  remboursements: RemboursementAvance[]
+}
+
+export interface TotauxAvances {
+  effectif: number
+  total_accorde: number
+  total_rembourse: number
+  total_restant: number
+}
+
+export async function fetchAvancesSalaire(params?: { personnel_id?: number; statut?: StatutAvance }): Promise<{
+  avances: AvanceSalaire[]
+  totaux: TotauxAvances
+}> {
+  const { data } = await http.get<ApiResponse<{ avances: AvanceSalaire[]; totaux: TotauxAvances }>>('/avances-salaire', { params })
+  return data.data
+}
+
+export async function accorderAvance(payload: {
+  personnel_id: number
+  montant: number
+  date_avance: string
+  motif?: string | null
+}): Promise<AvanceSalaire> {
+  const { data } = await http.post<ApiResponse<AvanceSalaire>>('/avances-salaire', payload)
+  return data.data
+}
+
+export async function rembourserAvance(
+  id: number,
+  payload: { montant: number; date_remboursement?: string; mode?: ModeRemboursement; note?: string | null },
+): Promise<AvanceSalaire> {
+  const { data } = await http.post<ApiResponse<AvanceSalaire>>(`/avances-salaire/${id}/remboursements`, payload)
+  return data.data
+}
+
+export async function annulerAvance(id: number, motif: string): Promise<AvanceSalaire> {
+  const { data } = await http.post<ApiResponse<AvanceSalaire>>(`/avances-salaire/${id}/annuler`, { motif })
+  return data.data
+}
+
 // ----------------------------------------------------------- Rémunérations
 
 /** Les six gains du bulletin, dans leur ordre d'affichage. */

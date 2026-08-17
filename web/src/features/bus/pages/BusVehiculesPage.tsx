@@ -68,41 +68,41 @@ export function BusVehiculesPage() {
     },
     ...(can('bus.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (v: BusVehicule) => (
-              <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setVehiculeEnEdition(v)
-                    setShowForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={async () => {
-                    if (!(await confirmerSuppression(v.immatriculation))) return
-                    try {
-                      await supprimerVehicule(v.id)
-                      invalidate()
-                      succes(t('bus.vehicule_deleted'))
-                    } catch (err) {
-                      erreur((err as ApiError).message)
-                    }
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<BusVehicule>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (v: BusVehicule) => (
+            <div className="flex items-center gap-1">
+              <button
+                title={t('common.edit')}
+                onClick={() => {
+                  setVehiculeEnEdition(v)
+                  setShowForm(true)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                title={t('common.delete')}
+                onClick={async () => {
+                  if (!(await confirmerSuppression(v.immatriculation))) return
+                  try {
+                    await supprimerVehicule(v.id)
+                    invalidate()
+                    succes(t('bus.vehicule_deleted'))
+                  } catch (err) {
+                    erreur((err as ApiError).message)
+                  }
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<BusVehicule>,
+      ]
       : []),
   ]
 
@@ -178,12 +178,12 @@ function VehiculeFormModal({
   } = useForm<BusVehiculePayload>({
     defaultValues: vehicule
       ? {
-          immatriculation: vehicule.immatriculation,
-          marque: vehicule.marque ?? '',
-          capacite: vehicule.capacite,
-          chauffeur_id: vehicule.chauffeur?.id,
-          statut: vehicule.statut,
-        }
+        immatriculation: vehicule.immatriculation,
+        marque: vehicule.marque ?? '',
+        capacite: vehicule.capacite,
+        chauffeur_id: vehicule.chauffeur?.id,
+        statut: vehicule.statut,
+      }
       : { capacite: 30, statut: 'actif' },
   })
 
@@ -222,7 +222,7 @@ function VehiculeFormModal({
 
         <Select label={t('bus.chauffeur')} {...register('chauffeur_id')}>
           <option value="">—</option>
-          {personnels?.items.map((p) => (
+          {personnels?.map((p) => (
             <option key={p.id} value={p.id}>
               {p.nom_complet}
             </option>

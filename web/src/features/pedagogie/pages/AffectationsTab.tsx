@@ -2,18 +2,31 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Plus, Trash2 } from 'lucide-react'
-import { fetchClasseMatieres, affecterMatiere, retirerMatiere, fetchMatieres, type Matiere } from '@/features/pedagogie/api'
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  fetchClasseMatieres,
+  affecterMatiere,
+  modifierAffectation,
+  retirerMatiere,
+  copierAffectations,
+  fetchMatieres,
+  type ClasseMatiere,
+  type ClasseMatiereUpdatePayload,
+  type Matiere,
+} from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
+import { fetchClasses } from '@/features/classes/api'
 import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import type { ApiError } from '@/shared/types/api'
 
 export function AffectationsTab({ classeId, titulaireId }: { classeId: number; titulaireId?: number | null }) {
   const { t } = useTranslation()
@@ -23,6 +36,8 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
   const [matiereIds, setMatiereIds] = useState<Set<number>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
+  const [affectationEnEdition, setAffectationEnEdition] = useState<ClasseMatiere | null>(null)
+  const [showCopyModal, setShowCopyModal] = useState(false)
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
@@ -250,15 +265,26 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
               cle: 'actions',
               entete: t('common.actions'),
               cellule: (a) => (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    retirerAffectation(a.id, a.matiere.nom)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setAffectationEnEdition(a)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      retirerAffectation(a.id, a.matiere.nom)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               ),
             },
           ]
@@ -273,10 +299,16 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
       {can('pedagogie.manage') && (
         <div className="flex justify-end gap-2">
           {selectedIds.size > 0 && (
-            <Button size="sm" variant="danger" onClick={supprimerSelection}>
-              <Trash2 className="h-4 w-4" />
-              Supprimer ({selectedIds.size})
-            </Button>
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setShowCopyModal(true)}>
+                <Copy className="h-4 w-4" />
+                Copier vers une classe ({selectedIds.size})
+              </Button>
+              <Button size="sm" variant="danger" onClick={supprimerSelection}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer ({selectedIds.size})
+              </Button>
+            </>
           )}
           <Button size="sm" onClick={() => setShowForm((v) => !v)}>
             <Plus className="h-4 w-4" />
@@ -337,7 +369,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
           )}
           <Select label={t('pedagogie.enseignant')} {...register('personnel_id')}>
             <option value="">—</option>
-            {personnels?.items.map((p) => (
+            {personnels?.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nom_complet}
               </option>
@@ -378,14 +410,238 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
           parPage={10}
           outils={
             selectedIds.size > 0 && can('pedagogie.manage') ? (
-              <Button variant="danger" size="sm" onClick={supprimerSelection}>
-                <Trash2 className="h-4 w-4" />
-                Supprimer ({selectedIds.size})
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>
+                  <Copy className="h-4 w-4" />
+                  Copier vers une classe ({selectedIds.size})
+                </Button>
+                <Button variant="danger" size="sm" onClick={supprimerSelection}>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer ({selectedIds.size})
+                </Button>
+              </div>
             ) : undefined
           }
         />
       )}
+
+      {affectationEnEdition && (
+        <EditAffectationModal
+          affectation={affectationEnEdition}
+          secondaire={secondaire}
+          onClose={() => setAffectationEnEdition(null)}
+          onSaved={() => {
+            setAffectationEnEdition(null)
+            invalidate()
+          }}
+        />
+      )}
+
+      {showCopyModal && (
+        <CopierVersClasseModal
+          classeId={classeId}
+          affectationIds={[...selectedIds]}
+          onClose={() => setShowCopyModal(false)}
+          onCopied={() => {
+            setShowCopyModal(false)
+            setSelectedIds(new Set())
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function EditAffectationModal({
+  affectation,
+  secondaire,
+  onClose,
+  onSaved,
+}: {
+  affectation: ClasseMatiere
+  secondaire: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useTranslation()
+  const can = useAuthStore((s) => s.can)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', 'all'],
+    queryFn: () => fetchPersonnels({ per_page: 100 }),
+    enabled: can('pedagogie.manage'),
+  })
+
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting, errors },
+  } = useForm<ClasseMatiereUpdatePayload>({
+    defaultValues: {
+      personnel_id: affectation.enseignant?.id ?? undefined,
+      coefficient: affectation.coefficient,
+      quota_horaire: affectation.quota_horaire ?? undefined,
+    },
+  })
+
+  const onSubmit = async (values: ClasseMatiereUpdatePayload) => {
+    setServerError(null)
+    try {
+      await modifierAffectation(affectation.id, {
+        personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
+        coefficient: secondaire ? Number(values.coefficient) : undefined,
+        quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
+      })
+      succes('Affectation mise à jour.')
+      onSaved()
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    }
+  }
+
+  return (
+    <Modal title={`Modifier — ${affectation.matiere.nom}`} onClose={onClose}>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Select label={t('pedagogie.enseignant')} error={errors.personnel_id?.message} {...register('personnel_id')}>
+          <option value="">—</option>
+          {personnels?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nom_complet}
+            </option>
+          ))}
+        </Select>
+
+        {secondaire && (
+          <Input
+            label={t('pedagogie.coefficient')}
+            type="number"
+            step="0.5"
+            error={errors.coefficient?.message}
+            {...register('coefficient', { required: true })}
+          />
+        )}
+
+        <Input label={t('pedagogie.quota_horaire')} type="number" {...register('quota_horaire')} />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/**
+ * Duplique les affectations sélectionnées vers une ou plusieurs autres
+ * classes — le trio matière/enseignant/coefficient n'est plus à ressaisir
+ * classe par classe. Une matière déjà affectée dans la classe visée est
+ * simplement ignorée, jamais écrasée.
+ */
+function CopierVersClasseModal({
+  classeId,
+  affectationIds,
+  onClose,
+  onCopied,
+}: {
+  classeId: number
+  affectationIds: number[]
+  onClose: () => void
+  onCopied: () => void
+}) {
+  const { t } = useTranslation()
+  const [recherche, setRecherche] = useState('')
+  const [cibleIds, setCibleIds] = useState<Set<number>>(new Set())
+  const [envoi, setEnvoi] = useState(false)
+
+  const { data: classes, isLoading } = useQuery({ queryKey: ['classes', 'copier-affectations'], queryFn: () => fetchClasses() })
+
+  // La classe d'origine n'a rien à faire dans ses propres cibles.
+  const classesDisponibles = (classes ?? []).filter((c) => c.id !== classeId)
+  const classesFiltrees = recherche
+    ? classesDisponibles.filter((c) => c.nom.toLowerCase().includes(recherche.toLowerCase()))
+    : classesDisponibles
+
+  const basculerCible = (id: number) =>
+    setCibleIds((courant) => {
+      const suivant = new Set(courant)
+      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      return suivant
+    })
+
+  const copier = async () => {
+    if (cibleIds.size === 0) {
+      erreur('Choisissez au moins une classe.')
+      return
+    }
+
+    setEnvoi(true)
+    try {
+      const { copiees, ignorees } = await copierAffectations({
+        affectation_ids: affectationIds,
+        classe_ids: [...cibleIds],
+      })
+      succes(
+        ignorees > 0
+          ? `${copiees} affectation(s) copiée(s), ${ignorees} déjà présente(s) ignorée(s).`
+          : `${copiees} affectation(s) copiée(s).`,
+      )
+      onCopied()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Copier vers une classe (${affectationIds.length})`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <Input
+          label="Rechercher une classe"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          autoFocus
+        />
+
+        {isLoading ? (
+          <Spinner />
+        ) : classesFiltrees.length === 0 ? (
+          <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-400">
+            Aucune classe trouvée.
+          </p>
+        ) : (
+          <div className="flex max-h-64 flex-col divide-y divide-navy-50 overflow-y-auto rounded-xl border border-navy-100">
+            {classesFiltrees.map((c) => (
+              <label key={c.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm hover:bg-cream-50">
+                <input
+                  type="checkbox"
+                  checked={cibleIds.has(c.id)}
+                  onChange={() => basculerCible(c.id)}
+                  className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                />
+                <span className="text-navy-800">{c.nom}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="button" onClick={copier} disabled={envoi || cibleIds.size === 0}>
+            <Copy className="h-4 w-4" />
+            {envoi ? '…' : `Copier vers ${cibleIds.size || ''} classe(s)`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

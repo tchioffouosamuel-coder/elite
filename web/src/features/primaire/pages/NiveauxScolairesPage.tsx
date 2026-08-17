@@ -150,7 +150,7 @@ export function NiveauxScolairesPage() {
                       className="w-full max-w-56 rounded-lg border border-navy-200 bg-white px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
                     >
                       <option value="">—</option>
-                      {personnels?.items.map((p) => (
+                      {personnels?.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.nom_complet}
                         </option>

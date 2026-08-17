@@ -44,15 +44,21 @@ import {
   MapPin,
   QrCode,
   ScanLine,
+  Megaphone,
+  Boxes,
+  PiggyBank,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
+import { NotificationBell } from './NotificationBell'
 
 type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
 
 const groupesTopbarDesktop = new Set([
+  'nav.group.pedagogie',
+  'nav.group.discipline',
   'nav.group.sante',
   'nav.group.transport',
   'nav.group.resultats',
@@ -68,7 +74,10 @@ const groupesTopbarDesktop = new Set([
 const navGroups = [
   {
     label: 'nav.group.overview',
-    items: [{ to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' }],
+    items: [
+      { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+      { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view' },
+    ],
   },
   {
     label: 'nav.group.staff',
@@ -171,6 +180,12 @@ const navGroups = [
     ],
   },
   {
+    label: 'nav.group.inventaire',
+    items: [
+      { to: '/inventaire', label: 'nav.inventaire', icon: Boxes, permission: 'inventaire.view', masquerPourTitulaire: true },
+    ],
+  },
+  {
     label: 'nav.group.resultats',
     items: [
       { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view' },
@@ -211,6 +226,7 @@ const navGroups = [
       { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view' },
       { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie' },
       { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
+      { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie' },
       { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
     ],
   },
@@ -325,14 +341,15 @@ export function AppLayout() {
   }, [groupesVisibles, location.pathname])
 
   const groupesTopbar = useMemo(
-    () => groupesVisibles.filter((group) => groupesTopbarDesktop.has(group.label)),
-    [groupesVisibles],
+    () => {
+      // Pour les enseignants, pas de topbar : tout dans la sidebar
+      if (user?.est_enseignant) return []
+      return groupesVisibles.filter((group) => groupesTopbarDesktop.has(group.label))
+    },
+    [groupesVisibles, user?.est_enseignant],
   )
 
-  const groupesSidebar = useMemo(
-    () => (requeteMenu ? groupesVisibles : groupesVisibles.filter((group) => !groupesTopbarDesktop.has(group.label))),
-    [groupesVisibles, requeteMenu],
-  )
+  const groupesSidebar = groupesVisibles
 
   return (
     <div className="flex h-svh overflow-hidden bg-cream-50">
@@ -380,69 +397,74 @@ export function AppLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-2 px-3 pt-1 pb-4">
-          {groupesSidebar.map((group) => (
-            <div key={group.label} className="flex flex-col gap-1">
-              <button
-                type="button"
-                aria-expanded={Boolean(requeteMenu) || groupesOuverts[group.label]}
-                onClick={() =>
-                  setGroupesOuverts((actuel) => ({
-                    ...actuel,
-                    [group.label]: !actuel[group.label],
-                  }))
-                }
-                className={clsx(
-                  'flex h-8 items-center justify-between gap-2 rounded-lg px-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
-                  !sidebarOpen && 'lg:hidden',
-                )}
-              >
-                <span className="truncate">{t(group.label)}</span>
-                <ChevronDown
+        <nav className="flex flex-1 flex-col gap-1.5 px-3 pt-1 pb-4">
+          {groupesSidebar.map((group) => {
+            // Pour les enseignants, tout est visible en sidebar puisqu'il n'y a pas de topbar
+            const groupeEnTopbar = !user?.est_enseignant && groupesTopbarDesktop.has(group.label)
+
+            return (
+              <div key={group.label} className={clsx('flex flex-col gap-1', groupeEnTopbar && !requeteMenu && 'lg:hidden')}>
+                <button
+                  type="button"
+                  aria-expanded={Boolean(requeteMenu) || groupesOuverts[group.label]}
+                  onClick={() =>
+                    setGroupesOuverts((actuel) => ({
+                      ...actuel,
+                      [group.label]: !actuel[group.label],
+                    }))
+                  }
                   className={clsx(
-                    'h-3.5 w-3.5 flex-none transition-transform',
-                    (requeteMenu || groupesOuverts[group.label]) && 'rotate-180',
+                    'flex h-7 items-center justify-between gap-2 rounded-lg px-3 text-left text-[9px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
+                    !sidebarOpen && 'lg:hidden',
                   )}
-                />
-              </button>
-              {/* Réduite, la sidebar n'a plus d'accordéon à replier : chaque
-                  groupe reste visible pour garder ses icônes accessibles. */}
-              {(requeteMenu || groupesOuverts[group.label] || !sidebarOpen) && (
-                <div className="flex flex-col gap-1">
-                  {group.items.map((item) => {
-                    const estActif = item.to === cheminActif
-                    return (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end
-                        aria-current={estActif ? 'page' : undefined}
-                        title={!sidebarOpen ? t(item.label) : undefined}
-                        className={clsx(
-                          'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors',
-                          !sidebarOpen && 'lg:justify-center lg:px-2',
-                          estActif
-                            ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
-                            : 'text-navy-200 hover:bg-white/5 hover:text-white',
-                        )}
-                      >
-                        {estActif && (
-                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
-                        )}
-                        <item.icon
+                >
+                  <span className="truncate">{t(group.label)}</span>
+                  <ChevronDown
+                    className={clsx(
+                      'h-3.5 w-3.5 flex-none transition-transform',
+                      (requeteMenu || groupesOuverts[group.label]) && 'rotate-180',
+                    )}
+                  />
+                </button>
+                {/* Réduite, la sidebar n'a plus d'accordéon à replier : chaque
+                    groupe reste visible pour garder ses icônes accessibles. */}
+                {(requeteMenu || groupesOuverts[group.label] || !sidebarOpen) && (
+                  <div className="flex flex-col gap-1">
+                    {group.items.map((item) => {
+                      const estActif = item.to === cheminActif
+                      return (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          end
+                          aria-current={estActif ? 'page' : undefined}
+                          title={!sidebarOpen ? t(item.label) : undefined}
                           className={clsx(
-                            'h-[18px] w-[18px] flex-none',
-                            estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
+                            'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors',
+                            !sidebarOpen && 'lg:justify-center lg:px-2',
+                            estActif
+                              ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
+                              : 'text-navy-200 hover:bg-white/5 hover:text-white',
                           )}
-                        />
-                        <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
-                      </NavLink>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+                        >
+                          {estActif && (
+                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
+                          )}
+                          <item.icon
+                            className={clsx(
+                              'h-[18px] w-[18px] flex-none',
+                              estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
+                            )}
+                          />
+                          <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {groupesSidebar.length === 0 && (
             <div className="rounded-xl border border-white/10 px-3.5 py-4 text-sm text-navy-300">
               {t('nav.noMenuFound')}
@@ -503,7 +525,7 @@ export function AppLayout() {
           </button>
 
           {groupesTopbar.length > 0 && (
-            <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex" aria-label={t('nav.topbarMenu')}>
+            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label={t('nav.topbarMenu')}>
               {groupesTopbar.map((group) => {
                 const groupeActif = group.items.some((item) => item.to === cheminActif)
                 const ouvert = groupeTopbarOuvert === group.label
@@ -515,39 +537,42 @@ export function AppLayout() {
                       aria-expanded={ouvert}
                       onClick={() => setGroupeTopbarOuvert((actuel) => (actuel === group.label ? null : group.label))}
                       className={clsx(
-                        'flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
+                        'flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition-colors',
                         groupeActif
                           ? 'bg-navy-50 text-navy-900'
                           : 'text-navy-500 hover:bg-cream-100 hover:text-navy-800',
                       )}
                     >
                       {t(group.label)}
-                      <ChevronDown className={clsx('h-3.5 w-3.5 transition-transform', ouvert && 'rotate-180')} />
+                      <ChevronDown className={clsx('h-3 w-3 transition-transform', ouvert && 'rotate-180')} />
                     </button>
 
                     {ouvert && (
-                      <div className="absolute left-0 top-full z-40 mt-2 min-w-56 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
-                        {group.items.map((item) => {
-                          const estActif = item.to === cheminActif
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setGroupeTopbarOuvert(null)} />
+                        <div className="absolute left-0 top-full z-40 mt-2 min-w-52 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
+                          {group.items.map((item) => {
+                            const estActif = item.to === cheminActif
 
-                          return (
-                            <NavLink
-                              key={item.to}
-                              to={item.to}
-                              end
-                              className={clsx(
-                                'flex items-center gap-2.5 px-3 py-2 text-sm transition-colors',
-                                estActif
-                                  ? 'bg-gold-50 font-semibold text-navy-900'
-                                  : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
-                              )}
-                            >
-                              <item.icon className={clsx('h-4 w-4 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
-                              <span className="truncate">{t(item.label)}</span>
-                            </NavLink>
-                          )
-                        })}
-                      </div>
+                            return (
+                              <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end
+                                className={clsx(
+                                  'flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors',
+                                  estActif
+                                    ? 'bg-gold-50 font-semibold text-navy-900'
+                                    : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
+                                )}
+                              >
+                                <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
+                                <span className="truncate">{t(item.label)}</span>
+                              </NavLink>
+                            )
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 )
@@ -556,6 +581,8 @@ export function AppLayout() {
           )}
 
           {groupesTopbar.length === 0 && <div className="min-w-0 flex-1" />}
+
+          <NotificationBell />
 
           <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
             {(['fr', 'en'] as const).map((l) => (

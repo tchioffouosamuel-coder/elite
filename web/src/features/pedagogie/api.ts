@@ -114,8 +114,36 @@ export async function affecterMatiere(
   return data.data;
 }
 
+export interface ClasseMatiereUpdatePayload {
+  personnel_id?: number | null;
+  coefficient?: number;
+  quota_horaire?: number | null;
+}
+
+export async function modifierAffectation(
+  classeMatiereId: number,
+  payload: ClasseMatiereUpdatePayload,
+): Promise<ClasseMatiere> {
+  const { data } = await http.put<ApiResponse<ClasseMatiere>>(
+    `/classe-matieres/${classeMatiereId}`,
+    payload,
+  );
+  return data.data;
+}
+
 export async function retirerMatiere(classeMatiereId: number): Promise<void> {
   await http.delete(`/classe-matieres/${classeMatiereId}`);
+}
+
+export async function copierAffectations(payload: {
+  affectation_ids: number[];
+  classe_ids: number[];
+}): Promise<{ copiees: number; ignorees: number }> {
+  const { data } = await http.post<ApiResponse<{ copiees: number; ignorees: number }>>(
+    "/classe-matieres/copier",
+    payload,
+  );
+  return data.data;
 }
 
 export async function fetchTrimestres(): Promise<Trimestre[]> {

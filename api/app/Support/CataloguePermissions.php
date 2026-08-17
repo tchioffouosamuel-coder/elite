@@ -70,6 +70,10 @@ class CataloguePermissions
             'bus.view' => ['Consulter véhicules, trajets et affectations', 'View vehicles, routes and assignments'],
             'bus.manage' => ['Gérer la flotte, les trajets et les affectations des élèves', 'Manage the fleet, routes and pupil assignments'],
         ]],
+        'inventaire' => ['Inventaire', 'Inventory', [
+            'inventaire.view' => ['Consulter l\'inventaire du matériel', 'View the equipment inventory'],
+            'inventaire.manage' => ['Gérer les articles de l\'inventaire', 'Manage inventory items'],
+        ]],
         'bulletins' => ['Bulletins et statistiques', 'Reports and statistics', [
             'bulletins.view' => ['Consulter bulletins, palmarès et statistiques', 'View reports'],
             'bulletins.publish' => ['Publier les bulletins', 'Publish reports'],

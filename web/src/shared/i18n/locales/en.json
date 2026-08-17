@@ -30,6 +30,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "annonces": "Announcements",
     "personnel": "Staff",
     "fonctionsReferentiel": "Positions",
     "departements": "Departments",
@@ -51,6 +52,8 @@
     "depenses": "Expenses",
     "salaires": "Salaries",
     "paie": "Payroll",
+    "avancesSalaire": "Salary advances",
+    "inventaire": "Inventory",
     "rapportsFinanciers": "Financial reports",
     "permissions": "Privileges",
     "parametres": "Settings",
@@ -79,6 +82,7 @@
       "discipline": "Discipline",
       "sante": "Health",
       "transport": "School transport",
+      "inventaire": "Inventory",
       "resultats": "Results",
       "finance": "Finance",
       "admin": "Administration",
@@ -486,6 +490,24 @@
     "saved": "Day saved.",
     "scanner_title": "Scan a QR code",
     "scanner_hint": "Point the camera at the code on the classroom wall to open the scheduled lesson."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "tout_marquer_lu": "Mark all read",
+    "aucune": "No notifications yet."
+  },
+  "annonces": {
+    "title": "Announcements",
+    "hint": "Publish important information for staff and families.",
+    "publier": "Publish an announcement",
+    "titre": "Title",
+    "contenu": "Content",
+    "publiee_le": "Published on",
+    "publiee_par": "Published by",
+    "aucune": "No announcements yet.",
+    "created": "Announcement published.",
+    "delete_confirm_titre": "this announcement",
+    "deleted": "Announcement deleted."
   },
   "finance": {
     "title": "Finance",

@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\V1\AbsenceController;
 use App\Http\Controllers\Api\V1\AnneeScolaireController;
+use App\Http\Controllers\Api\V1\AnnonceController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AvanceSalaireController;
 use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\BusAffectationController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
+use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MatiereController;
@@ -26,6 +29,7 @@ use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
+use App\Http\Controllers\Api\V1\NotificationInterneController;
 use App\Http\Controllers\Api\V1\PaieController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
@@ -86,6 +90,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:personnel.view')->group(function () {
                 Route::get('departements', [DepartementController::class, 'index'])->name('departements.index');
+                Route::get('departements/{id}', [DepartementController::class, 'show'])->name('departements.show');
+                Route::get('departements/{id}/statistiques/pedagogiques', [DepartementController::class, 'statsPedagogiques'])->name('departements.stats-pedagogiques');
+                Route::get('departements/{id}/statistiques/pedagogiques/export-pdf', [DepartementController::class, 'exportPdfStatistiques'])->name('departements.export-pdf-stats');
                 Route::get('fonctions-referentiel', [FonctionReferentielController::class, 'index'])->name('fonctions-referentiel.index');
                 Route::get('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'show'])->name('fonctions-referentiel.show');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
@@ -117,6 +124,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+            });
+
+            // Notifications internes : chacun ne voit que les siennes, aucun
+            // privilège au-delà d'être authentifié et rattaché à l'école.
+            Route::get('notifications', [NotificationInterneController::class, 'index'])->name('notifications.index');
+            Route::get('notifications/non-lues', [NotificationInterneController::class, 'nonLues'])->name('notifications.non-lues');
+            Route::post('notifications/{id}/lire', [NotificationInterneController::class, 'marquerLue'])->name('notifications.lire');
+            Route::post('notifications/tout-lire', [NotificationInterneController::class, 'marquerToutesLues'])->name('notifications.tout-lire');
+
+            Route::middleware('permission:annonces.view')->group(function () {
+                Route::get('annonces', [AnnonceController::class, 'index'])->name('annonces.index');
+            });
+
+            Route::middleware('permission:annonces.publish')->group(function () {
+                Route::post('annonces', [AnnonceController::class, 'store'])->name('annonces.store');
+                Route::delete('annonces/{id}', [AnnonceController::class, 'destroy'])->name('annonces.destroy');
             });
 
             Route::middleware('permission:ecoles.manage')->group(function () {
@@ -197,6 +220,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');
                 Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update');
                 Route::delete('classe-matieres/{id}', [ClasseMatiereController::class, 'destroy'])->name('classe-matieres.destroy');
+                Route::post('classe-matieres/copier', [ClasseMatiereController::class, 'copier'])->name('classe-matieres.copier');
             });
 
             /*
@@ -420,6 +444,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('paie/bulletins/payer-lot', [PaieController::class, 'payerLot'])->name('paie.payer-lot');
                 Route::post('paie/bulletins/{id}/payer', [PaieController::class, 'payer'])->name('paie.payer');
                 Route::post('paie/bulletins/{id}/emarger', [PaieController::class, 'emarger'])->name('paie.emarger');
+
+                Route::get('avances-salaire', [AvanceSalaireController::class, 'index'])->name('avances-salaire.index');
+                Route::post('avances-salaire', [AvanceSalaireController::class, 'store'])->name('avances-salaire.store');
+                Route::post('avances-salaire/{id}/remboursements', [AvanceSalaireController::class, 'rembourser'])->name('avances-salaire.rembourser');
+                Route::post('avances-salaire/{id}/annuler', [AvanceSalaireController::class, 'annuler'])->name('avances-salaire.annuler');
             });
 
             Route::middleware('permission:discipline.manage')->group(function () {
@@ -463,6 +492,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('bus/souscriptions-lot', [BusAffectationController::class, 'souscrireLot'])->name('bus.affectations.souscrire-lot');
                 Route::put('bus/affectations/{id}', [BusAffectationController::class, 'update'])->name('bus.affectations.update');
                 Route::delete('bus/affectations/{id}', [BusAffectationController::class, 'destroy'])->name('bus.affectations.destroy');
+            });
+
+            Route::middleware('permission:inventaire.view')->group(function () {
+                Route::get('inventaire', [InventaireController::class, 'index'])->name('inventaire.index');
+            });
+            Route::middleware('permission:inventaire.manage')->group(function () {
+                Route::post('inventaire', [InventaireController::class, 'store'])->name('inventaire.store');
+                Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update');
+                Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy');
             });
         });
     });

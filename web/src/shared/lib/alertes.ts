@@ -78,6 +78,39 @@ export function info(message: string): void {
   void toast.fire({ icon: 'info', title: message })
 }
 
+/**
+ * Popup de notification (titre + message), façon WhatsApp Web : reste plus
+ * longtemps qu'un toast ordinaire et se ferme au clic — avec une action
+ * optionnelle (ouvrir la notification concernée) plutôt qu'une simple lecture.
+ */
+export function notification({ titre, message, onClick }: { titre: string; message: string; onClick?: () => void }): void {
+  void Swal.fire({
+    ...base,
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    showCloseButton: true,
+    timer: 8000,
+    timerProgressBar: true,
+    icon: 'info',
+    title: titre,
+    text: message,
+    customClass: {
+      ...base.customClass,
+      popup: `rounded-xl border border-navy-100 shadow-lifted font-sans${onClick ? ' cursor-pointer' : ''}`,
+    },
+    didOpen: (popup) => {
+      if (!onClick) return
+      popup.addEventListener('click', (e) => {
+        // Le bouton de fermeture a son propre clic : ne pas le doubler d'une navigation.
+        if ((e.target as HTMLElement).closest('.swal2-close')) return
+        onClick()
+        void Swal.close()
+      })
+    },
+  })
+}
+
 interface ConfirmationOptions {
   titre: string
   message: string

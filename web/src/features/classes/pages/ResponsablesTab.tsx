@@ -104,7 +104,7 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
               }}
             >
               <option value="">Non défini</option>
-              {personnels?.items.map((p) => (
+              {personnels?.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nom_complet}
                 </option>

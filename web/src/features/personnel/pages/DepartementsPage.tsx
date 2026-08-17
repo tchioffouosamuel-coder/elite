@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus } from 'lucide-react'
+import { Building2, Plus, Eye } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { fetchDepartements, createDepartement, type Departement } from '@/features/personnel/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
@@ -12,6 +13,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 
 export function DepartementsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
@@ -36,6 +38,35 @@ export function DepartementsPage() {
       entete: t('personnel.departement'),
       valeur: (d) => d.nom,
       cellule: (d) => <span className="font-semibold text-navy-900">{d.nom}</span>,
+    },
+    {
+      cle: 'chef',
+      entete: 'Chef de département',
+      valeur: (d) => d.head_personnel?.nom_complet || '—',
+      cellule: (d) => <span className="text-navy-700">{d.head_personnel?.nom_complet || '—'}</span>,
+    },
+    {
+      cle: 'matieres',
+      entete: 'Matières',
+      valeur: (d) => (d.matieres?.length || 0).toString(),
+      cellule: (d) => (
+        <span className="text-navy-700">
+          {d.matieres?.length || 0} matière{d.matieres && d.matieres.length > 1 ? 's' : ''}
+        </span>
+      ),
+    },
+    {
+      cle: 'actions',
+      entete: 'Actions',
+      cellule: (d) => (
+        <button
+          onClick={() => navigate(`/departements/${d.id}`)}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gold-600 hover:bg-gold-50"
+        >
+          <Eye className="h-4 w-4" />
+          Détails
+        </button>
+      ),
     },
   ]
 

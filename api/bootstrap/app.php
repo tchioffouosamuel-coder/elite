@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
 use App\Http\Middleware\ScopeEtablissement;
@@ -7,6 +8,7 @@ use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifierPermission;
 use App\Http\Middleware\VerifierSuperAdmin;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,6 +26,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule): void {
+        // Samedi soir : la semaine de cours (lundi-vendredi) est terminée,
+        // le résumé porte sur une semaine complète plutôt que sur un
+        // découpage arbitraire à cheval sur deux semaines scolaires.
+        $schedule->command(EnvoyerRapportHebdomadaireParents::class)->weeklyOn(6, '18:00');
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         // API pure, sans route web "login" : ne jamais tenter de rediriger un
         // invité, toujours laisser l'exception JSON standard (401) répondre.

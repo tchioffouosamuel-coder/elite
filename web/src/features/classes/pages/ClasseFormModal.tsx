@@ -170,7 +170,7 @@ export function ClasseFormModal({
           <>
             <Select label={t('classes.titulaire')} {...register('titulaire_id')}>
               <option value="">—</option>
-              {personnels?.items.map((p) => (
+              {personnels?.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nom_complet}
                 </option>

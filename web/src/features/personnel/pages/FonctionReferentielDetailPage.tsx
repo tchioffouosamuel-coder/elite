@@ -72,16 +72,16 @@ export function FonctionReferentielDetailPage() {
       <Card>
         <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
           Personnel
-          <Badge tone="blue">{personnels?.items.length ?? fonction.personnels_count ?? 0}</Badge>
+          <Badge tone="blue">{personnels?.length ?? fonction.personnels_count ?? 0}</Badge>
         </h2>
 
         {chargementPersonnels ? (
           <Spinner />
-        ) : !personnels || personnels.items.length === 0 ? (
+        ) : !personnels || personnels.length === 0 ? (
           <EmptyState label="Personne n'occupe cette fonction pour le moment." />
         ) : (
           <div className="flex flex-col divide-y divide-navy-100">
-            {personnels.items.map((p) => (
+            {personnels.map((p) => (
               <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy-50 ring-1 ring-navy-100">

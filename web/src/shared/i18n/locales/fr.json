@@ -30,6 +30,7 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
+    "annonces": "Annonces",
     "personnel": "Personnel",
     "fonctionsReferentiel": "Fonctions",
     "departements": "Départements",
@@ -51,6 +52,8 @@
     "depenses": "Dépenses",
     "salaires": "Salaires",
     "paie": "Paie",
+    "avancesSalaire": "Avances sur salaire",
+    "inventaire": "Inventaire",
     "rapportsFinanciers": "Rapports financiers",
     "permissions": "Privilèges",
     "parametres": "Paramètres",
@@ -79,6 +82,7 @@
       "discipline": "Discipline",
       "sante": "Santé",
       "transport": "Transport scolaire",
+      "inventaire": "Inventaire",
       "resultats": "Résultats",
       "finance": "Finances",
       "admin": "Administration",
@@ -466,6 +470,24 @@
     "saved": "Journée enregistrée.",
     "scanner_title": "Scanner un code QR",
     "scanner_hint": "Visez le code affiché au mur de la salle pour ouvrir directement le cours prévu."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "tout_marquer_lu": "Tout marquer lu",
+    "aucune": "Aucune notification pour le moment."
+  },
+  "annonces": {
+    "title": "Annonces",
+    "hint": "Publiez les informations importantes pour le personnel et les familles.",
+    "publier": "Publier une annonce",
+    "titre": "Titre",
+    "contenu": "Contenu",
+    "publiee_le": "Publiée le",
+    "publiee_par": "Publiée par",
+    "aucune": "Aucune annonce pour le moment.",
+    "created": "Annonce publiée.",
+    "delete_confirm_titre": "cette annonce",
+    "deleted": "Annonce supprimée."
   },
   "niveauxGlobaux": {
     "title": "Niveaux globaux",

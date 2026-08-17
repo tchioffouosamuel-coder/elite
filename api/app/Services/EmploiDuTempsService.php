@@ -3,15 +3,22 @@
 namespace App\Services;
 
 use App\Models\Classe;
+use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\Presence;
 use App\Models\Seance;
 use App\Models\Trimestre;
+use App\Services\Sms\SmsService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class EmploiDuTempsService extends BaseService
 {
+    public function __construct(
+        private readonly NotificationService $notifications,
+        private readonly SmsService $sms,
+    ) {}
+
     public function grille(Classe $classe): Collection
     {
         return EmploiDuTemps::where('classe_id', $classe->id)
@@ -107,7 +114,17 @@ class EmploiDuTempsService extends BaseService
     {
         $elevesDeLaClasse = $seance->classe->eleves()->where('statut', 'actif')->pluck('id');
 
-        return $this->transaction(function () use ($seance, $lignes, $elevesDeLaClasse) {
+        // État avant écriture, pour ne signaler que les absences non
+        // justifiées qui viennent d'apparaître — un appel réenregistré
+        // (correction d'un seul élève) ne doit pas relancer une alerte pour
+        // tous les autres qui étaient déjà absents.
+        $etatAvant = Presence::where('seance_id', $seance->id)
+            ->get(['eleve_id', 'statut', 'justifie'])
+            ->keyBy('eleve_id');
+
+        $nouvellesAbsencesNonJustifiees = [];
+
+        $enregistres = $this->transaction(function () use ($seance, $lignes, $elevesDeLaClasse, $etatAvant, &$nouvellesAbsencesNonJustifiees) {
             $enregistres = 0;
 
             foreach ($lignes as $ligne) {
@@ -118,26 +135,80 @@ class EmploiDuTempsService extends BaseService
                 // Le motif ne qualifie qu'une absence : le conserver sur un
                 // élève repassé présent laisserait une trace fausse.
                 $motif = $ligne['statut'] === 'absent' ? ($ligne['motif'] ?? null) : null;
+                // Maladie, permission et raison scolaire sont des motifs
+                // reconnus par l'établissement ; « inconnu » ne l'est pas
+                // encore et compte comme une absence non justifiée.
+                $justifie = $motif !== null && $motif !== 'inconnu';
 
                 Presence::updateOrCreate(
                     ['seance_id' => $seance->id, 'eleve_id' => $ligne['eleve_id']],
                     [
                         'statut' => $ligne['statut'],
                         'motif' => $motif,
-                        // Maladie, permission et raison scolaire sont des motifs
-                        // reconnus par l'établissement ; « inconnu » ne l'est pas
-                        // encore et compte comme une absence non justifiée.
-                        'justifie' => $motif !== null && $motif !== 'inconnu',
+                        'justifie' => $justifie,
                         'remarque' => $ligne['remarque'] ?? null,
                     ]
                 );
                 $enregistres++;
+
+                $avant = $etatAvant->get($ligne['eleve_id']);
+                $etaitDejaAbsentNonJustifie = $avant && $avant->statut === 'absent' && ! $avant->justifie;
+
+                if ($ligne['statut'] === 'absent' && ! $justifie && ! $etaitDejaAbsentNonJustifie) {
+                    $nouvellesAbsencesNonJustifiees[] = $ligne['eleve_id'];
+                }
             }
 
             $seance->update(['statut' => 'effectuee']);
 
             return $enregistres;
         });
+
+        // Hors transaction : le SMS est un appel réseau, il ne doit pas
+        // tenir la connexion à la base ouverte pendant son exécution.
+        if ($nouvellesAbsencesNonJustifiees !== []) {
+            $this->alerterAbsences($seance, $nouvellesAbsencesNonJustifiees);
+        }
+
+        return $enregistres;
+    }
+
+    /**
+     * Alerte immédiate sur une absence non justifiée : en interne pour qui
+     * tient la discipline, par SMS pour la famille — le rapport hebdomadaire
+     * revient dessus, mais un parent doit pouvoir réagir le jour même.
+     *
+     * @param  array<int, int>  $eleveIds
+     */
+    private function alerterAbsences(Seance $seance, array $eleveIds): void
+    {
+        $classe = $seance->classe;
+        $eleves = Eleve::with('tuteurs')->whereIn('id', $eleveIds)->get();
+
+        if ($eleves->isEmpty()) {
+            return;
+        }
+
+        $this->notifications->notifierParPermission(
+            $classe->school_id,
+            'discipline.manage',
+            'absence',
+            'Absence non justifiée',
+            $eleves->count() === 1
+                ? "{$eleves->first()->nom_complet} est absent(e) sans motif connu en {$classe->nom}."
+                : "{$eleves->count()} élèves sont absents sans motif connu en {$classe->nom} : ".$eleves->pluck('nom_complet')->implode(', ').'.',
+        );
+
+        foreach ($eleves as $eleve) {
+            $tuteur = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+            if ($tuteur?->telephone) {
+                $this->sms->envoyer(
+                    $tuteur->telephone,
+                    "Absence — {$eleve->nom_complet} est marqué(e) absent(e) aujourd'hui en {$classe->nom}, sans motif connu."
+                );
+            }
+        }
     }
 
     /**
