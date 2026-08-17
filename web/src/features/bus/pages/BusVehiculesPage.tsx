@@ -166,7 +166,10 @@ function VehiculeFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: personnels } = useQuery({ queryKey: ['personnels', 'bus'], queryFn: () => fetchPersonnels({ per_page: 500 }) })
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', 'bus', 'chauffeurs'],
+    queryFn: () => fetchPersonnels({ fonction_label: 'Chauffeur', per_page: 500 }),
+  })
 
   const {
     register,

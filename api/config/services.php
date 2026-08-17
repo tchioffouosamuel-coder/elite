@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    /*
+     * Envoi de SMS (confirmations de paiement, alertes bus…). `driver` vaut
+     * `log` tant qu'aucun compte Twilio n'est configuré : les messages
+     * s'écrivent alors dans les logs au lieu de partir réellement, ce qui
+     * permet de développer et tester sans compte actif.
+     */
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+    ],
+
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),
+        'token' => env('TWILIO_TOKEN'),
+        'from' => env('TWILIO_FROM'),
+    ],
+
 ];

@@ -62,6 +62,24 @@ class BusTrajetController extends Controller
         return ApiResponse::success(null, 'Trajet supprimé.');
     }
 
+    /** Alerte SMS aux parents des élèves du trajet (retard, incident, changement d'itinéraire). */
+    public function notifier(Request $request, int $id): JsonResponse
+    {
+        $trajet = $this->trajet($id);
+
+        $donnees = $request->validate([
+            'type' => ['required', Rule::in(BusService::TYPES_NOTIFICATION)],
+            'detail' => ['required', 'string', 'max:300'],
+        ]);
+
+        $envoyes = $this->service->notifierParents($trajet, $donnees['type'], $donnees['detail']);
+
+        return ApiResponse::success(
+            ['envoyes' => $envoyes],
+            $envoyes > 0 ? "{$envoyes} parent(s) notifié(s)." : "Aucun parent n'a pu être notifié (numéro manquant).",
+        );
+    }
+
     // ---- Arrêts ---------------------------------------------------------
 
     public function ajouterArret(Request $request, int $trajetId): JsonResponse
@@ -126,6 +144,7 @@ class BusTrajetController extends Controller
                 'id' => $a->id,
                 'statut' => $a->statut,
                 'tarif_mensuel' => $a->tarif_mensuel,
+                'option_trajet' => $a->option_trajet,
                 'eleve' => [
                     'id' => $a->eleve->id,
                     'nom_complet' => $a->eleve->nom_complet,

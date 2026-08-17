@@ -8,8 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BusAffectation extends Model
 {
+    public const OPTIONS_TRAJET = ['aller_simple', 'retour_simple', 'aller_retour'];
+
     protected $fillable = [
-        'eleve_id', 'trajet_id', 'arret_id', 'annee_scolaire_id', 'tarif_mensuel', 'statut',
+        'eleve_id', 'trajet_id', 'arret_id', 'annee_scolaire_id', 'tarif_mensuel', 'option_trajet', 'statut',
     ];
 
     protected function casts(): array

@@ -7,6 +7,7 @@ use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\BusVehicule;
 use App\Models\Eleve;
+use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 
@@ -20,6 +21,8 @@ use RuntimeException;
  */
 class BusService extends BaseService
 {
+    public function __construct(private readonly SmsService $sms) {}
+
     // ---- Véhicules --------------------------------------------------
 
     public function listerVehicules(int $schoolId): Collection
@@ -173,5 +176,48 @@ class BusService extends BaseService
     public function retirerAffectation(BusAffectation $affectation): void
     {
         $affectation->delete();
+    }
+
+    // ---- Notifications ------------------------------------------------
+
+    public const TYPES_NOTIFICATION = ['retard', 'incident', 'changement_itineraire', 'autre'];
+
+    private const PREFIXES_NOTIFICATION = [
+        'retard' => 'Retard bus',
+        'incident' => 'Incident bus',
+        'changement_itineraire' => "Changement d'itinéraire",
+        'autre' => 'Info bus',
+    ];
+
+    /**
+     * Alerte SMS à tous les parents des élèves actifs sur un trajet — retard,
+     * incident, changement d'itinéraire. Les envois échoués n'interrompent
+     * pas les suivants : un numéro invalide ne doit pas priver le reste des
+     * familles de l'alerte.
+     *
+     * @return int nombre de SMS effectivement envoyés
+     */
+    public function notifierParents(BusTrajet $trajet, string $type, string $detail): int
+    {
+        $prefixe = self::PREFIXES_NOTIFICATION[$type] ?? self::PREFIXES_NOTIFICATION['autre'];
+        $message = "{$prefixe} — {$trajet->nom} : {$detail}";
+
+        $eleves = BusAffectation::where('trajet_id', $trajet->id)
+            ->actives()
+            ->with('eleve.tuteurs')
+            ->get()
+            ->pluck('eleve');
+
+        $envoyes = 0;
+
+        foreach ($eleves as $eleve) {
+            $tuteur = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+            if ($tuteur?->telephone && $this->sms->envoyer($tuteur->telephone, $message)) {
+                $envoyes++;
+            }
+        }
+
+        return $envoyes;
     }
 }

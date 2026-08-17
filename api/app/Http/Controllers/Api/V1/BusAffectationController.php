@@ -39,6 +39,7 @@ class BusAffectationController extends Controller
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $request->integer('trajet_id'))],
             'annee_scolaire_id' => ['nullable', 'integer', $this->scopedExists('annee_scolaires')],
             'tarif_mensuel' => ['nullable', 'integer', 'min:0'],
+            'option_trajet' => ['nullable', Rule::in(BusAffectation::OPTIONS_TRAJET)],
         ]);
 
         try {
@@ -58,6 +59,7 @@ class BusAffectationController extends Controller
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $affectation->trajet_id)],
             'tarif_mensuel' => ['nullable', 'integer', 'min:0'],
             'statut' => ['nullable', 'in:actif,suspendu'],
+            'option_trajet' => ['nullable', Rule::in(BusAffectation::OPTIONS_TRAJET)],
         ]);
 
         $affectation = $this->service->modifierAffectation($affectation, $donnees);
@@ -81,6 +83,7 @@ class BusAffectationController extends Controller
             'id' => $affectation->id,
             'statut' => $affectation->statut,
             'tarif_mensuel' => $affectation->tarif_mensuel,
+            'option_trajet' => $affectation->option_trajet,
             'eleve' => [
                 'id' => $affectation->eleve->id,
                 'nom_complet' => $affectation->eleve->nom_complet,

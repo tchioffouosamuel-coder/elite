@@ -1,16 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Coins, HeartPulse, Pencil, Plus, Trash2, Users } from 'lucide-react'
-import {
-  createVisiteInfirmerie,
-  deleteVisiteInfirmerie,
-  fetchVisitesInfirmerie,
-  updateVisiteInfirmerie,
-  type VisiteInfirmerie,
-  type VisiteInfirmeriePayload,
-} from '@/features/infirmerie/api'
+import { deleteVisiteInfirmerie, fetchVisitesInfirmerie, type VisiteInfirmerie } from '@/features/infirmerie/api'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -18,24 +11,11 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { StatCard } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, Select, FieldWrapper } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
-import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 
 type FiltreNombre = number | ''
-
-interface VisiteFormValues {
-  eleve_id: number
-  date_visite: string
-  raison: string
-  soins_prodiges: string
-  cout_soins?: number | string | null
-  observations?: string | null
-}
-
-const champTexte =
-  'w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm text-navy-900 shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100'
 
 function debutJour(): string {
   return new Date().toISOString().slice(0, 10)
@@ -64,13 +44,12 @@ function formatMontant(montant: number, locale: string): string {
 export function InfirmeriePage() {
   const { t, i18n } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [classeFiltre, setClasseFiltre] = useState<FiltreNombre>('')
   const [eleveFiltre, setEleveFiltre] = useState<FiltreNombre>('')
   const [du, setDu] = useState('')
   const [au, setAu] = useState('')
-  const [visiteEnEdition, setVisiteEnEdition] = useState<VisiteInfirmerie | null>(null)
-  const [showForm, setShowForm] = useState(false)
 
   const params = useMemo(
     () => ({
@@ -151,10 +130,7 @@ export function InfirmeriePage() {
                 <button
                   type="button"
                   title={t('common.edit')}
-                  onClick={() => {
-                    setVisiteEnEdition(v)
-                    setShowForm(true)
-                  }}
+                  onClick={() => navigate(`/infirmerie/${v.id}/edit`)}
                   className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
                 >
                   <Pencil className="h-4 w-4" />
@@ -189,12 +165,7 @@ export function InfirmeriePage() {
           <p className="mt-1 max-w-2xl text-sm text-navy-500">{t('infirmerie.subtitle')}</p>
         </div>
         {can('infirmerie.manage') && (
-          <Button
-            onClick={() => {
-              setVisiteEnEdition(null)
-              setShowForm(true)
-            }}
-          >
+          <Button onClick={() => navigate('/infirmerie/nouvelle')}>
             <Plus className="h-4 w-4" />
             {t('infirmerie.add_visit')}
           </Button>
@@ -247,106 +218,6 @@ export function InfirmeriePage() {
           }
         />
       )}
-
-      {showForm && (
-        <VisiteInfirmerieFormModal
-          visite={visiteEnEdition}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false)
-            setVisiteEnEdition(null)
-            invalidate()
-          }}
-        />
-      )}
     </div>
-  )
-}
-
-function VisiteInfirmerieFormModal({
-  visite,
-  onClose,
-  onSaved,
-}: {
-  visite: VisiteInfirmerie | null
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const { t } = useTranslation()
-  const { data: eleves } = useQuery({ queryKey: ['eleves', 'infirmerie-form'], queryFn: () => fetchEleves({ per_page: 500 }) })
-  const { register, handleSubmit } = useForm<VisiteFormValues>({
-    defaultValues: visite
-      ? {
-          eleve_id: visite.eleve.id,
-          date_visite: visite.date_visite,
-          raison: visite.raison,
-          soins_prodiges: visite.soins_prodiges,
-          cout_soins: visite.cout_soins,
-          observations: visite.observations ?? '',
-        }
-      : {
-          date_visite: maintenantLocal(),
-          cout_soins: 0,
-          observations: '',
-        },
-  })
-
-  const onSubmit = async (values: VisiteFormValues) => {
-    const payload: VisiteInfirmeriePayload = {
-      eleve_id: Number(values.eleve_id),
-      date_visite: values.date_visite,
-      raison: values.raison,
-      soins_prodiges: values.soins_prodiges,
-      cout_soins: values.cout_soins === '' || values.cout_soins == null ? 0 : Number(values.cout_soins),
-      observations: values.observations?.trim() || null,
-    }
-
-    if (visite) {
-      await updateVisiteInfirmerie(visite.id, payload)
-      succes(t('infirmerie.updated'))
-    } else {
-      await createVisiteInfirmerie(payload)
-      succes(t('infirmerie.created'))
-    }
-
-    onSaved()
-  }
-
-  return (
-    <Modal title={visite ? t('infirmerie.edit_visit') : t('infirmerie.add_visit')} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Select label={t('eleves.title')} {...register('eleve_id', { required: true })}>
-          <option value="">—</option>
-          {eleves?.items.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.nom_complet} — {e.classe?.nom ?? '—'}
-            </option>
-          ))}
-        </Select>
-
-        <Input label={t('infirmerie.date_visite')} type="datetime-local" {...register('date_visite', { required: true })} />
-
-        <FieldWrapper label={t('infirmerie.raison')}>
-          <textarea rows={3} className={champTexte} {...register('raison', { required: true })} />
-        </FieldWrapper>
-
-        <FieldWrapper label={t('infirmerie.soins_prodiges')}>
-          <textarea rows={3} className={champTexte} {...register('soins_prodiges', { required: true })} />
-        </FieldWrapper>
-
-        <Input label={t('infirmerie.cout_soins')} type="number" min={0} step={1} {...register('cout_soins')} />
-
-        <FieldWrapper label={t('infirmerie.observations')}>
-          <textarea rows={3} className={champTexte} {...register('observations')} />
-        </FieldWrapper>
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit">{t('common.save')}</Button>
-        </div>
-      </form>
-    </Modal>
   )
 }

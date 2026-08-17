@@ -26,6 +26,7 @@ class Personnel extends Model
         'residence',
         'telephone',
         'telephone_2',
+        'numero_permis',
         'situation_matrimoniale',
         'nombre_enfants',
         'diplome_professionnel',

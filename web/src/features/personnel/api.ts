@@ -111,6 +111,7 @@ export async function fetchPersonnels(params: {
   search?: string
   departement_id?: number
   fonction_id?: number
+  fonction_label?: string
   statut?: string
   page?: number
   per_page?: number

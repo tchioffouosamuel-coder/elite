@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClipboardCheck, UserCheck } from 'lucide-react'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
 import {
   enregistrerAppel,
   fetchAppel,
@@ -10,6 +10,7 @@ import {
   type Seance,
 } from '@/features/emploiDuTemps/api'
 import { useAuthStore } from '@/shared/store/authStore'
+import { estSecondaire } from '@/shared/lib/ecole'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -29,10 +30,27 @@ const STATUTS: { valeur: LigneAppel['statut']; libelle: string }[] = [
 
 export function SeancesPage() {
   const can = useAuthStore((s) => s.can)
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const [classeId, setClasseId] = useState<number | ''>('')
   const [seanceAppel, setSeanceAppel] = useState<Seance | null>(null)
 
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  // Au primaire et à la maternelle, un enseignant est titulaire d'une seule
+  // classe : pas de sélecteur à parcourir, les séances de sa classe uniquement.
+  const restreintATitulaire = estEnseignant && !estSecondaire()
+
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !restreintATitulaire })
+  const { data: maClasse, isLoading: maClasseEnChargement } = useQuery({
+    queryKey: ['ma-classe'],
+    queryFn: fetchMaClasse,
+    enabled: restreintATitulaire,
+  })
+
+  useEffect(() => {
+    if (restreintATitulaire && maClasse && classeId === '') {
+      setClasseId(maClasse.id)
+    }
+  }, [restreintATitulaire, maClasse, classeId])
+
   const classeActive = classeId ? Number(classeId) : null
 
   const { data: seances, isLoading } = useQuery({
@@ -100,21 +118,36 @@ export function SeancesPage() {
     <div className="flex flex-col gap-5">
       <PageHeader titre="Séances & appel" icon={ClipboardCheck} />
 
-      <Select
-        label="Classe"
-        value={classeId}
-        onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-        className="max-w-xs"
-      >
-        <option value="">Sélectionner une classe…</option>
-        {classes?.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-          </option>
-        ))}
-      </Select>
+      {restreintATitulaire ? (
+        maClasse && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
+            <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
+          </div>
+        )
+      ) : (
+        <Select
+          label="Classe"
+          value={classeId}
+          onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
+          className="max-w-xs"
+        >
+          <option value="">Sélectionner une classe…</option>
+          {classes?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </Select>
+      )}
 
-      {!classeActive ? (
+      {restreintATitulaire && maClasseEnChargement ? (
+        <Spinner />
+      ) : restreintATitulaire && !maClasse ? (
+        <Card>
+          <EmptyState label="Aucune classe ne vous est confiée pour le moment." />
+        </Card>
+      ) : !classeActive ? (
         <Card>
           <EmptyState label="Choisissez une classe pour afficher ses séances." />
         </Card>

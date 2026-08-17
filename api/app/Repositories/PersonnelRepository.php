@@ -28,6 +28,9 @@ class PersonnelRepository extends BaseRepository
             })
             ->when($filters['departement_id'] ?? null, fn ($query, $id) => $query->where('departement_id', $id))
             ->when($filters['fonction_id'] ?? null, fn ($query, $id) => $query->where('fonction_id', $id))
+            ->when($filters['fonction_label'] ?? null, function ($query, $label) {
+                $query->whereHas('fonctionReference', fn ($fonction) => $fonction->whereRaw('LOWER(label_fr) = ?', [mb_strtolower($label)]));
+            })
             ->when($filters['statut'] ?? null, fn ($query, $statut) => $query->where('statut', $statut))
             ->orderBy('nom_complet')
             ->paginate($perPage);

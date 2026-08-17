@@ -40,11 +40,20 @@ export interface BusTrajet {
   effectif: number | null
 }
 
+export type OptionTrajet = 'aller_simple' | 'retour_simple' | 'aller_retour'
+
+export const LIBELLES_OPTION_TRAJET: Record<OptionTrajet, string> = {
+  aller_simple: 'Aller simple',
+  retour_simple: 'Retour simple',
+  aller_retour: 'Aller-retour',
+}
+
 export interface BusTrajetDetail extends BusTrajet {
   affectations: {
     id: number
     statut: 'actif' | 'suspendu'
     tarif_mensuel: number | null
+    option_trajet: OptionTrajet
     eleve: { id: number; nom_complet: string; matricule: string | null }
     arret: { id: number; nom: string } | null
   }[]
@@ -60,6 +69,7 @@ export interface BusAffectation {
   id: number
   statut: 'actif' | 'suspendu'
   tarif_mensuel: number | null
+  option_trajet: OptionTrajet
   eleve: { id: number; nom_complet: string; matricule: string | null; classe: string | null }
   trajet: { id: number; nom: string }
   arret: { id: number; nom: string } | null
@@ -71,6 +81,7 @@ export interface BusAffectationPayload {
   arret_id?: number | null
   annee_scolaire_id?: number | null
   tarif_mensuel?: number | null
+  option_trajet?: OptionTrajet
 }
 
 // ---- Véhicules ---------------------------------------------------------
@@ -150,7 +161,12 @@ export async function affecterEleve(payload: BusAffectationPayload): Promise<Bus
 
 export async function modifierAffectation(
   id: number,
-  payload: { arret_id?: number | null; tarif_mensuel?: number | null; statut?: BusAffectation['statut'] },
+  payload: {
+    arret_id?: number | null
+    tarif_mensuel?: number | null
+    statut?: BusAffectation['statut']
+    option_trajet?: OptionTrajet
+  },
 ): Promise<BusAffectation> {
   const { data } = await http.put<ApiResponse<BusAffectation>>(`/bus/affectations/${id}`, payload)
   return data.data
@@ -158,4 +174,23 @@ export async function modifierAffectation(
 
 export async function retirerAffectation(id: number): Promise<void> {
   await http.delete(`/bus/affectations/${id}`)
+}
+
+// ---- Notifications ------------------------------------------------------
+
+export type TypeNotificationBus = 'retard' | 'incident' | 'changement_itineraire' | 'autre'
+
+export const LIBELLES_TYPE_NOTIFICATION: Record<TypeNotificationBus, string> = {
+  retard: 'Retard',
+  incident: 'Incident',
+  changement_itineraire: "Changement d'itinéraire",
+  autre: 'Autre',
+}
+
+export async function notifierParents(
+  trajetId: number,
+  payload: { type: TypeNotificationBus; detail: string },
+): Promise<{ envoyes: number }> {
+  const { data } = await http.post<ApiResponse<{ envoyes: number }>>(`/bus/trajets/${trajetId}/notifier`, payload)
+  return data.data
 }

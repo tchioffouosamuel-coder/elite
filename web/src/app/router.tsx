@@ -21,9 +21,11 @@ import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
 import { InfirmeriePage } from '@/features/infirmerie/pages/InfirmeriePage'
+import { VisiteInfirmerieFormPage } from '@/features/infirmerie/pages/VisiteInfirmerieFormPage'
 import { BusVehiculesPage } from '@/features/bus/pages/BusVehiculesPage'
 import { BusTrajetsPage } from '@/features/bus/pages/BusTrajetsPage'
 import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
+import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
 import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisciplinairesPage'
@@ -84,9 +86,12 @@ export const router = createBrowserRouter([
       { path: 'matieres/:id/edit', element: <ProtectedRoute permission="pedagogie.manage" masquerPourTitulaire><MatiereFormPage /></ProtectedRoute> },
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },
       { path: 'infirmerie', element: <ProtectedRoute permission="infirmerie.view"><InfirmeriePage /></ProtectedRoute> },
+      { path: 'infirmerie/nouvelle', element: <ProtectedRoute permission="infirmerie.manage"><VisiteInfirmerieFormPage /></ProtectedRoute> },
+      { path: 'infirmerie/:id/edit', element: <ProtectedRoute permission="infirmerie.manage"><VisiteInfirmerieFormPage /></ProtectedRoute> },
       { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view"><BusVehiculesPage /></ProtectedRoute> },
       { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view"><BusTrajetsPage /></ProtectedRoute> },
       { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
+      { path: 'bus/affectations', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },

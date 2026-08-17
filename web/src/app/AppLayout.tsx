@@ -146,6 +146,7 @@ const navGroups = [
     items: [
       { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true },
       { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true },
+      { to: '/bus/affectations', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true },
     ],
   },
   {

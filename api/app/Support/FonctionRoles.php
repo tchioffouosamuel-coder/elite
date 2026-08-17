@@ -35,6 +35,7 @@ class FonctionRoles
         'infirmier' => null,
         'gardien' => null,
         'agent d entretien' => null,
+        'chauffeur' => null,
     ];
 
     public static function role(?string $labelFr): ?string

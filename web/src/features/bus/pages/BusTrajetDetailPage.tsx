@@ -3,17 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { ArrowLeft, Clock, MapPin, Pencil, Plus, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, Bell, Clock, MapPin, Pencil, Plus, Trash2, UserPlus } from 'lucide-react'
 import {
   affecterEleve,
   ajouterArret,
   fetchTrajet,
   modifierArret,
+  notifierParents,
   retirerAffectation,
   supprimerArret,
   type BusArret,
   type BusArretPayload,
   type BusTrajetDetail,
+  type OptionTrajet,
+  type TypeNotificationBus,
 } from '@/features/bus/api'
 import { fetchEleves, type Eleve } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -37,6 +40,7 @@ export function BusTrajetDetailPage() {
   const [showArretForm, setShowArretForm] = useState(false)
   const [arretEnEdition, setArretEnEdition] = useState<BusArret | null>(null)
   const [showAffectationForm, setShowAffectationForm] = useState(false)
+  const [showNotifyForm, setShowNotifyForm] = useState(false)
 
   const { data: trajet, isLoading } = useQuery({
     queryKey: ['bus-trajet', trajetId],
@@ -63,6 +67,15 @@ export function BusTrajetDetailPage() {
         <PageHeader
           titre={trajet.nom}
           sousTitre={trajet.vehicule ? `${t('bus.vehicule')} : ${trajet.vehicule.immatriculation}` : t('bus.no_vehicule')}
+          actions={
+            can('bus.manage') &&
+            trajet.affectations.length > 0 && (
+              <Button variant="secondary" onClick={() => setShowNotifyForm(true)}>
+                <Bell className="h-4 w-4" />
+                {t('bus.notify_parents')}
+              </Button>
+            )
+          }
         />
       </div>
 
@@ -162,6 +175,7 @@ export function BusTrajetDetailPage() {
                 <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-400">
                   <th className="py-2">{t('bus.eleve')}</th>
                   <th className="py-2">{t('bus.arret_select')}</th>
+                  <th className="py-2">{t('bus.option_trajet')}</th>
                   <th className="py-2">{t('bus.tarif_mensuel')}</th>
                   <th className="py-2">{t('bus.statut')}</th>
                   {can('bus.manage') && <th className="py-2 text-right">{t('common.actions')}</th>}
@@ -181,6 +195,7 @@ export function BusTrajetDetailPage() {
                         '—'
                       )}
                     </td>
+                    <td className="py-2.5 text-navy-600">{t(`bus.${a.option_trajet}`)}</td>
                     <td className="py-2.5 tabular-nums text-navy-600">
                       {a.tarif_mensuel ? `${a.tarif_mensuel.toLocaleString('fr-FR')} FCFA` : '—'}
                     </td>
@@ -238,7 +253,62 @@ export function BusTrajetDetailPage() {
           }}
         />
       )}
+
+      {showNotifyForm && <NotifyFormModal trajetId={trajetId} onClose={() => setShowNotifyForm(false)} />}
     </div>
+  )
+}
+
+function NotifyFormModal({ trajetId, onClose }: { trajetId: number; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting, errors },
+  } = useForm<{ type: TypeNotificationBus; detail: string }>({ defaultValues: { type: 'retard' } })
+
+  const onSubmit = async (values: { type: TypeNotificationBus; detail: string }) => {
+    setServerError(null)
+    try {
+      const { envoyes } = await notifierParents(trajetId, values)
+      succes(t('bus.notify_sent', { count: envoyes }))
+      onClose()
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    }
+  }
+
+  return (
+    <Modal title={t('bus.notify_title')} onClose={onClose}>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Select label={t('bus.notify_type')} {...register('type', { required: true })}>
+          <option value="retard">{t('bus.notify_type_retard')}</option>
+          <option value="incident">{t('bus.notify_type_incident')}</option>
+          <option value="changement_itineraire">{t('bus.notify_type_changement_itineraire')}</option>
+          <option value="autre">{t('bus.notify_type_autre')}</option>
+        </Select>
+
+        <Input
+          label={t('bus.notify_detail')}
+          placeholder={t('bus.notify_detail_placeholder') as string}
+          error={errors.detail?.message}
+          {...register('detail', { required: t('bus.field_required') as string, maxLength: 300 })}
+        />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {t('bus.notify_send')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -338,9 +408,16 @@ function AffectationFormModal({
     register,
     handleSubmit,
     formState: { isSubmitting, errors },
-  } = useForm<{ eleve_id: number; arret_id?: number; tarif_mensuel?: number }>()
+  } = useForm<{ eleve_id: number; arret_id?: number; tarif_mensuel?: number; option_trajet: OptionTrajet }>({
+    defaultValues: { option_trajet: 'aller_retour' },
+  })
 
-  const onSubmit = async (values: { eleve_id: number; arret_id?: number; tarif_mensuel?: number }) => {
+  const onSubmit = async (values: {
+    eleve_id: number
+    arret_id?: number
+    tarif_mensuel?: number
+    option_trajet: OptionTrajet
+  }) => {
     setServerError(null)
     try {
       await affecterEleve({
@@ -348,6 +425,7 @@ function AffectationFormModal({
         trajet_id: trajet.id,
         arret_id: values.arret_id ? Number(values.arret_id) : null,
         tarif_mensuel: values.tarif_mensuel ? Number(values.tarif_mensuel) : null,
+        option_trajet: values.option_trajet,
       })
       succes(t('bus.affectation_created'))
       onSaved()
@@ -383,6 +461,12 @@ function AffectationFormModal({
               {arret.nom}
             </option>
           ))}
+        </Select>
+
+        <Select label={t('bus.option_trajet')} {...register('option_trajet', { required: true })}>
+          <option value="aller_retour">{t('bus.aller_retour')}</option>
+          <option value="aller_simple">{t('bus.aller_simple')}</option>
+          <option value="retour_simple">{t('bus.retour_simple')}</option>
         </Select>
 
         <Input label={t('bus.tarif_mensuel')} type="number" min={0} {...register('tarif_mensuel')} />

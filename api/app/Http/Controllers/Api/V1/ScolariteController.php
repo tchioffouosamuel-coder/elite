@@ -10,6 +10,7 @@ use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\Versement;
 use App\Services\ScolariteService;
+use App\Services\Sms\SmsService;
 use App\Support\Pdf\RecuVersementGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ScolariteController extends Controller
 {
-    public function __construct(private readonly ScolariteService $service) {}
+    public function __construct(
+        private readonly ScolariteService $service,
+        private readonly SmsService $sms,
+    ) {}
 
     /** Situation de recouvrement, et liste des insolvables via `?statut=impaye|partiel`. */
     public function situation(Request $request): JsonResponse
@@ -72,10 +76,37 @@ class ScolariteController extends Controller
             return ApiResponse::error($e->getMessage(), 422);
         }
 
+        $this->confirmerParSms($dossier->fresh(['eleve.tuteurs']), $versement);
+
         return ApiResponse::created(
             ['versement_id' => $versement->id, 'numero_recu' => $versement->numero_recu],
             "Encaissement enregistré — reçu {$versement->numero_recu}.",
         );
+    }
+
+    /**
+     * Confirmation SMS au tuteur principal de l'élève — un échec d'envoi ne
+     * remet jamais en cause l'encaissement, déjà enregistré.
+     */
+    private function confirmerParSms(DossierScolarite $dossier, Versement $versement): void
+    {
+        $tuteur = $dossier->eleve->tuteurs->firstWhere('pivot.is_principal', true)
+            ?? $dossier->eleve->tuteurs->first();
+
+        if (! $tuteur?->telephone) {
+            return;
+        }
+
+        $reste = $dossier->fresh()?->reste_a_payer ?? 0;
+        $message = "Paiement de {$this->francs($versement->montant)} reçu pour {$dossier->eleve->nom_complet} (reçu {$versement->numero_recu}). "
+            .($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
+
+        $this->sms->envoyer($tuteur->telephone, $message);
+    }
+
+    private function francs(int $montant): string
+    {
+        return number_format($montant, 0, ',', ' ').' F';
     }
 
     public function annuler(Request $request, int $versementId): JsonResponse

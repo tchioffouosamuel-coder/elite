@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { ListChecks } from 'lucide-react'
-import { fetchClasses } from '@/features/classes/api'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { ArrowLeft, ListChecks } from 'lucide-react'
+import { fetchClasses, type Classe } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
 import { fetchMesAffectations } from '@/features/progression/api'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { useAuthStore } from '@/shared/store/authStore'
+import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -21,9 +22,18 @@ function couleurTaux(taux: number): string {
   return 'bg-red-500'
 }
 
+interface LigneClasse {
+  id: number
+  nom: string
+  nbMatieres: number | null
+  responsable: string | null
+  taux: number | null
+}
+
 export function RemplissagePage() {
   const { t } = useTranslation()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
+  const secondaire = estSecondaire()
   const [classeId, setClasseId] = useState<number | ''>('')
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [matiereSelectionnee, setMatiereSelectionnee] = useState<number | null>(null)
@@ -43,27 +53,105 @@ export function RemplissagePage() {
     () => [...new Map((mesAffectations ?? []).map((a) => [a.classe_id, { id: a.classe_id, nom: a.classe }])).values()],
     [mesAffectations],
   )
-  const classes = estEnseignant ? classesEnseignant : (toutesLesClasses ?? [])
+  const classes: (Classe | { id: number; nom: string })[] = estEnseignant ? classesEnseignant : (toutesLesClasses ?? [])
 
-  // Un seul rattachement : rien à choisir, la classe est déjà connue — le
-  // select n'aurait qu'une option et n'apporterait rien.
+  // Un seul rattachement : rien à choisir, la classe est déjà connue — la
+  // liste n'aurait qu'une ligne et n'apporterait rien, on ouvre directement le détail.
   useEffect(() => {
     if (estEnseignant && classeId === '' && classesEnseignant.length === 1) {
       setClasseId(classesEnseignant[0].id)
     }
   }, [estEnseignant, classesEnseignant, classeId])
 
-  const masquerSelectClasse = estEnseignant && classesEnseignant.length === 1
   const classeActive = classeId ? Number(classeId) : null
-  const classeActiveNom = classes.find((c) => c.id === classeActive)?.nom
+  const trimestreActif = trimestreId ? Number(trimestreId) : undefined
 
   const { data, isLoading } = useQuery({
     queryKey: ['remplissage', classeActive, trimestreId],
-    queryFn: () => fetchRemplissage(classeActive!, trimestreId ? Number(trimestreId) : undefined),
+    queryFn: () => fetchRemplissage(classeActive!, trimestreActif),
     enabled: classeActive !== null,
   })
 
-  const colonnes: Colonne<Remplissage['matieres'][number]>[] = [
+  // Vue liste : un aperçu du remplissage de chaque classe, une requête par
+  // classe (même clé de cache que la vue détail — pas de double appel en
+  // rouvrant une classe déjà vue).
+  const remplissageParClasse = useQueries({
+    queries: classes.map((c) => ({
+      queryKey: ['remplissage', c.id, trimestreId],
+      queryFn: () => fetchRemplissage(c.id, trimestreActif),
+      enabled: classeActive === null,
+    })),
+  })
+
+  const lignesClasses: LigneClasse[] = useMemo(
+    () =>
+      classes.map((c, i) => {
+        const matieres = remplissageParClasse[i]?.data?.matieres
+        const taux = matieres && matieres.length > 0 ? matieres.reduce((s, m) => s + m.taux, 0) / matieres.length : null
+        const responsable = !estEnseignant
+          ? secondaire
+            ? ((c as Classe).professeur_principal?.nom_complet ?? null)
+            : ((c as Classe).titulaire?.nom_complet ?? null)
+          : null
+
+        return { id: c.id, nom: c.nom, nbMatieres: matieres ? matieres.length : null, responsable, taux }
+      }),
+    [classes, remplissageParClasse, estEnseignant, secondaire],
+  )
+
+  const colonnesClasses: Colonne<LigneClasse>[] = [
+    {
+      cle: 'nom',
+      entete: 'Classe',
+      valeur: (l) => l.nom,
+      cellule: (l) => <span className="font-semibold text-navy-900">{l.nom}</span>,
+    },
+    {
+      cle: 'nbMatieres',
+      entete: 'Matières',
+      valeur: (l) => l.nbMatieres,
+      cellule: (l) => <span className="tabular-nums">{l.nbMatieres ?? '—'}</span>,
+    },
+    ...(!estEnseignant
+      ? [
+          {
+            cle: 'responsable',
+            entete: secondaire ? 'Professeur principal' : 'Enseignant',
+            valeur: (l: LigneClasse) => l.responsable,
+            cellule: (l: LigneClasse) => l.responsable ?? '—',
+          } satisfies Colonne<LigneClasse>,
+        ]
+      : []),
+    {
+      cle: 'taux',
+      entete: 'Remplissage',
+      valeur: (l) => l.taux,
+      cellule: (l) =>
+        l.taux === null ? (
+          <span className="text-navy-300">…</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-28 flex-none overflow-hidden rounded-full bg-navy-100">
+              <div className={`h-full rounded-full ${couleurTaux(l.taux)}`} style={{ width: `${Math.min(l.taux, 100)}%` }} />
+            </div>
+            <span className="text-xs font-semibold text-navy-700">{l.taux.toFixed(1)} %</span>
+          </div>
+        ),
+    },
+    {
+      cle: 'actions',
+      entete: t('common.actions'),
+      cellule: (l) => (
+        <Button size="sm" variant="secondary" onClick={() => setClasseId(l.id)}>
+          Détail
+        </Button>
+      ),
+      className: 'text-right',
+      largeur: '110px',
+    },
+  ]
+
+  const colonnesMatieres: Colonne<Remplissage['matieres'][number]>[] = [
     {
       cle: 'matiere',
       entete: 'Matière',
@@ -115,6 +203,8 @@ export function RemplissagePage() {
     )
   }
 
+  const classeActiveNom = classes.find((c) => c.id === classeActive)?.nom
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
@@ -125,25 +215,14 @@ export function RemplissagePage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        {masquerSelectClasse ? (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Classe</span>
-            <span className="text-sm font-semibold text-navy-800">{classeActiveNom}</span>
-          </div>
-        ) : (
-          <Select
-            label="Classe"
-            value={classeId}
-            onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-            className="max-w-xs"
+        {classeActive !== null && (
+          <button
+            onClick={() => setClasseId('')}
+            className="mb-0.5 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-800"
           >
-            <option value="">Sélectionner une classe…</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </Select>
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux classes
+          </button>
         )}
 
         <Select
@@ -165,10 +244,15 @@ export function RemplissagePage() {
         <Card>
           <EmptyState label="Aucune matière ne vous est affectée pour le moment." />
         </Card>
-      ) : !classeActive ? (
-        <Card>
-          <EmptyState label="Choisissez une classe pour suivre la saisie des notes." />
-        </Card>
+      ) : classeActive === null ? (
+        <DataTable
+          colonnes={colonnesClasses}
+          lignes={lignesClasses}
+          cleLigne={(l) => l.id}
+          placeholderRecherche="Rechercher une classe…"
+          messageVide="Aucune classe disponible."
+          onLigneClick={(l) => setClasseId(l.id)}
+        />
       ) : isLoading ? (
         <Spinner />
       ) : !data?.matieres.length ? (
@@ -176,14 +260,17 @@ export function RemplissagePage() {
           <EmptyState label="Aucune matière affectée à cette classe." />
         </Card>
       ) : (
-        <DataTable
-          colonnes={colonnes}
-          lignes={data.matieres}
-          cleLigne={(ligne) => ligne.classe_matiere_id}
-          placeholderRecherche="Rechercher une matière…"
-          messageVide="Aucune matière affectée à cette classe."
-          onLigneClick={(ligne) => setMatiereSelectionnee(ligne.classe_matiere_id)}
-        />
+        <>
+          <h2 className="-mt-2 text-sm font-semibold text-navy-600">{classeActiveNom}</h2>
+          <DataTable
+            colonnes={colonnesMatieres}
+            lignes={data.matieres}
+            cleLigne={(ligne) => ligne.classe_matiere_id}
+            placeholderRecherche="Rechercher une matière…"
+            messageVide="Aucune matière affectée à cette classe."
+            onLigneClick={(ligne) => setMatiereSelectionnee(ligne.classe_matiere_id)}
+          />
+        </>
       )}
     </div>
   )
