@@ -10,7 +10,7 @@
 # dans le même conteneur, sous supervisord, plutôt que d'exiger un second
 # service Render (Cron Job) rien que pour ça.
 
-# ---------------------------------------------------------------------------
+# -----# ---------------------------------------------------------------------------
 # Étape 1 — dépendances PHP (composer), dans une image jetable
 # ---------------------------------------------------------------------------
 FROM composer:2 AS vendor
@@ -19,17 +19,16 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-# Suppression de --ignore-platform-reqs afin que Composer vérifie la compatibilité
 RUN composer install \
     --no-dev \
     --no-interaction \
     --no-scripts \
-    --no-autoloader
+    --no-autoloader \
+    --ignore-platform-reqs
 
 COPY . .
 
 RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
-
 # ---------------------------------------------------------------------------
 # Étape 2 — image d'exécution (Mise à jour vers PHP 8.4)
 # ---------------------------------------------------------------------------
