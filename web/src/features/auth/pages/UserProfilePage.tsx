@@ -1,11 +1,18 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
-import { Building2, IdCard, KeyRound, Settings, ShieldCheck, UserCircle } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { Building2, IdCard, KeyRound, Pencil, Settings, ShieldCheck, UserCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/shared/ui/Badge'
 import { Card } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { useAuthStore } from '@/shared/store/authStore'
+import { Input } from '@/shared/ui/Field'
+import { Button } from '@/shared/ui/Button'
+import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
+import { changerMotDePasse, updateProfil } from '@/features/auth/api'
+import { succes } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 
 const TYPE_TONE: Record<string, 'blue' | 'green' | 'gold'> = {
   maternelle: 'gold',
@@ -115,7 +122,162 @@ export function UserProfilePage() {
           </div>
         </Card>
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ModifierProfilCard user={user} />
+        <ChangerMotDePasseCard />
+      </div>
     </div>
+  )
+}
+
+interface ProfilFormValues {
+  name: string
+  email: string
+  phone: string
+}
+
+function ModifierProfilCard({ user }: { user: AuthUser }) {
+  const { t } = useTranslation()
+  const refreshUser = useAuthStore((s) => s.refreshUser)
+  const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ProfilFormValues>({
+    defaultValues: { name: user.name, email: user.email, phone: user.phone ?? '' },
+  })
+
+  const onSubmit = async (values: ProfilFormValues) => {
+    setServerError(null)
+    setSubmitting(true)
+    try {
+      refreshUser(await updateProfil({ ...values, phone: values.phone || null }))
+      succes(t('profile.updated'))
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Pencil className="h-4 w-4 text-navy-400" />
+        <h2 className="font-display text-base font-bold tracking-tight text-navy-900">{t('profile.edit_title')}</h2>
+      </div>
+      <p className="-mt-2 text-sm text-navy-500">{t('profile.edit_hint')}</p>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Input
+          label={t('profile.name')}
+          error={errors.name?.message}
+          {...register('name', { required: true })}
+        />
+        <Input
+          label={t('profile.email')}
+          type="email"
+          error={errors.email?.message}
+          {...register('email', { required: true })}
+        />
+        <Input label={t('profile.phone')} placeholder={t('profile.phone_placeholder')} {...register('phone')} />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <Button type="submit" disabled={submitting} className="self-start">
+          {submitting ? t('common.saving') : t('profile.save_changes')}
+        </Button>
+      </form>
+    </Card>
+  )
+}
+
+function ChangerMotDePasseCard() {
+  const { t } = useTranslation()
+  const refreshUser = useAuthStore((s) => s.refreshUser)
+  const [submitting, setSubmitting] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    setError,
+    formState: { errors },
+  } = useForm<{ ancien_mot_de_passe: string; nouveau_mot_de_passe: string; nouveau_mot_de_passe_confirmation: string }>()
+
+  const onSubmit = handleSubmit(async (values) => {
+    setServerError(null)
+    setSubmitting(true)
+    try {
+      refreshUser(await changerMotDePasse(values))
+      succes(t('auth.password_updated'))
+      reset()
+    } catch (err) {
+      const e = err as ApiError
+      const champs = e.errors ?? {}
+      const connus = ['ancien_mot_de_passe', 'nouveau_mot_de_passe'] as const
+      const place = connus.filter((champ) => champs[champ]?.length)
+
+      place.forEach((champ) => setError(champ, { message: champs[champ]![0] }))
+      if (place.length === 0) setServerError(e.message)
+    } finally {
+      setSubmitting(false)
+    }
+  })
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <KeyRound className="h-4 w-4 text-navy-400" />
+        <h2 className="font-display text-base font-bold tracking-tight text-navy-900">{t('profile.password_title')}</h2>
+      </div>
+      <p className="-mt-2 text-sm text-navy-500">{t('profile.password_hint')}</p>
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <Input
+          label={t('auth.label_mot_de_passe_actuel')}
+          type="password"
+          autoComplete="current-password"
+          error={errors.ancien_mot_de_passe?.message}
+          {...register('ancien_mot_de_passe', { required: t('auth.error_mot_de_passe_actuel_requis') })}
+        />
+        <Input
+          label={t('auth.label_nouveau_mot_de_passe')}
+          type="password"
+          autoComplete="new-password"
+          error={errors.nouveau_mot_de_passe?.message}
+          {...register('nouveau_mot_de_passe', {
+            required: t('auth.error_nouveau_mot_de_passe_requis'),
+            minLength: { value: 8, message: t('auth.error_min_length') },
+            validate: {
+              lettresEtChiffres: (v) => (/[a-zA-Z]/.test(v) && /\d/.test(v)) || t('auth.error_lettres_chiffres'),
+              different: (v, champs) => v !== champs.ancien_mot_de_passe || t('auth.error_mot_de_passe_different'),
+            },
+          })}
+        />
+        <Input
+          label={t('auth.label_confirmer_mot_de_passe')}
+          type="password"
+          autoComplete="new-password"
+          error={errors.nouveau_mot_de_passe_confirmation?.message}
+          {...register('nouveau_mot_de_passe_confirmation', {
+            validate: (v) => v === watch('nouveau_mot_de_passe') || t('auth.error_confirmation_mismatch'),
+          })}
+        />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <Button type="submit" disabled={submitting} className="self-start">
+          {submitting ? t('common.saving') : t('profile.save_changes')}
+        </Button>
+      </form>
+    </Card>
   )
 }
 

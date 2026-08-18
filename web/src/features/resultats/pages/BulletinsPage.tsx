@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, FileDown } from 'lucide-react'
+import { FileText, FileDown, Gavel } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
-import { ouvrirBulletinsClasse } from '@/features/resultats/api'
+import { ouvrirBulletinsClasse, ouvrirPvConseilClasse } from '@/features/resultats/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -18,18 +18,29 @@ import { estSecondaire } from '@/shared/lib/ecole'
  */
 export function BulletinsPage() {
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
-  const [enCours, setEnCours] = useState<number | null>(null)
+  const [enCours, setEnCours] = useState<{ classeId: number; type: 'bulletins' | 'pv' } | null>(null)
   // Le primaire et la maternelle n'ont pas de professeur principal : la classe
-  // est tenue par son enseignant titulaire.
+  // est tenue par son enseignant titulaire. Le conseil de classe (PV), lui,
+  // repose sur le calcul de moyennes par séquence propre au secondaire — pas
+  // d'équivalent primaire à ce jour.
   const secondaire = estSecondaire()
 
   const { data: classes, isLoading } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
   const editer = async (classeId: number) => {
-    setEnCours(classeId)
+    setEnCours({ classeId, type: 'bulletins' })
     try {
       await ouvrirBulletinsClasse(classeId, trimestreId ? Number(trimestreId) : undefined)
+    } finally {
+      setEnCours(null)
+    }
+  }
+
+  const editerPv = async (classeId: number) => {
+    setEnCours({ classeId, type: 'pv' })
+    try {
+      await ouvrirPvConseilClasse(classeId, trimestreId ? Number(trimestreId) : undefined)
     } finally {
       setEnCours(null)
     }
@@ -81,10 +92,28 @@ export function BulletinsPage() {
                 <Td>{classe.effectif ?? '—'}</Td>
                 <Td>{(secondaire ? classe.professeur_principal : classe.titulaire)?.nom_complet ?? '—'}</Td>
                 <Td>
-                  <Button size="sm" variant="secondary" onClick={() => editer(classe.id)} disabled={enCours === classe.id}>
-                    <FileDown className="h-4 w-4" />
-                    {enCours === classe.id ? 'Génération…' : 'Éditer les bulletins'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => editer(classe.id)}
+                      disabled={enCours?.classeId === classe.id}
+                    >
+                      <FileDown className="h-4 w-4" />
+                      {enCours?.classeId === classe.id && enCours.type === 'bulletins' ? 'Génération…' : 'Éditer les bulletins'}
+                    </Button>
+                    {secondaire && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => editerPv(classe.id)}
+                        disabled={enCours?.classeId === classe.id}
+                      >
+                        <Gavel className="h-4 w-4" />
+                        {enCours?.classeId === classe.id && enCours.type === 'pv' ? 'Génération…' : 'PV du conseil'}
+                      </Button>
+                    )}
+                  </div>
                 </Td>
               </Tr>
             ))}

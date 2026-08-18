@@ -718,7 +718,17 @@
       "maternelle": "Nursery",
       "primaire": "Primary",
       "secondaire": "Secondary"
-    }
+    },
+    "edit_title": "Edit my profile",
+    "edit_hint": "Name, email and phone number linked to this account.",
+    "name": "Full name",
+    "email": "Email",
+    "phone": "Phone",
+    "phone_placeholder": "E.g.: 6XX XXX XXX",
+    "save_changes": "Save",
+    "updated": "Profile updated.",
+    "password_title": "Change my password",
+    "password_hint": "Your other sessions will be closed after the change."
   },
   "session": {
     "title": "School year",

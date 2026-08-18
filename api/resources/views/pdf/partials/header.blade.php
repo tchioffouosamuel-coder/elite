@@ -20,7 +20,16 @@
         </td>
         <td class="logo-cell">
             @if($logoAbsolute)
-                <img src="{{ $logoAbsolute }}">
+                {{--
+                    mPDF ne fiabilise pas toujours un sélecteur composé à
+                    plusieurs niveaux (`table.header-table .logo-cell img`) :
+                    sans contrainte portée directement par l'élément, un logo
+                    uploadé à sa résolution native (souvent bien au-delà de
+                    100px) s'affiche à sa taille réelle et écrase toute la
+                    page. Le style inline garantit la largeur quel que soit
+                    le moteur de rendu (mPDF ici, dompdf pour palmarès).
+                --}}
+                <img src="{{ $logoAbsolute }}" style="width:100px;height:auto;max-height:100px;">
             @else
                 <div class="monogram">{{ $monogram }}</div>
             @endif

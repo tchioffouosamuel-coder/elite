@@ -31,6 +31,14 @@ class AuthService extends BaseService
         $user->currentAccessToken()->delete();
     }
 
+    /** Identité du compte (nom, e-mail, téléphone) — distincte de la fiche personnel, gérée séparément par un administrateur. */
+    public function mettreAJourProfil(User $user, array $data): User
+    {
+        $user->update($data);
+
+        return $user->fresh();
+    }
+
     /**
      * Renouvellement du mot de passe par l'intéressé.
      *

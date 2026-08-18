@@ -727,7 +727,17 @@
       "maternelle": "Maternelle",
       "primaire": "Primaire",
       "secondaire": "Secondaire"
-    }
+    },
+    "edit_title": "Modifier mon profil",
+    "edit_hint": "Nom, e-mail et téléphone associés à ce compte.",
+    "name": "Nom complet",
+    "email": "E-mail",
+    "phone": "Téléphone",
+    "phone_placeholder": "Ex. : 6XX XXX XXX",
+    "save_changes": "Enregistrer",
+    "updated": "Profil mis à jour.",
+    "password_title": "Changer mon mot de passe",
+    "password_hint": "Vos autres sessions seront fermées après le changement."
   },
   "session": {
     "title": "Année scolaire",

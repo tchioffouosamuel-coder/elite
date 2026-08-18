@@ -70,6 +70,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('auth/mot-de-passe', [AuthController::class, 'changerMotDePasse'])->name('auth.mot-de-passe');
+        Route::put('auth/profil', [AuthController::class, 'updateProfil'])->name('auth.profil');
 
         // Référentiel global, non scopé par établissement.
         Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index')->middleware('permission:niveaux.view');
@@ -332,6 +333,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('palmares/pdf', [ResultatController::class, 'palmaresPdf'])->name('resultats.palmares.pdf');
                 Route::get('eleves/{eleveId}/bulletin', [BulletinController::class, 'show'])->name('eleves.bulletin');
                 Route::get('classes/{classeId}/bulletins', [BulletinController::class, 'classe'])->name('classes.bulletins');
+                Route::get('classes/{classeId}/pv-conseil/pdf', [ResultatController::class, 'pvConseilPdf'])->name('resultats.pv-conseil.pdf');
 
                 // Statistiques globales de l'établissement (équivalent des pages
                 // generate_*_stats_batch_advanced.php de _smapp).

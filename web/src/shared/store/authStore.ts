@@ -14,6 +14,7 @@ export interface AuthUser {
   id: number
   name: string
   email: string
+  phone?: string | null
   school_id: number | null
   niveau_id: number | null
   roles: string[]

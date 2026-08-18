@@ -34,3 +34,14 @@ export async function changerMotDePasse(payload: {
   const { data } = await http.post<ApiResponse<AuthUser>>('/auth/mot-de-passe', payload)
   return data.data
 }
+
+export interface ProfilPayload {
+  name: string
+  email: string
+  phone?: string | null
+}
+
+export async function updateProfil(payload: ProfilPayload): Promise<AuthUser> {
+  const { data } = await http.put<ApiResponse<AuthUser>>('/auth/profil', payload)
+  return data.data
+}

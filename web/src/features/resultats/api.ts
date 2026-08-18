@@ -109,6 +109,19 @@ export async function ouvrirBulletinsClasse(
   return ouvrirPdf(endpoint(classeId, "bulletins"), trimestreId);
 }
 
+/**
+ * PV du conseil de classe : moyenne, rang et mentions de chaque élève, prêt à
+ * compléter en séance. Repose sur `BulletinService::donneesClasse()`
+ * (séquences, classe_matieres…), propre au secondaire — pas d'équivalent
+ * `-primaire` comme pour les bulletins.
+ */
+export async function ouvrirPvConseilClasse(
+  classeId: number,
+  trimestreId?: number,
+): Promise<void> {
+  return ouvrirPdf(`/classes/${classeId}/pv-conseil/pdf`, trimestreId);
+}
+
 export interface VerificationBulletin {
   eleve: { nom_complet: string; matricule: string | null };
   classe: string;

@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ChangerMotDePasseRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\UpdateProfilRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
@@ -49,6 +50,13 @@ class AuthController extends Controller
             'user' => new UserResource($result['user']),
             'token' => $result['token'],
         ], 'Jeton renouvelé.');
+    }
+
+    public function updateProfil(UpdateProfilRequest $request): JsonResponse
+    {
+        $user = $this->authService->mettreAJourProfil($request->user(), $request->validated());
+
+        return ApiResponse::success(new UserResource($user), 'Profil mis à jour.');
     }
 
     public function changerMotDePasse(ChangerMotDePasseRequest $request): JsonResponse
