@@ -1,5 +1,7 @@
 // `hide Column` : Drift et Flutter exposent chacun un `Column`, et c'est
 // évidemment celui de Flutter qu'un fichier d'interface veut.
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,8 +32,45 @@ class AccueilPage extends ConsumerStatefulWidget {
   ConsumerState<AccueilPage> createState() => _AccueilPageState();
 }
 
-class _AccueilPageState extends ConsumerState<AccueilPage> {
+class _AccueilPageState extends ConsumerState<AccueilPage> with WidgetsBindingObserver {
   int _onglet = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    /*
+     * Synchronisation à l'ouverture. Sans elle, un utilisateur déjà connecté
+     * — le cas de tous les jours — ouvrait l'app sur des données figées : la
+     * synchro ne partait qu'à la connexion, au retour du réseau ou à la
+     * demande, trois évènements qui ne se produisent pas en ouvrant l'app le
+     * matin. C'est ce qui donnait une app vide sans le moindre message
+     * d'erreur.
+     *
+     * Après le premier rendu : la liste s'affiche tout de suite avec ce que
+     * la base locale contient déjà, et se met à jour quand le delta arrive.
+     */
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(syncServiceProvider.notifier).synchroniser());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Retour au premier plan : l'app a pu rester ouverte des heures en poche,
+  /// pendant lesquelles l'administration a inscrit des élèves ou modifié
+  /// l'emploi du temps.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState etat) {
+    if (etat == AppLifecycleState.resumed) {
+      unawaited(ref.read(syncServiceProvider.notifier).synchroniser());
+    }
+  }
 
   // Cinq destinations au maximum : au-delà, les libellés se tronquent et les
   // cibles tactiles deviennent trop étroites (cf. conception).
@@ -213,6 +252,48 @@ class _MaJournee extends ConsumerWidget {
   }
 }
 
+/// État vide d'une liste alimentée par la synchronisation.
+///
+/// « Aucun élève synchronisé » sans plus d'explication laissait l'utilisateur
+/// devant un cul-de-sac, alors que la cause est presque toujours une synchro
+/// qui n'a pas encore tourné — et qu'un bouton suffit à réparer.
+class _VideNonSynchronise extends ConsumerWidget {
+  const _VideNonSynchronise({
+    required this.message,
+    required this.icone,
+    required this.ref,
+  });
+
+  final String message;
+  final IconData icone;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef _) {
+    final etat = ref.watch(syncServiceProvider);
+
+    return EtatVide(
+      message: message,
+      icone: icone,
+      indication: etat.enCours
+          ? 'Synchronisation en cours…'
+          : etat.panne ??
+              "Les données n'ont pas encore été téléchargées depuis le serveur.",
+      action: etat.enCours
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
+          : FilledButton.icon(
+              onPressed: () => ref.read(syncServiceProvider.notifier).synchroniser(),
+              icon: const Icon(Icons.sync),
+              label: const Text('Synchroniser maintenant'),
+            ),
+    );
+  }
+}
+
 class _ListeClasses extends ConsumerWidget {
   const _ListeClasses();
 
@@ -225,16 +306,21 @@ class _ListeClasses extends ConsumerWidget {
       builder: (context, snapshot) {
         final lignes = snapshot.data ?? const [];
         if (lignes.isEmpty) {
-          return const EtatVide(message: 'Aucune classe synchronisée.');
+          return _VideNonSynchronise(
+            message: 'Aucune classe',
+            icone: Icons.meeting_room_outlined,
+            ref: ref,
+          );
         }
 
-        return ListView.builder(
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           itemCount: lignes.length,
-          itemBuilder: (_, i) => ListTile(
-            leading: const Icon(Icons.meeting_room_outlined),
-            title: Text(lignes[i].nom),
-            subtitle: Text(lignes[i].filiere ?? '—'),
-            trailing: const Icon(Icons.chevron_right),
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => CarteListe(
+            icone: Icons.meeting_room_outlined,
+            titre: lignes[i].nom,
+            sousTitre: lignes[i].filiere,
             onTap: () => _ouvrirMatieres(context, ref, lignes[i]),
           ),
         );
@@ -305,19 +391,36 @@ class _ListeEleves extends ConsumerWidget {
       builder: (context, snapshot) {
         final lignes = snapshot.data ?? const [];
         if (lignes.isEmpty) {
-          return const EtatVide(message: 'Aucun élève synchronisé.');
+          return _VideNonSynchronise(
+            message: 'Aucun élève',
+            icone: Icons.person_outline,
+            ref: ref,
+          );
         }
 
-        return ListView.builder(
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           itemCount: lignes.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (_, i) {
             final e = lignes[i];
-            return ListTile(
+            return CarteListe(
               onTap: () => FicheEleveSheet.ouvrir(context, e),
-              leading: CircleAvatar(child: Text(_initiales(e.nomComplet))),
-              title: Text(e.nomComplet),
-              subtitle: Text(e.matricule ?? '—'),
-              trailing: PastilleSync(etat: e.etatSync),
+              avatar: CircleAvatar(
+                radius: 21,
+                backgroundColor: Couleurs.navy800,
+                child: Text(
+                  _initiales(e.nomComplet),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              titre: e.nomComplet,
+              sousTitre: e.matricule,
+              fin: PastilleSync(etat: e.etatSync),
             );
           },
         );

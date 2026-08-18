@@ -11,6 +11,13 @@ abstract final class Couleurs {
   static const gold100 = Color(0xFFF5E6C8);
   static const cream50 = Color(0xFFFAF6EC);
 
+  /// Fond d'écran général : un gris très légèrement bleuté, repris du parti
+  /// pris de _smapp. C'est lui qui fait ressortir les cartes blanches — sur un
+  /// fond blanc, une carte blanche disparaît et l'écran paraît plat.
+  static const fond = Color(0xFFF4F6FA);
+  static const separateur = Color(0xFFE5E7EB);
+  static const texteSecondaire = Color(0xFF6B7280);
+
   /// Couleurs d'état de synchronisation. Sémantiques, distinctes de l'accent
   /// de marque : « en attente » ne doit pas se confondre avec « doré ».
   static const enAttente = Color(0xFF9A6410);
@@ -39,20 +46,61 @@ ThemeData construireTheme(Brightness luminosite) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: schema,
-    scaffoldBackgroundColor: sombre ? const Color(0xFF0E1116) : Couleurs.cream50,
+    scaffoldBackgroundColor: sombre ? const Color(0xFF0E1116) : Couleurs.fond,
     appBarTheme: AppBarTheme(
       backgroundColor: sombre ? const Color(0xFF141A21) : Colors.white,
       foregroundColor: sombre ? Colors.white : Couleurs.navy900,
       elevation: 0,
       scrolledUnderElevation: 1,
       centerTitle: false,
+      titleTextStyle: TextStyle(
+        color: sombre ? Colors.white : Couleurs.navy900,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+      ),
     ),
+    // Ombre portée légère plutôt qu'un liseré : c'est elle qui détache la
+    // carte du fond et donne du relief à l'écran. Un contour seul restait
+    // plat, ce qui rendait les listes ternes.
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: sombre ? 0 : 1.5,
+      shadowColor: const Color(0x1A000000),
+      color: sombre ? null : Colors.white,
+      surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: schema.outlineVariant),
+        borderRadius: BorderRadius.circular(16),
+        side: sombre ? BorderSide(color: schema.outlineVariant) : BorderSide.none,
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: sombre ? null : Couleurs.separateur,
+      space: 1,
+      thickness: 1,
+    ),
+    // La barre de navigation reprend le fond des surfaces et marque la
+    // destination active à l'or de la marque.
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: sombre ? const Color(0xFF141A21) : Colors.white,
+      indicatorColor: Couleurs.gold100,
+      elevation: 3,
+      surfaceTintColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (etats) => TextStyle(
+          fontSize: 11.5,
+          fontWeight: etats.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+          color: etats.contains(WidgetState.selected)
+              ? (sombre ? Couleurs.gold500 : Couleurs.navy900)
+              : Couleurs.texteSecondaire,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (etats) => IconThemeData(
+          size: 23,
+          color: etats.contains(WidgetState.selected)
+              ? (sombre ? Couleurs.gold500 : Couleurs.navy900)
+              : Couleurs.texteSecondaire,
+        ),
       ),
     ),
     // Les feuilles portent l'essentiel de la navigation secondaire : elles

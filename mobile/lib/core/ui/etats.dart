@@ -8,27 +8,139 @@ import 'theme.dart';
 /// oublié : une donnée ancienne s'affiche normalement, avec sa date, jamais
 /// masquée derrière un écran d'erreur (cf. conception).
 class EtatVide extends StatelessWidget {
-  const EtatVide({super.key, required this.message, this.icone = Icons.inbox_outlined});
+  const EtatVide({
+    super.key,
+    required this.message,
+    this.icone = Icons.inbox_outlined,
+    this.indication,
+    this.action,
+  });
 
   final String message;
   final IconData icone;
 
+  /// Ce qu'il faut faire pour sortir de cet état. Un écran vide qui se
+  /// contente de constater le vide laisse l'utilisateur sans issue — surtout
+  /// ici, où « aucune donnée » signifie presque toujours « pas encore
+  /// synchronisé », ce qui se répare d'un geste.
+  final String? indication;
+  final Widget? action;
+
   @override
   Widget build(BuildContext context) {
+    final attenue = Theme.of(context).colorScheme.outline;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icone, size: 44, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 12),
+            Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: Couleurs.gold100.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icone, size: 38, color: Couleurs.gold500),
+            ),
+            const SizedBox(height: 18),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
+            if (indication != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                indication!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: attenue, fontSize: 13.5, height: 1.4),
+              ),
+            ],
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ligne de liste en carte, reprise du parti pris de _smapp : une carte
+/// blanche détachée du fond, plutôt qu'une ligne collée à ses voisines.
+/// L'écran respire et chaque élément se touche plus facilement.
+class CarteListe extends StatelessWidget {
+  const CarteListe({
+    super.key,
+    required this.titre,
+    this.sousTitre,
+    this.icone,
+    this.avatar,
+    this.fin,
+    this.onTap,
+  });
+
+  final String titre;
+  final String? sousTitre;
+  final IconData? icone;
+  final Widget? avatar;
+  final Widget? fin;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              if (avatar != null)
+                avatar!
+              else if (icone != null)
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Couleurs.gold100.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icone, size: 21, color: Couleurs.gold500),
+                ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titre,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    if (sousTitre != null && sousTitre!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        sousTitre!,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Couleurs.texteSecondaire,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (fin != null) fin!,
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 20, color: Couleurs.texteSecondaire),
+              ],
+            ],
+          ),
         ),
       ),
     );

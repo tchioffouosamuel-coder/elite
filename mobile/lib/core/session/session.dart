@@ -27,6 +27,29 @@ class Session {
   /// une règle d'accès s'exprime à l'identique des deux côtés.
   bool peut(String permission) => permissions.contains(permission);
 
+  bool get estSuperAdmin => utilisateur['is_super_admin'] == true;
+
+  /// Distingue un enseignant d'un censeur qui partage pourtant certains
+  /// privilèges — même critère que le web (`User::estEnseignant`).
+  bool get estEnseignant => utilisateur['est_enseignant'] == true;
+
+  /// Type de l'établissement courant, qui conditionne l'affichage de certains
+  /// modules (les sanctions n'existent qu'au secondaire, les niveaux qu'au
+  /// primaire). Retombe sur « secondaire » comme le web.
+  String get typeEcole {
+    final ecoles = utilisateur['ecoles_accessibles'] as List? ?? const [];
+    for (final ecole in ecoles) {
+      if (ecole is Map && ecole['id'] == schoolId) {
+        return (ecole['type'] as String?) ?? 'secondaire';
+      }
+    }
+    return 'secondaire';
+  }
+
+  /// Titulaire d'une seule classe : le web lui masque les listes générales
+  /// (toutes les classes, tous les élèves) au profit de « Ma classe ».
+  bool get estTitulaire => estEnseignant && typeEcole != 'secondaire';
+
   Map<String, dynamic> versJson() => {
         'jeton': jeton,
         'utilisateur': utilisateur,

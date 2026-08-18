@@ -2,7 +2,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Receipt, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Input, Select } from '@/shared/ui/Field'
@@ -11,8 +11,11 @@ import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses } from '@/features/classes/api'
 import { createEleve, updateEleve, fetchEleves, type ElevePayload } from '@/features/eleves/api'
+import { fetchTarifs, fetchDossier, encaisser, francs, MODES, type ModePaiement } from '@/features/finance/api'
+import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 import { succes } from '@/shared/lib/alertes'
+import { ouvrirDocument } from '@/shared/lib/download'
 
 function useLienParenteOptions() {
     const { t } = useTranslation()
@@ -52,6 +55,12 @@ interface EleveFormValues {
     deplace_interne?: 'Oui' | 'Non' | ''
     classe_id?: number
     tuteurs: TuteurFormData[]
+    // Étape facultative : ne déclenche un encaissement que si un montant est saisi.
+    paiement_montant?: number
+    paiement_mode?: ModePaiement
+    paiement_date?: string
+    paiement_reference?: string
+    paiement_note?: string
 }
 
 export function EleveInscriptionPage() {
@@ -74,6 +83,9 @@ export function EleveInscriptionPage() {
     const [currentStep, setCurrentStep] = useState(0)
     const [serverError, setServerError] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
+
+    // Valeurs par défaut de l'étape paiement facultative : espèces, aujourd'hui.
+    const paiementDefaults = { paiement_mode: 'especes' as ModePaiement, paiement_date: new Date().toISOString().slice(0, 10) }
 
     const {
         register,
@@ -101,8 +113,9 @@ export function EleveInscriptionPage() {
                     lien_parente: t.lien_parente ?? '',
                     is_principal: t.is_principal,
                 })),
+                ...paiementDefaults,
             }
-            : { tuteurs: [] },
+            : { tuteurs: [], ...paiementDefaults },
     })
 
     // `defaultValues` n'est lu qu'au montage, or l'élève arrive après la requête :
@@ -126,15 +139,34 @@ export function EleveInscriptionPage() {
                 lien_parente: t.lien_parente ?? '',
                 is_principal: t.is_principal,
             })),
+            ...paiementDefaults,
         })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [eleve, reset])
 
     const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
     const tuteurs = watch('tuteurs')
+    const can = useAuthStore((s) => s.can)
+
+    // Un tarif existe déjà pour la classe choisie : proposer l'encaissement
+    // immédiat plutôt que de renvoyer l'utilisateur vers la caisse ensuite.
+    const classeIdSelectionnee = watch('classe_id') ? Number(watch('classe_id')) : undefined
+    const { data: tarifs } = useQuery({
+        queryKey: ['tarifs'],
+        queryFn: fetchTarifs,
+        enabled: can('finance.encaisser'),
+    })
+    const montantTarif = classeIdSelectionnee
+        ? (tarifs?.classes.find((c) => c.id === classeIdSelectionnee)?.montant ?? tarifs?.tarif_par_defaut ?? null)
+        : null
+    const etapePaiementDisponible = can('finance.encaisser') && montantTarif != null && montantTarif > 0
 
     const steps = [
         { id: 'identite', label: t('eleves.inscription.step_identite_label'), description: t('eleves.inscription.step_identite_description') },
         { id: 'scolarite', label: t('eleves.inscription.step_scolarite_label'), description: t('eleves.inscription.step_scolarite_description') },
+        ...(etapePaiementDisponible
+            ? [{ id: 'paiement', label: t('eleves.inscription.step_paiement_label'), description: t('eleves.inscription.step_paiement_description') }]
+            : []),
         { id: 'tuteurs', label: t('eleves.inscription.step_tuteurs_label'), description: t('eleves.inscription.step_tuteurs_description') },
         { id: 'confirmation', label: t('eleves.inscription.step_confirmation_label'), description: t('eleves.inscription.step_confirmation_description') },
     ]
@@ -169,13 +201,25 @@ export function EleveInscriptionPage() {
                 tuteurs,
             }
 
-            if (eleve) {
-                await updateEleve(eleve.id, payload)
+            const cible = eleve ? await updateEleve(eleve.id, payload) : await createEleve(payload)
+
+            const montantPaiement = Number(values.paiement_montant) || 0
+            if (etapePaiementDisponible && montantPaiement > 0) {
+                const dossier = await fetchDossier(cible.id)
+                const { numero_recu, versement_id } = await encaisser(dossier.id, {
+                    montant: montantPaiement,
+                    mode: values.paiement_mode || 'especes',
+                    date_versement: values.paiement_date || undefined,
+                    reference_externe: values.paiement_reference || undefined,
+                    note: values.paiement_note || undefined,
+                })
+                ouvrirDocument(`/versements/${versement_id}/recu`)
+                succes(t('finance.receipt_recorded', { numero: numero_recu }))
             } else {
-                await createEleve(payload)
+                succes(eleve ? t('common.updated_successfully') : t('common.created_successfully'))
             }
+
             queryClient.invalidateQueries({ queryKey: ['eleves'] })
-            succes(eleve ? t('common.updated_successfully') : t('common.created_successfully'))
             navigate('/eleves')
         } catch (err) {
             setServerError((err as ApiError).message)
@@ -211,7 +255,7 @@ export function EleveInscriptionPage() {
                             showSteps={true}
                         >
                             {/* Étape 1: Identité */}
-                            {currentStep === 0 && (
+                            {steps[currentStep]?.id === 'identite' && (
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.identite_title')}</h3>
                                     <Input
@@ -279,7 +323,7 @@ export function EleveInscriptionPage() {
                             )}
 
                             {/* Étape 2: Scolarité */}
-                            {currentStep === 1 && (
+                            {steps[currentStep]?.id === 'scolarite' && (
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.scolarite_title')}</h3>
                                     <Select
@@ -300,8 +344,56 @@ export function EleveInscriptionPage() {
                                 </div>
                             )}
 
+                            {/* Étape facultative : Paiement — n'apparaît que si un tarif existe déjà pour la classe choisie */}
+                            {steps[currentStep]?.id === 'paiement' && (
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.paiement_title')}</h3>
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                            {t('eleves.inscription.paiement_hint', { montant: francs(montantTarif ?? 0) })}
+                                        </p>
+                                    </div>
+                                    <Input
+                                        label={t('eleves.inscription.paiement_montant_label')}
+                                        type="number"
+                                        min={0}
+                                        placeholder={t('eleves.inscription.paiement_montant_placeholder')}
+                                        error={errors.paiement_montant?.message}
+                                        {...register('paiement_montant')}
+                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <Select label={t('eleves.inscription.paiement_mode_label')} {...register('paiement_mode')}>
+                                            {MODES.map((m) => (
+                                                <option key={m.valeur} value={m.valeur}>
+                                                    {m.libelle}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                        <Input
+                                            label={t('eleves.inscription.paiement_date_label')}
+                                            type="date"
+                                            {...register('paiement_date')}
+                                        />
+                                    </div>
+                                    <Input
+                                        label={t('eleves.inscription.paiement_reference_label')}
+                                        placeholder={t('eleves.inscription.paiement_facultatif')}
+                                        {...register('paiement_reference')}
+                                    />
+                                    <Input
+                                        label={t('eleves.inscription.paiement_note_label')}
+                                        placeholder={t('eleves.inscription.paiement_facultatif')}
+                                        {...register('paiement_note')}
+                                    />
+                                    <p className="flex items-start gap-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
+                                        <Receipt className="mt-0.5 h-3.5 w-3.5 flex-none" />
+                                        {t('eleves.inscription.paiement_recu_hint')}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Étape 3: Tuteurs/Parents */}
-                            {currentStep === 2 && (
+                            {steps[currentStep]?.id === 'tuteurs' && (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-lg font-semibold text-navy-900">{t('eleves.inscription.tuteurs_title')}</h3>
@@ -405,7 +497,7 @@ export function EleveInscriptionPage() {
                             )}
 
                             {/* Étape 4: Confirmation */}
-                            {currentStep === 3 && (
+                            {steps[currentStep]?.id === 'confirmation' && (
                                 <div className="space-y-6">
                                     <h3 className="text-lg font-semibold text-navy-900">{t('eleves.inscription.confirmation_title')}</h3>
 
@@ -467,6 +559,16 @@ export function EleveInscriptionPage() {
                                                             : '—'}
                                                     </span>
                                                 </div>
+                                                {etapePaiementDisponible && (
+                                                    <div>
+                                                        <span className="text-navy-400">{t('eleves.inscription.champ_paiement')}: </span>
+                                                        <span className="font-medium text-navy-900">
+                                                            {Number(watch('paiement_montant')) > 0
+                                                                ? francs(Number(watch('paiement_montant')))
+                                                                : t('eleves.inscription.paiement_aucun')}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </Card>
                                     </div>
