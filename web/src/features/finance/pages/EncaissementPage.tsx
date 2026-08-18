@@ -11,7 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
-import { encaisser, fetchDossier, francs, MODES, type LigneVentilation, type ModePaiement, type RubriqueScolarite } from '@/features/finance/api'
+import { encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
 
 interface FormValues {
@@ -20,17 +20,6 @@ interface FormValues {
   date_versement: string
   reference_externe: string
   note: string
-}
-
-/** Reproduit côté client l'ordre de ventilation automatique du serveur (report → scolarité → frais annexes → bus), pour préremplir la répartition. */
-function ventilerAutomatiquement(rubriques: RubriqueScolarite[], montant: number): number[] {
-  let restant = montant
-  return rubriques.map((r) => {
-    if (restant <= 0) return 0
-    const part = Math.min(restant, r.reste)
-    restant -= part
-    return part
-  })
 }
 
 /**

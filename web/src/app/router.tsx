@@ -40,6 +40,7 @@ import { StatsDisciplinairesPage } from '@/features/statistiques/pages/StatsDisc
 import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
 import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
 import { VerificationBulletinPage } from '@/features/resultats/pages/VerificationBulletinPage'
+import { VerificationVersementPage } from '@/features/finance/pages/VerificationVersementPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
@@ -74,6 +75,11 @@ export const router = createBrowserRouter([
   {
     path: '/verification-bulletin/:eleveId/:trimestreId/:signature',
     element: <VerificationBulletinPage />,
+  },
+  // Ouverte en scannant le QR code d'un reçu de versement : même principe.
+  {
+    path: '/verification-versement/:versementId/:signature',
+    element: <VerificationVersementPage />,
   },
   {
     path: '/',

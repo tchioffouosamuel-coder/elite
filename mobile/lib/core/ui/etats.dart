@@ -30,7 +30,11 @@ class EtatVide extends StatelessWidget {
   Widget build(BuildContext context) {
     final attenue = Theme.of(context).colorScheme.outline;
 
-    return Center(
+    // Défilable : ces états s'affichent aussi dans des espaces contraints — la
+    // feuille de synchronisation, par exemple, où un long message d'erreur
+    // au-dessus ne laisse que quelques dizaines de pixels. Sans ça, Flutter
+    // barre l'écran d'un avertissement de débordement.
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
@@ -155,7 +159,11 @@ class EtatErreur extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    // Défilable : ces états s'affichent aussi dans des espaces contraints — la
+    // feuille de synchronisation, par exemple, où un long message d'erreur
+    // au-dessus ne laisse que quelques dizaines de pixels. Sans ça, Flutter
+    // barre l'écran d'un avertissement de débordement.
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(

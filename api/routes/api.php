@@ -16,8 +16,8 @@ use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
-use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DepenseController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EvaluationController;
@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
+use App\Http\Controllers\Api\V1\VerificationVersementController;
 use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +64,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // sans authentification, un tiers externe scanne depuis son téléphone.
     Route::get('verification-bulletin/{eleveId}/{trimestreId}/{signature}', [VerificationBulletinController::class, 'show'])
         ->name('verification-bulletin.show');
+
+    // Vérification publique d'authenticité d'un reçu de versement (QR code) :
+    // même principe que ci-dessus, appliqué au reçu de paiement.
+    Route::get('verification-versement/{versementId}/{signature}', [VerificationVersementController::class, 'show'])
+        ->name('verification-versement.show');
 
     // `mot_de_passe` barre tout l'espace authentifié tant que le mot de passe
     // provisoire n'a pas été remplacé, à l'exception des routes qui permettent

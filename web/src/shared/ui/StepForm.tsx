@@ -82,9 +82,9 @@ export function StepForm({
                   {index < currentStep ? <Check className="h-4 w-4" /> : index + 1}
                 </span>
                 <span className="hidden min-w-0 lg:block">
-                  <span className="block truncate text-sm font-semibold text-navy-900">{step.label}</span>
+                  <span className="block text-sm font-semibold leading-tight text-navy-900">{step.label}</span>
                   {step.description && (
-                    <span className="block truncate text-xs text-navy-400">{step.description}</span>
+                    <span className="hidden truncate text-xs text-navy-400 xl:block">{step.description}</span>
                   )}
                 </span>
               </button>

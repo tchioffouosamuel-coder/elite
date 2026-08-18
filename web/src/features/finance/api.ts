@@ -93,6 +93,17 @@ export interface LigneVentilation {
   montant: number
 }
 
+/** Reproduit côté client l'ordre de ventilation automatique du serveur (report → scolarité → frais annexes → bus), pour préremplir la répartition. */
+export function ventilerAutomatiquement(rubriques: RubriqueScolarite[], montant: number): number[] {
+  let restant = montant
+  return rubriques.map((r) => {
+    if (restant <= 0) return 0
+    const part = Math.min(restant, r.reste)
+    restant -= part
+    return part
+  })
+}
+
 export async function encaisser(
   dossierId: number,
   payload: {
@@ -113,6 +124,23 @@ export async function encaisser(
 
 export async function annulerVersement(versementId: number, motif: string): Promise<void> {
   await http.post(`/versements/${versementId}/annuler`, { motif })
+}
+
+export interface VerificationVersement {
+  numero_recu: string
+  eleve: { nom_complet: string; matricule: string | null }
+  classe: string | null
+  ecole: string
+  montant: number
+  date_versement: string
+  mode: ModePaiement
+  annule: boolean
+}
+
+/** Page publique de vérification (QR code du reçu) : aucune authentification requise. */
+export async function fetchVerificationVersement(versementId: number, signature: string): Promise<VerificationVersement> {
+  const { data } = await http.get<ApiResponse<VerificationVersement>>(`/verification-versement/${versementId}/${signature}`)
+  return data.data
 }
 
 // ---------------------------------------------------------------- Dépenses

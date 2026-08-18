@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/session/session.dart';
 import 'core/ui/theme.dart';
-import 'features/accueil/accueil_page.dart';
+import 'features/accueil/coquille.dart';
 import 'features/auth/connexion_page.dart';
 
 Future<void> main() async {
@@ -34,8 +34,10 @@ class ElitesApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Elites',
       debugShowCheckedModeBanner: false,
-      theme: construireTheme(Brightness.light),
-      darkTheme: construireTheme(Brightness.dark),
+      // Un seul thème, clair : le rendu sombre donnait des aplats noirs sans
+      // relief, très loin de la référence SMAPP dont s'inspire la charte.
+      theme: construireTheme(),
+      themeMode: ThemeMode.light,
       locale: const Locale('fr'),
       supportedLocales: const [Locale('fr'), Locale('en')],
       localizationsDelegates: const [
@@ -43,7 +45,7 @@ class ElitesApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: session == null ? const ConnexionPage() : const AccueilPage(),
+      home: session == null ? const ConnexionPage() : const Coquille(),
     );
   }
 }

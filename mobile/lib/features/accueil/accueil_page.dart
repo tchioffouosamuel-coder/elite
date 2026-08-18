@@ -90,7 +90,7 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with WidgetsBindingOb
     return Scaffold(
       appBar: AppBar(
         title: Text(_destinations[_onglet].libelle),
-        actions: const [_IndicateurSync()],
+        actions: const [IndicateurSync()],
       ),
       body: large
           ? Row(
@@ -142,18 +142,18 @@ class _AccueilPageState extends ConsumerState<AccueilPage> with WidgetsBindingOb
   }
 
   Widget _corps() => switch (_onglet) {
-        1 => const _ListeClasses(),
-        2 => const _ListeEleves(),
+        1 => const ListeClassesVue(),
+        2 => const ListeElevesVue(),
         3 => const AnnoncesPage(),
         4 => const _Plus(),
-        _ => const _MaJournee(),
+        _ => const MaJourneeVue(),
       };
 }
 
 /// Badge de synchronisation, toujours visible : l'utilisateur doit pouvoir
 /// savoir d'un coup d'œil si ce qu'il a saisi est parti.
-class _IndicateurSync extends ConsumerWidget {
-  const _IndicateurSync();
+class IndicateurSync extends ConsumerWidget {
+  const IndicateurSync({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -190,8 +190,8 @@ class _IndicateurSync extends ConsumerWidget {
 
 /// Écran d'accueil de l'enseignant : ses séances du jour, lues depuis la base
 /// locale — donc disponibles sans réseau.
-class _MaJournee extends ConsumerWidget {
-  const _MaJournee();
+class MaJourneeVue extends ConsumerWidget {
+  const MaJourneeVue({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -257,8 +257,9 @@ class _MaJournee extends ConsumerWidget {
 /// « Aucun élève synchronisé » sans plus d'explication laissait l'utilisateur
 /// devant un cul-de-sac, alors que la cause est presque toujours une synchro
 /// qui n'a pas encore tourné — et qu'un bouton suffit à réparer.
-class _VideNonSynchronise extends ConsumerWidget {
-  const _VideNonSynchronise({
+class VideNonSynchronise extends ConsumerWidget {
+  const VideNonSynchronise({
+    super.key,
     required this.message,
     required this.icone,
     required this.ref,
@@ -294,8 +295,8 @@ class _VideNonSynchronise extends ConsumerWidget {
   }
 }
 
-class _ListeClasses extends ConsumerWidget {
-  const _ListeClasses();
+class ListeClassesVue extends ConsumerWidget {
+  const ListeClassesVue({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -306,7 +307,7 @@ class _ListeClasses extends ConsumerWidget {
       builder: (context, snapshot) {
         final lignes = snapshot.data ?? const [];
         if (lignes.isEmpty) {
-          return _VideNonSynchronise(
+          return VideNonSynchronise(
             message: 'Aucune classe',
             icone: Icons.meeting_room_outlined,
             ref: ref,
@@ -379,8 +380,8 @@ Future<void> _ouvrirMatieres(BuildContext context, WidgetRef ref, ClassesData cl
   );
 }
 
-class _ListeEleves extends ConsumerWidget {
-  const _ListeEleves();
+class ListeElevesVue extends ConsumerWidget {
+  const ListeElevesVue({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -391,7 +392,7 @@ class _ListeEleves extends ConsumerWidget {
       builder: (context, snapshot) {
         final lignes = snapshot.data ?? const [];
         if (lignes.isEmpty) {
-          return _VideNonSynchronise(
+          return VideNonSynchronise(
             message: 'Aucun élève',
             icone: Icons.person_outline,
             ref: ref,

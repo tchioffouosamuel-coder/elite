@@ -1,7 +1,7 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Plus, Receipt, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { StepForm } from '@/shared/ui/StepForm'
@@ -11,7 +11,17 @@ import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses } from '@/features/classes/api'
 import { createEleve, updateEleve, fetchEleves, type ElevePayload } from '@/features/eleves/api'
-import { fetchTarifs, fetchDossier, encaisser, francs, MODES, type ModePaiement } from '@/features/finance/api'
+import {
+    fetchTarifs,
+    fetchDossier,
+    encaisser,
+    francs,
+    ventilerAutomatiquement,
+    MODES,
+    type DossierScolarite,
+    type LigneVentilation,
+    type ModePaiement,
+} from '@/features/finance/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 import { succes } from '@/shared/lib/alertes'
@@ -92,6 +102,8 @@ export function EleveInscriptionPage() {
         control,
         handleSubmit,
         reset,
+        trigger,
+        getValues,
         formState: { errors },
         watch,
     } = useForm<EleveFormValues>({
@@ -161,6 +173,88 @@ export function EleveInscriptionPage() {
         : null
     const etapePaiementDisponible = can('finance.encaisser') && montantTarif != null && montantTarif > 0
 
+    // L'élève doit exister avant d'ouvrir son dossier de scolarité : dès qu'on
+    // avance vers l'étape paiement, il est enregistré immédiatement (cf.
+    // `handleNext`) — exactement comme la page d'encaissement, qui n'opère
+    // que sur un élève déjà persisté.
+    const [eleveIdCree, setEleveIdCree] = useState<number | undefined>(undefined)
+    const eleveIdActif = eleveIdCree ?? eleve?.id
+    const [dossier, setDossier] = useState<DossierScolarite | null>(null)
+    const [allocations, setAllocations] = useState<number[]>([])
+    const [allocationsModifiees, setAllocationsModifiees] = useState(false)
+
+    const rubriques = dossier?.rubriques ?? []
+    const montantPaiement = Number(watch('paiement_montant') || 0)
+    const resteApresPaiement = (dossier?.reste_a_payer ?? 0) - montantPaiement
+
+    // La répartition suggérée suit le montant saisi tant que l'utilisateur n'a
+    // pas encore touché aux champs — dès qu'il en modifie un, on ne l'écrase
+    // plus pour ne pas effacer son ajustement (même logique qu'EncaissementPage).
+    useEffect(() => {
+        if (allocationsModifiees || rubriques.length === 0) return
+        setAllocations(ventilerAutomatiquement(rubriques, montantPaiement))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [montantPaiement, rubriques.length])
+
+    const totalAlloue = useMemo(() => allocations.reduce((s, v) => s + (v || 0), 0), [allocations])
+    const ventilationValide = rubriques.length === 0 || montantPaiement === 0 || totalAlloue === montantPaiement
+
+    const construirePayload = (values: EleveFormValues): ElevePayload => {
+        const tuteursPayload = (values.tuteurs ?? []).map((tuteur) => {
+            const { lien_parente_autre, ...rest } = tuteur
+            let lien_parente = rest.lien_parente
+
+            if (lien_parente === 'autre' && lien_parente_autre) {
+                lien_parente = `autre: ${lien_parente_autre}`
+            }
+
+            return { ...rest, lien_parente }
+        })
+
+        return {
+            nom_complet: values.nom_complet,
+            sexe: values.sexe as 'M' | 'F',
+            date_naissance: values.date_naissance,
+            lieu_naissance: values.lieu_naissance,
+            adresse: values.adresse,
+            classe_id: values.classe_id ? Number(values.classe_id) : null,
+            tuteurs: tuteursPayload,
+        }
+    }
+
+    /**
+     * Garde de passage à l'étape suivante. Deux rôles : valider l'identité
+     * avant de quitter cette étape (l'élève va être enregistré juste après),
+     * et — en entrant dans l'étape paiement — enregistrer l'élève puis ouvrir
+     * son dossier de scolarité pour afficher de vrais totaux et une vraie
+     * répartition par rubrique, plutôt qu'un simple champ montant.
+     */
+    const handleNext = async (): Promise<boolean> => {
+        if (steps[currentStep]?.id === 'identite') {
+            const valide = await trigger(['nom_complet', 'sexe'])
+            if (!valide) return false
+        }
+
+        if (steps[currentStep + 1]?.id === 'paiement') {
+            setServerError(null)
+            setSubmitting(true)
+            try {
+                const payload = construirePayload(getValues())
+                const cible = eleveIdActif ? await updateEleve(eleveIdActif, payload) : await createEleve(payload)
+                setEleveIdCree(cible.id)
+                setDossier(await fetchDossier(cible.id))
+                setAllocationsModifiees(false)
+            } catch (err) {
+                setServerError((err as ApiError).message)
+                setSubmitting(false)
+                return false
+            }
+            setSubmitting(false)
+        }
+
+        return true
+    }
+
     const steps = [
         { id: 'identite', label: t('eleves.inscription.step_identite_label'), description: t('eleves.inscription.step_identite_description') },
         { id: 'scolarite', label: t('eleves.inscription.step_scolarite_label'), description: t('eleves.inscription.step_scolarite_description') },
@@ -173,45 +267,44 @@ export function EleveInscriptionPage() {
 
     const onSubmit = async (values: EleveFormValues) => {
         setServerError(null)
+
+        if (dossier && montantPaiement > 0 && !ventilationValide) {
+            setServerError(
+                t('eleves.inscription.paiement_repartition_erreur', { alloue: francs(totalAlloue), montant: francs(montantPaiement) }),
+            )
+            return
+        }
+
         setSubmitting(true)
         try {
-            // Traiter les tuteurs pour combiner lien_parente et lien_parente_autre
-            const tuteurs = (values.tuteurs ?? []).map((tuteur) => {
-                const { lien_parente_autre, ...rest } = tuteur
-                let lien_parente = rest.lien_parente
+            const payload = construirePayload(values)
 
-                if (lien_parente === 'autre' && lien_parente_autre) {
-                    // Formatter comme "autre: [précision]"
-                    lien_parente = `autre: ${lien_parente_autre}`
-                }
-
-                return {
-                    ...rest,
-                    lien_parente,
-                }
-            })
-
-            const payload: ElevePayload = {
-                nom_complet: values.nom_complet,
-                sexe: values.sexe as 'M' | 'F',
-                date_naissance: values.date_naissance,
-                lieu_naissance: values.lieu_naissance,
-                adresse: values.adresse,
-                classe_id: values.classe_id ? Number(values.classe_id) : null,
-                tuteurs,
+            if (eleveIdActif) {
+                await updateEleve(eleveIdActif, payload)
+            } else {
+                await createEleve(payload)
             }
 
-            const cible = eleve ? await updateEleve(eleve.id, payload) : await createEleve(payload)
+            if (dossier && montantPaiement > 0) {
+                const lignes: LigneVentilation[] | undefined =
+                    rubriques.length > 0
+                        ? rubriques
+                            .map((r, i) => ({
+                                affectation: r.cle,
+                                dossier_frais_annexe_id: r.dossier_frais_annexe_id,
+                                libelle: r.libelle,
+                                montant: allocations[i] || 0,
+                            }))
+                            .filter((l) => l.montant > 0)
+                        : undefined
 
-            const montantPaiement = Number(values.paiement_montant) || 0
-            if (etapePaiementDisponible && montantPaiement > 0) {
-                const dossier = await fetchDossier(cible.id)
                 const { numero_recu, versement_id } = await encaisser(dossier.id, {
                     montant: montantPaiement,
                     mode: values.paiement_mode || 'especes',
                     date_versement: values.paiement_date || undefined,
                     reference_externe: values.paiement_reference || undefined,
                     note: values.paiement_note || undefined,
+                    lignes,
                 })
                 ouvrirDocument(`/versements/${versement_id}/recu`)
                 succes(t('finance.receipt_recorded', { numero: numero_recu }))
@@ -252,6 +345,7 @@ export function EleveInscriptionPage() {
                             isSubmitting={submitting}
                             onSubmit={handleSubmit(onSubmit)}
                             onCancel={() => navigate('/eleves')}
+                            onNext={handleNext}
                             showSteps={true}
                         >
                             {/* Étape 1: Identité */}
@@ -344,15 +438,24 @@ export function EleveInscriptionPage() {
                                 </div>
                             )}
 
-                            {/* Étape facultative : Paiement — n'apparaît que si un tarif existe déjà pour la classe choisie */}
-                            {steps[currentStep]?.id === 'paiement' && (
+                            {/* Étape facultative : Paiement — n'apparaît que si un tarif existe déjà pour la classe choisie. Même formulaire que la caisse (EncaissementPage) : totaux réels, répartition par rubrique. */}
+                            {steps[currentStep]?.id === 'paiement' && dossier && (
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.paiement_title')}</h3>
-                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm text-blue-800">
-                                            {t('eleves.inscription.paiement_hint', { montant: francs(montantTarif ?? 0) })}
-                                        </p>
-                                    </div>
+
+                                    <dl className="grid grid-cols-3 gap-2 rounded-xl bg-cream-100 p-3 text-center">
+                                        {[
+                                            [t('eleves.inscription.paiement_total_du'), francs(dossier.total_du), 'text-navy-700'],
+                                            [t('eleves.inscription.paiement_deja_verse'), francs(dossier.total_paye), 'text-green-600'],
+                                            [t('eleves.inscription.paiement_reste'), francs(dossier.reste_a_payer), 'text-red-500'],
+                                        ].map(([libelle, valeur, couleur]) => (
+                                            <div key={libelle}>
+                                                <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
+                                                <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+
                                     <Input
                                         label={t('eleves.inscription.paiement_montant_label')}
                                         type="number"
@@ -361,6 +464,83 @@ export function EleveInscriptionPage() {
                                         error={errors.paiement_montant?.message}
                                         {...register('paiement_montant')}
                                     />
+
+                                    {montantPaiement > 0 && (
+                                        <p className="-mt-2 text-xs text-navy-500">
+                                            {resteApresPaiement > 0 ? (
+                                                <>{t('eleves.inscription.paiement_reste_apres')} <span className="font-semibold">{francs(resteApresPaiement)}</span></>
+                                            ) : resteApresPaiement === 0 ? (
+                                                <span className="font-semibold text-green-600">{t('eleves.inscription.paiement_solde')}</span>
+                                            ) : (
+                                                <span className="font-semibold text-blue-600">
+                                                    {t('eleves.inscription.paiement_avance', { montant: francs(-resteApresPaiement) })}
+                                                </span>
+                                            )}
+                                        </p>
+                                    )}
+
+                                    {rubriques.length > 0 && (
+                                        <div className="flex flex-col gap-2">
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                                                {t('eleves.inscription.paiement_repartition_titre')}
+                                            </span>
+
+                                            <div className="overflow-x-auto rounded-xl border border-navy-100">
+                                                <table className="w-full min-w-[440px] text-xs">
+                                                    <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                                                        <tr>
+                                                            <th className="px-2.5 py-2 text-left">{t('eleves.inscription.paiement_rubrique')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.paiement_paye')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.paiement_reste')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.paiement_montant_alloue')}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-navy-50">
+                                                        {rubriques.map((r, i) => (
+                                                            <tr key={`${r.cle}:${r.dossier_frais_annexe_id ?? ''}`}>
+                                                                <td className="px-2.5 py-1.5 font-medium text-navy-800">{r.libelle}</td>
+                                                                <td className="px-2.5 py-1.5 text-right tabular-nums text-green-600">{francs(r.montant_paye)}</td>
+                                                                <td className="px-2.5 py-1.5 text-right tabular-nums text-red-500">{francs(r.reste)}</td>
+                                                                <td className="px-2.5 py-1.5 text-right">
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={allocations[i] ?? 0}
+                                                                        onChange={(e) => {
+                                                                            setAllocationsModifiees(true)
+                                                                            setAllocations((a) => {
+                                                                                const suivant = [...a]
+                                                                                suivant[i] = Number(e.target.value) || 0
+                                                                                return suivant
+                                                                            })
+                                                                        }}
+                                                                        className="w-24 rounded-lg border border-navy-200 px-1.5 py-1 text-right text-xs tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr className="border-t border-navy-100 bg-cream-50/70 font-semibold">
+                                                            <td className="px-2.5 py-1.5 text-navy-700">{t('eleves.inscription.paiement_total_alloue')}</td>
+                                                            <td />
+                                                            <td />
+                                                            <td className={`px-2.5 py-1.5 text-right tabular-nums ${totalAlloue === montantPaiement ? 'text-green-600' : 'text-red-500'}`}>
+                                                                {francs(totalAlloue)}
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+
+                                            {totalAlloue !== montantPaiement && montantPaiement > 0 && (
+                                                <p className="text-xs font-semibold text-red-500">
+                                                    {t('eleves.inscription.paiement_repartition_erreur', { alloue: francs(totalAlloue), montant: francs(montantPaiement) })}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select label={t('eleves.inscription.paiement_mode_label')} {...register('paiement_mode')}>
                                             {MODES.map((m) => (
@@ -387,7 +567,7 @@ export function EleveInscriptionPage() {
                                     />
                                     <p className="flex items-start gap-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
                                         <Receipt className="mt-0.5 h-3.5 w-3.5 flex-none" />
-                                        {t('eleves.inscription.paiement_recu_hint')}
+                                        {montantPaiement > 0 ? t('eleves.inscription.paiement_recu_hint') : t('eleves.inscription.paiement_skip_hint')}
                                     </p>
                                 </div>
                             )}
