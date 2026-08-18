@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/api_client.dart';
 import '../../core/session/session.dart';
 import '../../core/sync/sync_service.dart';
+import '../../core/sync/tache_fond.dart';
 import '../../core/ui/theme.dart';
 
 class ConnexionPage extends ConsumerStatefulWidget {
@@ -21,9 +22,12 @@ class _ConnexionPageState extends ConsumerState<ConnexionPage> {
   final _formulaire = GlobalKey<FormState>();
   bool _envoi = false;
   String? _erreur;
+  String? _attente;
+  Timer? _minuteurReveil;
 
   @override
   void dispose() {
+    _minuteurReveil?.cancel();
     _email.dispose();
     _motDePasse.dispose();
     super.dispose();
@@ -35,6 +39,18 @@ class _ConnexionPageState extends ConsumerState<ConnexionPage> {
     setState(() {
       _envoi = true;
       _erreur = null;
+      _attente = null;
+    });
+
+    /*
+     * L'hébergement met le service en veille : le premier appel de la journée
+     * met une quarantaine de secondes. Un spinner muet aussi longtemps
+     * passerait pour un plantage — au bout de cinq secondes, on explique.
+     */
+    _minuteurReveil = Timer(const Duration(seconds: 5), () {
+      if (mounted && _envoi) {
+        setState(() => _attente = 'Réveil du serveur, cela peut prendre une minute…');
+      }
     });
 
     try {
@@ -59,10 +75,17 @@ class _ConnexionPageState extends ConsumerState<ConnexionPage> {
       // Première synchronisation lancée sans attendre : l'utilisateur entre
       // dans l'app pendant que les données descendent.
       unawaited(ref.read(syncServiceProvider.notifier).synchroniser());
+      unawaited(programmerSyncFond());
     } on ErreurApi catch (e) {
       setState(() => _erreur = e.message);
     } finally {
-      if (mounted) setState(() => _envoi = false);
+      _minuteurReveil?.cancel();
+      if (mounted) {
+        setState(() {
+          _envoi = false;
+          _attente = null;
+        });
+      }
     }
   }
 
@@ -120,6 +143,21 @@ class _ConnexionPageState extends ConsumerState<ConnexionPage> {
                     if (_erreur != null) ...[
                       const SizedBox(height: 14),
                       Text(_erreur!, style: const TextStyle(color: Couleurs.echec)),
+                    ],
+                    if (_attente != null) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Icon(Icons.hourglass_top, size: 16, color: Couleurs.enAttente),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _attente!,
+                              style: const TextStyle(color: Couleurs.enAttente, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                     const SizedBox(height: 22),
                     FilledButton(

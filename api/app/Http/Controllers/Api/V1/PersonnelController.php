@@ -13,7 +13,9 @@ use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
 use App\Models\School;
 use App\Services\AttestationEmployeurService;
+use App\Services\CompteAgentService;
 use App\Services\PersonnelService;
+use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Pdf\PersonnelFichierGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +26,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PersonnelController extends Controller
 {
-    public function __construct(private readonly PersonnelService $service) {}
+    public function __construct(
+        private readonly PersonnelService $service,
+        private readonly CompteAgentService $comptes,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -149,6 +154,25 @@ class PersonnelController extends Controller
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="fichier-personnel-'.Str::slug($school->name).'.pdf"',
+        ]);
+    }
+
+    /**
+     * Identifiants de connexion de tous les comptes actifs de l'établissement
+     * — le mot de passe n'y figure que pour les comptes qui portent encore
+     * celui distribué à l'ouverture de l'accès (cf. CompteAgentService::identifiants).
+     * Document confidentiel : à remettre en main propre plutôt qu'à archiver.
+     */
+    public function identifiants(): Response
+    {
+        $schoolId = app('tenant.school_id');
+        $school = School::findOrFail($schoolId);
+
+        $pdf = (new IdentifiantsGenerator)->build($this->comptes->identifiants($schoolId), $school);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="identifiants-'.Str::slug($school->name).'.pdf"',
         ]);
     }
 

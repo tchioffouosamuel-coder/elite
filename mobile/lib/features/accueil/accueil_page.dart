@@ -4,14 +4,18 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/session/session.dart';
 import '../../core/sync/sync_service.dart';
+import '../../core/sync/tache_fond.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/theme.dart';
+import '../annonces/annonces_page.dart';
 import '../appel/appel_page.dart';
 import '../eleves/fiche_eleve_sheet.dart';
 import '../notes/saisie_notes_page.dart';
+import '../qr/scan_qr_page.dart';
 import '../sync/centre_sync_sheet.dart';
 
 /// Coquille de navigation.
@@ -29,10 +33,13 @@ class AccueilPage extends ConsumerStatefulWidget {
 class _AccueilPageState extends ConsumerState<AccueilPage> {
   int _onglet = 0;
 
+  // Cinq destinations au maximum : au-delà, les libellés se tronquent et les
+  // cibles tactiles deviennent trop étroites (cf. conception).
   static const _destinations = [
     (icone: Icons.today_outlined, actif: Icons.today, libelle: 'Ma journée'),
     (icone: Icons.groups_outlined, actif: Icons.groups, libelle: 'Classes'),
     (icone: Icons.person_outline, actif: Icons.person, libelle: 'Élèves'),
+    (icone: Icons.notifications_none, actif: Icons.notifications, libelle: 'Actualités'),
     (icone: Icons.more_horiz, actif: Icons.more_horiz, libelle: 'Plus'),
   ];
 
@@ -67,6 +74,17 @@ class _AccueilPageState extends ConsumerState<AccueilPage> {
               ],
             )
           : corps,
+      // Le scan n'est pas une destination mais un geste ponctuel, fait debout
+      // en entrant en classe : un bouton flottant, pas un onglet.
+      floatingActionButton: _onglet == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ScanQrPage()),
+              ),
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scanner'),
+            )
+          : null,
       bottomNavigationBar: large
           ? null
           : NavigationBar(
@@ -87,7 +105,8 @@ class _AccueilPageState extends ConsumerState<AccueilPage> {
   Widget _corps() => switch (_onglet) {
         1 => const _ListeClasses(),
         2 => const _ListeEleves(),
-        3 => const _Plus(),
+        3 => const AnnoncesPage(),
+        4 => const _Plus(),
         _ => const _MaJournee(),
       };
 }
@@ -101,7 +120,10 @@ class _IndicateurSync extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final etat = ref.watch(syncServiceProvider);
 
+    // Une panne du moteur passe avant tout le reste : afficher « à jour »
+    // alors que rien n'a été écrit est le pire des états possibles.
     final (icone, couleur) = switch (etat) {
+      _ when etat.panne != null => (Icons.sync_problem, Couleurs.echec),
       _ when etat.echecs > 0 => (Icons.error_outline, Couleurs.echec),
       _ when etat.enAttente > 0 => (Icons.schedule, Couleurs.enAttente),
       _ when etat.horsLigne => (Icons.cloud_off_outlined, Couleurs.navy400),
@@ -336,7 +358,13 @@ class _Plus extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.logout, color: Couleurs.echec),
           title: const Text('Déconnexion', style: TextStyle(color: Couleurs.echec)),
-          onTap: () => ref.read(sessionProvider.notifier).fermer(),
+          onTap: () async {
+            // La tâche de fond est annulée AVANT de fermer la session : elle
+            // ne doit plus rien synchroniser au nom de l'utilisateur sortant,
+            // cas réel sur un téléphone partagé entre deux surveillants.
+            await annulerSyncFond();
+            await ref.read(sessionProvider.notifier).fermer();
+          },
         ),
       ],
     );

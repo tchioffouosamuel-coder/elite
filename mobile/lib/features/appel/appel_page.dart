@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/sync/sync_service.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/theme.dart';
+import '../seance/cloture_seance_sheet.dart';
 
 /// Motifs d'absence acceptés par l'API (`Presence::MOTIFS`).
 const _motifs = {
@@ -35,6 +36,13 @@ class AppelPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Appel'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.task_alt),
+            tooltip: 'Clôturer la séance',
+            onPressed: () => ClotureSeanceSheet.ouvrir(context, seance),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
           child: Padding(

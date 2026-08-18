@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -58,6 +59,25 @@ class User extends Authenticatable
     public function fonction(): ?FonctionReferentiel
     {
         return $this->personnel?->fonctionReference;
+    }
+
+    /**
+     * Libellé humain de « qui est ce compte » pour l'affichage (journal
+     * d'activité, listes d'identifiants…) : la fonction réelle (« Directeur »)
+     * prime sur le rôle technique, qui ne sert que de repli pour un compte
+     * sans fiche personnel (ex. super administrateur).
+     */
+    public function libelleRole(): ?string
+    {
+        $fonction = $this->fonction()?->label();
+
+        if ($fonction) {
+            return $fonction;
+        }
+
+        $role = $this->getRoleNames()->first();
+
+        return $role ? Str::of($role)->replace('_', ' ')->title()->toString() : null;
     }
 
     /**

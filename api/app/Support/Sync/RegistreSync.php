@@ -3,12 +3,14 @@
 namespace App\Support\Sync;
 
 use App\Models\AnneeScolaire;
+use App\Models\Annonce;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\Matiere;
 use App\Models\Niveau;
+use App\Models\NotificationInterne;
 use App\Models\Note;
 use App\Models\Personnel;
 use App\Models\Presence;
@@ -148,6 +150,24 @@ class RegistreSync
                 'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
                 'permission' => 'discipline.view',
             ],
+
+            // --- Communication.
+            'annonces' => [
+                'modele' => Annonce::class,
+                'colonnes' => ['id', 'school_id', 'titre', 'contenu', 'publie_par', 'publiee_le'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'annonces.view',
+            ],
+            'notifications_internes' => [
+                'modele' => NotificationInterne::class,
+                'colonnes' => ['id', 'school_id', 'user_id', 'type', 'titre', 'message', 'lien', 'lu', 'lu_le'],
+                // Filtré sur le destinataire en plus de l'école : une
+                // notification est nominative, personne n'a à répliquer celles
+                // des autres sur son téléphone.
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
+                    ->where('user_id', auth()->id()),
+                'permission' => null,
+            ],
         ];
     }
 
@@ -189,7 +209,8 @@ class RegistreSync
     {
         return match ($entite) {
             'annee_scolaires', 'niveaux', 'matieres', 'classes',
-            'emplois_du_temps', 'eleves', 'personnels', 'seances' => $m->school_id,
+            'emplois_du_temps', 'eleves', 'personnels', 'seances',
+            'annonces', 'notifications_internes' => $m->school_id,
 
             'trimestres' => $m->anneeScolaire?->school_id,
             'sequences' => $m->trimestre?->anneeScolaire?->school_id,

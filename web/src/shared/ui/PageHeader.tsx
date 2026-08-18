@@ -1,9 +1,11 @@
 import { type ComponentType, type ReactNode } from 'react'
 
 /**
- * En-tête de page : titre, sous-titre et zone d'actions. Les actions passent
- * sous le titre en dessous de `sm` — côte à côte elles écraseraient le titre
- * sur un écran de téléphone.
+ * En-tête de page : titre, sous-titre et zone d'actions. Le conteneur est
+ * lui-même `flex-wrap` : quand les actions (parfois 5 boutons ou plus) ne
+ * tiennent pas à côté du titre, elles passent entièrement sur leur propre
+ * ligne plutôt que de partager la largeur avec le titre — sinon `min-w-0`
+ * laisse le titre se faire écraser (troncature en "…") au profit des actions.
  */
 export function PageHeader({
   titre,
@@ -17,7 +19,7 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
         {Icon && (
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-linear-to-br from-gold-50 to-gold-100 shadow-soft ring-1 ring-gold-100">

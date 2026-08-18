@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Support\Str;
 
 /**
  * Journal des connexions et actions marquantes des utilisateurs — remplace la
@@ -63,7 +62,7 @@ class ActivityLog extends Model
             'school_id' => $user->school_id,
             'user_id' => $user->id,
             'causer_nom' => $user->name,
-            'causer_role' => self::libelleRole($user),
+            'causer_role' => $user->libelleRole(),
             'action' => $action,
             'description' => $description,
             'subject_type' => $subject?->getMorphClass(),
@@ -71,19 +70,5 @@ class ActivityLog extends Model
             'ip_address' => request()?->ip(),
             'created_at' => now(),
         ]);
-    }
-
-    /** La fonction réelle (ex. « Directeur ») prime sur le rôle technique quand le compte en porte une. */
-    private static function libelleRole(User $user): ?string
-    {
-        $fonction = $user->fonction()?->label();
-
-        if ($fonction) {
-            return $fonction;
-        }
-
-        $role = $user->getRoleNames()->first();
-
-        return $role ? Str::of($role)->replace('_', ' ')->title()->toString() : null;
     }
 }

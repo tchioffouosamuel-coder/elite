@@ -9649,6 +9649,1029 @@ class SanctionsCompanion extends UpdateCompanion<Sanction> {
   }
 }
 
+class $AnnoncesTable extends Annonces with TableInfo<$AnnoncesTable, Annonce> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AnnoncesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _etatSyncMeta = const VerificationMeta(
+    'etatSync',
+  );
+  @override
+  late final GeneratedColumn<String> etatSync = GeneratedColumn<String>(
+    'etat_sync',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synchro'),
+  );
+  static const VerificationMeta _schoolIdMeta = const VerificationMeta(
+    'schoolId',
+  );
+  @override
+  late final GeneratedColumn<int> schoolId = GeneratedColumn<int>(
+    'school_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titreMeta = const VerificationMeta('titre');
+  @override
+  late final GeneratedColumn<String> titre = GeneratedColumn<String>(
+    'titre',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contenuMeta = const VerificationMeta(
+    'contenu',
+  );
+  @override
+  late final GeneratedColumn<String> contenu = GeneratedColumn<String>(
+    'contenu',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _publieParMeta = const VerificationMeta(
+    'publiePar',
+  );
+  @override
+  late final GeneratedColumn<int> publiePar = GeneratedColumn<int>(
+    'publie_par',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _publieeLeMeta = const VerificationMeta(
+    'publieeLe',
+  );
+  @override
+  late final GeneratedColumn<String> publieeLe = GeneratedColumn<String>(
+    'publiee_le',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    etatSync,
+    schoolId,
+    titre,
+    contenu,
+    publiePar,
+    publieeLe,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'annonces';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Annonce> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('etat_sync')) {
+      context.handle(
+        _etatSyncMeta,
+        etatSync.isAcceptableOrUnknown(data['etat_sync']!, _etatSyncMeta),
+      );
+    }
+    if (data.containsKey('school_id')) {
+      context.handle(
+        _schoolIdMeta,
+        schoolId.isAcceptableOrUnknown(data['school_id']!, _schoolIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolIdMeta);
+    }
+    if (data.containsKey('titre')) {
+      context.handle(
+        _titreMeta,
+        titre.isAcceptableOrUnknown(data['titre']!, _titreMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titreMeta);
+    }
+    if (data.containsKey('contenu')) {
+      context.handle(
+        _contenuMeta,
+        contenu.isAcceptableOrUnknown(data['contenu']!, _contenuMeta),
+      );
+    }
+    if (data.containsKey('publie_par')) {
+      context.handle(
+        _publieParMeta,
+        publiePar.isAcceptableOrUnknown(data['publie_par']!, _publieParMeta),
+      );
+    }
+    if (data.containsKey('publiee_le')) {
+      context.handle(
+        _publieeLeMeta,
+        publieeLe.isAcceptableOrUnknown(data['publiee_le']!, _publieeLeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Annonce map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Annonce(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      etatSync: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}etat_sync'],
+      )!,
+      schoolId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}school_id'],
+      )!,
+      titre: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}titre'],
+      )!,
+      contenu: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contenu'],
+      ),
+      publiePar: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}publie_par'],
+      ),
+      publieeLe: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}publiee_le'],
+      ),
+    );
+  }
+
+  @override
+  $AnnoncesTable createAlias(String alias) {
+    return $AnnoncesTable(attachedDatabase, alias);
+  }
+}
+
+class Annonce extends DataClass implements Insertable<Annonce> {
+  final int id;
+
+  /// `synchro` | `enAttente` | `echoue`
+  final String etatSync;
+  final int schoolId;
+  final String titre;
+  final String? contenu;
+  final int? publiePar;
+  final String? publieeLe;
+  const Annonce({
+    required this.id,
+    required this.etatSync,
+    required this.schoolId,
+    required this.titre,
+    this.contenu,
+    this.publiePar,
+    this.publieeLe,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['etat_sync'] = Variable<String>(etatSync);
+    map['school_id'] = Variable<int>(schoolId);
+    map['titre'] = Variable<String>(titre);
+    if (!nullToAbsent || contenu != null) {
+      map['contenu'] = Variable<String>(contenu);
+    }
+    if (!nullToAbsent || publiePar != null) {
+      map['publie_par'] = Variable<int>(publiePar);
+    }
+    if (!nullToAbsent || publieeLe != null) {
+      map['publiee_le'] = Variable<String>(publieeLe);
+    }
+    return map;
+  }
+
+  AnnoncesCompanion toCompanion(bool nullToAbsent) {
+    return AnnoncesCompanion(
+      id: Value(id),
+      etatSync: Value(etatSync),
+      schoolId: Value(schoolId),
+      titre: Value(titre),
+      contenu: contenu == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contenu),
+      publiePar: publiePar == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publiePar),
+      publieeLe: publieeLe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publieeLe),
+    );
+  }
+
+  factory Annonce.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Annonce(
+      id: serializer.fromJson<int>(json['id']),
+      etatSync: serializer.fromJson<String>(json['etatSync']),
+      schoolId: serializer.fromJson<int>(json['schoolId']),
+      titre: serializer.fromJson<String>(json['titre']),
+      contenu: serializer.fromJson<String?>(json['contenu']),
+      publiePar: serializer.fromJson<int?>(json['publiePar']),
+      publieeLe: serializer.fromJson<String?>(json['publieeLe']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'etatSync': serializer.toJson<String>(etatSync),
+      'schoolId': serializer.toJson<int>(schoolId),
+      'titre': serializer.toJson<String>(titre),
+      'contenu': serializer.toJson<String?>(contenu),
+      'publiePar': serializer.toJson<int?>(publiePar),
+      'publieeLe': serializer.toJson<String?>(publieeLe),
+    };
+  }
+
+  Annonce copyWith({
+    int? id,
+    String? etatSync,
+    int? schoolId,
+    String? titre,
+    Value<String?> contenu = const Value.absent(),
+    Value<int?> publiePar = const Value.absent(),
+    Value<String?> publieeLe = const Value.absent(),
+  }) => Annonce(
+    id: id ?? this.id,
+    etatSync: etatSync ?? this.etatSync,
+    schoolId: schoolId ?? this.schoolId,
+    titre: titre ?? this.titre,
+    contenu: contenu.present ? contenu.value : this.contenu,
+    publiePar: publiePar.present ? publiePar.value : this.publiePar,
+    publieeLe: publieeLe.present ? publieeLe.value : this.publieeLe,
+  );
+  Annonce copyWithCompanion(AnnoncesCompanion data) {
+    return Annonce(
+      id: data.id.present ? data.id.value : this.id,
+      etatSync: data.etatSync.present ? data.etatSync.value : this.etatSync,
+      schoolId: data.schoolId.present ? data.schoolId.value : this.schoolId,
+      titre: data.titre.present ? data.titre.value : this.titre,
+      contenu: data.contenu.present ? data.contenu.value : this.contenu,
+      publiePar: data.publiePar.present ? data.publiePar.value : this.publiePar,
+      publieeLe: data.publieeLe.present ? data.publieeLe.value : this.publieeLe,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Annonce(')
+          ..write('id: $id, ')
+          ..write('etatSync: $etatSync, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('titre: $titre, ')
+          ..write('contenu: $contenu, ')
+          ..write('publiePar: $publiePar, ')
+          ..write('publieeLe: $publieeLe')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, etatSync, schoolId, titre, contenu, publiePar, publieeLe);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Annonce &&
+          other.id == this.id &&
+          other.etatSync == this.etatSync &&
+          other.schoolId == this.schoolId &&
+          other.titre == this.titre &&
+          other.contenu == this.contenu &&
+          other.publiePar == this.publiePar &&
+          other.publieeLe == this.publieeLe);
+}
+
+class AnnoncesCompanion extends UpdateCompanion<Annonce> {
+  final Value<int> id;
+  final Value<String> etatSync;
+  final Value<int> schoolId;
+  final Value<String> titre;
+  final Value<String?> contenu;
+  final Value<int?> publiePar;
+  final Value<String?> publieeLe;
+  const AnnoncesCompanion({
+    this.id = const Value.absent(),
+    this.etatSync = const Value.absent(),
+    this.schoolId = const Value.absent(),
+    this.titre = const Value.absent(),
+    this.contenu = const Value.absent(),
+    this.publiePar = const Value.absent(),
+    this.publieeLe = const Value.absent(),
+  });
+  AnnoncesCompanion.insert({
+    this.id = const Value.absent(),
+    this.etatSync = const Value.absent(),
+    required int schoolId,
+    required String titre,
+    this.contenu = const Value.absent(),
+    this.publiePar = const Value.absent(),
+    this.publieeLe = const Value.absent(),
+  }) : schoolId = Value(schoolId),
+       titre = Value(titre);
+  static Insertable<Annonce> custom({
+    Expression<int>? id,
+    Expression<String>? etatSync,
+    Expression<int>? schoolId,
+    Expression<String>? titre,
+    Expression<String>? contenu,
+    Expression<int>? publiePar,
+    Expression<String>? publieeLe,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (etatSync != null) 'etat_sync': etatSync,
+      if (schoolId != null) 'school_id': schoolId,
+      if (titre != null) 'titre': titre,
+      if (contenu != null) 'contenu': contenu,
+      if (publiePar != null) 'publie_par': publiePar,
+      if (publieeLe != null) 'publiee_le': publieeLe,
+    });
+  }
+
+  AnnoncesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? etatSync,
+    Value<int>? schoolId,
+    Value<String>? titre,
+    Value<String?>? contenu,
+    Value<int?>? publiePar,
+    Value<String?>? publieeLe,
+  }) {
+    return AnnoncesCompanion(
+      id: id ?? this.id,
+      etatSync: etatSync ?? this.etatSync,
+      schoolId: schoolId ?? this.schoolId,
+      titre: titre ?? this.titre,
+      contenu: contenu ?? this.contenu,
+      publiePar: publiePar ?? this.publiePar,
+      publieeLe: publieeLe ?? this.publieeLe,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (etatSync.present) {
+      map['etat_sync'] = Variable<String>(etatSync.value);
+    }
+    if (schoolId.present) {
+      map['school_id'] = Variable<int>(schoolId.value);
+    }
+    if (titre.present) {
+      map['titre'] = Variable<String>(titre.value);
+    }
+    if (contenu.present) {
+      map['contenu'] = Variable<String>(contenu.value);
+    }
+    if (publiePar.present) {
+      map['publie_par'] = Variable<int>(publiePar.value);
+    }
+    if (publieeLe.present) {
+      map['publiee_le'] = Variable<String>(publieeLe.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnnoncesCompanion(')
+          ..write('id: $id, ')
+          ..write('etatSync: $etatSync, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('titre: $titre, ')
+          ..write('contenu: $contenu, ')
+          ..write('publiePar: $publiePar, ')
+          ..write('publieeLe: $publieeLe')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NotificationsInternesTable extends NotificationsInternes
+    with TableInfo<$NotificationsInternesTable, NotificationsInterne> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotificationsInternesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _etatSyncMeta = const VerificationMeta(
+    'etatSync',
+  );
+  @override
+  late final GeneratedColumn<String> etatSync = GeneratedColumn<String>(
+    'etat_sync',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synchro'),
+  );
+  static const VerificationMeta _schoolIdMeta = const VerificationMeta(
+    'schoolId',
+  );
+  @override
+  late final GeneratedColumn<int> schoolId = GeneratedColumn<int>(
+    'school_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<int> userId = GeneratedColumn<int>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _titreMeta = const VerificationMeta('titre');
+  @override
+  late final GeneratedColumn<String> titre = GeneratedColumn<String>(
+    'titre',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageMeta = const VerificationMeta(
+    'message',
+  );
+  @override
+  late final GeneratedColumn<String> message = GeneratedColumn<String>(
+    'message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lienMeta = const VerificationMeta('lien');
+  @override
+  late final GeneratedColumn<String> lien = GeneratedColumn<String>(
+    'lien',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _luMeta = const VerificationMeta('lu');
+  @override
+  late final GeneratedColumn<bool> lu = GeneratedColumn<bool>(
+    'lu',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("lu" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _luLeMeta = const VerificationMeta('luLe');
+  @override
+  late final GeneratedColumn<String> luLe = GeneratedColumn<String>(
+    'lu_le',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    etatSync,
+    schoolId,
+    userId,
+    type,
+    titre,
+    message,
+    lien,
+    lu,
+    luLe,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notifications_internes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NotificationsInterne> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('etat_sync')) {
+      context.handle(
+        _etatSyncMeta,
+        etatSync.isAcceptableOrUnknown(data['etat_sync']!, _etatSyncMeta),
+      );
+    }
+    if (data.containsKey('school_id')) {
+      context.handle(
+        _schoolIdMeta,
+        schoolId.isAcceptableOrUnknown(data['school_id']!, _schoolIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    }
+    if (data.containsKey('titre')) {
+      context.handle(
+        _titreMeta,
+        titre.isAcceptableOrUnknown(data['titre']!, _titreMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titreMeta);
+    }
+    if (data.containsKey('message')) {
+      context.handle(
+        _messageMeta,
+        message.isAcceptableOrUnknown(data['message']!, _messageMeta),
+      );
+    }
+    if (data.containsKey('lien')) {
+      context.handle(
+        _lienMeta,
+        lien.isAcceptableOrUnknown(data['lien']!, _lienMeta),
+      );
+    }
+    if (data.containsKey('lu')) {
+      context.handle(_luMeta, lu.isAcceptableOrUnknown(data['lu']!, _luMeta));
+    }
+    if (data.containsKey('lu_le')) {
+      context.handle(
+        _luLeMeta,
+        luLe.isAcceptableOrUnknown(data['lu_le']!, _luLeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NotificationsInterne map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NotificationsInterne(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      etatSync: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}etat_sync'],
+      )!,
+      schoolId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}school_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}user_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      ),
+      titre: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}titre'],
+      )!,
+      message: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message'],
+      ),
+      lien: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lien'],
+      ),
+      lu: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}lu'],
+      )!,
+      luLe: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lu_le'],
+      ),
+    );
+  }
+
+  @override
+  $NotificationsInternesTable createAlias(String alias) {
+    return $NotificationsInternesTable(attachedDatabase, alias);
+  }
+}
+
+class NotificationsInterne extends DataClass
+    implements Insertable<NotificationsInterne> {
+  final int id;
+
+  /// `synchro` | `enAttente` | `echoue`
+  final String etatSync;
+  final int schoolId;
+  final int userId;
+  final String? type;
+  final String titre;
+  final String? message;
+  final String? lien;
+  final bool lu;
+  final String? luLe;
+  const NotificationsInterne({
+    required this.id,
+    required this.etatSync,
+    required this.schoolId,
+    required this.userId,
+    this.type,
+    required this.titre,
+    this.message,
+    this.lien,
+    required this.lu,
+    this.luLe,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['etat_sync'] = Variable<String>(etatSync);
+    map['school_id'] = Variable<int>(schoolId);
+    map['user_id'] = Variable<int>(userId);
+    if (!nullToAbsent || type != null) {
+      map['type'] = Variable<String>(type);
+    }
+    map['titre'] = Variable<String>(titre);
+    if (!nullToAbsent || message != null) {
+      map['message'] = Variable<String>(message);
+    }
+    if (!nullToAbsent || lien != null) {
+      map['lien'] = Variable<String>(lien);
+    }
+    map['lu'] = Variable<bool>(lu);
+    if (!nullToAbsent || luLe != null) {
+      map['lu_le'] = Variable<String>(luLe);
+    }
+    return map;
+  }
+
+  NotificationsInternesCompanion toCompanion(bool nullToAbsent) {
+    return NotificationsInternesCompanion(
+      id: Value(id),
+      etatSync: Value(etatSync),
+      schoolId: Value(schoolId),
+      userId: Value(userId),
+      type: type == null && nullToAbsent ? const Value.absent() : Value(type),
+      titre: Value(titre),
+      message: message == null && nullToAbsent
+          ? const Value.absent()
+          : Value(message),
+      lien: lien == null && nullToAbsent ? const Value.absent() : Value(lien),
+      lu: Value(lu),
+      luLe: luLe == null && nullToAbsent ? const Value.absent() : Value(luLe),
+    );
+  }
+
+  factory NotificationsInterne.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NotificationsInterne(
+      id: serializer.fromJson<int>(json['id']),
+      etatSync: serializer.fromJson<String>(json['etatSync']),
+      schoolId: serializer.fromJson<int>(json['schoolId']),
+      userId: serializer.fromJson<int>(json['userId']),
+      type: serializer.fromJson<String?>(json['type']),
+      titre: serializer.fromJson<String>(json['titre']),
+      message: serializer.fromJson<String?>(json['message']),
+      lien: serializer.fromJson<String?>(json['lien']),
+      lu: serializer.fromJson<bool>(json['lu']),
+      luLe: serializer.fromJson<String?>(json['luLe']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'etatSync': serializer.toJson<String>(etatSync),
+      'schoolId': serializer.toJson<int>(schoolId),
+      'userId': serializer.toJson<int>(userId),
+      'type': serializer.toJson<String?>(type),
+      'titre': serializer.toJson<String>(titre),
+      'message': serializer.toJson<String?>(message),
+      'lien': serializer.toJson<String?>(lien),
+      'lu': serializer.toJson<bool>(lu),
+      'luLe': serializer.toJson<String?>(luLe),
+    };
+  }
+
+  NotificationsInterne copyWith({
+    int? id,
+    String? etatSync,
+    int? schoolId,
+    int? userId,
+    Value<String?> type = const Value.absent(),
+    String? titre,
+    Value<String?> message = const Value.absent(),
+    Value<String?> lien = const Value.absent(),
+    bool? lu,
+    Value<String?> luLe = const Value.absent(),
+  }) => NotificationsInterne(
+    id: id ?? this.id,
+    etatSync: etatSync ?? this.etatSync,
+    schoolId: schoolId ?? this.schoolId,
+    userId: userId ?? this.userId,
+    type: type.present ? type.value : this.type,
+    titre: titre ?? this.titre,
+    message: message.present ? message.value : this.message,
+    lien: lien.present ? lien.value : this.lien,
+    lu: lu ?? this.lu,
+    luLe: luLe.present ? luLe.value : this.luLe,
+  );
+  NotificationsInterne copyWithCompanion(NotificationsInternesCompanion data) {
+    return NotificationsInterne(
+      id: data.id.present ? data.id.value : this.id,
+      etatSync: data.etatSync.present ? data.etatSync.value : this.etatSync,
+      schoolId: data.schoolId.present ? data.schoolId.value : this.schoolId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      type: data.type.present ? data.type.value : this.type,
+      titre: data.titre.present ? data.titre.value : this.titre,
+      message: data.message.present ? data.message.value : this.message,
+      lien: data.lien.present ? data.lien.value : this.lien,
+      lu: data.lu.present ? data.lu.value : this.lu,
+      luLe: data.luLe.present ? data.luLe.value : this.luLe,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationsInterne(')
+          ..write('id: $id, ')
+          ..write('etatSync: $etatSync, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('userId: $userId, ')
+          ..write('type: $type, ')
+          ..write('titre: $titre, ')
+          ..write('message: $message, ')
+          ..write('lien: $lien, ')
+          ..write('lu: $lu, ')
+          ..write('luLe: $luLe')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    etatSync,
+    schoolId,
+    userId,
+    type,
+    titre,
+    message,
+    lien,
+    lu,
+    luLe,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NotificationsInterne &&
+          other.id == this.id &&
+          other.etatSync == this.etatSync &&
+          other.schoolId == this.schoolId &&
+          other.userId == this.userId &&
+          other.type == this.type &&
+          other.titre == this.titre &&
+          other.message == this.message &&
+          other.lien == this.lien &&
+          other.lu == this.lu &&
+          other.luLe == this.luLe);
+}
+
+class NotificationsInternesCompanion
+    extends UpdateCompanion<NotificationsInterne> {
+  final Value<int> id;
+  final Value<String> etatSync;
+  final Value<int> schoolId;
+  final Value<int> userId;
+  final Value<String?> type;
+  final Value<String> titre;
+  final Value<String?> message;
+  final Value<String?> lien;
+  final Value<bool> lu;
+  final Value<String?> luLe;
+  const NotificationsInternesCompanion({
+    this.id = const Value.absent(),
+    this.etatSync = const Value.absent(),
+    this.schoolId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.titre = const Value.absent(),
+    this.message = const Value.absent(),
+    this.lien = const Value.absent(),
+    this.lu = const Value.absent(),
+    this.luLe = const Value.absent(),
+  });
+  NotificationsInternesCompanion.insert({
+    this.id = const Value.absent(),
+    this.etatSync = const Value.absent(),
+    required int schoolId,
+    required int userId,
+    this.type = const Value.absent(),
+    required String titre,
+    this.message = const Value.absent(),
+    this.lien = const Value.absent(),
+    this.lu = const Value.absent(),
+    this.luLe = const Value.absent(),
+  }) : schoolId = Value(schoolId),
+       userId = Value(userId),
+       titre = Value(titre);
+  static Insertable<NotificationsInterne> custom({
+    Expression<int>? id,
+    Expression<String>? etatSync,
+    Expression<int>? schoolId,
+    Expression<int>? userId,
+    Expression<String>? type,
+    Expression<String>? titre,
+    Expression<String>? message,
+    Expression<String>? lien,
+    Expression<bool>? lu,
+    Expression<String>? luLe,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (etatSync != null) 'etat_sync': etatSync,
+      if (schoolId != null) 'school_id': schoolId,
+      if (userId != null) 'user_id': userId,
+      if (type != null) 'type': type,
+      if (titre != null) 'titre': titre,
+      if (message != null) 'message': message,
+      if (lien != null) 'lien': lien,
+      if (lu != null) 'lu': lu,
+      if (luLe != null) 'lu_le': luLe,
+    });
+  }
+
+  NotificationsInternesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? etatSync,
+    Value<int>? schoolId,
+    Value<int>? userId,
+    Value<String?>? type,
+    Value<String>? titre,
+    Value<String?>? message,
+    Value<String?>? lien,
+    Value<bool>? lu,
+    Value<String?>? luLe,
+  }) {
+    return NotificationsInternesCompanion(
+      id: id ?? this.id,
+      etatSync: etatSync ?? this.etatSync,
+      schoolId: schoolId ?? this.schoolId,
+      userId: userId ?? this.userId,
+      type: type ?? this.type,
+      titre: titre ?? this.titre,
+      message: message ?? this.message,
+      lien: lien ?? this.lien,
+      lu: lu ?? this.lu,
+      luLe: luLe ?? this.luLe,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (etatSync.present) {
+      map['etat_sync'] = Variable<String>(etatSync.value);
+    }
+    if (schoolId.present) {
+      map['school_id'] = Variable<int>(schoolId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<int>(userId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (titre.present) {
+      map['titre'] = Variable<String>(titre.value);
+    }
+    if (message.present) {
+      map['message'] = Variable<String>(message.value);
+    }
+    if (lien.present) {
+      map['lien'] = Variable<String>(lien.value);
+    }
+    if (lu.present) {
+      map['lu'] = Variable<bool>(lu.value);
+    }
+    if (luLe.present) {
+      map['lu_le'] = Variable<String>(luLe.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationsInternesCompanion(')
+          ..write('id: $id, ')
+          ..write('etatSync: $etatSync, ')
+          ..write('schoolId: $schoolId, ')
+          ..write('userId: $userId, ')
+          ..write('type: $type, ')
+          ..write('titre: $titre, ')
+          ..write('message: $message, ')
+          ..write('lien: $lien, ')
+          ..write('lu: $lu, ')
+          ..write('luLe: $luLe')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OutboxOperationsTable extends OutboxOperations
     with TableInfo<$OutboxOperationsTable, OutboxOperation> {
   @override
@@ -10507,6 +11530,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PresencesTable presences = $PresencesTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $SanctionsTable sanctions = $SanctionsTable(this);
+  late final $AnnoncesTable annonces = $AnnoncesTable(this);
+  late final $NotificationsInternesTable notificationsInternes =
+      $NotificationsInternesTable(this);
   late final $OutboxOperationsTable outboxOperations = $OutboxOperationsTable(
     this,
   );
@@ -10531,6 +11557,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     presences,
     notes,
     sanctions,
+    annonces,
+    notificationsInternes,
     outboxOperations,
     syncEtat,
   ];
@@ -15114,6 +16142,540 @@ typedef $$SanctionsTableProcessedTableManager =
       Sanction,
       PrefetchHooks Function()
     >;
+typedef $$AnnoncesTableCreateCompanionBuilder =
+    AnnoncesCompanion Function({
+      Value<int> id,
+      Value<String> etatSync,
+      required int schoolId,
+      required String titre,
+      Value<String?> contenu,
+      Value<int?> publiePar,
+      Value<String?> publieeLe,
+    });
+typedef $$AnnoncesTableUpdateCompanionBuilder =
+    AnnoncesCompanion Function({
+      Value<int> id,
+      Value<String> etatSync,
+      Value<int> schoolId,
+      Value<String> titre,
+      Value<String?> contenu,
+      Value<int?> publiePar,
+      Value<String?> publieeLe,
+    });
+
+class $$AnnoncesTableFilterComposer
+    extends Composer<_$AppDatabase, $AnnoncesTable> {
+  $$AnnoncesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get etatSync => $composableBuilder(
+    column: $table.etatSync,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titre => $composableBuilder(
+    column: $table.titre,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contenu => $composableBuilder(
+    column: $table.contenu,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get publiePar => $composableBuilder(
+    column: $table.publiePar,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publieeLe => $composableBuilder(
+    column: $table.publieeLe,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AnnoncesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AnnoncesTable> {
+  $$AnnoncesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get etatSync => $composableBuilder(
+    column: $table.etatSync,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get titre => $composableBuilder(
+    column: $table.titre,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contenu => $composableBuilder(
+    column: $table.contenu,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get publiePar => $composableBuilder(
+    column: $table.publiePar,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publieeLe => $composableBuilder(
+    column: $table.publieeLe,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AnnoncesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AnnoncesTable> {
+  $$AnnoncesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get etatSync =>
+      $composableBuilder(column: $table.etatSync, builder: (column) => column);
+
+  GeneratedColumn<int> get schoolId =>
+      $composableBuilder(column: $table.schoolId, builder: (column) => column);
+
+  GeneratedColumn<String> get titre =>
+      $composableBuilder(column: $table.titre, builder: (column) => column);
+
+  GeneratedColumn<String> get contenu =>
+      $composableBuilder(column: $table.contenu, builder: (column) => column);
+
+  GeneratedColumn<int> get publiePar =>
+      $composableBuilder(column: $table.publiePar, builder: (column) => column);
+
+  GeneratedColumn<String> get publieeLe =>
+      $composableBuilder(column: $table.publieeLe, builder: (column) => column);
+}
+
+class $$AnnoncesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AnnoncesTable,
+          Annonce,
+          $$AnnoncesTableFilterComposer,
+          $$AnnoncesTableOrderingComposer,
+          $$AnnoncesTableAnnotationComposer,
+          $$AnnoncesTableCreateCompanionBuilder,
+          $$AnnoncesTableUpdateCompanionBuilder,
+          (Annonce, BaseReferences<_$AppDatabase, $AnnoncesTable, Annonce>),
+          Annonce,
+          PrefetchHooks Function()
+        > {
+  $$AnnoncesTableTableManager(_$AppDatabase db, $AnnoncesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AnnoncesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AnnoncesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AnnoncesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> etatSync = const Value.absent(),
+                Value<int> schoolId = const Value.absent(),
+                Value<String> titre = const Value.absent(),
+                Value<String?> contenu = const Value.absent(),
+                Value<int?> publiePar = const Value.absent(),
+                Value<String?> publieeLe = const Value.absent(),
+              }) => AnnoncesCompanion(
+                id: id,
+                etatSync: etatSync,
+                schoolId: schoolId,
+                titre: titre,
+                contenu: contenu,
+                publiePar: publiePar,
+                publieeLe: publieeLe,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> etatSync = const Value.absent(),
+                required int schoolId,
+                required String titre,
+                Value<String?> contenu = const Value.absent(),
+                Value<int?> publiePar = const Value.absent(),
+                Value<String?> publieeLe = const Value.absent(),
+              }) => AnnoncesCompanion.insert(
+                id: id,
+                etatSync: etatSync,
+                schoolId: schoolId,
+                titre: titre,
+                contenu: contenu,
+                publiePar: publiePar,
+                publieeLe: publieeLe,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AnnoncesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AnnoncesTable,
+      Annonce,
+      $$AnnoncesTableFilterComposer,
+      $$AnnoncesTableOrderingComposer,
+      $$AnnoncesTableAnnotationComposer,
+      $$AnnoncesTableCreateCompanionBuilder,
+      $$AnnoncesTableUpdateCompanionBuilder,
+      (Annonce, BaseReferences<_$AppDatabase, $AnnoncesTable, Annonce>),
+      Annonce,
+      PrefetchHooks Function()
+    >;
+typedef $$NotificationsInternesTableCreateCompanionBuilder =
+    NotificationsInternesCompanion Function({
+      Value<int> id,
+      Value<String> etatSync,
+      required int schoolId,
+      required int userId,
+      Value<String?> type,
+      required String titre,
+      Value<String?> message,
+      Value<String?> lien,
+      Value<bool> lu,
+      Value<String?> luLe,
+    });
+typedef $$NotificationsInternesTableUpdateCompanionBuilder =
+    NotificationsInternesCompanion Function({
+      Value<int> id,
+      Value<String> etatSync,
+      Value<int> schoolId,
+      Value<int> userId,
+      Value<String?> type,
+      Value<String> titre,
+      Value<String?> message,
+      Value<String?> lien,
+      Value<bool> lu,
+      Value<String?> luLe,
+    });
+
+class $$NotificationsInternesTableFilterComposer
+    extends Composer<_$AppDatabase, $NotificationsInternesTable> {
+  $$NotificationsInternesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get etatSync => $composableBuilder(
+    column: $table.etatSync,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titre => $composableBuilder(
+    column: $table.titre,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lien => $composableBuilder(
+    column: $table.lien,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get lu => $composableBuilder(
+    column: $table.lu,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get luLe => $composableBuilder(
+    column: $table.luLe,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NotificationsInternesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotificationsInternesTable> {
+  $$NotificationsInternesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get etatSync => $composableBuilder(
+    column: $table.etatSync,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get schoolId => $composableBuilder(
+    column: $table.schoolId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get titre => $composableBuilder(
+    column: $table.titre,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lien => $composableBuilder(
+    column: $table.lien,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get lu => $composableBuilder(
+    column: $table.lu,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get luLe => $composableBuilder(
+    column: $table.luLe,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NotificationsInternesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotificationsInternesTable> {
+  $$NotificationsInternesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get etatSync =>
+      $composableBuilder(column: $table.etatSync, builder: (column) => column);
+
+  GeneratedColumn<int> get schoolId =>
+      $composableBuilder(column: $table.schoolId, builder: (column) => column);
+
+  GeneratedColumn<int> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get titre =>
+      $composableBuilder(column: $table.titre, builder: (column) => column);
+
+  GeneratedColumn<String> get message =>
+      $composableBuilder(column: $table.message, builder: (column) => column);
+
+  GeneratedColumn<String> get lien =>
+      $composableBuilder(column: $table.lien, builder: (column) => column);
+
+  GeneratedColumn<bool> get lu =>
+      $composableBuilder(column: $table.lu, builder: (column) => column);
+
+  GeneratedColumn<String> get luLe =>
+      $composableBuilder(column: $table.luLe, builder: (column) => column);
+}
+
+class $$NotificationsInternesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotificationsInternesTable,
+          NotificationsInterne,
+          $$NotificationsInternesTableFilterComposer,
+          $$NotificationsInternesTableOrderingComposer,
+          $$NotificationsInternesTableAnnotationComposer,
+          $$NotificationsInternesTableCreateCompanionBuilder,
+          $$NotificationsInternesTableUpdateCompanionBuilder,
+          (
+            NotificationsInterne,
+            BaseReferences<
+              _$AppDatabase,
+              $NotificationsInternesTable,
+              NotificationsInterne
+            >,
+          ),
+          NotificationsInterne,
+          PrefetchHooks Function()
+        > {
+  $$NotificationsInternesTableTableManager(
+    _$AppDatabase db,
+    $NotificationsInternesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotificationsInternesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$NotificationsInternesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$NotificationsInternesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> etatSync = const Value.absent(),
+                Value<int> schoolId = const Value.absent(),
+                Value<int> userId = const Value.absent(),
+                Value<String?> type = const Value.absent(),
+                Value<String> titre = const Value.absent(),
+                Value<String?> message = const Value.absent(),
+                Value<String?> lien = const Value.absent(),
+                Value<bool> lu = const Value.absent(),
+                Value<String?> luLe = const Value.absent(),
+              }) => NotificationsInternesCompanion(
+                id: id,
+                etatSync: etatSync,
+                schoolId: schoolId,
+                userId: userId,
+                type: type,
+                titre: titre,
+                message: message,
+                lien: lien,
+                lu: lu,
+                luLe: luLe,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> etatSync = const Value.absent(),
+                required int schoolId,
+                required int userId,
+                Value<String?> type = const Value.absent(),
+                required String titre,
+                Value<String?> message = const Value.absent(),
+                Value<String?> lien = const Value.absent(),
+                Value<bool> lu = const Value.absent(),
+                Value<String?> luLe = const Value.absent(),
+              }) => NotificationsInternesCompanion.insert(
+                id: id,
+                etatSync: etatSync,
+                schoolId: schoolId,
+                userId: userId,
+                type: type,
+                titre: titre,
+                message: message,
+                lien: lien,
+                lu: lu,
+                luLe: luLe,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NotificationsInternesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotificationsInternesTable,
+      NotificationsInterne,
+      $$NotificationsInternesTableFilterComposer,
+      $$NotificationsInternesTableOrderingComposer,
+      $$NotificationsInternesTableAnnotationComposer,
+      $$NotificationsInternesTableCreateCompanionBuilder,
+      $$NotificationsInternesTableUpdateCompanionBuilder,
+      (
+        NotificationsInterne,
+        BaseReferences<
+          _$AppDatabase,
+          $NotificationsInternesTable,
+          NotificationsInterne
+        >,
+      ),
+      NotificationsInterne,
+      PrefetchHooks Function()
+    >;
 typedef $$OutboxOperationsTableCreateCompanionBuilder =
     OutboxOperationsCompanion Function({
       required String id,
@@ -15594,6 +17156,10 @@ class $AppDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$SanctionsTableTableManager get sanctions =>
       $$SanctionsTableTableManager(_db, _db.sanctions);
+  $$AnnoncesTableTableManager get annonces =>
+      $$AnnoncesTableTableManager(_db, _db.annonces);
+  $$NotificationsInternesTableTableManager get notificationsInternes =>
+      $$NotificationsInternesTableTableManager(_db, _db.notificationsInternes);
   $$OutboxOperationsTableTableManager get outboxOperations =>
       $$OutboxOperationsTableTableManager(_db, _db.outboxOperations);
   $$SyncEtatTableTableManager get syncEtat =>

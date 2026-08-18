@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -32,6 +33,8 @@ part 'database.g.dart';
     Presences,
     Notes,
     Sanctions,
+    Annonces,
+    NotificationsInternes,
     OutboxOperations,
     SyncEtat,
   ],
@@ -42,7 +45,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.pourTests(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  /// Une base locale n'est qu'un cache : on pourrait la vider à chaque montée
+  /// de version. On ne le fait pas — l'outbox y vit aussi, et l'effacer
+  /// perdrait les écritures pas encore parties.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, depuis, vers) async {
+          if (depuis < 2) {
+            await m.createTable(annonces);
+            await m.createTable(notificationsInternes);
+          }
+        },
+      );
 
   /// Table serveur correspondant à chaque clé d'entité du `RegistreSync`.
   /// C'est le seul endroit à compléter quand une entité est ajoutée côté API.
@@ -62,6 +79,8 @@ class AppDatabase extends _$AppDatabase {
         'presences' => presences,
         'notes' => notes,
         'sanctions' => sanctions,
+        'annonces' => annonces,
+        'notifications_internes' => notificationsInternes,
         _ => null,
       };
 
@@ -99,30 +118,67 @@ class AppDatabase extends _$AppDatabase {
   /// décrite dans la conception.
   Future<void> _upsert(TableInfo table, Map<String, dynamic> ligne) async {
     final colonnes = {for (final c in table.$columns) c.name: c};
-    final valeurs = <String, Expression>{};
+    final valeurs = <String, Variable>{};
 
     // Les clés de l'API sont déjà en snake_case, comme les colonnes générées
     // par Drift depuis le camelCase des tables : la correspondance est directe.
     ligne.forEach((cle, valeur) {
       final colonne = colonnes[cle];
-      if (colonne != null) valeurs[colonne.name] = Variable(_normaliser(colonne, valeur));
+      if (colonne != null) valeurs[colonne.name] = _variable(colonne, valeur);
     });
 
-    valeurs['etat_sync'] = const Variable('synchro');
+    valeurs['etat_sync'] = const Variable<String>('synchro');
 
-    await into(table).insertOnConflictUpdate(RawValuesInsertable(valeurs));
+    /*
+     * SQL brut plutôt que `into(table).insertOnConflictUpdate(...)` : cette
+     * dernière exige un `Insertable<D>` du type exact de la table, que le
+     * moteur de synchronisation ne connaît pas — il travaille sur des
+     * `TableInfo` génériques résolus depuis une clé d'entité. Le passage par
+     * un insertable non typé compile mais échoue à l'exécution.
+     *
+     * `updates:` est indispensable : c'est lui qui réveille les `watch()` des
+     * écrans. Sans cette déclaration, les données arriveraient en base sans
+     * qu'aucune interface ne s'en aperçoive.
+     */
+    final noms = valeurs.keys.toList();
+    final marqueurs = List.filled(noms.length, '?').join(', ');
+
+    await customInsert(
+      'INSERT OR REPLACE INTO ${table.actualTableName} '
+      '(${noms.join(', ')}) VALUES ($marqueurs)',
+      variables: valeurs.values.toList(),
+      updates: {table},
+    );
   }
 
-  /// L'API renvoie des dates ISO et des booléens JSON ; SQLite stocke du texte
-  /// et des entiers. Sans cette conversion, un `true` ferait échouer l'insert.
-  Object? _normaliser(GeneratedColumn colonne, Object? valeur) {
-    if (valeur == null) return null;
-    if (colonne.type == DriftSqlType.bool) {
-      return valeur is bool ? valeur : valeur.toString() == '1' || valeur == 'true';
-    }
-    if (colonne.type == DriftSqlType.string) return valeur.toString();
-    if (colonne.type == DriftSqlType.int && valeur is bool) return valeur ? 1 : 0;
-    return valeur;
+  /// Convertit une valeur JSON en variable SQL **typée**.
+  ///
+  /// Le type générique compte : `Variable` est déclaré `<T extends Object>` et
+  /// Drift résout le type SQL depuis ce `T`. Construire un `Variable(valeur)`
+  /// à partir d'un `Object?` donne un `Variable<Object>`, que Drift ne sait pas
+  /// convertir — l'insertion lève alors à l'exécution, alors même que le code
+  /// compile sans avertissement. On aiguille donc explicitement sur le type
+  /// déclaré de la colonne.
+  Variable _variable(GeneratedColumn colonne, Object? valeur) {
+    if (valeur == null) return const Variable<String>(null);
+
+    return switch (colonne.type) {
+      DriftSqlType.bool => Variable<bool>(
+          valeur is bool ? valeur : valeur == 1 || valeur == '1' || valeur == 'true',
+        ),
+      // JSON ne distingue pas 3 de 3.0 : un coefficient entier arrive en `int`
+      // là où la colonne est réelle, et inversement pour un identifiant.
+      DriftSqlType.int => Variable<int>(
+          valeur is int ? valeur : (valeur is num ? valeur.toInt() : int.tryParse('$valeur')),
+        ),
+      DriftSqlType.double => Variable<double>(
+          valeur is double ? valeur : (valeur is num ? valeur.toDouble() : double.tryParse('$valeur')),
+        ),
+      DriftSqlType.dateTime => Variable<DateTime>(DateTime.tryParse('$valeur')),
+      // Tout le reste est stocké en texte, y compris les objets JSON
+      // (`repartition_volets`) que l'app relit tels quels.
+      _ => Variable<String>(valeur is String ? valeur : jsonEncode(valeur)),
+    };
   }
 }
 

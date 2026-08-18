@@ -158,6 +158,7 @@
     "create_success": "Staff member created.",
     "import": "Import an Excel file",
     "fichier": "Staff file",
+    "identifiants": "Login credentials",
     "search_placeholder": "Search by name, role…",
     "empty": "No staff for this school.",
     "assign_matieres_search_placeholder": "Search a subject…",

@@ -24,6 +24,28 @@ use Illuminate\Support\Str;
 class CompteAgentService extends BaseService
 {
     /**
+     * Comptes actifs de l'établissement, pour le document d'identifiants de
+     * connexion — le mot de passe n'est communicable que pour les comptes qui
+     * portent encore celui, commun, distribué à l'ouverture de l'accès : une
+     * fois personnalisé, il est haché et personne, pas même l'administrateur,
+     * ne peut plus le connaître.
+     */
+    public function identifiants(int $schoolId): array
+    {
+        $comptes = User::where('school_id', $schoolId)
+            ->where('is_active', true)
+            ->with('personnel.fonctionReference')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'comptes' => $comptes,
+            'total' => $comptes->count(),
+            'mot_de_passe_defaut' => config('personnel.mot_de_passe_defaut'),
+        ];
+    }
+
+    /**
      * Ouvre l'accès de l'agent s'il n'en a pas encore, et le renvoie.
      *
      * Idempotent : rappelée sur un agent déjà pourvu, elle ne fait rien. C'est

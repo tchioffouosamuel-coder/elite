@@ -64,6 +64,38 @@ class CentreSyncSheet extends ConsumerWidget {
               ],
             ),
           ),
+          if (etat.panne != null)
+            Container(
+              width: double.infinity,
+              color: Couleurs.echec.withValues(alpha: 0.12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.sync_problem, size: 16, color: Couleurs.echec),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'La synchronisation a échoué',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: Couleurs.echec,
+                          ),
+                        ),
+                        Text(
+                          etat.panne!,
+                          style: const TextStyle(fontSize: 11.5, color: Couleurs.echec),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (etat.derniereReussite != null)
             BandeauPerime(depuis: etat.derniereReussite),
           const Divider(height: 1),

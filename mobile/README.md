@@ -24,12 +24,39 @@ Geste  →  Drift (UI redessinée)  →  Outbox  →  POST /sync  →  GET /sync
 ```bash
 flutter pub get
 dart run build_runner build       # génère database.g.dart (Drift)
+flutter run
+```
+
+L'app vise par défaut l'API de production
+(`https://elite-g0k9.onrender.com/api/v1`). Pour travailler contre l'API
+locale :
+
+```bash
 flutter run --dart-define=API_URL=http://10.0.2.2:8000/api/v1
 ```
 
 `10.0.2.2` est l'alias de la machine hôte vu depuis l'émulateur Android :
 `localhost` y désignerait le téléphone lui-même. Sur un appareil physique,
 utiliser l'IP de la machine sur le réseau local.
+
+### Mise en veille de l'hébergement
+
+Render endort le service après inactivité. Mesuré : **38 s pour la première
+requête**, 2 s ensuite. D'où deux délais volontairement dissymétriques dans
+`api_client.dart` :
+
+| Délai | Valeur | Raison |
+|---|---|---|
+| Réception | 90 s | Doit couvrir le réveil, sinon la première requête de la journée échoue toujours |
+| Connexion | 15 s | Le lien TCP aboutit vite même pendant le démarrage — c'est lui qui détecte un vrai « hors réseau », et il ne doit pas faire patienter un téléphone en mode avion |
+
+L'écran de connexion annonce « Réveil du serveur… » après 5 s d'attente : 40 s
+de spinner muet passeraient pour un plantage.
+
+> **À arbitrer** : la tâche de fond se réveille tous les quarts d'heure et
+> paiera ce réveil de 40 s chaque fois que le service s'est rendormi — batterie
+> et données mobiles pour rien. Soit un plan sans mise en veille, soit espacer
+> la tâche à une heure.
 
 ### JDK
 
@@ -76,9 +103,44 @@ est reparti avec un reçu.
 - Toute écriture porte un en-tête `Idempotency-Key` (l'id d'opération de
   l'outbox, généré au moment du geste) : un rejeu ne crée jamais de doublon.
 
+## Écrans livrés
+
+| Écran | Rôle | Hors-ligne |
+|---|---|---|
+| Ma journée | Séances du jour, point d'entrée enseignant | Lecture |
+| Appel | Tap = présent/absent, appui long = motif | **Écriture** |
+| Clôture de séance | Contenu traité, leçons, observations de fin de cours | **Écriture** |
+| Saisie des notes | Grille par séquence, sauvegarde à la frappe | **Écriture** |
+| Scan QR | Résolution locale du jeton de salle → appel | **Écriture** |
+| Fiche élève | Identité, notes, discipline (feuille à onglets) | Lecture |
+| Sanction | Saisie par le surveillant général | **Écriture** |
+| Centre de synchro | File d'attente, échecs et motifs | — |
+
+### Conventions d'écriture hors-ligne
+
+Les lignes créées localement portent un **identifiant négatif et
+déterministe**, dérivé de leur clé métier — `-(seance × 100000 + eleve)` pour
+une présence, `-(matiere × 10⁶ + sequence × 10⁴ + eleve)` pour une note.
+Refaire le même appel hors connexion écrase donc la même ligne au lieu d'en
+empiler une seconde, et le signe négatif exclut toute collision avec les
+identifiants attribués par le serveur.
+
+Deux écarts assumés par rapport au serveur, tous deux au bénéfice du terrain :
+
+- **Le scan QR ne passe pas par `/ma-journee/qr/{token}`.** Le jeton est résolu
+  dans la base locale : le geste a lieu en entrant en classe, exactement là où
+  le réseau manque.
+- **Aucun filtre de créneau horaire** au scan, là où `creneauActuel()` refuse
+  hors fenêtre ± 10 min. Un enseignant en retard doit pouvoir faire son appel.
+
 ## Reste à faire
 
-- Écrans métier au-delà du socle : appel, saisie des notes, scan QR, fiche élève
 - Notifications FCM côté app (le serveur est prêt, `PUSH_DRIVER=fcm`)
 - Tâche de fond `WorkManager` : filet si l'app est tuée avec une outbox pleine
 - Traductions FR/EN (les clés existent côté web, à reprendre)
+- Paliers 2 et 3 : bulletins en cache, annonces, caisse (en ligne uniquement)
+
+> **Donnée manquante côté serveur** : la table `emplois_du_temps` est vide.
+> Tant qu'aucun emploi du temps n'est saisi depuis le web, « Ma journée »
+> restera vide et le scan QR ne trouvera aucune séance — ce n'est pas un défaut
+> de l'app, mais un préalable à tout test terrain réaliste.

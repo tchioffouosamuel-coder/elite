@@ -267,6 +267,12 @@ export function PersonnelListPage() {
             {t('export.excel')}
           </Button>
           {can('personnel.manage') && (
+            <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/identifiants')}>
+              <KeyRound className="h-4 w-4" />
+              {t('personnel.identifiants')}
+            </Button>
+          )}
+          {can('personnel.manage') && (
             <Button variant="secondary" onClick={() => setShowImport(true)}>
               <Upload className="h-4 w-4" />
               {t('personnel.import')}

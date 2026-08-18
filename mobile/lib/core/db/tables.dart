@@ -199,6 +199,27 @@ class Sanctions extends Table with SyncColumns {
   IntColumn get enregistrePar => integer().nullable()();
 }
 
+// --------------------------------------------------------- communication
+
+class Annonces extends Table with SyncColumns {
+  IntColumn get schoolId => integer()();
+  TextColumn get titre => text()();
+  TextColumn get contenu => text().nullable()();
+  IntColumn get publiePar => integer().nullable()();
+  TextColumn get publieeLe => text().nullable()();
+}
+
+class NotificationsInternes extends Table with SyncColumns {
+  IntColumn get schoolId => integer()();
+  IntColumn get userId => integer()();
+  TextColumn get type => text().nullable()();
+  TextColumn get titre => text()();
+  TextColumn get message => text().nullable()();
+  TextColumn get lien => text().nullable()();
+  BoolColumn get lu => boolean().withDefault(const Constant(false))();
+  TextColumn get luLe => text().nullable()();
+}
+
 // ------------------------------------------------------- tables locales
 
 /// File d'attente des écritures, persistée : elle survit à la fermeture de

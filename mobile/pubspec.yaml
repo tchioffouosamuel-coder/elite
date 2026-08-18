@@ -43,6 +43,14 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
 
+  # Scan du QR affiché au mur de la salle. La résolution du code se fait en
+  # local (table `classes.qr_token`), donc sans réseau.
+  mobile_scanner: ^7.4.0
+
+  # Filet de sécurité : draine l'outbox même si l'app a été tuée avec des
+  # écritures en attente.
+  workmanager: ^0.10.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

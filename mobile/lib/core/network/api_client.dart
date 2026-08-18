@@ -3,15 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../session/session.dart';
 
-/// Adresse de l'API. Surchargée au build :
-/// `flutter run --dart-define=API_URL=https://…/api/v1`
-///
-/// `10.0.2.2` est l'alias de la machine hôte vu depuis l'émulateur Android —
-/// `localhost` y désignerait le téléphone lui-même.
+/// Adresse de l'API. Surchargée au build pour viser un autre environnement :
+/// `flutter run --dart-define=API_URL=http://10.0.2.2:8000/api/v1`
+/// (`10.0.2.2` est l'alias de la machine hôte vu depuis l'émulateur Android ;
+/// `localhost` y désignerait le téléphone lui-même).
 const kApiUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://10.0.2.2:8000/api/v1',
+  defaultValue: 'https://elite-g0k9.onrender.com/api/v1',
 );
+
+/// L'hébergement met le service en veille après inactivité, et son réveil
+/// mesuré prend une quarantaine de secondes — la première requête du matin,
+/// typiquement. Le délai de *réception* doit donc largement dépasser ce
+/// réveil, sinon cette requête échoue toujours.
+const _delaiReception = Duration(seconds: 90);
+
+/// Le délai de *connexion* reste court : l'établissement du lien TCP aboutit
+/// vite même quand l'application derrière démarre encore. C'est lui qui
+/// distingue un vrai « hors réseau » d'un simple serveur lent, et il ne doit
+/// pas faire patienter 90 secondes un téléphone en mode avion.
+const _delaiConnexion = Duration(seconds: 15);
 
 /// Erreur d'API déjà traduite : les écrans n'ont jamais à manipuler un
 /// `DioException` ni à deviner ce qu'un code HTTP veut dire pour l'utilisateur.
@@ -35,8 +46,8 @@ class ApiClient {
   ApiClient(this._ref) {
     dio = Dio(BaseOptions(
       baseUrl: kApiUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: _delaiConnexion,
+      receiveTimeout: _delaiReception,
       headers: {'Accept': 'application/json'},
       // On gère nous-mêmes les codes d'erreur pour les traduire une seule
       // fois ici, plutôt que d'attraper des exceptions dans chaque écran.

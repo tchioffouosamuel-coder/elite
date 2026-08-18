@@ -127,6 +127,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
+                // Route littérale avant le paramètre générique {id} ci-dessous, sinon
+                // « identifiants » s'y ferait happer. Document sensible (mots de passe) :
+                // exige `.manage` en plus du `.view` du groupe.
+                Route::get('personnels/identifiants', [PersonnelController::class, 'identifiants'])
+                    ->name('personnels.identifiants')->middleware('permission:personnel.manage');
                 Route::get('personnels/{id}', [PersonnelController::class, 'show'])->name('personnels.show');
             });
 

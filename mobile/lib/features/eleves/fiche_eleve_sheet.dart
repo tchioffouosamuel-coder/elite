@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
+import '../../core/session/session.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/theme.dart';
+import '../discipline/sanction_sheet.dart';
 
 /// Fiche élève en feuille à onglets.
 ///
@@ -227,33 +229,58 @@ class _Discipline extends ConsumerWidget {
       builder: (context, snapshot) {
         final sanctions = snapshot.data ?? const <Sanction>[];
 
+        // Le bouton reste accessible même sans sanction : c'est justement
+        // depuis un dossier vierge qu'on enregistre la première.
+        final peutSanctionner = ref.watch(sessionProvider)?.peut('discipline.manage') ?? false;
+
         if (sanctions.isEmpty) {
-          return const EtatVide(
-            message: 'Aucune sanction enregistrée.',
-            icone: Icons.verified_outlined,
+          return Column(
+            children: [
+              const Expanded(
+                child: EtatVide(
+                  message: 'Aucune sanction enregistrée.',
+                  icone: Icons.verified_outlined,
+                ),
+              ),
+              if (peutSanctionner) _BoutonSanction(eleve: eleve),
+            ],
           );
         }
 
-        return ListView.separated(
-          itemCount: sanctions.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final s = sanctions[i];
-            return ListTile(
-              leading: const Icon(Icons.gavel_outlined, color: Couleurs.enAttente),
-              title: Text(_libelleType(s.type)),
-              subtitle: Text(
-                s.motif ?? '—',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5),
+        return Column(
+          children: [
+            Expanded(
+              child: ListView.separated(
+                itemCount: sanctions.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final s = sanctions[i];
+                  return ListTile(
+                    leading: const Icon(Icons.gavel_outlined, color: Couleurs.enAttente),
+                    title: Text(_libelleType(s.type)),
+                    subtitle: Text(
+                      s.motif ?? '—',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          s.dateSanction?.split('T').first ?? '',
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                        PastilleSync(etat: s.etatSync),
+                      ],
+                    ),
+                  );
+                },
               ),
-              trailing: Text(
-                s.dateSanction?.split('T').first ?? '',
-                style: const TextStyle(fontSize: 11.5),
-              ),
-            );
-          },
+            ),
+            if (peutSanctionner) _BoutonSanction(eleve: eleve),
+          ],
         );
       },
     );
@@ -267,6 +294,26 @@ class _Discipline extends ConsumerWidget {
         'exclusion_definitive' => 'Exclusion définitive',
         _ => 'Autre',
       };
+}
+
+class _BoutonSanction extends StatelessWidget {
+  const _BoutonSanction({required this.eleve});
+
+  final Eleve eleve;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: FilledButton.tonalIcon(
+          onPressed: () => SanctionSheet.ouvrir(context, eleve),
+          icon: const Icon(Icons.gavel_outlined),
+          label: const Text('Enregistrer une sanction'),
+        ),
+      ),
+    );
+  }
 }
 
 String _initiales(String nom) {

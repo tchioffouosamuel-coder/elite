@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -18,6 +19,7 @@ class EtatSync {
     this.echecs = 0,
     this.derniereReussite,
     this.horsLigne = false,
+    this.panne,
   });
 
   final bool enCours;
@@ -26,12 +28,20 @@ class EtatSync {
   final DateTime? derniereReussite;
   final bool horsLigne;
 
+  /// Dernière panne du moteur lui-même, distincte d'un refus serveur sur une
+  /// opération. Sans ce champ, un défaut d'écriture locale reste invisible et
+  /// l'app affiche « à jour » alors qu'elle n'a rien enregistré — exactement
+  /// ce qui s'était produit avec les variables Drift mal typées.
+  final String? panne;
+
   EtatSync copie({
     bool? enCours,
     int? enAttente,
     int? echecs,
     DateTime? derniereReussite,
     bool? horsLigne,
+    String? panne,
+    bool effacerPanne = false,
   }) =>
       EtatSync(
         enCours: enCours ?? this.enCours,
@@ -39,6 +49,7 @@ class EtatSync {
         echecs: echecs ?? this.echecs,
         derniereReussite: derniereReussite ?? this.derniereReussite,
         horsLigne: horsLigne ?? this.horsLigne,
+        panne: effacerPanne ? null : (panne ?? this.panne),
       );
 }
 
@@ -121,9 +132,23 @@ class SyncService extends StateNotifier<EtatSync> {
 
       final maintenant = DateTime.now();
       await _ecrireEtat(_cleDerniereReussite, maintenant.toIso8601String());
-      state = state.copie(derniereReussite: maintenant, horsLigne: false);
+      state = state.copie(
+        derniereReussite: maintenant,
+        horsLigne: false,
+        effacerPanne: true,
+      );
     } on ErreurApi catch (e) {
-      state = state.copie(horsLigne: e.horsLigne);
+      state = state.copie(horsLigne: e.horsLigne, panne: e.horsLigne ? null : e.message);
+    } catch (e, pile) {
+      /*
+       * Tout le reste : écriture locale refusée, charge utile inattendue,
+       * migration ratée. Ces pannes-là ne doivent surtout pas disparaître —
+       * `synchroniser()` est appelé sans `await` un peu partout, donc une
+       * exception non rattrapée ici serait silencieuse et l'app afficherait
+       * « à jour » sans avoir rien écrit.
+       */
+      debugPrintStack(stackTrace: pile, label: 'Synchronisation: $e');
+      state = state.copie(panne: e.toString());
     } finally {
       _enCours = false;
       state = state.copie(enCours: false);
