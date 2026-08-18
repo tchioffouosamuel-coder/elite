@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Observers\TombstoneObserver;
+use App\Support\Sync\RegistreSync;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,6 +23,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        /*
+         * Chaque entité répliquée sur mobile signale ses suppressions, faute de
+         * quoi un téléphone hors-ligne garderait indéfiniment des lignes
+         * effacées côté serveur (cf. `TombstoneObserver`).
+         */
+        foreach (RegistreSync::entites() as $definition) {
+            $definition['modele']::observe(TombstoneObserver::class);
+        }
+
         Gate::before(function ($user, string $ability) {
             if (! $user instanceof User) {
                 return null;

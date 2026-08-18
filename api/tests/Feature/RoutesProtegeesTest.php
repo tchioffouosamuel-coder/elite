@@ -16,19 +16,58 @@ use Tests\TestCase;
 class RoutesProtegeesTest extends TestCase
 {
     /**
-     * Seules exceptions admises : l'authentification elle-même, la lecture du
-     * profil courant et le renouvellement de son propre mot de passe. Aucune ne
-     * peut dépendre d'un privilège — la dernière est même la seule route
-     * ouverte à un compte dont le mot de passe est encore provisoire.
+     * Exceptions admises : des routes qui n'agissent que sur l'appelant
+     * lui-même, ou qui portent leur propre contrôle. Aucune ne peut dépendre
+     * d'un privilège — exiger « profil.modifier » pour changer son propre nom
+     * reviendrait à pouvoir en priver quelqu'un de son propre compte.
      *
      * @var list<string>
      */
     private const EXEMPTES = [
+        // L'authentification elle-même. `mot-de-passe` est même la seule route
+        // ouverte à un compte dont le mot de passe est encore provisoire.
         'api.v1.auth.login',
         'api.v1.auth.me',
         'api.v1.auth.refresh',
         'api.v1.auth.logout',
         'api.v1.auth.mot-de-passe',
+        'api.v1.auth.profil',
+
+        // Ses propres notifications : les lire ou les marquer lues ne touche
+        // que les lignes déjà destinées à l'appelant.
+        'api.v1.notifications.index',
+        'api.v1.notifications.non-lues',
+        'api.v1.notifications.lire',
+        'api.v1.notifications.tout-lire',
+
+        // Synchronisation mobile : l'endpoint filtre lui-même chaque entité
+        // sur le privilège correspondant (cf. `RegistreSync`). Un privilège
+        // unique en amont serait soit trop large, soit redondant.
+        'api.v1.sync.pull',
+        // Le push rejoue les routes métier une par une : chaque opération
+        // repasse par le privilège de sa propre route.
+        'api.v1.sync.push',
+
+        // Enregistrement de son propre appareil pour les notifications push.
+        'api.v1.appareils.store',
+        'api.v1.appareils.destroy',
+
+        // Vérification publique d'authenticité d'un bulletin : destinée à un
+        // tiers extérieur à l'établissement, elle est protégée par la
+        // signature HMAC portée dans l'URL, pas par un compte.
+        'api.v1.verification-bulletin.show',
+    ];
+
+    /**
+     * Routes volontairement accessibles sans authentification. Leur contrôle
+     * d'accès ne repose pas sur un compte mais sur le secret contenu dans
+     * l'URL elle-même.
+     *
+     * @var list<string>
+     */
+    private const PUBLIQUES = [
+        'api.v1.auth.login',
+        'api.v1.verification-bulletin.show',
     ];
 
     public function test_toute_route_api_controle_les_privileges(): void
@@ -59,7 +98,7 @@ class RoutesProtegeesTest extends TestCase
         $ouvertes = [];
 
         foreach (Route::getRoutes() as $route) {
-            if (! str_starts_with($route->uri(), 'api/v1/') || $route->getName() === 'api.v1.auth.login') {
+            if (! str_starts_with($route->uri(), 'api/v1/') || in_array($route->getName(), self::PUBLIQUES, true)) {
                 continue;
             }
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\NotificationInterne;
 use App\Models\User;
+use App\Services\Push\PushService;
 use Illuminate\Support\Collection;
 
 /**
@@ -40,6 +41,19 @@ class NotificationService extends BaseService
         }
 
         NotificationInterne::insert($lignes->all());
+
+        /*
+         * La même notification part vers les appareils mobiles enregistrés.
+         * Branché ici plutôt que chez chaque appelant : les déclencheurs
+         * métier (absence, annonce, paiement) passent déjà tous par cette
+         * méthode, ils gagnent donc le push sans être modifiés.
+         */
+        app(PushService::class)->notifier(
+            $lignes->pluck('user_id'),
+            $titre,
+            $message,
+            array_filter(['type' => $type, 'lien' => $lien])
+        );
     }
 
     /**

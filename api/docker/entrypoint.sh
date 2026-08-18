@@ -16,10 +16,8 @@ if [ -z "${APP_KEY:-}" ]; then
     exit 1
 fi
 
-# Le lien public/storage ne survit jamais à un redéploiement (disque
-# éphémère) : on le recrée à chaque démarrage, sans échouer s'il existe déjà
-# (redémarrage du même conteneur plutôt que nouveau déploiement).
-[ -L /var/www/html/public/storage ] || php artisan storage:link
+# Création / vérification systématique du lien symbolique de stockage
+php artisan storage:link --force
 
 php artisan config:clear
 php artisan config:cache

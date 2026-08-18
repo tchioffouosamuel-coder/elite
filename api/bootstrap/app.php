@@ -3,6 +3,7 @@
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
+use App\Http\Middleware\Idempotence;
 use App\Http\Middleware\ScopeEtablissement;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifierPermission;
@@ -57,6 +58,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'super_admin' => VerifierSuperAdmin::class,
             'mot_de_passe' => ExigerMotDePasseRenouvele::class,
             'tenant' => ScopeEtablissement::class,
+            // Sans en-tête `Idempotency-Key` il se retire de lui-même : il ne
+            // coûte donc rien aux requêtes du web, qui n'en envoient pas.
+            'idempotence' => Idempotence::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -72,6 +72,11 @@ class SanctionController extends Controller
         $sanction = Sanction::create([
             ...$donnees,
             'classe_id' => $eleve->classe_id,
+            // Le défaut SQL de la colonne ne se reflète pas sur l'instance
+            // Eloquent tant qu'elle n'est pas rechargée : sans ça la réponse
+            // de création annonce `statut: null` là où la base contient bien
+            // « en_attente ».
+            'statut' => 'en_attente',
             'enregistre_par' => $request->user()->personnel?->id,
         ])->load(['eleve', 'classe', 'enregistrePar']);
 

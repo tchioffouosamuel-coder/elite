@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
@@ -47,6 +48,7 @@ use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
@@ -83,7 +85,26 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         // Toutes les routes métier (établissement, personnel, classes, élèves, ...)
         // sont scopées par établissement + niveau via le middleware `tenant`.
-        Route::middleware('tenant')->group(function () {
+        // `idempotence` couvre d'un coup les 84 écritures métier : le mobile
+        // peut rejouer n'importe laquelle sans risque de doublon, sans avoir
+        // à déclarer route par route lesquelles sont rejouables.
+        Route::middleware(['tenant', 'idempotence'])->group(function () {
+
+            /*
+             * Synchronisation de l'application mobile. Aucun privilège propre :
+             * l'endpoint ne renvoie que les entités que l'utilisateur peut déjà
+             * consulter, en filtrant lui-même sur ses privilèges (cf.
+             * `RegistreSync`). Un privilège « sync.view » ne protégerait rien
+             * de plus et créerait un second endroit où gérer les accès.
+             */
+            Route::get('sync', [SyncController::class, 'pull'])->name('sync.pull');
+            Route::post('sync', [SyncController::class, 'push'])->name('sync.push');
+
+            // Enregistrement de l'appareil pour les notifications push. Aucun
+            // privilège : tout utilisateur authentifié a le droit d'être
+            // notifié de ce qui le concerne déjà.
+            Route::post('appareils', [DeviceTokenController::class, 'store'])->name('appareils.store');
+            Route::delete('appareils', [DeviceTokenController::class, 'destroy'])->name('appareils.destroy');
 
             /*
              * Administration des privilèges. Protégée par le rôle et non par un

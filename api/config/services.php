@@ -45,6 +45,21 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    /*
+     * Notifications push vers l'application mobile. `log` tant qu'aucun projet
+     * Firebase n'est créé : les envois s'écrivent dans les logs, ce qui permet
+     * de vérifier les déclencheurs sans identifiants.
+     */
+    'push' => [
+        'driver' => env('PUSH_DRIVER', 'log'),
+    ],
+
+    'fcm' => [
+        'projet' => env('FCM_PROJECT_ID'),
+        // Chemin du JSON de compte de service Firebase, hors du dépôt.
+        'credentials' => env('FCM_CREDENTIALS'),
+    ],
+
     'twilio' => [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_TOKEN'),
