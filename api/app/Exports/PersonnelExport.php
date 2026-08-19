@@ -11,7 +11,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class PersonnelExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
-    public function __construct(private readonly int $schoolId) {}
+    public function __construct(private readonly int|array $schoolId) {}
 
     public function collection(): Collection
     {

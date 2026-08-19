@@ -1,0 +1,41 @@
+{
+  "name": "elites-school-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/main.cjs",
+  "scripts": {
+    "dev": "npm --prefix ../web run build && electron .",
+    "build": "npm --prefix ../web run build && electron-builder --win nsis",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "electron-updater": "^6.7.1"
+  },
+  "devDependencies": {
+    "electron": "^39.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.elites.school",
+    "productName": "Elites School",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web-dist"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

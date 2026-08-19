@@ -140,7 +140,7 @@ class PersonnelController extends Controller
 
     public function export(): BinaryFileResponse
     {
-        return Excel::download(new PersonnelExport(app('tenant.school_id')), 'personnel.xlsx');
+        return Excel::download(new PersonnelExport(Tenant::schoolIds()), 'personnel.xlsx');
     }
 
     /**
@@ -150,15 +150,28 @@ class PersonnelController extends Controller
      */
     public function fichier(): Response
     {
-        $schoolId = app('tenant.school_id');
-        $school = School::findOrFail($schoolId);
-        $annee = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+        $schoolIds = Tenant::schoolIds();
+        $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
+        $donnees = $this->service->fichier($schoolIds);
 
-        $pdf = (new PersonnelFichierGenerator)->build($this->service->fichier($schoolId), $school, $annee);
+        if (Tenant::isAggregate()) {
+            $documents = $schools->map(fn(School $school) => [
+                'donnees' => $this->service->fichier($school->id),
+                'school' => $school,
+                'annee' => AnneeScolaire::where('school_id', $school->id)->where('is_active', true)->first(),
+            ])->all();
+            $pdf = (new PersonnelFichierGenerator)->buildMany($documents);
+            $nom = 'fichier-personnel-toutes-les-ecoles';
+        } else {
+            $school = $schools->firstOrFail();
+            $annee = AnneeScolaire::where('school_id', $school->id)->where('is_active', true)->first();
+            $pdf = (new PersonnelFichierGenerator)->build($donnees, $school, $annee);
+            $nom = 'fichier-personnel-' . Str::slug($school->name);
+        }
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="fichier-personnel-'.Str::slug($school->name).'.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $nom . '.pdf"',
         ]);
     }
 
@@ -170,14 +183,25 @@ class PersonnelController extends Controller
      */
     public function identifiants(): Response
     {
-        $schoolId = app('tenant.school_id');
-        $school = School::findOrFail($schoolId);
+        $schoolIds = Tenant::schoolIds();
+        $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
 
-        $pdf = (new IdentifiantsGenerator)->build($this->comptes->identifiants($schoolId), $school);
+        if (Tenant::isAggregate()) {
+            $documents = $schools->map(fn(School $school) => [
+                'donnees' => $this->comptes->identifiants($school->id),
+                'school' => $school,
+            ])->all();
+            $pdf = (new IdentifiantsGenerator)->buildMany($documents);
+            $nom = 'identifiants-toutes-les-ecoles';
+        } else {
+            $school = $schools->firstOrFail();
+            $pdf = (new IdentifiantsGenerator)->build($this->comptes->identifiants($school->id), $school);
+            $nom = 'identifiants-' . Str::slug($school->name);
+        }
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="identifiants-'.Str::slug($school->name).'.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $nom . '.pdf"',
         ]);
     }
 
@@ -198,7 +222,7 @@ class PersonnelController extends Controller
         $path = app(AttestationEmployeurService::class)->generer($personnel, $conge, $request->user()?->id);
 
         return response()
-            ->download($path, 'attestation-employeur-'.Str::slug($personnel->nom_complet).'.docx')
+            ->download($path, 'attestation-employeur-' . Str::slug($personnel->nom_complet) . '.docx')
             ->deleteFileAfterSend();
     }
 }

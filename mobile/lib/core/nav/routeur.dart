@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../features/admin/admin_pages.dart';
 import '../../features/annonces/annonces_page.dart';
+import '../../features/discipline/sanctions_page.dart';
 import '../../features/dashboard/tableau_bord_page.dart';
 import '../../features/divers/modules_pages.dart';
 import '../../features/finance/finance_pages.dart';
 import '../../features/finance/paie_page.dart';
 import '../../features/personnel/personnel_pages.dart';
+import '../../features/seance/seances_page.dart';
 import '../../features/transport/transport_pages.dart';
 import '../ui/etats.dart';
 
@@ -34,6 +36,7 @@ Widget ecranPour(String chemin) {
     // Pédagogie
     '/matieres' => const MatieresPage(),
     '/progression' => const ProgressionPage(),
+    '/seances' => const SeancesPage(),
 
     // Santé
     '/infirmerie' => const InfirmeriePage(),
@@ -54,6 +57,9 @@ Widget ecranPour(String chemin) {
         titre: 'Stats pédagogiques', chemin: 'statistiques/pedagogiques'),
     '/stats-disciplinaires' => const StatistiquesPage(
         titre: 'Stats disciplinaires', chemin: 'statistiques/disciplinaires'),
+
+    // Discipline
+    '/sanctions' => const SanctionsPage(),
 
     // Finances
     '/caisse' => const CaissePage(),

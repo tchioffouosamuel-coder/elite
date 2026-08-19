@@ -30,9 +30,10 @@ class CompteAgentService extends BaseService
      * fois personnalisé, il est haché et personne, pas même l'administrateur,
      * ne peut plus le connaître.
      */
-    public function identifiants(int $schoolId): array
+    public function identifiants(int|array $schoolId): array
     {
-        $comptes = User::where('school_id', $schoolId)
+        $comptes = User::query()
+            ->when(is_array($schoolId), fn($query) => $query->whereIn('school_id', $schoolId), fn($query) => $query->where('school_id', $schoolId))
             ->where('is_active', true)
             ->with('personnel.fonctionReference')
             ->orderBy('name')
@@ -112,12 +113,12 @@ class CompteAgentService extends BaseService
         $domaine = config('personnel.domaine_email');
         $base = Str::slug($nomComplet, '.') ?: 'agent';
 
-        $email = $base.'@'.$domaine;
+        $email = $base . '@' . $domaine;
         $rang = 1;
 
         while ($this->prise($email)) {
             $rang++;
-            $email = $base.'.'.$rang.'@'.$domaine;
+            $email = $base . '.' . $rang . '@' . $domaine;
         }
 
         return $email;
