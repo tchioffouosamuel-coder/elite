@@ -27,26 +27,8 @@ export function ClasseFormModal({
   const { data: annees } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
   const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
-  const niveauxEcole = ecole ? niveaux?.filter((n) => n.school_id === ecole.id) : niveaux
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  // Le titulaire unique vaut pour le primaire comme pour la maternelle ; le
-  // degré d'enseignement (SIL, CP…) ne concerne que le primaire, la maternelle
-  // ne connaissant pas cette notion.
-  const secondaire = estSecondaire()
-  const avecNiveaux = utiliseNiveaux()
-  const { data: niveauxScolaires } = useQuery({
-    queryKey: ['niveaux-scolaires'],
-    queryFn: fetchNiveauxScolaires,
-    enabled: avecNiveaux,
-  })
-  const { data: personnels } = useQuery({
-    queryKey: ['personnels', { page: 1, per_page: 100 }],
-    queryFn: () => fetchPersonnels({ per_page: 100 }),
-    enabled: !secondaire,
-  })
-
   const activeAnnee = annees?.find((a) => a.is_active) ?? annees?.[0]
 
   const buildDefaultValues = (): Partial<ClassePayload> =>
@@ -71,8 +53,32 @@ export function ClasseFormModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ClassePayload>({ defaultValues: buildDefaultValues() })
+
+  const ecoleChoisieId = watch('school_id')
+  // Le titulaire unique vaut pour le primaire comme pour la maternelle ; le
+  // degré d'enseignement (SIL, CP…) ne concerne que le primaire, la maternelle
+  // ne connaissant pas cette notion. Le type vient de l'école choisie dans CE
+  // formulaire (ou, en édition, de celle de la classe) — pas de l'école active
+  // globale, sans valeur unique en mode agrégé.
+  const ecoleFormulaire = ecoleChoisieId
+    ? schools?.find((s) => s.id === Number(ecoleChoisieId))
+    : (classe?.school ?? ecole)
+  const secondaire = estSecondaire(ecoleFormulaire?.type)
+  const avecNiveaux = utiliseNiveaux(ecoleFormulaire?.type)
+  const niveauxEcole = ecoleFormulaire ? niveaux?.filter((n) => n.school_id === ecoleFormulaire.id) : niveaux
+  const { data: niveauxScolaires } = useQuery({
+    queryKey: ['niveaux-scolaires'],
+    queryFn: fetchNiveauxScolaires,
+    enabled: avecNiveaux,
+  })
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', { page: 1, per_page: 100 }],
+    queryFn: () => fetchPersonnels({ per_page: 100 }),
+    enabled: !secondaire,
+  })
 
   // Les options des selects (écoles, niveaux, titulaire…) viennent de requêtes
   // encore en vol au premier rendu : un <select> ne peut présélectionner une

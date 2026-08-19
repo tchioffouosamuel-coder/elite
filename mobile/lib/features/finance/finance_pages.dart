@@ -8,6 +8,7 @@ import '../../core/ui/permission.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
+import 'encaissement_sheet.dart';
 
 /// Groupe « Finances », pendant des pages web du même nom.
 ///
@@ -17,45 +18,217 @@ import '../../core/ui/theme.dart';
 /// directeur qui veut connaître l'état de la caisse depuis son bureau ou en
 /// déplacement.
 
-class CaissePage extends StatelessWidget {
+class CaissePage extends ConsumerWidget {
   const CaissePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // `dossiers`, pas `eleves` : c'est la clé que renvoie réellement
+    // `ScolariteController::situation`.
+    const requete = RequeteListe('scolarite/situation', cleListe: 'dossiers');
+
     return EcranListeApi(
       titre: 'Caisse',
       chemin: 'scolarite/situation',
-      cleListe: 'eleves',
+      cleListe: 'dossiers',
+      champsRecherche: const ['nom_complet', 'matricule'],
       messageVide: 'Aucun dossier de scolarité.',
-      enTete: (lignes) {
-        final du = lignes.fold<num>(0, (t, l) => t + ((l['montant_du'] as num?) ?? 0));
-        final paye = lignes.fold<num>(0, (t, l) => t + ((l['montant_paye'] as num?) ?? 0));
-        return _BandeauTotaux(entrees: [
-          ('Attendu', formaterMontant(du)),
-          ('Encaissé', formaterMontant(paye)),
-          ('Reste', formaterMontant(du - paye)),
-        ]);
-      },
-      construireLigne: (context, e) {
-        final du = (e['montant_du'] as num?) ?? 0;
-        final paye = (e['montant_paye'] as num?) ?? 0;
-        final solde = du - paye;
+      enTete: (lignes) => _BandeauCaisse(dossiers: lignes),
+      construireLigne: (context, d) {
+        final eleve = d['eleve'];
+        final reste = (d['reste_a_payer'] as num?) ?? 0;
+        final solde = reste <= 0;
 
         return LigneRessource(
-          titre: e['eleve'] is Map ? '${e['eleve']['nom_complet']}' : '${e['nom_complet'] ?? '—'}',
-          sousTitre: e['classe'] is Map ? '${e['classe']['nom']}' : e['classe'] as String?,
+          titre: eleve is Map ? '${eleve['nom_complet']}' : '—',
+          sousTitre: [
+            eleve is Map ? eleve['classe'] as String? : null,
+            'Payé ${formaterMontant(d['total_paye'])} / ${formaterMontant(d['total_du'])}',
+          ].where((e) => e != null).join(' · '),
           badge: Text(
-            formaterMontant(solde),
+            solde ? 'Soldé' : formaterMontant(reste),
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              // Un solde nul est une bonne nouvelle : il doit se distinguer
-              // au premier coup d'œil dans une liste de plusieurs centaines.
-              color: solde <= 0 ? Couleurs.synchro : Couleurs.echec,
+              fontSize: 13,
+              // Un solde nul est une bonne nouvelle : il doit se distinguer au
+              // premier coup d'œil dans une liste de plusieurs centaines.
+              color: solde ? Couleurs.synchro : Couleurs.echec,
             ),
           ),
+          onTap: () => HistoriqueVersementsSheet.ouvrir(context, d, requete),
         );
       },
+      // L'encaissement n'est pas une création de ressource mais un geste sur
+      // un dossier existant : il vit sur la ligne, pas dans un bouton flottant
+      // qui ne saurait pas de quel élève il s'agit.
+      bouton: peutEcrire(context, 'finance.encaisser')
+          ? _BoutonEncaisser(requete: requete)
+          : null,
     );
+  }
+}
+
+/// Choisit l'élève puis ouvre l'encaissement.
+///
+/// Deux étapes plutôt qu'une : au guichet, l'économe part du nom de l'élève
+/// qui se présente, pas d'une liste qu'il faudrait faire défiler.
+class _BoutonEncaisser extends ConsumerWidget {
+  const _BoutonEncaisser({required this.requete});
+
+  final RequeteListe requete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FloatingActionButton.extended(
+      onPressed: () async {
+        final dossiers = ref.read(listeApiProvider(requete)).valueOrNull ?? const [];
+        final choisi = await _choisirDossier(context, dossiers);
+        if (choisi == null || !context.mounted) return;
+
+        /*
+         * Le dossier doit être ouvert avant d'encaisser : la situation liste
+         * tous les élèves, mais leur dossier n'est créé qu'à la demande depuis
+         * la grille tarifaire — un seul sur deux cents en possédait un ici, et
+         * encaisser sur les autres échouait faute d'identifiant.
+         */
+        final dossier = await _ouvrirDossier(context, ref, choisi);
+        if (dossier == null || !context.mounted) return;
+
+        final encaisse = await EncaissementSheet.ouvrir(context, dossier);
+        if (encaisse) ref.invalidate(listeApiProvider(requete));
+      },
+      icon: const Icon(Icons.payments_outlined),
+      label: const Text('Encaisser'),
+    );
+  }
+
+  /// Ouvre (ou récupère) le dossier de scolarité de l'élève choisi.
+  Future<Map<String, dynamic>?> _ouvrirDossier(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> choisi,
+  ) async {
+    final eleve = choisi['eleve'];
+    final eleveId = eleve is Map ? eleve['id'] : null;
+    if (eleveId == null) return choisi;
+
+    try {
+      final reponse = await ref.read(apiClientProvider).get('eleves/$eleveId/scolarite');
+      final data = reponse['data'];
+      return data is Map ? Map<String, dynamic>.from(data) : choisi;
+    } on ErreurApi catch (e) {
+      if (!context.mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Couleurs.echec),
+      );
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _choisirDossier(
+    BuildContext context,
+    List<Map<String, dynamic>> dossiers,
+  ) {
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SelecteurEleve(dossiers: dossiers),
+    );
+  }
+}
+
+class _SelecteurEleve extends StatefulWidget {
+  const _SelecteurEleve({required this.dossiers});
+
+  final List<Map<String, dynamic>> dossiers;
+
+  @override
+  State<_SelecteurEleve> createState() => _SelecteurEleveState();
+}
+
+class _SelecteurEleveState extends State<_SelecteurEleve> {
+  String _recherche = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtres = widget.dossiers.where((d) {
+      if (_recherche.trim().isEmpty) return true;
+      final eleve = d['eleve'];
+      final nom = eleve is Map ? '${eleve['nom_complet']}'.toLowerCase() : '';
+      return nom.contains(_recherche.toLowerCase());
+    }).toList();
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.8,
+      maxChildSize: 0.95,
+      builder: (context, controleur) => Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 4, 20, 10),
+            child: Text('Quel élève ?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Rechercher un élève…',
+                prefixIcon: Icon(Icons.search, size: 20),
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _recherche = v),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.separated(
+              controller: controleur,
+              itemCount: filtres.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, i) {
+                final d = filtres[i];
+                final eleve = d['eleve'];
+                final reste = (d['reste_a_payer'] as num?) ?? 0;
+
+                return ListTile(
+                  title: Text(eleve is Map ? '${eleve['nom_complet']}' : '—'),
+                  subtitle: Text(eleve is Map ? '${eleve['classe'] ?? ''}' : ''),
+                  trailing: Text(
+                    reste <= 0 ? 'Soldé' : formaterMontant(reste),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: reste <= 0 ? Couleurs.synchro : Couleurs.echec,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, d),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BandeauCaisse extends StatelessWidget {
+  const _BandeauCaisse({required this.dossiers});
+
+  final List<Map<String, dynamic>> dossiers;
+
+  @override
+  Widget build(BuildContext context) {
+    final du = dossiers.fold<num>(0, (t, d) => t + ((d['total_du'] as num?) ?? 0));
+    final paye = dossiers.fold<num>(0, (t, d) => t + ((d['total_paye'] as num?) ?? 0));
+    final impayes = dossiers.where((d) => ((d['reste_a_payer'] as num?) ?? 0) > 0).length;
+
+    return _BandeauTotaux(entrees: [
+      ('Attendu', formaterMontant(du)),
+      ('Encaissé', formaterMontant(paye)),
+      ('Impayés', '$impayes'),
+    ]);
   }
 }
 
@@ -119,25 +292,6 @@ class SalairesPage extends StatelessWidget {
         titre: '${p['nom_complet'] ?? '—'}',
         sousTitre: p['fonction'] as String?,
         valeur: p['salaire_base'] == null ? '—' : formaterMontant(p['salaire_base']),
-      ),
-    );
-  }
-}
-
-class PaiePage extends StatelessWidget {
-  const PaiePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return EcranListeApi(
-      titre: 'Paie',
-      chemin: 'paie',
-      cleListe: 'bulletins',
-      messageVide: 'Aucun bulletin de paie pour cette période.',
-      construireLigne: (context, b) => LigneRessource(
-        titre: b['personnel'] is Map ? '${b['personnel']['nom_complet']}' : '—',
-        sousTitre: b['statut'] as String?,
-        valeur: b['net_a_payer'] == null ? null : formaterMontant(b['net_a_payer']),
       ),
     );
   }

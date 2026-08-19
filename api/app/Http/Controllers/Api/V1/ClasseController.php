@@ -99,7 +99,7 @@ class ClasseController extends Controller
         }
 
         $schools = \App\Models\School::where('complexe_id', $school->complexe_id)
-            ->select('id', 'name', 'code')
+            ->select('id', 'name', 'code', 'type')
             ->orderBy('name')
             ->get();
 

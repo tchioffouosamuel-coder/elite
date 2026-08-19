@@ -46,10 +46,12 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
     <div className="flex flex-col gap-5">
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {tab === 'affectations' && <AffectationsTab classeId={classeId} titulaireId={classe.titulaire_id} />}
+      {tab === 'affectations' && (
+        <AffectationsTab classeId={classeId} titulaireId={classe.titulaire_id} ecoleType={classe.school?.type} />
+      )}
       {tab === 'eleves' && <ElevesTab classeId={classeId} />}
       {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
-      {tab === 'absences' && <AbsencesTab classeId={classeId} />}
+      {tab === 'absences' && <AbsencesTab classeId={classeId} ecoleType={classe.school?.type} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
       {tab === 'responsables' && estSecondaire && <ResponsablesTab classeId={classeId} />}
     </div>

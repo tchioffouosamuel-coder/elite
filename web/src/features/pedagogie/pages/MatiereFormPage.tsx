@@ -36,10 +36,6 @@ export function MatiereFormPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Au primaire une matière est notée sur un barème propre et se découpe en
-  // volets ; au secondaire elle est sur 20 et relève d'un département.
-  const secondaire = estSecondaire()
-
   const { register, handleSubmit, watch, formState: { errors } } = useForm<MatierePayload>({
     defaultValues: matiere
       ? {
@@ -59,6 +55,16 @@ export function MatiereFormPage() {
   const departementsFiltres = ecoleChoisie
     ? departements?.filter((d) => d.school_id === Number(ecoleChoisie))
     : departements
+
+  // Au primaire une matière est notée sur un barème propre et se découpe en
+  // volets ; au secondaire elle est sur 20 et relève d'un département. Le
+  // type vient de l'école choisie dans ce formulaire (ou, en édition, de
+  // celle de la matière) — pas de l'école active globale, sans valeur unique
+  // en mode agrégé.
+  const typeEcoleFormulaire = ecoleChoisie
+    ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
+    : matiere?.school?.type
+  const secondaire = estSecondaire(typeEcoleFormulaire)
 
   const notationSaisie = Number(watch('notation')) || 0
   const evaluePratique = !!watch('evalue_pratique')

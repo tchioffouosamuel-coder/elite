@@ -5,6 +5,7 @@ import '../../features/annonces/annonces_page.dart';
 import '../../features/dashboard/tableau_bord_page.dart';
 import '../../features/divers/modules_pages.dart';
 import '../../features/finance/finance_pages.dart';
+import '../../features/finance/paie_page.dart';
 import '../../features/personnel/personnel_pages.dart';
 import '../../features/transport/transport_pages.dart';
 import '../ui/etats.dart';
