@@ -1,5 +1,5 @@
 import { http } from "@/shared/lib/http";
-import { estSecondaire } from "@/shared/lib/ecole";
+import { estSecondaire, type TypeEcole } from "@/shared/lib/ecole";
 import type { ApiResponse } from "@/shared/types/api";
 
 export interface Remplissage {
@@ -42,8 +42,8 @@ export interface Palmares {
  * de résultats sont communs, seul l'endpoint interrogé change selon l'école
  * active. Les deux variantes renvoient la même enveloppe.
  */
-function endpoint(classeId: number, ressource: string): string {
-  return estSecondaire()
+function endpoint(classeId: number, ressource: string, ecoleType?: TypeEcole | null): string {
+  return estSecondaire(ecoleType)
     ? `/classes/${classeId}/${ressource}`
     : `/classes/${classeId}/${ressource}-primaire`;
 }
@@ -51,9 +51,10 @@ function endpoint(classeId: number, ressource: string): string {
 export async function fetchRemplissage(
   classeId: number,
   trimestreId?: number,
+  ecoleType?: TypeEcole | null,
 ): Promise<Remplissage> {
   const { data } = await http.get<ApiResponse<Remplissage>>(
-    endpoint(classeId, "remplissage"),
+    endpoint(classeId, "remplissage", ecoleType),
     {
       params: trimestreId ? { trimestre_id: trimestreId } : undefined,
     },
@@ -64,9 +65,10 @@ export async function fetchRemplissage(
 export async function fetchClassement(
   classeId: number,
   trimestreId?: number,
+  ecoleType?: TypeEcole | null,
 ): Promise<Classement> {
   const { data } = await http.get<ApiResponse<Classement>>(
-    endpoint(classeId, "classement"),
+    endpoint(classeId, "classement", ecoleType),
     {
       params: trimestreId ? { trimestre_id: trimestreId } : undefined,
     },
@@ -93,8 +95,9 @@ export async function fetchPalmares(
 export async function ouvrirBulletin(
   eleveId: number,
   trimestreId?: number,
+  ecoleType?: TypeEcole | null,
 ): Promise<void> {
-  const url = estSecondaire()
+  const url = estSecondaire(ecoleType)
     ? `/eleves/${eleveId}/bulletin`
     : `/eleves/${eleveId}/bulletin-primaire`;
 
@@ -105,8 +108,9 @@ export async function ouvrirBulletin(
 export async function ouvrirBulletinsClasse(
   classeId: number,
   trimestreId?: number,
+  ecoleType?: TypeEcole | null,
 ): Promise<void> {
-  return ouvrirPdf(endpoint(classeId, "bulletins"), trimestreId);
+  return ouvrirPdf(endpoint(classeId, "bulletins", ecoleType), trimestreId);
 }
 
 /**

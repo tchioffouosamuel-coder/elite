@@ -34,7 +34,6 @@ interface LigneClasse {
 export function RemplissagePage() {
   const { t } = useTranslation()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
-  const secondaire = estSecondaire()
   const [classeId, setClasseId] = useState<number | ''>('')
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [matiereSelectionnee, setMatiereSelectionnee] = useState<number | null>(null)
@@ -66,10 +65,14 @@ export function RemplissagePage() {
 
   const classeActive = classeId ? Number(classeId) : null
   const trimestreActif = trimestreId ? Number(trimestreId) : undefined
+  // Un enseignant reste toujours sur sa propre école (jamais en mode agrégé) :
+  // pour lui seul, le type global reste un raccourci valide.
+  const classeActiveObjet = classes.find((c) => c.id === classeActive) as Classe | undefined
+  const secondaireClasseActive = estSecondaire(classeActiveObjet?.school?.type)
 
   const { data, isLoading } = useQuery({
     queryKey: ['remplissage', classeActive, trimestreId],
-    queryFn: () => fetchRemplissage(classeActive!, trimestreActif),
+    queryFn: () => fetchRemplissage(classeActive!, trimestreActif, classeActiveObjet?.school?.type),
     enabled: classeActive !== null,
   })
 
@@ -79,7 +82,7 @@ export function RemplissagePage() {
   const remplissageParClasse = useQueries({
     queries: classes.map((c) => ({
       queryKey: ['remplissage', c.id, trimestreId],
-      queryFn: () => fetchRemplissage(c.id, trimestreActif),
+      queryFn: () => fetchRemplissage(c.id, trimestreActif, (c as Classe).school?.type),
       enabled: classeActive === null,
     })),
   })
@@ -90,14 +93,14 @@ export function RemplissagePage() {
         const matieres = remplissageParClasse[i]?.data?.matieres
         const taux = matieres && matieres.length > 0 ? matieres.reduce((s, m) => s + m.taux, 0) / matieres.length : null
         const responsable = !estEnseignant
-          ? secondaire
+          ? estSecondaire((c as Classe).school?.type)
             ? ((c as Classe).professeur_principal?.nom_complet ?? null)
             : ((c as Classe).titulaire?.nom_complet ?? null)
           : null
 
         return { id: c.id, nom: c.nom, nbMatieres: matieres ? matieres.length : null, responsable, taux }
       }),
-    [classes, remplissageParClasse, estEnseignant, secondaire],
+    [classes, remplissageParClasse, estEnseignant],
   )
 
   const colonnesClasses: Colonne<LigneClasse>[] = [
@@ -117,7 +120,7 @@ export function RemplissagePage() {
       ? [
           {
             cle: 'responsable',
-            entete: secondaire ? 'Professeur principal' : 'Enseignant',
+            entete: 'Responsable',
             valeur: (l: LigneClasse) => l.responsable,
             cellule: (l: LigneClasse) => l.responsable ?? '—',
           } satisfies Colonne<LigneClasse>,
@@ -195,7 +198,7 @@ export function RemplissagePage() {
   if (matiereSelectionnee && classeActive !== null) {
     return (
       <div className="flex flex-col gap-4">
-        {secondaire ? (
+        {secondaireClasseActive ? (
           <NotesTab
             classeId={classeActive}
             initialMatiereId={matiereSelectionnee}

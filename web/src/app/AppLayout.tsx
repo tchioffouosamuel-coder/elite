@@ -127,7 +127,6 @@ const navGroups = [
         avecAttribution: true,
       },
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
-      { to: '/sous-systemes', label: 'nav.sousSystemes', icon: Layers, permission: 'classes.manage' },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
     ],

@@ -69,7 +69,6 @@ export function PersonnelFormPage() {
   const { id } = useParams()
   const personnelId = id ? Number(id) : null
 
-  const avecDepartements = estSecondaire()
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
 
   const { data: personnel, isLoading, isError } = useQuery({
@@ -77,11 +76,10 @@ export function PersonnelFormPage() {
     queryFn: () => fetchPersonnel(personnelId!),
     enabled: personnelId !== null,
   })
-  const { data: departements } = useQuery({
-    queryKey: ['departements', activeSchoolId],
-    queryFn: fetchDepartements,
-    enabled: avecDepartements,
-  })
+  // Chargés systématiquement (pas seulement pour le secondaire) : en mode
+  // agrégé, savoir si CETTE fiche relève du secondaire dépend de l'école
+  // choisie plus bas dans le formulaire, pas connue avant ce point.
+  const { data: departements } = useQuery({ queryKey: ['departements', activeSchoolId], queryFn: fetchDepartements })
   const { data: fonctions } = useQuery({
     queryKey: ['fonctions-referentiel', activeSchoolId],
     queryFn: fetchFonctionsReferentiel,
@@ -106,6 +104,10 @@ export function PersonnelFormPage() {
   // filtrer plutôt que de mélanger les référentiels de plusieurs écoles.
   const fonctionsFiltrees = ecoleChoisie ? fonctions?.filter((f) => f.school_id === Number(ecoleChoisie)) : fonctions
   const departementsFiltres = ecoleChoisie ? departements?.filter((d) => d.school_id === Number(ecoleChoisie)) : departements
+  const typeEcoleFormulaire = ecoleChoisie
+    ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
+    : personnel?.school?.type
+  const avecDepartements = estSecondaire(typeEcoleFormulaire)
 
   // La fiche à modifier arrive après le premier rendu : le formulaire est
   // recalé quand elle est là, pas construit à vide puis laissé tel quel.

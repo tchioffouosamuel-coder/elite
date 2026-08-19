@@ -5,7 +5,7 @@ export interface School {
   id: number;
   name: string;
   code: string;
-  type: string;
+  type: "maternelle" | "primaire" | "secondaire";
 }
 
 export interface Departement {

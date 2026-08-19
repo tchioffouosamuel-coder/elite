@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileText, FileDown, Gavel } from 'lucide-react'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, type Classe } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { ouvrirBulletinsClasse, ouvrirPvConseilClasse } from '@/features/resultats/api'
 import { Button } from '@/shared/ui/Button'
@@ -15,23 +15,23 @@ import { estSecondaire } from '@/shared/lib/ecole'
  * Édition des bulletins par classe : comme report_cards.php dans _smapp, on
  * choisit une classe et on obtient un seul PDF contenant le bulletin de chacun
  * de ses élèves.
+ *
+ * En mode agrégé (super admin, "Toutes les écoles"), la liste mélange des
+ * classes de types différents : le moteur de bulletin (secondaire/primaire)
+ * et la disponibilité du PV se décident donc par ligne, sur l'école de
+ * CHAQUE classe — jamais sur une école active globale qui n'existe pas ici.
  */
 export function BulletinsPage() {
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [enCours, setEnCours] = useState<{ classeId: number; type: 'bulletins' | 'pv' } | null>(null)
-  // Le primaire et la maternelle n'ont pas de professeur principal : la classe
-  // est tenue par son enseignant titulaire. Le conseil de classe (PV), lui,
-  // repose sur le calcul de moyennes par séquence propre au secondaire — pas
-  // d'équivalent primaire à ce jour.
-  const secondaire = estSecondaire()
 
   const { data: classes, isLoading } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
-  const editer = async (classeId: number) => {
-    setEnCours({ classeId, type: 'bulletins' })
+  const editer = async (classe: Classe) => {
+    setEnCours({ classeId: classe.id, type: 'bulletins' })
     try {
-      await ouvrirBulletinsClasse(classeId, trimestreId ? Number(trimestreId) : undefined)
+      await ouvrirBulletinsClasse(classe.id, trimestreId ? Number(trimestreId) : undefined, classe.school?.type)
     } finally {
       setEnCours(null)
     }
@@ -45,6 +45,11 @@ export function BulletinsPage() {
       setEnCours(null)
     }
   }
+
+  // Une seule colonne pour les deux libellés (secondaire/primaire) : la
+  // liste peut mélanger des classes de types différents en mode agrégé, un
+  // en-tête unique ne peut donc pas trancher pour toutes les lignes.
+  const libelleResponsable = 'Responsable'
 
   return (
     <div className="flex flex-col gap-5">
@@ -80,43 +85,47 @@ export function BulletinsPage() {
               <Th>Classe</Th>
               <Th>Niveau</Th>
               <Th>Effectif</Th>
-              <Th>{secondaire ? 'Professeur principal' : 'Enseignant'}</Th>
+              <Th>{libelleResponsable}</Th>
               <Th />
             </tr>
           </Thead>
           <tbody>
-            {classes.map((classe) => (
-              <Tr key={classe.id}>
-                <Td className="font-semibold">{classe.nom}</Td>
-                <Td>{classe.niveau?.name_fr ?? '—'}</Td>
-                <Td>{classe.effectif ?? '—'}</Td>
-                <Td>{(secondaire ? classe.professeur_principal : classe.titulaire)?.nom_complet ?? '—'}</Td>
-                <Td>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => editer(classe.id)}
-                      disabled={enCours?.classeId === classe.id}
-                    >
-                      <FileDown className="h-4 w-4" />
-                      {enCours?.classeId === classe.id && enCours.type === 'bulletins' ? 'Génération…' : 'Éditer les bulletins'}
-                    </Button>
-                    {secondaire && (
+            {classes.map((classe) => {
+              const classeSecondaire = estSecondaire(classe.school?.type)
+
+              return (
+                <Tr key={classe.id}>
+                  <Td className="font-semibold">{classe.nom}</Td>
+                  <Td>{classe.niveau?.name_fr ?? '—'}</Td>
+                  <Td>{classe.effectif ?? '—'}</Td>
+                  <Td>{(classeSecondaire ? classe.professeur_principal : classe.titulaire)?.nom_complet ?? '—'}</Td>
+                  <Td>
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => editerPv(classe.id)}
+                        onClick={() => editer(classe)}
                         disabled={enCours?.classeId === classe.id}
                       >
-                        <Gavel className="h-4 w-4" />
-                        {enCours?.classeId === classe.id && enCours.type === 'pv' ? 'Génération…' : 'PV du conseil'}
+                        <FileDown className="h-4 w-4" />
+                        {enCours?.classeId === classe.id && enCours.type === 'bulletins' ? 'Génération…' : 'Éditer les bulletins'}
                       </Button>
-                    )}
-                  </div>
-                </Td>
-              </Tr>
-            ))}
+                      {classeSecondaire && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => editerPv(classe.id)}
+                          disabled={enCours?.classeId === classe.id}
+                        >
+                          <Gavel className="h-4 w-4" />
+                          {enCours?.classeId === classe.id && enCours.type === 'pv' ? 'Génération…' : 'PV du conseil'}
+                        </Button>
+                      )}
+                    </div>
+                  </Td>
+                </Tr>
+              )
+            })}
           </tbody>
         </Table>
       )}

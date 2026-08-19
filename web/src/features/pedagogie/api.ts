@@ -17,7 +17,7 @@ export interface Matiere {
   classes_count?: number;
   departement: Departement | null;
   school_id?: number;
-  school?: { id: number; name: string; code: string; type: string } | null;
+  school?: { id: number; name: string; code: string; type: "maternelle" | "primaire" | "secondaire" } | null;
 }
 
 export interface ClasseEnseignantMatiere {

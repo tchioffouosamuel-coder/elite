@@ -30,9 +30,9 @@ export function EleveDetailPage() {
   const can = useAuthStore((s) => s.can)
   const { id } = useParams<{ id: string }>()
   const eleveId = Number(id)
-  const secondaire = estSecondaire()
 
   const { data: eleve, isLoading, isError } = useQuery({ queryKey: ['eleve', eleveId], queryFn: () => fetchEleve(eleveId) })
+  const secondaire = estSecondaire(eleve?.school?.type)
 
   if (isLoading) return <Spinner />
   if (isError || !eleve) return <ErrorState />
@@ -69,7 +69,7 @@ export function EleveDetailPage() {
         <div className="flex items-center gap-2">
           {eleve.classe && (
             <>
-              <Button variant="secondary" onClick={() => ouvrirBulletin(eleve.id)}>
+              <Button variant="secondary" onClick={() => ouvrirBulletin(eleve.id, undefined, eleve.school?.type)}>
                 <FileDown className="h-4 w-4" />
                 PDF
               </Button>

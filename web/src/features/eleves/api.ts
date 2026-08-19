@@ -27,7 +27,7 @@ export interface Eleve {
   redoublant: boolean;
   statut: "actif" | "parti" | "exclu";
   school_id: number | null;
-  school: { id: number; name: string; code: string; type: string } | null;
+  school: { id: number; name: string; code: string; type: "maternelle" | "primaire" | "secondaire" } | null;
   classe: { id: number; nom: string; niveau: string | null } | null;
   tuteurs: Tuteur[];
 }
