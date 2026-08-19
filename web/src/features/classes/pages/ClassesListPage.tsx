@@ -125,13 +125,13 @@ export function ClassesListPage() {
     },
     {
       cle: 'sigle',
-      entete: 'Sigle',
+      entete: t('classes.sigle'),
       valeur: (c) => c.sigle,
       cellule: (c) => (c.sigle ? <span className="font-mono font-semibold text-gold-600">{c.sigle}</span> : '—'),
     },
     {
       cle: 'sous_systeme',
-      entete: 'Sous-système',
+      entete: t('classes.sous_systeme'),
       valeur: (c) => getSousSystemeNom(c),
       cellule: (c) => (getSousSystemeNom(c) === '—' ? '—' : <Badge tone="blue">{getSousSystemeNom(c)}</Badge>),
       masquerMobile: true,
@@ -267,7 +267,7 @@ export function ClassesListPage() {
               <div className="w-48">
                 <Select
                   options={schools.map((s) => ({ value: s.id, label: s.name }))}
-                  placeholder="Définir l'école"
+                  placeholder={t('classes.bulk_school_placeholder')}
                   onChange={(option) => {
                     if (option) handleBulkUpdate({ school_id: option.value as number })
                   }}
@@ -279,7 +279,7 @@ export function ClassesListPage() {
               <div className="w-56">
                 <Select
                   options={sousSystemes.map((s) => ({ value: s.id, label: `${s.nom} (${s.code})` }))}
-                  placeholder="Définir le sous-système"
+                  placeholder={t('classes.bulk_subsystem_placeholder')}
                   onChange={(option) => {
                     if (option) handleBulkUpdate({ sous_systeme_id: option.value as number })
                   }}
@@ -291,7 +291,7 @@ export function ClassesListPage() {
               <div className="w-48">
                 <Select
                   options={niveaux.map((n) => ({ value: n.id, label: n.name_fr }))}
-                  placeholder="Définir le niveau"
+                  placeholder={t('classes.bulk_level_placeholder')}
                   onChange={(option) => {
                     if (option) handleBulkUpdate({ niveau_id: option.value as number })
                   }}
@@ -304,7 +304,7 @@ export function ClassesListPage() {
                 onClick={() => setSelectedClasses(new Set())}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
               >
-                Annuler
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -329,7 +329,7 @@ export function ClassesListPage() {
                 value={schoolFilter === null ? null : schools
                   .filter((school) => school.id === schoolFilter)
                   .map((school) => ({ value: school.id, label: school.name }))[0] ?? null}
-                placeholder="Toutes les écoles"
+                placeholder={t('classes.all_schools_placeholder')}
                 onChange={(option) => setSchoolFilter(option ? Number(option.value) : null)}
                 isSearchable={false}
                 isClearable

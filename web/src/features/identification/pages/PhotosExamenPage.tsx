@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Download, ImageOff, ScanFace } from 'lucide-react'
+import { CheckCircle2, Download, Eye, ImageOff, ScanFace } from 'lucide-react'
 import {
   fetchClassesExamen,
   fetchDossierExamen,
@@ -11,7 +11,6 @@ import {
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, StatCard } from '@/shared/ui/Card'
-import { Select } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
@@ -51,11 +50,6 @@ export function PhotosExamenPage() {
     queryKey: ['classes-examen'],
     queryFn: fetchClassesExamen,
   })
-
-  // Une seule classe d'examen : la présélectionner évite un clic inutile.
-  useEffect(() => {
-    if (classeId === '' && classes?.length === 1) setClasseId(classes[0].id)
-  }, [classes, classeId])
 
   const { data: dossier, isLoading } = useQuery({
     queryKey: ['dossier-examen', classeId],
@@ -112,19 +106,63 @@ export function PhotosExamenPage() {
         </Card>
       ) : (
         <>
-          <Select
-            label={t('identification.classe_examen_label')}
-            value={classeId}
-            onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-            className="max-w-sm"
-          >
-            <option value="">{t('identification.select_classe_placeholder')}</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {t('identification.classe_option_label', { nom: c.nom, code: c.code_examen, count: c.effectif })}
-              </option>
-            ))}
-          </Select>
+          <Card className="overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-sm">
+                <thead className="bg-linear-to-b from-cream-100 to-cream-100/80 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+                  <tr>
+                    <th className="px-5 py-3.5">{t('identification.class_name')}</th>
+                    <th className="px-5 py-3.5">{t('identification.class_enrolled')}</th>
+                    <th className="px-5 py-3.5">{t('identification.class_photos')}</th>
+                    <th className="w-72 px-5 py-3.5">{t('identification.class_progress')}</th>
+                    <th className="px-5 py-3.5 text-right">{t('common.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classes.map((classe) => {
+                    const pourcentage = classe.effectif > 0
+                      ? Math.min(100, Math.round((classe.photos / classe.effectif) * 100))
+                      : 0
+                    const selectionnee = classeId === classe.id
+
+                    return (
+                      <tr
+                        key={classe.id}
+                        className={`border-t border-navy-50 transition-colors ${selectionnee ? 'bg-gold-50/60' : 'even:bg-cream-50/40 hover:bg-gold-50/40'}`}
+                      >
+                        <td className="px-5 py-4">
+                          <div className="font-semibold text-navy-900">{classe.nom}</div>
+                          <div className="mt-0.5 text-xs text-navy-400">{classe.code_examen}</div>
+                        </td>
+                        <td className="px-5 py-4 font-semibold tabular-nums text-navy-800">{classe.effectif}</td>
+                        <td className="px-5 py-4 tabular-nums text-navy-700">
+                          <span className="font-semibold">{classe.photos}</span>
+                          <span className="text-navy-400"> / {classe.effectif}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-navy-100">
+                              <div
+                                className={`h-full rounded-full transition-all ${pourcentage === 100 ? 'bg-green-500' : 'bg-gold-500'}`}
+                                style={{ width: `${pourcentage}%` }}
+                              />
+                            </div>
+                            <span className="w-10 text-right text-xs font-semibold tabular-nums text-navy-600">{pourcentage}%</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <Button variant="secondary" onClick={() => setClasseId(classe.id)}>
+                            <Eye className="h-4 w-4" />
+                            {t('identification.view_details')}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
 
           {classeId === '' ? (
             <Card>

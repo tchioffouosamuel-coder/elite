@@ -25,16 +25,18 @@ class PhotoExamenController extends Controller
         $classes = Classe::forSchool(app('tenant.school_id'))
             ->whereNotNull('code_examen')
             ->where('code_examen', '!=', '')
-            ->withCount(['eleves as effectif' => fn ($q) => $q->where('statut', 'actif')])
+            ->withCount(['eleves as effectif' => fn($q) => $q->where('statut', 'actif')])
+            ->withCount(['eleves as photos' => fn($q) => $q->where('statut', 'actif')->whereNotNull('photo_path')])
             ->orderBy('nom')
             ->get()
             // Le sélecteur n'a besoin que de ces quatre champs : renvoyer le
             // modèle entier exposerait des colonnes sans rapport.
-            ->map(fn (Classe $c) => [
+            ->map(fn(Classe $c) => [
                 'id' => $c->id,
                 'nom' => $c->nom,
                 'code_examen' => $c->code_examen,
                 'effectif' => $c->effectif,
+                'photos' => $c->photos,
             ]);
 
         return ApiResponse::success($classes);
@@ -61,11 +63,11 @@ class PhotoExamenController extends Controller
             );
         }
 
-        $nom = 'photos-examen-'.Str::slug($classe->nom).'-'.Str::slug((string) $classe->code_examen).'.zip';
+        $nom = 'photos-examen-' . Str::slug($classe->nom) . '-' . Str::slug((string) $classe->code_examen) . '.zip';
 
         return response($resultat['contenu'], 200, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => 'attachment; filename="'.$nom.'"',
+            'Content-Disposition' => 'attachment; filename="' . $nom . '"',
             // Le front lit ces compteurs pour signaler les candidats écartés,
             // qu'un téléchargement binaire ne peut pas rapporter autrement.
             'X-Photos-Traitees' => (string) $resultat['traites'],

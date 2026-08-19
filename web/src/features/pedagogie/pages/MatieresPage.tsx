@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { BookOpen, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { fetchMatieres, fetchMatiereClasses, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
+import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { Select } from '@/shared/ui/Select'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
@@ -25,8 +27,13 @@ export function MatieresPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showImport, setShowImport] = useState(false)
   const [matiereClasses, setMatiereClasses] = useState<Matiere | null>(null)
+  const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const matieresFiltrees = schoolFilter === null
+    ? data ?? []
+    : (data ?? []).filter((matiere) => (matiere.school_id ?? matiere.school?.id) === schoolFilter)
 
   // Le secondaire classe ses matières par département ; le primaire les note
   // sur un barème propre, réparti sur ses volets d'évaluation.
@@ -236,10 +243,24 @@ export function MatieresPage() {
       ) : (
         <DataTable
           colonnes={colonnes}
-          lignes={data}
+          lignes={matieresFiltrees}
           cleLigne={(m) => m.id}
           placeholderRecherche={t('matieres.search_placeholder')}
           messageVide={t('matieres.empty')}
+          outils={schools.length > 1 ? (
+            <div className="w-full sm:w-56">
+              <Select
+                options={schools.map((school) => ({ value: school.id, label: school.name }))}
+                value={schoolFilter === null ? null : schools
+                  .filter((school) => school.id === schoolFilter)
+                  .map((school) => ({ value: school.id, label: school.name }))[0] ?? null}
+                placeholder={t('classes.all_schools_placeholder')}
+                onChange={(option) => setSchoolFilter(option ? Number(option.value) : null)}
+                isSearchable={false}
+                isClearable
+              />
+            </div>
+          ) : undefined}
         />
       )}
 

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../features/admin/admin_pages.dart';
 import '../../features/annonces/annonces_page.dart';
+import '../../features/classes/codes_qr_page.dart';
+import '../../features/resultats/bulletins_page.dart';
+import '../../features/resultats/remplissage_page.dart';
 import '../../features/dashboard/tableau_bord_page.dart';
 import '../../features/divers/modules_pages.dart';
+import '../../features/emploi_du_temps/emploi_du_temps_page.dart';
 import '../../features/finance/finance_pages.dart';
 import '../../features/finance/paie_page.dart';
 import '../../features/personnel/personnel_pages.dart';
@@ -35,6 +39,9 @@ Widget ecranPour(String chemin) {
     '/matieres' => const MatieresPage(),
     '/progression' => const ProgressionPage(),
 
+    '/emploi-du-temps' => const EmploiDuTempsPage(),
+    '/codes-qr' => const CodesQrPage(),
+
     // Santé
     '/infirmerie' => const InfirmeriePage(),
 
@@ -49,6 +56,8 @@ Widget ecranPour(String chemin) {
 
     // Résultats
     '/palmares' => const PalmaresPage(),
+    '/bulletins' => const BulletinsPage(),
+    '/remplissage' => const RemplissagePage(),
     '/revendications' => const RevendicationsPage(),
     '/stats-pedagogiques' => const StatistiquesPage(
         titre: 'Stats pédagogiques', chemin: 'statistiques/pedagogiques'),

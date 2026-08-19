@@ -19,6 +19,8 @@ export interface NiveauScolaire {
   animateur_personnel_id: number | null
   animateur: { id: number; nom_complet: string } | null
   nb_classes?: number
+  school_id?: number
+  school?: { id: number; name: string; code: string; type: 'maternelle' | 'primaire' | 'secondaire' } | null
 }
 
 export interface NiveauScolairePayload {
@@ -26,6 +28,7 @@ export interface NiveauScolairePayload {
   libelle: string
   ordre?: number | null
   animateur_personnel_id?: number | null
+  school_id?: number | null
 }
 
 export async function fetchNiveauxScolaires(): Promise<NiveauScolaire[]> {

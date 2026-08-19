@@ -51,6 +51,15 @@ dependencies:
   # écritures en attente.
   workmanager: ^0.10.7
 
+  # Affichage des codes QR de salle, à imprimer. Génération locale : le jeton
+  # est déjà répliqué, inutile de demander une image au serveur.
+  qr_flutter: ^4.1.0
+
+  # Ouverture des PDF (bulletins, PV, reçus) dans le lecteur du téléphone :
+  # l'API les renvoie déjà mis en page par mPDF, les réafficher nous-mêmes
+  # n'apporterait rien et diviserait le rendu en deux.
+  open_filex: ^4.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

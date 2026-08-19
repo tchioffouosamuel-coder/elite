@@ -397,7 +397,7 @@ export function ElevesListPage() {
                     value={schoolFilter === null ? null : schools
                       .filter((school) => school.id === schoolFilter)
                       .map((school) => ({ value: school.id, label: school.name }))[0] ?? null}
-                    placeholder="Toutes les écoles"
+                    placeholder={t('nav.toutesLesEcoles')}
                     onChange={(option) => {
                       setSchoolFilter(option ? Number(option.value) : null)
                       setClasseFilter(null)
@@ -413,7 +413,7 @@ export function ElevesListPage() {
                   value={classeFilter === null ? null : classesDisponibles
                     .filter((classe) => classe.id === classeFilter)
                     .map((classe) => ({ value: classe.id, label: classe.nom }))[0] ?? null}
-                  placeholder="Toutes les classes"
+                  placeholder={t('eleves.toutes_classes')}
                   onChange={(option) => setClasseFilter(option ? Number(option.value) : null)}
                   isSearchable
                   isClearable

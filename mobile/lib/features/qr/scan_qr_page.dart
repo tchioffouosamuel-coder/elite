@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/providers.dart';
+import 'jeton_qr.dart';
 import '../../core/ui/theme.dart';
 import '../appel/appel_page.dart';
 
@@ -41,7 +42,7 @@ class _ScanQrPageState extends ConsumerState<ScanQrPage> {
   Future<void> _surDetection(BarcodeCapture capture) async {
     if (_traitement) return;
 
-    final jeton = capture.barcodes.firstOrNull?.rawValue?.trim();
+    final jeton = extraireJetonQr(capture.barcodes.firstOrNull?.rawValue);
     if (jeton == null || jeton.isEmpty) return;
 
     setState(() {
