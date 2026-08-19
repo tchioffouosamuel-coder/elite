@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/ui/ecran_liste.dart';
+import '../../core/ui/gestes_modules.dart';
+import '../../core/ui/permission.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
@@ -85,6 +87,8 @@ class DepensesPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Dépenses',
       chemin: 'depenses',
+      gestes: Gestes.depenses,
+      peutEcrire: peutEcrire(context, 'finance.depenses'),
       cleListe: 'depenses',
       champsRecherche: const ['libelle', 'fournisseur'],
       messageVide: 'Aucune dépense enregistrée.',
@@ -147,6 +151,8 @@ class AvancesSalairePage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Avances sur salaire',
       chemin: 'avances-salaire',
+      gestes: Gestes.avances,
+      peutEcrire: peutEcrire(context, 'finance.paie'),
       cleListe: 'avances',
       messageVide: 'Aucune avance en cours.',
       construireLigne: (context, a) => LigneRessource(

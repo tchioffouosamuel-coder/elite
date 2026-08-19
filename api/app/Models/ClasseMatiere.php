@@ -20,9 +20,9 @@ class ClasseMatiere extends Model
     }
 
     /** Filtre par école via la classe (classe_matieres n'a pas school_id en propre). */
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->whereHas('classe', fn ($q) => $q->where('school_id', $schoolId));
+        return $query->whereHas('classe', fn ($q) => is_array($schoolId) ? $q->whereIn('school_id', $schoolId) : $q->where('school_id', $schoolId));
     }
 
     public function classe(): BelongsTo

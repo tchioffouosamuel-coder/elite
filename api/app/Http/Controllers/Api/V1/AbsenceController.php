@@ -9,6 +9,7 @@ use App\Models\Classe;
 use App\Models\Trimestre;
 use App\Services\DisciplineService;
 use App\Support\Pdf\MpdfFactory;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,10 +20,10 @@ class AbsenceController extends Controller
 
     public function index(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         $trimestre = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->findOrFail($request->integer('trimestre_id'));
 
         return ApiResponse::success($this->service->grille($classe, $trimestre));
@@ -30,10 +31,10 @@ class AbsenceController extends Controller
 
     public function bulkStore(BulkSaveAbsencesRequest $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         $trimestre = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->findOrFail($request->integer('trimestre_id'));
 
         $count = $this->service->sauvegarderEnLot($classe, $trimestre, $request->input('absences'), $request->user());
@@ -43,10 +44,10 @@ class AbsenceController extends Controller
 
     public function bilan(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         $trimestre = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->findOrFail($request->integer('trimestre_id'));
 
         return ApiResponse::success($this->service->bilanClasse($classe, $trimestre));
@@ -54,10 +55,10 @@ class AbsenceController extends Controller
 
     public function bilanPdf(Request $request, int $classeId): Response
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->with('school')->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
         $trimestre = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->with('anneeScolaire')->findOrFail($request->integer('trimestre_id'));
 
         return MpdfFactory::streamFromView('pdf.bilan-disciplinaire', [

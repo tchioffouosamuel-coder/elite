@@ -14,6 +14,7 @@ class StoreDepartementRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:100'],
         ];
     }

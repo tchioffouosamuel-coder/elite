@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/nav/barre_app.dart';
 import '../../core/nav/routeur.dart';
 import '../../core/nav/tiroir.dart';
 import '../../core/session/session.dart';
@@ -113,6 +114,7 @@ class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver
     final corps = _corps(_chemin);
 
     return Scaffold(
+      key: cleCoquille,
       // Le tiroir n'est branché que sur téléphone : sur tablette il est déjà
       // dans la mise en page, l'attacher au Scaffold le dupliquerait.
       drawer: large ? null : tiroir,
@@ -166,10 +168,7 @@ class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver
     if (vue == null) return ecranPour(chemin);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titre!),
-        actions: const [IndicateurSync()],
-      ),
+      appBar: BarreApp(titre: titre!),
       body: vue,
     );
   }

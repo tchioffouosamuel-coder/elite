@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/shared/store/authStore'
+import { estSecondaire as estSecondaireHelper } from '@/shared/lib/ecole'
 import { Tabs } from '@/shared/ui/Tabs'
 import { AffectationsTab } from '@/features/pedagogie/pages/AffectationsTab'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
@@ -19,13 +20,14 @@ import type { Classe } from '@/features/classes/api'
 export function ClasseTabs({ classe }: { classe: Classe }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
-  const activeSchool = useAuthStore((s) => s.activeSchool)
   const classeId = classe.id
   const [tab, setTab] = useState('affectations')
 
   // Le primaire et la maternelle notent par volets d'évaluation, le secondaire
-  // par séquence : deux grilles de saisie distinctes.
-  const estSecondaire = (activeSchool()?.type ?? 'secondaire') === 'secondaire'
+  // par séquence : deux grilles de saisie distinctes. Le type vient de l'école
+  // de LA classe affichée — pas de l'école active globale, qui n'a pas de
+  // valeur unique en mode agrégé (super admin, "Toutes les écoles").
+  const estSecondaire = estSecondaireHelper(classe.school?.type)
 
   const tabs = [
     can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },

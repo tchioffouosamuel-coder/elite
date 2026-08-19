@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AvanceSalaire;
+use App\Models\Personnel;
 use App\Services\AvanceSalaireService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,33 +24,35 @@ class AvanceSalaireController extends Controller
             'statut' => $request->string('statut')->toString() ?: null,
         ];
 
-        $avances = $this->service->lister(app('tenant.school_id'), $filtres);
+        $avances = $this->service->lister(Tenant::schoolIds(), $filtres);
 
         return ApiResponse::success([
             'avances' => $avances->map(fn (AvanceSalaire $a) => $this->resumer($a))->values(),
-            'totaux' => $this->service->totaux(app('tenant.school_id')),
+            'totaux' => $this->service->totaux(Tenant::schoolIds()),
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
-
         $donnees = $request->validate([
-            'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', $schoolId)],
+            'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', Tenant::schoolIds())],
             'montant' => ['required', 'integer', 'min:1'],
             'date_avance' => ['required', 'date'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // L'avance appartient à l'école de l'agent choisi, pas à un contexte
+        // ambiant : en mode agrégé, deviner serait arbitraire.
+        $schoolId = Personnel::findOrFail($donnees['personnel_id'])->school_id;
+
         $avance = $this->service->accorder($schoolId, $donnees, $request->user()?->id);
 
-        return ApiResponse::created($this->resumer($avance->load('personnel')), 'Avance accordée.');
+        return ApiResponse::created($this->resumer($avance->load('personnel.school')), 'Avance accordée.');
     }
 
     public function rembourser(Request $request, int $id): JsonResponse
     {
-        $avance = $this->service->trouver(app('tenant.school_id'), $id);
+        $avance = $this->service->trouver(Tenant::schoolIds(), $id);
 
         $donnees = $request->validate([
             'montant' => ['required', 'integer', 'min:1'],
@@ -65,7 +69,7 @@ class AvanceSalaireController extends Controller
 
     public function annuler(Request $request, int $id): JsonResponse
     {
-        $avance = $this->service->trouver(app('tenant.school_id'), $id);
+        $avance = $this->service->trouver(Tenant::schoolIds(), $id);
 
         $donnees = $request->validate(['motif' => ['required', 'string', 'min:3', 'max:255']]);
 
@@ -78,7 +82,7 @@ class AvanceSalaireController extends Controller
     /** @return array<string, mixed> */
     private function resumer(AvanceSalaire $avance): array
     {
-        $avance->loadMissing('personnel', 'remboursements');
+        $avance->loadMissing('personnel.school', 'remboursements');
 
         return [
             'id' => $avance->id,
@@ -88,6 +92,12 @@ class AvanceSalaireController extends Controller
                 'matricule' => $avance->personnel?->matricule,
                 'fonction' => $avance->personnel?->fonction,
             ],
+            'school' => $avance->personnel?->school ? [
+                'id' => $avance->personnel->school->id,
+                'name' => $avance->personnel->school->name,
+                'code' => $avance->personnel->school->code,
+                'type' => $avance->personnel->school->type,
+            ] : null,
             'montant' => $avance->montant,
             'date_avance' => $avance->date_avance->format('Y-m-d'),
             'motif' => $avance->motif,

@@ -5,6 +5,7 @@ export interface VisiteInfirmerie {
   id: number
   eleve: { id: number; nom_complet: string }
   classe: { id: number; nom: string } | null
+  school?: { id: number; name: string; code: string; type: string } | null
   date_visite: string
   raison: string
   soins_prodiges: string

@@ -126,6 +126,13 @@ export function FonctionsReferentielPage() {
       cellule: (f) => <span className="text-navy-600">{f.label_en ?? '—'}</span>,
     },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (f) => f.school?.name,
+      cellule: (f) => <span className="text-navy-600">{f.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'personnels_count',
       entete: t('personnel.title'),
       valeur: (f) => f.personnels_count,

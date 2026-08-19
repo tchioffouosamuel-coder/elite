@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusAffectation;
 use App\Models\Eleve;
 use App\Services\BusService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -23,7 +24,7 @@ class BusAffectationController extends Controller
     {
         $trajetId = $request->integer('trajet_id') ?: null;
 
-        $affectations = $this->service->listerAffectations(app('tenant.school_id'), $trajetId);
+        $affectations = $this->service->listerAffectations(Tenant::schoolIds(), $trajetId);
 
         return ApiResponse::success($affectations->map(fn (BusAffectation $a) => $this->resumer($a))->values());
     }
@@ -32,7 +33,7 @@ class BusAffectationController extends Controller
     public function eleves(Request $request): JsonResponse
     {
         $eleves = $this->service->listerElevesTransport(
-            app('tenant.school_id'),
+            Tenant::schoolIds(),
             $request->integer('classe_id') ?: null,
             $request->integer('annee_scolaire_id') ?: null,
         );
@@ -119,7 +120,7 @@ class BusAffectationController extends Controller
     /** @return array<string, mixed> */
     private function resumer(BusAffectation $affectation): array
     {
-        $affectation->loadMissing(['eleve.classe', 'trajet', 'arret']);
+        $affectation->loadMissing(['eleve.classe', 'trajet.school', 'arret']);
 
         return [
             'id' => $affectation->id,
@@ -135,6 +136,12 @@ class BusAffectationController extends Controller
             ],
             'trajet' => ['id' => $affectation->trajet->id, 'nom' => $affectation->trajet->nom],
             'arret' => $affectation->arret ? ['id' => $affectation->arret->id, 'nom' => $affectation->arret->nom] : null,
+            'school' => $affectation->trajet->school ? [
+                'id' => $affectation->trajet->school->id,
+                'name' => $affectation->trajet->school->name,
+                'code' => $affectation->trajet->school->code,
+                'type' => $affectation->trajet->school->type,
+            ] : null,
         ];
     }
 
@@ -148,6 +155,12 @@ class BusAffectationController extends Controller
             'nom_complet' => $eleve->nom_complet,
             'matricule' => $eleve->matricule,
             'classe' => $eleve->classe ? ['id' => $eleve->classe->id, 'nom' => $eleve->classe->nom] : null,
+            'school' => $eleve->school ? [
+                'id' => $eleve->school->id,
+                'name' => $eleve->school->name,
+                'code' => $eleve->school->code,
+                'type' => $eleve->school->type,
+            ] : null,
             'bus' => $affectation ? [
                 'affectation_id' => $affectation->id,
                 'trajet' => ['id' => $affectation->trajet->id, 'nom' => $affectation->trajet->nom],
@@ -161,6 +174,6 @@ class BusAffectationController extends Controller
 
     private function affectation(int $id): BusAffectation
     {
-        return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool(app('tenant.school_id')))->findOrFail($id);
+        return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool(Tenant::schoolIds()))->findOrFail($id);
     }
 }

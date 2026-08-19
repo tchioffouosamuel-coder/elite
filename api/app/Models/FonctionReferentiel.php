@@ -20,9 +20,9 @@ class FonctionReferentiel extends Model
 
     protected $fillable = ['school_id', 'label_fr', 'label_en'];
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     public function school(): BelongsTo

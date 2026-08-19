@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { createSousSysteme, updateSousSysteme, type SousSysteme } from './api'
+import { fetchSchools } from '@/features/classes/api'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { useForm } from 'react-hook-form'
 import { erreur, succes } from '@/shared/lib/alertes'
 
@@ -15,6 +17,7 @@ interface SousSystemeFormModalProps {
 
 export function SousSystemeFormModal({ sousSysteme, onClose, onCreated }: SousSystemeFormModalProps) {
     const { t } = useTranslation()
+    const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
     const {
         register,
         handleSubmit,
@@ -25,6 +28,7 @@ export function SousSystemeFormModal({ sousSysteme, onClose, onCreated }: SousSy
             code: sousSysteme?.code ?? '',
             nom: sousSysteme?.nom ?? '',
             description: sousSysteme?.description ?? '',
+            school_id: sousSysteme?.school_id,
         },
     })
 
@@ -33,16 +37,18 @@ export function SousSystemeFormModal({ sousSysteme, onClose, onCreated }: SousSy
             code: sousSysteme?.code ?? '',
             nom: sousSysteme?.nom ?? '',
             description: sousSysteme?.description ?? '',
+            school_id: sousSysteme?.school_id,
         })
     }, [sousSysteme, reset])
 
     const onSubmit = async (data: any) => {
         try {
+            const payload = { ...data, school_id: data.school_id ? Number(data.school_id) : null }
             if (sousSysteme) {
-                await updateSousSysteme(sousSysteme.id, data)
+                await updateSousSysteme(sousSysteme.id, payload)
                 succes(t('sousSystemes.updated'))
             } else {
-                await createSousSysteme(data)
+                await createSousSysteme(payload)
                 succes(t('sousSystemes.created'))
             }
             onCreated()
@@ -55,6 +61,23 @@ export function SousSystemeFormModal({ sousSysteme, onClose, onCreated }: SousSy
     return (
         <Modal title={sousSysteme ? t('sousSystemes.edit') : t('sousSystemes.create')} onClose={onClose}>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                {!sousSysteme && (
+                    <Select
+                        label={`${t('classes.ecole')} *`}
+                        error={errors.school_id?.message}
+                        {...register('school_id', {
+                            required: (schools?.length ?? 0) > 1 ? "L'école est requise." : false,
+                        })}
+                    >
+                        <option value="">—</option>
+                        {schools?.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.name}
+                            </option>
+                        ))}
+                    </Select>
+                )}
+
                 <div>
                     <label className="block text-sm font-medium text-navy-900">{t('sousSystemes.code')} *</label>
                     <Input

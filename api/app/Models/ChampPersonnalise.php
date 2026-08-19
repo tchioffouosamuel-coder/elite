@@ -18,9 +18,9 @@ class ChampPersonnalise extends Model
     protected $fillable = ['classe_matiere_id', 'libelle', 'type', 'ordre'];
 
     /** Scopé par école via la classe qui porte l'affectation, comme ProgressionItem. */
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->whereHas('classeMatiere.classe', fn ($q) => $q->where('school_id', $schoolId));
+        return $query->whereHas('classeMatiere.classe', fn ($q) => is_array($schoolId) ? $q->whereIn('school_id', $schoolId) : $q->where('school_id', $schoolId));
     }
 
     public function classeMatiere(): BelongsTo

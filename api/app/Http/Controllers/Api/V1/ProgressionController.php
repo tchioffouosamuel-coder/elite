@@ -9,6 +9,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\ChampPersonnalise;
 use App\Services\ProgressionService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,7 @@ class ProgressionController extends Controller
     /** Avancement de chaque matière d'une classe. */
     public function classe(int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->with('titulaire')->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('titulaire')->findOrFail($classeId);
 
         return ApiResponse::success($this->service->tauxClasse($classe));
     }
@@ -58,7 +59,7 @@ class ProgressionController extends Controller
     public function etablissement(Request $request): JsonResponse
     {
         return ApiResponse::success($this->service->tauxEtablissement(
-            app('tenant.school_id'),
+            Tenant::schoolIds(),
             $request->integer('annee_scolaire_id') ?: null,
         ));
     }
@@ -120,7 +121,7 @@ class ProgressionController extends Controller
 
     private function affectation(int $id): ClasseMatiere
     {
-        return ClasseMatiere::forSchool(app('tenant.school_id'))
+        return ClasseMatiere::forSchool(Tenant::schoolIds())
             ->with(['classe', 'matiere'])
             ->findOrFail($id);
     }

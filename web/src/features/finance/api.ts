@@ -308,6 +308,7 @@ export interface RemboursementAvance {
 export interface AvanceSalaire {
   id: number
   personnel: { id: number; nom_complet: string; matricule: string | null; fonction: string | null }
+  school?: { id: number; name: string; code: string; type: string } | null
   montant: number
   date_avance: string
   motif: string | null
@@ -389,6 +390,7 @@ export interface LigneRemuneration {
   matricule: string | null
   fonction: string | null
   statut: string
+  school?: { id: number; name: string; code: string; type: string } | null
   remuneration: Remuneration | null
 }
 

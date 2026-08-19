@@ -72,6 +72,13 @@ export function SousSystemesListPage() {
             cellule: (s) => <span className="text-navy-600">{s.nb_classes ?? 0}</span>,
         },
         {
+            cle: 'school',
+            entete: t('classes.ecole'),
+            valeur: (s) => s.school?.name,
+            cellule: (s) => <span className="text-navy-600">{s.school?.name ?? '—'}</span>,
+            masquerMobile: true,
+        },
+        {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (s) =>

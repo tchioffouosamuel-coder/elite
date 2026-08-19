@@ -15,13 +15,18 @@ class Annonce extends Model
         return ['publiee_le' => 'datetime'];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     public function publiePar(): BelongsTo
     {
         return $this->belongsTo(Personnel::class, 'publie_par');
+    }
+
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
     }
 }

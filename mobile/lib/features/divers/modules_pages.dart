@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ui/ecran_liste.dart';
+import '../../core/ui/gestes_modules.dart';
+import '../../core/ui/permission.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
 
@@ -14,6 +16,8 @@ class InfirmeriePage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Infirmerie',
       chemin: 'infirmerie/visites',
+      gestes: Gestes.infirmerie,
+      peutEcrire: peutEcrire(context, 'infirmerie.manage'),
       champsRecherche: const ['raison'],
       messageVide: 'Aucune visite enregistrée.',
       construireLigne: (context, v) => LigneRessource(
@@ -87,6 +91,8 @@ class InventairePage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Inventaire',
       chemin: 'inventaire',
+      gestes: Gestes.inventaire,
+      peutEcrire: peutEcrire(context, 'inventaire.manage'),
       cleListe: 'articles',
       champsRecherche: const ['nom', 'categorie', 'localisation'],
       messageVide: 'Aucun article inventorié.',
@@ -137,6 +143,8 @@ class SousSystemesPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Sous-systèmes',
       chemin: 'sous-systemes',
+      gestes: Gestes.sousSystemes,
+      peutEcrire: peutEcrire(context, 'classes.manage'),
       champsRecherche: const ['nom', 'code'],
       messageVide: 'Aucun sous-système.',
       construireLigne: (context, s) => LigneRessource(
@@ -200,6 +208,8 @@ class RevendicationsPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Réclamations',
       chemin: 'revendications',
+      gestes: Gestes.revendications,
+      peutEcrire: peutEcrire(context, 'revendications.manage'),
       champsRecherche: const ['objet', 'motif'],
       messageVide: 'Aucune réclamation.',
       construireLigne: (context, r) => LigneRessource(

@@ -116,14 +116,20 @@ export function ClasseFormModal({
 
         <Input label={t('classes.sigle')} placeholder={t('classes.sigle_placeholder')} {...register('sigle')} />
 
-        <Select label={t('classes.ecole')} {...register('school_id')}>
-          <option value="">—</option>
-          {schools?.map((s) => (
-            <option key={s.id} value={String(s.id)}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
+        {!classe && (
+          <Select
+            label={`${t('classes.ecole')}${(schools?.length ?? 0) > 1 ? ' *' : ''}`}
+            error={errors.school_id?.message}
+            {...register('school_id', { required: (schools?.length ?? 0) > 1 ? "L'école est requise." : false })}
+          >
+            <option value="">—</option>
+            {schools?.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <Select label={t('classes.niveau')} error={errors.niveau_id?.message} {...register('niveau_id', { required: true })}>
           <option value="">—</option>

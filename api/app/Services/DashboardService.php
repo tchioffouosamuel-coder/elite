@@ -18,7 +18,8 @@ class DashboardService extends BaseService
      * des données hors de son périmètre. Les autres profils (secondaire,
      * administration) gardent le tableau de bord d'établissement.
      */
-    public function stats(int $schoolId, User $user): array
+    /** @param int|array<int> $schoolId */
+    public function stats(int|array $schoolId, User $user): array
     {
         if ($user->estEnseignant()) {
             $classe = Classe::forSchool($schoolId)->where('titulaire_id', $user->personnel?->id)->first();
@@ -31,10 +32,24 @@ class DashboardService extends BaseService
         return $this->statsEcole($schoolId);
     }
 
-    private function statsEcole(int $schoolId): array
+    /**
+     * En mode agrégé (super admin, plusieurs écoles), les effectifs se
+     * somment sur tout le périmètre accessible ; l'année scolaire active
+     * affichée reste celle de la première école trouvée — chaque école du
+     * complexe gère la sienne, il n'y en a pas "une" à l'échelle agrégée.
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    private function statsEcole(int|array $schoolId): array
     {
-        $anneeActive = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
-        $classesQuery = Classe::forSchool($schoolId)->when($anneeActive, fn ($q) => $q->where('annee_scolaire_id', $anneeActive->id));
+        // Chaque école a sa propre année active, avec un `annee_scolaire_id`
+        // qui lui est propre : filtrer sur un seul id (celui d'une école
+        // "gagnante" au hasard) excluait les classes de toutes les autres.
+        // Il faut retenir l'année active de CHAQUE école du périmètre.
+        $anneesActives = AnneeScolaire::whereIn('school_id', (array) $schoolId)->where('is_active', true)->get();
+        $anneeActive = $anneesActives->first();
+        $classesQuery = Classe::forSchool($schoolId)
+            ->when($anneesActives->isNotEmpty(), fn ($q) => $q->whereIn('annee_scolaire_id', $anneesActives->pluck('id')));
 
         $totalEleves = Eleve::forSchool($schoolId)->where('statut', 'actif')->count();
         $totalClasses = (clone $classesQuery)->count();
@@ -84,7 +99,8 @@ class DashboardService extends BaseService
         ];
     }
 
-    private function statsClasse(int $schoolId, Classe $classe): array
+    /** @param int|array<int> $schoolId */
+    private function statsClasse(int|array $schoolId, Classe $classe): array
     {
         $eleves = Eleve::forSchool($schoolId)->where('classe_id', $classe->id)->where('statut', 'actif');
 

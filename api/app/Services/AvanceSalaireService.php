@@ -8,11 +8,14 @@ use RuntimeException;
 
 class AvanceSalaireService extends BaseService
 {
-    /** @param array{personnel_id?: ?int, statut?: ?string} $filtres */
-    public function lister(int $schoolId, array $filtres = []): Collection
+    /**
+     * @param  int|array<int>  $schoolId
+     * @param  array{personnel_id?: ?int, statut?: ?string}  $filtres
+     */
+    public function lister(int|array $schoolId, array $filtres = []): Collection
     {
         return AvanceSalaire::forSchool($schoolId)
-            ->with(['personnel', 'remboursements'])
+            ->with(['personnel.school', 'remboursements'])
             ->when($filtres['personnel_id'] ?? null, fn ($q, $id) => $q->where('personnel_id', $id))
             ->orderByDesc('date_avance')
             ->get()
@@ -22,9 +25,10 @@ class AvanceSalaireService extends BaseService
             );
     }
 
-    public function trouver(int $schoolId, int $id): AvanceSalaire
+    /** @param int|array<int> $schoolId */
+    public function trouver(int|array $schoolId, int $id): AvanceSalaire
     {
-        return AvanceSalaire::forSchool($schoolId)->with(['personnel', 'remboursements'])->findOrFail($id);
+        return AvanceSalaire::forSchool($schoolId)->with(['personnel.school', 'remboursements'])->findOrFail($id);
     }
 
     /** @param array{personnel_id: int, montant: int, date_avance: string, motif?: ?string} $donnees */
@@ -77,8 +81,11 @@ class AvanceSalaireService extends BaseService
         return $avance;
     }
 
-    /** @return array{effectif: int, total_accorde: int, total_rembourse: int, total_restant: int} */
-    public function totaux(int $schoolId): array
+    /**
+     * @param  int|array<int>  $schoolId
+     * @return array{effectif: int, total_accorde: int, total_rembourse: int, total_restant: int}
+     */
+    public function totaux(int|array $schoolId): array
     {
         $avances = AvanceSalaire::forSchool($schoolId)->valides()->with('remboursements')->get();
 

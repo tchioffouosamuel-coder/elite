@@ -21,14 +21,16 @@ class PersonnelService extends BaseService
         private readonly CompteAgentService $comptes,
     ) {}
 
-    public function list(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    /** @param int|array<int> $schoolId */
+    public function list(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->repository->paginateForSchool($schoolId, $filters, $perPage);
     }
 
-    public function find(int $schoolId, int $id): Personnel
+    /** @param int|array<int> $schoolId */
+    public function find(int|array $schoolId, int $id): Personnel
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference', 'school:id,name,code,type'])->findOrFail($id);
     }
 
     /**

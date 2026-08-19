@@ -16,14 +16,16 @@ class EleveService extends BaseService
 {
     public function __construct(private readonly EleveRepository $repository) {}
 
-    public function list(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    /** @param int|array<int> $schoolId */
+    public function list(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->repository->paginateForSchool($schoolId, $filters, $perPage);
     }
 
-    public function find(int $schoolId, int $id): Eleve
+    /** @param int|array<int> $schoolId */
+    public function find(int|array $schoolId, int $id): Eleve
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['classe.niveau', 'tuteurs'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])->findOrFail($id);
     }
 
     public function create(int $schoolId, array $attributes): Eleve
@@ -103,9 +105,10 @@ class EleveService extends BaseService
     }
 
     /**
+     * @param  int|array<int>  $schoolId
      * @return array{par_classe: array, par_genre: array, total: int}
      */
-    public function repartition(int $schoolId): array
+    public function repartition(int|array $schoolId): array
     {
         $parClasse = Eleve::forSchool($schoolId)
             ->selectRaw('classe_id, count(*) as total')

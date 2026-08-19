@@ -58,6 +58,30 @@ export function SettingsPage() {
 
   const groupes = [...new Set(data.map((s) => s.groupe))]
 
+  // Ces réglages sont propres à une école : en mode agrégé (super admin, "Toutes
+  // les écoles"), il faut d'abord qu'il en choisisse une plutôt que de deviner
+  // laquelle il modifie.
+  if (!ecoleActive && nbEcolesAccessibles > 1) {
+    return (
+      <div className="flex flex-col gap-5">
+        <PageHeader titre={t('settings.title')} icon={SlidersHorizontal} />
+        <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-base font-bold tracking-tight text-navy-900">
+              {t('settings.active_school')}
+            </h2>
+            <p className="mt-1 text-sm text-navy-500">
+              Ces réglages sont propres à une école : choisissez celle à configurer.
+            </p>
+          </div>
+          <div className="w-full sm:w-auto sm:min-w-80">
+            <SchoolSwitcher redirectTo="/parametres" />
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader

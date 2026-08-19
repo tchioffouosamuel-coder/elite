@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusVehicule;
 use App\Services\BusService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,7 @@ class BusVehiculeController extends Controller
 
     public function index(): JsonResponse
     {
-        $vehicules = $this->service->listerVehicules(app('tenant.school_id'));
+        $vehicules = $this->service->listerVehicules(Tenant::schoolIds());
 
         return ApiResponse::success($vehicules->map(fn (BusVehicule $v) => $this->resumer($v))->values());
     }
@@ -27,20 +28,23 @@ class BusVehiculeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $donnees = $this->valider($request);
+        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
+        unset($donnees['school_id']);
 
-        $vehicule = $this->service->creerVehicule(app('tenant.school_id'), $donnees);
+        $vehicule = $this->service->creerVehicule($schoolId, $donnees);
 
-        return ApiResponse::created($this->resumer($vehicule), 'Véhicule ajouté.');
+        return ApiResponse::created($this->resumer($vehicule->load('school:id,name,code,type')), 'Véhicule ajouté.');
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
         $vehicule = $this->vehicule($id);
-        $donnees = $this->valider($request, $vehicule->id);
+        $donnees = $this->valider($request, $vehicule->id, $vehicule->school_id);
+        unset($donnees['school_id']);
 
         $vehicule = $this->service->modifierVehicule($vehicule, $donnees);
 
-        return ApiResponse::success($this->resumer($vehicule), 'Véhicule mis à jour.');
+        return ApiResponse::success($this->resumer($vehicule->load('school:id,name,code,type')), 'Véhicule mis à jour.');
     }
 
     public function destroy(int $id): JsonResponse
@@ -64,20 +68,30 @@ class BusVehiculeController extends Controller
                 'nom_complet' => $vehicule->chauffeur->nom_complet,
                 'telephone' => $vehicule->chauffeur->telephone,
             ] : null,
+            'school' => $vehicule->school ? [
+                'id' => $vehicule->school->id,
+                'name' => $vehicule->school->name,
+                'code' => $vehicule->school->code,
+                'type' => $vehicule->school->type,
+            ] : null,
         ];
     }
 
     private function vehicule(int $id): BusVehicule
     {
-        return BusVehicule::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return BusVehicule::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     /** @return array<string, mixed> */
-    private function valider(Request $request, ?int $ignorerId = null): array
+    private function valider(Request $request, ?int $ignorerId = null, ?int $schoolIdConnu = null): array
     {
-        $schoolId = app('tenant.school_id');
+        // À la création, l'unicité de l'immatriculation se vérifie dans
+        // l'école soumise (si le super admin en précise une en mode agrégé) ;
+        // à la modification, dans celle — fixe — du véhicule.
+        $schoolId = $schoolIdConnu ?? ($request->integer('school_id') ?: app('tenant.school_id'));
 
         return $request->validate([
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'immatriculation' => [
                 'required', 'string', 'max:20',
                 Rule::unique('bus_vehicules', 'immatriculation')->where('school_id', $schoolId)->ignore($ignorerId),

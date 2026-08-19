@@ -39,21 +39,29 @@ interface AuthState {
   user: AuthUser | null
   /**
    * Établissement sur lequel l'interface travaille. Pour un compte rattaché à
-   * une école c'est toujours la sienne ; le super administrateur en change
-   * depuis le sélecteur de la barre supérieure.
+   * une école c'est toujours la sienne. Le super admin voit par défaut tout
+   * le complexe (`null` — mode agrégé) et peut se concentrer sur une école
+   * précise depuis le sélecteur de la barre supérieure.
    */
   activeSchoolId: number | null
   setSession: (token: string, user: AuthUser) => void
   /** Rafraîchit le profil sans toucher au jeton, en réparant l'école active. */
   refreshUser: (user: AuthUser) => void
-  setActiveSchool: (schoolId: number) => void
+  setActiveSchool: (schoolId: number | null) => void
   clearSession: () => void
   can: (permission: string) => boolean
   activeSchool: () => EcoleAccessible | null
 }
 
-/** École vers laquelle diriger le compte à la connexion. */
+/**
+ * École vers laquelle diriger le compte à la connexion. Toujours `null` pour
+ * un super admin (mode agrégé, tout le complexe) — même si son propre compte
+ * est rattaché à une école, ce n'est qu'un repli technique côté API, pas une
+ * préférence d'affichage. Seul un compte sans ce rôle a besoin d'un repli.
+ */
 function ecoleParDefaut(user: AuthUser): number | null {
+  if (user.is_super_admin) return null
+
   return user.school_id ?? user.ecoles_accessibles?.[0]?.id ?? null
 }
 
@@ -66,13 +74,20 @@ export const useAuthStore = create<AuthState>()(
       setSession: (token, user) => set({ token, user, activeSchoolId: ecoleParDefaut(user) }),
       refreshUser: (user) => {
         const { activeSchoolId } = get()
-        const encoreAccessible = user.ecoles_accessibles?.some((e) => e.id === activeSchoolId)
+        const encoreAccessible = activeSchoolId === null || user.ecoles_accessibles?.some((e) => e.id === activeSchoolId)
 
         set({ user, activeSchoolId: encoreAccessible ? activeSchoolId : ecoleParDefaut(user) })
       },
       setActiveSchool: (schoolId) => {
-        // Refuse une école hors du périmètre du compte : l'API la rejetterait
-        // de toute façon, autant ne pas basculer l'interface dans le vide.
+        // null = retour au mode agrégé (tout le complexe), réservé au super
+        // admin. Une école hors du périmètre du compte est refusée : l'API la
+        // rejetterait de toute façon, autant ne pas basculer l'interface dans
+        // le vide.
+        if (schoolId === null) {
+          if (get().user?.is_super_admin) set({ activeSchoolId: null })
+          return
+        }
+
         if (get().user?.ecoles_accessibles?.some((e) => e.id === schoolId)) {
           set({ activeSchoolId: schoolId })
         }

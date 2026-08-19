@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventaireArticle extends Model
 {
@@ -23,13 +24,18 @@ class InventaireArticle extends Model
         ];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     public function getValeurTotaleAttribute(): int
     {
         return $this->quantite * (int) $this->valeur_unitaire;
+    }
+
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
     }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/ui/ecran_liste.dart';
+import '../../core/ui/gestes_modules.dart';
+import '../../core/ui/permission.dart';
 import '../../core/ui/etats.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
@@ -17,6 +19,8 @@ class AnneeScolairePage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Année scolaire',
       chemin: 'annees-scolaires',
+      gestes: Gestes.anneesScolaires,
+      peutEcrire: peutEcrire(context, 'ecoles.manage'),
       messageVide: 'Aucune année scolaire.',
       construireLigne: (context, a) => LigneRessource(
         titre: '${a['libelle'] ?? '—'}',

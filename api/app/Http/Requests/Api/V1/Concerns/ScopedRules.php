@@ -16,18 +16,34 @@ use Illuminate\Validation\Rules\Exists;
 trait ScopedRules
 {
     /**
+     * École à laquelle rattacher les vérifications d'existence : celle
+     * explicitement soumise dans la requête (super admin créant/modifiant une
+     * donnée d'une école précise en mode agrégé) sinon celle du tenant
+     * ambiant. Une école hors périmètre soumise ici n'est pas un trou de
+     * sécurité : le contrôleur revalide toujours via Tenant::resolveWriteSchoolId().
+     *
+     * Passe par le helper `request()` plutôt que `$this->filled()` : ce trait
+     * est utilisé aussi bien par des FormRequest que directement par certains
+     * contrôleurs (ex. BusVehiculeController), qui n'ont pas ces méthodes.
+     */
+    private function schoolIdPourValidation(): ?int
+    {
+        return request()->filled('school_id') ? (int) request()->input('school_id') : app('tenant.school_id');
+    }
+
+    /**
      * Pour les tables avec une colonne school_id directe
      * (classes, eleves, personnels, matieres, departements, annee_scolaires).
      */
     protected function scopedExists(string $table, string $column = 'id'): Exists
     {
-        return Rule::exists($table, $column)->where('school_id', app('tenant.school_id'));
+        return Rule::exists($table, $column)->where('school_id', $this->schoolIdPourValidation());
     }
 
     /** Pour `trimestres`, scopé via annee_scolaires.school_id. */
     protected function scopedExistsTrimestre(): Exists
     {
-        $anneeIds = AnneeScolaire::where('school_id', app('tenant.school_id'))->pluck('id');
+        $anneeIds = AnneeScolaire::where('school_id', $this->schoolIdPourValidation())->pluck('id');
 
         return Rule::exists('trimestres', 'id')->whereIn('annee_scolaire_id', $anneeIds);
     }
@@ -37,7 +53,7 @@ trait ScopedRules
     {
         $trimestreIds = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', $this->schoolIdPourValidation())
         )->pluck('id');
 
         return Rule::exists('sequences', 'id')->whereIn('trimestre_id', $trimestreIds);

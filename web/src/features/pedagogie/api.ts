@@ -16,6 +16,8 @@ export interface Matiere {
   /** Absent des réponses de création/modification, qui ne comptent pas les classes. */
   classes_count?: number;
   departement: Departement | null;
+  school_id?: number;
+  school?: { id: number; name: string; code: string; type: string } | null;
 }
 
 export interface ClasseEnseignantMatiere {
@@ -30,6 +32,7 @@ export interface MatierePayload {
   nom_en?: string | null;
   abbreviation?: string | null;
   departement_id?: number | null;
+  school_id?: number | null;
   /** Barème du primaire : la matière est notée sur cette valeur, pas sur 20. */
   notation?: number | null;
   /** Ajoute le volet « pratique » aux trois volets systématiques. */

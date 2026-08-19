@@ -17,6 +17,7 @@ use App\Services\CompteAgentService;
 use App\Services\PersonnelService;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Pdf\PersonnelFichierGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -34,7 +35,7 @@ class PersonnelController extends Controller
     public function index(Request $request): JsonResponse
     {
         $paginator = $this->service->list(
-            app('tenant.school_id'),
+            Tenant::schoolIds(),
             $request->only(['search', 'departement_id', 'fonction_id', 'fonction_label', 'statut']),
             (int) $request->integer('per_page', 20),
         );
@@ -44,7 +45,11 @@ class PersonnelController extends Controller
 
     public function store(StorePersonnelRequest $request): JsonResponse
     {
-        $personnel = $this->service->create(app('tenant.school_id'), $request->validated());
+        $data = $request->validated();
+        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        unset($data['school_id']);
+
+        $personnel = $this->service->create($schoolId, $data);
 
         ActivityLog::enregistrer($request->user(), 'personnel.cree', "Ajout de {$personnel->nom_complet}.", $personnel);
 
@@ -53,14 +58,14 @@ class PersonnelController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
 
         return ApiResponse::success(new PersonnelResource($personnel));
     }
 
     public function update(UpdatePersonnelRequest $request, int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
         $personnel = $this->service->update($personnel, $request->validated());
 
         return ApiResponse::success(new PersonnelResource($personnel), 'Membre du personnel mis à jour.');
@@ -68,7 +73,7 @@ class PersonnelController extends Controller
 
     public function archive(int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
         $personnel = $this->service->archive($personnel);
 
         return ApiResponse::success(new PersonnelResource($personnel), 'Membre du personnel archivé.');
@@ -76,7 +81,7 @@ class PersonnelController extends Controller
 
     public function reactivate(int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
         $personnel = $this->service->reactivate($personnel);
 
         return ApiResponse::success(new PersonnelResource($personnel), 'Membre du personnel réactivé.');
@@ -84,7 +89,7 @@ class PersonnelController extends Controller
 
     public function createAccount(CreateLoginAccountRequest $request, int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
         $user = $this->service->createLoginAccount(
             $personnel,
             $request->string('email')->toString() ?: null,

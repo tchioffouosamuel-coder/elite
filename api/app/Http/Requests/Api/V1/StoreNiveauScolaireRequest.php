@@ -20,10 +20,11 @@ class StoreNiveauScolaireRequest extends FormRequest
         $niveauId = $this->route('id');
 
         return [
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'code' => [
                 'required', 'string', 'max:20',
                 Rule::unique('niveau_scolaires', 'code')
-                    ->where('school_id', app('tenant.school_id'))
+                    ->where('school_id', $this->schoolIdPourValidation())
                     ->ignore($niveauId),
             ],
             'libelle' => ['required', 'string', 'max:255'],

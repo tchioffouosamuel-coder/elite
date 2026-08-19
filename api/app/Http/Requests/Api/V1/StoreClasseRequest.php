@@ -19,6 +19,10 @@ class StoreClasseRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Accessible uniquement via App\Support\Tenant::schoolIds() côté
+            // contrôleur — un id hors du périmètre du compte y est rejeté (403)
+            // plutôt qu'ici, où on ne connaît que l'existence de l'école.
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'niveau_id' => ['required', 'exists:niveaux,id'], // référentiel global, non scopé
             // Degré d'enseignement propre à l'établissement (SIL, CP…) : le
             // primaire seul s'organise ainsi. Le secondaire suit ses
@@ -57,6 +61,8 @@ class StoreClasseRequest extends FormRequest
     /** Seul le primaire range ses classes par degré d'enseignement. */
     private function ecoleUtiliseNiveaux(): bool
     {
-        return School::find(app('tenant.school_id'))?->type === 'primaire';
+        $schoolId = $this->filled('school_id') ? (int) $this->input('school_id') : app('tenant.school_id');
+
+        return School::find($schoolId)?->type === 'primaire';
     }
 }

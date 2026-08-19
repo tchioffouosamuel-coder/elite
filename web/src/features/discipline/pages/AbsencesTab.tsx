@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FileDown } from 'lucide-react'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchAbsences, sauvegarderAbsences, fetchBilanDisciplinaire, type AbsenceCellule } from '@/features/discipline/api'
-import { estSecondaire } from '@/shared/lib/ecole'
+import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
@@ -12,11 +12,11 @@ import { Card } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner } from '@/shared/ui/Feedback'
 
-export function AbsencesTab({ classeId }: { classeId: number }) {
+export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleType?: TypeEcole | null }) {
   const { t } = useTranslation()
   // Au primaire et en maternelle les journées se déduisent des appels : la
   // grille n'y est qu'un compte rendu, il n'y a rien à saisir ni à envoyer.
-  const secondaire = estSecondaire()
+  const secondaire = estSecondaire(ecoleType)
   const suffixe = secondaire ? 'h' : ' j'
 
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })

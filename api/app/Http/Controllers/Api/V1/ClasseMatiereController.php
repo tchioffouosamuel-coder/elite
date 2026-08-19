@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\UpdateClasseMatiereRequest;
 use App\Http\Resources\Api\V1\ClasseMatiereResource;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,7 @@ class ClasseMatiereController extends Controller
 {
     public function index(int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
         $affectations = $classe->classeMatieres()->with(['matiere', 'enseignant'])->orderBy('groupe')->get();
 
@@ -25,7 +26,7 @@ class ClasseMatiereController extends Controller
 
     public function store(StoreClasseMatiereRequest $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
         $affectation = $classe->classeMatieres()
             ->create([...$request->validated(), 'groupe' => $request->input('groupe', 1)])
@@ -36,7 +37,7 @@ class ClasseMatiereController extends Controller
 
     public function update(UpdateClasseMatiereRequest $request, int $id): JsonResponse
     {
-        $affectation = ClasseMatiere::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->findOrFail($id);
         $affectation->update($request->validated());
 
         return ApiResponse::success(new ClasseMatiereResource($affectation->load(['matiere', 'enseignant'])), 'Affectation mise à jour.');
@@ -44,7 +45,7 @@ class ClasseMatiereController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        $affectation = ClasseMatiere::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->findOrFail($id);
         $affectation->delete();
 
         return ApiResponse::success(message: 'Matière retirée de la classe.');
@@ -65,7 +66,7 @@ class ClasseMatiereController extends Controller
             return ApiResponse::success([]);
         }
 
-        $affectations = ClasseMatiere::forSchool(app('tenant.school_id'))
+        $affectations = ClasseMatiere::forSchool(Tenant::schoolIds())
             ->where('statut', 'actif')
             ->where(fn ($q) => $q
                 ->where('personnel_id', $personnelId)
@@ -92,7 +93,7 @@ class ClasseMatiereController extends Controller
      */
     public function copier(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
+        $schoolIds = Tenant::schoolIds();
 
         $data = $request->validate([
             'affectation_ids' => ['required', 'array', 'min:1'],
@@ -101,8 +102,8 @@ class ClasseMatiereController extends Controller
             'classe_ids.*' => ['integer'],
         ]);
 
-        $affectations = ClasseMatiere::forSchool($schoolId)->whereIn('id', $data['affectation_ids'])->get();
-        $classesCibles = Classe::forSchool($schoolId)->whereIn('id', $data['classe_ids'])->get();
+        $affectations = ClasseMatiere::forSchool($schoolIds)->whereIn('id', $data['affectation_ids'])->get();
+        $classesCibles = Classe::forSchool($schoolIds)->whereIn('id', $data['classe_ids'])->get();
 
         if ($affectations->isEmpty() || $classesCibles->isEmpty()) {
             return ApiResponse::notFound();

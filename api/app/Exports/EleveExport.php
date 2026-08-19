@@ -11,7 +11,8 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class EleveExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
-    public function __construct(private readonly int $schoolId, private readonly ?int $classeId = null) {}
+    /** @param int|array<int> $schoolId */
+    public function __construct(private readonly int|array $schoolId, private readonly ?int $classeId = null) {}
 
     public function collection(): Collection
     {

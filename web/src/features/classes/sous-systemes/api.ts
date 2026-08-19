@@ -6,6 +6,8 @@ export interface SousSysteme {
   code: string;
   nom: string;
   description: string | null;
+  school_id?: number;
+  school?: { id: number; name: string; code: string; type: string } | null;
   nb_classes?: number;
 }
 
@@ -18,6 +20,7 @@ export async function createSousSysteme(payload: {
   code: string;
   nom: string;
   description?: string;
+  school_id?: number | null;
 }): Promise<SousSysteme> {
   const { data } = await http.post<ApiResponse<SousSysteme>>(
     "/sous-systemes",

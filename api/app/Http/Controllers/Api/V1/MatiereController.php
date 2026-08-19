@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreMatiereRequest;
 use App\Http\Resources\Api\V1\MatiereResource;
 use App\Imports\MatiereImport;
 use App\Models\Matiere;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -16,8 +17,8 @@ class MatiereController extends Controller
 {
     public function index(): JsonResponse
     {
-        $matieres = Matiere::forSchool(app('tenant.school_id'))
-            ->with('departement')
+        $matieres = Matiere::forSchool(Tenant::schoolIds())
+            ->with(['departement', 'school:id,name,code,type'])
             ->withCount('classeMatieres')
             ->orderBy('nom')
             ->get();
@@ -28,7 +29,7 @@ class MatiereController extends Controller
     /** Classes où cette matière est enseignée — pour la modale « Enseignée dans X classe(s) ». */
     public function classes(int $id): JsonResponse
     {
-        $matiere = Matiere::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $matiere = Matiere::forSchool(Tenant::schoolIds())->findOrFail($id);
 
         $affectations = $matiere->classeMatieres()
             ->with(['classe', 'enseignant'])
@@ -46,22 +47,30 @@ class MatiereController extends Controller
 
     public function store(StoreMatiereRequest $request): JsonResponse
     {
-        $matiere = Matiere::create([...$request->validated(), 'school_id' => app('tenant.school_id')])->refresh();
+        $data = $request->validated();
+        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        unset($data['school_id']);
+
+        $matiere = Matiere::create([...$data, 'school_id' => $schoolId])->refresh();
+        $matiere->load('school:id,name,code,type');
 
         return ApiResponse::created(new MatiereResource($matiere), 'Matière créée.');
     }
 
     public function update(StoreMatiereRequest $request, int $id): JsonResponse
     {
-        $matiere = Matiere::forSchool(app('tenant.school_id'))->findOrFail($id);
-        $matiere->update($request->validated());
+        $matiere = Matiere::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validated();
+        unset($data['school_id']);
+        $matiere->update($data);
+        $matiere->load('school:id,name,code,type');
 
         return ApiResponse::success(new MatiereResource($matiere), 'Matière mise à jour.');
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $matiere = Matiere::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $matiere = Matiere::forSchool(Tenant::schoolIds())->findOrFail($id);
         $matiere->delete();
 
         return ApiResponse::success(message: 'Matière supprimée.');
@@ -75,7 +84,7 @@ class MatiereController extends Controller
             return ApiResponse::error('Aucune matière à supprimer.');
         }
 
-        Matiere::forSchool(app('tenant.school_id'))->whereIn('id', $ids)->delete();
+        Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->delete();
 
         return ApiResponse::success(message: count($ids) . ' matière(s) supprimée(s).');
     }
@@ -85,7 +94,7 @@ class MatiereController extends Controller
     {
         $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
 
-        $import = new MatiereImport(app('tenant.school_id'));
+        $import = new MatiereImport(Tenant::schoolId());
         Excel::import($import, $request->file('file'));
 
         $result = [

@@ -94,6 +94,13 @@ export function AvancesSalairePage() {
       ),
     },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (a) => a.school?.name,
+      cellule: (a) => <span className="text-navy-600">{a.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'montant',
       entete: 'Montant',
       valeur: (a) => a.montant,

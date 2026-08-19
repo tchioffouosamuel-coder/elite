@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Services\Paie\BaremePaie;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,14 +36,12 @@ class RemunerationController extends Controller
     /** Tout le personnel en poste, avec sa rémunération en vigueur s'il en a une. */
     public function index(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
-
-        $personnels = Personnel::forSchool($schoolId)
+        $personnels = Personnel::forSchool(Tenant::schoolIds())
             ->when(
                 $request->string('statut')->toString() ?: 'actif',
                 fn ($q, $statut) => $statut === 'tous' ? $q : $q->where('statut', $statut),
             )
-            ->with('fonctionReference')
+            ->with(['fonctionReference', 'school:id,name,code,type'])
             ->orderBy('nom_complet')
             ->get();
 
@@ -68,6 +67,12 @@ class RemunerationController extends Controller
                     'matricule' => $personnel->matricule,
                     'fonction' => $personnel->fonction,
                     'statut' => $personnel->statut,
+                    'school' => $personnel->school ? [
+                        'id' => $personnel->school->id,
+                        'name' => $personnel->school->name,
+                        'code' => $personnel->school->code,
+                        'type' => $personnel->school->type,
+                    ] : null,
                     'remuneration' => $remuneration ? $this->resumer($remuneration, $bareme) : null,
                 ];
             })->values(),
@@ -78,7 +83,7 @@ class RemunerationController extends Controller
     /** Historique complet d'un agent, du plus récent au plus ancien. */
     public function historique(int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
         $bareme = new BaremePaie;
 
         $historique = Remuneration::where('personnel_id', $personnel->id)
@@ -99,7 +104,7 @@ class RemunerationController extends Controller
      */
     public function store(Request $request, int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
 
         $donnees = $request->validate([
             'date_effet' => ['required', 'date'],
@@ -141,8 +146,6 @@ class RemunerationController extends Controller
      */
     public function appliquer(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
-
         $donnees = $request->validate([
             'personnel_ids' => ['required', 'array', 'min:1'],
             'personnel_ids.*' => ['integer'],
@@ -152,11 +155,12 @@ class RemunerationController extends Controller
             ...collect(self::GAINS)->mapWithKeys(fn ($champ) => [$champ => ['nullable', 'integer', 'min:0']])->all(),
         ]);
 
-        $montants = $this->montantsAAppliquer($schoolId, $donnees);
+        $montants = $this->montantsAAppliquer(Tenant::schoolIds(), $donnees);
 
-        // Le périmètre est refermé sur l'école : un identifiant d'agent d'un
-        // autre établissement du complexe ne doit pas passer par cette porte.
-        $cibles = Personnel::forSchool($schoolId)
+        // Le périmètre est refermé sur le complexe : un identifiant d'agent
+        // hors du périmètre accessible au compte ne doit pas passer par cette
+        // porte.
+        $cibles = Personnel::forSchool(Tenant::schoolIds())
             ->whereIn('id', $donnees['personnel_ids'])
             ->get();
 
@@ -180,12 +184,12 @@ class RemunerationController extends Controller
      * @param  array<string, mixed>  $donnees
      * @return array<string, int>
      */
-    private function montantsAAppliquer(int $schoolId, array $donnees): array
+    private function montantsAAppliquer(int|array $schoolIds, array $donnees): array
     {
         if (! empty($donnees['source_personnel_id'])) {
             $source = Remuneration::whereHas(
                 'personnel',
-                fn ($q) => $q->where('school_id', $schoolId)->where('id', $donnees['source_personnel_id']),
+                fn ($q) => $q->whereIn('school_id', (array) $schoolIds)->where('id', $donnees['source_personnel_id']),
             )
                 ->orderByDesc('date_effet')
                 ->orderByDesc('id')
@@ -253,7 +257,7 @@ class RemunerationController extends Controller
     /** Ancienneté indicative, pour aider à fixer la prime correspondante. */
     public function anciennete(int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
 
         $annees = $personnel->date_embauche
             ? round($personnel->date_embauche->diffInDays(Carbon::today()) / 365.25, 2)

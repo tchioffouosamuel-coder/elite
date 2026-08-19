@@ -18,14 +18,19 @@ class BusVehicule extends Model
         return ['capacite' => 'integer'];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     public function chauffeur(): BelongsTo
     {
         return $this->belongsTo(Personnel::class, 'chauffeur_id');
+    }
+
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
     }
 
     public function trajets(): HasMany

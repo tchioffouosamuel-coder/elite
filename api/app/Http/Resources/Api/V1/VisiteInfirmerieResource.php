@@ -19,6 +19,12 @@ class VisiteInfirmerieResource extends JsonResource
                 'id' => $this->classe->id,
                 'nom' => $this->classe->nom,
             ] : null),
+            'school' => $this->when($this->relationLoaded('eleve') && $this->eleve?->relationLoaded('school'), fn () => $this->eleve->school ? [
+                'id' => $this->eleve->school->id,
+                'name' => $this->eleve->school->name,
+                'code' => $this->eleve->school->code,
+                'type' => $this->eleve->school->type,
+            ] : null),
             'date_visite' => $this->date_visite?->format('Y-m-d\TH:i'),
             'raison' => $this->raison,
             'soins_prodiges' => $this->soins_prodiges,

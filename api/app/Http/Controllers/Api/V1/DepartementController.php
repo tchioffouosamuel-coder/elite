@@ -9,6 +9,7 @@ use App\Http\Resources\Api\V1\DepartementResource;
 use App\Models\Departement;
 use App\Models\Trimestre;
 use App\Support\Pdf\GenerateurStatistiquesGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,8 +18,8 @@ class DepartementController extends Controller
 {
     public function index(): JsonResponse
     {
-        $departements = Departement::forSchool(app('tenant.school_id'))
-            ->with(['headPersonnel', 'matieres'])
+        $departements = Departement::forSchool(Tenant::schoolIds())
+            ->with(['headPersonnel', 'matieres', 'school:id,name,code,type'])
             ->orderBy('nom')
             ->get();
 
@@ -27,8 +28,8 @@ class DepartementController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $departement = Departement::forSchool(app('tenant.school_id'))
-            ->with(['headPersonnel', 'matieres.classes'])
+        $departement = Departement::forSchool(Tenant::schoolIds())
+            ->with(['headPersonnel', 'matieres.classes', 'school:id,name,code,type'])
             ->findOrFail($id);
 
         return ApiResponse::success(new DepartementResource($departement));
@@ -36,24 +37,30 @@ class DepartementController extends Controller
 
     public function store(StoreDepartementRequest $request): JsonResponse
     {
-        $departement = Departement::create([...$request->validated(), 'school_id' => app('tenant.school_id')])
-            ->load(['headPersonnel', 'matieres']);
+        $data = $request->validated();
+        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        unset($data['school_id']);
+
+        $departement = Departement::create([...$data, 'school_id' => $schoolId])
+            ->load(['headPersonnel', 'matieres', 'school:id,name,code,type']);
 
         return ApiResponse::created(new DepartementResource($departement), 'Département créé.');
     }
 
     public function update(StoreDepartementRequest $request, int $id): JsonResponse
     {
-        $departement = Departement::forSchool(app('tenant.school_id'))->findOrFail($id);
-        $departement->update($request->validated());
-        $departement->load(['headPersonnel', 'matieres']);
+        $departement = Departement::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validated();
+        unset($data['school_id']);
+        $departement->update($data);
+        $departement->load(['headPersonnel', 'matieres', 'school:id,name,code,type']);
 
         return ApiResponse::success(new DepartementResource($departement), 'Département mis à jour.');
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $departement = Departement::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $departement = Departement::forSchool(Tenant::schoolIds())->findOrFail($id);
         $departement->delete();
 
         return ApiResponse::success(message: 'Département supprimé.');
@@ -64,9 +71,9 @@ class DepartementController extends Controller
      */
     public function statsPedagogiques(Request $request, int $id): JsonResponse
     {
-        $departement = Departement::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $departement = Departement::forSchool(Tenant::schoolIds())->findOrFail($id);
 
-        $trimestre = $this->getTrimestre($request);
+        $trimestre = $this->getTrimestre($request, $departement->school_id);
         if (!$trimestre) {
             return ApiResponse::error('Aucun trimestre actif trouvé.');
         }
@@ -141,9 +148,9 @@ class DepartementController extends Controller
      */
     public function exportPdfStatistiques(Request $request, int $id): StreamedResponse
     {
-        $departement = Departement::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $departement = Departement::forSchool(Tenant::schoolIds())->findOrFail($id);
 
-        $trimestre = $this->getTrimestre($request);
+        $trimestre = $this->getTrimestre($request, $departement->school_id);
         if (!$trimestre) {
             abort(404, 'Aucun trimestre actif trouvé.');
         }
@@ -224,11 +231,11 @@ class DepartementController extends Controller
         );
     }
 
-    private function getTrimestre(Request $request): ?Trimestre
+    private function getTrimestre(Request $request, int $schoolId): ?Trimestre
     {
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn($q) => $q->where('school_id', app('tenant.school_id'))
+            fn($q) => $q->where('school_id', $schoolId)
         );
 
         return ($id = $request->integer('trimestre_id'))

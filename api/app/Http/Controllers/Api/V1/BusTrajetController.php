@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Services\BusService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,7 +18,7 @@ class BusTrajetController extends Controller
 
     public function index(): JsonResponse
     {
-        $trajets = $this->service->listerTrajets(app('tenant.school_id'));
+        $trajets = $this->service->listerTrajets(Tenant::schoolIds());
 
         return ApiResponse::success($trajets->map(fn (BusTrajet $t) => $this->resumer($t))->values());
     }
@@ -30,17 +31,21 @@ class BusTrajetController extends Controller
     public function store(Request $request): JsonResponse
     {
         $donnees = $request->validate([
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
-            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', app('tenant.school_id'))],
+            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', Tenant::schoolIds())],
             'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $trajet = $this->service->creerTrajet(app('tenant.school_id'), $donnees);
+        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
+        unset($donnees['school_id']);
 
-        return ApiResponse::created($this->resumer($trajet), 'Trajet créé.');
+        $trajet = $this->service->creerTrajet($schoolId, $donnees);
+
+        return ApiResponse::created($this->resumer($trajet->load('school:id,name,code,type')), 'Trajet créé.');
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -50,7 +55,7 @@ class BusTrajetController extends Controller
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
-            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', app('tenant.school_id'))],
+            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', $trajet->school_id)],
             'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
@@ -58,7 +63,7 @@ class BusTrajetController extends Controller
 
         $trajet = $this->service->modifierTrajet($trajet, $donnees);
 
-        return ApiResponse::success($this->resumer($trajet), 'Trajet mis à jour.');
+        return ApiResponse::success($this->resumer($trajet->load('school:id,name,code,type')), 'Trajet mis à jour.');
     }
 
     public function destroy(int $id): JsonResponse
@@ -141,6 +146,12 @@ class BusTrajetController extends Controller
             ] : null,
             'arrets' => $trajet->arrets->map(fn (BusArret $a) => $this->resumerArret($a))->values(),
             'effectif' => $trajet->affectations_count ?? null,
+            'school' => $trajet->school ? [
+                'id' => $trajet->school->id,
+                'name' => $trajet->school->name,
+                'code' => $trajet->school->code,
+                'type' => $trajet->school->type,
+            ] : null,
         ];
     }
 
@@ -178,7 +189,7 @@ class BusTrajetController extends Controller
 
     private function trajet(int $id): BusTrajet
     {
-        return $this->service->trouverTrajet(app('tenant.school_id'), $id);
+        return $this->service->trouverTrajet(Tenant::schoolIds(), $id);
     }
 
     private function arret(int $trajetId, int $arretId): BusArret

@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreClasseRequest;
 use App\Http\Resources\Api\V1\ClasseResource;
 use App\Imports\ClasseImport;
 use App\Services\ClasseService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -19,7 +20,7 @@ class ClasseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $classes = $this->service->list(
-            app('tenant.school_id'),
+            Tenant::schoolIds(),
             $request->integer('annee_scolaire_id') ?: null,
             $request->only(['niveau_id']),
         );
@@ -29,14 +30,18 @@ class ClasseController extends Controller
 
     public function store(StoreClasseRequest $request): JsonResponse
     {
-        $classe = $this->service->create(app('tenant.school_id'), $request->validated());
+        $data = $request->validated();
+        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        unset($data['school_id']);
+
+        $classe = $this->service->create($schoolId, $data);
 
         return ApiResponse::created(new ClasseResource($classe), 'Classe créée.');
     }
 
     public function show(int $id): JsonResponse
     {
-        $classe = $this->service->find(app('tenant.school_id'), $id);
+        $classe = $this->service->find(Tenant::schoolIds(), $id);
 
         return ApiResponse::success(new ClasseResource($classe));
     }
@@ -44,22 +49,24 @@ class ClasseController extends Controller
     /** Classe dont l'utilisateur connecté est titulaire (primaire/maternelle), ou null. */
     public function maClasse(Request $request): JsonResponse
     {
-        $classe = $this->service->maClasse($request->user(), app('tenant.school_id'));
+        $classe = $this->service->maClasse($request->user(), Tenant::schoolIds());
 
         return ApiResponse::success($classe ? new ClasseResource($classe) : null);
     }
 
     public function update(StoreClasseRequest $request, int $id): JsonResponse
     {
-        $classe = $this->service->find(app('tenant.school_id'), $id);
-        $classe = $this->service->update($classe, $request->validated());
+        $classe = $this->service->find(Tenant::schoolIds(), $id);
+        $data = $request->validated();
+        unset($data['school_id']);
+        $classe = $this->service->update($classe, $data);
 
         return ApiResponse::success(new ClasseResource($classe), 'Classe mise à jour.');
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $classe = $this->service->find(app('tenant.school_id'), $id);
+        $classe = $this->service->find(Tenant::schoolIds(), $id);
         $this->service->delete($classe);
 
         return ApiResponse::success(message: 'Classe supprimée.');
@@ -125,19 +132,18 @@ class ClasseController extends Controller
         $validated = $request->validate([
             'class_ids' => ['required', 'array'],
             'class_ids.*' => ['integer'],
-            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+            'school_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::in(Tenant::schoolIds())],
             'sous_systeme_id' => ['nullable', 'integer', 'exists:sous_systemes,id'],
             'niveau_id' => ['nullable', 'integer', 'exists:niveaux,id'],
         ]);
 
-        $schoolId = app('tenant.school_id');
         $updates = array_filter([
             'school_id' => $validated['school_id'] ?? null,
             'sous_systeme_id' => $validated['sous_systeme_id'] ?? null,
             'niveau_id' => $validated['niveau_id'] ?? null,
         ], fn($v) => $v !== null);
 
-        \App\Models\Classe::where('school_id', $schoolId)
+        \App\Models\Classe::forSchool(Tenant::schoolIds())
             ->whereIn('id', $validated['class_ids'])
             ->update($updates);
 

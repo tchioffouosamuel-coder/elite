@@ -11,9 +11,9 @@ class Tuteur extends Model
 {
     protected $fillable = ['school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'adresse'];
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     public function user(): BelongsTo

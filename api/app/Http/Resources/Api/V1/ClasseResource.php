@@ -18,6 +18,13 @@ class ClasseResource extends JsonResource
             'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
             'qr_token' => $this->qr_token,
+            'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => $this->school ? [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+                'code' => $this->school->code,
+                'type' => $this->school->type,
+            ] : null),
             'niveau_id' => $this->niveau_id,
             'niveau_scolaire_id' => $this->niveau_scolaire_id,
             'sous_systeme_id' => $this->sous_systeme_id,

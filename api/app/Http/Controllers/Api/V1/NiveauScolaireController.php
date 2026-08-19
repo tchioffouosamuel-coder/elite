@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreNiveauScolaireRequest;
 use App\Http\Resources\Api\V1\NiveauScolaireResource;
 use App\Models\NiveauScolaire;
+use App\Models\School;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -29,8 +31,8 @@ class NiveauScolaireController extends Controller
             return $refus;
         }
 
-        $niveaux = NiveauScolaire::forSchool(app('tenant.school_id'))
-            ->with('animateur')
+        $niveaux = NiveauScolaire::forSchool($this->schoolIdsPour('primaire'))
+            ->with(['animateur', 'school:id,name,code,type'])
             ->withCount('classes')
             ->orderBy('ordre')
             ->get();
@@ -40,29 +42,32 @@ class NiveauScolaireController extends Controller
 
     public function store(StoreNiveauScolaireRequest $request): JsonResponse
     {
-        if ($refus = $this->refuserSaufPour('primaire')) {
-            return $refus;
+        $data = $request->validated();
+        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        unset($data['school_id']);
+
+        if (School::find($schoolId)?->type !== 'primaire') {
+            return ApiResponse::error($this->messageRefus(), 422);
         }
 
-        $niveau = NiveauScolaire::create([
-            ...$request->validated(),
-            'school_id' => app('tenant.school_id'),
-        ]);
+        $niveau = NiveauScolaire::create([...$data, 'school_id' => $schoolId]);
 
-        return ApiResponse::created(new NiveauScolaireResource($niveau->load('animateur')), 'Niveau créé.');
+        return ApiResponse::created(new NiveauScolaireResource($niveau->load(['animateur', 'school:id,name,code,type'])), 'Niveau créé.');
     }
 
     public function update(StoreNiveauScolaireRequest $request, int $id): JsonResponse
     {
-        $niveau = NiveauScolaire::forSchool(app('tenant.school_id'))->findOrFail($id);
-        $niveau->update($request->validated());
+        $niveau = NiveauScolaire::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validated();
+        unset($data['school_id']);
+        $niveau->update($data);
 
-        return ApiResponse::success(new NiveauScolaireResource($niveau->load('animateur')), 'Niveau mis à jour.');
+        return ApiResponse::success(new NiveauScolaireResource($niveau->load(['animateur', 'school:id,name,code,type'])), 'Niveau mis à jour.');
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $niveau = NiveauScolaire::forSchool(app('tenant.school_id'))->withCount('classes')->findOrFail($id);
+        $niveau = NiveauScolaire::forSchool(Tenant::schoolIds())->withCount('classes')->findOrFail($id);
 
         if ($niveau->classes_count > 0) {
             return ApiResponse::error('Ce niveau est encore rattaché à des classes.', 422);

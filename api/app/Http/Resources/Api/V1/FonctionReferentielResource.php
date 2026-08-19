@@ -12,6 +12,12 @@ class FonctionReferentielResource extends JsonResource
         return [
             'id' => $this->id,
             'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => $this->school ? [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+                'code' => $this->school->code,
+                'type' => $this->school->type,
+            ] : null),
             'label_fr' => $this->label_fr,
             'label_en' => $this->label_en,
             'label' => $this->label($request->header('X-Locale')),

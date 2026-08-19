@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { createFonctionReferentiel, updateFonctionReferentiel, type FonctionReferentiel } from '@/features/personnel/api'
+import { fetchSchools } from '@/features/classes/api'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { erreur, succes } from '@/shared/lib/alertes'
 
 interface FonctionReferentielFormModalProps {
@@ -16,10 +18,12 @@ interface FonctionReferentielFormModalProps {
 interface FormValues {
   label_fr: string
   label_en: string
+  school_id?: number
 }
 
 export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: FonctionReferentielFormModalProps) {
   const { t } = useTranslation()
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
   const {
     register,
     handleSubmit,
@@ -29,6 +33,7 @@ export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: Fon
     defaultValues: {
       label_fr: fonction?.label_fr ?? '',
       label_en: fonction?.label_en ?? '',
+      school_id: fonction?.school_id,
     },
   })
 
@@ -36,21 +41,24 @@ export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: Fon
     reset({
       label_fr: fonction?.label_fr ?? '',
       label_en: fonction?.label_en ?? '',
+      school_id: fonction?.school_id,
     })
   }, [fonction, reset])
 
   const onSubmit = async (values: FormValues) => {
-    const payload = {
-      label_fr: values.label_fr.trim(),
-      label_en: values.label_en.trim() || null,
-    }
-
     try {
       if (fonction) {
-        await updateFonctionReferentiel(fonction.id, payload)
+        await updateFonctionReferentiel(fonction.id, {
+          label_fr: values.label_fr.trim(),
+          label_en: values.label_en.trim() || null,
+        })
         succes(t('fonctionsReferentiel.updated'))
       } else {
-        await createFonctionReferentiel(payload)
+        await createFonctionReferentiel({
+          label_fr: values.label_fr.trim(),
+          label_en: values.label_en.trim() || null,
+          school_id: values.school_id ? Number(values.school_id) : undefined,
+        })
         succes(t('fonctionsReferentiel.created'))
       }
       onSaved()
@@ -63,6 +71,20 @@ export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: Fon
   return (
     <Modal title={fonction ? t('fonctionsReferentiel.edit') : t('fonctionsReferentiel.create')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {!fonction && (
+          <Select
+            label={`${t('classes.ecole')}${(schools?.length ?? 0) > 1 ? ' *' : ''}`}
+            error={errors.school_id?.message}
+            {...register('school_id', { required: (schools?.length ?? 0) > 1 ? "L'école est requise." : false })}
+          >
+            <option value="">—</option>
+            {schools?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Input
           label={t('fonctionsReferentiel.label_fr')}
           placeholder={t('fonctionsReferentiel.label_fr_placeholder')}

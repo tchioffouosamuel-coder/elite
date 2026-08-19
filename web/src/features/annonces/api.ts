@@ -7,6 +7,8 @@ export interface Annonce {
   contenu: string
   publiee_le: string
   publie_par: { id: number; nom_complet: string } | null
+  school_id?: number
+  school?: { id: number; name: string; code: string; type: string } | null
 }
 
 export async function fetchAnnonces(page = 1): Promise<{ items: Annonce[]; pagination: Pagination }> {
@@ -14,7 +16,7 @@ export async function fetchAnnonces(page = 1): Promise<{ items: Annonce[]; pagin
   return { items: data.data, pagination: data.meta!.pagination! }
 }
 
-export async function creerAnnonce(payload: { titre: string; contenu: string }): Promise<Annonce> {
+export async function creerAnnonce(payload: { titre: string; contenu: string; school_id?: number | null }): Promise<Annonce> {
   const { data } = await http.post<ApiResponse<Annonce>>('/annonces', payload)
   return data.data
 }

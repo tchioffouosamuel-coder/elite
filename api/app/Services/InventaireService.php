@@ -7,10 +7,14 @@ use Illuminate\Database\Eloquent\Collection;
 
 class InventaireService extends BaseService
 {
-    /** @param array{categorie?: ?string, etat?: ?string, search?: ?string} $filtres */
-    public function lister(int $schoolId, array $filtres = []): Collection
+    /**
+     * @param  int|array<int>  $schoolId
+     * @param  array{categorie?: ?string, etat?: ?string, search?: ?string}  $filtres
+     */
+    public function lister(int|array $schoolId, array $filtres = []): Collection
     {
         return InventaireArticle::forSchool($schoolId)
+            ->with('school:id,name,code,type')
             ->when($filtres['categorie'] ?? null, fn ($q, $c) => $q->where('categorie', $c))
             ->when($filtres['etat'] ?? null, fn ($q, $e) => $q->where('etat', $e))
             ->when($filtres['search'] ?? null, fn ($q, $s) => $q->where(function ($query) use ($s) {
@@ -20,7 +24,8 @@ class InventaireService extends BaseService
             ->get();
     }
 
-    public function trouver(int $schoolId, int $id): InventaireArticle
+    /** @param int|array<int> $schoolId */
+    public function trouver(int|array $schoolId, int $id): InventaireArticle
     {
         return InventaireArticle::forSchool($schoolId)->findOrFail($id);
     }
@@ -44,8 +49,11 @@ class InventaireService extends BaseService
         $article->delete();
     }
 
-    /** @return array{effectif_articles: int, quantite_totale: int, valeur_totale: int, par_etat: array<string, int>} */
-    public function stats(int $schoolId): array
+    /**
+     * @param  int|array<int>  $schoolId
+     * @return array{effectif_articles: int, quantite_totale: int, valeur_totale: int, par_etat: array<string, int>}
+     */
+    public function stats(int|array $schoolId): array
     {
         $articles = InventaireArticle::forSchool($schoolId)->get();
 

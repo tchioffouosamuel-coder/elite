@@ -94,6 +94,13 @@ export function InfirmeriePage() {
       largeur: '220px',
     },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (v) => v.school?.name,
+      cellule: (v) => <span className="text-navy-600">{v.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'raison',
       entete: t('infirmerie.raison'),
       valeur: (v) => v.raison,

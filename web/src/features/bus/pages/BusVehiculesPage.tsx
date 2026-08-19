@@ -12,6 +12,7 @@ import {
   type BusVehiculePayload,
 } from '@/features/bus/api'
 import { fetchPersonnels } from '@/features/personnel/api'
+import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -65,6 +66,13 @@ export function BusVehiculesPage() {
       entete: t('bus.statut'),
       valeur: (v) => v.statut,
       cellule: (v) => <Badge tone={v.statut === 'actif' ? 'green' : 'neutral'}>{t(`bus.${v.statut}`)}</Badge>,
+    },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (v) => v.school?.name,
+      cellule: (v) => <span className="text-navy-600">{v.school?.name ?? '—'}</span>,
+      masquerMobile: true,
     },
     ...(can('bus.manage')
       ? [
@@ -170,6 +178,7 @@ function VehiculeFormModal({
     queryKey: ['personnels', 'bus', 'chauffeurs'],
     queryFn: () => fetchPersonnels({ fonction_label: 'Chauffeur', per_page: 500 }),
   })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
   const {
     register,
@@ -193,6 +202,7 @@ function VehiculeFormModal({
       ...values,
       capacite: values.capacite ? Number(values.capacite) : null,
       chauffeur_id: values.chauffeur_id ? Number(values.chauffeur_id) : null,
+      school_id: values.school_id ? Number(values.school_id) : undefined,
     }
 
     try {
@@ -212,6 +222,20 @@ function VehiculeFormModal({
   return (
     <Modal title={vehicule ? t('bus.vehicule_edit') : t('bus.vehicule_add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        {!vehicule && (schools?.length ?? 0) > 1 && (
+          <Select
+            label={`${t('classes.ecole')} *`}
+            error={errors.school_id?.message}
+            {...register('school_id', { required: "L'école est requise." })}
+          >
+            <option value="">—</option>
+            {schools?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Input
           label={t('bus.immatriculation')}
           error={errors.immatriculation?.message}

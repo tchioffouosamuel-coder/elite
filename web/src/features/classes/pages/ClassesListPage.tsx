@@ -27,6 +27,7 @@ export function ClassesListPage() {
   const [showImport, setShowImport] = useState(false)
   const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
+  const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
   const secondaire = estSecondaire()
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classes'] })
@@ -45,6 +46,10 @@ export function ClassesListPage() {
     queryKey: ['niveaux'],
     queryFn: fetchNiveaux,
   })
+
+  const classesFiltrees = schoolFilter === null
+    ? data ?? []
+    : (data ?? []).filter((classe) => (classe.school_id ?? classe.school?.id) === schoolFilter)
 
   const getSousSystemeNom = (classe: Classe) => {
     if (classe.sous_systeme?.nom) return classe.sous_systeme.nom
@@ -129,6 +134,13 @@ export function ClassesListPage() {
       entete: 'Sous-système',
       valeur: (c) => getSousSystemeNom(c),
       cellule: (c) => (getSousSystemeNom(c) === '—' ? '—' : <Badge tone="blue">{getSousSystemeNom(c)}</Badge>),
+      masquerMobile: true,
+    },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (c) => c.school?.name,
+      cellule: (c) => <span className="text-navy-600">{c.school?.name ?? '—'}</span>,
       masquerMobile: true,
     },
     {
@@ -306,10 +318,24 @@ export function ClassesListPage() {
       ) : (
         <DataTable
           colonnes={colonnes}
-          lignes={data}
+          lignes={classesFiltrees}
           cleLigne={(c) => c.id}
           placeholderRecherche={t('classes.search_placeholder')}
           messageVide={t('classes.empty')}
+          outils={schools.length > 1 ? (
+            <div className="w-full sm:w-56">
+              <Select
+                options={schools.map((school) => ({ value: school.id, label: school.name }))}
+                value={schoolFilter === null ? null : schools
+                  .filter((school) => school.id === schoolFilter)
+                  .map((school) => ({ value: school.id, label: school.name }))[0] ?? null}
+                placeholder="Toutes les écoles"
+                onChange={(option) => setSchoolFilter(option ? Number(option.value) : null)}
+                isSearchable={false}
+                isClearable
+              />
+            </div>
+          ) : undefined}
           onLigneClick={(c) => navigate(`/classes/${c.id}`)}
         />
       )}

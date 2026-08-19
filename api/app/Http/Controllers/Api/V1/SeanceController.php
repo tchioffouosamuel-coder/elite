@@ -9,6 +9,7 @@ use App\Models\ClasseMatiere;
 use App\Models\Presence;
 use App\Models\Seance;
 use App\Services\EmploiDuTempsService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -127,12 +128,12 @@ class SeanceController extends Controller
 
     private function classe(int $id): Classe
     {
-        return Classe::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return Classe::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     private function seance(int $id): Seance
     {
-        return Seance::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return Seance::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     private function presenter(Seance $seance): array

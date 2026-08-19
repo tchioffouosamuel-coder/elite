@@ -23,9 +23,9 @@ class BusTrajet extends Model
         ];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     /** Tarif du trajet pour l'option choisie — figé sur la souscription à sa création. */
@@ -41,6 +41,11 @@ class BusTrajet extends Model
     public function vehicule(): BelongsTo
     {
         return $this->belongsTo(BusVehicule::class, 'vehicule_id');
+    }
+
+    public function school(): BelongsTo
+    {
+        return $this->belongsTo(School::class);
     }
 
     public function arrets(): HasMany

@@ -29,9 +29,9 @@ class VisiteInfirmerie extends Model
         ];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->whereHas('eleve', fn ($q) => $q->where('school_id', $schoolId));
+        return $query->whereHas('eleve', fn ($q) => is_array($schoolId) ? $q->whereIn('school_id', $schoolId) : $q->where('school_id', $schoolId));
     }
 
     public function eleve(): BelongsTo

@@ -126,7 +126,7 @@ class ProgressionService extends BaseService
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function tauxEtablissement(int $schoolId, ?int $anneeScolaireId = null): Collection
+    public function tauxEtablissement(int|array $schoolId, ?int $anneeScolaireId = null): Collection
     {
         return Classe::forSchool($schoolId)
             ->when($anneeScolaireId, fn ($q, $id) => $q->where('annee_scolaire_id', $id))

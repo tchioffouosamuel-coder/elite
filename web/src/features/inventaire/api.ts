@@ -15,6 +15,7 @@ export interface ArticleInventaire {
   valeur_totale: number
   date_acquisition: string | null
   notes: string | null
+  school?: { id: number; name: string; code: string; type: string } | null
 }
 
 export interface ArticleInventairePayload {
@@ -26,6 +27,7 @@ export interface ArticleInventairePayload {
   valeur_unitaire?: number | null
   date_acquisition?: string | null
   notes?: string | null
+  school_id?: number | null
 }
 
 export interface StatsInventaire {

@@ -12,11 +12,12 @@ class PersonnelRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    public function paginateForSchool(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    /** @param int|array<int> $schoolId */
+    public function paginateForSchool(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->query()
             ->forSchool($schoolId)
-            ->with(['departement', 'user', 'fonctionReference'])
+            ->with(['departement', 'user', 'fonctionReference', 'school:id,name,code,type'])
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom_complet', 'like', "%{$search}%")

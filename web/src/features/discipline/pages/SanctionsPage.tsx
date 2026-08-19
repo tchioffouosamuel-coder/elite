@@ -97,6 +97,13 @@ export function SanctionsPage() {
     },
     { cle: 'classe', entete: t('classes.title'), valeur: (s) => s.classe, cellule: (s) => s.classe ?? '—' },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (s) => s.school?.name,
+      cellule: (s) => <span className="text-navy-600">{s.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'type',
       entete: t('discipline.type'),
       valeur: (s) => s.type,

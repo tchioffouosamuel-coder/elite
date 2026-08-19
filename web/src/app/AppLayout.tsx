@@ -328,7 +328,13 @@ export function AppLayout() {
             ? itemsAutorises.filter((item) => groupeCorrespond || normaliserRecherche(t(item.label)).includes(requeteMenu))
             : itemsAutorises
 
-          return { ...group, items }
+          // En mode agrégé (super admin, pas de `typeEcole`), le filtre `types`
+          // ci-dessus s'efface et deux entrées visant des types différents
+          // (ex. Photos DECC secondaire/primaire) peuvent pointer vers la même
+          // route : n'en garder qu'une pour éviter les clés React dupliquées.
+          const itemsUniques = items.filter((item, index) => items.findIndex((i) => i.to === item.to) === index)
+
+          return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
     [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse],

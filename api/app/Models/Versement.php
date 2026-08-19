@@ -25,9 +25,9 @@ class Versement extends Model
         return ['date_versement' => 'date', 'annule_le' => 'datetime', 'montant' => 'integer'];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     /** Seuls les versements non annules comptent dans un solde ou une recette. */

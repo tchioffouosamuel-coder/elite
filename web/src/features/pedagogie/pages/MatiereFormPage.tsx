@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { fetchMatieres, createMatiere, updateMatiere, type MatierePayload } from '@/features/pedagogie/api'
 import { fetchDepartements } from '@/features/personnel/api'
+import { fetchSchools } from '@/features/classes/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
@@ -29,6 +30,7 @@ export function MatiereFormPage() {
 
   const { data: matieres, isLoading } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
   const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
   const matiere = matiereId ? matieres?.find((m) => m.id === matiereId) : undefined
 
   const [serverError, setServerError] = useState<string | null>(null)
@@ -38,19 +40,25 @@ export function MatiereFormPage() {
   // volets ; au secondaire elle est sur 20 et relève d'un département.
   const secondaire = estSecondaire()
 
-  const { register, handleSubmit, watch } = useForm<MatierePayload>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<MatierePayload>({
     defaultValues: matiere
       ? {
         nom: matiere.nom,
         nom_en: matiere.nom_en ?? '',
         abbreviation: matiere.abbreviation ?? '',
         departement_id: matiere.departement?.id ?? null,
+        school_id: matiere.school_id ?? null,
         notation: matiere.notation ?? null,
         evalue_pratique: matiere.composantes.includes('pratique'),
         repartition_volets: matiere.repartition_volets,
       }
       : undefined,
   })
+
+  const ecoleChoisie = watch('school_id')
+  const departementsFiltres = ecoleChoisie
+    ? departements?.filter((d) => d.school_id === Number(ecoleChoisie))
+    : departements
 
   const notationSaisie = Number(watch('notation')) || 0
   const evaluePratique = !!watch('evalue_pratique')
@@ -71,6 +79,7 @@ export function MatiereFormPage() {
       const payload: MatierePayload = {
         ...values,
         departement_id: values.departement_id ? Number(values.departement_id) : null,
+        school_id: values.school_id ? Number(values.school_id) : null,
         notation: values.notation ? Number(values.notation) : null,
         repartition_volets: secondaire
           ? null
@@ -115,12 +124,26 @@ export function MatiereFormPage() {
 
       <Card className="max-w-2xl p-5">
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {!matiere && (schools?.length ?? 0) > 1 && (
+            <Select
+              label={`${t('classes.ecole')} *`}
+              error={errors.school_id?.message}
+              {...register('school_id', { required: "L'école est requise." })}
+            >
+              <option value="">—</option>
+              {schools?.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          )}
           <Input label={t('matieres.nom')} {...register('nom', { required: true })} />
           <Input label={t('matieres.abbreviation')} {...register('abbreviation')} />
           {secondaire ? (
             <Select label={t('personnel.departement')} {...register('departement_id')}>
               <option value="">—</option>
-              {departements?.map((d) => (
+              {departementsFiltres?.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.nom}
                 </option>

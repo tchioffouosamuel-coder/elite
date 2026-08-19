@@ -9,6 +9,7 @@ use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\Trimestre;
 use App\Services\EmploiDuTempsService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -108,7 +109,7 @@ class EmploiDuTempsController extends Controller
 
     private function classe(int $id): Classe
     {
-        return Classe::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return Classe::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     private function presenter(EmploiDuTemps $creneau): array

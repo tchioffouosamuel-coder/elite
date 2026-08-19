@@ -112,6 +112,13 @@ export function MatieresPage() {
       valeur: (m) => m.abbreviation,
       cellule: (m) => m.abbreviation ?? '—',
     },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (m) => m.school?.name,
+      cellule: (m) => <span className="text-navy-600">{m.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
     ...(secondaire
       ? [
         {

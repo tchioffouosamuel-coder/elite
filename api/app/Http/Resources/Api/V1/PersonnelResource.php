@@ -20,6 +20,13 @@ class PersonnelResource extends JsonResource
                 'id' => $this->departement?->id,
                 'nom' => $this->departement?->nom,
             ]),
+            'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => $this->school ? [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+                'code' => $this->school->code,
+                'type' => $this->school->type,
+            ] : null),
             'civilite' => $this->civilite,
             'sexe' => $this->sexe,
             'date_naissance' => $this->date_naissance?->format('Y-m-d'),

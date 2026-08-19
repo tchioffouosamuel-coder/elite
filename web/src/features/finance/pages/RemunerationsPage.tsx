@@ -99,6 +99,13 @@ export function RemunerationsPage() {
       ),
     },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (p) => p.school?.name,
+      cellule: (p) => <span className="text-navy-600">{p.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'base',
       entete: 'Salaire de base',
       largeur: '120px',

@@ -140,6 +140,13 @@ export function PersonnelListPage() {
       cellule: (p) => <span className="font-semibold text-navy-900">{p.nom_complet}</span>,
     },
     { cle: 'fonction', entete: t('personnel.fonction'), valeur: (p) => p.fonction, cellule: (p) => p.fonction },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (p) => p.school?.name,
+      cellule: (p) => <span className="text-navy-600">{p.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
     // Les départements n'existent qu'au secondaire : ailleurs la colonne
     // n'afficherait qu'une suite de tirets.
     ...(secondaire

@@ -20,6 +20,13 @@ class EleveResource extends JsonResource
             'photo_url' => $this->photo_path ? asset('storage/'.$this->photo_path) : null,
             'redoublant' => (bool) $this->redoublant,
             'statut' => $this->statut,
+            'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => $this->school ? [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+                'code' => $this->school->code,
+                'type' => $this->school->type,
+            ] : null),
             'classe' => $this->whenLoaded('classe', fn () => $this->classe ? [
                 'id' => $this->classe->id,
                 'nom' => $this->classe->nom,

@@ -14,6 +14,13 @@ class SousSystemeResource extends JsonResource
             'code' => $this->code,
             'nom' => $this->nom,
             'description' => $this->description,
+            'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+                'code' => $this->school->code,
+                'type' => $this->school->type,
+            ]),
             'nb_classes' => $this->when(isset($this->classes_count), $this->classes_count),
         ];
     }

@@ -26,14 +26,16 @@ class BusService extends BaseService
 
     // ---- Véhicules --------------------------------------------------
 
-    public function listerVehicules(int $schoolId): Collection
+    /** @param int|array<int> $schoolId */
+    public function listerVehicules(int|array $schoolId): Collection
     {
-        return BusVehicule::forSchool($schoolId)->with('chauffeur')->orderBy('immatriculation')->get();
+        return BusVehicule::forSchool($schoolId)->with(['chauffeur', 'school:id,name,code,type'])->orderBy('immatriculation')->get();
     }
 
-    public function trouverVehicule(int $schoolId, int $id): BusVehicule
+    /** @param int|array<int> $schoolId */
+    public function trouverVehicule(int|array $schoolId, int $id): BusVehicule
     {
-        return BusVehicule::forSchool($schoolId)->with('chauffeur')->findOrFail($id);
+        return BusVehicule::forSchool($schoolId)->with(['chauffeur', 'school:id,name,code,type'])->findOrFail($id);
     }
 
     /** @param array<string, mixed> $donnees */
@@ -57,19 +59,21 @@ class BusService extends BaseService
 
     // ---- Trajets et arrêts -------------------------------------------
 
-    public function listerTrajets(int $schoolId): Collection
+    /** @param int|array<int> $schoolId */
+    public function listerTrajets(int|array $schoolId): Collection
     {
         return BusTrajet::forSchool($schoolId)
-            ->with(['vehicule', 'arrets'])
+            ->with(['vehicule', 'arrets', 'school:id,name,code,type'])
             ->withCount(['affectations' => fn ($q) => $q->actives()])
             ->orderBy('nom')
             ->get();
     }
 
-    public function trouverTrajet(int $schoolId, int $id): BusTrajet
+    /** @param int|array<int> $schoolId */
+    public function trouverTrajet(int|array $schoolId, int $id): BusTrajet
     {
         return BusTrajet::forSchool($schoolId)
-            ->with(['vehicule', 'arrets', 'affectations.eleve', 'affectations.arret'])
+            ->with(['vehicule', 'arrets', 'affectations.eleve', 'affectations.arret', 'school:id,name,code,type'])
             ->findOrFail($id);
     }
 
@@ -132,11 +136,12 @@ class BusService extends BaseService
      * Élèves affectés au transport, ceux d'un trajet précis si `$trajetId`
      * est fourni.
      */
-    public function listerAffectations(int $schoolId, ?int $trajetId = null): Collection
+    /** @param int|array<int> $schoolId */
+    public function listerAffectations(int|array $schoolId, ?int $trajetId = null): Collection
     {
         return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool($schoolId))
             ->when($trajetId, fn ($q, $id) => $q->where('trajet_id', $id))
-            ->with(['eleve.classe', 'trajet', 'arret'])
+            ->with(['eleve.classe', 'trajet.school', 'arret'])
             ->get();
     }
 
@@ -233,12 +238,13 @@ class BusService extends BaseService
      * souscription bus active si elle existe — la vue d'ensemble qui
      * remplace le fait de devoir deviner sur quel trajet chercher un élève.
      */
-    public function listerElevesTransport(int $schoolId, ?int $classeId, ?int $anneeScolaireId): Collection
+    /** @param int|array<int> $schoolId */
+    public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId): Collection
     {
         return Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
             ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
-            ->with(['classe', 'busAffectations' => fn ($q) => $q
+            ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn ($q) => $q
                 ->when($anneeScolaireId, fn ($qq, $id) => $qq->where('annee_scolaire_id', $id))
                 ->actives()
                 ->with(['trajet', 'arret'])])

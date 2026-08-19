@@ -18,6 +18,7 @@ import {
   updatePersonnel,
   type PersonnelPayload,
 } from '@/features/personnel/api'
+import { fetchSchools } from '@/features/classes/api'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
@@ -40,7 +41,7 @@ type Champ = keyof PersonnelPayload
 
 const ETAPES: { id: string; label: string; description: string; champs: Champ[] }[] = [
   { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
-  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'] },
+  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
   { id: 'recap', label: 'Récapitulatif', description: 'Vérification', champs: [] },
 ]
@@ -85,6 +86,7 @@ export function PersonnelFormPage() {
     queryKey: ['fonctions-referentiel', activeSchoolId],
     queryFn: fetchFonctionsReferentiel,
   })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
   const [etape, setEtape] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -98,6 +100,13 @@ export function PersonnelFormPage() {
     formState: { errors },
   } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '' } })
 
+  const ecoleChoisie = watch('school_id')
+  // La fonction et le département dépendent de l'école choisie : en mode
+  // agrégé, `fonctions`/`departements` couvrent tout le complexe, il faut
+  // filtrer plutôt que de mélanger les référentiels de plusieurs écoles.
+  const fonctionsFiltrees = ecoleChoisie ? fonctions?.filter((f) => f.school_id === Number(ecoleChoisie)) : fonctions
+  const departementsFiltres = ecoleChoisie ? departements?.filter((d) => d.school_id === Number(ecoleChoisie)) : departements
+
   // La fiche à modifier arrive après le premier rendu : le formulaire est
   // recalé quand elle est là, pas construit à vide puis laissé tel quel.
   useEffect(() => {
@@ -105,6 +114,7 @@ export function PersonnelFormPage() {
 
     reset({
       nom_complet: personnel.nom_complet,
+      school_id: personnel.school_id,
       fonction_id: personnel.fonction_id,
       departement_id: personnel.departement?.id ?? undefined,
       matricule: personnel.matricule ?? '',
@@ -136,6 +146,7 @@ export function PersonnelFormPage() {
         ...values,
         fonction_id: Number(values.fonction_id),
         departement_id: values.departement_id ? Number(values.departement_id) : null,
+        school_id: values.school_id ? Number(values.school_id) : null,
         nombre_enfants: enfants === undefined || enfants === null || (enfants as unknown) === '' ? null : Number(enfants),
       })
 
@@ -253,13 +264,27 @@ export function PersonnelFormPage() {
           {etape === 1 && (
             <div className="flex flex-col gap-4">
               <h3 className="font-display text-base font-bold text-navy-900">Poste et affectation</h3>
+              {!personnel && (schools?.length ?? 0) > 1 && (
+                <Select
+                  label={`${t('classes.ecole')} *`}
+                  error={errors.school_id?.message}
+                  {...register('school_id', { required: "L'école est requise." })}
+                >
+                  <option value="">—</option>
+                  {schools?.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
               <Select
                 label={t('personnel.fonction')}
                 error={errors.fonction_id?.message}
                 {...register('fonction_id', { required: 'La fonction est obligatoire.' })}
               >
                 <option value="">—</option>
-                {fonctions?.map((fonction) => (
+                {fonctionsFiltrees?.map((fonction) => (
                   <option key={fonction.id} value={fonction.id}>
                     {fonction.label}
                   </option>
@@ -280,7 +305,7 @@ export function PersonnelFormPage() {
               {avecDepartements && (
                 <Select label={t('personnel.departement')} {...register('departement_id')}>
                   <option value="">—</option>
-                  {departements?.map((d) => (
+                  {departementsFiltres?.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.nom}
                     </option>

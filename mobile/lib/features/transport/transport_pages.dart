@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ui/ecran_liste.dart';
+import '../../core/ui/gestes_modules.dart';
+import '../../core/ui/permission.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
 
@@ -15,6 +17,8 @@ class BusVehiculesPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Véhicules',
       chemin: 'bus/vehicules',
+      gestes: Gestes.vehicules,
+      peutEcrire: peutEcrire(context, 'bus.manage'),
       champsRecherche: const ['immatriculation', 'marque'],
       messageVide: 'Aucun véhicule enregistré.',
       construireLigne: (context, v) => LigneRessource(
@@ -38,6 +42,8 @@ class BusTrajetsPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Trajets',
       chemin: 'bus/trajets',
+      gestes: Gestes.trajets,
+      peutEcrire: peutEcrire(context, 'bus.manage'),
       messageVide: 'Aucun trajet défini.',
       construireLigne: (context, t) {
         final arrets = (t['arrets'] as List?)?.length ?? 0;

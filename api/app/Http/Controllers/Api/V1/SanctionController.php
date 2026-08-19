@@ -14,6 +14,7 @@ use App\Models\Sanction;
 use App\Models\School;
 use App\Models\Trimestre;
 use App\Support\Pdf\MpdfFactory;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,8 +36,8 @@ class SanctionController extends Controller
             return $refus;
         }
 
-        $sanctions = Sanction::forSchool(app('tenant.school_id'))
-            ->with(['eleve', 'classe', 'enregistrePar'])
+        $sanctions = Sanction::forSchool(Tenant::schoolIds())
+            ->with(['eleve.school', 'classe', 'enregistrePar'])
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
             ->when($request->integer('trimestre_id'), fn ($q, $id) => $q->where('trimestre_id', $id))
@@ -52,7 +53,15 @@ class SanctionController extends Controller
             return $refus;
         }
 
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->findOrFail($request->integer('eleve_id'));
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('school')->findOrFail($request->integer('eleve_id'));
+
+        // En mode agrégé, refuserSaufPour() ne bloque plus rien (l'école de
+        // repli du super admin n'a aucune raison d'être secondaire) : c'est
+        // donc ici, sur l'école réelle de l'élève choisi, que la règle
+        // s'applique.
+        if ($eleve->school?->type !== 'secondaire') {
+            return ApiResponse::error($this->messageRefus(), 422);
+        }
 
         if (! $eleve->classe_id) {
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
@@ -78,7 +87,7 @@ class SanctionController extends Controller
             // « en_attente ».
             'statut' => 'en_attente',
             'enregistre_par' => $request->user()->personnel?->id,
-        ])->load(['eleve', 'classe', 'enregistrePar']);
+        ])->load(['eleve.school', 'classe', 'enregistrePar']);
 
         return ApiResponse::created(new SanctionResource($sanction), 'Sanction enregistrée.');
     }
@@ -95,15 +104,15 @@ class SanctionController extends Controller
             return $refus;
         }
 
-        $sanction = Sanction::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
         $sanction->update($request->validated());
 
-        return ApiResponse::success(new SanctionResource($sanction->fresh(['eleve', 'classe', 'enregistrePar'])), 'Sanction mise à jour.');
+        return ApiResponse::success(new SanctionResource($sanction->fresh(['eleve.school', 'classe', 'enregistrePar'])), 'Sanction mise à jour.');
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $sanction = Sanction::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
         $sanction->delete();
 
         return ApiResponse::success(message: 'Sanction supprimée.');
@@ -121,7 +130,7 @@ class SanctionController extends Controller
             return $refus;
         }
 
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
 
         $sanctions = Sanction::where('eleve_id', $eleve->id)
             ->with(['classe', 'enregistrePar'])
@@ -160,12 +169,15 @@ class SanctionController extends Controller
             return $refus;
         }
 
-        $schoolId = app('tenant.school_id');
-
+        // Le trimestre appartient à une seule école : on en déduit celle du PV
+        // plutôt que d'exiger un `school_id` séparé — pas d'ambiguïté possible
+        // même en mode agrégé, puisque l'id est cherché parmi celles accessibles.
         $trimestre = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', $schoolId)
-        )->findOrFail($request->integer('trimestre_id'));
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+        )->with('anneeScolaire')->findOrFail($request->integer('trimestre_id'));
+
+        $schoolId = $trimestre->anneeScolaire->school_id;
 
         $classe = $request->integer('classe_id')
             ? Classe::forSchool($schoolId)->findOrFail($request->integer('classe_id'))
@@ -183,7 +195,7 @@ class SanctionController extends Controller
 
         return MpdfFactory::streamFromView('pdf.pv-conseil-discipline', [
             'school' => $school,
-            'trimestre' => $trimestre->load('anneeScolaire'),
+            'trimestre' => $trimestre,
             'classe' => $classe,
             'sanctions' => $sanctions,
         ], 'pv-conseil-discipline.pdf', school: $school);

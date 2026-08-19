@@ -34,6 +34,7 @@ export interface Sanction {
   id: number
   eleve: { id: number; nom_complet: string }
   classe: string
+  school?: { id: number; name: string; code: string; type: string } | null
   type: TypeSanction
   duree_jours: number | null
   date_debut: string | null

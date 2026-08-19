@@ -1,6 +1,13 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 
+export interface School {
+  id: number
+  name: string
+  code: string
+  type: string
+}
+
 export interface BusVehicule {
   id: number
   immatriculation: string
@@ -8,6 +15,7 @@ export interface BusVehicule {
   capacite: number
   statut: 'actif' | 'hors_service'
   chauffeur: { id: number; nom_complet: string; telephone: string | null } | null
+  school?: School | null
 }
 
 export interface BusVehiculePayload {
@@ -16,6 +24,7 @@ export interface BusVehiculePayload {
   capacite?: number | null
   chauffeur_id?: number | null
   statut?: BusVehicule['statut']
+  school_id?: number | null
 }
 
 export interface BusArret {
@@ -51,6 +60,7 @@ export interface BusTrajet {
   vehicule: { id: number; immatriculation: string } | null
   arrets: BusArret[]
   effectif: number | null
+  school?: School | null
 }
 
 /** Tarif du trajet pour l'option choisie — même règle que côté serveur, pour l'aperçu avant envoi. */
@@ -81,6 +91,7 @@ export interface BusTrajetPayload {
   tarif_aller_simple?: number | null
   tarif_retour_simple?: number | null
   tarif_aller_retour?: number | null
+  school_id?: number | null
 }
 
 export interface BusAffectation {

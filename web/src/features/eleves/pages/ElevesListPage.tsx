@@ -20,6 +20,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, type Eleve } from '@/features/eleves/api'
+import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -33,6 +34,7 @@ import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes } from '@/shared/lib/alertes'
+import { Select } from '@/shared/ui/Select'
 
 function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: string; photo_url: string | null }; canManage: boolean }) {
   const { t } = useTranslation()
@@ -99,6 +101,8 @@ export function ElevesListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [transfertClasseEleve, setTransfertClasseEleve] = useState<Eleve | null>(null)
   const [transfertEcoleEleve, setTransfertEcoleEleve] = useState<Eleve | null>(null)
+  const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
+  const [classeFilter, setClasseFilter] = useState<number | null>(null)
 
   // Recherche, tri et pagination sont assurés par DataTable côté client : on
   // charge donc l'effectif complet de l'établissement. Au-delà de ~2000 élèves
@@ -106,6 +110,17 @@ export function ElevesListPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['eleves'],
     queryFn: () => fetchEleves({ per_page: 1000 }),
+  })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+
+  const classesDisponibles = schoolFilter === null
+    ? classes
+    : classes.filter((classe) => (classe.school_id ?? classe.school?.id) === schoolFilter)
+  const elevesFiltres = (data?.items ?? []).filter((eleve) => {
+    const ecoleCorrespond = schoolFilter === null || eleve.school_id === schoolFilter
+    const classeCorrespond = classeFilter === null || eleve.classe?.id === classeFilter
+    return ecoleCorrespond && classeCorrespond
   })
 
   const invalidate = () => {
@@ -223,6 +238,13 @@ export function ElevesListPage() {
       cellule: (e) => e.classe?.nom ?? '—',
     },
     {
+      cle: 'ecole',
+      entete: t('classes.ecole'),
+      valeur: (e) => e.school?.name,
+      cellule: (e) => e.school?.name ?? '—',
+      masquerMobile: true,
+    },
+    {
       cle: 'tuteur',
       entete: t('eleves.tuteur'),
       valeur: (e) => e.tuteurs?.[0]?.nom_complet,
@@ -247,47 +269,47 @@ export function ElevesListPage() {
         const menuItems: DropdownMenuItem[] = [
           ...(e.classe
             ? ([
-                { label: t('resultats.bulletin'), icon: FileDown, onClick: () => ouvrirBulletin(e.id) },
-                {
-                  label: t('export.attestation'),
-                  icon: FileText,
-                  onClick: () => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx'),
-                },
-              ] satisfies DropdownMenuItem[])
+              { label: t('resultats.bulletin'), icon: FileDown, onClick: () => ouvrirBulletin(e.id) },
+              {
+                label: t('export.attestation'),
+                icon: FileText,
+                onClick: () => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx'),
+              },
+            ] satisfies DropdownMenuItem[])
             : []),
           ...(can('eleves.manage')
             ? ([
-                { label: t('eleves.changer_classe'), icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
-                ...(isSuperAdmin
-                  ? [{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
-                  : []),
-                e.statut === 'actif'
-                  ? {
-                      label: t('common.archive'),
-                      icon: Archive,
-                      onClick: async () => {
-                        const confirme = await confirmer({
-                          titre: t('eleves.archive_title', { nom: e.nom_complet }),
-                          message: t('eleves.archive_message'),
-                          action: t('common.archive'),
-                        })
-                        if (!confirme) return
-                        await archiveEleve(e.id)
-                        invalidate()
-                        succes(t('eleves.archived'))
-                      },
-                    }
-                  : {
-                      label: t('common.reactivate'),
-                      icon: RotateCcw,
-                      onClick: async () => {
-                        await reactivateEleve(e.id)
-                        invalidate()
-                        succes(t('eleves.reactivated'))
-                      },
-                    },
-                { label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true },
-              ] satisfies DropdownMenuItem[])
+              { label: t('eleves.changer_classe'), icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
+              ...(isSuperAdmin
+                ? [{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
+                : []),
+              e.statut === 'actif'
+                ? {
+                  label: t('common.archive'),
+                  icon: Archive,
+                  onClick: async () => {
+                    const confirme = await confirmer({
+                      titre: t('eleves.archive_title', { nom: e.nom_complet }),
+                      message: t('eleves.archive_message'),
+                      action: t('common.archive'),
+                    })
+                    if (!confirme) return
+                    await archiveEleve(e.id)
+                    invalidate()
+                    succes(t('eleves.archived'))
+                  },
+                }
+                : {
+                  label: t('common.reactivate'),
+                  icon: RotateCcw,
+                  onClick: async () => {
+                    await reactivateEleve(e.id)
+                    invalidate()
+                    succes(t('eleves.reactivated'))
+                  },
+                },
+              { label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true },
+            ] satisfies DropdownMenuItem[])
             : []),
         ]
 
@@ -362,10 +384,43 @@ export function ElevesListPage() {
       ) : (
         <DataTable
           colonnes={colonnes}
-          lignes={data.items}
+          lignes={elevesFiltres}
           cleLigne={(e) => e.id}
           placeholderRecherche={t('eleves.search_placeholder')}
           messageVide={t('eleves.empty')}
+          outils={schools.length > 1 || classes.length > 0 ? (
+            <>
+              {schools.length > 1 && (
+                <div className="w-full sm:w-52">
+                  <Select
+                    options={schools.map((school) => ({ value: school.id, label: school.name }))}
+                    value={schoolFilter === null ? null : schools
+                      .filter((school) => school.id === schoolFilter)
+                      .map((school) => ({ value: school.id, label: school.name }))[0] ?? null}
+                    placeholder="Toutes les écoles"
+                    onChange={(option) => {
+                      setSchoolFilter(option ? Number(option.value) : null)
+                      setClasseFilter(null)
+                    }}
+                    isSearchable={false}
+                    isClearable
+                  />
+                </div>
+              )}
+              <div className="w-full sm:w-52">
+                <Select
+                  options={classesDisponibles.map((classe) => ({ value: classe.id, label: classe.nom }))}
+                  value={classeFilter === null ? null : classesDisponibles
+                    .filter((classe) => classe.id === classeFilter)
+                    .map((classe) => ({ value: classe.id, label: classe.nom }))[0] ?? null}
+                  placeholder="Toutes les classes"
+                  onChange={(option) => setClasseFilter(option ? Number(option.value) : null)}
+                  isSearchable
+                  isClearable
+                />
+              </div>
+            </>
+          ) : undefined}
           largeurMin={900}
         />
       )}

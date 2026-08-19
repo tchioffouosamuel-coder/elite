@@ -14,6 +14,7 @@ import {
   type EtatArticle,
 } from '@/features/inventaire/api'
 import { francs } from '@/features/finance/api'
+import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -82,6 +83,13 @@ export function InventairePage() {
       entete: t('inventaire.localisation_col'),
       valeur: (a) => a.localisation,
       cellule: (a) => a.localisation ?? '—',
+      masquerMobile: true,
+    },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (a) => a.school?.name,
+      cellule: (a) => <span className="text-navy-600">{a.school?.name ?? '—'}</span>,
       masquerMobile: true,
     },
     {
@@ -219,6 +227,7 @@ function ArticleFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
   const {
     register,
@@ -246,6 +255,7 @@ function ArticleFormModal({
       quantite: Number(values.quantite),
       valeur_unitaire: values.valeur_unitaire ? Number(values.valeur_unitaire) : null,
       date_acquisition: values.date_acquisition || null,
+      school_id: values.school_id ? Number(values.school_id) : undefined,
     }
 
     try {
@@ -265,6 +275,20 @@ function ArticleFormModal({
   return (
     <Modal title={article ? t('inventaire.edit_title') : t('inventaire.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        {!article && (schools?.length ?? 0) > 1 && (
+          <Select
+            label={`${t('classes.ecole')} *`}
+            error={errors.school_id?.message}
+            {...register('school_id', { required: "L'école est requise." })}
+          >
+            <option value="">—</option>
+            {schools?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Input
           label={t('inventaire.nom_label')}
           error={errors.nom?.message}

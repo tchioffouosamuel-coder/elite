@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\UpdateVisiteInfirmerieRequest;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
 use App\Models\Eleve;
 use App\Models\VisiteInfirmerie;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,8 +24,8 @@ class VisiteInfirmerieController extends Controller
             'au' => ['nullable', 'date'],
         ]);
 
-        $visites = VisiteInfirmerie::forSchool(app('tenant.school_id'))
-            ->with(['eleve', 'classe', 'enregistrePar'])
+        $visites = VisiteInfirmerie::forSchool(Tenant::schoolIds())
+            ->with(['eleve.school', 'classe', 'enregistrePar'])
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
             ->when($request->string('du')->toString(), fn ($q, $du) => $q->whereDate('date_visite', '>=', $du))
@@ -44,7 +45,7 @@ class VisiteInfirmerieController extends Controller
             'classe_id' => $eleve->classe_id,
             'cout_soins' => $request->integer('cout_soins'),
             'enregistre_par' => $request->user()->personnel?->id,
-        ])->load(['eleve', 'classe', 'enregistrePar']);
+        ])->load(['eleve.school', 'classe', 'enregistrePar']);
 
         return ApiResponse::created(new VisiteInfirmerieResource($visite), 'Visite à l’infirmerie enregistrée.');
     }
@@ -61,7 +62,7 @@ class VisiteInfirmerieController extends Controller
         ]);
 
         return ApiResponse::success(
-            new VisiteInfirmerieResource($visite->fresh(['eleve', 'classe', 'enregistrePar'])),
+            new VisiteInfirmerieResource($visite->fresh(['eleve.school', 'classe', 'enregistrePar'])),
             'Visite à l’infirmerie mise à jour.'
         );
     }
@@ -75,11 +76,11 @@ class VisiteInfirmerieController extends Controller
 
     private function visite(int $id): VisiteInfirmerie
     {
-        return VisiteInfirmerie::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return VisiteInfirmerie::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     private function eleve(int $id): Eleve
     {
-        return Eleve::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return Eleve::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 }

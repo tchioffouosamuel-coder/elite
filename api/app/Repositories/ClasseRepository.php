@@ -12,14 +12,14 @@ class ClasseRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    public function forSchoolAndAnnee(int $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
+    public function forSchoolAndAnnee(int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
     {
         return $this->query()
             ->forSchool($schoolId)
             ->when($anneeScolaireId, fn ($query, $id) => $query->where('annee_scolaire_id', $id))
             ->when($filters['niveau_id'] ?? null, fn ($query, $id) => $query->where('niveau_id', $id))
             ->withCount('eleves')
-            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire'])
+            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type'])
             ->orderBy('nom')
             ->get();
     }

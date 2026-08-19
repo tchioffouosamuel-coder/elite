@@ -27,9 +27,9 @@ class AvanceSalaire extends Model
         return ['date_avance' => 'date', 'montant' => 'integer', 'annule_le' => 'datetime'];
     }
 
-    public function scopeForSchool(Builder $query, int $schoolId): Builder
+    public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->where('school_id', $schoolId);
+        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
     /** Seules les avances non annulées comptent dans un solde ou une masse à recouvrer. */

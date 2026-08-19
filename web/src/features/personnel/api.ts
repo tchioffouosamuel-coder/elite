@@ -1,9 +1,18 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse } from "@/shared/types/api";
 
+export interface School {
+  id: number;
+  name: string;
+  code: string;
+  type: string;
+}
+
 export interface Departement {
   id: number;
   nom: string;
+  school_id?: number;
+  school?: School | null;
   head_personnel_id: number | null;
   head_personnel?: {
     id: number;
@@ -50,6 +59,8 @@ export interface Personnel extends DossierPersonnel {
   departement: Departement | null;
   statut: "actif" | "ex_employe";
   a_un_compte: boolean;
+  school_id?: number;
+  school?: School | null;
 }
 
 export type PersonnelPayload = Partial<DossierPersonnel> & {
@@ -58,11 +69,13 @@ export type PersonnelPayload = Partial<DossierPersonnel> & {
   departement_id?: number | null;
   matricule?: string | null;
   statut?: "actif" | "ex_employe";
+  school_id?: number | null;
 };
 
 export interface FonctionReferentiel {
   id: number;
   school_id: number;
+  school?: School | null;
   label_fr: string;
   label_en: string | null;
   label: string;
@@ -74,9 +87,13 @@ export async function fetchDepartements(): Promise<Departement[]> {
   return data.data;
 }
 
-export async function createDepartement(nom: string): Promise<Departement> {
+export async function createDepartement(
+  nom: string,
+  schoolId?: number | null,
+): Promise<Departement> {
   const { data } = await http.post<ApiResponse<Departement>>("/departements", {
     nom,
+    school_id: schoolId ?? undefined,
   });
   return data.data;
 }
@@ -190,6 +207,7 @@ export async function fetchFonctionReferentiel(
 export async function createFonctionReferentiel(payload: {
   label_fr: string;
   label_en?: string | null;
+  school_id?: number | null;
 }): Promise<FonctionReferentiel> {
   const { data } = await http.post<ApiResponse<FonctionReferentiel>>(
     "/fonctions-referentiel",

@@ -13,6 +13,7 @@ import {
   type BusTrajet,
   type BusTrajetPayload,
 } from '@/features/bus/api'
+import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -50,6 +51,13 @@ export function BusTrajetsPage() {
       entete: t('bus.vehicule'),
       valeur: (r) => r.vehicule?.immatriculation,
       cellule: (r) => r.vehicule?.immatriculation ?? '—',
+    },
+    {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (r) => r.school?.name,
+      cellule: (r) => <span className="text-navy-600">{r.school?.name ?? '—'}</span>,
+      masquerMobile: true,
     },
     {
       cle: 'arrets',
@@ -189,10 +197,12 @@ function TrajetFormModal({
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
   const { data: vehicules } = useQuery({ queryKey: ['bus-vehicules', 'select'], queryFn: fetchVehicules })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { isSubmitting, errors },
   } = useForm<BusTrajetPayload>({
     defaultValues: trajet
@@ -207,6 +217,9 @@ function TrajetFormModal({
       : {},
   })
 
+  const ecoleChoisie = watch('school_id')
+  const vehiculesFiltres = ecoleChoisie ? vehicules?.filter((v) => v.school?.id === Number(ecoleChoisie)) : vehicules
+
   const onSubmit = async (values: BusTrajetPayload) => {
     setServerError(null)
     const payload: BusTrajetPayload = {
@@ -215,6 +228,7 @@ function TrajetFormModal({
       tarif_aller_simple: values.tarif_aller_simple ? Number(values.tarif_aller_simple) : null,
       tarif_retour_simple: values.tarif_retour_simple ? Number(values.tarif_retour_simple) : null,
       tarif_aller_retour: values.tarif_aller_retour ? Number(values.tarif_aller_retour) : null,
+      school_id: values.school_id ? Number(values.school_id) : undefined,
     }
 
     try {
@@ -234,6 +248,20 @@ function TrajetFormModal({
   return (
     <Modal title={trajet ? t('bus.trajet_edit') : t('bus.trajet_add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        {!trajet && (schools?.length ?? 0) > 1 && (
+          <Select
+            label={`${t('classes.ecole')} *`}
+            error={errors.school_id?.message}
+            {...register('school_id', { required: "L'école est requise." })}
+          >
+            <option value="">—</option>
+            {schools?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Input
           label={t('bus.nom')}
           error={errors.nom?.message}
@@ -243,7 +271,7 @@ function TrajetFormModal({
 
         <Select label={t('bus.vehicule')} {...register('vehicule_id')}>
           <option value="">—</option>
-          {vehicules?.map((v) => (
+          {vehiculesFiltres?.map((v) => (
             <option key={v.id} value={v.id}>
               {v.immatriculation}
             </option>

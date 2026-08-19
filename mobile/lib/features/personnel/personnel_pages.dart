@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/ui/ecran_liste.dart';
+import '../../core/ui/gestes_modules.dart';
+import '../../core/ui/permission.dart';
 import '../../core/ui/theme.dart';
 
 /// Groupe « Personnel & structure », pendant des pages web du même nom.
@@ -116,6 +118,8 @@ class DepartementsPage extends StatelessWidget {
     return EcranListeApi(
       titre: 'Départements',
       chemin: 'departements',
+      gestes: Gestes.departements,
+      peutEcrire: peutEcrire(context, 'personnel.manage'),
       messageVide: 'Aucun département.',
       construireLigne: (context, d) => LigneRessource(
         titre: '${d['nom'] ?? '—'}',

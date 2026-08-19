@@ -55,7 +55,7 @@ export function StepForm({
   }
 
   return (
-    <div className={clsx(!compact && 'mx-auto max-w-2xl')}>
+    <div className={clsx(!compact && 'mx-auto max-w-4xl')}>
       {showSteps && (
         <div className={clsx('flex', compact ? 'mb-5' : 'mb-8')}>
           {steps.map((step, index) => (

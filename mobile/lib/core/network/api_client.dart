@@ -68,8 +68,17 @@ class ApiClient {
   late final Dio dio;
 
   Future<Map<String, dynamic>> get(String chemin, {Map<String, dynamic>? params}) async {
-    return _envelopper(() async => _traiter(await dio.get(chemin, queryParameters: params)));
+    return _envelopper(() async => _traiter(await dio.get(_absolu(chemin), queryParameters: params)));
   }
+
+  /// Garantit la barre oblique entre la base et le chemin.
+  ///
+  /// Dio concatène sans séparateur quand la base n'en finit pas par une et que
+  /// le chemin n'en commence pas par une : `…/api/v1` + `ecole` donnait
+  /// `…/api/v1ecole`, et le serveur répondait « route introuvable » sur la
+  /// plupart des écrans. Normaliser ici épargne à chaque appelant d'y penser —
+  /// et à nous de dépendre d'une convention que rien ne fait respecter.
+  String _absolu(String chemin) => chemin.startsWith('/') ? chemin : '/$chemin';
 
   /// [idempotence] : identifiant d'opération de l'outbox. Sa présence rend le
   /// rejeu inoffensif côté serveur — c'est ce qui autorise le moteur de
@@ -80,7 +89,7 @@ class ApiClient {
     String? idempotence,
   }) async {
     return _envelopper(() async => _traiter(await dio.post(
-          chemin,
+          _absolu(chemin),
           data: corps,
           options: idempotence == null
               ? null

@@ -12,11 +12,12 @@ class EleveRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    public function paginateForSchool(int $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    /** @param int|array<int> $schoolId */
+    public function paginateForSchool(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->query()
             ->forSchool($schoolId)
-            ->with(['classe.niveau', 'tuteurs'])
+            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom_complet', 'like', "%{$search}%")

@@ -4,10 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Megaphone, Plus, Trash2 } from 'lucide-react'
 import { fetchAnnonces, creerAnnonce, supprimerAnnonce, type Annonce } from '@/features/annonces/api'
+import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
-import { Input, Textarea } from '@/shared/ui/Field'
+import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, EmptyState, ErrorState } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
@@ -15,15 +16,16 @@ import type { ApiError } from '@/shared/types/api'
 
 function AnnonceFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { t } = useTranslation()
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
   const {
     register,
     handleSubmit,
     formState: { isSubmitting, errors },
-  } = useForm<{ titre: string; contenu: string }>()
+  } = useForm<{ titre: string; contenu: string; school_id?: number }>()
 
-  const onSubmit = async (values: { titre: string; contenu: string }) => {
+  const onSubmit = async (values: { titre: string; contenu: string; school_id?: number }) => {
     try {
-      await creerAnnonce(values)
+      await creerAnnonce({ ...values, school_id: values.school_id ? Number(values.school_id) : null })
       succes(t('annonces.created'))
       onCreated()
     } catch (err) {
@@ -34,6 +36,18 @@ function AnnonceFormModal({ onClose, onCreated }: { onClose: () => void; onCreat
   return (
     <Modal title={t('annonces.publier')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Select
+          label={`${t('classes.ecole')}${(schools?.length ?? 0) > 1 ? ' *' : ''}`}
+          error={errors.school_id?.message}
+          {...register('school_id', { required: (schools?.length ?? 0) > 1 ? "L'école est requise." : false })}
+        >
+          <option value="">—</option>
+          {schools?.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
         <Input
           label={t('annonces.titre')}
           error={errors.titre?.message}
@@ -120,6 +134,7 @@ export function AnnoncesPage() {
                       year: 'numeric',
                     })}
                     {annonce.publie_par && ` · ${t('annonces.publiee_par')} ${annonce.publie_par.nom_complet}`}
+                    {annonce.school && ` · ${annonce.school.name}`}
                   </p>
                 </div>
                 {can('annonces.publish') && (

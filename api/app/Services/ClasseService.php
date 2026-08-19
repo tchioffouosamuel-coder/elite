@@ -16,21 +16,21 @@ class ClasseService extends BaseService
 
     public function __construct(private readonly ClasseRepository $repository) {}
 
-    public function list(int $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
+    public function list(int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
     {
         return $this->repository->forSchoolAndAnnee($schoolId, $anneeScolaireId, $filters);
     }
 
-    public function find(int $schoolId, int $id): Classe
+    public function find(int|array $schoolId, int $id): Classe
     {
-        return $this->repository->query()->forSchool($schoolId)->with(self::RESPONSABLES)->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with([...self::RESPONSABLES, 'school:id,name,code,type'])->findOrFail($id);
     }
 
     /**
      * Classe tenue par l'utilisateur connecté, s'il en est titulaire (primaire
      * et maternelle uniquement — le secondaire n'a pas de titulaire unique).
      */
-    public function maClasse(User $user, int $schoolId): ?Classe
+    public function maClasse(User $user, int|array $schoolId): ?Classe
     {
         $personnelId = $user->personnel?->id;
 

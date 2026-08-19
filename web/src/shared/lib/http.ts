@@ -21,7 +21,12 @@ http.interceptors.request.use((config) => {
   // Un appel peut fixer son propre X-School-Id (ex. consulter les classes
   // d'une autre école du complexe avant un transfert) sans faire basculer
   // tout le contexte applicatif : on ne l'écrase alors pas.
-  const schoolId = activeSchoolId ?? user?.school_id
+  //
+  // `activeSchoolId` à `null` pour un super admin signifie le mode agrégé
+  // (tout le complexe) : on omet alors volontairement l'en-tête, plutôt que
+  // de retomber sur `user.school_id`, sans quoi l'API ne verrait jamais ce
+  // mode et resterait bornée à une seule école.
+  const schoolId = user?.is_super_admin ? activeSchoolId : activeSchoolId ?? user?.school_id
   if (schoolId && !config.headers['X-School-Id']) config.headers['X-School-Id'] = String(schoolId)
   config.headers['X-Locale'] = locale
 

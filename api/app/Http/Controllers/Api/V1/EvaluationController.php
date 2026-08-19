@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ClasseMatiere;
 use App\Models\Evaluation;
 use App\Services\EvaluationService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -83,11 +84,11 @@ class EvaluationController extends Controller
 
     private function affectation(int $id): ClasseMatiere
     {
-        return ClasseMatiere::forSchool(app('tenant.school_id'))->with('classe')->findOrFail($id);
+        return ClasseMatiere::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($id);
     }
 
     private function evaluation(int $id): Evaluation
     {
-        return Evaluation::forSchool(app('tenant.school_id'))->with('classeMatiere.classe')->findOrFail($id);
+        return Evaluation::forSchool(Tenant::schoolIds())->with('classeMatiere.classe')->findOrFail($id);
     }
 }

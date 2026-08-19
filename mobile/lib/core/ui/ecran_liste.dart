@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../nav/barre_app.dart';
 import '../network/api_client.dart';
+import 'actions_ressource.dart';
 import 'etats.dart';
 import 'theme.dart';
 
@@ -71,6 +73,8 @@ class EcranListeApi extends ConsumerStatefulWidget {
     this.actions,
     this.enTete,
     this.bouton,
+    this.gestes,
+    this.peutEcrire = true,
   });
 
   final String titre;
@@ -94,6 +98,15 @@ class EcranListeApi extends ConsumerStatefulWidget {
   final Widget Function(List<Map<String, dynamic>>)? enTete;
   final Widget? bouton;
 
+  /// Ce que le module permet de faire : création, modification, suppression et
+  /// actions métier. Déclaré une fois, appliqué à toutes les lignes — c'est ce
+  /// qui donne au mobile les mêmes gestes que le web sans les réécrire.
+  final ActionsRessource? gestes;
+
+  /// Faux quand l'utilisateur n'a pas le privilège d'écriture : les boutons
+  /// disparaissent au lieu d'échouer en 403 après la saisie.
+  final bool peutEcrire;
+
   @override
   ConsumerState<EcranListeApi> createState() => _EcranListeApiState();
 }
@@ -107,8 +120,11 @@ class _EcranListeApiState extends ConsumerState<EcranListeApi> {
     final asyncListe = ref.watch(listeApiProvider(requete));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.titre), actions: widget.actions),
-      floatingActionButton: widget.bouton,
+      appBar: BarreApp(titre: widget.titre, actions: widget.actions),
+      floatingActionButton: widget.bouton ??
+          (widget.gestes != null && widget.peutEcrire
+              ? BoutonCreer(actions: widget.gestes!, requete: requete)
+              : null),
       body: asyncListe.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (erreur, _) => EtatErreur(
@@ -133,7 +149,24 @@ class _EcranListeApiState extends ConsumerState<EcranListeApi> {
                           padding: const EdgeInsets.only(bottom: 88),
                           itemCount: filtrees.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (c, i) => widget.construireLigne(c, filtrees[i]),
+                          itemBuilder: (c, i) {
+                            final ligne = widget.construireLigne(c, filtrees[i]);
+                            if (widget.gestes == null || !widget.peutEcrire) return ligne;
+
+                            // Le menu se pose à droite de la ligne que le
+                            // module a décrite : celui-ci n'a rien à savoir des
+                            // gestes, et aucun ne peut les oublier.
+                            return Row(
+                              children: [
+                                Expanded(child: ligne),
+                                MenuActionsLigne(
+                                  actions: widget.gestes!,
+                                  ligne: filtrees[i],
+                                  requete: requete,
+                                ),
+                              ],
+                            );
+                          },
                         ),
                 ),
               ],
