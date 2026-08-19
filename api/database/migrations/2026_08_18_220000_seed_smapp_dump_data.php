@@ -22,6 +22,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Rejouer un dump de production (72 tables, ~6973 lignes avec leurs
+        // identifiants d'origine) dans la base de test n'a pas de sens : elle
+        // est recréée à vide à chaque test, et les identifiants du dump
+        // entrent en collision avec les référentiels que les migrations de
+        // structure viennent d'alimenter (fonctions, niveaux…).
+        if (app()->environment('testing')) {
+            return;
+        }
+
         (new SmappDataSeeder())->run();
     }
 

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\FiltreParPerimetre;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Sanction extends Model
 {
+    use FiltreParPerimetre;
+
     /** Reprend l'échelle du conseil de discipline : du simple avertissement au renvoi. */
     public const TYPES = ['avertissement', 'blame', 'corvee', 'exclusion_temporaire', 'exclusion_definitive', 'autre'];
 

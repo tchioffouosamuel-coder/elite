@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\FiltreParPerimetre;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Eleve extends Model
 {
+    use FiltreParPerimetre;
+
     protected $fillable = [
         'school_id',
         'classe_id',

@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\CataloguePermissions;
 use App\Support\FonctionRoles;
+use App\Support\Perimetre;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -24,6 +25,12 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
+
+    /** Périmètre résolu une seule fois par requête (cf. perimetre()). */
+    private ?Perimetre $perimetre = null;
+
+    /** @var Collection<int, string>|null */
+    private ?Collection $permissionsDeBase = null;
 
     protected function casts(): array
     {
@@ -92,13 +99,46 @@ class User extends Authenticatable
     }
 
     /**
-     * Privilèges effectifs du compte, toutes provenances confondues :
-     * attribution directe, rôle, et groupe de privilèges de la fonction.
+     * Privilèges détenus « en propre » : attribution directe, rôle, et groupe
+     * de privilèges de la fonction.
      *
      * Le cumul est volontaire. La fonction dit ce que fait le métier (« un
      * censeur saisit des notes »), le rôle et les attributions directes gèrent
      * les cas particuliers (« ce censeur-là tient aussi la caisse ») sans
      * obliger à créer une fonction par exception.
+     *
+     * Ces privilèges-là valent sur tout le périmètre du compte, à la
+     * différence de ceux qu'une attribution nominative confère classe par
+     * classe — d'où la séparation avec {@see permissionsEffectives()}.
+     *
+     * @return Collection<int, string>
+     */
+    public function permissionsDeBase(): Collection
+    {
+        // Mémorisé : le contrôle de périmètre les consulte plusieurs fois par
+        // requête (middleware, puis service), et `getAllPermissions()` relit
+        // rôles et attributions à chaque appel.
+        return $this->permissionsDeBase ??= $this->estSuperAdmin()
+            ? collect(CataloguePermissions::codes())
+            : $this->getAllPermissions()
+                ->pluck('name')
+                ->merge($this->fonction()?->codesPermissions() ?? [])
+                ->unique()
+                ->sort()
+                ->values();
+    }
+
+    /**
+     * Privilèges effectifs, toutes provenances confondues : les précédents,
+     * plus ceux que confèrent les responsabilités confiées à l'agent
+     * (professeur principal, surveillant général, censeur, conseiller
+     * d'orientation, chef de département).
+     *
+     * C'est ce qui permet à un **enseignant** désigné surveillant général
+     * d'une classe de franchir le middleware de `discipline.manage` sans qu'on
+     * ait à changer sa fonction : le privilège existe pour lui, mais il ne
+     * porte que sur les classes qu'il surveille — cf. {@see peutSurClasse()},
+     * seul juge dès qu'une classe est en cause.
      *
      * @return Collection<int, string>
      */
@@ -108,12 +148,38 @@ class User extends Authenticatable
             return collect(CataloguePermissions::codes());
         }
 
-        return $this->getAllPermissions()
-            ->pluck('name')
-            ->merge($this->fonction()?->codesPermissions() ?? [])
+        return $this->permissionsDeBase()
+            ->merge($this->perimetre()->permissions())
             ->unique()
             ->sort()
             ->values();
+    }
+
+    /**
+     * Étendue du compte : classes enseignées, classes et départements confiés.
+     * Mémorisé le temps de la requête — chaque appel interroge sinon les
+     * classes, les affectations et les départements.
+     */
+    public function perimetre(): Perimetre
+    {
+        return $this->perimetre ??= new Perimetre($this);
+    }
+
+    /**
+     * Le compte peut-il exercer ce privilège sur cette classe précise ? À
+     * préférer à {@see aLaPermission()} partout où une classe est en jeu :
+     * c'est la seule vérification qui distingue les six classes d'un
+     * surveillant général du reste de l'établissement.
+     */
+    public function peutSurClasse(string $permission, int $classeId): bool
+    {
+        return $this->perimetre()->peutSurClasse($permission, $classeId);
+    }
+
+    /** Même question, pour les routes qui nomment un département. */
+    public function peutSurDepartement(string $permission, int $departementId): bool
+    {
+        return $this->perimetre()->peutSurDepartement($permission, $departementId);
     }
 
     /**

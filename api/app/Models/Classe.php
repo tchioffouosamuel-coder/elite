@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\FiltreParPerimetre;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,14 @@ use Illuminate\Support\Str;
 
 class Classe extends Model
 {
+    use FiltreParPerimetre;
+
+    /** La classe se rattache à elle-même : c'est sa propre clé qui la situe. */
+    protected static function colonneClasse(): string
+    {
+        return 'id';
+    }
+
     protected static function booted(): void
     {
         // Chaque classe porte un jeton dès sa création : la salle qu'on lui

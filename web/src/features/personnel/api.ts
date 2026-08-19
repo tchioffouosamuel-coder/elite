@@ -248,6 +248,13 @@ export async function fetchPersonnels(params?: {
   departement_id?: number;
   fonction_id?: number;
   fonction_label?: string;
+  /**
+   * Ne retenir que les agents éligibles à cette responsabilité : un
+   * enseignant peut être désigné surveillant général d'une classe, un économe
+   * non. La règle vit côté API (App\Support\Attributions), pour que le
+   * formulaire et le contrôle d'accès s'accordent.
+   */
+  attribution?: string;
   statut?: string;
   page?: number;
   per_page?: number;

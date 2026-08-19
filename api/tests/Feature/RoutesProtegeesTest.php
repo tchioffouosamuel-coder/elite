@@ -56,6 +56,14 @@ class RoutesProtegeesTest extends TestCase
         // tiers extérieur à l'établissement, elle est protégée par la
         // signature HMAC portée dans l'URL, pas par un compte.
         'api.v1.verification-bulletin.show',
+        // Même principe pour le reçu de versement, scanné depuis le papier.
+        'api.v1.verification-versement.show',
+
+        // Responsabilités du compte connecté (professeur principal,
+        // surveillant général, censeur…) : il n'y lit que les siennes, et les
+        // exiger derrière un privilège fermerait l'écran à l'agent qui vient
+        // justement d'en recevoir une.
+        'api.v1.classes.mes-attributions',
     ];
 
     /**
@@ -68,6 +76,7 @@ class RoutesProtegeesTest extends TestCase
     private const PUBLIQUES = [
         'api.v1.auth.login',
         'api.v1.verification-bulletin.show',
+        'api.v1.verification-versement.show',
     ];
 
     public function test_toute_route_api_controle_les_privileges(): void

@@ -48,6 +48,7 @@ import {
   Boxes,
   PiggyBank,
   Gavel,
+  UserCog,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -114,6 +115,16 @@ const navGroups = [
         // classe générique n'ont pas leur place, sa propre classe suffit.
         estEnseignant: true,
         types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
+      {
+        to: '/mes-attributions',
+        label: 'nav.mesAttributions',
+        icon: UserCog,
+        // Aucun privilège : l'écran ne montre que ce qui a été confié au
+        // compte. `avecAttribution` le réserve à ceux qui portent au moins une
+        // responsabilité — professeur principal, surveillant général, censeur,
+        // conseiller d'orientation ou chef de département.
+        avecAttribution: true,
       },
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true },
@@ -309,6 +320,11 @@ export function AppLayout() {
   // limite à « Ma classe » et aux écrans qui la concernent directement.
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
 
+  // Au moins une responsabilité nominative confiée : c'est ce qui ouvre
+  // « Mes attributions », et non un privilège — un enseignant et un censeur
+  // partagent `classes.view` sans porter les mêmes responsabilités.
+  const aUneAttribution = (user?.attributions ?? []).length > 0
+
   const groupesVisibles = useMemo(
     () =>
       navGroups
@@ -317,7 +333,8 @@ export function AppLayout() {
           const groupeCorrespond = requeteMenu !== '' && normaliserRecherche(libelleGroupe).includes(requeteMenu)
           const itemsAutorises = group.items.filter(
             (item) =>
-              can(item.permission) &&
+              (!('permission' in item) || can(item.permission)) &&
+              (!('avecAttribution' in item) || !item.avecAttribution || aUneAttribution) &&
               (!('superAdminOnly' in item) || !item.superAdminOnly || user?.is_super_admin) &&
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
               (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
@@ -336,7 +353,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution],
   )
 
   /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Api\V1\Concerns\ExigeLePerimetre;
 use App\Http\Controllers\Api\V1\Concerns\RestreintParTypeEcole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreSanctionRequest;
@@ -28,7 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SanctionController extends Controller
 {
-    use RestreintParTypeEcole;
+    use ExigeLePerimetre, RestreintParTypeEcole;
 
     public function index(Request $request): JsonResponse
     {
@@ -37,6 +38,9 @@ class SanctionController extends Controller
         }
 
         $sanctions = Sanction::forSchool(Tenant::schoolIds())
+            // Le surveillant général ne consulte les sanctions que des classes
+            // qu'il surveille — pas le casier disciplinaire de l'école.
+            ->dansPerimetre($request->user())
             ->with(['eleve.school', 'classe', 'enregistrePar'])
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
@@ -65,6 +69,10 @@ class SanctionController extends Controller
 
         if (! $eleve->classe_id) {
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
+        }
+
+        if ($refus = $this->refuserHorsPerimetre($request, $eleve->classe_id, 'discipline.manage')) {
+            return $refus;
         }
 
         $donnees = $request->validated();
@@ -105,14 +113,24 @@ class SanctionController extends Controller
         }
 
         $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'discipline.manage')) {
+            return $refus;
+        }
+
         $sanction->update($request->validated());
 
         return ApiResponse::success(new SanctionResource($sanction->fresh(['eleve.school', 'classe', 'enregistrePar'])), 'Sanction mise à jour.');
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'discipline.manage')) {
+            return $refus;
+        }
+
         $sanction->delete();
 
         return ApiResponse::success(message: 'Sanction supprimée.');
