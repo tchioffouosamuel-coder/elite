@@ -275,6 +275,48 @@ class AttributionsTest extends TestCase
         $this->assertFalse($user->peutSurClasse('pedagogie.manage', $sansMatiere->id));
     }
 
+    public function test_le_chef_de_departement_n_administre_que_le_sien(): void
+    {
+        $user = $this->agent('Enseignant', 'enseignant', 'chef.perimetre@test.local');
+
+        $sien = Departement::create(['school_id' => $this->school->id, 'nom' => 'Lettres']);
+        $sien->update(['head_personnel_id' => $user->personnel->id]);
+        $autre = Departement::create(['school_id' => $this->school->id, 'nom' => 'Langues']);
+
+        $user = $user->fresh();
+
+        // Sa fonction d'enseignant ne lui ouvre pas le personnel ; sa
+        // responsabilité de chef de département, si — mais sur le sien seul.
+        $this->assertFalse($user->permissionsDeBase()->contains('personnel.view'));
+        $this->assertTrue($user->aLaPermission('personnel.view'));
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/departements')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $sien->id);
+
+        $this->actingAs($user, 'sanctum')->getJson("/api/v1/departements/{$sien->id}")->assertOk();
+        $this->actingAs($user, 'sanctum')->getJson("/api/v1/departements/{$autre->id}")->assertStatus(403);
+    }
+
+    public function test_une_fonction_qui_ouvre_deja_le_personnel_garde_sa_vue_d_ensemble(): void
+    {
+        Departement::create(['school_id' => $this->school->id, 'nom' => 'Sciences exactes']);
+        Departement::create(['school_id' => $this->school->id, 'nom' => 'Sciences humaines']);
+
+        // Le censeur porte `personnel.view` par sa fonction : le bornage des
+        // départements ne le concerne pas, il ne dirige aucun département.
+        $censeur = $this->agent('Censeur', 'censeur_sg', 'censeur.depts@test.local');
+
+        $this->assertNull($censeur->perimetre()->departements());
+
+        $this->actingAs($censeur, 'sanctum')
+            ->getJson('/api/v1/departements')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+    }
+
     // --- Bornage des listes et des routes ------------------------------------
 
     public function test_la_liste_des_classes_se_borne_au_perimetre(): void

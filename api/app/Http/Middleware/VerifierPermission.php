@@ -42,11 +42,14 @@ class VerifierPermission
 
         $requises = array_values(array_filter(explode('|', $permissions)));
         $classeId = $this->classeConcernee($request->route());
+        $departementId = $classeId === null ? $this->departementConcerne($request->route()) : null;
 
         foreach ($requises as $permission) {
-            $accorde = $classeId === null
-                ? $user->aLaPermission($permission)
-                : $user->peutSurClasse($permission, $classeId);
+            $accorde = match (true) {
+                $classeId !== null => $user->peutSurClasse($permission, $classeId),
+                $departementId !== null => $user->peutSurDepartement($permission, $departementId),
+                default => $user->aLaPermission($permission),
+            };
 
             if ($accorde) {
                 return $next($request);
@@ -60,6 +63,13 @@ class VerifierPermission
         if ($classeId !== null && $this->detientUnDesPrivileges($user, $requises)) {
             return ApiResponse::forbidden(
                 "Cette classe n'entre pas dans votre périmètre : vous n'y enseignez pas et elle ne vous a pas été confiée.",
+                $requises,
+            );
+        }
+
+        if ($departementId !== null && $this->detientUnDesPrivileges($user, $requises)) {
+            return ApiResponse::forbidden(
+                "Ce département n'entre pas dans votre périmètre : vous n'en êtes pas le chef.",
                 $requises,
             );
         }
@@ -81,6 +91,18 @@ class VerifierPermission
 
         $id = $route->parameter('classeId')
             ?? (str_contains($route->uri(), 'classes/{id}') ? $route->parameter('id') : null);
+
+        return is_numeric($id) ? (int) $id : null;
+    }
+
+    /** Département visé par la route, pour la fiche et ses statistiques. */
+    private function departementConcerne(?Route $route): ?int
+    {
+        if (! $route || ! str_contains($route->uri(), 'departements/{id}')) {
+            return null;
+        }
+
+        $id = $route->parameter('id');
 
         return is_numeric($id) ? (int) $id : null;
     }

@@ -29,6 +29,9 @@ class User extends Authenticatable
     /** Périmètre résolu une seule fois par requête (cf. perimetre()). */
     private ?Perimetre $perimetre = null;
 
+    /** @var Collection<int, string>|null */
+    private ?Collection $permissionsDeBase = null;
+
     protected function casts(): array
     {
         return [
@@ -112,16 +115,17 @@ class User extends Authenticatable
      */
     public function permissionsDeBase(): Collection
     {
-        if ($this->estSuperAdmin()) {
-            return collect(CataloguePermissions::codes());
-        }
-
-        return $this->getAllPermissions()
-            ->pluck('name')
-            ->merge($this->fonction()?->codesPermissions() ?? [])
-            ->unique()
-            ->sort()
-            ->values();
+        // Mémorisé : le contrôle de périmètre les consulte plusieurs fois par
+        // requête (middleware, puis service), et `getAllPermissions()` relit
+        // rôles et attributions à chaque appel.
+        return $this->permissionsDeBase ??= $this->estSuperAdmin()
+            ? collect(CataloguePermissions::codes())
+            : $this->getAllPermissions()
+                ->pluck('name')
+                ->merge($this->fonction()?->codesPermissions() ?? [])
+                ->unique()
+                ->sort()
+                ->values();
     }
 
     /**
@@ -170,6 +174,12 @@ class User extends Authenticatable
     public function peutSurClasse(string $permission, int $classeId): bool
     {
         return $this->perimetre()->peutSurClasse($permission, $classeId);
+    }
+
+    /** Même question, pour les routes qui nomment un département. */
+    public function peutSurDepartement(string $permission, int $departementId): bool
+    {
+        return $this->perimetre()->peutSurDepartement($permission, $departementId);
     }
 
     /**

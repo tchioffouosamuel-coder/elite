@@ -16,9 +16,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DepartementController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $departements = Departement::forSchool(Tenant::schoolIds())
+            // Un chef de département n'entre ici que par sa responsabilité :
+            // c'est le sien qu'il vient administrer, pas ceux des collègues.
+            ->dansPerimetre($request->user())
             ->with(['headPersonnel', 'matieres', 'school:id,name,code,type'])
             ->orderBy('nom')
             ->get();

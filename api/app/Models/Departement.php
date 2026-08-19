@@ -16,6 +16,17 @@ class Departement extends Model
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
+    /**
+     * Restreint aux départements que le compte dirige, quand c'est cette
+     * responsabilité — et elle seule — qui lui ouvre le module.
+     */
+    public function scopeDansPerimetre(Builder $query, ?User $user): Builder
+    {
+        $departements = $user?->perimetre()->departements();
+
+        return $departements === null ? $query : $query->whereIn('id', $departements);
+    }
+
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);

@@ -76,10 +76,24 @@ class Perimetre
             return $this->attributions = [];
         }
 
+        $codes = Attributions::surClasse();
+        $colonnes = array_map(Attributions::colonne(...), $codes);
+
+        // Une seule lecture pour les quatre responsabilités de classe : le
+        // périmètre est consulté à chaque requête, en multiplier les allers
+        // vers la base pour quatre colonnes de la même ligne serait gratuit.
+        $lignes = Classe::query()
+            ->where(function ($query) use ($colonnes, $personnelId) {
+                foreach ($colonnes as $colonne) {
+                    $query->orWhere($colonne, $personnelId);
+                }
+            })
+            ->get(['id', ...$colonnes]);
+
         $attributions = [];
 
-        foreach (Attributions::surClasse() as $code) {
-            $ids = Classe::query()
+        foreach ($codes as $code) {
+            $ids = $lignes
                 ->where(Attributions::colonne($code), $personnelId)
                 ->pluck('id')
                 ->all();
@@ -310,6 +324,40 @@ class Perimetre
         }
 
         return false;
+    }
+
+    /**
+     * Départements que le compte peut consulter, ou `null` s'il les voit tous.
+     *
+     * Restreint au seul cas où l'accès au module vient de l'attribution :
+     * l'enseignant nommé chef de département y entre par cette porte et n'a
+     * affaire qu'au sien. Une fonction qui ouvre déjà le personnel (censeur,
+     * direction) garde sa vue d'ensemble — la lui retirer serait une
+     * régression, pas une clarification.
+     *
+     * @return list<int>|null
+     */
+    public function departements(): ?array
+    {
+        if (! $this->estBorne() || $this->user->permissionsDeBase()->contains('personnel.view')) {
+            return null;
+        }
+
+        return $this->departementsDiriges();
+    }
+
+    /**
+     * Pendant de {@see peutSurClasse()} pour les routes qui nomment un
+     * département (fiche, statistiques pédagogiques).
+     */
+    public function peutSurDepartement(string $permission, int $departementId): bool
+    {
+        if ($this->user->estSuperAdmin() || $this->user->permissionsDeBase()->contains($permission)) {
+            return true;
+        }
+
+        return in_array($departementId, $this->departementsDiriges(), true)
+            && in_array($permission, Attributions::permissions(Attributions::CHEF_DEPARTEMENT), true);
     }
 
     /**
