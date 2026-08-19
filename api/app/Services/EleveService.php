@@ -6,6 +6,7 @@ use App\Imports\EleveImport;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Tuteur;
+use App\Models\User;
 use App\Repositories\EleveRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -17,9 +18,9 @@ class EleveService extends BaseService
     public function __construct(private readonly EleveRepository $repository) {}
 
     /** @param int|array<int> $schoolId */
-    public function list(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    public function list(?User $user, int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return $this->repository->paginateForSchool($schoolId, $filters, $perPage);
+        return $this->repository->paginateForSchool($user, $schoolId, $filters, $perPage);
     }
 
     /** @param int|array<int> $schoolId */

@@ -6,6 +6,7 @@ use App\Models\Classe;
 use App\Models\User;
 use App\Repositories\ClasseRepository;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class ClasseService extends BaseService
 {
@@ -16,14 +17,49 @@ class ClasseService extends BaseService
 
     public function __construct(private readonly ClasseRepository $repository) {}
 
-    public function list(int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
+    /**
+     * Classes visibles par le compte : celles de l'établissement, bornées à
+     * son périmètre quand il en a un — un enseignant, un censeur ou un
+     * surveillant général ne voit que ce qu'il enseigne et ce qui lui a été
+     * confié, là où la direction voit tout.
+     */
+    public function list(?User $user, int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
     {
-        return $this->repository->forSchoolAndAnnee($schoolId, $anneeScolaireId, $filters);
+        return $this->repository->forSchoolAndAnnee($user, $schoolId, $anneeScolaireId, $filters);
     }
 
     public function find(int|array $schoolId, int $id): Classe
     {
         return $this->repository->query()->forSchool($schoolId)->with([...self::RESPONSABLES, 'school:id,name,code,type'])->findOrFail($id);
+    }
+
+    /**
+     * Classes confiées au compte au titre d'une attribution nominative,
+     * regroupées par attribution — la matière de l'écran « Mes attributions »
+     * et des entrées de menu qui en découlent.
+     *
+     * @return SupportCollection<int, array{code: string, libelle: string, portee: string, departements: list<int>, classes: Collection<int, Classe>}>
+     */
+    public function mesAttributions(User $user, int|array $schoolId): SupportCollection
+    {
+        $resume = $user->perimetre()->resume();
+
+        $classes = $this->repository->query()
+            ->forSchool($schoolId)
+            ->whereIn('id', collect($resume)->pluck('classes')->flatten()->unique()->all())
+            ->with([...self::RESPONSABLES, 'school:id,name,code,type'])
+            ->withCount('eleves')
+            ->orderBy('nom')
+            ->get()
+            ->keyBy('id');
+
+        return collect($resume)->map(fn (array $attribution) => [
+            ...$attribution,
+            'classes' => collect($attribution['classes'])
+                ->map(fn (int $id) => $classes->get($id))
+                ->filter()
+                ->values(),
+        ])->values();
     }
 
     /**

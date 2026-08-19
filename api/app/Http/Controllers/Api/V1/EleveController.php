@@ -25,6 +25,7 @@ class EleveController extends Controller
     public function index(Request $request): JsonResponse
     {
         $paginator = $this->service->list(
+            $request->user(),
             Tenant::schoolIds(),
             $request->only(['search', 'classe_id', 'sexe', 'statut']),
             (int) $request->integer('per_page', 20),

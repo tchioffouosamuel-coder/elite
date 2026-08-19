@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreClasseRequest;
 use App\Http\Resources\Api\V1\ClasseResource;
 use App\Imports\ClasseImport;
 use App\Services\ClasseService;
+use App\Support\Attributions;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class ClasseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $classes = $this->service->list(
+            $request->user(),
             Tenant::schoolIds(),
             $request->integer('annee_scolaire_id') ?: null,
             $request->only(['niveau_id']),
@@ -52,6 +54,25 @@ class ClasseController extends Controller
         $classe = $this->service->maClasse($request->user(), Tenant::schoolIds());
 
         return ApiResponse::success($classe ? new ClasseResource($classe) : null);
+    }
+
+    /**
+     * Responsabilités nominatives du compte — professeur principal, surveillant
+     * général, censeur, conseiller d'orientation, chef de département — avec
+     * les classes concernées. Chaque attribution vient avec les privilèges
+     * qu'elle confère, pour que l'interface sache ce qu'elle peut proposer
+     * classe par classe sans les redéduire.
+     */
+    public function mesAttributions(Request $request): JsonResponse
+    {
+        $attributions = $this->service->mesAttributions($request->user(), Tenant::schoolIds())
+            ->map(fn (array $attribution) => [
+                ...$attribution,
+                'permissions' => Attributions::permissions($attribution['code']),
+                'classes' => ClasseResource::collection($attribution['classes']),
+            ]);
+
+        return ApiResponse::success($attributions);
     }
 
     public function update(StoreClasseRequest $request, int $id): JsonResponse

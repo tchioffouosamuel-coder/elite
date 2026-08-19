@@ -196,6 +196,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('ecole/images/{type}', [SchoolController::class, 'deleteImage'])->name('ecole.images.delete');
             });
 
+            /*
+             * Responsabilités confiées au compte connecté (professeur
+             * principal, surveillant général, censeur, conseiller
+             * d'orientation, chef de département). Sans privilège requis : il
+             * n'y lit que ce qui le concerne, et c'est précisément cette
+             * réponse qui dit à l'interface quels écrans lui ouvrir.
+             */
+            Route::get('mes-attributions', [ClasseController::class, 'mesAttributions'])->name('classes.mes-attributions');
+
             Route::middleware('permission:classes.view')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
                 Route::get('ma-classe', [ClasseController::class, 'maClasse'])->name('classes.ma-classe');

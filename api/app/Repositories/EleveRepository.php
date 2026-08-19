@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Eleve;
+use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class EleveRepository extends BaseRepository
@@ -12,11 +13,17 @@ class EleveRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    /** @param int|array<int> $schoolId */
-    public function paginateForSchool(int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
+    /**
+     * Le compte borne la liste à ses classes : un surveillant général chargé
+     * de six classes ne feuillette pas les 1 800 élèves de l'établissement.
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    public function paginateForSchool(?User $user, int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->query()
             ->forSchool($schoolId)
+            ->dansPerimetre($user)
             ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {

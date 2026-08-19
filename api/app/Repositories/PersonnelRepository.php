@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Personnel;
+use App\Support\Attributions;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class PersonnelRepository extends BaseRepository
@@ -32,6 +33,13 @@ class PersonnelRepository extends BaseRepository
             ->when($filters['fonction_label'] ?? null, function ($query, $label) {
                 $query->whereHas('fonctionReference', fn ($fonction) => $fonction->whereRaw('LOWER(label_fr) = ?', [mb_strtolower($label)]));
             })
+            // Candidats plausibles à une responsabilité nominative : un
+            // enseignant peut être désigné surveillant général d'une classe,
+            // un économe non.
+            ->when(
+                Attributions::existe((string) ($filters['attribution'] ?? '')) ? $filters['attribution'] : null,
+                fn ($query, $code) => $query->whereIn('fonction_id', Attributions::fonctionsEligibles($code, $schoolId)),
+            )
             ->when($filters['statut'] ?? null, fn ($query, $statut) => $query->where('statut', $statut))
             ->orderBy('nom_complet')
             ->paginate($perPage);

@@ -29,6 +29,21 @@ class UserResource extends JsonResource
             // Distingue un enseignant d'un censeur/économe qui partage pourtant
             // certains privilèges (ex : appel.manage) — cf. User::estEnseignant.
             'est_enseignant' => $this->estEnseignant(),
+            /*
+             * Responsabilités nominatives : professeur principal, surveillant
+             * général, censeur, conseiller d'orientation, chef de département,
+             * avec les classes concernées. C'est ce qui distingue « il a le
+             * privilège discipline.manage » de « il tient la discipline de ces
+             * six classes-là », et ce sur quoi l'interface compose ses entrées
+             * « Mes attributions ».
+             */
+            'attributions' => $this->perimetre()->resume(),
+            /*
+             * Le compte ne voit-il que ce qui lui est confié ? L'interface s'en
+             * sert pour ne pas proposer d'écrans d'établissement (toutes les
+             * classes, tous les élèves) à qui n'en verrait qu'une poignée.
+             */
+            'perimetre_borne' => $this->perimetre()->estBorne(),
             'ecoles_accessibles' => $this->ecolesAccessibles()->map(fn ($ecole) => [
                 'id' => $ecole->id,
                 'name' => $ecole->name,
