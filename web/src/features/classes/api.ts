@@ -1,4 +1,5 @@
 import { http } from "@/shared/lib/http";
+import type { CodeAttribution } from "@/shared/store/authStore";
 import type { ApiResponse } from "@/shared/types/api";
 
 export interface Niveau {
@@ -126,6 +127,25 @@ export async function fetchClasse(id: number): Promise<Classe> {
 /** Classe dont l'utilisateur connecté est titulaire (primaire/maternelle), ou null. */
 export async function fetchMaClasse(): Promise<Classe | null> {
   const { data } = await http.get<ApiResponse<Classe | null>>("/ma-classe");
+  return data.data;
+}
+
+/**
+ * Une responsabilité nominative du compte, avec les classes qu'elle couvre et
+ * les privilèges qu'elle y confère — la matière de l'écran « Mes attributions ».
+ */
+export interface AttributionDetaillee {
+  code: CodeAttribution;
+  libelle: string;
+  portee: "classe" | "departement";
+  classes: Classe[];
+  departements: number[];
+  permissions: string[];
+}
+
+export async function fetchMesAttributions(): Promise<AttributionDetaillee[]> {
+  const { data } =
+    await http.get<ApiResponse<AttributionDetaillee[]>>("/mes-attributions");
   return data.data;
 }
 

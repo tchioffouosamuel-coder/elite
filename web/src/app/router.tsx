@@ -17,6 +17,7 @@ import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { QrCodesPage } from '@/features/classes/pages/QrCodesPage'
 import { AnnoncesPage } from '@/features/annonces/pages/AnnoncesPage'
 import { MaClassePage } from '@/features/classes/pages/MaClassePage'
+import { MesAttributionsPage } from '@/features/classes/pages/MesAttributionsPage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
 import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
@@ -104,6 +105,9 @@ export const router = createBrowserRouter([
       { path: 'classes', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClassesListPage /></ProtectedRoute> },
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClasseDetailPage /></ProtectedRoute> },
       { path: 'ma-classe', element: <ProtectedRoute permission="classes.view" enseignantOnly><MaClassePage /></ProtectedRoute> },
+      // Ses propres responsabilités : aucun privilège à exiger, l'écran ne
+      // montre que ce qui a été confié au compte connecté.
+      { path: 'mes-attributions', element: <ProtectedRoute><MesAttributionsPage /></ProtectedRoute> },
       { path: 'sous-systemes', element: <ProtectedRoute permission="classes.manage"><SousSystemesListPage /></ProtectedRoute> },
       { path: 'eleves', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><ElevesListPage /></ProtectedRoute> },
       { path: 'eleves/:id', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire><EleveDetailPage /></ProtectedRoute> },

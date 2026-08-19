@@ -6,6 +6,50 @@ import '../../core/ui/permission.dart';
 import '../../core/ui/format.dart';
 import '../../core/ui/theme.dart';
 
+// ------------------------------------------------- Attributions du compte
+
+/// Ce que l'établissement a confié au compte connecté, responsabilité par
+/// responsabilité.
+///
+/// Le pendant mobile de l'écran web du même nom : un agent cumule souvent
+/// plusieurs casquettes — enseignant, professeur principal d'une classe,
+/// surveillant général de trois autres — et rien, jusqu'ici, ne lui disait
+/// lesquelles ni sur quelles classes.
+class MesAttributionsPage extends StatelessWidget {
+  const MesAttributionsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return EcranListeApi(
+      titre: 'Mes attributions',
+      chemin: 'mes-attributions',
+      champsRecherche: const ['libelle'],
+      messageVide: "Aucune responsabilité ne vous est confiée pour le moment.",
+      construireLigne: (context, attribution) {
+        final classes = (attribution['classes'] as List? ?? const [])
+            .whereType<Map>()
+            .map((c) => '${c['nom']}')
+            .toList();
+
+        return LigneRessource(
+          titre: '${attribution['libelle'] ?? '—'}',
+          sousTitre: classes.isEmpty
+              ? 'Aucune classe rattachée'
+              : classes.join(' · '),
+          icone: switch (attribution['code']) {
+            'surveillant_general' => Icons.gpp_maybe_outlined,
+            'censeur' => Icons.menu_book_outlined,
+            'conseiller_orientation' => Icons.explore_outlined,
+            'chef_departement' => Icons.apartment_outlined,
+            _ => Icons.manage_accounts_outlined,
+          },
+          valeur: '${classes.length} cl.',
+        );
+      },
+    );
+  }
+}
+
 // --------------------------------------------------------------- Santé
 
 class InfirmeriePage extends StatelessWidget {

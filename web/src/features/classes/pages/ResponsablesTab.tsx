@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, UserCog } from 'lucide-react'
-import { fetchClasse, updateClasse, type Classe } from '@/features/classes/api'
+import { fetchClasse, updateClasse, type Classe, type Responsable } from '@/features/classes/api'
 import { fetchPersonnels } from '@/features/personnel/api'
-import { useAuthStore } from '@/shared/store/authStore'
+import { useAuthStore, type CodeAttribution } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -13,24 +13,110 @@ import type { ApiError } from '@/shared/types/api'
 
 type ChampResponsable = 'professeur_principal_id' | 'surveillant_general_id' | 'censeur_id' | 'conseiller_orientation_id'
 
-const RESPONSABLES: { champ: ChampResponsable; libeleKey: string; aideKey: string }[] = [
+/**
+ * Désigner un responsable ne décore pas la fiche : l'agent gagne, sur cette
+ * classe précise, les prérogatives de la responsabilité. D'où `attribution`,
+ * qui restreint la liste aux fonctions admises côté API — un enseignant peut
+ * être désigné surveillant général d'une classe, un économe non.
+ */
+const RESPONSABLES: {
+  champ: ChampResponsable
+  attribution: CodeAttribution
+  libeleKey: string
+  aideKey: string
+}[] = [
   {
     champ: 'professeur_principal_id',
+    attribution: 'professeur_principal',
     libeleKey: 'classes.responsable_professeur_principal',
     aideKey: 'classes.responsable_professeur_principal_aide',
   },
   {
     champ: 'surveillant_general_id',
+    attribution: 'surveillant_general',
     libeleKey: 'classes.responsable_surveillant_general',
     aideKey: 'classes.responsable_surveillant_general_aide',
   },
-  { champ: 'censeur_id', libeleKey: 'classes.responsable_censeur', aideKey: 'classes.responsable_censeur_aide' },
+  {
+    champ: 'censeur_id',
+    attribution: 'censeur',
+    libeleKey: 'classes.responsable_censeur',
+    aideKey: 'classes.responsable_censeur_aide',
+  },
   {
     champ: 'conseiller_orientation_id',
+    attribution: 'conseiller_orientation',
     libeleKey: 'classes.responsable_conseiller_orientation',
     aideKey: 'classes.responsable_conseiller_orientation_aide',
   },
 ]
+
+/**
+ * Candidats à une responsabilité. Une requête par responsabilité plutôt qu'un
+ * filtrage local : c'est l'API qui sait quelles fonctions sont éligibles, et
+ * la dupliquer ici la ferait diverger le jour où le référentiel change.
+ */
+function useCandidats(attribution: CodeAttribution) {
+  return useQuery({
+    queryKey: ['personnels', 'attribution', attribution],
+    queryFn: () => fetchPersonnels({ attribution, per_page: 200 }),
+  })
+}
+
+function ChampResponsableSelect({
+  responsable,
+  valeur,
+  actuel,
+  desactive,
+  onChange,
+}: {
+  responsable: (typeof RESPONSABLES)[number]
+  valeur: number | ''
+  actuel: Responsable | null
+  desactive: boolean
+  onChange: (id: number | '') => void
+}) {
+  const { t } = useTranslation()
+  const { data: candidats, isLoading } = useCandidats(responsable.attribution)
+
+  /*
+   * Le titulaire en poste peut avoir changé de fonction depuis sa
+   * désignation : sans ce repli il disparaîtrait de la liste, et le premier
+   * enregistrement de la fiche le retirerait sans que personne l'ait voulu.
+   */
+  const options =
+    actuel && !candidats?.some((p) => p.id === actuel.id) ? [...(candidats ?? []), actuel] : (candidats ?? [])
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Select
+        label={t(responsable.libeleKey)}
+        value={valeur}
+        disabled={desactive || isLoading}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+      >
+        <option value="">{t('classes.responsable_non_defini')}</option>
+        {options.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nom_complet}
+          </option>
+        ))}
+      </Select>
+      <span className="text-[11px] leading-snug text-navy-400">{t(responsable.aideKey)}</span>
+      {!isLoading && options.length === 0 && (
+        <span className="text-[11px] leading-snug text-amber-600">{t('classes.responsable_aucun_eligible')}</span>
+      )}
+    </div>
+  )
+}
+
+/** Colonne d'identifiant → relation chargée, pour retrouver le titulaire en poste. */
+const CHAMP_RELATION: Record<ChampResponsable, keyof Pick<Classe, 'professeur_principal' | 'surveillant_general' | 'censeur' | 'conseiller_orientation'>> = {
+  professeur_principal_id: 'professeur_principal',
+  surveillant_general_id: 'surveillant_general',
+  censeur_id: 'censeur',
+  conseiller_orientation_id: 'conseiller_orientation',
+}
 
 export function ResponsablesTab({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
@@ -38,7 +124,6 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
   const queryClient = useQueryClient()
 
   const { data: classe, isLoading } = useQuery({ queryKey: ['classe', classeId], queryFn: () => fetchClasse(classeId) })
-  const { data: personnels } = useQuery({ queryKey: ['personnels'], queryFn: () => fetchPersonnels({ per_page: 200 }) })
 
   const [form, setForm] = useState<Record<ChampResponsable, number | ''>>({
     professeur_principal_id: '',
@@ -95,25 +180,17 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         {RESPONSABLES.map((responsable) => (
-          <div key={responsable.champ} className="flex flex-col gap-1">
-            <Select
-              label={t(responsable.libeleKey)}
-              value={form[responsable.champ]}
-              disabled={!peutGerer}
-              onChange={(e) => {
-                setEnregistre(false)
-                setForm({ ...form, [responsable.champ]: e.target.value ? Number(e.target.value) : '' })
-              }}
-            >
-              <option value="">{t('classes.responsable_non_defini')}</option>
-              {personnels?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nom_complet}
-                </option>
-              ))}
-            </Select>
-            <span className="text-[11px] leading-snug text-navy-400">{t(responsable.aideKey)}</span>
-          </div>
+          <ChampResponsableSelect
+            key={responsable.champ}
+            responsable={responsable}
+            valeur={form[responsable.champ]}
+            actuel={classe[CHAMP_RELATION[responsable.champ]]}
+            desactive={!peutGerer}
+            onChange={(id) => {
+              setEnregistre(false)
+              setForm({ ...form, [responsable.champ]: id })
+            }}
+          />
         ))}
       </div>
 

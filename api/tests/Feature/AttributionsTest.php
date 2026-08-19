@@ -6,6 +6,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Departement;
+use App\Models\Eleve;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
@@ -306,6 +307,45 @@ class AttributionsTest extends TestCase
             ->getJson("/api/v1/classes/{$hors->id}")
             ->assertStatus(403)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_l_enseignant_ne_voit_que_les_eleves_de_ses_classes(): void
+    {
+        $sienne = $this->classe('3e C');
+        $autre = $this->classe('3e D');
+
+        $user = $this->agent('Enseignant', 'enseignant', 'prof.eleves@test.local');
+        $this->enseigne($user, $sienne);
+
+        foreach ([[$sienne, 'Élève de sa classe'], [$autre, "Élève d'ailleurs"]] as [$classe, $nom]) {
+            Eleve::create([
+                'school_id' => $this->school->id,
+                'classe_id' => $classe->id,
+                'matricule' => Eleve::genererMatricule($this->school->id),
+                'nom_complet' => $nom,
+                'sexe' => 'F',
+                'statut' => 'actif',
+            ]);
+        }
+
+        $this->actingAs($user->fresh(), 'sanctum')
+            ->getJson('/api/v1/eleves')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.nom_complet', 'Élève de sa classe');
+    }
+
+    public function test_l_enseignant_garde_l_acces_a_ses_propres_classes(): void
+    {
+        $sienne = $this->classe('4e C');
+        $autre = $this->classe('4e D');
+
+        $user = $this->agent('Enseignant', 'enseignant', 'prof.acces@test.local');
+        $this->enseigne($user, $sienne);
+        $user = $user->fresh();
+
+        $this->actingAs($user, 'sanctum')->getJson("/api/v1/classes/{$sienne->id}")->assertOk();
+        $this->actingAs($user, 'sanctum')->getJson("/api/v1/classes/{$autre->id}")->assertStatus(403);
     }
 
     public function test_la_direction_n_est_pas_bornee(): void

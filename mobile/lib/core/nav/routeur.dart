@@ -27,6 +27,7 @@ Widget ecranPour(String chemin) {
     '/niveaux' => const NiveauxScolairesPage(),
 
     // Classes & élèves
+    '/mes-attributions' => const MesAttributionsPage(),
     '/sous-systemes' => const SousSystemesPage(),
 
     // Pédagogie

@@ -10,6 +10,22 @@ export interface EcoleAccessible {
   logo_url?: string | null
 }
 
+/** Codes du catalogue d'attributions côté API (cf. App\Support\Attributions). */
+export type CodeAttribution =
+  | 'professeur_principal'
+  | 'surveillant_general'
+  | 'censeur'
+  | 'conseiller_orientation'
+  | 'chef_departement'
+
+export interface Attribution {
+  code: CodeAttribution
+  libelle: string
+  portee: 'classe' | 'departement'
+  classes: number[]
+  departements: number[]
+}
+
 export interface AuthUser {
   id: number
   name: string
@@ -31,6 +47,20 @@ export interface AuthUser {
    * `appel.manage` sans être enseignant pour autant.
    */
   est_enseignant?: boolean
+  /**
+   * Responsabilités nominatives confiées au compte, avec les classes (et pour
+   * le chef de département, les départements) concernées. Distinct des
+   * privilèges : `discipline.manage` dit ce qu'il peut faire, l'attribution
+   * dit sur quelles classes.
+   */
+  attributions?: Attribution[]
+  /**
+   * Le compte ne voit-il que ce qui lui est confié ? Vrai pour un enseignant,
+   * un censeur, un surveillant général ; faux pour la direction et les
+   * fonctions transverses (économat, infirmerie), dont le travail porte sur
+   * l'établissement entier.
+   */
+  perimetre_borne?: boolean
   ecoles_accessibles: EcoleAccessible[]
 }
 
@@ -50,6 +80,8 @@ interface AuthState {
   setActiveSchool: (schoolId: number | null) => void
   clearSession: () => void
   can: (permission: string) => boolean
+  /** Le compte porte-t-il cette responsabilité, sur au moins une classe ? */
+  aAttribution: (code: CodeAttribution) => boolean
   activeSchool: () => EcoleAccessible | null
 }
 
@@ -98,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false
         return user.is_super_admin || user.permissions.includes(permission)
       },
+      aAttribution: (code) => (get().user?.attributions ?? []).some((a) => a.code === code),
       activeSchool: () => {
         const { user, activeSchoolId } = get()
         return user?.ecoles_accessibles?.find((e) => e.id === activeSchoolId) ?? null
@@ -106,11 +139,12 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'elites-school-auth',
       // Le profil persisté a gagné `ecoles_accessibles` et `activeSchoolId` avec
-      // le multi-école. Une session ouverte avant ce changement conserverait un
-      // profil sans ces champs, et le sélecteur d'établissement resterait inerte.
-      // Incrémenter la version force la reconnexion plutôt que de traîner une
-      // forme périmée.
-      version: 2,
+      // le multi-école, puis `attributions` et `perimetre_borne` avec les
+      // responsabilités nominatives. Une session ouverte avant l'un de ces
+      // changements conserverait un profil sans ces champs, et la navigation
+      // qui en dépend resterait inerte. Incrémenter la version force la
+      // reconnexion plutôt que de traîner une forme périmée.
+      version: 3,
       migrate: () => ({ token: null, user: null, activeSchoolId: null }) as Partial<AuthState>,
     },
   ),

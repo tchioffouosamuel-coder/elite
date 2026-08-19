@@ -17,6 +17,7 @@ List<GroupeDestinations> destinationsVisibles(Session session) {
       if (d.superAdminSeul && !session.estSuperAdmin) return false;
       if (d.enseignantSeul && !session.estEnseignant) return false;
       if (d.masquerPourTitulaire && session.estTitulaire) return false;
+      if (d.avecAttribution && session.attributions.isEmpty) return false;
       if (d.types != null && !d.types!.contains(session.typeEcole)) return false;
       // Le super administrateur passe outre les privilèges, comme au serveur
       // (`Gate::before`) : sans ça, son menu serait vide faute de privilèges

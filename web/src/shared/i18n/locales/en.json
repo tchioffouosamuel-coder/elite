@@ -97,7 +97,8 @@
     "progression": "Progress",
     "maJournee": "My day",
     "scannerQr": "Scan a QR code",
-    "transferts": "Bulk transfers"
+    "transferts": "Bulk transfers",
+    "mesAttributions": "My responsibilities"
   },
   "auth": {
     "login_title": "Sign in",
@@ -285,7 +286,37 @@
     "responsable_censeur": "Deputy head",
     "responsable_censeur_aide": "Oversees the class's academic organization.",
     "responsable_conseiller_orientation": "Guidance counselor",
-    "responsable_conseiller_orientation_aide": "Supports students in their orientation choices."
+    "responsable_conseiller_orientation_aide": "Supports students in their orientation choices.",
+    "responsable_aucun_eligible": "No eligible member of staff: nobody currently holds the required function."
+  },
+  "attributions": {
+    "title": "My responsibilities",
+    "subtitle": "What the school has entrusted to you, and what it grants you.",
+    "aucune": "No responsibility has been entrusted to you yet.",
+    "aucune_classe": "No class attached to this responsibility.",
+    "nombre_classes_one": "{{count}} class",
+    "nombre_classes_other": "{{count}} classes",
+    "ce_que_cela_ouvre": "What this grants you on these classes",
+    "privilege": {
+      "dashboard.view": "dashboard",
+      "personnel.view": "view staff",
+      "classes.view": "view classes",
+      "eleves.view": "view pupils",
+      "pedagogie.view": "view subjects and assignments",
+      "pedagogie.manage": "manage subjects and assignments",
+      "notes.view": "view marks",
+      "notes.create": "enter marks",
+      "appel.manage": "attendance and lessons taught",
+      "discipline.view": "view absences and sanctions",
+      "discipline.manage": "record absences and sanctions",
+      "bulletins.view": "view reports and statistics",
+      "bulletins.publish": "publish reports",
+      "emploi_du_temps.view": "view the timetable",
+      "emploi_du_temps.manage": "manage the timetable",
+      "revendications.view": "view complaints",
+      "revendications.manage": "process complaints",
+      "annonces.view": "view announcements"
+    }
   },
   "eleves": {
     "title": "Students",

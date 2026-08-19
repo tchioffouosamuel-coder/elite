@@ -19,6 +19,7 @@ class Destination {
     this.superAdminSeul = false,
     this.masquerPourTitulaire = false,
     this.enseignantSeul = false,
+    this.avecAttribution = false,
     this.types,
     this.horsLigne = false,
   });
@@ -32,6 +33,12 @@ class Destination {
   final bool superAdminSeul;
   final bool masquerPourTitulaire;
   final bool enseignantSeul;
+
+  /// Réservé aux comptes portant au moins une responsabilité nominative
+  /// (professeur principal, surveillant général, censeur, conseiller
+  /// d'orientation, chef de département) — un privilège ne suffirait pas à
+  /// les distinguer, plusieurs métiers partageant les mêmes.
+  final bool avecAttribution;
 
   /// Types d'établissement concernés ; `null` signifie « tous ».
   final List<String>? types;
@@ -112,6 +119,12 @@ const groupesNavigation = <GroupeDestinations>[
         enseignantSeul: true,
         types: ['primaire', 'maternelle'],
         horsLigne: true,
+      ),
+      Destination(
+        chemin: '/mes-attributions',
+        libelle: 'Mes attributions',
+        icone: Icons.manage_accounts_outlined,
+        avecAttribution: true,
       ),
       Destination(
         chemin: '/classes',

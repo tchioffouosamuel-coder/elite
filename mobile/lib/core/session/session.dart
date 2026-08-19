@@ -50,6 +50,29 @@ class Session {
   /// (toutes les classes, tous les élèves) au profit de « Ma classe ».
   bool get estTitulaire => estEnseignant && typeEcole != 'secondaire';
 
+  /// Responsabilités nominatives confiées au compte — professeur principal,
+  /// surveillant général, censeur, conseiller d'orientation, chef de
+  /// département — avec les classes concernées.
+  ///
+  /// Distinct des privilèges, et c'est tout l'intérêt : `discipline.manage`
+  /// dit ce que l'agent peut faire, l'attribution dit sur quelles classes. Un
+  /// enseignant désigné surveillant général de trois classes porte le premier
+  /// sans pour autant tenir la discipline de l'établissement.
+  List<Map<String, dynamic>> get attributions =>
+      (utilisateur['attributions'] as List? ?? const [])
+          .whereType<Map>()
+          .map((a) => Map<String, dynamic>.from(a))
+          .toList();
+
+  /// Porte cette responsabilité sur au moins une classe (codes de
+  /// `App\Support\Attributions` : `surveillant_general`, `censeur`…).
+  bool aAttribution(String code) => attributions.any((a) => a['code'] == code);
+
+  /// Le compte ne voit-il que ce qui lui est confié ? Vrai pour un enseignant,
+  /// un censeur ou un surveillant général ; faux pour la direction et les
+  /// fonctions transverses, dont le travail porte sur toute l'école.
+  bool get perimetreBorne => utilisateur['perimetre_borne'] == true;
+
   Map<String, dynamic> versJson() => {
         'jeton': jeton,
         'utilisateur': utilisateur,

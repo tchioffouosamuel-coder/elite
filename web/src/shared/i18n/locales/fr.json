@@ -97,7 +97,8 @@
     "progression": "Progression",
     "maJournee": "Ma journée",
     "scannerQr": "Scanner un code QR",
-    "transferts": "Transferts en masse"
+    "transferts": "Transferts en masse",
+    "mesAttributions": "Mes attributions"
   },
   "auth": {
     "login_title": "Connexion",
@@ -285,7 +286,37 @@
     "responsable_censeur": "Censeur",
     "responsable_censeur_aide": "Encadre l'organisation pédagogique de la classe.",
     "responsable_conseiller_orientation": "Conseiller d'orientation",
-    "responsable_conseiller_orientation_aide": "Accompagne les élèves dans leurs choix d'orientation."
+    "responsable_conseiller_orientation_aide": "Accompagne les élèves dans leurs choix d'orientation.",
+    "responsable_aucun_eligible": "Aucun agent éligible : la fonction requise n'est portée par personne pour l'instant."
+  },
+  "attributions": {
+    "title": "Mes attributions",
+    "subtitle": "Les responsabilités que l'établissement vous a confiées, et ce qu'elles vous ouvrent.",
+    "aucune": "Aucune responsabilité ne vous est confiée pour le moment.",
+    "aucune_classe": "Aucune classe rattachée à cette responsabilité.",
+    "nombre_classes_one": "{{count}} classe",
+    "nombre_classes_other": "{{count}} classes",
+    "ce_que_cela_ouvre": "Ce que cela vous ouvre sur ces classes",
+    "privilege": {
+      "dashboard.view": "tableau de bord",
+      "personnel.view": "consultation du personnel",
+      "classes.view": "consultation des classes",
+      "eleves.view": "consultation des élèves",
+      "pedagogie.view": "consultation des matières et affectations",
+      "pedagogie.manage": "gestion des matières et affectations",
+      "notes.view": "consultation des notes",
+      "notes.create": "saisie des notes",
+      "appel.manage": "appel et leçons traitées",
+      "discipline.view": "consultation des absences et sanctions",
+      "discipline.manage": "enregistrement des absences et sanctions",
+      "bulletins.view": "consultation des bulletins et statistiques",
+      "bulletins.publish": "publication des bulletins",
+      "emploi_du_temps.view": "consultation de l'emploi du temps",
+      "emploi_du_temps.manage": "gestion de l'emploi du temps",
+      "revendications.view": "consultation des réclamations",
+      "revendications.manage": "traitement des réclamations",
+      "annonces.view": "consultation des annonces"
+    }
   },
   "eleves": {
     "title": "Élèves",
