@@ -25,10 +25,18 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
-import { estSecondaire } from '@/shared/lib/ecole'
+import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 
-export function AffectationsTab({ classeId, titulaireId }: { classeId: number; titulaireId?: number | null }) {
+export function AffectationsTab({
+  classeId,
+  titulaireId,
+  ecoleType,
+}: {
+  classeId: number
+  titulaireId?: number | null
+  ecoleType?: TypeEcole | null
+}) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
@@ -42,7 +50,7 @@ export function AffectationsTab({ classeId, titulaireId }: { classeId: number; t
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
   // valeur 1 côté payload (l'API l'exige) mais on ne la montre nulle part.
-  const secondaire = estSecondaire()
+  const secondaire = estSecondaire(ecoleType)
 
   const { data: affectations, isLoading } = useQuery({
     queryKey: ['classe-matieres', classeId],
