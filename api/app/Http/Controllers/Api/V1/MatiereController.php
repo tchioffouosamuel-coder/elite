@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\MatiereExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreMatiereRequest;
@@ -11,7 +12,9 @@ use App\Models\Matiere;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MatiereController extends Controller
 {
@@ -86,23 +89,60 @@ class MatiereController extends Controller
 
         Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->delete();
 
-        return ApiResponse::success(message: count($ids) . ' matière(s) supprimée(s).');
+        return ApiResponse::success(message: count($ids).' matière(s) supprimée(s).');
     }
 
-    /** Primaire et maternelle uniquement — le secondaire rattache ses matières à un département. */
+    /**
+     * Import du catalogue des matières. Le cycle est déclaré par l'utilisateur
+     * au moment du dépôt : le fichier d'un secondaire porte des départements
+     * et des affectations, celui d'un primaire un barème par volet, et rien
+     * dans le fichier lui-même ne permet de trancher à coup sûr.
+     */
     public function import(Request $request): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'cycle' => ['required', Rule::in(MatiereImport::CYCLES)],
+        ]);
 
-        $import = new MatiereImport(Tenant::schoolId());
+        $import = new MatiereImport(Tenant::schoolId(), $request->string('cycle')->toString());
         Excel::import($import, $request->file('file'));
 
-        $result = [
+        return ApiResponse::success([
             'imported' => $import->importedCount,
-            'failed' => count($import->failures()),
-            'errors' => $import->failures(),
-        ];
+            'updated' => $import->updatedCount,
+            'ignored' => $import->ignoredCount,
+            'failed' => 0,
+            'affectations' => $import->affectationsCount,
+            // Libellés que l'import n'a pas su rattacher : l'utilisateur
+            // corrige son fichier et rejoue, plutôt que de chercher ce qui
+            // manque en comparant deux listes.
+            'classes_introuvables' => $import->classesIntrouvables,
+            'enseignants_introuvables' => $import->enseignantsIntrouvables,
+        ], $this->messageImport($import));
+    }
 
-        return ApiResponse::success($result, "{$result['imported']} matière(s) importée(s).");
+    /**
+     * Export au format relu par l'import : c'est le même fichier qui sert de
+     * sauvegarde, de gabarit de saisie et de support de correction en masse.
+     */
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new MatiereExport(Tenant::schoolIds()), 'matieres.xlsx');
+    }
+
+    private function messageImport(MatiereImport $import): string
+    {
+        $parties = ["{$import->importedCount} matière(s) importée(s)"];
+
+        if ($import->updatedCount > 0) {
+            $parties[] = "{$import->updatedCount} mise(s) à jour";
+        }
+
+        if ($import->affectationsCount > 0) {
+            $parties[] = "{$import->affectationsCount} affectation(s) rattachée(s)";
+        }
+
+        return implode(', ', $parties).'.';
     }
 }

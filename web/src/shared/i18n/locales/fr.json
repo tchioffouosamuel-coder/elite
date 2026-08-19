@@ -506,7 +506,10 @@
     "enseignee_dans_aucune": "Aucune classe",
     "enseignee_dans_titre": "{{nom}} — enseignée dans",
     "search_placeholder": "Rechercher une matière…",
-    "empty": "Aucune matière pour cet établissement."
+    "empty": "Aucune matière pour cet établissement.",
+    "import_cycle": "Cycle du fichier",
+    "cycle_secondaire": "Secondaire — départements et affectations",
+    "cycle_primaire": "Primaire / maternelle — barème par volet"
   },
   "pedagogie": {
     "title": "Matières & affectations",
@@ -829,12 +832,14 @@
     "file": "Fichier (.xlsx, .xls, .csv)",
     "submit": "Importer",
     "result": "{{imported}} ligne(s) importée(s), {{failed}} échec(s).",
-    "updated": "{{count}} élève(s) existant(s) mis à jour.",
+    "updated": "{{count}} ligne(s) existante(s) mise(s) à jour.",
     "comptes_ouverts": "{{count}} accès de connexion ouvert(s) — adresses en prenom.nom@elite.school, mot de passe par défaut.",
-    "ignored": "{{count}} ligne(s) ignorée(s) : elles concernent une autre école du complexe.",
-    "classes_introuvables": "Classes introuvables (élèves créés sans affectation) :",
+    "ignored": "{{count}} ligne(s) ignorée(s).",
+    "classes_introuvables": "Classes introuvables :",
     "affectations_non_rattachees": "Affectations conservées en texte, faute de classe correspondante :",
-    "template_hint": "Colonnes attendues (première ligne d'en-têtes) :"
+    "template_hint": "Colonnes attendues (première ligne d'en-têtes) :",
+    "affectations": "{{count}} affectation(s) rattachée(s).",
+    "enseignants_introuvables": "Enseignants non trouvés :"
   },
   "progression": {
     "title": "Progression pédagogique",

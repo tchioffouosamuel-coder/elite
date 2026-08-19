@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
+import { BookOpen, Download, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { fetchMatieres, fetchMatiereClasses, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -10,12 +10,31 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { telechargerFichier } from '@/shared/lib/download'
 import { Modal } from '@/shared/ui/Modal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import type { Matiere } from '@/features/pedagogie/api'
 import type { ApiError } from '@/shared/types/api'
+
+/*
+ * Colonnes attendues par l'import, par cycle (cf. App\Imports\MatiereImport).
+ * Au secondaire, les quatre dernières sont facultatives : sans elles on
+ * importe le seul catalogue, avec elles les affectations suivent.
+ */
+const COLONNES_SECONDAIRE = [
+  'nom',
+  'nom_en',
+  'abreviation',
+  'departement',
+  'classes',
+  'coefficient',
+  'periodes',
+  'enseignant',
+]
+
+const COLONNES_PRIMAIRE = ['nom', 'nom_en', 'abreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']
 
 export function MatieresPage() {
   const { t } = useTranslation()
@@ -24,6 +43,7 @@ export function MatieresPage() {
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showImport, setShowImport] = useState(false)
+  const [exportEnCours, setExportEnCours] = useState(false)
   const [matiereClasses, setMatiereClasses] = useState<Matiere | null>(null)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
@@ -31,6 +51,17 @@ export function MatieresPage() {
   // Le secondaire classe ses matières par département ; le primaire les note
   // sur un barème propre, réparti sur ses volets d'évaluation.
   const secondaire = estSecondaire()
+
+  const handleExport = async () => {
+    setExportEnCours(true)
+    try {
+      await telechargerFichier('/matieres/export', undefined, 'matieres.xlsx')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
 
   const handleDelete = async (matiere: Matiere) => {
     const ok = await confirmerSuppression(`la matière ${matiere.nom}`)
@@ -213,7 +244,11 @@ export function MatieresPage() {
                 Supprimer ({selectedIds.size})
               </Button>
             )}
-            {!secondaire && can('pedagogie.manage') && (
+            <Button variant="secondary" onClick={handleExport} disabled={exportEnCours}>
+              <Download className="h-4 w-4" />
+              {t('export.excel')}
+            </Button>
+            {can('pedagogie.manage') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>
                 <Upload className="h-4 w-4" />
                 {t('import.title')}
@@ -247,7 +282,23 @@ export function MatieresPage() {
         <ImportModal
           title={t('import.title')}
           url="/matieres/import"
-          columns={['nom', 'nom_en', 'abbreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']}
+          columns={COLONNES_SECONDAIRE}
+          /*
+           * Le cycle est déclaré, pas déduit : les deux fichiers se
+           * ressemblent trop (un nom, une abréviation) pour qu'on devine
+           * lequel on lit, et se tromper importerait un barème comme un
+           * coefficient. L'école active donne le choix par défaut, l'import
+           * d'un autre cycle restant possible d'un clic.
+           */
+          choix={{
+            nom: 'cycle',
+            label: t('matieres.import_cycle'),
+            defaut: secondaire ? 'secondaire' : 'primaire',
+            options: [
+              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_SECONDAIRE },
+              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_PRIMAIRE },
+            ],
+          }}
           onClose={() => setShowImport(false)}
           onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
         />

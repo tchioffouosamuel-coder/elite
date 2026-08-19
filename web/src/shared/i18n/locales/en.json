@@ -506,7 +506,10 @@
     "enseignee_dans_aucune": "No class",
     "enseignee_dans_titre": "{{nom}} — taught in",
     "search_placeholder": "Search a subject…",
-    "empty": "No subjects for this school."
+    "empty": "No subjects for this school.",
+    "import_cycle": "File cycle",
+    "cycle_secondaire": "Secondary — departments and assignments",
+    "cycle_primaire": "Primary / nursery — marks split by component"
   },
   "pedagogie": {
     "title": "Subjects & assignments",
@@ -820,12 +823,14 @@
     "file": "File (.xlsx, .xls, .csv)",
     "submit": "Import",
     "result": "{{imported}} row(s) imported, {{failed}} failure(s).",
-    "updated": "{{count}} existing pupil(s) updated.",
+    "updated": "{{count}} existing row(s) updated.",
     "comptes_ouverts": "{{count}} login account(s) created — addresses as firstname.lastname@elite.school, default password.",
-    "ignored": "{{count}} row(s) skipped: they belong to another school of the complex.",
-    "classes_introuvables": "Unknown classes (pupils created without a class):",
+    "ignored": "{{count}} row(s) skipped.",
+    "classes_introuvables": "Classes not found:",
     "affectations_non_rattachees": "Duty posts kept as plain text, with no matching class:",
-    "template_hint": "Expected columns (first row as headers):"
+    "template_hint": "Expected columns (first row as headers):",
+    "affectations": "{{count}} assignment(s) linked.",
+    "enseignants_introuvables": "Teachers not found:"
   },
   "niveaux": {
     "title": "Teaching levels",

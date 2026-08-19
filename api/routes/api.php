@@ -256,6 +256,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:pedagogie.view')->group(function () {
                 Route::get('matieres', [MatiereController::class, 'index'])->name('matieres.index');
+                Route::get('matieres/export', [MatiereController::class, 'export'])->name('matieres.export');
                 Route::get('matieres/{id}/classes', [MatiereController::class, 'classes'])->name('matieres.classes');
                 Route::get('classes/{classeId}/matieres', [ClasseMatiereController::class, 'index'])->name('classes.matieres.index');
             });
