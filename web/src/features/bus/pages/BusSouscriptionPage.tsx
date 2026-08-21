@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { ArrowLeft, Bus } from 'lucide-react'
 import {
@@ -95,7 +95,16 @@ export function BusSouscriptionPage() {
     [trajetSelectionne, optionChoisie],
   )
 
-  const retour = () => navigate(etat?.retour ?? '/bus/eleves')
+  const queryClient = useQueryClient()
+
+  const retour = () => {
+    // Les affectations sont lues ailleurs (liste transport, fiche élève) :
+    // sans invalidation, on repart sur une souscription périmée.
+    queryClient.invalidateQueries({ queryKey: ['bus-eleves'] })
+    queryClient.invalidateQueries({ queryKey: ['bus-trajets'] })
+    queryClient.invalidateQueries({ queryKey: ['bus-affectations'] })
+    navigate(etat?.retour ?? '/bus/eleves')
+  }
 
   const onSubmit = async (values: { trajet_id: number; arret_id?: number; option_trajet: OptionTrajet }) => {
     setServerError(null)

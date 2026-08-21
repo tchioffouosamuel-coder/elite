@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { ArrowLeft, ChevronDown, HeartPulse, History, Plus, Stethoscope, Trash2 } from 'lucide-react'
 import {
@@ -74,6 +74,11 @@ export function VisiteInfirmerieFormPage() {
   const queryClient = useQueryClient()
   const { id } = useParams<{ id: string }>()
   const visiteId = id ? Number(id) : undefined
+  // Ouvert depuis la fiche d'un élève : l'élève est déjà connu et l'écran doit
+  // ramener à sa fiche, pas au registre de l'infirmerie.
+  const [searchParams] = useSearchParams()
+  const elevePreselectionne = searchParams.get('eleve_id') ? Number(searchParams.get('eleve_id')) : undefined
+  const urlRetour = searchParams.get('retour') ?? '/infirmerie'
 
   const { data: visites, isLoading } = useQuery({
     queryKey: ['infirmerie', 'visites', {}],
@@ -108,6 +113,7 @@ export function VisiteInfirmerieFormPage() {
           observations: visite.observations ?? '',
         }
       : {
+          ...(elevePreselectionne ? { eleve_id: elevePreselectionne } : {}),
           date_visite: maintenantLocal(),
           type_traitement: 'interne',
           cout_soins: 0,
@@ -254,7 +260,8 @@ export function VisiteInfirmerieFormPage() {
 
       queryClient.invalidateQueries({ queryKey: ['infirmerie', 'visites'] })
       queryClient.invalidateQueries({ queryKey: ['inventaire'] })
-      navigate('/infirmerie')
+      queryClient.invalidateQueries({ queryKey: ['infirmerie-visites'] })
+      navigate(urlRetour)
     } catch (err) {
       setServerError((err as ApiError).message)
       erreur((err as ApiError).message)
@@ -269,7 +276,7 @@ export function VisiteInfirmerieFormPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <Link to="/infirmerie" className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
+        <Link to={urlRetour} className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
           <ArrowLeft className="h-4 w-4" />
           {t('common.back')}
         </Link>

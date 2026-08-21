@@ -171,7 +171,8 @@
     "empty": "Aucun personnel pour cet établissement.",
     "assign_matieres_search_placeholder": "Rechercher une matière…",
     "assign_matieres_empty_assignees": "Aucune matière assignée à un département",
-    "assign_matieres_empty_sans_dept": "Toutes les matières sont assignées à un département"
+    "assign_matieres_empty_sans_dept": "Toutes les matières sont assignées à un département",
+    "sexe": "Sexe"
   },
   "fonctionsReferentiel": {
     "title": "Référentiel des fonctions",
@@ -493,7 +494,8 @@
       "versements_recents": "Derniers versements",
       "aucun_versement": "Aucun versement enregistré.",
       "encaisser": "Encaisser"
-    }
+    },
+    "photo_updated": "Photo mise à jour."
   },
   "matieres": {
     "title": "Matières",
@@ -610,7 +612,8 @@
     "delete_target": "la sanction de {{nom}}",
     "search_placeholder": "Rechercher un élève, un motif…",
     "empty_sanctions": "Aucune sanction enregistrée.",
-    "motif_min_length": "Décrivez le motif en quelques mots (10 caractères minimum)."
+    "motif_min_length": "Décrivez le motif en quelques mots (10 caractères minimum).",
+    "sanction_created": "Sanction enregistrée."
   },
   "revendications": {
     "title": "Réclamations",
@@ -1250,5 +1253,95 @@
     "date_acquisition_label": "Date d'acquisition",
     "notes_label": "Notes",
     "notes_placeholder": "Facultatif"
+  },
+  "hub": {
+    "actions": "Actions",
+    "tab": {
+      "profil": "Profil",
+      "finance": "Finance",
+      "sante": "Santé",
+      "discipline": "Discipline",
+      "transport": "Transport",
+      "documents": "Documents",
+      "remuneration": "Rémunération",
+      "avances": "Avances"
+    },
+    "groupe": {
+      "dossier": "Dossier",
+      "operations": "Opérations",
+      "documents": "Documents",
+      "danger": "Zone sensible"
+    },
+    "eleve": {
+      "encaisser": "Encaisser un versement",
+      "nouvelle_visite": "Enregistrer une visite à l'infirmerie",
+      "nouvelle_sanction": "Prononcer une sanction",
+      "souscrire_bus": "Souscription au transport",
+      "acces_parent": "Accès parent",
+      "acces_parent_aide": "Ouvrir l'accès au portail parent",
+      "carte_classe": "Cartes scolaires de la classe",
+      "voir_classe": "Ouvrir la fiche de la classe",
+      "documents_sans_classe": "Aucun document : l'élève n'est inscrit dans aucune classe."
+    },
+    "personnel": {
+      "archive_titre": "Archiver {{nom}} ?",
+      "archive_message": "Le compte n'apparaîtra plus dans les listes actives. L'historique est conservé et la réactivation reste possible.",
+      "archive_ok": "Personnel archivé.",
+      "reactivate_ok": "Personnel réactivé.",
+      "delete_titre": "Supprimer {{nom}} ?",
+      "delete_message": "Cette action est irréversible. Son compte de connexion sera également supprimé ; les affectations (titulaire, professeur principal, matières…) seront simplement libérées.",
+      "delete_ok": "Membre du personnel supprimé.",
+      "compte_aide": "Identifiants de connexion à l'application",
+      "compte_ouvert": "Accès ouvert",
+      "compte_absent": "Sans accès",
+      "voir_departement": "Ouvrir le département",
+      "accorder_avance": "Accorder une avance",
+      "definir_remuneration": "Définir la rémunération",
+      "attestation": "Attestation d'employeur",
+      "identite": "Identité",
+      "contact": "Contact",
+      "carriere": "Carrière",
+      "famille": "Famille",
+      "cni": "N° CNI",
+      "cnps": "N° CNPS",
+      "date_embauche": "Date d'embauche",
+      "date_fin": "Fin de contrat",
+      "date_retraite": "Départ à la retraite",
+      "affectation": "Affectation",
+      "diplome_academique": "Diplôme académique",
+      "diplome_professionnel": "Diplôme professionnel",
+      "situation_matrimoniale": "Situation matrimoniale",
+      "nombre_enfants": "Nombre d'enfants",
+      "pere": "Père",
+      "mere": "Mère",
+      "remuneration_vide": "Aucune rémunération enregistrée pour cet agent.",
+      "effet_au": "Effet au {{date}}",
+      "mode_mensuel": "Mensuel",
+      "mode_horaire": "Horaire",
+      "brut": "Brut",
+      "charges_salariales": "Charges salariales",
+      "net": "Net",
+      "cout_employeur": "Coût employeur",
+      "avances_vide": "Aucune avance accordée à cet agent.",
+      "total_accorde": "Total accordé",
+      "total_rembourse": "Total remboursé",
+      "total_restant": "Reste à rembourser",
+      "solde": "Solde",
+      "avance_en_cours": "En cours",
+      "avance_partielle": "Partielle",
+      "avance_remboursee": "Remboursée",
+      "avance_annulee": "Annulée"
+    },
+    "classe": {
+      "delete_titre": "Supprimer la classe {{nom}} ?",
+      "delete_message": "Cette action est irréversible. Les élèves inscrits devront être réaffectés.",
+      "delete_ok": "Classe supprimée.",
+      "inscrire_eleve": "Inscrire un élève",
+      "voir_eleves": "Élèves de la classe",
+      "bulletins": "Bulletins de la classe",
+      "pv_conseil": "PV du conseil de classe",
+      "liste_pdf": "Liste des élèves (PDF)",
+      "liste_word": "Liste des élèves (Word)"
+    }
   }
 }

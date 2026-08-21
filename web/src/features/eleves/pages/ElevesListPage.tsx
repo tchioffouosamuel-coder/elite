@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus,
@@ -72,7 +72,10 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
         <>
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation()
+              inputRef.current?.click()
+            }}
             disabled={uploading}
             title={t('eleves.photo_title')}
             className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-navy-900 shadow-soft hover:bg-gold-600"
@@ -84,6 +87,7 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
             type="file"
             accept="image/jpeg,image/jpg,image/png"
             className="hidden"
+            onClick={(e) => e.stopPropagation()}
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
         </>
@@ -102,8 +106,13 @@ export function ElevesListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [transfertClasseEleve, setTransfertClasseEleve] = useState<Eleve | null>(null)
   const [transfertEcoleEleve, setTransfertEcoleEleve] = useState<Eleve | null>(null)
+  // La fiche classe renvoie ici avec `?classe=` : arriver sur la liste déjà
+  // filtrée évite de rechercher la classe une seconde fois dans le sélecteur.
+  const [searchParams] = useSearchParams()
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
-  const [classeFilter, setClasseFilter] = useState<number | null>(null)
+  const [classeFilter, setClasseFilter] = useState<number | null>(
+    Number(searchParams.get('classe')) || null,
+  )
 
   // Recherche, tri et pagination sont assurés par DataTable côté client : on
   // charge donc l'effectif complet de l'établissement. Au-delà de ~2000 élèves
@@ -192,6 +201,7 @@ export function ElevesListPage() {
         <input
           type="checkbox"
           checked={selectedIds.size === data.items.length && data.items.length > 0}
+          onClick={(event) => event.stopPropagation()}
           onChange={() => handleSelectAll(data?.items ?? [])}
           className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
         />
@@ -200,6 +210,7 @@ export function ElevesListPage() {
         <input
           type="checkbox"
           checked={selectedIds.has(e.id)}
+          onClick={(event) => event.stopPropagation()}
           onChange={() => handleToggleSelect(e.id)}
           className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
         />
@@ -318,7 +329,10 @@ export function ElevesListPage() {
           <div className="flex items-center gap-1">
             <button
               title={t('common.view')}
-              onClick={() => navigate(`/eleves/${e.id}`)}
+              onClick={(event) => {
+                event.stopPropagation()
+                navigate(`/eleves/${e.id}`)
+              }}
               className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
             >
               <Eye className="h-4 w-4" />
@@ -326,7 +340,10 @@ export function ElevesListPage() {
             {can('eleves.manage') && (
               <button
                 title={t('common.edit')}
-                onClick={() => navigate(`/eleves/${e.id}/edit`)}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  navigate(`/eleves/${e.id}/edit`)
+                }}
                 className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
               >
                 <Pencil className="h-4 w-4" />
@@ -398,6 +415,7 @@ export function ElevesListPage() {
           colonnes={colonnes}
           lignes={elevesFiltres}
           cleLigne={(e) => e.id}
+          onLigneClick={(e) => navigate(`/eleves/${e.id}`)}
           placeholderRecherche={t('eleves.search_placeholder')}
           messageVide={t('eleves.empty')}
           outils={schools.length > 1 || classes.length > 0 ? (

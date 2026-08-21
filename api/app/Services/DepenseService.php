@@ -52,6 +52,7 @@ class DepenseService extends BaseService
                 'date_depense' => $donnees['date_depense'] ?? Carbon::today()->toDateString(),
                 'libelle' => $donnees['libelle'],
                 'montant' => (int) $donnees['montant'],
+                'source' => $donnees['source'] ?? 'caisse',
                 'mode' => $donnees['mode'] ?? 'especes',
                 'beneficiaire' => $donnees['beneficiaire'] ?? null,
                 'reference_facture' => $donnees['reference_facture'] ?? null,
@@ -131,7 +132,7 @@ class DepenseService extends BaseService
         ]);
 
         EcritureComptable::create($commun + [
-            'libelle' => 'Règlement — '.$depense->libelle,
+            'libelle' => 'Règlement — ' . $depense->libelle,
             'sens' => 'credit',
             'compte_comptable_id' => $this->compte(self::COMPTES_TRESORERIE[$depense->mode] ?? '571'),
         ]);
@@ -156,13 +157,15 @@ class DepenseService extends BaseService
             // Une dépense seulement engagée n'a rien mouvementé : il n'y a
             // aucune écriture à contrepasser.
             if ($etaitPayee) {
-                foreach (EcritureComptable::where('origine_type', $depense->getMorphClass())
-                    ->where('origine_id', $depense->id)->get() as $ecriture) {
+                foreach (
+                    EcritureComptable::where('origine_type', $depense->getMorphClass())
+                        ->where('origine_id', $depense->id)->get() as $ecriture
+                ) {
                     EcritureComptable::create([
                         'school_id' => $ecriture->school_id,
                         'annee_scolaire_id' => $ecriture->annee_scolaire_id,
                         'date_ecriture' => now()->toDateString(),
-                        'libelle' => 'Annulation — '.$ecriture->libelle,
+                        'libelle' => 'Annulation — ' . $ecriture->libelle,
                         'montant' => $ecriture->montant,
                         'sens' => $ecriture->sens === 'debit' ? 'credit' : 'debit',
                         'compte_comptable_id' => $ecriture->compte_comptable_id,
@@ -196,11 +199,11 @@ class DepenseService extends BaseService
     public function bilan(int $schoolId, array $filtres = []): array
     {
         $depenses = Depense::forSchool($schoolId)
-            ->when($filtres['du'] ?? null, fn ($q, $du) => $q->whereDate('date_depense', '>=', $du))
-            ->when($filtres['au'] ?? null, fn ($q, $au) => $q->whereDate('date_depense', '<=', $au))
-            ->when($filtres['compte_comptable_id'] ?? null, fn ($q, $id) => $q->where('compte_comptable_id', $id))
-            ->when($filtres['statut'] ?? null, fn ($q, $statut) => $q->where('statut', $statut))
-            ->when($filtres['vehicule_id'] ?? null, fn ($q, $id) => $q->where('vehicule_id', $id))
+            ->when($filtres['du'] ?? null, fn($q, $du) => $q->whereDate('date_depense', '>=', $du))
+            ->when($filtres['au'] ?? null, fn($q, $au) => $q->whereDate('date_depense', '<=', $au))
+            ->when($filtres['compte_comptable_id'] ?? null, fn($q, $id) => $q->where('compte_comptable_id', $id))
+            ->when($filtres['statut'] ?? null, fn($q, $statut) => $q->where('statut', $statut))
+            ->when($filtres['vehicule_id'] ?? null, fn($q, $id) => $q->where('vehicule_id', $id))
             ->with(['compte', 'saisisseur', 'vehicule'])
             ->orderByDesc('date_depense')
             ->get();
@@ -208,8 +211,8 @@ class DepenseService extends BaseService
         $retenues = $depenses->where('statut', '!=', 'annulee');
 
         $parCompte = $retenues
-            ->groupBy(fn (Depense $d) => $d->compte?->code ?? '—')
-            ->map(fn ($lot, $code) => [
+            ->groupBy(fn(Depense $d) => $d->compte?->code ?? '—')
+            ->map(fn($lot, $code) => [
                 // PHP convertit les clés de tableau numériques en entiers :
                 // sans ce cast, « 611 » sortirait en int et « — » en chaîne.
                 'code' => (string) $code,

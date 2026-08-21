@@ -32,6 +32,5 @@ class SousSystemesSeeder extends Seeder
         }
 
         DB::table($table)->insert($rows);
-
     }
 }

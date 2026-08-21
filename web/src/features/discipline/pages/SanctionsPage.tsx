@@ -1,17 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
 import { Check, FileDown, Plus, Trash2, X } from 'lucide-react'
-import { fetchSanctions, createSanction, updateSanction, deleteSanction, ouvrirPvConseil } from '@/features/discipline/api'
-import type { Sanction, SanctionPayload, StatutSanction, TypeSanction } from '@/features/discipline/api'
+import { fetchSanctions, updateSanction, deleteSanction, ouvrirPvConseil } from '@/features/discipline/api'
+import { SanctionFormModal } from '@/features/discipline/SanctionFormModal'
+import type { Sanction, StatutSanction, TypeSanction } from '@/features/discipline/api'
 import { fetchClasses } from '@/features/classes/api'
-import { fetchEleves } from '@/features/eleves/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
-import { Modal } from '@/shared/ui/Modal'
-import { Input, Select, Textarea } from '@/shared/ui/Field'
+import { Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -32,10 +30,6 @@ const STATUT_TONE: Record<StatutSanction, 'gold' | 'green' | 'neutral'> = {
   confirmee: 'green',
   annulee: 'neutral',
 }
-
-// Une exclusion temporaire n'a de sens qu'avec une durée à borner ; les autres
-// types n'ont rien à saisir dans ce champ.
-const TYPES_AVEC_DUREE: TypeSanction[] = ['exclusion_temporaire']
 
 export function SanctionsPage() {
   const { t } = useTranslation()
@@ -230,93 +224,3 @@ export function SanctionsPage() {
   )
 }
 
-function SanctionFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { t } = useTranslation()
-  const [serverError, setServerError] = useState<string | null>(null)
-  const { data: eleves } = useQuery({ queryKey: ['eleves', 'all'], queryFn: () => fetchEleves({ per_page: 200 }) })
-  const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
-  const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { isSubmitting, errors },
-  } = useForm<SanctionPayload>({
-    defaultValues: { type: 'avertissement', date_sanction: new Date().toISOString().slice(0, 10), impacte_bulletin: false },
-  })
-
-  const typeChoisi = watch('type')
-
-  const onSubmit = async (values: SanctionPayload) => {
-    setServerError(null)
-    try {
-      await createSanction({
-        ...values,
-        eleve_id: Number(values.eleve_id),
-        trimestre_id: trimestreActif ? trimestreActif.id : Number(values.trimestre_id),
-        duree_jours: values.duree_jours ? Number(values.duree_jours) : null,
-        impacte_bulletin: Boolean(values.impacte_bulletin),
-      })
-      onCreated()
-    } catch (err) {
-      setServerError((err as ApiError).message)
-    }
-  }
-
-  return (
-    <Modal title={t('discipline.add_sanction')} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Select label={t('eleves.title')} error={errors.eleve_id?.message} {...register('eleve_id', { required: true })}>
-          <option value="">—</option>
-          {eleves?.items.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.nom_complet} — {e.classe?.nom}
-            </option>
-          ))}
-        </Select>
-        <Select label={t('discipline.type')} {...register('type', { required: true })}>
-          <option value="avertissement">{t('discipline.type_avertissement')}</option>
-          <option value="blame">{t('discipline.type_blame')}</option>
-          <option value="corvee">{t('discipline.type_corvee')}</option>
-          <option value="exclusion_temporaire">{t('discipline.type_exclusion_temporaire')}</option>
-          <option value="exclusion_definitive">{t('discipline.type_exclusion_definitive')}</option>
-          <option value="autre">{t('discipline.type_autre')}</option>
-        </Select>
-        <div className="grid grid-cols-2 gap-3">
-          {TYPES_AVEC_DUREE.includes(typeChoisi) && (
-            <Input
-              label={t('discipline.duree_jours')}
-              type="number"
-              min={1}
-              error={errors.duree_jours?.message}
-              {...register('duree_jours', { required: TYPES_AVEC_DUREE.includes(typeChoisi) })}
-            />
-          )}
-          <Input label={t('discipline.date')} type="date" {...register('date_sanction', { required: true })} />
-        </div>
-        <Textarea
-          label={t('discipline.motif')}
-          error={errors.motif?.message}
-          {...register('motif', { required: true, minLength: { value: 10, message: t('discipline.motif_min_length') } })}
-        />
-        <Textarea label={t('discipline.commentaire')} rows={2} {...register('commentaire')} />
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('impacte_bulletin')} />
-          {t('discipline.impacte_bulletin')}
-        </label>
-
-        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {t('common.save')}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  )
-}

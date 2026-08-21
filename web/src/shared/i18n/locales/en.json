@@ -171,7 +171,8 @@
     "empty": "No staff for this school.",
     "assign_matieres_search_placeholder": "Search a subject…",
     "assign_matieres_empty_assignees": "No subject assigned to a department",
-    "assign_matieres_empty_sans_dept": "All subjects are assigned to a department"
+    "assign_matieres_empty_sans_dept": "All subjects are assigned to a department",
+    "sexe": "Gender"
   },
   "fonctionsReferentiel": {
     "title": "Position catalog",
@@ -493,7 +494,8 @@
       "versements_recents": "Recent payments",
       "aucun_versement": "No payment on record.",
       "encaisser": "Record a payment"
-    }
+    },
+    "photo_updated": "Photo updated."
   },
   "matieres": {
     "title": "Subjects",
@@ -586,7 +588,8 @@
     "delete_target": "{{nom}}'s sanction",
     "search_placeholder": "Search a student, a reason…",
     "empty_sanctions": "No sanction recorded.",
-    "motif_min_length": "Describe the reason in a few words (10 characters minimum)."
+    "motif_min_length": "Describe the reason in a few words (10 characters minimum).",
+    "sanction_created": "Sanction recorded."
   },
   "revendications": {
     "title": "Complaints",
@@ -1250,5 +1253,95 @@
     "date_acquisition_label": "Acquisition date",
     "notes_label": "Notes",
     "notes_placeholder": "Optional"
+  },
+  "hub": {
+    "actions": "Actions",
+    "tab": {
+      "profil": "Profile",
+      "finance": "Finance",
+      "sante": "Health",
+      "discipline": "Discipline",
+      "transport": "Transport",
+      "documents": "Documents",
+      "remuneration": "Pay",
+      "avances": "Advances"
+    },
+    "groupe": {
+      "dossier": "Record",
+      "operations": "Operations",
+      "documents": "Documents",
+      "danger": "Sensitive area"
+    },
+    "eleve": {
+      "encaisser": "Record a payment",
+      "nouvelle_visite": "Log an infirmary visit",
+      "nouvelle_sanction": "Issue a sanction",
+      "souscrire_bus": "Transport subscription",
+      "acces_parent": "Parent access",
+      "acces_parent_aide": "Open access to the parent portal",
+      "carte_classe": "Student cards for the class",
+      "voir_classe": "Open the class record",
+      "documents_sans_classe": "No documents: this student is not enrolled in any class."
+    },
+    "personnel": {
+      "archive_titre": "Archive {{nom}}?",
+      "archive_message": "They will no longer appear in active lists. History is kept and reactivation stays possible.",
+      "archive_ok": "Staff member archived.",
+      "reactivate_ok": "Staff member reactivated.",
+      "delete_titre": "Delete {{nom}}?",
+      "delete_message": "This cannot be undone. Their login account is deleted too; assignments (form teacher, head teacher, subjects…) are simply released.",
+      "delete_ok": "Staff member deleted.",
+      "compte_aide": "Login credentials for the application",
+      "compte_ouvert": "Access open",
+      "compte_absent": "No access",
+      "voir_departement": "Open the department",
+      "accorder_avance": "Grant an advance",
+      "definir_remuneration": "Set pay",
+      "attestation": "Employer certificate",
+      "identite": "Identity",
+      "contact": "Contact",
+      "carriere": "Career",
+      "famille": "Family",
+      "cni": "ID number",
+      "cnps": "Social security number",
+      "date_embauche": "Hire date",
+      "date_fin": "Contract end",
+      "date_retraite": "Retirement",
+      "affectation": "Duty post",
+      "diplome_academique": "Academic degree",
+      "diplome_professionnel": "Professional degree",
+      "situation_matrimoniale": "Marital status",
+      "nombre_enfants": "Children",
+      "pere": "Father",
+      "mere": "Mother",
+      "remuneration_vide": "No pay recorded for this staff member.",
+      "effet_au": "Effective {{date}}",
+      "mode_mensuel": "Monthly",
+      "mode_horaire": "Hourly",
+      "brut": "Gross",
+      "charges_salariales": "Employee contributions",
+      "net": "Net",
+      "cout_employeur": "Employer cost",
+      "avances_vide": "No advance granted to this staff member.",
+      "total_accorde": "Total granted",
+      "total_rembourse": "Total repaid",
+      "total_restant": "Outstanding",
+      "solde": "Balance",
+      "avance_en_cours": "Ongoing",
+      "avance_partielle": "Partial",
+      "avance_remboursee": "Repaid",
+      "avance_annulee": "Cancelled"
+    },
+    "classe": {
+      "delete_titre": "Delete class {{nom}}?",
+      "delete_message": "This cannot be undone. Enrolled students will need to be reassigned.",
+      "delete_ok": "Class deleted.",
+      "inscrire_eleve": "Enrol a student",
+      "voir_eleves": "Students in the class",
+      "bulletins": "Class report cards",
+      "pv_conseil": "Class council minutes",
+      "liste_pdf": "Student list (PDF)",
+      "liste_word": "Student list (Word)"
+    }
   }
 }

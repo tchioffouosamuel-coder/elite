@@ -18,6 +18,7 @@ import type { ApiError } from '@/shared/types/api'
 
 const TONS = { payee: 'green', engagee: 'gold', annulee: 'red' } as const
 const LIBELLES = { payee: 'Payée', engagee: 'Engagée', annulee: 'Annulée' } as const
+const SOURCES = { caisse: 'Caisse', revenu_personnel: 'Revenu personnel' } as const
 
 /**
  * Suivi des dépenses.
@@ -100,6 +101,13 @@ export function DepensesPage() {
       masquerMobile: true,
     },
     {
+      cle: 'source',
+      entete: 'Source',
+      valeur: (d) => d.source,
+      cellule: (d) => <span className="text-xs">{SOURCES[d.source]}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'montant',
       entete: 'Montant',
       valeur: (d) => d.montant,
@@ -163,10 +171,10 @@ export function DepensesPage() {
               </Button>
             )}
             {can('finance.depenses') && (
-            <Button onClick={() => setFormOuvert(true)}>
-              <Plus className="h-4 w-4" />
-              Nouvelle dépense
-            </Button>
+              <Button onClick={() => setFormOuvert(true)}>
+                <Plus className="h-4 w-4" />
+                Nouvelle dépense
+              </Button>
             )}
           </>
         }

@@ -15,6 +15,7 @@ interface FormValues {
   montant: number
   date_depense: string
   compte_comptable_id: number | ''
+  source: 'caisse' | 'revenu_personnel'
   mode: ModePaiement
   beneficiaire: string
   reference_facture: string
@@ -62,6 +63,7 @@ export function DepenseFormModal({
       mode: 'especes',
       statut: 'payee',
       compte_comptable_id: '',
+      source: 'caisse',
     },
   })
 
@@ -74,6 +76,7 @@ export function DepenseFormModal({
         montant: Number(valeurs.montant),
         date_depense: valeurs.date_depense,
         compte_comptable_id: valeurs.compte_comptable_id || undefined,
+        source: valeurs.source,
         mode: valeurs.mode,
         beneficiaire: valeurs.beneficiaire,
         reference_facture: valeurs.reference_facture,
@@ -96,6 +99,20 @@ export function DepenseFormModal({
   return (
     <Modal title={titre} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Select label="Code comptable" {...register('compte_comptable_id')}>
+          <option value="">— Achats de fournitures (par défaut)</option>
+          {charges.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.code} · {c.libelle}
+            </option>
+          ))}
+        </Select>
+
+        <Select label="Source" {...register('source')}>
+          <option value="caisse">Caisse</option>
+          <option value="revenu_personnel">Revenu personnel</option>
+        </Select>
+
         <Input
           label="Libellé"
           autoFocus
@@ -116,15 +133,6 @@ export function DepenseFormModal({
           />
           <Input label="Date" type="date" {...register('date_depense')} />
         </div>
-
-        <Select label="Poste comptable" {...register('compte_comptable_id')}>
-          <option value="">— Achats de fournitures (par défaut)</option>
-          {charges.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} · {c.libelle}
-            </option>
-          ))}
-        </Select>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Select label="État" {...register('statut')}>

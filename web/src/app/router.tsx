@@ -7,6 +7,7 @@ import { UserProfilePage } from '@/features/auth/pages/UserProfilePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
+import { PersonnelDetailPage } from '@/features/personnel/pages/PersonnelDetailPage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
 import { DepartementDetailPage } from '@/features/personnel/pages/DepartementDetailPage'
 import { AssignMatieresDepartementPage } from '@/features/personnel/pages/AssignMatieresDepartementPage'
@@ -112,6 +113,7 @@ export const router = createHashRouter([
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
       { path: 'personnel/nouveau', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'personnel/:id/edit', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
+      { path: 'personnel/:id', element: <ProtectedRoute permission="personnel.view"><PersonnelDetailPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },

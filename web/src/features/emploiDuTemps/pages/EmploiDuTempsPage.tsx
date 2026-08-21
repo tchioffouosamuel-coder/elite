@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, Plus, Trash2, Wand2 } from 'lucide-react'
@@ -41,7 +42,11 @@ export function EmploiDuTempsPage() {
   // classe : son propre emploi du temps directement, pas un sélecteur à parcourir.
   const restreintATitulaire = estEnseignant && !estSecondaire()
 
-  const [classeId, setClasseId] = useState<number | ''>('')
+  // Ouvert depuis la fiche d'une classe : elle passe son identifiant en
+  // paramètre pour que la grille s'affiche directement, sans re-sélection.
+  const [searchParams] = useSearchParams()
+  const classeDemandee = Number(searchParams.get('classe')) || ''
+  const [classeId, setClasseId] = useState<number | ''>(classeDemandee)
   const [formOuvert, setFormOuvert] = useState(false)
   const [generationOuverte, setGenerationOuverte] = useState(false)
 

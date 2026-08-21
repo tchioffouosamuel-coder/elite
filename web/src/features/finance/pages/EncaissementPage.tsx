@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { ArrowLeft, Receipt, Wallet } from 'lucide-react'
@@ -36,6 +36,11 @@ export function EncaissementPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { eleveId } = useParams<{ eleveId: string }>()
+  // L'écran d'où l'on vient : la caisse par défaut, mais la fiche de l'élève
+  // quand l'encaissement a été lancé depuis elle — y renvoyer l'utilisateur
+  // lui évite de rechercher son élève une deuxième fois.
+  const { state } = useLocation() as { state?: { retour?: string } }
+  const urlRetour = state?.retour ?? '/caisse'
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [allocations, setAllocations] = useState<number[]>([])
@@ -88,7 +93,7 @@ export function EncaissementPage() {
   const totalAlloue = useMemo(() => allocations.reduce((s, v) => s + (v || 0), 0), [allocations])
   const ventilationValide = rubriques.length === 0 || (montant > 0 && totalAlloue === montant)
 
-  const retour = () => navigate('/caisse')
+  const retour = () => navigate(urlRetour)
 
   const onSubmit = async (valeurs: FormValues) => {
     if (!dossier) return
@@ -144,7 +149,7 @@ export function EncaissementPage() {
           className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-800"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour à la caisse
+          {state?.retour ? t('common.back') : 'Retour à la caisse'}
         </button>
         <PageHeader titre={`Encaisser — ${dossier.eleve.nom_complet}`} icon={Wallet} />
       </div>

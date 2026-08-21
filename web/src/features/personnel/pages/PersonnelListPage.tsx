@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, KeyRound, Archive, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
 import {
   fetchPersonnels,
   archivePersonnel,
@@ -118,6 +118,7 @@ export function PersonnelListPage() {
               <input
                 type="checkbox"
                 checked={selectedIds.size === data.length && data.length > 0}
+                onClick={(event) => event.stopPropagation()}
                 onChange={() => handleSelectAll(data ?? [])}
                 className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
               />
@@ -126,6 +127,7 @@ export function PersonnelListPage() {
               <input
                 type="checkbox"
                 checked={selectedIds.has(p.id)}
+                onClick={(event) => event.stopPropagation()}
                 onChange={() => handleToggleSelect(p.id)}
                 className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
               />
@@ -178,10 +180,23 @@ export function PersonnelListPage() {
       entete: t('common.actions'),
       cellule: (p) => (
         <div className="flex items-center gap-1">
+          <button
+            title={t('common.view')}
+            onClick={(event) => {
+              event.stopPropagation()
+              navigate(`/personnel/${p.id}`)
+            }}
+            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
           {can('personnel.manage') && (
             <button
               title={t('common.edit')}
-              onClick={() => navigate(`/personnel/${p.id}/edit`)}
+              onClick={(event) => {
+                event.stopPropagation()
+                navigate(`/personnel/${p.id}/edit`)
+              }}
               className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
             >
               <Pencil className="h-4 w-4" />
@@ -190,7 +205,10 @@ export function PersonnelListPage() {
           {can('personnel.manage') && !p.a_un_compte && (
             <button
               title={t('personnel.create_account')}
-              onClick={() => setAccountFor(p.id)}
+              onClick={(event) => {
+                event.stopPropagation()
+                setAccountFor(p.id)
+              }}
               className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
             >
               <KeyRound className="h-4 w-4" />
@@ -200,7 +218,8 @@ export function PersonnelListPage() {
             (p.statut === 'actif' ? (
               <button
                 title={t('common.archive')}
-                onClick={async () => {
+                onClick={async (event) => {
+                  event.stopPropagation()
                   const confirme = await confirmer({
                     titre: `Archiver ${p.nom_complet} ?`,
                     message:
@@ -219,7 +238,8 @@ export function PersonnelListPage() {
             ) : (
               <button
                 title={t('common.reactivate')}
-                onClick={async () => {
+                onClick={async (event) => {
+                  event.stopPropagation()
                   await reactivatePersonnel(p.id)
                   invalidate()
                   succes('Personnel réactivé.')
@@ -232,7 +252,8 @@ export function PersonnelListPage() {
           {can('personnel.manage') && (
             <button
               title={t('common.delete')}
-              onClick={async () => {
+              onClick={async (event) => {
+                event.stopPropagation()
                 const confirme = await confirmer({
                   titre: `Supprimer ${p.nom_complet} ?`,
                   message:
@@ -328,6 +349,7 @@ export function PersonnelListPage() {
           colonnes={colonnes}
           lignes={data}
           cleLigne={(p) => p.id}
+          onLigneClick={(p) => navigate(`/personnel/${p.id}`)}
           placeholderRecherche={t('personnel.search_placeholder')}
           messageVide={t('personnel.empty')}
           largeurMin={760}

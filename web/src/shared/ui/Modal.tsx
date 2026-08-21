@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
+  return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
@@ -25,6 +26,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         </div>
         <div className="overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
