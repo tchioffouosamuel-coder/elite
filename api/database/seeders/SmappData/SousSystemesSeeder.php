@@ -27,6 +27,10 @@ class SousSystemesSeeder extends Seeder
             ['id' => 9, 'school_id' => 3, 'code' => 'EN', 'nom' => 'Anglophone', 'description' => 'Enseignement en anglais', 'created_at' => '2026-08-11 22:13:21', 'updated_at' => '2026-08-11 22:13:21'],
             ['id' => 10, 'school_id' => 3, 'code' => 'BI', 'nom' => 'Bilingue', 'description' => 'Enseignement bilingue (français et anglais)', 'created_at' => '2026-08-11 22:13:21', 'updated_at' => '2026-08-11 22:13:21'],
         ];
+        if (DB::table($table)->exists()) {
+            return;
+        }
+
         DB::table($table)->insert($rows);
 
     }
