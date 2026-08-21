@@ -78,7 +78,10 @@ class ComptesComptablesSeeder extends Seeder
             ['id' => 59, 'code' => '91', 'libelle' => 'Département administratif', 'libelle_en' => 'Administrative Department', 'classe' => 9, 'sens' => 'debit', 'is_active' => 1, 'created_at' => '2026-08-16 13:25:26', 'updated_at' => '2026-08-16 13:25:26'],
             ['id' => 60, 'code' => '92', 'libelle' => 'Département pédagogique', 'libelle_en' => 'Academic Department', 'classe' => 9, 'sens' => 'debit', 'is_active' => 1, 'created_at' => '2026-08-16 13:25:26', 'updated_at' => '2026-08-16 13:25:26'],
         ];
-        DB::table($table)->insert($rows);
+        if (DB::table($table)->exists()) {
+            return;
+        }
 
+        DB::table($table)->insert($rows);
     }
 }
