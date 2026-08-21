@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, FileDown, Users2, Check, X } from 'lucide-react'
 import { fetchTuteurs, creerCompteParent, creerComptesParentLot, type TuteurCompte } from '@/features/eleves/api'
+import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
@@ -18,6 +19,9 @@ import type { ApiError } from '@/shared/types/api'
  */
 export function ComptesParentsPage() {
   const queryClient = useQueryClient()
+  // En mode agrégé (super admin, « Toutes les écoles »), le tableau réunit les
+  // tuteurs de tout le complexe : la confirmation doit annoncer ce périmètre-là.
+  const ecoleActive = useAuthStore((s) => s.activeSchool())
   const [page, setPage] = useState(1)
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
@@ -46,8 +50,9 @@ export function ComptesParentsPage() {
   const ouvrirEnMasse = async () => {
     const ok = await confirmer({
       titre: 'Ouvrir tous les accès manquants ?',
-      message:
-        "Un compte sera créé pour chaque tuteur de l'école qui a un numéro de téléphone mais pas encore d'accès. Les tuteurs sans numéro seront ignorés.",
+      message: `Un compte sera créé pour chaque tuteur ${
+        ecoleActive ? `de ${ecoleActive.name}` : 'de toutes les écoles affichées'
+      } qui a un numéro de téléphone mais pas encore d'accès. Les tuteurs sans numéro seront ignorés.`,
       action: 'Ouvrir les accès',
       destructif: false,
     })

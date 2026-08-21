@@ -31,6 +31,7 @@ interface StepFormProps {
    * conteneur (une modale, par exemple), qui a déjà les siens.
    */
   compact?: boolean
+  wide?: boolean
 }
 
 export function StepForm({
@@ -45,6 +46,7 @@ export function StepForm({
   showSteps = true,
   onNext,
   compact = false,
+  wide = false,
 }: StepFormProps) {
   const canGoNext = currentStep < steps.length - 1
   const canGoPrev = currentStep > 0
@@ -55,7 +57,7 @@ export function StepForm({
   }
 
   return (
-    <div className={clsx(!compact && 'mx-auto max-w-4xl')}>
+    <div className={clsx(!compact && 'mx-auto', !compact && (wide ? 'max-w-6xl' : 'max-w-4xl'))}>
       {showSteps && (
         <div className={clsx('flex overflow-x-auto pb-1', compact ? 'mb-5' : 'mb-8')}>
           <div className="flex min-w-max flex-1 items-center">

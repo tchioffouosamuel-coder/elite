@@ -74,6 +74,18 @@ class CataloguePermissions
             'inventaire.view' => ['Consulter l\'inventaire du matériel', 'View the equipment inventory'],
             'inventaire.manage' => ['Gérer les articles de l\'inventaire', 'Manage inventory items'],
         ]],
+        /*
+         * Le comptoir se sépare de l'inventaire : le vendeur écoule le stock
+         * sans avoir à modifier la fiche des articles, et l'économe tient
+         * l'inventaire sans forcément tenir la caisse de la boutique. Vendre
+         * est isolé d'« administrer » pour la même raison qu'encaisser l'est
+         * de paramétrer les tarifs, côté finances.
+         */
+        'point_de_vente' => ['Point de vente', 'Point of sale', [
+            'point_de_vente.view' => ['Consulter les ventes et les entrées de stock', 'View sales and stock entries'],
+            'point_de_vente.vendre' => ['Vendre au comptoir et éditer les factures', 'Sell at the counter and issue invoices'],
+            'point_de_vente.manage' => ["Enregistrer les entrées de stock et annuler une vente", 'Record stock entries and cancel a sale'],
+        ]],
         'bulletins' => ['Bulletins et statistiques', 'Reports and statistics', [
             'bulletins.view' => ['Consulter bulletins, palmarès et statistiques', 'View reports'],
             'bulletins.publish' => ['Publier les bulletins', 'Publish reports'],

@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PersonnelEspaceController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
+use App\Http\Controllers\Api\V1\PointDeVenteController;
 use App\Http\Controllers\Api\V1\PreinscriptionAdminController;
 use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
@@ -304,6 +305,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('enfants/{eleveId}/bulletin', [ParentEspaceController::class, 'bulletin'])->name('enfants.bulletin');
                 Route::get('enfants/{eleveId}/progression', [ParentEspaceController::class, 'progression'])->name('enfants.progression');
                 Route::get('enfants/{eleveId}/absences', [ParentEspaceController::class, 'absences'])->name('enfants.absences');
+                Route::get('enfants/{eleveId}/emploi-du-temps', [ParentEspaceController::class, 'emploiDuTemps'])->name('enfants.emploi-du-temps');
+                Route::get('enfants/{eleveId}/visites-infirmerie', [ParentEspaceController::class, 'visitesInfirmerie'])->name('enfants.visites-infirmerie');
+                Route::get('enfants/{eleveId}/sanctions', [ParentEspaceController::class, 'sanctions'])->name('enfants.sanctions');
                 Route::get('enfants/{eleveId}/justifications', [ParentEspaceController::class, 'justifications'])->name('enfants.justifications.index');
                 Route::post('enfants/{eleveId}/justifications', [ParentEspaceController::class, 'soumettreJustification'])->name('enfants.justifications.store');
                 Route::get('enfants/{eleveId}/observations', [ParentEspaceController::class, 'observations'])->name('enfants.observations.index');
@@ -701,8 +705,31 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
             Route::middleware('permission:inventaire.manage')->group(function () {
                 Route::post('inventaire', [InventaireController::class, 'store'])->name('inventaire.store');
+                // Déclarées avant « inventaire/{id} » : sans cela, « etiquettes »
+                // serait capté comme un identifiant d'article.
+                Route::post('inventaire/etiquettes', [InventaireController::class, 'etiquettes'])->name('inventaire.etiquettes');
+                Route::post('inventaire/{id}/code-barre', [InventaireController::class, 'codeBarre'])->name('inventaire.code-barre');
                 Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update');
                 Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy');
+            });
+
+            /*
+             * Point de vente des fournitures. Le catalogue et le stock sont
+             * ceux de l'inventaire : ce groupe n'ouvre qu'une caisse par-dessus.
+             */
+            Route::middleware('permission:point_de_vente.view')->group(function () {
+                Route::get('point-de-vente/catalogue', [PointDeVenteController::class, 'catalogue'])->name('point-de-vente.catalogue');
+                Route::get('point-de-vente/articles/{code}', [PointDeVenteController::class, 'parCodeBarre'])->name('point-de-vente.article-code-barre');
+                Route::get('point-de-vente/ventes', [PointDeVenteController::class, 'ventes'])->name('point-de-vente.ventes');
+                Route::get('point-de-vente/ventes/{id}/facture', [PointDeVenteController::class, 'facture'])->name('point-de-vente.facture');
+                Route::get('point-de-vente/entrees', [PointDeVenteController::class, 'entrees'])->name('point-de-vente.entrees');
+            });
+            Route::middleware('permission:point_de_vente.vendre')->group(function () {
+                Route::post('point-de-vente/ventes', [PointDeVenteController::class, 'vendre'])->name('point-de-vente.vendre');
+            });
+            Route::middleware('permission:point_de_vente.manage')->group(function () {
+                Route::post('point-de-vente/ventes/{id}/annuler', [PointDeVenteController::class, 'annulerVente'])->name('point-de-vente.annuler');
+                Route::post('point-de-vente/entrees', [PointDeVenteController::class, 'entrer'])->name('point-de-vente.entrer');
             });
         });
     });

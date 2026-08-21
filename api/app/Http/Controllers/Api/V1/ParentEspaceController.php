@@ -6,11 +6,18 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Eleve;
+use App\Models\Moratoire;
 use App\Models\Observation;
 use App\Models\Presence;
+use App\Models\Sanction;
+use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Models\Tuteur;
+use App\Models\VisiteInfirmerie;
+use App\Http\Resources\Api\V1\SanctionResource;
+use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
 use App\Services\BulletinService;
+use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\ModificationEleveService;
 use App\Services\ProgressionService;
@@ -37,6 +44,7 @@ class ParentEspaceController extends Controller
         private readonly ProgressionService $progression,
         private readonly JustificationAbsenceService $justifications,
         private readonly ModificationEleveService $modifications,
+        private readonly EmploiDuTempsService $emploiDuTemps,
     ) {}
 
     /** Enfants du compte connecté — la liste qui ouvre le portail. */
@@ -113,6 +121,11 @@ class ParentEspaceController extends Controller
         $dossier = $this->scolarite->dossier($e, $annee);
         $dossier->loadMissing(['fraisAnnexes', 'versements' => fn ($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
 
+        // Un moratoire valide est l'échéance qui concerne réellement cette
+        // famille ; la date d'exclusion générale de l'école n'est affichée en
+        // repli que si aucun moratoire ne couvre déjà l'enfant.
+        $moratoire = Moratoire::where('eleve_id', $e->id)->valides()->latest('date_expiration')->first();
+
         return ApiResponse::success([
             'montant_scolarite' => $dossier->montant_scolarite,
             'remise' => $dossier->remise,
@@ -128,6 +141,74 @@ class ParentEspaceController extends Controller
                 'montant' => $v->montant,
                 'mode' => $v->mode,
             ])->values(),
+            'date_limite_paiement' => Setting::get($e->school_id, 'date_limite_paiement') ?: null,
+            'date_exclusion_insolvables' => Setting::get($e->school_id, 'date_exclusion_insolvables') ?: null,
+            'moratoire' => $moratoire ? [
+                'date_expiration' => $moratoire->date_expiration->format('Y-m-d'),
+                'motif' => $moratoire->motif,
+            ] : null,
+        ]);
+    }
+
+    /** Emploi du temps de la classe de l'enfant — celui de la classe, pas propre à l'élève. */
+    public function emploiDuTemps(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        if (! $e->classe) {
+            return ApiResponse::success([]);
+        }
+
+        return ApiResponse::success($this->emploiDuTemps->grille($e->classe)->map(EmploiDuTempsService::presenter(...)));
+    }
+
+    /** Visites à l'infirmerie de cet enfant, les plus récentes en tête. */
+    public function visitesInfirmerie(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        $visites = VisiteInfirmerie::where('eleve_id', $e->id)
+            ->with(['eleve.school', 'classe', 'enregistrePar', 'malaises', 'materiels.article'])
+            ->latest('date_visite')
+            ->get();
+
+        return ApiResponse::success(VisiteInfirmerieResource::collection($visites));
+    }
+
+    /**
+     * Dossier disciplinaire de cet enfant. Réservé au secondaire — la
+     * maternelle et le primaire ne prononcent pas de sanctions, une liste
+     * vide suffit à le dire plutôt qu'une erreur.
+     */
+    public function sanctions(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        if ($e->school?->type !== 'secondaire') {
+            return ApiResponse::success(['total_sanctions' => 0, 'sanctions_en_cours' => 0, 'est_exclu' => false, 'motif_exclusion' => null, 'date_exclusion' => null, 'sanctions' => []]);
+        }
+
+        $sanctions = Sanction::where('eleve_id', $e->id)->with(['classe', 'enregistrePar'])->latest('date_sanction')->get();
+
+        // Même règle que SanctionController::dossier() (vue personnel) : une
+        // exclusion définitive confirmée, ou une exclusion temporaire
+        // confirmée dont la période court encore.
+        $exclusionActive = $sanctions->first(function (Sanction $s) {
+            if ($s->statut !== 'confirmee') {
+                return false;
+            }
+
+            return $s->type === 'exclusion_definitive'
+                || ($s->type === 'exclusion_temporaire' && $s->date_fin && ! $s->date_fin->isPast());
+        });
+
+        return ApiResponse::success([
+            'total_sanctions' => $sanctions->count(),
+            'sanctions_en_cours' => $sanctions->where('statut', 'en_attente')->count(),
+            'est_exclu' => $exclusionActive !== null,
+            'motif_exclusion' => $exclusionActive?->motif,
+            'date_exclusion' => $exclusionActive?->date_sanction?->format('Y-m-d'),
+            'sanctions' => SanctionResource::collection($sanctions),
         ]);
     }
 

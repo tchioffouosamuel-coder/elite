@@ -4,7 +4,7 @@ import type { ApiResponse } from '@/shared/types/api'
 export interface SettingDefinition {
   key: string
   groupe: string
-  type: 'number' | 'select' | 'text' | 'richtext'
+  type: 'number' | 'select' | 'text' | 'richtext' | 'date'
   options?: (string | number)[]
   default: string | number
   label_fr: string

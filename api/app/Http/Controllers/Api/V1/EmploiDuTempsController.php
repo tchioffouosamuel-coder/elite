@@ -22,7 +22,7 @@ class EmploiDuTempsController extends Controller
     {
         $classe = $this->classe($classeId);
 
-        return ApiResponse::success($this->service->grille($classe)->map($this->presenter(...)));
+        return ApiResponse::success($this->service->grille($classe)->map(EmploiDuTempsService::presenter(...)));
     }
 
     public function store(Request $request, int $classeId): JsonResponse
@@ -41,7 +41,7 @@ class EmploiDuTempsController extends Controller
         $creneau->classesAssociees()->sync($associees);
 
         return ApiResponse::created(
-            $this->presenter($creneau->load('classeMatiere.matiere', 'classesAssociees')),
+            EmploiDuTempsService::presenter($creneau->load('classeMatiere.matiere', 'classesAssociees')),
             'Créneau ajouté.',
         );
     }
@@ -63,7 +63,7 @@ class EmploiDuTempsController extends Controller
         $creneau->classesAssociees()->sync($associees);
 
         return ApiResponse::success(
-            $this->presenter($creneau->fresh(['classeMatiere.matiere', 'classesAssociees'])),
+            EmploiDuTempsService::presenter($creneau->fresh(['classeMatiere.matiere', 'classesAssociees'])),
             'Créneau mis à jour.',
         );
     }
@@ -149,28 +149,5 @@ class EmploiDuTempsController extends Controller
     private function classe(int $id): Classe
     {
         return Classe::forSchool(Tenant::schoolIds())->findOrFail($id);
-    }
-
-    private function presenter(EmploiDuTemps $creneau): array
-    {
-        $creneau->loadMissing('classe', 'classesAssociees');
-
-        return [
-            'id' => $creneau->id,
-            'jour' => $creneau->jour,
-            'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
-            'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
-            'salle' => $creneau->salle,
-            'classe_matiere_id' => $creneau->classe_matiere_id,
-            'matiere' => $creneau->classeMatiere?->matiere?->nom,
-            'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
-            // La classe porteuse : sur la grille d'une classe associée, le
-            // créneau vient d'ailleurs et l'écran doit pouvoir le dire.
-            'classe_id' => $creneau->classe_id,
-            'classe' => $creneau->classe?->nom,
-            'classes_associees' => $creneau->classesAssociees
-                ->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
-            'tronc_commun' => $creneau->classesAssociees->isNotEmpty(),
-        ];
     }
 }

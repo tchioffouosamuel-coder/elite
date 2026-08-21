@@ -46,6 +46,7 @@ import {
   ScanLine,
   Megaphone,
   Boxes,
+  Store,
   PiggyBank,
   Gavel,
   UserCog,
@@ -218,6 +219,9 @@ const navGroups = [
     label: 'nav.group.inventaire',
     items: [
       { to: '/inventaire', label: 'nav.inventaire', icon: Boxes, permission: 'inventaire.view', masquerPourTitulaire: true },
+      // Le comptoir vit à côté de l'inventaire : c'est le même stock, vu
+      // depuis la caisse plutôt que depuis le registre du matériel.
+      { to: '/point-de-vente', label: 'nav.pointDeVente', icon: Store, permission: 'point_de_vente.view', masquerPourTitulaire: true },
     ],
   },
   {

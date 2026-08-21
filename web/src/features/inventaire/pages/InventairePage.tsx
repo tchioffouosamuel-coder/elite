@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Boxes, Package, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Boxes, Package, Pencil, Plus, Printer, Tags, Trash2, Wallet } from 'lucide-react'
 import {
   creerArticle,
   fetchInventaire,
+  genererCodeBarre,
   modifierArticle,
+  ouvrirEtiquettes,
   supprimerArticle,
   type ArticleInventaire,
   type ArticleInventairePayload,
@@ -45,6 +47,10 @@ export function InventairePage() {
   const [etat, setEtat] = useState<EtatArticle | ''>('')
   const [showForm, setShowForm] = useState(false)
   const [articleEnEdition, setArticleEnEdition] = useState<ArticleInventaire | null>(null)
+  // Étiqueter se fait par lot : un carton de cahiers, c'est une planche
+  // entière, pas un aller-retour par article.
+  const [selection, setSelection] = useState<Set<number>>(new Set())
+  const [impressionEnCours, setImpressionEnCours] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventaire', categorie, etat],
@@ -53,12 +59,69 @@ export function InventairePage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['inventaire'] })
 
+  const basculerSelection = (id: number) => {
+    setSelection((actuelle) => {
+      const suivante = new Set(actuelle)
+
+      if (suivante.has(id)) {
+        suivante.delete(id)
+      } else {
+        suivante.add(id)
+      }
+
+      return suivante
+    })
+  }
+
+  const imprimerEtiquettes = async (ids: number[]) => {
+    if (ids.length === 0) return
+
+    setImpressionEnCours(true)
+    try {
+      await ouvrirEtiquettes(ids)
+      // L'impression attribue leur code aux articles qui n'en avaient pas.
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setImpressionEnCours(false)
+    }
+  }
+
   const colonnes: Colonne<ArticleInventaire>[] = [
+    ...(can('inventaire.manage')
+      ? [
+          {
+            cle: 'selection',
+            entete: '',
+            cellule: (a: ArticleInventaire) => (
+              <input
+                type="checkbox"
+                checked={selection.has(a.id)}
+                onChange={() => basculerSelection(a.id)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ),
+          } satisfies Colonne<ArticleInventaire>,
+        ]
+      : []),
     {
       cle: 'nom',
       entete: t('inventaire.article_col'),
       valeur: (a) => a.nom,
       cellule: (a) => <span className="font-semibold text-navy-900">{a.nom}</span>,
+    },
+    {
+      cle: 'code_barre',
+      entete: t('inventaire.code_barre_col'),
+      valeur: (a) => a.code_barre,
+      cellule: (a) =>
+        a.code_barre ? (
+          <span className="font-mono text-[11px] text-navy-500">{a.code_barre}</span>
+        ) : (
+          <span className="text-xs text-navy-300">—</span>
+        ),
+      masquerMobile: true,
     },
     {
       cle: 'categorie',
@@ -93,6 +156,17 @@ export function InventairePage() {
       masquerMobile: true,
     },
     {
+      cle: 'prix_vente',
+      entete: t('inventaire.prix_vente_col'),
+      valeur: (a) => a.prix_vente,
+      cellule: (a) =>
+        a.prix_vente === null ? (
+          <span className="text-xs text-navy-300">{t('inventaire.hors_vente')}</span>
+        ) : (
+          <span className="font-semibold tabular-nums text-gold-600">{francs(a.prix_vente)}</span>
+        ),
+    },
+    {
       cle: 'valeur',
       entete: t('inventaire.valeur_totale_col'),
       valeur: (a) => a.valeur_totale,
@@ -106,6 +180,30 @@ export function InventairePage() {
             entete: t('common.actions'),
             cellule: (a: ArticleInventaire) => (
               <div className="flex items-center gap-1">
+                <button
+                  title={a.code_barre ? t('inventaire.code_barre_deja') : t('inventaire.generer_code_barre')}
+                  disabled={a.code_barre !== null}
+                  onClick={async () => {
+                    try {
+                      const misAJour = await genererCodeBarre(a.id)
+                      invalidate()
+                      succes(t('inventaire.code_barre_genere', { code: misAJour.code_barre }))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <Barcode className="h-4 w-4" />
+                </button>
+                <button
+                  title={t('inventaire.imprimer_etiquette')}
+                  disabled={impressionEnCours}
+                  onClick={() => imprimerEtiquettes([a.id])}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:opacity-40"
+                >
+                  <Printer className="h-4 w-4" />
+                </button>
                 <button
                   title={t('common.edit')}
                   onClick={() => {
@@ -147,15 +245,27 @@ export function InventairePage() {
         icon={Boxes}
         actions={
           can('inventaire.manage') && (
-            <Button
-              onClick={() => {
-                setArticleEnEdition(null)
-                setShowForm(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('inventaire.add')}
-            </Button>
+            <>
+              {selection.size > 0 && (
+                <Button
+                  variant="secondary"
+                  disabled={impressionEnCours}
+                  onClick={() => imprimerEtiquettes(Array.from(selection))}
+                >
+                  <Printer className="h-4 w-4" />
+                  {t('inventaire.imprimer_selection', { count: selection.size })}
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  setArticleEnEdition(null)
+                  setShowForm(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('inventaire.add')}
+              </Button>
+            </>
           )
         }
       />
@@ -242,6 +352,7 @@ function ArticleFormModal({
           etat: article.etat,
           localisation: article.localisation ?? '',
           valeur_unitaire: article.valeur_unitaire ?? undefined,
+          prix_vente: article.prix_vente ?? undefined,
           date_acquisition: article.date_acquisition ?? '',
           notes: article.notes ?? '',
         }
@@ -254,6 +365,7 @@ function ArticleFormModal({
       ...values,
       quantite: Number(values.quantite),
       valeur_unitaire: values.valeur_unitaire ? Number(values.valeur_unitaire) : null,
+      prix_vente: values.prix_vente ? Number(values.prix_vente) : null,
       date_acquisition: values.date_acquisition || null,
       school_id: values.school_id ? Number(values.school_id) : undefined,
     }
@@ -322,6 +434,17 @@ function ArticleFormModal({
           />
           <Input label={t('inventaire.valeur_unitaire_label')} type="number" min={0} {...register('valeur_unitaire')} />
         </div>
+
+        {/* Renseigner ce prix suffit a faire apparaitre l'article au comptoir :
+            c'est ce qui distingue une fourniture vendue du mobilier de l'ecole. */}
+        <Input
+          label={t('inventaire.prix_vente_label')}
+          type="number"
+          min={0}
+          icon={Tags}
+          placeholder={t('inventaire.prix_vente_placeholder')}
+          {...register('prix_vente')}
+        />
 
         <Input label={t('inventaire.localisation_col')} placeholder={t('inventaire.localisation_placeholder')} {...register('localisation')} />
         <Input label={t('inventaire.date_acquisition_label')} type="date" {...register('date_acquisition')} />

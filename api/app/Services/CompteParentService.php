@@ -67,11 +67,16 @@ class CompteParentService extends BaseService
      * une seule fiche mal renseignée ne doit pas priver toutes les autres
      * familles de leur accès.
      *
+     * Accepte une liste d'écoles, comme {@see identifiants()} : le super admin
+     * en mode agrégé voit les tuteurs de tout le complexe, et le rattrapage
+     * doit couvrir le même périmètre que la liste qu'il a sous les yeux.
+     *
+     * @param  int|list<int>  $schoolId
      * @return array{crees: int, ignores: list<array{tuteur: string, motif: string}>}
      */
-    public function assurerLot(int $schoolId): array
+    public function assurerLot(int|array $schoolId): array
     {
-        $tuteurs = Tuteur::where('school_id', $schoolId)->whereNull('user_id')->get();
+        $tuteurs = Tuteur::forSchool($schoolId)->whereNull('user_id')->get();
 
         $crees = 0;
         $ignores = [];

@@ -36,6 +36,35 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
+     * Représentation d'un créneau pour l'API — partagée entre la vue
+     * personnel (`EmploiDuTempsController`) et la vue lecture seule du
+     * portail parent, pour ne pas faire dériver la liste des champs exposés
+     * entre les deux.
+     */
+    public static function presenter(EmploiDuTemps $creneau): array
+    {
+        $creneau->loadMissing('classe', 'classesAssociees');
+
+        return [
+            'id' => $creneau->id,
+            'jour' => $creneau->jour,
+            'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
+            'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
+            'salle' => $creneau->salle,
+            'classe_matiere_id' => $creneau->classe_matiere_id,
+            'matiere' => $creneau->classeMatiere?->matiere?->nom,
+            'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
+            // La classe porteuse : sur la grille d'une classe associée, le
+            // créneau vient d'ailleurs et l'écran doit pouvoir le dire.
+            'classe_id' => $creneau->classe_id,
+            'classe' => $creneau->classe?->nom,
+            'classes_associees' => $creneau->classesAssociees
+                ->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+            'tronc_commun' => $creneau->classesAssociees->isNotEmpty(),
+        ];
+    }
+
+    /**
      * Refuse un créneau qui empiète sur un autre créneau du même jour pour
      * l'une des classes concernées : deux cours simultanés rendraient l'appel
      * ambigu.

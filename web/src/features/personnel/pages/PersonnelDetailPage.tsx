@@ -21,9 +21,16 @@ import {
   archivePersonnel,
   reactivatePersonnel,
   deletePersonnel,
+  type Personnel,
 } from '@/features/personnel/api'
-import { fetchAvancesSalaire, fetchHistoriqueRemunerations, francs, GAINS } from '@/features/finance/api'
+import {
+  fetchAvancesSalaire,
+  fetchHistoriqueRemunerations,
+  francs,
+  GAINS,
+} from '@/features/finance/api'
 import { AccorderAvanceModal } from '@/features/finance/AccorderAvanceModal'
+import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -68,6 +75,7 @@ export function PersonnelDetailPage() {
 
   const [compteOuvert, setCompteOuvert] = useState(false)
   const [avanceOuverte, setAvanceOuverte] = useState(false)
+  const [remunerationOuverte, setRemunerationOuverte] = useState(false)
 
   const { data: personnel, isLoading, isError } = useQuery({
     queryKey: ['personnel', personnelId],
@@ -143,19 +151,19 @@ export function PersonnelDetailPage() {
           onClick: () => navigate(`/personnel/${personnel.id}/edit`),
         },
         can('personnel.manage') &&
-          !personnel.a_un_compte && {
-            label: t('personnel.create_account'),
-            icon: KeyRound,
-            aide: t('hub.personnel.compte_aide'),
-            onClick: () => setCompteOuvert(true),
-          },
+        !personnel.a_un_compte && {
+          label: t('personnel.create_account'),
+          icon: KeyRound,
+          aide: t('hub.personnel.compte_aide'),
+          onClick: () => setCompteOuvert(true),
+        },
         secondaire &&
-          personnel.departement && {
-            label: t('hub.personnel.voir_departement'),
-            icon: Building2,
-            aide: personnel.departement.nom,
-            onClick: () => navigate(`/departements/${personnel.departement?.id}`),
-          },
+        personnel.departement && {
+          label: t('hub.personnel.voir_departement'),
+          icon: Building2,
+          aide: personnel.departement.nom,
+          onClick: () => navigate(`/departements/${personnel.departement?.id}`),
+        },
       ],
     },
     {
@@ -169,7 +177,7 @@ export function PersonnelDetailPage() {
         can('finance.paie') && {
           label: t('hub.personnel.definir_remuneration'),
           icon: Banknote,
-          onClick: () => navigate('/salaires'),
+          onClick: () => setRemunerationOuverte(true),
         },
       ],
     },
@@ -344,7 +352,51 @@ export function PersonnelDetailPage() {
           }}
         />
       )}
+
+      {remunerationOuverte && (
+        <RemunerationPourPersonnel
+          personnel={personnel}
+          onClose={() => setRemunerationOuverte(false)}
+          onEnregistre={() => {
+            setRemunerationOuverte(false)
+            queryClient.invalidateQueries({ queryKey: ['remunerations-historique', personnel.id] })
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function RemunerationPourPersonnel({
+  personnel,
+  onClose,
+  onEnregistre,
+}: {
+  personnel: Personnel
+  onClose: () => void
+  onEnregistre: () => void
+}) {
+  const { data } = useQuery({
+    queryKey: ['remunerations-historique', personnel.id],
+    queryFn: () => fetchHistoriqueRemunerations(personnel.id),
+  })
+
+  const remuneration = data?.historique[0] ?? null
+
+  return (
+    <RemunerationModal
+      personnel={{
+        id: personnel.id,
+        nom_complet: personnel.nom_complet,
+        matricule: personnel.matricule,
+        fonction: personnel.fonction,
+        statut: personnel.statut,
+        school: personnel.school,
+        remuneration,
+      }}
+      onClose={onClose}
+      onEnregistre={onEnregistre}
+    />
   )
 }
 

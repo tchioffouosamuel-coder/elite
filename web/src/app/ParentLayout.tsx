@@ -50,7 +50,10 @@ export function ParentLayout() {
             <span className="font-display text-base font-bold tracking-tight">Espace parent</span>
           </div>
 
-          <nav className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-4 border-t border-navy-600 bg-navy-800/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(8,21,43,0.16)] backdrop-blur sm:static sm:flex sm:h-auto sm:w-auto sm:flex-1 sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+          <nav
+            className="fixed inset-x-0 bottom-0 z-40 grid h-16 border-t border-navy-600 bg-navy-800/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(8,21,43,0.16)] backdrop-blur sm:static sm:flex sm:h-auto sm:w-auto sm:flex-1 sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none"
+            style={{ gridTemplateColumns: `repeat(${liens.length}, minmax(0, 1fr))` }}
+          >
             {liens.map((lien) => (
               <NavLink
                 key={lien.to}

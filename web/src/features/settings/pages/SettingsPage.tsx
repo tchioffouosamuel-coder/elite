@@ -164,8 +164,8 @@ export function SettingsPage() {
                       </select>
                     ) : (
                       <input
-                        type={s.type === 'text' ? 'text' : 'number'}
-                        step={s.type === 'text' ? undefined : '0.5'}
+                        type={s.type === 'text' ? 'text' : s.type === 'date' ? 'date' : 'number'}
+                        step={s.type === 'text' || s.type === 'date' ? undefined : '0.5'}
                         value={valeurs[s.key] ?? ''}
                         onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
                         className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { JOURS } from '@/features/emploiDuTemps/api'
 import {
   ArrowLeft,
   FileDown,
@@ -17,6 +19,9 @@ import {
   FilePlus2,
   Pencil,
   Clock,
+  CalendarClock,
+  Stethoscope,
+  Gavel,
 } from 'lucide-react'
 import {
   fetchEnfant,
@@ -29,6 +34,9 @@ import {
   soumettreObservation,
   fetchModificationEnAttente,
   soumettreModification,
+  fetchEmploiDuTempsEnfant,
+  fetchVisitesInfirmerieEnfant,
+  fetchSanctionsEnfant,
   type MotifJustification,
   type EnfantDossier,
   type ModificationEnfantPayload,
@@ -198,7 +206,10 @@ export function ParentEnfantPage() {
 
       <FinanceCard eleveId={eleveId} />
       <ProgressionCard eleveId={eleveId} />
+      <EmploiDuTempsCard eleveId={eleveId} />
       <AssiduiteCard eleveId={eleveId} />
+      <InfirmerieCard eleveId={eleveId} />
+      <DisciplineCard eleveId={eleveId} />
       <ObservationsCard eleveId={eleveId} />
 
       {modificationOuverte && (
@@ -351,7 +362,48 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             ))}
           </dl>
 
-          <div className="overflow-x-auto rounded-xl border border-navy-100">
+          {(finance.date_limite_paiement || finance.moratoire || finance.date_exclusion_insolvables) && (
+            <div className="mb-4 flex flex-col gap-1.5 text-xs">
+              {finance.date_limite_paiement && (
+                <p className="text-navy-500">
+                  Date limite de paiement : <span className="font-semibold text-navy-800">{new Date(finance.date_limite_paiement).toLocaleDateString('fr-FR')}</span>
+                </p>
+              )}
+              {/* Un moratoire valide concerne cette famille précisément — il prime sur
+                  la date d'exclusion générale de l'école, qui ne s'applique plus à elle. */}
+              {finance.moratoire ? (
+                <p className="rounded-lg bg-gold-50 px-3 py-2 text-gold-800">
+                  Moratoire accordé jusqu'au{' '}
+                  <span className="font-semibold">{new Date(finance.moratoire.date_expiration).toLocaleDateString('fr-FR')}</span>
+                  {finance.moratoire.motif ? ` · ${finance.moratoire.motif}` : ''}
+                </p>
+              ) : (
+                finance.date_exclusion_insolvables && (
+                  <p className="text-navy-500">
+                    Date d'exclusion des insolvables :{' '}
+                    <span className="font-semibold text-navy-800">{new Date(finance.date_exclusion_insolvables).toLocaleDateString('fr-FR')}</span>
+                  </p>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Sous sm : liste empilée plutôt qu'un tableau à scroller horizontalement —
+              le parent consulte surtout depuis son téléphone. */}
+          <div className="flex flex-col divide-y divide-navy-50 rounded-xl border border-navy-100 text-sm sm:hidden">
+            {finance.rubriques.map((r) => (
+              <div key={`${r.cle}:${r.dossier_frais_annexe_id ?? ''}`} className="flex flex-col gap-1.5 px-3 py-2.5">
+                <span className="font-medium text-navy-800">{r.libelle}</span>
+                <div className="flex items-center justify-between text-xs tabular-nums">
+                  <span className="text-navy-400">Dû : <span className="text-navy-700">{francs(r.montant_du)}</span></span>
+                  <span className="text-navy-400">Payé : <span className="text-green-600">{francs(r.montant_paye)}</span></span>
+                  <span className="text-navy-400">Reste : <span className="text-red-500">{francs(r.reste)}</span></span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-xl border border-navy-100 sm:block">
             <table className="w-full min-w-[420px] text-xs">
               <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
@@ -642,6 +694,132 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
             </div>
           ))}
         </div>
+      )}
+    </Card>
+  )
+}
+
+function EmploiDuTempsCard({ eleveId }: { eleveId: number }) {
+  const { t } = useTranslation()
+  const { data: creneaux, isLoading } = useQuery({
+    queryKey: ['parent-emploi-du-temps', eleveId],
+    queryFn: () => fetchEmploiDuTempsEnfant(eleveId),
+  })
+
+  return (
+    <Card>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <CalendarClock className="h-4 w-4" />
+        Emploi du temps
+      </h2>
+      {isLoading ? (
+        <Spinner />
+      ) : !creneaux || creneaux.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucun emploi du temps renseigné pour l'instant.</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-navy-50">
+          {JOURS.filter((j) => creneaux.some((c) => c.jour === j.valeur)).map((j) => (
+            <div key={j.valeur} className="py-2.5 first:pt-0 last:pb-0">
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-400">
+                {t(`emploiDuTemps.jours.${j.libelle}`)}
+              </h3>
+              <div className="flex flex-col gap-1.5">
+                {creneaux
+                  .filter((c) => c.jour === j.valeur)
+                  .map((c) => (
+                    <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="text-navy-700">
+                        {c.heure_debut}–{c.heure_fin} · {c.matiere || '—'}
+                        {c.salle ? ` · ${c.salle}` : ''}
+                      </span>
+                      <span className="text-xs text-navy-400">{c.enseignant || '—'}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function InfirmerieCard({ eleveId }: { eleveId: number }) {
+  const { data: visites, isLoading } = useQuery({
+    queryKey: ['parent-visites-infirmerie', eleveId],
+    queryFn: () => fetchVisitesInfirmerieEnfant(eleveId),
+  })
+
+  return (
+    <Card>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <Stethoscope className="h-4 w-4 text-gold-500" />
+        Passages à l'infirmerie
+      </h2>
+      {isLoading ? (
+        <Spinner />
+      ) : !visites || visites.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucun passage à l'infirmerie relevé.</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-navy-50">
+          {visites.map((v) => (
+            <div key={v.id} className="flex flex-col gap-1 py-2.5 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-navy-800">
+                  {new Date(v.date_visite).toLocaleString('fr-FR')}
+                </span>
+                {v.raison && <Badge tone="gold">{v.raison}</Badge>}
+              </div>
+              {v.malaises.length > 0 && (
+                <p className="text-xs text-navy-500">{v.malaises.map((m) => m.label_fr).join(', ')}</p>
+              )}
+              {v.soins_prodiges && <p className="text-sm text-navy-700">{v.soins_prodiges}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function DisciplineCard({ eleveId }: { eleveId: number }) {
+  const { data: dossier, isLoading } = useQuery({
+    queryKey: ['parent-sanctions', eleveId],
+    queryFn: () => fetchSanctionsEnfant(eleveId),
+  })
+
+  return (
+    <Card>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <Gavel className="h-4 w-4" />
+        Discipline
+      </h2>
+      {isLoading ? (
+        <Spinner />
+      ) : !dossier || dossier.sanctions.length === 0 ? (
+        <p className="text-sm text-navy-400">Rien à signaler.</p>
+      ) : (
+        <>
+          {dossier.est_exclu && (
+            <p className="mb-3 flex items-center gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+              <ShieldAlert className="h-4 w-4 flex-none" />
+              Exclusion en cours{dossier.motif_exclusion ? ` — ${dossier.motif_exclusion}` : ''}
+            </p>
+          )}
+          <div className="flex flex-col divide-y divide-navy-50">
+            {dossier.sanctions.map((s) => (
+              <div key={s.id} className="flex flex-col gap-1 py-2.5 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-navy-800">
+                    {new Date(s.date_sanction).toLocaleDateString('fr-FR')} — {s.type}
+                  </span>
+                  <Badge tone={s.statut === 'confirmee' ? 'red' : 'gold'}>{s.statut}</Badge>
+                </div>
+                <p className="text-sm text-navy-700">{s.motif}</p>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </Card>
   )

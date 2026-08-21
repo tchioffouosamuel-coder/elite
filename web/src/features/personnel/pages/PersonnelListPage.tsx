@@ -24,6 +24,8 @@ import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModa
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
+import { fetchSchools } from '@/features/classes/api'
+import { Select } from '@/shared/ui/Field'
 
 export function PersonnelListPage() {
   const { t } = useTranslation()
@@ -34,6 +36,7 @@ export function PersonnelListPage() {
   const [showImport, setShowImport] = useState(false)
   const [accountFor, setAccountFor] = useState<number | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [schoolFilter, setSchoolFilter] = useState('')
 
   // Recherche, tri et pagination sont pris en charge par DataTable côté client :
   // on charge donc la liste entière plutôt que page par page. À l'échelle d'un
@@ -42,10 +45,12 @@ export function PersonnelListPage() {
     queryKey: ['personnels'],
     queryFn: () => fetchPersonnels({ per_page: 500 }),
   })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['personnels'] })
 
   const secondaire = estSecondaire()
+  const personnelsAffiches = data?.filter((personnel) => !schoolFilter || String(personnel.school_id) === schoolFilter) ?? []
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds)
@@ -112,28 +117,28 @@ export function PersonnelListPage() {
   const colonnes: Colonne<Personnel>[] = [
     ...(can('personnel.manage')
       ? [
-          {
-            cle: 'selection',
-            entete: data ? (
-              <input
-                type="checkbox"
-                checked={selectedIds.size === data.length && data.length > 0}
-                onClick={(event) => event.stopPropagation()}
-                onChange={() => handleSelectAll(data ?? [])}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ) : null,
-            cellule: (p: Personnel) => (
-              <input
-                type="checkbox"
-                checked={selectedIds.has(p.id)}
-                onClick={(event) => event.stopPropagation()}
-                onChange={() => handleToggleSelect(p.id)}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ),
-          } satisfies Colonne<Personnel>,
-        ]
+        {
+          cle: 'selection',
+          entete: data ? (
+            <input
+              type="checkbox"
+              checked={selectedIds.size === personnelsAffiches.length && personnelsAffiches.length > 0}
+              onClick={(event) => event.stopPropagation()}
+              onChange={() => handleSelectAll(personnelsAffiches)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ) : null,
+          cellule: (p: Personnel) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(p.id)}
+              onClick={(event) => event.stopPropagation()}
+              onChange={() => handleToggleSelect(p.id)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+        } satisfies Colonne<Personnel>,
+      ]
       : []),
     {
       cle: 'nom',
@@ -153,14 +158,14 @@ export function PersonnelListPage() {
     // n'afficherait qu'une suite de tirets.
     ...(secondaire
       ? [
-          {
-            cle: 'departement',
-            entete: t('personnel.departement'),
-            valeur: (p: Personnel) => p.departement?.nom,
-            cellule: (p: Personnel) => p.departement?.nom ?? '—',
-            masquerMobile: true,
-          },
-        ]
+        {
+          cle: 'departement',
+          entete: t('personnel.departement'),
+          valeur: (p: Personnel) => p.departement?.nom,
+          cellule: (p: Personnel) => p.departement?.nom ?? '—',
+          masquerMobile: true,
+        },
+      ]
       : []),
     {
       cle: 'telephone',
@@ -286,26 +291,26 @@ export function PersonnelListPage() {
         icon={Users}
         actions={
           <>
-          <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
-            <FileText className="h-4 w-4" />
-            {t('personnel.fichier')}
-          </Button>
-          <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
-            <FileSpreadsheet className="h-4 w-4" />
-            {t('export.excel')}
-          </Button>
-          {can('personnel.manage') && (
-            <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/identifiants')}>
-              <KeyRound className="h-4 w-4" />
-              {t('personnel.identifiants')}
+            <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
+              <FileText className="h-4 w-4" />
+              {t('personnel.fichier')}
             </Button>
-          )}
-          {can('personnel.manage') && (
-            <Button variant="secondary" onClick={() => setShowImport(true)}>
-              <Upload className="h-4 w-4" />
-              {t('personnel.import')}
+            <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
+              <FileSpreadsheet className="h-4 w-4" />
+              {t('export.excel')}
             </Button>
-          )}
+            {can('personnel.manage') && (
+              <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/identifiants')}>
+                <KeyRound className="h-4 w-4" />
+                {t('personnel.identifiants')}
+              </Button>
+            )}
+            {can('personnel.manage') && (
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('personnel.import')}
+              </Button>
+            )}
             {can('personnel.manage') && (
               <Button onClick={() => navigate('/personnel/nouveau')}>
                 <Plus className="h-4 w-4" />
@@ -347,12 +352,22 @@ export function PersonnelListPage() {
       ) : (
         <DataTable
           colonnes={colonnes}
-          lignes={data}
+          lignes={personnelsAffiches}
           cleLigne={(p) => p.id}
           onLigneClick={(p) => navigate(`/personnel/${p.id}`)}
           placeholderRecherche={t('personnel.search_placeholder')}
           messageVide={t('personnel.empty')}
           largeurMin={760}
+          outils={
+            <Select value={schoolFilter} onChange={(event) => setSchoolFilter(event.target.value)}>
+              <option value="">Toutes les écoles</option>
+              {schools?.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </Select>
+          }
         />
       )}
 

@@ -67,9 +67,18 @@ class TuteurController extends Controller
     /** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore — le rattrapage pour les familles inscrites avant le portail. */
     public function creerComptesParentLot(Request $request): JsonResponse
     {
-        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
+        // Le périmètre du rattrapage est celui de la liste affichée : `index()`
+        // agrège déjà tout le complexe pour un super admin en mode « Toutes les
+        // écoles », le bouton « ouvrir tous les accès manquants » ne peut donc
+        // pas exiger une école unique — il refuserait précisément le lot le
+        // plus utile. Un `school_id` explicite reste accepté pour le restreindre.
+        $demandee = $request->integer('school_id') ?: null;
 
-        $resultat = $this->service->assurerLot($schoolId);
+        $schoolIds = $demandee !== null
+            ? [Tenant::resolveWriteSchoolId($demandee)]
+            : Tenant::schoolIds();
+
+        $resultat = $this->service->assurerLot($schoolIds);
 
         $message = $resultat['crees'] > 0
             ? "{$resultat['crees']} accès parent ouvert(s)."

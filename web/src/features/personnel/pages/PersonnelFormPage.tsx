@@ -328,6 +328,7 @@ export function PersonnelFormPage() {
           onNext={handleNext}
           onSubmit={handleSubmit(onSubmit)}
           onCancel={() => navigate('/personnel')}
+          wide
         >
           {etape === 0 && (
             <div className="flex flex-col gap-4">

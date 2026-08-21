@@ -6,9 +6,11 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\InventaireArticle;
 use App\Services\InventaireService;
+use App\Support\Pdf\EtiquettesArticlesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class InventaireController extends Controller
 {
@@ -60,6 +62,54 @@ class InventaireController extends Controller
         return ApiResponse::success(null, 'Article supprimé.');
     }
 
+    /**
+     * Attribue son code-barres à l'article — l'action « générer le code-barres »
+     * de la fiche inventaire. Idempotente : un article déjà étiqueté conserve
+     * son code, sans quoi les étiquettes déjà collées deviendraient muettes.
+     */
+    public function codeBarre(int $id): JsonResponse
+    {
+        $article = $this->service->trouver(Tenant::schoolIds(), $id);
+        $dejaAttribue = $article->code_barre !== null;
+
+        $article = $this->service->attribuerCodeBarre($article);
+
+        return ApiResponse::success(
+            $this->resumer($article->load('school:id,name,code,type')),
+            $dejaAttribue ? 'Cet article porte déjà ce code-barres.' : 'Code-barres attribué.',
+        );
+    }
+
+    /**
+     * Planche d'étiquettes à découper et coller. Les articles qui n'ont pas
+     * encore de code en reçoivent un au passage : imprimer une étiquette et
+     * l'attribuer sont le même geste pour l'économe.
+     */
+    public function etiquettes(Request $request): Response
+    {
+        $donnees = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            // Combien d'étiquettes tirer par article — un carton de 50 cahiers
+            // identiques en demande 50, pas une.
+            'exemplaires' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        $articles = $this->service->attribuerCodesBarres(Tenant::schoolIds(), $donnees['ids']);
+        $tirage = (int) ($donnees['exemplaires'] ?? 1);
+
+        $pdf = (new EtiquettesArticlesGenerator)->build(
+            $articles,
+            $articles->first()?->school,
+            $articles->mapWithKeys(fn (InventaireArticle $a) => [$a->id => $tirage])->all(),
+        );
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="etiquettes-articles.pdf"',
+        ]);
+    }
+
     /** @return array<string, mixed> */
     private function valider(Request $request): array
     {
@@ -71,6 +121,9 @@ class InventaireController extends Controller
             'etat' => ['required', 'in:bon,moyen,mauvais,hors_service'],
             'localisation' => ['nullable', 'string', 'max:150'],
             'valeur_unitaire' => ['nullable', 'integer', 'min:0'],
+            // Renseigner un prix suffit à mettre l'article au comptoir : pas de
+            // drapeau « en vente » séparé, qui pourrait le contredire.
+            'prix_vente' => ['nullable', 'integer', 'min:0'],
             'date_acquisition' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
@@ -82,12 +135,15 @@ class InventaireController extends Controller
         return [
             'id' => $article->id,
             'nom' => $article->nom,
+            'code_barre' => $article->code_barre,
             'categorie' => $article->categorie,
             'quantite' => $article->quantite,
             'etat' => $article->etat,
             'localisation' => $article->localisation,
             'valeur_unitaire' => $article->valeur_unitaire,
             'valeur_totale' => $article->valeur_totale,
+            'prix_vente' => $article->prix_vente,
+            'valeur_vente' => $article->prix_vente === null ? null : $article->valeur_vente,
             'date_acquisition' => $article->date_acquisition?->format('Y-m-d'),
             'notes' => $article->notes,
             'school' => $article->school ? [

@@ -73,6 +73,7 @@ import { RemunerationsPage } from '@/features/finance/pages/RemunerationsPage'
 import { AvancesSalairePage } from '@/features/finance/pages/AvancesSalairePage'
 import { MesAvancesPage } from '@/features/mon-espace/pages/MesAvancesPage'
 import { InventairePage } from '@/features/inventaire/pages/InventairePage'
+import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 import { PreinscriptionsAdminPage } from '@/features/eleves/pages/PreinscriptionsAdminPage'
 import { ModificationsElevesAdminPage } from '@/features/eleves/pages/ModificationsElevesAdminPage'
@@ -192,6 +193,7 @@ export const router = createHashRouter([
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
       { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
+      { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
       { path: 'preinscriptions', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionsAdminPage /></ProtectedRoute> },

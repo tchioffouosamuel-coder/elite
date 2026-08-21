@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\InventaireArticle;
+use App\Support\CodeBarreArticle;
 use Illuminate\Database\Eloquent\Collection;
 
 class InventaireService extends BaseService
@@ -47,6 +48,47 @@ class InventaireService extends BaseService
     public function supprimer(InventaireArticle $article): void
     {
         $article->delete();
+    }
+
+    /**
+     * Attribue son code-barres à l'article, s'il n'en a pas déjà un.
+     *
+     * Idempotent à dessein : une étiquette est collée sur un objet physique.
+     * Régénérer le code à chaque appel rendrait muettes toutes celles déjà en
+     * rayon, et le comptoir ne saurait plus lire son propre stock.
+     */
+    public function attribuerCodeBarre(InventaireArticle $article): InventaireArticle
+    {
+        if ($article->code_barre !== null) {
+            return $article;
+        }
+
+        $article->update(['code_barre' => CodeBarreArticle::pourArticle($article->id)]);
+
+        return $article->refresh();
+    }
+
+    /**
+     * Attribue leur code aux articles désignés et les rend tous — y compris
+     * ceux qui en avaient déjà un, pour que l'appelant puisse imprimer la
+     * planche d'étiquettes complète en une passe.
+     *
+     * @param  int|array<int>  $schoolId
+     * @param  list<int>  $ids
+     */
+    public function attribuerCodesBarres(int|array $schoolId, array $ids): Collection
+    {
+        $articles = InventaireArticle::forSchool($schoolId)
+            ->whereIn('id', $ids)
+            ->with('school:id,name,code,type')
+            ->orderBy('nom')
+            ->get();
+
+        foreach ($articles as $article) {
+            $this->attribuerCodeBarre($article);
+        }
+
+        return $articles->fresh('school');
     }
 
     /**

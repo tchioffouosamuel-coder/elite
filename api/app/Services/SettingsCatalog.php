@@ -140,6 +140,21 @@ class SettingsCatalog
                 'label_fr' => "Seuil d'insolvabilité — reste à payer au-delà duquel un élève est listé (F CFA)",
                 'label_en' => 'Insolvency threshold — balance due above which a student is listed (F CFA)',
             ],
+            // Politiques d'établissement, affichées aux parents sur la carte
+            // finance de leur enfant — pas de date par élève ou par classe, une
+            // seule échéance pour toute l'école.
+            [
+                'key' => 'date_limite_paiement', 'groupe' => 'finance', 'type' => 'date',
+                'default' => '',
+                'label_fr' => 'Date limite de paiement de la scolarité',
+                'label_en' => 'Tuition payment deadline',
+            ],
+            [
+                'key' => 'date_exclusion_insolvables', 'groupe' => 'finance', 'type' => 'date',
+                'default' => '',
+                'label_fr' => 'Date d\'exclusion des élèves insolvables',
+                'label_en' => 'Exclusion date for insolvent students',
+            ],
         ];
     }
 

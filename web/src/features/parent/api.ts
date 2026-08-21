@@ -68,6 +68,9 @@ export interface FinanceEnfant {
   statut_paiement: StatutPaiement
   rubriques: RubriqueScolarite[]
   versements: { numero_recu: string; date_versement: string; montant: number; mode: ModePaiement }[]
+  date_limite_paiement: string | null
+  date_exclusion_insolvables: string | null
+  moratoire: { date_expiration: string; motif: string | null } | null
 }
 
 export async function fetchFinanceEnfant(eleveId: number): Promise<FinanceEnfant | null> {
@@ -88,6 +91,23 @@ export interface MatiereProgression {
 
 export async function fetchProgressionEnfant(eleveId: number): Promise<MatiereProgression[]> {
   const { data } = await http.get<ApiResponse<MatiereProgression[]>>(`/parent/enfants/${eleveId}/progression`)
+  return data.data
+}
+
+export interface CreneauEmploiDuTemps {
+  id: number
+  jour: number
+  heure_debut: string
+  heure_fin: string
+  salle: string | null
+  matiere: string | null
+  enseignant: string | null
+  classe: string | null
+  tronc_commun: boolean
+}
+
+export async function fetchEmploiDuTempsEnfant(eleveId: number): Promise<CreneauEmploiDuTemps[]> {
+  const { data } = await http.get<ApiResponse<CreneauEmploiDuTemps[]>>(`/parent/enfants/${eleveId}/emploi-du-temps`)
   return data.data
 }
 
@@ -147,6 +167,53 @@ export async function fetchObservationsEnfant(eleveId: number): Promise<Observat
 
 export async function soumettreObservation(eleveId: number, contenu: string): Promise<ObservationEnfant> {
   const { data } = await http.post<ApiResponse<ObservationEnfant>>(`/parent/enfants/${eleveId}/observations`, { contenu })
+  return data.data
+}
+
+// ----------------------------------------------------------------- Infirmerie
+
+export interface VisiteInfirmerieEnfant {
+  id: number
+  date_visite: string
+  raison: string | null
+  malaises: { id: number; label_fr: string; label_en: string }[]
+  soins_prodiges: string | null
+  observations: string | null
+  enregistre_par: string | null
+}
+
+export async function fetchVisitesInfirmerieEnfant(eleveId: number): Promise<VisiteInfirmerieEnfant[]> {
+  const { data } = await http.get<ApiResponse<VisiteInfirmerieEnfant[]>>(`/parent/enfants/${eleveId}/visites-infirmerie`)
+  return data.data
+}
+
+// ----------------------------------------------------------------- Discipline
+
+export interface SanctionEnfant {
+  id: number
+  type: string
+  duree_jours: number | null
+  date_debut: string | null
+  date_fin: string | null
+  motif: string
+  commentaire: string | null
+  date_sanction: string
+  statut: string
+  impacte_bulletin: boolean
+  enregistre_par: string | null
+}
+
+export interface DossierDisciplinaireEnfant {
+  total_sanctions: number
+  sanctions_en_cours: number
+  est_exclu: boolean
+  motif_exclusion: string | null
+  date_exclusion: string | null
+  sanctions: SanctionEnfant[]
+}
+
+export async function fetchSanctionsEnfant(eleveId: number): Promise<DossierDisciplinaireEnfant> {
+  const { data } = await http.get<ApiResponse<DossierDisciplinaireEnfant>>(`/parent/enfants/${eleveId}/sanctions`)
   return data.data
 }
 
