@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Copy, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Copy, Download, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
 import {
   fetchClasseMatieres,
   affecterMatiere,
@@ -23,10 +23,15 @@ import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { telechargerFichier } from '@/shared/lib/download'
 import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
+
+const COLONNES_SECONDAIRE = ['nom', 'nom_en', 'abreviation', 'departement', 'classes', 'coefficient', 'periodes', 'enseignant']
+const COLONNES_PRIMAIRE = ['nom', 'nom_en', 'abreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']
 
 export function AffectationsTab({
   classeId,
@@ -46,6 +51,8 @@ export function AffectationsTab({
   const [submitting, setSubmitting] = useState(false)
   const [affectationEnEdition, setAffectationEnEdition] = useState<ClasseMatiere | null>(null)
   const [showCopyModal, setShowCopyModal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [rechercheMatiere, setRechercheMatiere] = useState('')
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
@@ -74,6 +81,9 @@ export function AffectationsTab({
 
   const affectedIds = new Set(affectations?.map((a) => a.matiere.id))
   const matieresDisponibles = matieres?.filter((m) => !affectedIds.has(m.id)) ?? []
+  const matieresDisponiblesFiltrees = matieresDisponibles.filter((matiere) =>
+    matiere.nom.toLowerCase().includes(rechercheMatiere.trim().toLowerCase()),
+  )
   const matieresById = new Map((matieres ?? []).map((m) => [m.id, m]))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
@@ -322,6 +332,14 @@ export function AffectationsTab({
             <Plus className="h-4 w-4" />
             {t('pedagogie.affecter')}
           </Button>
+          <Button size="sm" variant="secondary" onClick={() => telechargerFichier('/matieres/export', { classe_id: classeId }, 'matieres.xlsx')}>
+            <Download className="h-4 w-4" />
+            {t('export.excel')}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
+            <Upload className="h-4 w-4" />
+            {t('import.title')}
+          </Button>
         </div>
       )}
 
@@ -340,27 +358,41 @@ export function AffectationsTab({
             <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('matieres.title')}</span>
-                {matieresDisponibles.length > 0 && (
+                {matieresDisponiblesFiltrees.length > 0 && (
                   <button
                     type="button"
                     onClick={() =>
                       setMatiereIds((courant) =>
-                        courant.size === matieresDisponibles.length ? new Set() : new Set(matieresDisponibles.map((m) => m.id)),
+                        courant.size === matieresDisponiblesFiltrees.length
+                          ? new Set()
+                          : new Set(matieresDisponiblesFiltrees.map((m) => m.id)),
                       )
                     }
                     className="text-xs font-semibold text-navy-400 transition-colors hover:text-navy-700"
                   >
-                    {matiereIds.size === matieresDisponibles.length ? 'Tout décocher' : 'Tout cocher'}
+                    {matiereIds.size === matieresDisponiblesFiltrees.length ? 'Tout décocher' : 'Tout cocher'}
                   </button>
                 )}
               </div>
+              {matieresDisponibles.length > 0 && (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
+                  <Input
+                    aria-label="Rechercher une matière"
+                    placeholder="Rechercher une matière…"
+                    value={rechercheMatiere}
+                    onChange={(event) => setRechercheMatiere(event.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              )}
               {matieresDisponibles.length === 0 ? (
                 <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-400">
                   Toutes les matières sont déjà affectées.
                 </p>
               ) : (
                 <div className="grid max-h-48 grid-cols-2 gap-1.5 overflow-y-auto rounded-xl border border-navy-200 bg-white p-3 sm:grid-cols-3">
-                  {matieresDisponibles.map((m: Matiere) => (
+                  {matieresDisponiblesFiltrees.map((m: Matiere) => (
                     <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-cream-50">
                       <input
                         type="checkbox"
@@ -430,6 +462,26 @@ export function AffectationsTab({
               </div>
             ) : undefined
           }
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title={t('import.title')}
+          url="/matieres/import"
+          columns={secondaire ? COLONNES_SECONDAIRE : COLONNES_PRIMAIRE}
+          choix={{
+            nom: 'cycle',
+            label: t('matieres.import_cycle'),
+            defaut: secondaire ? 'secondaire' : 'primaire',
+            options: [
+              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_SECONDAIRE },
+              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_PRIMAIRE },
+            ],
+          }}
+          onClose={() => setShowImport(false)}
+          extraFields={{ classe_id: classeId }}
+          onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
         />
       )}
 

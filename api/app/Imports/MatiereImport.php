@@ -114,6 +114,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
     public function __construct(
         private readonly int $schoolId,
         private readonly string $cycle = self::CYCLE_SECONDAIRE,
+        private readonly ?int $classeId = null,
     ) {}
 
     /**
@@ -143,7 +144,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
 
             $matiere = $this->enregistrerMatiere($nom, $ligne);
 
-            if ($this->cycle === self::CYCLE_SECONDAIRE) {
+            if ($this->cycle === self::CYCLE_SECONDAIRE || $this->classeId !== null) {
                 $this->rattacherAffectations($matiere, $ligne);
             }
         }
@@ -197,7 +198,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         // Renseigner explicitement une colonne à vide effacerait une valeur
         // saisie à la main dans l'application : on ne réécrit que ce que le
         // fichier porte réellement.
-        $attributs = array_filter($attributs, fn ($valeur) => $valeur !== null);
+        $attributs = array_filter($attributs, fn($valeur) => $valeur !== null);
 
         $matiere = Matiere::firstOrNew(['school_id' => $this->schoolId, 'nom' => $nom]);
         $existante = $matiere->exists;
@@ -262,7 +263,9 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
      */
     private function rattacherAffectations(Matiere $matiere, array $ligne): void
     {
-        $libelles = $this->decouperClasses($this->valeur($ligne, 'classes'));
+        $libelles = $this->classeId !== null
+            ? ['__classe_cible__']
+            : $this->decouperClasses($this->valeur($ligne, 'classes'));
 
         if ($libelles === []) {
             return;
@@ -273,7 +276,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         $personnelId = $this->personnelId($this->valeur($ligne, 'enseignant'));
 
         foreach ($libelles as $libelle) {
-            $classeId = $this->classes()[self::cle($libelle)] ?? null;
+            $classeId = $this->classeId ?? $this->classes()[self::cle($libelle)] ?? null;
 
             if ($classeId === null) {
                 $this->classesIntrouvables[$libelle] = ($this->classesIntrouvables[$libelle] ?? 0) + 1;
@@ -290,7 +293,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
                 'personnel_id' => $personnelId,
                 'coefficient' => $coefficient === null ? null : (float) $coefficient,
                 'quota_horaire' => $quota === null ? null : (int) $quota,
-            ], fn ($valeur) => $valeur !== null));
+            ], fn($valeur) => $valeur !== null));
 
             $affectation->statut ??= 'actif';
             $affectation->save();
@@ -311,7 +314,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         $normalise = str_replace(self::SEPARATEURS_CLASSES, ';', (string) $valeur);
 
         return collect(explode(';', $normalise))
-            ->map(fn (string $libelle) => trim($libelle))
+            ->map(fn(string $libelle) => trim($libelle))
             ->filter()
             ->unique()
             ->values()

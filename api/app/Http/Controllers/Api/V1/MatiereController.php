@@ -37,10 +37,10 @@ class MatiereController extends Controller
         $affectations = $matiere->classeMatieres()
             ->with(['classe', 'enseignant'])
             ->get()
-            ->sortBy(fn ($a) => $a->classe?->nom)
+            ->sortBy(fn($a) => $a->classe?->nom)
             ->values();
 
-        return ApiResponse::success($affectations->map(fn ($a) => [
+        return ApiResponse::success($affectations->map(fn($a) => [
             'classe_matiere_id' => $a->id,
             'classe' => $a->classe ? ['id' => $a->classe->id, 'nom' => $a->classe->nom] : null,
             'enseignant' => $a->enseignant ? ['id' => $a->enseignant->id, 'nom_complet' => $a->enseignant->nom_complet] : null,
@@ -89,7 +89,7 @@ class MatiereController extends Controller
 
         Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->delete();
 
-        return ApiResponse::success(message: count($ids).' matière(s) supprimée(s).');
+        return ApiResponse::success(message: count($ids) . ' matière(s) supprimée(s).');
     }
 
     /**
@@ -103,9 +103,15 @@ class MatiereController extends Controller
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
             'cycle' => ['required', Rule::in(MatiereImport::CYCLES)],
+            'classe_id' => ['nullable', 'integer'],
         ]);
 
-        $import = new MatiereImport(Tenant::schoolId(), $request->string('cycle')->toString());
+        $classeId = $request->integer('classe_id') ?: null;
+        if ($classeId !== null) {
+            Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        }
+
+        $import = new MatiereImport(Tenant::schoolId(), $request->string('cycle')->toString(), $classeId);
         Excel::import($import, $request->file('file'));
 
         return ApiResponse::success([
@@ -126,9 +132,14 @@ class MatiereController extends Controller
      * Export au format relu par l'import : c'est le même fichier qui sert de
      * sauvegarde, de gabarit de saisie et de support de correction en masse.
      */
-    public function export(): BinaryFileResponse
+    public function export(Request $request): BinaryFileResponse
     {
-        return Excel::download(new MatiereExport(Tenant::schoolIds()), 'matieres.xlsx');
+        $classeId = $request->integer('classe_id') ?: null;
+        if ($classeId !== null) {
+            Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        }
+
+        return Excel::download(new MatiereExport(Tenant::schoolIds(), $classeId), 'matieres.xlsx');
     }
 
     private function messageImport(MatiereImport $import): string
@@ -143,6 +154,6 @@ class MatiereController extends Controller
             $parties[] = "{$import->affectationsCount} affectation(s) rattachée(s)";
         }
 
-        return implode(', ', $parties).'.';
+        return implode(', ', $parties) . '.';
     }
 }

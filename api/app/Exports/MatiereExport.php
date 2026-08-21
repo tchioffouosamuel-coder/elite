@@ -30,7 +30,10 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 class MatiereExport implements FromCollection, ShouldAutoSize, WithHeadings
 {
     /** @param int|array<int> $schoolId */
-    public function __construct(private readonly int|array $schoolId) {}
+    public function __construct(
+        private readonly int|array $schoolId,
+        private readonly ?int $classeId = null,
+    ) {}
 
     public function headings(): array
     {
@@ -57,18 +60,20 @@ class MatiereExport implements FromCollection, ShouldAutoSize, WithHeadings
     {
         $matieres = Matiere::forSchool($this->schoolId)
             ->with('departement')
+            ->when($this->classeId, fn($query) => $query->whereHas('classeMatieres', fn($affectations) => $affectations->where('classe_id', $this->classeId)))
             ->orderBy('nom')
             ->get();
 
         $affectations = ClasseMatiere::whereIn('matiere_id', $matieres->pluck('id'))
+            ->when($this->classeId, fn($query) => $query->where('classe_id', $this->classeId))
             ->with(['classe:id,nom', 'enseignant:id,nom_complet'])
             ->get()
             ->groupBy('matiere_id');
 
         return $matieres->flatMap(function (Matiere $matiere) use ($affectations) {
             $lignes = ($affectations->get($matiere->id) ?? collect())
-                ->sortBy(fn (ClasseMatiere $a) => $a->classe?->nom)
-                ->map(fn (ClasseMatiere $a) => $this->ligne($matiere, $a))
+                ->sortBy(fn(ClasseMatiere $a) => $a->classe?->nom)
+                ->map(fn(ClasseMatiere $a) => $this->ligne($matiere, $a))
                 ->values();
 
             return $lignes->isEmpty() ? collect([$this->ligne($matiere, null)]) : $lignes;
