@@ -21,25 +21,39 @@ class EtatEmargementGenerator
 {
     use RenduDocument;
 
-    /** @param  Collection<int, BulletinPaie>  $bulletins */
-    public function build(School $school, Collection $bulletins, string $periode): string
+    /**
+     * @param  Collection<int, School>  $schools  Un établissement par page — le
+     *                                             super admin en mode agrégé
+     *                                             (aucun X-School-Id) voit tout
+     *                                             le complexe, pas seulement
+     *                                             l'école par défaut de son
+     *                                             compte.
+     * @param  Collection<int, BulletinPaie>  $bulletins  Bulletins de tous les établissements listés, mélangés.
+     */
+    public function build(Collection $schools, Collection $bulletins, string $periode): string
     {
         $mpdf = MpdfFactory::make([
             'format' => 'A4',
             'orientation' => 'L',
             'margin_top' => 10,
             'margin_bottom' => 12,
-        ], $school);
+        ], $schools->first());
         $mpdf->SetTitle('État d\'émargement — '.$periode);
+
+        $pages = $schools->map(function (School $school) use ($bulletins, $periode) {
+            $bulletinsEcole = $bulletins->where('school_id', $school->id)->values();
+
+            return $this->enTeteEcole($school)
+                .$this->titre($periode, $bulletinsEcole)
+                .$this->tableau($bulletinsEcole)
+                .$this->pied($school);
+        });
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
                 .$this->stylesBase().$this->stylesPropres()
                 .'</style></head><body>'
-                .$this->enTeteEcole($school)
-                .$this->titre($periode, $bulletins)
-                .$this->tableau($bulletins)
-                .$this->pied($school)
+                .$pages->implode('<pagebreak />')
                 .'</body></html>'
         );
 

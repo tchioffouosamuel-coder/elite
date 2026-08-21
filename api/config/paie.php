@@ -135,4 +135,74 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Barème appliqué
+    |--------------------------------------------------------------------------
+    |
+    | « legal » applique le barème publié (IRPP progressif, TDL par tranche,
+    | exonérations, plafond CNPS). « maison » reproduit la pratique des
+    | registres de l'établissement : taux forfaitaires, pas d'IRPP, assiette
+    | plafonnée, part salariale absorbée par l'école.
+    |
+    | Le second est ce que disent les feuilles de paie et les états de
+    | cotisations réellement produits. Le premier est ce que dit la loi. Le
+    | choix engage l'établissement : il se fait ici, en connaissance de cause,
+    | et non par accident dans une formule de tableur.
+    |
+    */
+
+    'bareme' => env('PAIE_BAREME', 'maison'),
+
+    'maison' => [
+
+        /*
+         * Assiette déclarée, plafonnée. Les registres arrêtent la colonne
+         * « salaire de base » à 60 000 F et reclassent le surplus en « autres
+         * avantages » ; c'est cette base qui sert la déclaration.
+         *
+         * ATTENTION : la pension de vieillesse se liquide sur les salaires
+         * déclarés — plafonner l'assiette réduit les droits de l'agent
+         * d'autant. Porter ce réglage à 0 fait suivre le salaire réel.
+         */
+        'plafond_assiette' => (int) env('PAIE_MAISON_PLAFOND_ASSIETTE', 60000),
+
+        /*
+         * L'agent perçoit le montant négocié à la rentrée, entier : la part
+         * salariale ne l'ampute pas, l'école la supporte. Elle reste due aux
+         * organismes — cela ne change que qui la paie.
+         */
+        'charges_salariales_supportees_par_employeur' => (bool) env('PAIE_MAISON_CHARGES_SALARIALES_EMPLOYEUR', true),
+
+        /*
+         * Taux forfaitaires relevés sur l'état de cotisations : 5,58 % de
+         * retenue salariale, 15,45 % de contribution patronale, 21,03 % au
+         * total. Aucun IRPP — les assiettes déclarées restent sous le seuil.
+         */
+        'taux' => [
+            'tdl_salarie' => (float) env('PAIE_MAISON_TDL', 0.38),
+            'cfc_salarie' => (float) env('PAIE_MAISON_CFC_SALARIE', 1.0),
+            'cfc_employeur' => (float) env('PAIE_MAISON_CFC_EMPLOYEUR', 1.5),
+            'fne_employeur' => (float) env('PAIE_MAISON_FNE', 1.0),
+            'cnps_pension_salarie' => (float) env('PAIE_MAISON_CNPS_PENSION_SALARIE', 4.2),
+            'cnps_pension_employeur' => (float) env('PAIE_MAISON_CNPS_PENSION_EMPLOYEUR', 4.2),
+            'cnps_prestations_familiales' => (float) env('PAIE_MAISON_CNPS_FAMILLE', 7.0),
+            'cnps_accidents_travail' => (float) env('PAIE_MAISON_CNPS_ACCIDENTS', 1.75),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bordereau de virement
+    |--------------------------------------------------------------------------
+    |
+    | Les bordereaux du classeur arrondissent le net à la centaine inférieure ;
+    | l'appoint reste en caisse. Porter ce réglage à 1 vire le net au franc.
+    |
+    */
+
+    'bordereau' => [
+        'arrondi' => (int) env('PAIE_BORDEREAU_ARRONDI', 100),
+    ],
+
 ];

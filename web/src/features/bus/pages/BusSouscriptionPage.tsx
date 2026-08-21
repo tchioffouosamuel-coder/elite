@@ -73,10 +73,10 @@ export function BusSouscriptionPage() {
   } = useForm<{ trajet_id: number; arret_id?: number; option_trajet: OptionTrajet }>({
     defaultValues: etat?.affectationActuelle
       ? {
-          trajet_id: etat.affectationActuelle.trajet_id,
-          arret_id: etat.affectationActuelle.arret_id ?? undefined,
-          option_trajet: etat.affectationActuelle.option_trajet,
-        }
+        trajet_id: etat.affectationActuelle.trajet_id,
+        arret_id: etat.affectationActuelle.arret_id ?? undefined,
+        option_trajet: etat.affectationActuelle.option_trajet,
+      }
       : { trajet_id: etat?.trajetId, option_trajet: 'aller_retour' },
   })
 
@@ -202,7 +202,7 @@ export function BusSouscriptionPage() {
             <option value="">—</option>
             {(trajetDetail?.arrets ?? []).map((arret) => (
               <option key={arret.id} value={arret.id}>
-                {arret.nom}
+                {arret.nom}{arret.lieu_dit ? ` — ${arret.lieu_dit}` : ''}
               </option>
             ))}
           </Select>

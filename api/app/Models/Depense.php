@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Depense extends Model
 {
     protected $fillable = [
-        'school_id', 'annee_scolaire_id', 'compte_comptable_id', 'date_depense', 'libelle', 'montant',
+        'school_id', 'annee_scolaire_id', 'compte_comptable_id', 'vehicule_id', 'date_depense', 'libelle', 'montant',
         'mode', 'beneficiaire', 'reference_facture', 'responsable', 'saisi_par', 'justificatif_path',
         'statut', 'annule_le', 'annule_par', 'motif_annulation',
     ];
@@ -43,5 +43,10 @@ class Depense extends Model
     public function saisisseur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'saisi_par');
+    }
+
+    public function vehicule(): BelongsTo
+    {
+        return $this->belongsTo(BusVehicule::class, 'vehicule_id');
     }
 }

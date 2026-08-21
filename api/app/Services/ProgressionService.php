@@ -54,10 +54,7 @@ class ProgressionService extends BaseService
                 'description' => $item->description,
                 'ordre' => $item->ordre,
                 'duree_prevue' => $item->duree_prevue,
-                'objectifs' => $item->objectifs,
-                'materiel' => $item->materiel,
-                'activites' => $item->activites,
-                'devoirs' => $item->devoirs,
+                'a_preparation' => $this->aPreparation($item),
                 'sequence' => $item->sequence ? [
                     'id' => $item->sequence->id,
                     'libelle' => $item->sequence->libelle,
@@ -70,6 +67,41 @@ class ProgressionService extends BaseService
                 'enfants' => $this->brancher($items, $item->id, $parTrimestre),
             ])
             ->values();
+    }
+
+    /** Une leçon a une fiche de préparation dès qu'un de ses champs a été renseigné. */
+    private function aPreparation(ProgressionItem $item): bool
+    {
+        return $item->type === 'lecon' && (
+            filled($item->topic) || filled($item->lesson) || filled($item->competence)
+            || filled($item->mode) || filled($item->entry_behaviour) || filled($item->teaching_aids)
+            || filled($item->teaching_learning_strategies) || filled($item->references)
+            || filled($item->research_questions) || filled($item->introduction)
+            || filled($item->presentation) || filled($item->conclusion)
+        );
+    }
+
+    /** Fiche de préparation détaillée d'une leçon, avec le fil d'ariane classe/matière. */
+    public function fichePreparation(ProgressionItem $item): array
+    {
+        return [
+            'id' => $item->id,
+            'titre' => $item->titre,
+            'classe' => ['id' => $item->classeMatiere->classe->id, 'nom' => $item->classeMatiere->classe->nom],
+            'matiere' => ['id' => $item->classeMatiere->matiere->id, 'nom' => $item->classeMatiere->matiere->nom],
+            'topic' => $item->topic,
+            'lesson' => $item->lesson,
+            'competence' => $item->competence,
+            'mode' => $item->mode,
+            'entry_behaviour' => $item->entry_behaviour,
+            'teaching_aids' => $item->teaching_aids,
+            'teaching_learning_strategies' => $item->teaching_learning_strategies,
+            'references' => $item->references,
+            'research_questions' => $item->research_questions,
+            'introduction' => $item->introduction,
+            'presentation' => $item->presentation,
+            'conclusion' => $item->conclusion,
+        ];
     }
 
     /**

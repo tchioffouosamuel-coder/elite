@@ -48,6 +48,12 @@ export interface AuthUser {
    */
   est_enseignant?: boolean
   /**
+   * Le compte porte-t-il une fiche personnel ? Ouvre « Mes avances », le
+   * libre-service de l'agent sur ses propres avances sur salaire — un
+   * périmètre « moi-même », que ne traduit aucun privilège de gestion.
+   */
+  est_personnel?: boolean
+  /**
    * Responsabilités nominatives confiées au compte, avec les classes (et pour
    * le chef de département, les départements) concernées. Distinct des
    * privilèges : `discipline.manage` dit ce qu'il peut faire, l'attribution

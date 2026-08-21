@@ -113,6 +113,7 @@ export function BusTrajetDetailPage() {
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-navy-900">{arret.nom}</p>
+                    {arret.lieu_dit && <p className="text-xs text-navy-500">{arret.lieu_dit}</p>}
                     {arret.heure_passage && (
                       <p className="flex items-center gap-1 text-xs text-navy-400">
                         <Clock className="h-3 w-3" />
@@ -196,6 +197,7 @@ export function BusTrajetDetailPage() {
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5 text-navy-300" />
                           {a.arret.nom}
+                          {a.arret.lieu_dit && <span className="ml-1 text-xs text-navy-400">({a.arret.lieu_dit})</span>}
                         </span>
                       ) : (
                         '—'
@@ -355,7 +357,7 @@ function ArretFormModal({
     formState: { isSubmitting, errors },
   } = useForm<BusArretPayload>({
     defaultValues: arret
-      ? { nom: arret.nom, ordre: arret.ordre, heure_passage: arret.heure_passage ?? '' }
+      ? { nom: arret.nom, lieu_dit: arret.lieu_dit ?? '', ordre: arret.ordre, heure_passage: arret.heure_passage ?? '' }
       : { ordre: 1 },
   })
 
@@ -363,6 +365,7 @@ function ArretFormModal({
     setServerError(null)
     const payload: BusArretPayload = {
       ...values,
+      lieu_dit: values.lieu_dit || null,
       ordre: values.ordre ? Number(values.ordre) : null,
       heure_passage: values.heure_passage || null,
     }
@@ -389,6 +392,7 @@ function ArretFormModal({
           error={errors.nom?.message}
           {...register('nom', { required: t('bus.field_required') as string })}
         />
+        <Input label={t('bus.lieu_dit')} {...register('lieu_dit')} />
         <Input label={t('bus.ordre')} type="number" min={1} {...register('ordre')} />
         <Input label={t('bus.heure_passage')} type="time" {...register('heure_passage')} />
 

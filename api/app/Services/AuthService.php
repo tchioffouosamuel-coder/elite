@@ -4,16 +4,28 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Support\Telephone;
 use Illuminate\Support\Facades\Hash;
 
 class AuthService extends BaseService
 {
     /**
+     * Le personnel se connecte par e-mail, les parents par téléphone (cf.
+     * CompteParentService, qui n'ouvre pas d'adresse) : `$identifiant` peut
+     * être l'un ou l'autre, distingués par la présence d'un « @ ». Un numéro
+     * doit passer par la même normalisation qu'à l'ouverture du compte, sans
+     * quoi la moindre variante de saisie (espaces, préfixe 0…) le rendrait
+     * introuvable.
+     *
      * @return array{user: User, token: string}|null null when the credentials are invalid or the account is disabled.
      */
-    public function login(string $email, string $password, string $deviceName = 'web'): ?array
+    public function login(string $identifiant, string $password, string $deviceName = 'web'): ?array
     {
-        $user = User::where('email', $email)->first();
+        $identifiant = trim($identifiant);
+
+        $user = str_contains($identifiant, '@')
+            ? User::where('email', $identifiant)->first()
+            : User::where('phone', Telephone::normaliser($identifiant))->first();
 
         if (! $user || ! Hash::check($password, $user->password) || ! $user->is_active) {
             return null;

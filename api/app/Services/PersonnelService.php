@@ -130,7 +130,7 @@ class PersonnelService extends BaseService
      *     par_departement: array<string, int>
      * }
      */
-    public function fichier(int $schoolId): array
+    public function fichier(int|array $schoolId): array
     {
         $personnels = Personnel::forSchool($schoolId)
             ->where('statut', 'actif')
@@ -149,9 +149,9 @@ class PersonnelService extends BaseService
             'personnels' => $personnels,
             'total' => $personnels->count(),
             'avec_acces' => $personnels->whereNotNull('user_id')->count(),
-            'par_fonction' => $ventilation($personnels->map(fn (Personnel $p) => $p->fonction ?: 'Non précisée')),
+            'par_fonction' => $ventilation($personnels->map(fn(Personnel $p) => $p->fonction ?: 'Non précisée')),
             'par_departement' => $ventilation(
-                $personnels->map(fn (Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
+                $personnels->map(fn(Personnel $p) => $p->departement?->nom ?: 'Non rattaché')
             ),
         ];
     }

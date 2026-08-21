@@ -130,6 +130,16 @@ class SettingsCatalog
                 'label_fr' => 'Mentions légales en pied de document (arrêté, comptes, immatriculation)',
                 'label_en' => 'Legal notices in document footer (order, accounts, registration)',
             ],
+            // Un élève dont le reste à payer dépasse ce seuil apparaît sur la
+            // liste des insolvables — indépendant du statut binaire impayé/partiel
+            // déjà utilisé à la caisse, pour laisser un petit reliquat sans
+            // déclencher de relance.
+            [
+                'key' => 'seuil_insolvabilite', 'groupe' => 'finance', 'type' => 'number',
+                'default' => 0,
+                'label_fr' => "Seuil d'insolvabilité — reste à payer au-delà duquel un élève est listé (F CFA)",
+                'label_en' => 'Insolvency threshold — balance due above which a student is listed (F CFA)',
+            ],
         ];
     }
 

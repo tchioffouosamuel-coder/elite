@@ -102,7 +102,10 @@ class RegistreSync
             ],
             'progression_items' => [
                 'modele' => ProgressionItem::class,
-                'colonnes' => ['id', 'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'objectifs', 'materiel', 'activites', 'devoirs', 'ordre', 'sequence_id', 'duree_prevue'],
+                'colonnes' => [
+                    'id', 'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'objectifs', 'materiel', 'activites', 'devoirs', 'ordre', 'sequence_id', 'duree_prevue',
+                    'topic', 'lesson', 'competence', 'mode', 'entry_behaviour', 'teaching_aids', 'teaching_learning_strategies', 'references', 'research_questions', 'introduction', 'presentation', 'conclusion',
+                ],
                 'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
                 'permission' => 'pedagogie.view',
             ],

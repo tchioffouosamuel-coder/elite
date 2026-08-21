@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Seance extends Model
 {
@@ -53,6 +54,50 @@ class Seance extends Model
     }
 
     /** Durée de la séance en heures, base du cumul d'absences. */
+    public function emploiDuTemps(): BelongsTo
+    {
+        return $this->belongsTo(EmploiDuTemps::class);
+    }
+
+    /**
+     * Classes convoquées à cette séance.
+     *
+     * Une séance ordinaire n'en concerne qu'une. Une séance née d'un créneau
+     * en tronc commun en réunit plusieurs : c'est ce périmètre qui compose la
+     * feuille d'appel, et c'est lui qui autorise un pointage.
+     *
+     * Le repli sur la seule classe porteuse couvre les séances créées à la
+     * main, sans créneau d'origine.
+     *
+     * @return Collection<int, Classe>
+     */
+    public function classesConcernees(): Collection
+    {
+        $this->loadMissing('emploiDuTemps.classesAssociees', 'emploiDuTemps.classe', 'classe');
+
+        return $this->emploiDuTemps
+            ? $this->emploiDuTemps->toutesLesClasses()
+            : collect([$this->classe])->filter()->values();
+    }
+
+    public function estTroncCommun(): bool
+    {
+        return $this->classesConcernees()->count() > 1;
+    }
+
+    /**
+     * Élèves attendus à l'appel : tous les actifs des classes concernées.
+     *
+     * @return Collection<int, Eleve>
+     */
+    public function elevesAttendus(): Collection
+    {
+        return Eleve::whereIn('classe_id', $this->classesConcernees()->pluck('id'))
+            ->where('statut', 'actif')
+            ->orderBy('nom_complet')
+            ->get();
+    }
+
     public function dureeHeures(): float
     {
         $debut = strtotime($this->heure_debut);

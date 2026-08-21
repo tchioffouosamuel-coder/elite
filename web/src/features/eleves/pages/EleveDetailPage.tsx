@@ -1,8 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Pencil, FileDown, FileText, Phone, Mail, Briefcase, UserRound } from 'lucide-react'
-import { fetchEleve } from '@/features/eleves/api'
+import { useState } from 'react'
+import { ArrowLeft, Pencil, FileDown, FileText, Phone, Mail, Briefcase, UserRound, KeyRound } from 'lucide-react'
+import { fetchEleve, creerCompteParent } from '@/features/eleves/api'
+import { identifiantsOuverts, erreur } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { DossierDisciplinaireCard } from '@/features/discipline/pages/DossierDisciplinaireCard'
 import { SanteEleveCard } from '@/features/infirmerie/pages/SanteEleveCard'
@@ -30,9 +33,22 @@ export function EleveDetailPage() {
   const can = useAuthStore((s) => s.can)
   const { id } = useParams<{ id: string }>()
   const eleveId = Number(id)
+  const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
 
   const { data: eleve, isLoading, isError } = useQuery({ queryKey: ['eleve', eleveId], queryFn: () => fetchEleve(eleveId) })
   const secondaire = estSecondaire(eleve?.school?.type)
+
+  const ouvrirAccesParent = async (tuteurId: number) => {
+    setOuvertureEnCours(tuteurId)
+    try {
+      const { identifiant, mot_de_passe_provisoire } = await creerCompteParent(tuteurId)
+      identifiantsOuverts(identifiant, mot_de_passe_provisoire)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setOuvertureEnCours(null)
+    }
+  }
 
   if (isLoading) return <Spinner />
   if (isError || !eleve) return <ErrorState />
@@ -148,6 +164,17 @@ export function EleveDetailPage() {
                       <Briefcase className="h-3.5 w-3.5" />
                       {tuteur.profession}
                     </span>
+                  )}
+                  {can('eleves.manage') && (
+                    <button
+                      onClick={() => ouvrirAccesParent(tuteur.id)}
+                      disabled={ouvertureEnCours === tuteur.id}
+                      title="Ouvrir l'accès au portail parent"
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 font-semibold text-navy-600 transition-colors hover:bg-cream-100 disabled:opacity-50"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      {ouvertureEnCours === tuteur.id ? 'Ouverture…' : 'Accès parent'}
+                    </button>
                   )}
                 </div>
               </div>

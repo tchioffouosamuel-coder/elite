@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\Paie\Bareme;
+use App\Services\Paie\BaremeMaison;
+use App\Services\Paie\BaremePaie;
+
 use App\Models\User;
 use App\Observers\TombstoneObserver;
 use App\Support\Sync\RegistreSync;
@@ -15,7 +19,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        /*
+         * Le barème de paie se choisit par configuration : l'établissement
+         * applique celui de ses registres, mais le barème légal doit rester
+         * accessible sans toucher au code — c'est le même calcul qui répond
+         * devant la CNPS et le fisc.
+         */
+        $this->app->bind(Bareme::class, fn () => config('paie.bareme') === 'legal'
+            ? new BaremePaie
+            : new BaremeMaison);
     }
 
     /**

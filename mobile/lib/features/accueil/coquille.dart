@@ -28,7 +28,20 @@ class Coquille extends ConsumerStatefulWidget {
 }
 
 class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver {
-  String _chemin = '/';
+  /// Historique des destinations visitées.
+  ///
+  /// La coquille change d'écran par `setState`, pas par le `Navigator` : sans
+  /// cette pile, le bouton retour du téléphone n'aurait rien à dépiler et
+  /// quitterait l'application depuis n'importe quel écran — y compris au
+  /// milieu d'une saisie.
+  final List<String> _historique = ['/'];
+
+  String get _chemin => _historique.last;
+
+  void _aller(String chemin) {
+    if (chemin == _chemin) return;
+    setState(() => _historique.add(chemin));
+  }
 
   /// Destinations de la barre inférieure : celles qu'un enseignant ouvre
   /// plusieurs fois par jour. Volontairement peu nombreuses — au-delà de
@@ -86,7 +99,11 @@ class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver
           orElse: () => groupes.first.destinations.first.chemin,
         );
 
-    setState(() => _chemin = raccourci);
+    setState(() {
+      _historique
+        ..clear()
+        ..add(raccourci);
+    });
   }
 
   @override
@@ -107,12 +124,42 @@ class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver
         // Sur téléphone le tiroir est modal : il faut le refermer. Sur
         // tablette il reste affiché, il n'y a rien à fermer.
         if (!large) Navigator.of(context).pop();
-        setState(() => _chemin = destination.chemin);
+        _aller(destination.chemin);
       },
     );
 
     final corps = _corps(_chemin);
 
+    return PopScope(
+      // On laisse le geste aboutir seulement quand il n'y a plus rien à
+      // dépiler : c'est alors une vraie sortie d'application, et Android doit
+      // la traiter comme telle.
+      canPop: _historique.length <= 1,
+      onPopInvokedWithResult: (aQuitte, _) {
+        if (aQuitte) return;
+
+        // Le tiroir ouvert se ferme en premier : c'est ce que le geste vise
+        // à ce moment-là, pas un changement d'écran.
+        final coquille = cleCoquille.currentState;
+        if (coquille != null && coquille.isDrawerOpen) {
+          Navigator.of(context).pop();
+          return;
+        }
+
+        setState(_historique.removeLast);
+      },
+      child: _echafaudage(corps, tiroir, large, session, raccourcis, indexActif),
+    );
+  }
+
+  Widget _echafaudage(
+    Widget corps,
+    Widget tiroir,
+    bool large,
+    Session session,
+    List<({String chemin, IconData icone, IconData actif, String libelle})> raccourcis,
+    int indexActif,
+  ) {
     return Scaffold(
       key: cleCoquille,
       // Le tiroir n'est branché que sur téléphone : sur tablette il est déjà
@@ -140,7 +187,7 @@ class _CoquilleState extends ConsumerState<Coquille> with WidgetsBindingObserver
           ? null
           : NavigationBar(
               selectedIndex: indexActif < 0 ? 0 : indexActif,
-              onDestinationSelected: (i) => setState(() => _chemin = raccourcis[i].chemin),
+              onDestinationSelected: (i) => _aller(raccourcis[i].chemin),
               destinations: [
                 for (final r in raccourcis)
                   NavigationDestination(

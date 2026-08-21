@@ -1,7 +1,7 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 
-export type CategorieArticle = 'mobilier' | 'informatique' | 'pedagogique' | 'sport' | 'autre'
+export type CategorieArticle = 'mobilier' | 'informatique' | 'pedagogique' | 'sport' | 'medical' | 'autre'
 export type EtatArticle = 'bon' | 'moyen' | 'mauvais' | 'hors_service'
 
 export interface ArticleInventaire {
@@ -37,11 +37,17 @@ export interface StatsInventaire {
   par_etat: Partial<Record<EtatArticle, number>>
 }
 
-export async function fetchInventaire(params?: { categorie?: CategorieArticle; etat?: EtatArticle; search?: string }): Promise<{
+export async function fetchInventaire(
+  params?: { categorie?: CategorieArticle; etat?: EtatArticle; search?: string },
+  schoolId?: number,
+): Promise<{
   articles: ArticleInventaire[]
   stats: StatsInventaire
 }> {
-  const { data } = await http.get<ApiResponse<{ articles: ArticleInventaire[]; stats: StatsInventaire }>>('/inventaire', { params })
+  const { data } = await http.get<ApiResponse<{ articles: ArticleInventaire[]; stats: StatsInventaire }>>('/inventaire', {
+    params,
+    headers: schoolId ? { 'X-School-Id': String(schoolId) } : undefined,
+  })
   return data.data
 }
 

@@ -7,24 +7,74 @@ use App\Http\Controllers\Controller;
 use App\Models\BulletinPaie;
 use App\Models\Personnel;
 use App\Models\School;
+use App\Services\Paie\BordereauVirementService;
 use App\Services\PaieService;
+use App\Support\Tenant;
+use App\Support\Pdf\BordereauVirementGenerator;
 use App\Support\Pdf\BulletinPaieGenerator;
 use App\Support\Pdf\EtatEmargementGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 class PaieController extends Controller
 {
-    public function __construct(private readonly PaieService $service) {}
+    public function __construct(
+        private readonly PaieService $service,
+        private readonly BordereauVirementService $bordereaux,
+    ) {}
+
+    /**
+     * Bordereau de virement du mois, rangé par banque — dernière étape du
+     * circuit, celle qui part à l'établissement bancaire.
+     */
+    public function bordereau(Request $request): JsonResponse
+    {
+        $donnees = $request->validate([
+            'school_id' => ['required', 'integer', Rule::in(Tenant::schoolIds())],
+            'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'mois' => ['required', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        return ApiResponse::success($this->bordereaux->etablir(
+            (int) $donnees['school_id'],
+            (int) $donnees['annee'],
+            (int) $donnees['mois'],
+        ));
+    }
+
+    /** Le bordereau sur papier : un bloc par banque, signé, prêt à déposer. */
+    public function bordereauPdf(Request $request): Response
+    {
+        $donnees = $request->validate([
+            'school_id' => ['required', 'integer', Rule::in(Tenant::schoolIds())],
+            'annee' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'mois' => ['required', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $schoolId = (int) $donnees['school_id'];
+        $bordereau = $this->bordereaux->etablir($schoolId, (int) $donnees['annee'], (int) $donnees['mois']);
+
+        $pdf = (new BordereauVirementGenerator)->build(School::findOrFail($schoolId), $bordereau);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf(
+                'inline; filename="bordereau-virement-%d-%02d.pdf"',
+                $donnees['annee'],
+                $donnees['mois'],
+            ),
+        ]);
+    }
 
     /** Masse salariale du mois et bulletins associés. */
     public function index(Request $request): JsonResponse
     {
         [$annee, $mois] = $this->periode($request);
 
-        $masse = $this->service->masseSalariale(app('tenant.school_id'), $annee, $mois);
+        $masse = $this->service->masseSalariale(Tenant::schoolIds(), $annee, $mois);
 
         return ApiResponse::success([
             'periode' => ['annee' => $annee, 'mois' => $mois],
@@ -43,7 +93,7 @@ class PaieController extends Controller
             'jours_travailles' => ['nullable', 'integer', 'min:0', 'max:31'],
         ]);
 
-        $lot = $this->service->preparerLot(app('tenant.school_id'), $annee, $mois, $saisie);
+        $lot = $this->service->preparerLot(Tenant::schoolIds(), $annee, $mois, $saisie);
 
         return ApiResponse::success([
             'prepares' => $lot['bulletins']->count(),
@@ -54,7 +104,7 @@ class PaieController extends Controller
     /** Prépare — ou recalcule — le bulletin d'un agent. */
     public function preparer(Request $request, int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
         [$annee, $mois] = $this->periode($request);
 
         $saisie = $request->validate([
@@ -90,7 +140,7 @@ class PaieController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $bulletins = BulletinPaie::forSchool(app('tenant.school_id'))->whereIn('id', $data['ids'])->get();
+        $bulletins = BulletinPaie::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->get();
 
         $arretes = 0;
         foreach ($bulletins as $bulletin) {
@@ -132,7 +182,7 @@ class PaieController extends Controller
             'date_paiement' => ['nullable', 'date'],
         ]);
 
-        $bulletins = BulletinPaie::forSchool(app('tenant.school_id'))->whereIn('id', $data['ids'])->get();
+        $bulletins = BulletinPaie::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->get();
 
         $regles = 0;
         foreach ($bulletins as $bulletin) {
@@ -173,13 +223,13 @@ class PaieController extends Controller
         );
     }
 
-    /** État d'émargement du mois : la pièce que signent les agents. */
+    /** État d'émargement du mois : la pièce que signent les agents, une page par établissement. */
     public function etatEmargement(Request $request): Response
     {
         [$annee, $mois] = $this->periode($request);
-        $schoolId = app('tenant.school_id');
+        $schoolIds = Tenant::schoolIds();
 
-        $bulletins = BulletinPaie::forSchool($schoolId)
+        $bulletins = BulletinPaie::forSchool($schoolIds)
             ->where('annee', $annee)->where('mois', $mois)
             ->arretes()
             ->with('personnel.fonctionReference')
@@ -187,10 +237,12 @@ class PaieController extends Controller
             ->sortBy(fn (BulletinPaie $b) => $b->personnel->nom_complet)
             ->values();
 
+        $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
+
         $periode = $bulletins->first()?->periode_libelle ?? "{$mois}/{$annee}";
 
         return $this->pdf(
-            (new EtatEmargementGenerator)->build(School::findOrFail($schoolId), $bulletins, $periode),
+            (new EtatEmargementGenerator)->build($schools, $bulletins, $periode),
             "etat-emargement-{$annee}-{$mois}.pdf",
         );
     }
@@ -238,7 +290,7 @@ class PaieController extends Controller
 
     private function bulletin(int $id): BulletinPaie
     {
-        return BulletinPaie::forSchool(app('tenant.school_id'))->with('lignes')->findOrFail($id);
+        return BulletinPaie::forSchool(Tenant::schoolIds())->with('lignes')->findOrFail($id);
     }
 
     private function pdf(string $contenu, string $nomFichier): Response

@@ -6,108 +6,202 @@ use App\Models\CompteComptable;
 use Illuminate\Database\Seeder;
 
 /**
- * Plan de comptes du complexe, repris tel quel du classeur « Accounting
- * situation » tenu par l'établissement.
+ * Plan de comptes du complexe.
  *
- * On ne réinvente pas la nomenclature : c'est celle que lit le comptable et
- * celle qu'attendent les états à produire. Les comptes de la classe 7
- * (produits) portent les recettes de scolarité, ceux de la classe 6 (charges)
- * les dépenses et les salaires — c'est ce rattachement qui permet au bilan de
- * se construire sans saisie supplémentaire.
+ * Les classes 6 et 7 reproduisent **la nomenclature réellement tenue par
+ * l'établissement**, relevée sur les onze exercices de l'« État de synthèse
+ * des charges et dépenses » : mêmes codes, mêmes libellés, même ordre de
+ * présentation. C'est à ce document que le comptable compare, et un état qui
+ * n'en reprend pas les codes ne se rapproche de rien.
+ *
+ * Les classes 1 à 5 (capitaux, immobilisations, tiers, trésorerie) n'y
+ * figurent pas : le document est un compte d'emploi, pas une balance générale.
+ * On les conserve parce que la partie double en a besoin — un encaissement
+ * doit bien débiter une caisse — mais elles ne sortent jamais à l'état de
+ * synthèse.
+ *
+ * @see \App\Services\Comptabilite\EtatSyntheseService pour la restitution.
  */
 class PlanComptableSeeder extends Seeder
 {
-    /** classe => [libellé de la classe, [code => [libellé fr, libellé en, sens]]]. */
-    private const PLAN = [
+    /**
+     * Comptes du document, dans son ordre de présentation.
+     *
+     * [code => [libellé fr, libellé en, nature, assiette, montant unitaire]]
+     */
+    private const CHARGES = [
+        // Le « dépôt initial » ouvre la colonne des dépenses du document, mais
+        // un apport de l'exploitant n'est pas une charge : il est ici classé
+        // en capital, ce qui le sort du résultat sans le sortir du registre.
+        '100' => ["Dépôt initial / apport de l'exploitant", 'Owner capital deposit', 'capital', 'libre', null],
+
+        '603' => ['Achat kits infirmerie', 'Infirmary kits', 'exploitation', 'libre', null],
+        '604' => ['Soins médicaux externes', 'External medical care', 'exploitation', 'libre', null],
+        '605' => ["Achat matériel d'EPS", 'Sports equipment', 'exploitation', 'libre', null],
+        '606' => ['Matériel pédagogique et informatique', 'Teaching and IT equipment', 'exploitation', 'libre', null],
+        '607' => ["Frais d'achat et d'entretien des logiciels", 'Software purchase and upkeep', 'exploitation', 'libre', null],
+        '611' => ['Fournitures de bureau, tables-bancs, tableaux', 'Office supplies, desks, boards', 'exploitation', 'libre', null],
+        '613' => ["Produits d'entretien", 'Cleaning products', 'exploitation', 'libre', null],
+        '614' => ['Fournitures diverses', 'Sundry supplies', 'exploitation', 'libre', null],
+
+        // Le poste qui décide de la balance : 38,7 % des dépenses des onze
+        // exercices. Classé en investissement, il n'ampute plus le résultat
+        // d'un coup — c'est le compte 699 qui l'y ramène, étalé.
+        '624' => ['Construction et entretien/réparation bâtiments', 'Construction and building works', 'investissement', 'libre', null],
+
+        '625' => ['Hygiène et salubrité', 'Hygiene and sanitation', 'exploitation', 'libre', null],
+        '626' => ['Factures eaux et électricité', 'Water and electricity', 'exploitation', 'libre', null],
+        '631' => ['Don accordé aux mouvements et associations', 'Donations to associations', 'exploitation', 'libre', null],
+        '632' => ["Frais d'actes, notariés, cadastre et contentieux", 'Legal, notary and land registry fees', 'exploitation', 'libre', null],
+        '633' => ['Postes et télécommunications', 'Post and telecommunications', 'exploitation', 'libre', null],
+        '635' => ['Voyages et déplacements', 'Travel and transport', 'exploitation', 'libre', null],
+        '642' => ['Session de formation pédagogique et séminaire', 'Teacher training and seminars', 'exploitation', 'libre', null],
+        '650' => ['Autres dépenses et fonctionnement bureau APEE', 'Other expenses and PTA office', 'exploitation', 'libre', null],
+        '651' => ['Prospections et affichages', 'Prospecting and advertising', 'exploitation', 'libre', null],
+        '652' => ['Honoraires experts divers', 'Consultancy fees', 'exploitation', 'libre', null],
+        '653' => ['Réceptions', 'Receptions', 'exploitation', 'libre', null],
+
+        // Trois prélèvements qui ne s'arbitrent pas : ils suivent l'effectif
+        // au tarif fixe, vérifié à l'unité près sur les onze exercices.
+        '654' => ['Quote-part SEDUC', 'SEDUC levy', 'exploitation', 'par_eleve', 200],
+        '655' => ['Assurance scolaire', 'School insurance', 'exploitation', 'par_eleve', 100],
+
+        '661' => ['Salaires du personnel', 'Staff salaries', 'exploitation', 'libre', null],
+        '662' => ['Cotisation CNPS', 'Social security contributions', 'exploitation', 'libre', null],
+        '663' => ['Charges fiscales', 'Payroll taxes', 'exploitation', 'libre', null],
+        '664' => ['Cotisations frais Fenasco-B', 'Fenasco-B levy', 'exploitation', 'par_eleve', 200],
+
+        '674' => ['Habillement / tenue de travail', 'Work clothing', 'exploitation', 'libre', null],
+        '676' => ['Fêtes ou célébrations', 'Celebrations', 'exploitation', 'libre', null],
+        '677' => ['Frais fêtes 11 février, 20 mai et journées culturelles', 'National and cultural days', 'exploitation', 'libre', null],
+        '678' => ['Détente et excursions, récréation et sorties', 'Outings and excursions', 'exploitation', 'libre', null],
+        '679' => ['Primes aux meilleurs élèves', 'Prizes to best pupils', 'exploitation', 'libre', null],
+        '680' => ['Frais fêtes des enseignants et galas', 'Staff parties and galas', 'exploitation', 'libre', null],
+        '687' => ['Provision pour risque', 'Risk provision', 'exploitation', 'libre', null],
+        '691' => ['Timbres fiscaux, entretien boîte postale', 'Stamps and post box', 'exploitation', 'libre', null],
+        '693' => ['Services de banque et frais bancaires', 'Bank charges', 'exploitation', 'libre', null],
+        '697' => ['Pertes et erreurs comptables', 'Accounting losses and errors', 'exploitation', 'libre', null],
+
+        // Resté à zéro sur les onze exercices, alors que 202 millions de
+        // construction passaient en charge la même année. C'est par lui que
+        // l'investissement doit revenir au résultat.
+        '699' => ['Amortissements bâtiments', 'Building depreciation', 'exploitation', 'libre', null],
+    ];
+
+    /** @var array<string, array{0: string, 1: string}> */
+    private const PRODUITS = [
+        '700' => ['Inscriptions', 'Registration fees'],
+        '701' => ['Scolarité', 'Tuition fees'],
+        '702' => ['APEE', 'PTA contributions'],
+        // Absent du document, qui ne connaît que quatre produits. L'application
+        // suit pourtant le transport et les frais annexes à la ligne : leur
+        // donner un compte propre vaut mieux que de les noyer dans 701.
+        '703' => ['Frais annexes et transport', 'Ancillary fees and transport'],
+        '721' => ["Subventions de l'État et autres", 'State grants and others'],
+    ];
+
+    /**
+     * Comptes techniques, hors document : la partie double en a besoin pour
+     * loger la contrepartie de chaque mouvement.
+     *
+     * @var array<int, array{0: string, 1: array<string, array{0: string, 1: string, 2: string}>}>
+     */
+    private const TECHNIQUES = [
         1 => ['Capitaux et dettes', [
-            '101' => ['Capital / Fonds de dotation', 'Capital / Founding Fund', 'credit'],
-            '106' => ['Réserves', 'Reserves', 'credit'],
-            '110' => ['Report à nouveau', 'Retained Earnings', 'credit'],
-            '130' => ['Subventions et dons', 'Grants and Donations', 'credit'],
-            '161' => ['Emprunts bancaires', 'Bank Loans', 'credit'],
-            '166' => ['Autres emprunts', 'Other Borrowings', 'credit'],
+            '101' => ['Capital / fonds de dotation', 'Capital / founding fund', 'credit'],
+            '108' => ['Apport personnel du fondateur', "Owner's contribution", 'credit'],
+            '110' => ['Report à nouveau', 'Retained earnings', 'credit'],
+            '130' => ['Subventions et dons reçus', 'Grants and donations received', 'credit'],
+            '161' => ['Emprunts bancaires', 'Bank loans', 'credit'],
         ]],
         2 => ['Immobilisations', [
-            '211' => ['Frais de développement', 'Development Costs', 'debit'],
-            '213' => ['Logiciels', 'Software', 'debit'],
             '221' => ['Terrains', 'Land', 'debit'],
             '222' => ['Bâtiments', 'Buildings', 'debit'],
-            '241' => ['Mobilier et équipements', 'Furniture and Equipment', 'debit'],
-            '245' => ['Matériel de transport', 'Transport Equipment', 'debit'],
-            '246' => ['Matériel de bureau', 'Office Equipment', 'debit'],
-            '281' => ['Amortissements', 'Depreciation Accounts', 'credit'],
-        ]],
-        3 => ['Stocks', [
-            '311' => ['Matériel pédagogique', 'Teaching Materials', 'debit'],
-            '321' => ['Fournitures consommables', 'Consumable Supplies', 'debit'],
-            '322' => ['Fournitures de bureau', 'Office Supplies', 'debit'],
-            '331' => ['Travaux en cours', 'Work in Progress', 'debit'],
-            '391' => ['Provisions sur stocks', 'Inventory Provisions', 'credit'],
+            '241' => ['Mobilier et équipements', 'Furniture and equipment', 'debit'],
+            '245' => ['Matériel de transport', 'Transport equipment', 'debit'],
+            '281' => ['Amortissements cumulés', 'Accumulated depreciation', 'credit'],
         ]],
         4 => ['Tiers', [
             '401' => ['Fournisseurs', 'Suppliers', 'credit'],
-            '408' => ['Factures fournisseurs non parvenues', 'Accrued Supplier Invoices', 'credit'],
-            '411' => ['Élèves / Clients — créances', 'Students / Customers Receivable', 'debit'],
-            '421' => ['Personnel — rémunérations dues', 'Employees Payroll', 'credit'],
-            '431' => ['Sécurité sociale (CNPS)', 'Social Security', 'credit'],
-            '441' => ['État — impôts et taxes', 'State Taxes', 'credit'],
-            '443' => ['TVA collectée', 'VAT Collected', 'credit'],
-            '445' => ['TVA récupérable', 'VAT Recoverable', 'debit'],
-            '467' => ['Autres débiteurs', 'Other Debtors', 'debit'],
-            '471' => ['Autres créditeurs', 'Other Creditors', 'credit'],
+            '411' => ['Élèves — créances de scolarité', 'Student receivables', 'debit'],
+            '421' => ['Personnel — rémunérations dues', 'Payroll payable', 'credit'],
+            '431' => ['CNPS — cotisations à reverser', 'Social security payable', 'credit'],
+            '441' => ['État — impôts et taxes à reverser', 'Taxes payable', 'credit'],
+            '467' => ['Autres débiteurs', 'Other debtors', 'debit'],
+            '471' => ['Autres créditeurs', 'Other creditors', 'credit'],
         ]],
         5 => ['Trésorerie', [
-            '521' => ['Banque', 'Bank Account', 'debit'],
-            '522' => ['Compte épargne', 'Savings Account', 'debit'],
-            '531' => ['Virements internes', 'Cash in Transit', 'debit'],
-            '571' => ['Caisse', 'Cash on Hand', 'debit'],
-            '578' => ['Mobile Money', 'Mobile Money Account', 'debit'],
-        ]],
-        6 => ['Charges', [
-            '601' => ['Achats de fournitures', 'Purchases of Supplies', 'debit'],
-            '602' => ['Achats de matériel pédagogique', 'Teaching Materials Purchased', 'debit'],
-            '611' => ['Loyers', 'Rent', 'debit'],
-            '613' => ['Entretien et maintenance', 'Maintenance', 'debit'],
-            '621' => ['Services extérieurs', 'External Services', 'debit'],
-            '631' => ['Eau', 'Water', 'debit'],
-            '632' => ['Électricité', 'Electricity', 'debit'],
-            '641' => ['Impôts et taxes', 'Taxes', 'debit'],
-            '661' => ['Salaires', 'Salaries', 'debit'],
-            '664' => ['Charges sociales', 'Social Contributions', 'debit'],
-            '671' => ['Charges financières', 'Interest Expense', 'debit'],
-        ]],
-        7 => ['Produits', [
-            '701' => ['Frais de scolarité', 'Tuition Fees', 'credit'],
-            '702' => ["Frais d'inscription", 'Registration Fees', 'credit'],
-            '703' => ["Frais d'examen", 'Examination Fees', 'credit'],
-            '704' => ['Frais de pension', 'Boarding Fees', 'credit'],
-            '706' => ['Autres services scolaires', 'Other Educational Services', 'credit'],
-            '751' => ['Subventions reçues', 'Grants Received', 'credit'],
-            '758' => ['Dons et contributions', 'Donations and Contributions', 'credit'],
-            '771' => ['Produits financiers', 'Financial Income', 'credit'],
-        ]],
-        8 => ['Hors activité ordinaire', [
-            '811' => ['Charges exceptionnelles', 'Extraordinary Expenses', 'debit'],
-            '821' => ['Produits exceptionnels', 'Extraordinary Income', 'credit'],
-            '831' => ['Moins-value de cession', 'Asset Disposal Loss', 'debit'],
-            '841' => ['Plus-value de cession', 'Asset Disposal Gain', 'credit'],
-        ]],
-        9 => ['Analytique', [
-            '90' => ['Centres de coûts', 'Cost Centers', 'debit'],
-            '91' => ['Département administratif', 'Administrative Department', 'debit'],
-            '92' => ['Département pédagogique', 'Academic Department', 'debit'],
+            '521' => ['Banque', 'Bank account', 'debit'],
+            '522' => ['Compte épargne', 'Savings account', 'debit'],
+            '531' => ['Virements internes', 'Cash in transit', 'debit'],
+            '571' => ['Caisse', 'Cash on hand', 'debit'],
+            '578' => ['Mobile Money', 'Mobile money account', 'debit'],
         ]],
     ];
 
     public function run(): void
     {
-        foreach (self::PLAN as $classe => [, $comptes]) {
+        $ordre = 0;
+        $connus = [];
+
+        foreach (self::CHARGES as $code => [$libelle, $libelleEn, $nature, $assiette, $unitaire]) {
+            $connus[] = $code;
+            CompteComptable::updateOrCreate(['code' => $code], [
+                'libelle' => $libelle,
+                'libelle_en' => $libelleEn,
+                // Le dépôt de l'exploitant est un compte de capitaux, même s'il
+                // ouvre la colonne des dépenses du document.
+                'classe' => $nature === 'capital' ? 1 : 6,
+                'sens' => 'debit',
+                'nature' => $nature,
+                'assiette' => $assiette,
+                'montant_unitaire' => $unitaire,
+                'ordre' => $ordre += 10,
+                'is_active' => true,
+            ]);
+        }
+
+        foreach (self::PRODUITS as $code => [$libelle, $libelleEn]) {
+            $connus[] = $code;
+            CompteComptable::updateOrCreate(['code' => $code], [
+                'libelle' => $libelle,
+                'libelle_en' => $libelleEn,
+                'classe' => 7,
+                'sens' => 'credit',
+                'nature' => 'exploitation',
+                'assiette' => 'libre',
+                'montant_unitaire' => null,
+                'ordre' => $ordre += 10,
+                'is_active' => true,
+            ]);
+        }
+
+        foreach (self::TECHNIQUES as $classe => [, $comptes]) {
             foreach ($comptes as $code => [$libelle, $libelleEn, $sens]) {
-                CompteComptable::updateOrCreate(
-                    ['code' => (string) $code],
-                    ['libelle' => $libelle, 'libelle_en' => $libelleEn, 'classe' => $classe, 'sens' => $sens],
-                );
+                $connus[] = $code;
+                CompteComptable::updateOrCreate(['code' => $code], [
+                    'libelle' => $libelle,
+                    'libelle_en' => $libelleEn,
+                    'classe' => $classe,
+                    'sens' => $sens,
+                    // Un compte de tiers ou de trésorerie n'est ni une charge
+                    // ni un produit : il ne pèse sur aucun résultat.
+                    'nature' => $classe === 1 ? 'capital' : 'exploitation',
+                    'assiette' => 'libre',
+                    'montant_unitaire' => null,
+                    'ordre' => $ordre += 10,
+                    'is_active' => true,
+                ]);
             }
         }
+
+        /*
+         * Reliquats du plan générique livré auparavant — comptes de stocks, de
+         * classe 8 ou analytiques que ni le document ni la partie double
+         * n'utilisent. Ils ne sont pas supprimés : une écriture ancienne peut
+         * encore y pointer, et un compte effacé emporterait sa piste. Les
+         * désactiver suffit à les sortir de la saisie.
+         */
+        CompteComptable::whereNotIn('code', $connus)->update(['is_active' => false]);
     }
 }

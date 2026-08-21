@@ -19,21 +19,21 @@ const customStyles = {
     control: (base: any, state: any) => ({
         ...base,
         minHeight: '38px',
-        borderColor: state.isFocused ? '#d4af37' : '#e5e7eb',
+        borderColor: state.isFocused ? '#1985cc' : '#e5e7eb',
         borderRadius: '0.5rem',
         boxShadow: state.isFocused ? '0 0 0 1px #d4af37' : 'none',
         '&:hover': {
-            borderColor: state.isFocused ? '#d4af37' : '#d1d5db',
+            borderColor: state.isFocused ? '#1985cc' : '#d1d5db',
         },
     }),
     option: (base: any, state: any) => ({
         ...base,
-        backgroundColor: state.isSelected ? '#d4af37' : state.isFocused ? '#f3f4f6' : 'white',
+        backgroundColor: state.isSelected ? '#1985cc' : state.isFocused ? '#f3f4f6' : 'white',
         color: state.isSelected ? 'white' : '#111827',
         cursor: 'pointer',
         padding: '0.5rem 0.75rem',
         ':active': {
-            backgroundColor: '#d4af37',
+            backgroundColor: '#1985cc',
             color: 'white',
         },
     }),

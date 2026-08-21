@@ -55,6 +55,9 @@ export function RemunerationModal({
   })
 
   const [dateEffet, setDateEffet] = useState(new Date().toISOString().slice(0, 10))
+  // Vacataire du technique : ni base ni primes, un taux et des heures.
+  const [horaire, setHoraire] = useState(personnel.remuneration?.mode === 'horaire')
+  const [tauxHoraire, setTauxHoraire] = useState(String(personnel.remuneration?.taux_horaire ?? ''))
   const [categorie, setCategorie] = useState(personnel.remuneration?.categorie ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -86,7 +89,9 @@ export function RemunerationModal({
     setSubmitting(true)
     try {
       await enregistrerRemuneration(personnel.id, {
-        ...nombres,
+        ...(horaire ? {} : nombres),
+        mode: horaire ? 'horaire' : 'mensuel',
+        taux_horaire: horaire ? Number(tauxHoraire) : undefined,
         date_effet: dateEffet,
         categorie: categorie || undefined,
       })
@@ -108,6 +113,44 @@ export function RemunerationModal({
       onClose={onClose}
     >
       <div className="flex flex-col gap-4">
+        {/* Deux régimes dans le complexe : salaire mensuel au primaire,
+            vacation horaire au technique. Le choix commande le formulaire. */}
+        <div className="flex gap-2 rounded-xl bg-cream-100 p-1">
+          {[
+            { valeur: false, libelle: 'Salaire mensuel' },
+            { valeur: true, libelle: 'Vacation horaire' },
+          ].map((option) => (
+            <button
+              key={String(option.valeur)}
+              type="button"
+              onClick={() => setHoraire(option.valeur)}
+              className={
+                horaire === option.valeur
+                  ? 'flex-1 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-navy-800 shadow-sm'
+                  : 'flex-1 rounded-lg px-3 py-2 text-sm font-medium text-navy-500 hover:text-navy-700'
+              }
+            >
+              {option.libelle}
+            </button>
+          ))}
+        </div>
+
+        {horaire ? (
+          <div className="flex flex-col gap-2">
+            <Input
+              label="Taux horaire (F CFA)"
+              type="number"
+              min={1}
+              value={tauxHoraire}
+              onChange={(e) => setTauxHoraire(e.target.value)}
+              placeholder="1 100"
+            />
+            <p className="text-xs text-navy-400">
+              Le brut du mois se calcule heures × taux. Un vacataire n'a ni salaire de base ni primes, et les jours
+              d'absence ne se retiennent pas : les heures non faites ne sont simplement pas payées.
+            </p>
+          </div>
+        ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {GAINS.map(({ champ, exonere }) => (
             <Input
@@ -121,6 +164,7 @@ export function RemunerationModal({
             />
           ))}
         </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
@@ -137,7 +181,7 @@ export function RemunerationModal({
           />
         </div>
 
-        {brut > 0 && (
+        {! horaire && brut > 0 && (
           <div className="rounded-xl bg-cream-100 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">

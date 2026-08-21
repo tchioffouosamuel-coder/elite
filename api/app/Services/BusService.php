@@ -7,7 +7,9 @@ use App\Models\BusAffectation;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\BusVehicule;
+use App\Models\Depense;
 use App\Models\Eleve;
+use App\Models\VersementLigne;
 use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
@@ -57,6 +59,71 @@ class BusService extends BaseService
         $vehicule->delete();
     }
 
+    /** Élèves actuellement affectés à un trajet de ce véhicule — la liste embarquée. */
+    public function elevesDuVehicule(BusVehicule $vehicule): Collection
+    {
+        return BusAffectation::whereHas('trajet', fn($q) => $q->where('vehicule_id', $vehicule->id))
+            ->actives()
+            ->with(['eleve.classe', 'trajet', 'arret'])
+            ->get();
+    }
+
+    /**
+     * Bilan financier d'un véhicule sur une période : ce qu'il rapporte
+     * (souscriptions effectivement réglées) contre ce qu'il coûte (dépenses
+     * de flotte imputées à lui) — pas ce qu'il devrait rapporter, qui
+     * inclurait des impayés que le complexe n'a jamais vus.
+     *
+     * L'approximation assumée : une souscription au bus lie l'élève au
+     * trajet du moment (`BusService::affecterEleve` refuse une seconde
+     * souscription active), donc un versement marqué « bus » pour cet élève
+     * est imputé au véhicule de son affectation *actuelle* — un élève qui
+     * aurait changé de trajet en cours d'année verrait ses anciens
+     * versements comptés sur le nouveau véhicule plutôt que l'ancien.
+     * Négligeable en pratique (les changements de trajet en cours d'année
+     * sont rares), mais volontairement documenté ici plutôt que caché.
+     *
+     * @return array{
+     *   recettes: int, depenses_total: int, benefice: int, deficitaire: bool,
+     *   depenses: Collection<int, Depense>, affectations: Collection<int, BusAffectation>,
+     * }
+     */
+    public function bilanVehicule(BusVehicule $vehicule, ?string $du = null, ?string $au = null): array
+    {
+        $affectations = $this->elevesDuVehicule($vehicule);
+        $eleveIds = $affectations->pluck('eleve_id')->unique()->values();
+        $anneeIds = $affectations->pluck('annee_scolaire_id')->filter()->unique()->values();
+
+        $recettes = $eleveIds->isEmpty() ? 0 : (int) VersementLigne::where('affectation', 'bus')
+            ->whereHas('versement', function ($q) use ($eleveIds, $anneeIds, $du, $au) {
+                $q->valides()
+                    ->when($du, fn($qq, $d) => $qq->whereDate('date_versement', '>=', $d))
+                    ->when($au, fn($qq, $a) => $qq->whereDate('date_versement', '<=', $a))
+                    ->whereHas('dossier', fn($q2) => $q2->whereIn('eleve_id', $eleveIds)->whereIn('annee_scolaire_id', $anneeIds));
+            })
+            ->sum('montant');
+
+        $depenses = Depense::where('vehicule_id', $vehicule->id)
+            ->valides()
+            ->when($du, fn($q, $d) => $q->whereDate('date_depense', '>=', $d))
+            ->when($au, fn($q, $a) => $q->whereDate('date_depense', '<=', $a))
+            ->with('compte')
+            ->orderByDesc('date_depense')
+            ->get();
+
+        $depensesTotal = (int) $depenses->sum('montant');
+        $benefice = $recettes - $depensesTotal;
+
+        return [
+            'recettes' => $recettes,
+            'depenses_total' => $depensesTotal,
+            'benefice' => $benefice,
+            'deficitaire' => $benefice < 0,
+            'depenses' => $depenses,
+            'affectations' => $affectations,
+        ];
+    }
+
     // ---- Trajets et arrêts -------------------------------------------
 
     /** @param int|array<int> $schoolId */
@@ -64,7 +131,7 @@ class BusService extends BaseService
     {
         return BusTrajet::forSchool($schoolId)
             ->with(['vehicule', 'arrets', 'school:id,name,code,type'])
-            ->withCount(['affectations' => fn ($q) => $q->actives()])
+            ->withCount(['affectations' => fn($q) => $q->actives()])
             ->orderBy('nom')
             ->get();
     }
@@ -112,6 +179,7 @@ class BusService extends BaseService
         return BusArret::create([
             'trajet_id' => $trajet->id,
             'nom' => $donnees['nom'],
+            'lieu_dit' => $donnees['lieu_dit'] ?? null,
             'ordre' => $donnees['ordre'] ?? ($trajet->arrets()->max('ordre') + 1),
             'heure_passage' => $donnees['heure_passage'] ?? null,
         ]);
@@ -139,8 +207,8 @@ class BusService extends BaseService
     /** @param int|array<int> $schoolId */
     public function listerAffectations(int|array $schoolId, ?int $trajetId = null): Collection
     {
-        return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool($schoolId))
-            ->when($trajetId, fn ($q, $id) => $q->where('trajet_id', $id))
+        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool($schoolId))
+            ->when($trajetId, fn($q, $id) => $q->where('trajet_id', $id))
             ->with(['eleve.classe', 'trajet.school', 'arret'])
             ->get();
     }
@@ -243,9 +311,9 @@ class BusService extends BaseService
     {
         return Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
-            ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
-            ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn ($q) => $q
-                ->when($anneeScolaireId, fn ($qq, $id) => $qq->where('annee_scolaire_id', $id))
+            ->when($classeId, fn($q, $id) => $q->where('classe_id', $id))
+            ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn($q) => $q
+                ->when($anneeScolaireId, fn($qq, $id) => $qq->where('annee_scolaire_id', $id))
                 ->actives()
                 ->with(['trajet', 'arret'])])
             ->orderBy('nom_complet')

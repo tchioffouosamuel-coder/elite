@@ -5,6 +5,7 @@ import {
   type ReactNode,
   type ComponentType,
   type Ref,
+  type ChangeEvent,
   type FocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   Children,
@@ -12,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -57,6 +59,93 @@ export function Input({ label, error, className, id, icon: Icon, ...props }: Inp
           {...props}
         />
       </div>
+    </FieldWrapper>
+  )
+}
+
+function formaterMontant(valeur: number): string {
+  return valeur.toLocaleString('fr-FR')
+}
+
+/**
+ * Regroupe les milliers à chaque frappe (pas seulement à la sortie du champ),
+ * en replaçant le curseur au même rang de chiffres pour qu'il ne saute pas en
+ * fin de champ à chaque caractère tapé.
+ */
+export function useMontantSaisie(valeur: number | null | undefined, onChange: (valeur: number) => void) {
+  const ref = useRef<HTMLInputElement>(null)
+  const curseurVise = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    if (curseurVise.current === null) return
+    ref.current?.setSelectionRange(curseurVise.current, curseurVise.current)
+    curseurVise.current = null
+  })
+
+  return {
+    ref,
+    type: 'text' as const,
+    inputMode: 'numeric' as const,
+    autoComplete: 'off',
+    value: valeur !== null && valeur !== undefined ? formaterMontant(valeur) : '',
+    onFocus: (e: FocusEvent<HTMLInputElement>) => requestAnimationFrame(() => e.target.select()),
+    onChange: (e: ChangeEvent<HTMLInputElement>) => {
+      const input = e.target
+      const positionCurseur = input.selectionStart ?? input.value.length
+      const chiffresAvantCurseur = input.value.slice(0, positionCurseur).replace(/\D/g, '').length
+      const chiffres = input.value.replace(/\D/g, '')
+      const nombre = chiffres === '' ? 0 : Number(chiffres)
+      const formate = chiffres === '' ? '' : formaterMontant(nombre)
+
+      let position = 0
+      let compte = 0
+      if (chiffresAvantCurseur > 0) {
+        position = formate.length
+        for (let i = 0; i < formate.length; i++) {
+          if (/\d/.test(formate[i])) compte++
+          if (compte === chiffresAvantCurseur) {
+            position = i + 1
+            break
+          }
+        }
+      }
+
+      curseurVise.current = position
+      onChange(nombre)
+    },
+  }
+}
+
+interface MontantInputProps {
+  label?: string
+  error?: string
+  value: number | null | undefined
+  onChange: (valeur: number) => void
+  onBlur?: () => void
+  id?: string
+  name?: string
+  placeholder?: string
+  autoFocus?: boolean
+  disabled?: boolean
+  className?: string
+}
+
+/** Champ de saisie d'un montant en francs CFA (entiers), groupé par milliers pour rester lisible. */
+export function MontantInput({ label, error, value, onChange, onBlur, id, name, placeholder, autoFocus, disabled, className }: MontantInputProps) {
+  const champ = useMontantSaisie(value, onChange)
+
+  return (
+    <FieldWrapper label={label} error={error} htmlFor={id}>
+      <input
+        id={id}
+        name={name}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        disabled={disabled}
+        {...champ}
+        onBlur={onBlur}
+        className={clsx(fieldClasses, 'text-right tabular-nums', error && 'border-red-400 focus:border-red-400 focus:ring-red-100', className)}
+      />
     </FieldWrapper>
   )
 }

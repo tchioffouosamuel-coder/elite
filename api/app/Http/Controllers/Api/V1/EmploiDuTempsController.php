@@ -30,13 +30,20 @@ class EmploiDuTempsController extends Controller
         $classe = $this->classe($classeId);
         $data = $this->valider($request, $classe);
 
-        if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'])) {
-            return ApiResponse::error('Ce créneau en chevauche un autre pour cette classe.', 422);
+        $associees = $data['classes_associees'];
+        unset($data['classes_associees']);
+
+        if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], null, $associees)) {
+            return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
         }
 
         $creneau = EmploiDuTemps::create([...$data, 'classe_id' => $classe->id, 'school_id' => $classe->school_id]);
+        $creneau->classesAssociees()->sync($associees);
 
-        return ApiResponse::created($this->presenter($creneau->load('classeMatiere.matiere')), 'Créneau ajouté.');
+        return ApiResponse::created(
+            $this->presenter($creneau->load('classeMatiere.matiere', 'classesAssociees')),
+            'Créneau ajouté.',
+        );
     }
 
     public function update(Request $request, int $classeId, int $id): JsonResponse
@@ -45,13 +52,20 @@ class EmploiDuTempsController extends Controller
         $creneau = EmploiDuTemps::where('classe_id', $classe->id)->findOrFail($id);
         $data = $this->valider($request, $classe);
 
-        if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], $creneau->id)) {
-            return ApiResponse::error('Ce créneau en chevauche un autre pour cette classe.', 422);
+        $associees = $data['classes_associees'];
+        unset($data['classes_associees']);
+
+        if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], $creneau->id, $associees)) {
+            return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
         }
 
         $creneau->update($data);
+        $creneau->classesAssociees()->sync($associees);
 
-        return ApiResponse::success($this->presenter($creneau->load('classeMatiere.matiere')), 'Créneau mis à jour.');
+        return ApiResponse::success(
+            $this->presenter($creneau->fresh(['classeMatiere.matiere', 'classesAssociees'])),
+            'Créneau mis à jour.',
+        );
     }
 
     public function destroy(int $classeId, int $id): JsonResponse
@@ -96,13 +110,38 @@ class EmploiDuTempsController extends Controller
             'heure_debut' => ['required', 'date_format:H:i'],
             'heure_fin' => ['required', 'date_format:H:i', 'after:heure_debut'],
             'salle' => ['nullable', 'string', 'max:50'],
+            // Tronc commun : les classes qui rejoignent celle-ci sur ce créneau.
+            'classes_associees' => ['sometimes', 'array'],
+            'classes_associees.*' => ['integer', 'distinct'],
         ]);
+
+        $associees = collect($data['classes_associees'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            // La classe porteuse n'a pas à figurer parmi celles qui la
+            // rejoignent : elle y serait comptée deux fois à l'appel.
+            ->reject(fn (int $id) => $id === $classe->id)
+            ->unique()
+            ->values();
+
+        if ($associees->isNotEmpty()) {
+            $valides = Classe::where('school_id', $classe->school_id)
+                ->whereIn('id', $associees)
+                ->pluck('id');
+
+            abort_unless(
+                $valides->count() === $associees->count(),
+                422,
+                "Une classe associée n'appartient pas à cet établissement.",
+            );
+        }
 
         abort_unless(
             ClasseMatiere::where('classe_id', $classe->id)->whereKey($data['classe_matiere_id'])->exists(),
             422,
             "Cette matière n'est pas affectée à la classe."
         );
+
+        $data['classes_associees'] = $associees->all();
 
         return $data;
     }
@@ -114,6 +153,8 @@ class EmploiDuTempsController extends Controller
 
     private function presenter(EmploiDuTemps $creneau): array
     {
+        $creneau->loadMissing('classe', 'classesAssociees');
+
         return [
             'id' => $creneau->id,
             'jour' => $creneau->jour,
@@ -123,6 +164,13 @@ class EmploiDuTempsController extends Controller
             'classe_matiere_id' => $creneau->classe_matiere_id,
             'matiere' => $creneau->classeMatiere?->matiere?->nom,
             'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
+            // La classe porteuse : sur la grille d'une classe associée, le
+            // créneau vient d'ailleurs et l'écran doit pouvoir le dire.
+            'classe_id' => $creneau->classe_id,
+            'classe' => $creneau->classe?->nom,
+            'classes_associees' => $creneau->classesAssociees
+                ->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+            'tronc_commun' => $creneau->classesAssociees->isNotEmpty(),
         ];
     }
 }

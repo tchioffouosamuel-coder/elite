@@ -84,6 +84,21 @@ trait RenduDocument
         return $rendu !== '' ? $rendu : nl2br($this->e($repli));
     }
 
+    /** Bloc de signature du chef d'établissement : lieu (déduit de l'adresse), date du jour, et un espace de signature/cachet. */
+    protected function signatureChef(School $school): string
+    {
+        $ville = trim(explode(',', (string) $school->address)[0] ?? '');
+
+        return '<table class="no-border" style="margin-top:8mm;"><tr>'
+            .'<td class="no-border left" style="width:50%;font-size:2.8mm;vertical-align:top;">'
+            .'Fait à '.$this->e($ville !== '' ? $ville : '…………').', le '.date('d/m/Y')
+            .'</td>'
+            .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
+            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i><br><br><br><br>'
+            .'<span style="border-top:0.4px solid #000;">Signature et cachet</span>'
+            .'</td></tr></table>';
+    }
+
     /** En-tête bilingue à trois colonnes : mentions FR, logo, mentions EN. */
     protected function enTeteEcole(School $school): string
     {

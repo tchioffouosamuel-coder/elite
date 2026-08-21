@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  GraduationCap,
   LayoutDashboard,
   Users,
   School,
@@ -23,6 +22,7 @@ import {
   Menu,
   X,
   BarChart3,
+  Calculator,
   ScanFace,
   Layers,
   GitBranch,
@@ -49,8 +49,11 @@ import {
   PiggyBank,
   Gavel,
   UserCog,
+  KeyRound,
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import logoWordmark from '@/assets/logo-wordmark.png'
+import logoMark from '@/assets/logo-mark.png'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
@@ -79,6 +82,15 @@ const navGroups = [
     items: [
       { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
       { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view' },
+      {
+        to: '/mes-avances',
+        label: 'nav.mesAvances',
+        icon: HandCoins,
+        // Aucun privilège : l'écran ne montre que les avances du compte
+        // connecté. `estPersonnel` le réserve aux agents — un compte
+        // purement administratif n'a pas de salaire à avancer.
+        estPersonnel: true,
+      },
     ],
   },
   {
@@ -129,6 +141,9 @@ const navGroups = [
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true },
     ],
   },
   {
@@ -248,6 +263,7 @@ const navGroups = [
       { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
       { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie' },
       { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
+      { to: '/etat-synthese', label: 'nav.etatSynthese', icon: Calculator, permission: 'finance.rapports' },
     ],
   },
   {
@@ -325,6 +341,10 @@ export function AppLayout() {
   // partagent `classes.view` sans porter les mêmes responsabilités.
   const aUneAttribution = (user?.attributions ?? []).length > 0
 
+  // Le compte représente un agent : c'est ce qui ouvre « Mes avances », et non
+  // un privilège — l'écran ne parle que du salaire de son titulaire.
+  const estPersonnel = Boolean(user?.est_personnel)
+
   const groupesVisibles = useMemo(
     () =>
       navGroups
@@ -338,6 +358,7 @@ export function AppLayout() {
               (!('superAdminOnly' in item) || !item.superAdminOnly || user?.is_super_admin) &&
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
               (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
+              (!('estPersonnel' in item) || !item.estPersonnel || estPersonnel) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse),
           )
           const items = requeteMenu
@@ -353,7 +374,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel],
   )
 
   /**
@@ -402,11 +423,11 @@ export function AppLayout() {
         )}
       >
         <div className={clsx('flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-gold-500/15 ring-1 ring-gold-500/30">
-            <GraduationCap className="h-5 w-5 text-gold-300" />
+          <span className={clsx('flex h-10 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft', !sidebarOpen && 'lg:hidden')}>
+            <img src={logoWordmark} alt={t('app.name')} className="h-7 w-auto object-contain" />
           </span>
-          <span className={clsx('font-display text-lg font-bold tracking-tight', !sidebarOpen && 'lg:hidden')}>
-            {t('app.name')}
+          <span className={clsx('hidden h-10 w-10 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}>
+            <img src={logoMark} alt={t('app.name')} className="h-full w-full object-contain" />
           </span>
           <button
             onClick={() => setMenuOuvert(false)}

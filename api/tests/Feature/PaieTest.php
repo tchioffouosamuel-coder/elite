@@ -24,22 +24,31 @@ class PaieTest extends TestCase
     {
         parent::setUp();
 
+        /*
+         * Ce test porte sur le barème légal — IRPP progressif, TDL par tranche,
+         * exonérations. L'établissement applique par défaut celui de ses
+         * registres ; on épingle ici celui que les assertions décrivent.
+         */
+        config(['paie.bareme' => 'legal']);
+
         $this->seed(PlanComptableSeeder::class);
 
         $this->school = School::create(['name' => 'Elites Tech', 'code' => 'EBT', 'type' => 'secondaire', 'is_active' => true]);
         $this->agent = $this->personnel('BOIGA DJANABOU');
     }
 
-    private function personnel(string $nom): Personnel
+    private function personnel(string $nom, ?School $school = null): Personnel
     {
+        $school ??= $this->school;
+
         $personnel = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
         ]);
 
         // Le bulletin d'avril 2024 de l'établissement : 42 000 de base,
         // 1 000 d'ancienneté, 2 500 de communication, 2 500 de transport.
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $personnel->id, 'date_effet' => '2024-01-01',
+            'school_id' => $school->id, 'personnel_id' => $personnel->id, 'date_effet' => '2024-01-01',
             'salaire_base' => 42000, 'prime_anciennete' => 1000,
             'prime_communication' => 2500, 'prime_transport' => 2500,
         ]);
@@ -122,7 +131,12 @@ class PaieTest extends TestCase
         $parCompte = $ecritures->keyBy(fn ($e) => $e->compte->code);
 
         $this->assertSame(48000, $parCompte['661']->montant);                     // salaires
-        $this->assertSame($bulletin->charges_patronales, $parCompte['664']->montant);
+        // Les charges patronales se ventilent comme l'état de synthèse les
+        // présente : la CNPS en 662, les impôts et taxes en 663.
+        $this->assertSame(
+            $bulletin->charges_patronales,
+            $parCompte['662']->montant + $parCompte['663']->montant,
+        );
         $this->assertSame($bulletin->net_a_payer, $parCompte['421']->montant);    // dette envers l'agent
 
         // La partie double doit s'équilibrer.
@@ -165,6 +179,23 @@ class PaieTest extends TestCase
         $this->assertCount(2, $lot['bulletins']);
         $this->assertCount(1, $lot['ignores']);
         $this->assertStringContainsString('SANS SALAIRE', $lot['ignores'][0]);
+    }
+
+    public function test_le_lot_agrege_prepare_les_agents_de_plusieurs_ecoles(): void
+    {
+        $autreEcole = School::create([
+            'name' => 'Elites Primary', 'code' => 'EBP', 'type' => 'primaire', 'is_active' => true,
+        ]);
+        $this->personnel('AGBORNDE CATHERINE', $autreEcole);
+
+        $lot = $this->service()->preparerLot([$this->school->id, $autreEcole->id], 2024, 4);
+
+        $this->assertCount(2, $lot['bulletins']);
+        $this->assertSame([], $lot['ignores']);
+        $this->assertEqualsCanonicalizing(
+            [$this->school->id, $autreEcole->id],
+            $lot['bulletins']->pluck('school_id')->all(),
+        );
     }
 
     public function test_la_masse_salariale_ne_compte_que_les_bulletins_arretes(): void

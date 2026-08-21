@@ -1,0 +1,6 @@
+*.exe
+*.asar
+web/desktop/dist/
+web/desktop/dist-*/
+web/desktop/build-unpacked/
+web/desktop/prepackaged-final/

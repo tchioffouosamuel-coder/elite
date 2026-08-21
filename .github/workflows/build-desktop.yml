@@ -1,0 +1,40 @@
+name: Build Elites School Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install desktop dependencies
+        working-directory: web/desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installer
+        working-directory: web/desktop
+        run: npm run build
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: elites-school-windows
+          path: web/desktop/dist/*.exe
+          if-no-files-found: error

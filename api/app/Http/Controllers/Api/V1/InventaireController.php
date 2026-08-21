@@ -66,7 +66,7 @@ class InventaireController extends Controller
         return $request->validate([
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
-            'categorie' => ['required', 'in:mobilier,informatique,pedagogique,sport,autre'],
+            'categorie' => ['required', 'in:mobilier,informatique,pedagogique,sport,medical,autre'],
             'quantite' => ['required', 'integer', 'min:1'],
             'etat' => ['required', 'in:bon,moyen,mauvais,hors_service'],
             'localisation' => ['nullable', 'string', 'max:150'],

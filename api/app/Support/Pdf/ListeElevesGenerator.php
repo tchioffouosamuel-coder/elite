@@ -16,21 +16,43 @@ class ListeElevesGenerator
 
     public function build(Classe $classe, Collection $eleves): string
     {
+        return $this->rendre(
+            $classe->school,
+            'Classe <i>/ Class</i> : '.$this->e($classe->nom)
+                .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e($classe->anneeScolaire?->libelle ?? '—'),
+            $eleves,
+            'Liste des élèves — '.$classe->nom,
+        );
+    }
+
+    /** Toute l'école, toutes classes confondues — la même mise en page, sans le filtre d'une classe. */
+    public function buildEcole(School $school, Collection $eleves): string
+    {
+        return $this->rendre(
+            $school,
+            'Établissement <i>/ School</i> : '.$this->e($school->name),
+            $eleves,
+            'Liste des élèves — '.$school->name,
+        );
+    }
+
+    private function rendre(School $school, string $bandeauLibelle, Collection $eleves, string $titrePage): string
+    {
         $mpdf = MpdfFactory::make([
             'format' => 'A4',
             'margin_top' => 10,
             'margin_bottom' => 12,
-        ], $classe->school);
-        $mpdf->SetTitle('Liste des élèves — '.$classe->nom);
+        ], $school);
+        $mpdf->SetTitle($titrePage);
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8">'
                 .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
-                .$this->enTeteEcole($classe->school)
+                .$this->enTeteEcole($school)
                 .'<hr>'
-                .$this->titre($classe, $eleves)
+                .$this->titre($bandeauLibelle, $eleves)
                 .$this->tableau($eleves)
-                .$this->signature($classe->school)
+                .$this->signature($school)
                 .'</body></html>'
         );
 
@@ -47,15 +69,14 @@ class ListeElevesGenerator
             .'.nom{font-weight:bold;text-transform:uppercase}';
     }
 
-    private function titre(Classe $classe, Collection $eleves): string
+    private function titre(string $bandeauLibelle, Collection $eleves): string
     {
         return '<div style="text-align:center;line-height:1.4;">'
             .'<span class="titre">Liste des élèves</span><br>'
             .'<span class="titre-en">Student list</span>'
             .'</div>'
             .'<div class="bandeau">'
-            .'Classe <i>/ Class</i> : '.$this->e($classe->nom)
-            .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e($classe->anneeScolaire?->libelle ?? '—')
+            .$bandeauLibelle
             .' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : '.$eleves->count()
             .'</div>';
     }
@@ -73,6 +94,7 @@ class ListeElevesGenerator
                 .'<td>'.$this->e($eleve->matricule ?: '—').'</td>'
                 .'<td class="left nom">'.$this->e($eleve->nom_complet).'</td>'
                 .'<td>'.($eleve->sexe === 'F' ? 'F' : 'M').'</td>'
+                .'<td>'.($eleve->age ?? '—').'</td>'
                 .'<td class="left">'.$this->e($tuteur?->nom_complet ?: '—').'</td>'
                 .'<td>'.$this->e($tuteur?->telephone ?: '—').'</td>'
                 .'</tr>';
@@ -80,15 +102,16 @@ class ListeElevesGenerator
         }
 
         if ($lignes === '') {
-            $lignes = '<tr><td colspan="6" style="padding:6mm;">Aucun élève dans cette classe.</td></tr>';
+            $lignes = '<tr><td colspan="7" style="padding:6mm;">Aucun élève dans cette classe.</td></tr>';
         }
 
         return '<table class="liste"><thead><tr>'
-            .'<th style="width:6%;">N°</th>'
-            .'<th style="width:14%;">Matricule<br><i>ID number</i></th>'
-            .'<th style="width:28%;">Nom et prénoms<br><i>Full name</i></th>'
-            .'<th style="width:8%;">Sexe<br><i>Sex</i></th>'
-            .'<th style="width:26%;">Tuteur / Parent<br><i>Guardian</i></th>'
+            .'<th style="width:5%;">N°</th>'
+            .'<th style="width:13%;">Matricule<br><i>ID number</i></th>'
+            .'<th style="width:25%;">Nom et prénoms<br><i>Full name</i></th>'
+            .'<th style="width:7%;">Sexe<br><i>Sex</i></th>'
+            .'<th style="width:7%;">Âge<br><i>Age</i></th>'
+            .'<th style="width:25%;">Tuteur / Parent<br><i>Guardian</i></th>'
             .'<th style="width:18%;">Téléphone<br><i>Phone</i></th>'
             .'</tr></thead><tbody>'.$lignes.'</tbody></table>';
     }

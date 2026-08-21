@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -15,6 +15,7 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
+import { CreerDetteAnterieureModal } from '@/features/finance/CreerDetteAnterieureModal'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
@@ -58,6 +59,7 @@ export function CaissePage() {
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
+  const [detteModalOuvert, setDetteModalOuvert] = useState(false)
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -183,6 +185,20 @@ export function CaissePage() {
         titre="Caisse — frais de scolarité"
         sousTitre="Encaissements, reçus et suivi du recouvrement."
         icon={Wallet}
+        actions={
+          <>
+            {can('finance.manage') && (
+              <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
+                <History className="h-4 w-4" />
+                Dette antérieure
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => navigate('/caisse/insolvables')}>
+              <ListFilter className="h-4 w-4" />
+              Insolvables
+            </Button>
+          </>
+        }
       />
 
       {isLoading ? (
@@ -238,6 +254,14 @@ export function CaissePage() {
             }
           />
         </>
+      )}
+
+      {detteModalOuvert && data && (
+        <CreerDetteAnterieureModal
+          eleves={data.dossiers.map((d) => ({ id: d.eleve.id, nom_complet: d.eleve.nom_complet, matricule: d.eleve.matricule }))}
+          onClose={() => setDetteModalOuvert(false)}
+          onCreated={rafraichir}
+        />
       )}
     </div>
   )

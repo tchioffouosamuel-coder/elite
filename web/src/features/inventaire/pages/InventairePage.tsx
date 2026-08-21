@@ -27,7 +27,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
-const CATEGORIES: CategorieArticle[] = ['mobilier', 'informatique', 'pedagogique', 'sport', 'autre']
+const CATEGORIES: CategorieArticle[] = ['mobilier', 'informatique', 'pedagogique', 'sport', 'medical', 'autre']
 const ETATS: EtatArticle[] = ['bon', 'moyen', 'mauvais', 'hors_service']
 
 const TONE_ETAT: Record<EtatArticle, 'green' | 'gold' | 'red' | 'neutral'> = {

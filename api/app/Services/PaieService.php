@@ -9,7 +9,7 @@ use App\Models\EcritureComptable;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\School;
-use App\Services\Paie\BaremePaie;
+use App\Services\Paie\Bareme;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -31,16 +31,26 @@ class PaieService extends BaseService
 {
     private const TYPE_DOCUMENT = 'bulletin_paie';
 
-    /** Charges de personnel, dettes envers l'agent et les organismes. */
+    /*
+     * Charges de personnel, ventilées sur le triplet que présente l'état de
+     * synthèse de l'établissement : salaires, CNPS, charges fiscales. Les
+     * regrouper sur un compte unique interdirait de rapprocher l'application
+     * du classeur, où les trois lignes se lisent séparément.
+     */
     private const COMPTE_SALAIRES = '661';
 
-    private const COMPTE_CHARGES_SOCIALES = '664';
+    private const COMPTE_CNPS_CHARGE = '662';
+
+    private const COMPTE_IMPOTS_CHARGE = '663';
 
     private const COMPTE_PERSONNEL = '421';
 
     private const COMPTE_CNPS = '431';
 
     private const COMPTE_IMPOTS = '441';
+
+    /** Raff, njangi, prêts, absences : dus à l'école, pas à un organisme. */
+    private const COMPTE_RETENUES_INTERNES = '471';
 
     private const COMPTES_TRESORERIE = [
         'especes' => '571',
@@ -51,8 +61,9 @@ class PaieService extends BaseService
     ];
 
     public function __construct(
-        private readonly BaremePaie $bareme,
+        private readonly Bareme $bareme,
         private readonly DocumentReferenceService $references,
+        private readonly AvanceSalaireService $avances,
     ) {}
 
     /**
@@ -79,23 +90,58 @@ class PaieService extends BaseService
 
         return $this->transaction(function () use ($personnel, $annee, $mois, $saisie, $remuneration, $existant) {
             $debut = Carbon::create($annee, $mois, 1)->startOfDay();
-            $resultat = $this->bareme->calculer([
-                'salaire_base' => $remuneration->salaire_base,
-                'prime_anciennete' => $remuneration->prime_anciennete,
-                'prime_communication' => $remuneration->prime_communication,
-                'prime_transport' => $remuneration->prime_transport,
-                'prime_recherche' => $remuneration->prime_recherche,
-                'prime_performance' => $remuneration->prime_performance,
-            ]);
+
+            /*
+             * Deux régimes cohabitent dans le complexe. Au primaire, un salaire
+             * mensuel négocié à la rentrée. Au technique, une vacation : seules
+             * les heures enseignées sont dues, au taux du contrat. Le second
+             * n'a pas de primes — il n'a qu'un volume et un taux.
+             */
+            $heures = isset($saisie['heures']) ? max(0, (int) $saisie['heures']) : null;
+
+            if ($remuneration->estHoraire()) {
+                if ($heures === null) {
+                    throw new RuntimeException(
+                        "{$personnel->nom_complet} est payé à l'heure : le nombre d'heures du mois est requis.",
+                    );
+                }
+
+                $gains = ['salaire_base' => $heures * (int) $remuneration->taux_horaire];
+            } else {
+                $gains = [
+                    'salaire_base' => $remuneration->salaire_base,
+                    'prime_anciennete' => $remuneration->prime_anciennete,
+                    'prime_communication' => $remuneration->prime_communication,
+                    'prime_transport' => $remuneration->prime_transport,
+                    'prime_recherche' => $remuneration->prime_recherche,
+                    'prime_performance' => $remuneration->prime_performance,
+                ];
+            }
+
+            $resultat = $this->bareme->calculer($gains);
 
             $joursOuvrables = (int) ($saisie['jours_ouvrables'] ?? 22);
             $joursTravailles = (int) ($saisie['jours_travailles'] ?? $joursOuvrables);
 
             $deductions = [
-                'deduction_absences' => $this->deductionAbsences($resultat->brut, $joursOuvrables, $joursTravailles),
+                /*
+                 * Une vacation ne se proratise pas : les heures non faites ne
+                 * sont simplement pas payées. Retenir en plus reviendrait à
+                 * les compter deux fois.
+                 */
+                'deduction_absences' => $remuneration->estHoraire()
+                    ? 0
+                    : $this->deductionAbsences($resultat->brut, $joursOuvrables, $joursTravailles),
                 'deduction_raff' => (int) ($saisie['deduction_raff'] ?? 0),
                 'deduction_njangi' => (int) ($saisie['deduction_njangi'] ?? 0),
-                'deduction_pret' => (int) ($saisie['deduction_pret'] ?? 0),
+                /*
+                 * L'échéancier de l'avance commande la retenue : la mensualité
+                 * accordée, bornée par ce qui reste dû. La saisie garde le
+                 * dernier mot — un mois de trésorerie difficile se négocie —
+                 * mais elle part de ce que le dossier prévoit, et non d'un
+                 * montant recopié de mois en mois.
+                 */
+                'deduction_pret' => (int) ($saisie['deduction_pret'] ?? $this->avances->mensualiteDue($personnel->id)),
                 'deduction_autre' => (int) ($saisie['deduction_autre'] ?? 0),
             ];
 
@@ -116,10 +162,16 @@ class PaieService extends BaseService
                 'periode_fin' => $debut->copy()->endOfMonth()->toDateString(),
                 'jours_ouvrables' => $joursOuvrables,
                 'jours_travailles' => $joursTravailles,
+                'heures' => $heures,
+                'taux_horaire' => $remuneration->estHoraire() ? $remuneration->taux_horaire : null,
                 'salaire_brut' => $resultat->brut,
                 'net_taxable' => $resultat->baseTaxable,
                 'charges_salariales' => $resultat->chargesSalariales,
                 'charges_patronales' => $resultat->chargesPatronales,
+                // Trace du barème : un bulletin doit rester relisible quand le
+                // réglage aura changé.
+                'bareme' => $this->bareme->libelle(),
+                'charges_salariales_a_charge_employeur' => $resultat->chargesSalarialesSupporteesParEmployeur,
                 ...$deductions,
                 // Le net ne descend pas sous zéro : une retenue supérieure au
                 // net se reporte, elle ne transforme pas la paie en créance.
@@ -140,7 +192,7 @@ class PaieService extends BaseService
      *
      * @return array{bulletins: Collection<int, BulletinPaie>, ignores: list<string>}
      */
-    public function preparerLot(int $schoolId, int $annee, int $mois, array $saisie = []): array
+    public function preparerLot(int|array $schoolId, int $annee, int $mois, array $saisie = []): array
     {
         $bulletins = collect();
         $ignores = [];
@@ -245,6 +297,32 @@ class PaieService extends BaseService
         }
 
         return $this->transaction(function () use ($bulletin, $validePar) {
+            /*
+             * La retenue devient un remboursement au registre des avances :
+             * c'est l'arrêté qui l'engage, pas le brouillon, qui se recalcule
+             * encore. Si l'agent doit moins que la retenue annoncée, seul le
+             * dû est imputé et le bulletin est ramené à ce montant — sans quoi
+             * le net versé et le solde de l'avance se contrediraient.
+             *
+             * L'imputation précède l'écriture : le journal doit porter la
+             * retenue réellement pratiquée, pas celle qui était proposée.
+             */
+            $impute = $this->avances->imputerSurPaie(
+                $bulletin->personnel_id,
+                $bulletin->deduction_pret,
+                $bulletin->periode_fin->toDateString(),
+                'Retenue sur salaire — '.$bulletin->numero,
+            );
+
+            if ($impute !== $bulletin->deduction_pret) {
+                $bulletin->update([
+                    'deduction_pret' => $impute,
+                    // Ce qui n'a pas pu être retenu revient à l'agent.
+                    'net_a_payer' => $bulletin->net_a_payer + ($bulletin->deduction_pret - $impute),
+                ]);
+                $bulletin->refresh();
+            }
+
             $bulletin->update(['statut' => 'valide', 'valide_par' => $validePar]);
             $this->comptabiliser($bulletin);
 
@@ -297,20 +375,49 @@ class PaieService extends BaseService
      * Charge de personnel à l'arrêté : le brut et les charges patronales pèsent
      * sur le résultat, la dette se répartit entre l'agent, la CNPS et le fisc.
      */
+    /**
+     * Journal de paie, ventilé comme l'état de synthèse le présente : le brut
+     * en 661, la CNPS en 662, les impôts et taxes en 663.
+     *
+     * Ce qui est porté en charge dépend de qui supporte la part salariale.
+     * Dans les registres de l'établissement, l'agent perçoit son montant
+     * négocié entier et l'école absorbe cette part : elle rejoint alors les
+     * charges. Sous le barème légal, elle est retenue sur le net et ne
+     * constitue qu'une dette envers l'organisme, jamais une charge de plus.
+     *
+     * Dans les deux cas, en contrepartie : le net dû à l'agent, la CNPS et
+     * l'État à reverser, et les retenues internes qui restent en caisse.
+     */
     private function comptabiliser(BulletinPaie $bulletin): void
     {
         $cotisations = $bulletin->lignes()->where('type', 'retenue')->get();
-        $impots = (int) $cotisations->filter(
-            fn ($l) => str_contains($l->libelle, 'IRPP') || str_contains($l->libelle, 'Taxe') || str_contains($l->libelle, 'Foncier'),
-        )->sum('montant_salarial');
-        $cnpsSalarie = $bulletin->charges_salariales - $impots;
+        $estCnps = fn ($ligne) => str_contains($ligne->libelle, 'CNPS');
+
+        $part = fn ($lignes, string $colonne) => (int) $lignes->sum($colonne);
+
+        $cnpsSalarial = $part($cotisations->filter($estCnps), 'montant_salarial');
+        $cnpsPatronal = $part($cotisations->filter($estCnps), 'montant_patronal');
+        $impotsSalarial = $part($cotisations->reject($estCnps), 'montant_salarial');
+        $impotsPatronal = $part($cotisations->reject($estCnps), 'montant_patronal');
+
+        $supportee = (bool) $bulletin->charges_salariales_a_charge_employeur;
+        $cnpsCharge = $cnpsPatronal + ($supportee ? $cnpsSalarial : 0);
+        $impotsCharge = $impotsPatronal + ($supportee ? $impotsSalarial : 0);
 
         $this->ecrire($bulletin, 'debit', self::COMPTE_SALAIRES, $bulletin->salaire_brut, 'Salaire brut');
-        $this->ecrire($bulletin, 'debit', self::COMPTE_CHARGES_SOCIALES, $bulletin->charges_patronales, 'Charges patronales');
+        $this->ecrire($bulletin, 'debit', self::COMPTE_CNPS_CHARGE, $cnpsCharge, 'Cotisations CNPS');
+        $this->ecrire($bulletin, 'debit', self::COMPTE_IMPOTS_CHARGE, $impotsCharge, 'Impôts et taxes sur salaire');
 
         $this->ecrire($bulletin, 'credit', self::COMPTE_PERSONNEL, $bulletin->net_a_payer, 'Net à payer');
-        $this->ecrire($bulletin, 'credit', self::COMPTE_CNPS, $cnpsSalarie + $bulletin->charges_patronales, 'Cotisations CNPS');
-        $this->ecrire($bulletin, 'credit', self::COMPTE_IMPOTS, $impots, 'Impôts retenus à la source');
+        $this->ecrire($bulletin, 'credit', self::COMPTE_CNPS, $cnpsSalarial + $cnpsPatronal, 'CNPS à reverser');
+        $this->ecrire($bulletin, 'credit', self::COMPTE_IMPOTS, $impotsSalarial + $impotsPatronal, 'Impôts et taxes à reverser');
+
+        /*
+         * Raff, njangi, prêt, absences : ces retenues ne partent à aucun
+         * organisme, elles restent dans la caisse de l'école. Sans cette
+         * écriture, le journal annoncerait un net supérieur au virement.
+         */
+        $this->ecrire($bulletin, 'credit', self::COMPTE_RETENUES_INTERNES, $bulletin->total_deductions, 'Retenues internes sur salaire');
     }
 
     private function ecrire(BulletinPaie $bulletin, string $sens, string $codeCompte, int $montant, string $libelle): void
@@ -345,7 +452,7 @@ class PaieService extends BaseService
      *
      * @return array{bulletins: Collection<int, BulletinPaie>, totaux: array<string, int>}
      */
-    public function masseSalariale(int $schoolId, int $annee, int $mois): array
+    public function masseSalariale(int|array $schoolId, int $annee, int $mois): array
     {
         $bulletins = BulletinPaie::forSchool($schoolId)
             ->where('annee', $annee)->where('mois', $mois)

@@ -108,7 +108,15 @@ class RemunerationController extends Controller
 
         $donnees = $request->validate([
             'date_effet' => ['required', 'date'],
-            'salaire_base' => ['required', 'integer', 'min:0'],
+            /*
+             * Deux régimes : le salaire mensuel négocié du primaire, et la
+             * vacation horaire du technique, où seules les heures enseignées
+             * sont dues. Un vacataire n'a pas de salaire de base — il a un
+             * taux — d'où les deux champs conditionnés l'un à l'autre.
+             */
+            'mode' => ['nullable', 'in:mensuel,horaire'],
+            'taux_horaire' => ['required_if:mode,horaire', 'nullable', 'integer', 'min:1'],
+            'salaire_base' => ['required_unless:mode,horaire', 'nullable', 'integer', 'min:0'],
             'prime_anciennete' => ['nullable', 'integer', 'min:0'],
             'prime_communication' => ['nullable', 'integer', 'min:0'],
             'prime_transport' => ['nullable', 'integer', 'min:0'],
@@ -117,11 +125,19 @@ class RemunerationController extends Controller
             'categorie' => ['nullable', 'string', 'max:20'],
         ]);
 
+        $horaire = ($donnees['mode'] ?? 'mensuel') === 'horaire';
+
         $remuneration = Remuneration::updateOrCreate(
             ['personnel_id' => $personnel->id, 'date_effet' => $donnees['date_effet']],
             [
                 'school_id' => $personnel->school_id,
-                ...collect(self::GAINS)->mapWithKeys(fn ($champ) => [$champ => (int) ($donnees[$champ] ?? 0)]),
+                'mode' => $horaire ? 'horaire' : 'mensuel',
+                'taux_horaire' => $horaire ? (int) $donnees['taux_horaire'] : null,
+                // Une vacation n'a ni base ni primes : les laisser garnies
+                // ferait apparaître un salaire là où il n'y a qu'un taux.
+                ...collect(self::GAINS)->mapWithKeys(
+                    fn ($champ) => [$champ => $horaire ? 0 : (int) ($donnees[$champ] ?? 0)],
+                ),
                 'categorie' => $donnees['categorie'] ?? null,
             ],
         );
@@ -227,6 +243,8 @@ class RemunerationController extends Controller
             'id' => $remuneration->id,
             'date_effet' => $remuneration->date_effet?->format('Y-m-d'),
             'categorie' => $remuneration->categorie,
+            'mode' => $remuneration->mode,
+            'taux_horaire' => $remuneration->taux_horaire,
             ...$remuneration->only(self::GAINS),
             'brut' => $resultat->brut,
             'base_taxable' => $resultat->baseTaxable,

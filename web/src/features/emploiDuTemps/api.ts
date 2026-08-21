@@ -15,6 +15,11 @@ export const JOURS = [
   { valeur: 6, libelle: 'samedi' },
 ] as const
 
+export interface ClasseAssociee {
+  id: number
+  nom: string
+}
+
 export interface Creneau {
   id: number
   jour: number
@@ -24,6 +29,12 @@ export interface Creneau {
   classe_matiere_id: number
   matiere: string | null
   enseignant: string | null
+  /** Classe porteuse du créneau : sur la grille d'une classe associée, le cours vient d'ailleurs. */
+  classe_id: number
+  classe: string | null
+  /** Classes qui rejoignent la porteuse. Non vide = tronc commun. */
+  classes_associees: ClasseAssociee[]
+  tronc_commun: boolean
 }
 
 export interface CreneauPayload {
@@ -32,6 +43,7 @@ export interface CreneauPayload {
   heure_debut: string
   heure_fin: string
   salle?: string | null
+  classes_associees?: number[]
 }
 
 export interface Seance {
@@ -58,6 +70,8 @@ export interface LigneAppel {
   eleve_id: number
   nom_complet: string
   matricule: string | null
+  /** Renseignée sur un tronc commun : sans elle, l'enseignant ne sait plus qui il pointe. */
+  classe: string | null
   statut: 'present' | 'absent'
   motif: MotifAbsence | null
   remarque: string | null
@@ -102,8 +116,16 @@ export async function fetchSeances(
   return data.data
 }
 
-export async function fetchAppel(seanceId: number): Promise<{ seance: Seance; lignes: LigneAppel[] }> {
-  const { data } = await http.get<ApiResponse<{ seance: Seance; lignes: LigneAppel[] }>>(`/seances/${seanceId}/appel`)
+export interface FeuilleAppel {
+  seance: Seance
+  /** Vrai quand la séance réunit plusieurs classes. */
+  tronc_commun: boolean
+  classes: ClasseAssociee[]
+  lignes: LigneAppel[]
+}
+
+export async function fetchAppel(seanceId: number): Promise<FeuilleAppel> {
+  const { data } = await http.get<ApiResponse<FeuilleAppel>>(`/seances/${seanceId}/appel`)
   return data.data
 }
 

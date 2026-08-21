@@ -3,12 +3,24 @@ import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchMe } from '@/features/auth/api'
 
+/**
+ * Destination de repli d'un compte : le portail parent pour un rôle
+ * `parent`, le tableau de bord du personnel sinon. Un compte parent ne porte
+ * pas `dashboard.view` — le rediriger vers `/` bouclerait indéfiniment sur la
+ * garde de permission de cette même route.
+ */
+function redirectionParDefaut(roles: string[] | undefined): string {
+  return roles?.includes('parent') ? '/parent' : '/'
+}
+
 export function ProtectedRoute({
   children,
   permission,
   enseignantOnly = false,
   superAdminOnly = false,
   masquerPourTitulaire = false,
+  parentOnly = false,
+  personnelOnly = false,
 }: {
   children: ReactNode
   permission?: string
@@ -26,6 +38,14 @@ export function ProtectedRoute({
    * par une URL directe.
    */
   masquerPourTitulaire?: boolean
+  /** Réservé au portail parent — un compte du personnel n'y a rien à faire. */
+  parentOnly?: boolean
+  /**
+   * Réservé aux comptes portant une fiche personnel : l'espace libre-service
+   * n'a rien à montrer à un compte purement administratif, et l'API y répond
+   * de toute façon 404 (cf. PersonnelEspaceController::moi()).
+   */
+  personnelOnly?: boolean
 }) {
   const { token, user, can, activeSchool, refreshUser } = useAuthStore()
   const dejaRafraichi = useRef(false)
@@ -52,13 +72,22 @@ export function ProtectedRoute({
   // vides suivis d'un message d'erreur.
   if (user?.doit_changer_mot_de_passe) return <Navigate to="/mot-de-passe" replace />
 
-  if (superAdminOnly && !user?.is_super_admin) return <Navigate to="/" replace />
-  if (permission && !can(permission)) return <Navigate to="/" replace />
-  if (enseignantOnly && !user?.est_enseignant) return <Navigate to="/" replace />
+  // Le portail parent est fermé au personnel, et l'inverse aussi : partager
+  // une même route entre les deux enverrait un parent chercher un menu de
+  // quarante entrées qui ne le concernent pas, ou un agent chercher les
+  // écrans d'un rôle qu'il ne porte pas.
+  const estParent = Boolean(user?.roles.includes('parent'))
+  if (parentOnly && !estParent) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (!parentOnly && estParent) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+
+  if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
 
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
-  if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to="/" replace />
+  if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
 
   return <>{children}</>
 }

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, BriefcaseBusiness } from 'lucide-react'
+import { ArrowLeft, BriefcaseBusiness, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Button } from '@/shared/ui/Button'
@@ -16,6 +16,7 @@ import {
   fetchPersonnel,
   createPersonnel,
   updatePersonnel,
+  type PersonnelEnfant,
   type PersonnelPayload,
 } from '@/features/personnel/api'
 import { fetchSchools } from '@/features/classes/api'
@@ -24,7 +25,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 
 /**
- * Dossier d'un agent, saisi en quatre étapes.
+ * Dossier d'un agent, saisi en cinq étapes.
  *
  * La fiche portait six champs ; elle en porte vingt depuis la reprise du
  * tableau de mise en place du personnel. Tout dérouler d'un bloc rendait la
@@ -43,10 +44,21 @@ const ETAPES: { id: string; label: string; description: string; champs: Champ[] 
   { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
   { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
+  { id: 'famille', label: 'Famille', description: 'Parents et enfants', champs: ['pere_nom_complet', 'pere_statut', 'pere_telephone', 'mere_nom_complet', 'mere_statut', 'mere_telephone'] },
   { id: 'recap', label: 'Récapitulatif', description: 'Vérification', champs: [] },
 ]
 
 const CIVILITES = ['M.', 'Mme', 'Mlle', 'Mr', 'Mrs', 'Miss']
+
+const STATUTS_PARENT: { value: PersonnelPayload['pere_statut']; label: string }[] = [
+  { value: 'vivant', label: 'Vivant' },
+  { value: 'decede', label: 'Décédé' },
+]
+
+const SEXES_ENFANT: { value: PersonnelEnfant['sexe']; label: string }[] = [
+  { value: 'M', label: 'Masculin' },
+  { value: 'F', label: 'Féminin' },
+]
 
 const SITUATIONS = [
   ['celibataire', 'Célibataire'],
@@ -55,11 +67,67 @@ const SITUATIONS = [
   ['veuf', 'Veuf / Veuve'],
 ] as const
 
-/** Champs vides renvoyés en `null` : une chaîne vide ferait échouer `email` ou `date`. */
-function nettoyer<T extends Record<string, unknown>>(valeurs: T): T {
-  return Object.fromEntries(
-    Object.entries(valeurs).map(([cle, valeur]) => [cle, valeur === '' ? null : valeur]),
-  ) as T
+function estVide(valeur: unknown): boolean {
+  if (valeur === null || valeur === undefined || valeur === '') return true
+  if (Array.isArray(valeur)) return valeur.every(estVide)
+  if (typeof valeur === 'object') {
+    return Object.values(valeur as Record<string, unknown>).every(estVide)
+  }
+  return false
+}
+
+/** Nettoie les chaînes vides tout en conservant les structures imbriquées. */
+function nettoyer(valeur: unknown): unknown {
+  if (Array.isArray(valeur)) {
+    return valeur
+      .map((element) => nettoyer(element))
+      .filter((element) => !estVide(element))
+  }
+
+  if (valeur && typeof valeur === 'object') {
+    return Object.fromEntries(
+      Object.entries(valeur as Record<string, unknown>).map(([cle, valeurInterne]) => [cle, nettoyer(valeurInterne)]),
+    )
+  }
+
+  return valeur === '' ? null : valeur
+}
+
+function resumeParent(nom: string | null | undefined, statut: PersonnelPayload['pere_statut'] | null | undefined, telephone: string | null | undefined) {
+  if (!nom && !statut && !telephone) return null
+
+  const morceaux = [
+    nom,
+    statut === 'vivant' ? 'vivant' : statut === 'decede' ? 'décédé' : null,
+    statut === 'vivant' && telephone ? telephone : null,
+  ].filter(Boolean)
+
+  return morceaux.join(' · ')
+}
+
+function resumeEnfant(enfant: PersonnelEnfant) {
+  const morceaux = [
+    enfant.nom_complet,
+    enfant.sexe === 'M' ? 'M' : enfant.sexe === 'F' ? 'F' : null,
+    enfant.date_naissance,
+  ].filter(Boolean)
+
+  return morceaux.join(' · ')
+}
+
+function etapePourErreurs(erreurs?: Record<string, unknown> | null): number {
+  const cles = Object.keys(erreurs ?? {})
+
+  if (cles.some((cle) => cle.startsWith('pere_') || cle.startsWith('mere_') || cle.startsWith('enfants.'))) {
+    return 3
+  }
+  if (cles.some((cle) => ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'].includes(cle))) {
+    return 2
+  }
+  if (cles.some((cle) => ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'].includes(cle))) {
+    return 1
+  }
+  return 0
 }
 
 export function PersonnelFormPage() {
@@ -91,12 +159,15 @@ export function PersonnelFormPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     trigger,
     reset,
     watch,
     formState: { errors },
-  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '' } })
+  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '' } })
+
+  const { fields: enfants, append, remove } = useFieldArray({ control, name: 'enfants' })
 
   const ecoleChoisie = watch('school_id')
   // La fonction et le département dépendent de l'école choisie : en mode
@@ -137,20 +208,28 @@ export function PersonnelFormPage() {
       email: personnel.email ?? '',
       date_embauche: personnel.date_embauche ?? '',
       date_fin: personnel.date_fin ?? '',
+      pere_nom_complet: personnel.pere_nom_complet ?? '',
+      pere_statut: personnel.pere_statut ?? '',
+      pere_telephone: personnel.pere_telephone ?? '',
+      mere_nom_complet: personnel.mere_nom_complet ?? '',
+      mere_statut: personnel.mere_statut ?? '',
+      mere_telephone: personnel.mere_telephone ?? '',
+      enfants: personnel.enfants ?? [],
     })
   }, [personnel, reset])
 
   const onSubmit = async (values: PersonnelPayload) => {
     setSubmitting(true)
     try {
-      const enfants = values.nombre_enfants
       const payload = nettoyer({
         ...values,
         fonction_id: Number(values.fonction_id),
         departement_id: values.departement_id ? Number(values.departement_id) : null,
         school_id: values.school_id ? Number(values.school_id) : null,
-        nombre_enfants: enfants === undefined || enfants === null || (enfants as unknown) === '' ? null : Number(enfants),
-      })
+        nombre_enfants: values.nombre_enfants === undefined || values.nombre_enfants === null
+          ? null
+          : Number(values.nombre_enfants),
+      }) as PersonnelPayload
 
       if (personnel) {
         await updatePersonnel(personnel.id, payload)
@@ -168,14 +247,31 @@ export function PersonnelFormPage() {
 
       // L'API peut refuser un champ d'une étape précédente : on ramène
       // l'utilisateur là où la correction se fait.
-      setEtape(0)
+      setEtape(etapePourErreurs(e.errors ?? undefined))
     } finally {
       setSubmitting(false)
     }
   }
 
   const valeurs = watch()
+  const enfantsSaisis = (valeurs.enfants ?? []).filter((enfant) => !estVide(enfant))
   const fonctionLabel = fonctions?.find((f) => f.id === Number(valeurs.fonction_id))?.label
+  const handleNext = async (): Promise<boolean> => {
+    if (ETAPES[etape]?.id === 'famille') {
+      const champsEnfants = enfants.map((_, index) => [
+        `enfants.${index}.nom_complet` as const,
+        `enfants.${index}.sexe` as const,
+        `enfants.${index}.date_naissance` as const,
+      ]).flat()
+
+      return trigger([
+        ...ETAPES[etape].champs,
+        ...champsEnfants,
+      ] as never)
+    }
+
+    return trigger(ETAPES[etape].champs as never)
+  }
 
   const recapitulatif: [string, string | number | null | undefined][] = [
     [t('personnel.nom_complet'), [valeurs.civilite, valeurs.nom_complet].filter(Boolean).join(' ')],
@@ -192,6 +288,9 @@ export function PersonnelFormPage() {
     ["Département d'origine", valeurs.departement_origine],
     ['Situation', SITUATIONS.find(([cle]) => cle === valeurs.situation_matrimoniale)?.[1]],
     ['Enfants de moins de 21 ans', valeurs.nombre_enfants],
+    ['Père', resumeParent(valeurs.pere_nom_complet, valeurs.pere_statut, valeurs.pere_telephone)],
+    ['Mère', resumeParent(valeurs.mere_nom_complet, valeurs.mere_statut, valeurs.mere_telephone)],
+    ['Enfants', enfantsSaisis.length === 0 ? null : enfantsSaisis.map(resumeEnfant).join(' · ')],
     ['Diplôme professionnel', valeurs.diplome_professionnel],
     ['Diplôme académique', valeurs.diplome_academique],
     ["Date d'embauche", valeurs.date_embauche],
@@ -208,7 +307,7 @@ export function PersonnelFormPage() {
         sousTitre={
           personnel
             ? `Dossier de ${personnel.nom_complet}`
-            : "Le dossier se remplit en quatre étapes ; seuls le nom et la fonction sont obligatoires."
+            : "Le dossier se remplit en cinq étapes ; seuls le nom et la fonction sont obligatoires."
         }
         icon={BriefcaseBusiness}
         actions={
@@ -226,7 +325,7 @@ export function PersonnelFormPage() {
           onStepChange={setEtape}
           isLastStep={etape === ETAPES.length - 1}
           isSubmitting={submitting}
-          onNext={() => trigger(ETAPES[etape].champs as never)}
+          onNext={handleNext}
           onSubmit={handleSubmit(onSubmit)}
           onCancel={() => navigate('/personnel')}
         >
@@ -385,6 +484,139 @@ export function PersonnelFormPage() {
           )}
 
           {etape === 3 && (
+            <div className="flex flex-col gap-4">
+              <h3 className="font-display text-base font-bold text-navy-900">Famille de l'agent</h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className="rounded-xl border border-navy-100 bg-white p-4">
+                  <h4 className="text-sm font-bold text-navy-900">Père</h4>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <Input label="Nom complet" error={errors.pere_nom_complet?.message} {...register('pere_nom_complet')} />
+                    <Select label="Statut" {...register('pere_statut')}>
+                      <option value="">—</option>
+                      {STATUTS_PARENT.map((statut) => (
+                        <option key={statut.value ?? ''} value={statut.value ?? ''}>
+                          {statut.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <Input
+                      label="Téléphone"
+                      placeholder="Obligatoire si vivant"
+                      error={errors.pere_telephone?.message}
+                      {...register('pere_telephone')}
+                    />
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-navy-100 bg-white p-4">
+                  <h4 className="text-sm font-bold text-navy-900">Mère</h4>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <Input label="Nom complet" error={errors.mere_nom_complet?.message} {...register('mere_nom_complet')} />
+                    <Select label="Statut" {...register('mere_statut')}>
+                      <option value="">—</option>
+                      {STATUTS_PARENT.map((statut) => (
+                        <option key={statut.value ?? ''} value={statut.value ?? ''}>
+                          {statut.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <Input
+                      label="Téléphone"
+                      placeholder="Obligatoire si vivante"
+                      error={errors.mere_telephone?.message}
+                      {...register('mere_telephone')}
+                    />
+                  </div>
+                </section>
+              </div>
+
+              <section className="rounded-xl border border-dashed border-navy-200 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-navy-900">Enfants</h4>
+                    <p className="text-xs text-navy-400">Ajoutez un enfant par ligne avec son sexe et sa date de naissance.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => append({ nom_complet: '', sexe: '', date_naissance: '' })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter
+                  </Button>
+                </div>
+
+                {enfants.length === 0 ? (
+                  <p className="rounded-lg bg-cream-100 px-3 py-2 text-sm text-navy-500">
+                    Aucun enfant saisi pour le moment.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {enfants.map((enfant, index) => (
+                      <div key={enfant.id} className="grid gap-3 rounded-lg border border-navy-100 p-3 lg:grid-cols-[minmax(0,2fr)_12rem_12rem_auto]">
+                        <Input
+                          label="Nom complet"
+                          error={errors.enfants?.[index]?.nom_complet?.message}
+                          {...register(`enfants.${index}.nom_complet` as const, {
+                            validate: (valeur, champs) =>
+                              valeur || champs.sexe || champs.date_naissance
+                                ? valeur?.trim()
+                                  ? true
+                                  : "Le nom de l'enfant est obligatoire."
+                                : true,
+                          })}
+                        />
+                        <Select
+                          label="Sexe"
+                          error={errors.enfants?.[index]?.sexe?.message}
+                          {...register(`enfants.${index}.sexe` as const, {
+                            validate: (valeur, champs) =>
+                              valeur || champs.nom_complet || champs.date_naissance
+                                ? valeur === 'M' || valeur === 'F'
+                                  ? true
+                                  : "Le sexe de l'enfant est obligatoire."
+                                : true,
+                          })}
+                        >
+                          <option value="">—</option>
+                          {SEXES_ENFANT.map((sexe) => (
+                            <option key={sexe.value ?? ''} value={sexe.value ?? ''}>
+                              {sexe.label}
+                            </option>
+                          ))}
+                        </Select>
+                        <Input
+                          label="Date de naissance"
+                          type="date"
+                          error={errors.enfants?.[index]?.date_naissance?.message}
+                          {...register(`enfants.${index}.date_naissance` as const, {
+                            validate: (valeur, champs) =>
+                              valeur || champs.nom_complet || champs.sexe
+                                ? valeur
+                                  ? true
+                                  : "La date de naissance de l'enfant est obligatoire."
+                                : true,
+                          })}
+                        />
+                        <div className="flex items-end justify-end">
+                          <button
+                            type="button"
+                            onClick={() => remove(index)}
+                            className="rounded-lg p-2 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                            aria-label={`Supprimer l'enfant ${index + 1}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {etape === 4 && (
             <div className="flex flex-col gap-4">
               <h3 className="font-display text-base font-bold text-navy-900">Vérification avant enregistrement</h3>
               <dl className="grid gap-x-8 sm:grid-cols-2">

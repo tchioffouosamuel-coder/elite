@@ -92,12 +92,22 @@ class SeanceController extends Controller
     {
         $seance = $this->seance($id);
 
+        $classes = $seance->classesConcernees();
+
         return ApiResponse::success([
             'seance' => $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant')),
+            /*
+             * Un cours en tronc commun réunit plusieurs classes : l'écran doit
+             * l'annoncer, sinon un enseignant qui voit trois fois plus d'élèves
+             * que prévu croit à une erreur.
+             */
+            'tronc_commun' => $classes->count() > 1,
+            'classes' => $classes->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
             'lignes' => $this->service->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
                 'nom_complet' => $ligne['eleve']->nom_complet,
                 'matricule' => $ligne['eleve']->matricule,
+                'classe' => $ligne['classe']['nom'] ?? null,
                 'statut' => $ligne['statut'],
                 'motif' => $ligne['motif'],
                 'justifie' => $ligne['justifie'],

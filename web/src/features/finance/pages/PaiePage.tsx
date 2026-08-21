@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { StatCard } from '@/shared/ui/Card'
+import { Card, StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Select } from '@/shared/ui/Field'
@@ -21,6 +21,7 @@ import {
   payerBulletin,
   payerBulletins,
   preparerPaie,
+  fetchBordereauVirement,
   type BulletinPaie,
 } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
@@ -409,8 +410,85 @@ export function PaiePage() {
               </div>
             }
           />
+
+          <BordereauCard annee={annee} mois={mois} />
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Dernière étape du circuit : ce qui part à la banque. Un bloc par
+ * établissement bancaire, comme au bordereau papier, avec l'appoint d'arrondi
+ * qui reste en caisse.
+ */
+function BordereauCard({ annee, mois }: { annee: number; mois: number }) {
+  const activeSchool = useAuthStore((s) => s.activeSchool)
+  const user = useAuthStore((s) => s.user)
+  const schoolId = activeSchool()?.id ?? user?.ecoles_accessibles?.[0]?.id ?? null
+
+  const { data } = useQuery({
+    queryKey: ['bordereau-virement', schoolId, annee, mois],
+    queryFn: () => fetchBordereauVirement(schoolId as number, annee, mois),
+    enabled: schoolId !== null,
+  })
+
+  if (!data || (data.banques.length === 0 && data.sans_domiciliation.length === 0)) return null
+
+  return (
+    <Card>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-navy-500">Bordereau de virement</h2>
+          <p className="mt-0.5 text-xs text-navy-400">Bulletins arrêtés du mois, rangés par banque.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-display text-lg font-bold tabular-nums text-navy-900">{francs(data.total)}</span>
+          <Button
+            variant="secondary"
+            onClick={() => ouvrirDocument('/paie/bordereau/pdf', { school_id: schoolId as number, annee, mois })}
+          >
+            <FileText className="h-4 w-4" />
+            PDF
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {data.banques.map((banque) => (
+          <div key={banque.banque}>
+            <div className="mb-1.5 flex items-center justify-between gap-3 border-b border-navy-100 pb-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide text-navy-700">
+                {banque.banque}
+                <span className="ml-2 font-medium text-navy-400">{banque.effectif} agent(s)</span>
+              </span>
+              <span className="font-semibold tabular-nums text-navy-800">{francs(banque.total)}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[30rem] text-sm tabular-nums">
+                <tbody className="divide-y divide-navy-50">
+                  {banque.lignes.map((ligne) => (
+                    <tr key={ligne.bulletin_id}>
+                      <td className="py-1.5 pr-3 text-navy-700">{ligne.nom_complet}</td>
+                      <td className="py-1.5 pr-3 font-mono text-xs text-navy-400">{ligne.numero_compte}</td>
+                      <td className="py-1.5 text-right font-semibold text-navy-800">{francs(ligne.montant)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
+        {data.sans_domiciliation.length > 0 && (
+          <div className="rounded-lg bg-gold-50 px-3 py-2 text-xs text-gold-800">
+            <b>{data.sans_domiciliation.length} agent(s) sans domiciliation bancaire</b> — hors bordereau tant que la
+            banque et le numéro de compte ne sont pas renseignés :{' '}
+            {data.sans_domiciliation.map((l) => l.nom_complet).join(', ')}.
+          </div>
+        )}
+      </div>
+    </Card>
   )
 }

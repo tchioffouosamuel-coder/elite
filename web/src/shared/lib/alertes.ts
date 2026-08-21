@@ -67,7 +67,7 @@ export function permissionManquante(message: string): void {
   void Swal.fire({
     ...base,
     icon: 'error',
-    iconColor: '#ac3527',
+    iconColor: '#ba2e2c',
     title: i18n.t('alerts.missing_permission_title'),
     text: message,
     footer: i18n.t('alerts.missing_permission_footer'),
@@ -129,7 +129,7 @@ export async function confirmer({ titre, message, action, destructif = true }: C
   const { isConfirmed } = await Swal.fire({
     ...base,
     icon: destructif ? 'warning' : 'question',
-    iconColor: destructif ? '#ac3527' : '#c9891f',
+    iconColor: destructif ? '#ba2e2c' : '#1985cc',
     title: titre,
     text: message,
     showCancelButton: true,
@@ -144,6 +144,23 @@ export async function confirmer({ titre, message, action, destructif = true }: C
   })
 
   return isConfirmed
+}
+
+/**
+ * Identifiants provisoires d'un compte fraîchement ouvert (parent, agent…) —
+ * fenêtre modale plutôt qu'un toast : l'administrateur doit avoir le temps de
+ * les recopier avant qu'ils disparaissent de l'écran.
+ */
+export function identifiantsOuverts(identifiant: string, motDePasse: string | null): void {
+  void Swal.fire({
+    ...base,
+    icon: 'success',
+    title: 'Accès ouvert',
+    html: motDePasse
+      ? `Identifiant : <b>${identifiant}</b><br>Mot de passe provisoire : <b>${motDePasse}</b><br><br><span class="text-xs">À remettre en main propre — à changer dès la première connexion.</span>`
+      : `Identifiant : <b>${identifiant}</b><br><br><span class="text-xs">Ce compte a déjà personnalisé son mot de passe.</span>`,
+    confirmButtonText: i18n.t('alerts.understood'),
+  })
 }
 
 /** Confirmation de suppression, formulée à partir de ce qui est supprimé. */

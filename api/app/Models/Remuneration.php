@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Remuneration extends Model
 {
     protected $fillable = [
-        'school_id', 'personnel_id', 'date_effet', 'salaire_base', 'prime_anciennete',
+        'school_id', 'personnel_id', 'date_effet', 'mode', 'taux_horaire',
+        'salaire_base', 'prime_anciennete',
         'prime_communication', 'prime_transport', 'prime_recherche', 'prime_performance', 'categorie',
     ];
 
@@ -21,6 +22,7 @@ class Remuneration extends Model
     {
         return [
             'date_effet' => 'date',
+            'taux_horaire' => 'integer',
             'salaire_base' => 'integer',
             'prime_anciennete' => 'integer',
             'prime_communication' => 'integer',
@@ -38,6 +40,12 @@ class Remuneration extends Model
     public function personnel(): BelongsTo
     {
         return $this->belongsTo(Personnel::class);
+    }
+
+    /** Vacataire payé à l'heure enseignée, et non au mois. */
+    public function estHoraire(): bool
+    {
+        return $this->mode === 'horaire';
     }
 
     /** Somme des gains : c'est le brut avant retenues. */
