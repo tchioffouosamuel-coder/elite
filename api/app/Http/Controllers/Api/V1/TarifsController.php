@@ -9,21 +9,24 @@ use App\Models\Classe;
 use App\Models\DossierScolarite;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
+use App\Services\ScolariteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
- * Paramétrage des tarifs : grille de scolarité par classe et catalogue des
- * frais annexes.
+ * Paramétrage des tarifs : grille de scolarité par classe (ou par défaut pour
+ * toute l'école) et catalogue des frais annexes.
  *
- * Modifier un tarif ici ne change **rien** aux dossiers déjà ouverts : ceux-ci
- * ont recopié le montant à l'inscription (cf. ScolariteService). C'est
- * volontaire — une famille à qui on a annoncé un prix ne doit pas le voir
- * bouger en cours d'année — mais assez contre-intuitif pour être rappelé à
- * l'écran.
+ * Un tarif modifié ici se répercute aussitôt sur les dossiers déjà ouverts
+ * (cf. `ScolariteService::synchroniserTarifs`) : leur montant de scolarité —
+ * et donc leur reste à payer — suit la grille en continu, pas seulement les
+ * dossiers ouverts après coup.
  */
 class TarifsController extends Controller
 {
+    public function __construct(private readonly ScolariteService $scolarite) {}
+
     /** Grille complète : une ligne par classe, plus le tarif par défaut. */
     public function index(Request $request): JsonResponse
     {
@@ -47,23 +50,32 @@ class TarifsController extends Controller
                 'id' => $classe->id,
                 'nom' => $classe->nom,
                 'montant' => $grilles->get($classe->id)?->montant,
-                // Un dossier déjà ouvert ne suit plus la grille : le compter
-                // dit à l'utilisateur combien de familles ne seront pas
-                // affectées par sa modification.
                 'dossiers_ouverts' => $this->dossiersOuverts($classe->id, $annee->id),
             ])->values(),
             'frais_annexes' => FraisAnnexe::forSchool($schoolId)
                 ->where('annee_scolaire_id', $annee->id)
+                ->with('classes:id,nom')
                 ->orderBy('libelle')
-                ->get(['id', 'libelle', 'montant', 'obligatoire', 'is_active']),
+                ->get(['id', 'libelle', 'montant', 'obligatoire', 'is_active'])
+                ->map(fn (FraisAnnexe $frais) => [
+                    'id' => $frais->id,
+                    'libelle' => $frais->libelle,
+                    'montant' => $frais->montant,
+                    'obligatoire' => $frais->obligatoire,
+                    'is_active' => $frais->is_active,
+                    // Vide = portée école entière.
+                    'classes' => $frais->classes->map(fn (Classe $c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+                ]),
         ]);
     }
 
-    /** Enregistre le tarif d'une classe, ou le tarif par défaut si `classe_id` est nul. */
+    /** Enregistre le tarif d'une classe, ou le tarif par défaut si `classe_id` est nul, et le répercute sur les dossiers déjà ouverts. */
     public function definirTarif(Request $request): JsonResponse
     {
+        $schoolId = app('tenant.school_id');
+
         $donnees = $request->validate([
-            'classe_id' => ['nullable', 'integer', 'exists:classes,id'],
+            'classe_id' => ['nullable', 'integer', Rule::exists('classes', 'id')->where('school_id', $schoolId)],
             'montant' => ['required', 'integer', 'min:0'],
         ]);
 
@@ -71,36 +83,53 @@ class TarifsController extends Controller
 
         GrilleFrais::updateOrCreate(
             [
-                'school_id' => app('tenant.school_id'),
+                'school_id' => $schoolId,
                 'annee_scolaire_id' => $annee->id,
                 'classe_id' => $donnees['classe_id'] ?? null,
             ],
             ['montant' => $donnees['montant']],
         );
 
-        return ApiResponse::success(null, 'Tarif enregistré.');
+        $misAJour = $this->scolarite->synchroniserTarifs($schoolId, $annee);
+
+        return ApiResponse::success(
+            ['dossiers_mis_a_jour' => $misAJour],
+            $misAJour > 0 ? "Tarif enregistré — {$misAJour} dossier(s) mis à jour." : 'Tarif enregistré.',
+        );
     }
 
     public function supprimerTarif(Request $request, int $classeId): JsonResponse
     {
-        GrilleFrais::forSchool(app('tenant.school_id'))
-            ->where('annee_scolaire_id', $this->annee($request)->id)
+        $schoolId = app('tenant.school_id');
+        $annee = $this->annee($request);
+
+        GrilleFrais::forSchool($schoolId)
+            ->where('annee_scolaire_id', $annee->id)
             ->where('classe_id', $classeId)
             ->delete();
 
-        return ApiResponse::success(null, 'Tarif retiré — la classe suit désormais le tarif par défaut.');
+        $misAJour = $this->scolarite->synchroniserTarifs($schoolId, $annee);
+
+        return ApiResponse::success(
+            ['dossiers_mis_a_jour' => $misAJour],
+            "Tarif retiré — la classe suit désormais le tarif par défaut".($misAJour > 0 ? " ({$misAJour} dossier(s) mis à jour)." : '.'),
+        );
     }
 
     public function creerFraisAnnexe(Request $request): JsonResponse
     {
+        $schoolId = app('tenant.school_id');
+
         $donnees = $request->validate([
             'libelle' => ['required', 'string', 'max:120'],
             'montant' => ['required', 'integer', 'min:0'],
             'obligatoire' => ['nullable', 'boolean'],
+            'classe_ids' => ['nullable', 'array'],
+            'classe_ids.*' => ['integer', Rule::exists('classes', 'id')->where('school_id', $schoolId)],
         ]);
 
         $frais = FraisAnnexe::create([
-            'school_id' => app('tenant.school_id'),
+            'school_id' => $schoolId,
             'annee_scolaire_id' => $this->annee($request)->id,
             'libelle' => $donnees['libelle'],
             'montant' => $donnees['montant'],
@@ -108,21 +137,32 @@ class TarifsController extends Controller
             'is_active' => true,
         ]);
 
-        return ApiResponse::created($frais, 'Frais annexe ajouté.');
+        $frais->synchroniserClasses($donnees['classe_ids'] ?? []);
+
+        return ApiResponse::created($frais->load('classes:id,nom'), 'Frais annexe ajouté.');
     }
 
     public function modifierFraisAnnexe(Request $request, int $id): JsonResponse
     {
-        $frais = FraisAnnexe::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $schoolId = app('tenant.school_id');
+        $frais = FraisAnnexe::forSchool($schoolId)->findOrFail($id);
 
-        $frais->update($request->validate([
+        $donnees = $request->validate([
             'libelle' => ['sometimes', 'string', 'max:120'],
             'montant' => ['sometimes', 'integer', 'min:0'],
             'obligatoire' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
-        ]));
+            'classe_ids' => ['sometimes', 'array'],
+            'classe_ids.*' => ['integer', Rule::exists('classes', 'id')->where('school_id', $schoolId)],
+        ]);
 
-        return ApiResponse::success($frais->fresh(), 'Frais annexe mis à jour.');
+        $frais->update(collect($donnees)->except('classe_ids')->all());
+
+        if (array_key_exists('classe_ids', $donnees)) {
+            $frais->synchroniserClasses($donnees['classe_ids']);
+        }
+
+        return ApiResponse::success($frais->fresh()->load('classes:id,nom'), 'Frais annexe mis à jour.');
     }
 
     /**

@@ -17,24 +17,49 @@ class EmploiDuTempsService extends BaseService
     public function __construct(
         private readonly NotificationService $notifications,
         private readonly SmsService $sms,
+        private readonly JustificationAbsenceService $justifications,
     ) {}
 
+    /**
+     * Emploi du temps d'une classe : ses propres créneaux, plus ceux qu'elle
+     * rejoint en tronc commun. Une classe associée suit bien le cours — son
+     * emploi du temps doit le montrer, même si le créneau est porté ailleurs.
+     */
     public function grille(Classe $classe): Collection
     {
-        return EmploiDuTemps::where('classe_id', $classe->id)
-            ->with(['classeMatiere.matiere', 'classeMatiere.enseignant'])
+        return EmploiDuTemps::where(fn ($q) => $q
+            ->where('classe_id', $classe->id)
+            ->orWhereHas('classesAssociees', fn ($c) => $c->where('classes.id', $classe->id)))
+            ->with(['classe', 'classesAssociees', 'classeMatiere.matiere', 'classeMatiere.enseignant'])
             ->orderBy('jour')->orderBy('heure_debut')
             ->get();
     }
 
     /**
-     * Refuse un créneau qui empiète sur un autre créneau du même jour pour la
-     * classe : deux cours simultanés rendraient l'appel ambigu.
+     * Refuse un créneau qui empiète sur un autre créneau du même jour pour
+     * l'une des classes concernées : deux cours simultanés rendraient l'appel
+     * ambigu.
+     *
+     * Le contrôle porte sur toute la liste — classe porteuse et classes
+     * associées — et regarde des deux côtés : un créneau existant gêne aussi
+     * s'il ne fait que *rejoindre* l'une de ces classes en tronc commun.
+     *
+     * @param  list<int>  $classesAssociees
      */
-    public function chevauche(Classe $classe, int $jour, string $debut, string $fin, ?int $ignorerId = null): bool
-    {
-        return EmploiDuTemps::where('classe_id', $classe->id)
-            ->where('jour', $jour)
+    public function chevauche(
+        Classe $classe,
+        int $jour,
+        string $debut,
+        string $fin,
+        ?int $ignorerId = null,
+        array $classesAssociees = [],
+    ): bool {
+        $ids = collect([$classe->id])->concat($classesAssociees)->unique()->all();
+
+        return EmploiDuTemps::where('jour', $jour)
+            ->where(fn ($q) => $q
+                ->whereIn('classe_id', $ids)
+                ->orWhereHas('classesAssociees', fn ($c) => $c->whereIn('classes.id', $ids)))
             ->when($ignorerId, fn ($q, $id) => $q->where('id', '!=', $id))
             ->where('heure_debut', '<', $fin)
             ->where('heure_fin', '>', $debut)
@@ -49,6 +74,12 @@ class EmploiDuTempsService extends BaseService
      */
     public function genererSeances(Classe $classe, Carbon $debut, Carbon $fin, ?Trimestre $trimestre): int
     {
+        /*
+         * Seuls les créneaux *portés* par la classe engendrent des séances.
+         * Un cours en tronc commun est porté une fois et une seule : générer
+         * aussi depuis les classes associées créerait une séance par classe
+         * pour un cours unique, donc autant d'appels que de classes.
+         */
         $creneaux = EmploiDuTemps::where('classe_id', $classe->id)->get()->groupBy('jour');
         $creees = 0;
 
@@ -86,17 +117,23 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
-     * Feuille d'appel : tous les élèves actifs de la classe, avec leur pointage
+     * Feuille d'appel : tous les élèves actifs convoqués, avec leur pointage
      * s'il a déjà été saisi. Les élèves non encore pointés remontent en
      * « present » — l'appel se fait par exception, comme sur une feuille papier.
+     *
+     * Sur un cours en tronc commun, la feuille réunit les élèves de toutes les
+     * classes du regroupement : c'est un seul cours, donc un seul appel. La
+     * classe de chaque élève accompagne la ligne, sans quoi l'enseignant ne
+     * saurait plus qui il pointe.
      */
     public function feuilleAppel(Seance $seance): Collection
     {
         $pointages = $seance->presences()->get()->keyBy('eleve_id');
 
-        return $seance->classe->eleves()->where('statut', 'actif')
-            ->orderBy('nom_complet')->get()
+        return $seance->elevesAttendus()
+            ->load('classe')
             ->map(fn ($eleve) => [
+                'classe' => $eleve->classe?->only(['id', 'nom']),
                 'eleve' => $eleve,
                 // Tous présents par défaut : l'appel ne relève que les écarts.
                 'statut' => $pointages->get($eleve->id)?->statut ?? 'present',
@@ -112,7 +149,13 @@ class EmploiDuTempsService extends BaseService
      */
     public function enregistrerAppel(Seance $seance, array $lignes): int
     {
-        $elevesDeLaClasse = $seance->classe->eleves()->where('statut', 'actif')->pluck('id');
+        /*
+         * Le périmètre autorisé est celui des classes convoquées, pas de la
+         * seule classe porteuse. Sur un tronc commun, s'en tenir à la classe
+         * porteuse écarterait sans le dire tous les élèves des autres classes
+         * — l'appel les afficherait puis n'en enregistrerait aucun.
+         */
+        $elevesAttendus = $seance->elevesAttendus()->pluck('id');
 
         // État avant écriture, pour ne signaler que les absences non
         // justifiées qui viennent d'apparaître — un appel réenregistré
@@ -124,32 +167,57 @@ class EmploiDuTempsService extends BaseService
 
         $nouvellesAbsencesNonJustifiees = [];
 
-        $enregistres = $this->transaction(function () use ($seance, $lignes, $elevesDeLaClasse, $etatAvant, &$nouvellesAbsencesNonJustifiees) {
+        $enregistres = $this->transaction(function () use ($seance, $lignes, $elevesAttendus, $etatAvant, &$nouvellesAbsencesNonJustifiees) {
             $enregistres = 0;
 
             foreach ($lignes as $ligne) {
-                if (! $elevesDeLaClasse->contains($ligne['eleve_id'])) {
-                    continue; // un élève d'une autre classe n'a rien à faire dans cet appel
+                if (! $elevesAttendus->contains($ligne['eleve_id'])) {
+                    continue; // un élève qui n'est pas convoqué n'a rien à faire dans cet appel
                 }
 
                 // Le motif ne qualifie qu'une absence : le conserver sur un
                 // élève repassé présent laisserait une trace fausse.
                 $motif = $ligne['statut'] === 'absent' ? ($ligne['motif'] ?? null) : null;
+                $remarque = $ligne['remarque'] ?? null;
+
+                /*
+                 * Une absence marquée sans motif explicite peut déjà avoir
+                 * été justifiée par un parent, par anticipation : c'est elle
+                 * qui tranche par défaut plutôt que de laisser l'absence
+                 * « inconnue » alors que la famille avait prévenu.
+                 * L'enseignant garde la main s'il saisit lui-même un motif.
+                 */
+                $justificationParent = null;
+                if ($ligne['statut'] === 'absent' && $motif === null) {
+                    $justificationParent = $this->justifications->trouverPour($ligne['eleve_id'], $seance->date_seance->toDateString());
+
+                    if ($justificationParent) {
+                        $motif = $justificationParent->motif;
+                        $remarque = trim('Justifiée par le parent'
+                            .($justificationParent->description ? ' — '.$justificationParent->description : '')
+                            .($remarque ? ' · '.$remarque : ''));
+                    }
+                }
+
                 // Maladie, permission et raison scolaire sont des motifs
                 // reconnus par l'établissement ; « inconnu » ne l'est pas
                 // encore et compte comme une absence non justifiée.
                 $justifie = $motif !== null && $motif !== 'inconnu';
 
-                Presence::updateOrCreate(
+                $presence = Presence::updateOrCreate(
                     ['seance_id' => $seance->id, 'eleve_id' => $ligne['eleve_id']],
                     [
                         'statut' => $ligne['statut'],
                         'motif' => $motif,
                         'justifie' => $justifie,
-                        'remarque' => $ligne['remarque'] ?? null,
+                        'remarque' => $remarque,
                     ]
                 );
                 $enregistres++;
+
+                if ($justificationParent) {
+                    $this->justifications->marquerAppliquee($justificationParent, $presence);
+                }
 
                 $avant = $etatAvant->get($ligne['eleve_id']);
                 $etaitDejaAbsentNonJustifie = $avant && $avant->statut === 'absent' && ! $avant->justifie;

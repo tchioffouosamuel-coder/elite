@@ -159,6 +159,7 @@ export interface Depense {
   justificatif_url: string | null
   saisi_par: string | null
   motif_annulation: string | null
+  vehicule_id: number | null
 }
 
 export interface CompteComptable {
@@ -173,6 +174,7 @@ export async function fetchDepenses(params: {
   du?: string | null
   au?: string | null
   statut?: string | null
+  vehicule_id?: number | null
 }): Promise<{
   depenses: Depense[]
   par_compte: { code: string; libelle: string; nombre: number; montant: number }[]
@@ -310,6 +312,8 @@ export interface AvanceSalaire {
   personnel: { id: number; nom_complet: string; matricule: string | null; fonction: string | null }
   school?: { id: number; name: string; code: string; type: string } | null
   montant: number
+  nombre_mois: number | null
+  mensualite: number | null
   date_avance: string
   motif: string | null
   montant_rembourse: number
@@ -335,9 +339,23 @@ export async function fetchAvancesSalaire(params?: { personnel_id?: number; stat
   return data.data
 }
 
+/** Bornes de remboursement d'un employé : salaire brut en cours et mensualité maximale (50%). */
+export interface PlafondAvance {
+  salaire_brut: number | null
+  plafond_mensualite: number | null
+}
+
+export async function fetchPlafondAvance(personnelId: number): Promise<PlafondAvance> {
+  const { data } = await http.get<ApiResponse<PlafondAvance>>('/avances-salaire/plafond', {
+    params: { personnel_id: personnelId },
+  })
+  return data.data
+}
+
 export async function accorderAvance(payload: {
   personnel_id: number
   montant: number
+  nombre_mois: number
   date_avance: string
   motif?: string | null
 }): Promise<AvanceSalaire> {
@@ -358,6 +376,41 @@ export async function annulerAvance(id: number, motif: string): Promise<AvanceSa
   return data.data
 }
 
+// ------------------------------------------- Demandes d'avance (personnel)
+
+export type StatutDemandeAvance = 'en_attente' | 'validee' | 'rejetee'
+
+export interface DemandeAvanceSalaire {
+  id: number
+  statut: StatutDemandeAvance
+  personnel: { id: number; nom_complet: string; matricule: string | null; fonction: string | null } | null
+  montant: number
+  nombre_mois: number
+  /** Échéancier qui sera appliqué à la validation, et la borne des 50% du brut. */
+  mensualite: number
+  plafond_mensualite: number | null
+  motif: string | null
+  motif_rejet: string | null
+  avance_salaire_id: number | null
+  created_at: string
+  traite_le: string | null
+}
+
+export async function fetchDemandesAvanceSalaire(statut?: StatutDemandeAvance | ''): Promise<DemandeAvanceSalaire[]> {
+  const { data } = await http.get<ApiResponse<DemandeAvanceSalaire[]>>('/demandes-avance-salaire', { params: { statut: statut || undefined } })
+  return data.data
+}
+
+export async function validerDemandeAvance(id: number): Promise<DemandeAvanceSalaire> {
+  const { data } = await http.post<ApiResponse<DemandeAvanceSalaire>>(`/demandes-avance-salaire/${id}/valider`)
+  return data.data
+}
+
+export async function rejeterDemandeAvance(id: number, motif: string): Promise<DemandeAvanceSalaire> {
+  const { data } = await http.post<ApiResponse<DemandeAvanceSalaire>>(`/demandes-avance-salaire/${id}/rejeter`, { motif })
+  return data.data
+}
+
 // ----------------------------------------------------------- Rémunérations
 
 /** Les six gains du bulletin, dans leur ordre d'affichage. */
@@ -372,10 +425,15 @@ export const GAINS = [
 
 export type ChampGain = (typeof GAINS)[number]['champ']
 
+/** Salaire mensuel négocié, ou vacation payée à l'heure enseignée. */
+export type ModeRemuneration = 'mensuel' | 'horaire'
+
 export interface Remuneration extends Record<ChampGain, number> {
   id: number
   date_effet: string
   categorie: string | null
+  mode: ModeRemuneration
+  taux_horaire: number | null
   brut: number
   base_taxable: number
   charges_salariales: number
@@ -439,7 +497,13 @@ export async function fetchHistoriqueRemunerations(personnelId: number): Promise
 
 export async function enregistrerRemuneration(
   personnelId: number,
-  payload: Partial<Record<ChampGain, number>> & { date_effet: string; categorie?: string },
+  payload: Partial<Record<ChampGain, number>> & {
+    date_effet: string
+    categorie?: string
+    /** « horaire » pour un vacataire : seules les heures enseignées sont dues. */
+    mode?: ModeRemuneration
+    taux_horaire?: number
+  },
 ): Promise<Remuneration> {
   const { data } = await http.post<ApiResponse<Remuneration>>(`/remunerations/${personnelId}`, payload)
   return data.data
@@ -474,7 +538,15 @@ export interface Tarifs {
   annee_scolaire: { id: number; libelle: string }
   tarif_par_defaut: number | null
   classes: { id: number; nom: string; montant: number | null; dossiers_ouverts: number }[]
-  frais_annexes: { id: number; libelle: string; montant: number; obligatoire: boolean; is_active: boolean }[]
+  frais_annexes: {
+    id: number
+    libelle: string
+    montant: number
+    obligatoire: boolean
+    is_active: boolean
+    /** Vide = s'applique à toute l'école. Sinon limité à cette classe, ou à ce groupe de classes. */
+    classes: { id: number; nom: string }[]
+  }[]
 }
 
 export async function fetchTarifs(): Promise<Tarifs> {
@@ -482,26 +554,29 @@ export async function fetchTarifs(): Promise<Tarifs> {
   return data.data
 }
 
-/** `classe_id` nul = tarif par défaut de l'établissement. */
-export async function definirTarif(classeId: number | null, montant: number): Promise<void> {
-  await http.post('/tarifs', { classe_id: classeId, montant })
+/** `classe_id` nul = tarif par défaut de l'établissement. Répercuté aussitôt sur les dossiers déjà ouverts. */
+export async function definirTarif(classeId: number | null, montant: number): Promise<{ dossiers_mis_a_jour: number }> {
+  const { data } = await http.post<ApiResponse<{ dossiers_mis_a_jour: number }>>('/tarifs', { classe_id: classeId, montant })
+  return data.data
 }
 
-export async function supprimerTarif(classeId: number): Promise<void> {
-  await http.delete(`/tarifs/classes/${classeId}`)
+export async function supprimerTarif(classeId: number): Promise<{ dossiers_mis_a_jour: number }> {
+  const { data } = await http.delete<ApiResponse<{ dossiers_mis_a_jour: number }>>(`/tarifs/classes/${classeId}`)
+  return data.data
 }
 
 export async function creerFraisAnnexe(payload: {
   libelle: string
   montant: number
   obligatoire: boolean
+  classe_ids?: number[]
 }): Promise<void> {
   await http.post('/tarifs/frais-annexes', payload)
 }
 
 export async function modifierFraisAnnexe(
   id: number,
-  payload: Partial<{ libelle: string; montant: number; obligatoire: boolean; is_active: boolean }>,
+  payload: Partial<{ libelle: string; montant: number; obligatoire: boolean; is_active: boolean; classe_ids: number[] }>,
 ): Promise<void> {
   await http.put(`/tarifs/frais-annexes/${id}`, payload)
 }
@@ -567,7 +642,301 @@ export async function fetchBalance(params: Periode): Promise<Balance> {
   return data.data
 }
 
+// ------------------------------------------------------------- Insolvables
+
+export interface Insolvable {
+  eleve: { id: number; matricule: string | null; nom_complet: string; classe: string | null }
+  school: { id: number; name: string }
+  seuil: number
+  total_du: number
+  total_paye: number
+  reste_a_payer: number
+  rubriques: RubriqueScolarite[]
+  moratoire: { date_expiration: string; motif: string | null } | null
+}
+
+export interface TotauxInsolvables {
+  effectif: number
+  total_du: number
+  total_reste: number
+}
+
+export async function fetchInsolvables(params: {
+  school_id?: number | null
+  classe_id?: number | null
+}): Promise<{ lignes: Insolvable[]; totaux: TotauxInsolvables }> {
+  const { data } = await http.get<ApiResponse<{ lignes: Insolvable[]; totaux: TotauxInsolvables }>>('/finance/insolvables', { params })
+  return data.data
+}
+
+// -------------------------------------------------------------- Moratoires
+
+export interface Moratoire {
+  id: number
+  eleve: { id: number; nom_complet: string; matricule: string | null }
+  date_delivrance: string
+  date_expiration: string
+  motif: string | null
+  valide: boolean
+  accorde_par: string | null
+}
+
+export async function fetchMoratoires(eleveId: number): Promise<Moratoire[]> {
+  const { data } = await http.get<ApiResponse<Moratoire[]>>(`/eleves/${eleveId}/moratoires`)
+  return data.data
+}
+
+export async function creerMoratoire(
+  eleveId: number,
+  payload: { date_delivrance: string; date_expiration: string; motif?: string },
+): Promise<Moratoire> {
+  const { data } = await http.post<ApiResponse<Moratoire>>(`/eleves/${eleveId}/moratoires`, payload)
+  return data.data
+}
+
+export async function supprimerMoratoire(id: number): Promise<void> {
+  await http.delete(`/moratoires/${id}`)
+}
+
+// ----------------------------------------------------------------- Remises
+
+export interface RemiseIndividuelle {
+  id: number
+  eleve: { id: number; nom_complet: string }
+  annee_scolaire: string | null
+  montant: number
+  motif: string | null
+  accorde_par: string | null
+  created_at: string
+}
+
+export async function fetchRemises(eleveId: number): Promise<RemiseIndividuelle[]> {
+  const { data } = await http.get<ApiResponse<RemiseIndividuelle[]>>(`/eleves/${eleveId}/remises`)
+  return data.data
+}
+
+export async function creerRemise(
+  eleveId: number,
+  payload: { montant: number; motif?: string; annee_scolaire_id?: number },
+): Promise<RemiseIndividuelle> {
+  const { data } = await http.post<ApiResponse<RemiseIndividuelle>>(`/eleves/${eleveId}/remises`, payload)
+  return data.data
+}
+
+export async function supprimerRemise(id: number): Promise<void> {
+  await http.delete(`/remises/${id}`)
+}
+
+// --------------------------------------------------------- Dettes antérieures
+
+export interface DetteAnterieure {
+  id: number
+  eleve: { id: number; nom_complet: string }
+  montant: number
+  motif: string | null
+  imputee: boolean
+  accorde_par: string | null
+  created_at: string
+}
+
+export async function fetchDettesAnterieures(eleveId: number): Promise<DetteAnterieure[]> {
+  const { data } = await http.get<ApiResponse<DetteAnterieure[]>>(`/eleves/${eleveId}/dettes-anterieures`)
+  return data.data
+}
+
+export async function creerDetteAnterieure(
+  eleveId: number,
+  payload: { montant: number; motif?: string },
+): Promise<DetteAnterieure> {
+  const { data } = await http.post<ApiResponse<DetteAnterieure>>(`/eleves/${eleveId}/dettes-anterieures`, payload)
+  return data.data
+}
+
+export async function supprimerDetteAnterieure(id: number): Promise<void> {
+  await http.delete(`/dettes-anterieures/${id}`)
+}
+
 /** Séparateur d'unités de mille, comme sur les documents imprimés. */
 export function francs(montant: number | null | undefined): string {
   return `${(montant ?? 0).toLocaleString('fr-FR').replace(/ | /g, ' ')} F`
+}
+
+// ------------------------------------------ État de synthèse des exercices
+
+export type NatureCompte = 'exploitation' | 'investissement' | 'capital'
+
+export interface LigneEtat {
+  code: string
+  libelle: string
+  libelle_en: string | null
+  nature: NatureCompte
+  assiette: 'libre' | 'par_eleve'
+  montant_unitaire: number | null
+  montant: number
+}
+
+export interface EtatSynthese {
+  exercice: { annee_scolaire_id: number; libelle: string; school_id: number; effectif: number }
+  depenses: LigneEtat[]
+  produits: LigneEtat[]
+  /** Le document tel que le tient l'établissement, dépôt de l'exploitant compris. */
+  document: {
+    total_depenses: number
+    total_recettes: number
+    balance: number
+    apport_fondateur: number
+  }
+  /** Ce que le document mélange, séparé : seule l'exploitation use l'exercice. */
+  analytique: {
+    charges_exploitation: number
+    produits_exploitation: number
+    resultat_exploitation: number
+    investissement: number
+    capital: number
+  }
+}
+
+export interface ExerciceResume {
+  annee_scolaire_id: number
+  libelle: string
+  effectif: number
+  total_depenses: number
+  total_recettes: number
+  balance: number
+  apport_fondateur: number
+  resultat_exploitation: number
+  investissement: number
+}
+
+export interface ExerciceOption {
+  id: number
+  libelle: string
+  date_debut: string
+  date_fin: string
+  is_active: boolean
+}
+
+export interface PrelevementEleve {
+  code: string
+  libelle: string
+  effectif: number
+  montant_unitaire: number
+  du: number
+  enregistre: number
+  ecart: number
+}
+
+export async function fetchExercices(schoolId: number): Promise<ExerciceOption[]> {
+  const { data } = await http.get<ApiResponse<{ exercices: ExerciceOption[] }>>('/etat-synthese/exercices', {
+    params: { school_id: schoolId },
+  })
+  return data.data.exercices
+}
+
+export async function fetchEtatSynthese(schoolId: number, anneeScolaireId: number): Promise<EtatSynthese> {
+  const { data } = await http.get<ApiResponse<EtatSynthese>>('/etat-synthese', {
+    params: { school_id: schoolId, annee_scolaire_id: anneeScolaireId },
+  })
+  return data.data
+}
+
+export async function fetchSerieExercices(schoolId: number): Promise<ExerciceResume[]> {
+  const { data } = await http.get<ApiResponse<{ exercices: ExerciceResume[] }>>('/etat-synthese/serie', {
+    params: { school_id: schoolId },
+  })
+  return data.data.exercices
+}
+
+export async function fetchPrelevementsEleve(schoolId: number, anneeScolaireId: number): Promise<PrelevementEleve[]> {
+  const { data } = await http.get<ApiResponse<{ lignes: PrelevementEleve[] }>>('/prelevements-eleve', {
+    params: { school_id: schoolId, annee_scolaire_id: anneeScolaireId },
+  })
+  return data.data.lignes
+}
+
+export async function regulariserPrelevements(
+  schoolId: number,
+  anneeScolaireId: number,
+): Promise<{ lignes: PrelevementEleve[]; message: string }> {
+  const { data } = await http.post<ApiResponse<{ lignes: PrelevementEleve[] }>>('/prelevements-eleve/regulariser', {
+    school_id: schoolId,
+    annee_scolaire_id: anneeScolaireId,
+  })
+  return { lignes: data.data.lignes, message: data.message ?? '' }
+}
+
+// ------------------------------------------------ Amortissements et bordereau
+
+export interface DotationAmortissement {
+  immobilisation_id: number
+  libelle: string
+  montant: number
+  duree_annees: number
+  cumul: number
+  valeur_residuelle: number
+  dotation: number
+  deja_dote: boolean
+}
+
+export async function fetchAmortissements(
+  schoolId: number,
+  anneeScolaireId: number,
+): Promise<DotationAmortissement[]> {
+  const { data } = await http.get<ApiResponse<{ lignes: DotationAmortissement[] }>>('/amortissements', {
+    params: { school_id: schoolId, annee_scolaire_id: anneeScolaireId },
+  })
+  return data.data.lignes
+}
+
+export async function doterAmortissements(
+  schoolId: number,
+  anneeScolaireId: number,
+): Promise<{ lignes: DotationAmortissement[]; message: string }> {
+  const { data } = await http.post<ApiResponse<{ lignes: DotationAmortissement[] }>>('/amortissements/doter', {
+    school_id: schoolId,
+    annee_scolaire_id: anneeScolaireId,
+  })
+  return { lignes: data.data.lignes, message: data.message ?? '' }
+}
+
+export interface LigneBordereau {
+  bulletin_id: number
+  numero: string
+  personnel_id: number
+  nom_complet: string | null
+  matricule: string | null
+  banque: string | null
+  numero_compte: string | null
+  net_a_payer: number
+  montant: number
+  arrondi: number
+}
+
+export interface BordereauVirement {
+  periode: { annee: number; mois: number }
+  banques: { banque: string; effectif: number; total: number; lignes: LigneBordereau[] }[]
+  total: number
+  sans_domiciliation: LigneBordereau[]
+}
+
+export async function fetchBordereauVirement(
+  schoolId: number,
+  annee: number,
+  mois: number,
+): Promise<BordereauVirement> {
+  const { data } = await http.get<ApiResponse<BordereauVirement>>('/paie/bordereau', {
+    params: { school_id: schoolId, annee, mois },
+  })
+  return data.data
+}
+
+export async function reviserImmobilisation(
+  id: number,
+  payload: { libelle?: string; duree_annees?: number },
+): Promise<DotationAmortissement & { duree_annees: number }> {
+  const { data } = await http.patch<ApiResponse<DotationAmortissement & { duree_annees: number }>>(
+    `/immobilisations/${id}`,
+    payload,
+  )
+  return data.data
 }

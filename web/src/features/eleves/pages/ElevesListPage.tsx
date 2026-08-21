@@ -18,11 +18,12 @@ import {
   ArrowRightLeft,
   Building2,
   Repeat,
+  BarChart3,
 } from 'lucide-react'
 import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, type Eleve } from '@/features/eleves/api'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
-import { telechargerFichier } from '@/shared/lib/download'
+import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
@@ -354,6 +355,17 @@ export function ElevesListPage() {
             <Button variant="secondary" onClick={() => telechargerFichier('/eleves/export', undefined, 'eleves.xlsx')}>
               <FileSpreadsheet className="h-4 w-4" />
               {t('export.excel')}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => ouvrirDocument('/eleves/pdf', schoolFilter ? { school_id: schoolFilter } : undefined)}
+            >
+              <FileDown className="h-4 w-4" />
+              Liste par école
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/eleves/rapports')}>
+              <BarChart3 className="h-4 w-4" />
+              Rapports
             </Button>
             {can('eleves.manage') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>

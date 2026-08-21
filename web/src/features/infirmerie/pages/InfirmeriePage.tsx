@@ -65,7 +65,7 @@ export function InfirmeriePage() {
   const lignes = useMemo(() => visites ?? [], [visites])
   const stats = useMemo(() => {
     const elevesDistincts = new Set(lignes.map((visite) => visite.eleve.id)).size
-    const coutTotal = lignes.reduce((total, visite) => total + visite.cout_soins, 0)
+    const coutTotal = lignes.reduce((total, visite) => total + visite.cout_total, 0)
     const visitesAujourdhui = lignes.filter((visite) => visite.date_visite.startsWith(debutJour())).length
 
     return { elevesDistincts, coutTotal, visitesAujourdhui }
@@ -114,11 +114,23 @@ export function InfirmeriePage() {
       masquerMobile: true,
     },
     {
+      cle: 'type',
+      entete: t('infirmerie.type_col'),
+      valeur: (v) => v.type_traitement,
+      cellule: (v) => (
+        <Badge tone={v.type_traitement === 'interne' ? 'neutral' : v.type_traitement === 'externe' ? 'red' : 'purple'}>
+          {t(`infirmerie.type_${v.type_traitement}`)}
+        </Badge>
+      ),
+      largeur: '130px',
+      masquerMobile: true,
+    },
+    {
       cle: 'cout',
-      entete: t('infirmerie.cout_soins'),
-      valeur: (v) => v.cout_soins,
+      entete: t('infirmerie.cout_total'),
+      valeur: (v) => v.cout_total,
       cellule: (v) =>
-        v.cout_soins > 0 ? <Badge tone="gold">{formatMontant(v.cout_soins, i18n.language)}</Badge> : <span>—</span>,
+        v.cout_total > 0 ? <Badge tone="gold">{formatMontant(v.cout_total, i18n.language)}</Badge> : <span>—</span>,
       largeur: '140px',
     },
     ...(can('infirmerie.manage')

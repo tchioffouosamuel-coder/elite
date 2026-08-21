@@ -3,7 +3,7 @@ import type { ApiResponse } from '@/shared/types/api'
 import type { AuthUser } from '@/shared/store/authStore'
 
 interface LoginPayload {
-  email: string
+  identifiant: string
   password: string
 }
 

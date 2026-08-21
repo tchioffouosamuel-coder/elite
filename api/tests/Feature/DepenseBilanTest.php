@@ -177,7 +177,9 @@ class DepenseBilanTest extends TestCase
         $comptes = collect($resultat['charges']['lignes'])->pluck('montant', 'code');
 
         $this->assertSame(48000, $comptes['661'] ?? 0, 'Le salaire brut doit figurer en charges.');
-        $this->assertGreaterThan(0, $comptes['664'] ?? 0, 'Les charges patronales aussi.');
+        // La CNPS a son compte propre (662), distinct des charges fiscales (663)
+        // et de la Fenasco (664), qui est un prélèvement par élève.
+        $this->assertGreaterThan(0, $comptes['662'] ?? 0, 'Les cotisations CNPS aussi.');
     }
 
     public function test_le_tableau_de_bord_reunit_les_trois_volets(): void

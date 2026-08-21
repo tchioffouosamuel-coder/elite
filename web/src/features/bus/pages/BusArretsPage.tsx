@@ -66,6 +66,12 @@ export function BusArretsPage() {
       ),
     },
     {
+      cle: 'lieu_dit',
+      entete: t('bus.lieu_dit'),
+      valeur: (l) => l.lieu_dit,
+      cellule: (l) => <span className="text-navy-600">{l.lieu_dit || '—'}</span>,
+    },
+    {
       cle: 'ordre',
       entete: t('bus.ordre'),
       valeur: (l) => l.ordre,
@@ -87,41 +93,41 @@ export function BusArretsPage() {
     },
     ...(can('bus.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (l: LigneArret) => (
-              <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setArretEnEdition(l)
-                    setShowForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={async () => {
-                    if (!(await confirmerSuppression(l.nom))) return
-                    try {
-                      await supprimerArret(l.trajetId, l.id)
-                      invalidate()
-                      succes(t('bus.arret_deleted'))
-                    } catch (err) {
-                      erreur((err as ApiError).message)
-                    }
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<LigneArret>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (l: LigneArret) => (
+            <div className="flex items-center gap-1">
+              <button
+                title={t('common.edit')}
+                onClick={() => {
+                  setArretEnEdition(l)
+                  setShowForm(true)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                title={t('common.delete')}
+                onClick={async () => {
+                  if (!(await confirmerSuppression(l.nom))) return
+                  try {
+                    await supprimerArret(l.trajetId, l.id)
+                    invalidate()
+                    succes(t('bus.arret_deleted'))
+                  } catch (err) {
+                    erreur((err as ApiError).message)
+                  }
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<LigneArret>,
+      ]
       : []),
   ]
 
@@ -196,7 +202,13 @@ function ArretFormModal({
     formState: { isSubmitting, errors },
   } = useForm<BusArretPayload & { trajet_id: number }>({
     defaultValues: arret
-      ? { trajet_id: arret.trajetId, nom: arret.nom, ordre: arret.ordre, heure_passage: arret.heure_passage ?? '' }
+      ? {
+        trajet_id: arret.trajetId,
+        nom: arret.nom,
+        lieu_dit: arret.lieu_dit ?? '',
+        ordre: arret.ordre,
+        heure_passage: arret.heure_passage ?? '',
+      }
       : { trajet_id: trajets[0]?.id, ordre: 1 },
   })
 
@@ -205,6 +217,7 @@ function ArretFormModal({
     const trajetId = Number(values.trajet_id)
     const payload: BusArretPayload = {
       nom: values.nom,
+      lieu_dit: values.lieu_dit || null,
       ordre: values.ordre ? Number(values.ordre) : null,
       heure_passage: values.heure_passage || null,
     }
@@ -246,6 +259,7 @@ function ArretFormModal({
           error={errors.nom?.message}
           {...register('nom', { required: t('bus.field_required') as string })}
         />
+        <Input label={t('bus.lieu_dit')} {...register('lieu_dit')} />
         <Input label={t('bus.ordre')} type="number" min={1} {...register('ordre')} />
         <Input label={t('bus.heure_passage')} type="time" {...register('heure_passage')} />
 

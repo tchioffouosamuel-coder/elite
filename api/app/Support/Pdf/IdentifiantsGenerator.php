@@ -105,7 +105,9 @@ class IdentifiantsGenerator
                 . '<td>' . $rang . '</td>'
                 . '<td class="left nom">' . $this->e($compte->name) . '</td>'
                 . '<td class="left">' . $this->e($compte->libelleRole() ?? '—') . '</td>'
-                . '<td class="left">' . $this->e($compte->email) . '</td>'
+                // Un compte parent n'a pas d'e-mail (cf. CompteParentService) :
+                // son identifiant de connexion est alors le téléphone.
+                . '<td class="left">' . $this->e($compte->email ?: ($compte->phone ?: '—')) . '</td>'
                 . '<td>' . $this->motDePasse($compte, $donnees['mot_de_passe_defaut']) . '</td>'
                 . '</tr>';
             $rang++;

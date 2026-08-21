@@ -7,10 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusVehicule;
 use App\Services\BusService;
+use App\Support\Pdf\BilanVehiculeGenerator;
+use App\Support\Pdf\ListeElevesBusGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 class BusVehiculeController extends Controller
 {
@@ -54,6 +57,36 @@ class BusVehiculeController extends Controller
         return ApiResponse::success(null, 'Véhicule supprimé.');
     }
 
+    /** Liste PDF des élèves embarqués sur ce véhicule. */
+    public function elevesPdf(int $id): Response
+    {
+        $vehicule = $this->vehicule($id);
+        $affectations = $this->service->elevesDuVehicule($vehicule);
+
+        $pdf = (new ListeElevesBusGenerator)->build($vehicule, $affectations);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="eleves-bus-'.$vehicule->immatriculation.'.pdf"',
+        ]);
+    }
+
+    /** Bilan financier PDF : recettes du transport contre dépenses du véhicule, et le résultat qui en découle. */
+    public function bilanPdf(Request $request, int $id): Response
+    {
+        $vehicule = $this->vehicule($id);
+        $du = $request->string('du')->toString() ?: null;
+        $au = $request->string('au')->toString() ?: null;
+
+        $bilan = $this->service->bilanVehicule($vehicule, $du, $au);
+        $pdf = (new BilanVehiculeGenerator)->build($vehicule, $bilan, $du, $au);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="bilan-bus-'.$vehicule->immatriculation.'.pdf"',
+        ]);
+    }
+
     /** @return array<string, mixed> */
     private function resumer(BusVehicule $vehicule): array
     {
@@ -61,6 +94,7 @@ class BusVehiculeController extends Controller
             'id' => $vehicule->id,
             'immatriculation' => $vehicule->immatriculation,
             'marque' => $vehicule->marque,
+            'couleur' => $vehicule->couleur,
             'capacite' => $vehicule->capacite,
             'statut' => $vehicule->statut,
             'chauffeur' => $vehicule->chauffeur ? [
@@ -79,7 +113,7 @@ class BusVehiculeController extends Controller
 
     private function vehicule(int $id): BusVehicule
     {
-        return BusVehicule::forSchool(Tenant::schoolIds())->findOrFail($id);
+        return BusVehicule::forSchool(Tenant::schoolIds())->with(['school', 'chauffeur'])->findOrFail($id);
     }
 
     /** @return array<string, mixed> */
@@ -97,6 +131,7 @@ class BusVehiculeController extends Controller
                 Rule::unique('bus_vehicules', 'immatriculation')->where('school_id', $schoolId)->ignore($ignorerId),
             ],
             'marque' => ['nullable', 'string', 'max:100'],
+            'couleur' => ['nullable', 'string', 'max:30'],
             'capacite' => ['nullable', 'integer', 'min:1', 'max:200'],
             'chauffeur_id' => ['nullable', 'integer', $this->scopedExists('personnels')],
             'statut' => ['nullable', 'in:actif,hors_service'],

@@ -64,6 +64,13 @@ class RoutesProtegeesTest extends TestCase
         // exiger derrière un privilège fermerait l'écran à l'agent qui vient
         // justement d'en recevoir une.
         'api.v1.classes.mes-attributions',
+
+        // Espace personnel : ses propres avances sur salaire, et la demande
+        // d'une nouvelle. Le contrôleur borne tout à la fiche du compte
+        // connecté (cf. PersonnelEspaceController::moi) ; derrière
+        // `finance.paie`, l'écran serait fermé à l'employé qu'il concerne.
+        'api.v1.mon-espace.avances.index',
+        'api.v1.mon-espace.avances.demandes.store',
     ];
 
     /**

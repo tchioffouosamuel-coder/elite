@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BusVehicule extends Model
 {
     protected $fillable = [
-        'school_id', 'immatriculation', 'marque', 'capacite', 'chauffeur_id', 'statut',
+        'school_id', 'immatriculation', 'marque', 'couleur', 'capacite', 'chauffeur_id', 'statut',
     ];
 
     protected function casts(): array

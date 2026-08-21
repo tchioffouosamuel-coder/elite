@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\SaveProgressionRequest;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\ChampPersonnalise;
+use App\Models\ProgressionItem;
 use App\Services\ProgressionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,50 @@ class ProgressionController extends Controller
         return ApiResponse::success(
             ['items' => $this->service->arbre($classeMatiere), ...$this->service->tauxAffectation($classeMatiere)],
             "{$compte} élément(s) enregistré(s)."
+        );
+    }
+
+    /** Fiche de préparation détaillée d'une leçon. */
+    public function ficheShow(int $id): JsonResponse
+    {
+        $item = $this->lecon($id);
+
+        return ApiResponse::success($this->service->fichePreparation($item));
+    }
+
+    public function ficheSave(Request $request, int $id): JsonResponse
+    {
+        $item = $this->lecon($id);
+
+        $data = $request->validate([
+            'topic' => ['nullable', 'string', 'max:255'],
+            'lesson' => ['nullable', 'string', 'max:255'],
+            'competence' => ['nullable', 'string', 'max:2000'],
+            'mode' => ['nullable', Rule::in(['digital', 'practical', 'normal'])],
+            'entry_behaviour' => ['nullable', 'string', 'max:2000'],
+            'teaching_aids' => ['nullable', 'string', 'max:2000'],
+            'teaching_learning_strategies' => ['nullable', 'string', 'max:2000'],
+            'references' => ['nullable', 'string', 'max:2000'],
+            'research_questions' => ['nullable', 'string', 'max:2000'],
+            'introduction' => ['nullable', 'array'],
+            'introduction.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
+            'introduction.learners_activities' => ['nullable', 'string', 'max:4000'],
+            'introduction.facilitators_activities' => ['nullable', 'string', 'max:4000'],
+            'presentation' => ['nullable', 'array'],
+            'presentation.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
+            'presentation.learners_activities' => ['nullable', 'string', 'max:4000'],
+            'presentation.facilitators_activities' => ['nullable', 'string', 'max:4000'],
+            'conclusion' => ['nullable', 'array'],
+            'conclusion.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
+            'conclusion.learners_activities' => ['nullable', 'string', 'max:4000'],
+            'conclusion.facilitators_activities' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $item->update($data);
+
+        return ApiResponse::success(
+            $this->service->fichePreparation($item->fresh(['classeMatiere.classe', 'classeMatiere.matiere'])),
+            'Fiche de préparation enregistrée.'
         );
     }
 
@@ -123,6 +168,14 @@ class ProgressionController extends Controller
     {
         return ClasseMatiere::forSchool(Tenant::schoolIds())
             ->with(['classe', 'matiere'])
+            ->findOrFail($id);
+    }
+
+    private function lecon(int $id): ProgressionItem
+    {
+        return ProgressionItem::forSchool(Tenant::schoolIds())
+            ->where('type', 'lecon')
+            ->with(['classeMatiere.classe', 'classeMatiere.matiere'])
             ->findOrFail($id);
     }
 }

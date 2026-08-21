@@ -74,6 +74,15 @@ export function AppelPage() {
       </div>
 
       <Card className="p-4">
+        {/* Un enseignant qui voit trois fois plus d'élèves que sa classe doit
+            comprendre pourquoi avant de pointer. */}
+        {data.tronc_commun && (
+          <p className="mb-3 rounded-xl bg-gold-50 px-3.5 py-2.5 text-sm text-gold-800">
+            {t('emploiDuTemps.tronc_commun_appel', { count: data.classes.length })}{' '}
+            <span className="font-semibold">{data.classes.map((c) => c.nom).join(' · ')}</span>
+          </p>
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-navy-500">
             {t('emploiDuTemps.appel_resume', { total: lignes.length, presents: lignes.length - absents, absents })}
@@ -88,6 +97,13 @@ export function AppelPage() {
               <div key={ligne.eleve_id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className={clsx('min-w-0 flex-1 truncate text-sm', present ? 'text-navy-800' : 'font-semibold text-red-600')}>
                   {ligne.nom_complet}
+                  {/* Sur un tronc commun, deux élèves de classes différentes
+                      peuvent porter le même nom : la classe lève le doute. */}
+                  {data.tronc_commun && ligne.classe && (
+                    <span className="ml-2 rounded bg-navy-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-navy-500">
+                      {ligne.classe}
+                    </span>
+                  )}
                 </span>
 
                 <div className="flex items-center gap-2">

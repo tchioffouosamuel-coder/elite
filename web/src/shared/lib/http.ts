@@ -30,6 +30,12 @@ type DesktopBridge = {
     schoolId?: number | null;
     locale: string;
   }) => Promise<number>;
+  bootstrap: (options: {
+    baseUrl: string;
+    token: string;
+    schoolId?: number | null;
+    locale: string;
+  }) => Promise<{ passes: number; entities: number }>;
 };
 
 function desktopBridge(): DesktopBridge | null {

@@ -17,13 +17,20 @@ use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
+use App\Http\Controllers\Api\V1\EtatSyntheseController;
+use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
+use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\EleveController;
+use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
+use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
+use App\Http\Controllers\Api\V1\MalaiseReferentielController;
+use App\Http\Controllers\Api\V1\MoratoireController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
@@ -32,11 +39,17 @@ use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\NotificationInterneController;
 use App\Http\Controllers\Api\V1\PaieController;
+use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
+use App\Http\Controllers\Api\V1\ParentEspaceController;
+use App\Http\Controllers\Api\V1\ParentPreinscriptionController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
+use App\Http\Controllers\Api\V1\PersonnelEspaceController;
 use App\Http\Controllers\Api\V1\PhotoExamenController;
+use App\Http\Controllers\Api\V1\PreinscriptionAdminController;
 use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
+use App\Http\Controllers\Api\V1\RemiseController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
@@ -51,6 +64,7 @@ use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrimestreController;
+use App\Http\Controllers\Api\V1\TuteurController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
 use App\Http\Controllers\Api\V1\VerificationVersementController;
 use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
@@ -238,6 +252,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');
+                Route::get('eleves/pdf', [ListeElevesController::class, 'pdfEcole'])->name('eleves.pdf');
+                Route::get('eleves/recapitulatif-effectifs', [EleveRapportsController::class, 'recapitulatif'])->name('eleves.recapitulatif');
+                Route::get('eleves/recapitulatif-effectifs/pdf', [EleveRapportsController::class, 'recapitulatifPdf'])->name('eleves.recapitulatif.pdf');
+                Route::get('eleves/recapitulatif-sous-systemes', [EleveRapportsController::class, 'recapitulatifSousSystemes'])->name('eleves.recapitulatif-ss');
+                Route::get('eleves/recapitulatif-sous-systemes/pdf', [EleveRapportsController::class, 'recapitulatifSousSystemesPdf'])->name('eleves.recapitulatif-ss.pdf');
+                Route::get('eleves/tableau-ages', [EleveRapportsController::class, 'tableauAges'])->name('eleves.tableau-ages');
+                Route::get('eleves/tableau-ages/pdf', [EleveRapportsController::class, 'tableauAgesPdf'])->name('eleves.tableau-ages.pdf');
                 Route::get('eleves/{eleveId}/attestation-scolarite', [AttestationController::class, 'scolarite'])->name('eleves.attestation');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
             });
@@ -252,6 +273,60 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
                 Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
+
+                Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index');
+                Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
+                Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
+                Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');
+
+                Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
+                Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
+                Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');
+                Route::post('preinscriptions/{id}/rejeter', [PreinscriptionAdminController::class, 'rejeter'])->name('preinscriptions.rejeter');
+
+                Route::get('modifications-eleves', [ModificationEleveAdminController::class, 'index'])->name('modifications-eleves.index');
+                Route::get('modifications-eleves/{id}', [ModificationEleveAdminController::class, 'show'])->name('modifications-eleves.show');
+                Route::post('modifications-eleves/{id}/valider', [ModificationEleveAdminController::class, 'valider'])->name('modifications-eleves.valider');
+                Route::post('modifications-eleves/{id}/rejeter', [ModificationEleveAdminController::class, 'rejeter'])->name('modifications-eleves.rejeter');
+            });
+
+            /*
+             * Portail parent. Gardé par le rôle et non par un privilège
+             * `X.view` : ces routes ne rendent jamais qu'un sous-ensemble
+             * borné aux propres enfants du compte (cf. `ParentAccess`), pas
+             * une vue école entière — un privilège de lecture n'y aurait pas
+             * le même sens que pour le personnel.
+             */
+            Route::prefix('parent')->name('parent.')->middleware('role:parent')->group(function () {
+                Route::get('enfants', [ParentEspaceController::class, 'mesEnfants'])->name('enfants.index');
+                Route::get('enfants/{eleveId}', [ParentEspaceController::class, 'enfant'])->name('enfants.show');
+                Route::get('enfants/{eleveId}/finance', [ParentEspaceController::class, 'finance'])->name('enfants.finance');
+                Route::get('enfants/{eleveId}/bulletin', [ParentEspaceController::class, 'bulletin'])->name('enfants.bulletin');
+                Route::get('enfants/{eleveId}/progression', [ParentEspaceController::class, 'progression'])->name('enfants.progression');
+                Route::get('enfants/{eleveId}/absences', [ParentEspaceController::class, 'absences'])->name('enfants.absences');
+                Route::get('enfants/{eleveId}/justifications', [ParentEspaceController::class, 'justifications'])->name('enfants.justifications.index');
+                Route::post('enfants/{eleveId}/justifications', [ParentEspaceController::class, 'soumettreJustification'])->name('enfants.justifications.store');
+                Route::get('enfants/{eleveId}/observations', [ParentEspaceController::class, 'observations'])->name('enfants.observations.index');
+                Route::post('enfants/{eleveId}/observations', [ParentEspaceController::class, 'soumettreObservation'])->name('enfants.observations.store');
+                Route::get('enfants/{eleveId}/modification', [ParentEspaceController::class, 'modificationEnAttente'])->name('enfants.modification.show');
+                Route::post('enfants/{eleveId}/modification', [ParentEspaceController::class, 'soumettreModification'])->name('enfants.modification.store');
+
+                Route::get('preinscriptions', [ParentPreinscriptionController::class, 'index'])->name('preinscriptions.index');
+                Route::post('preinscriptions', [ParentPreinscriptionController::class, 'store'])->name('preinscriptions.store');
+                Route::get('ecoles-disponibles', [ParentPreinscriptionController::class, 'ecolesDisponibles'])->name('ecoles-disponibles');
+                Route::get('ecoles/{schoolId}/classes', [ParentPreinscriptionController::class, 'classesDisponibles'])->name('ecoles.classes');
+            });
+
+            /*
+             * Espace personnel : libre-service pour l'employé sur ses propres
+             * avances — aucun rôle dédié, juste la présence d'une fiche
+             * Personnel liée au compte (cf. PersonnelEspaceController::moi()).
+             * Pas de middleware permission/role ici, volontairement : c'est un
+             * périmètre "moi-même", pas un privilège de gestion.
+             */
+            Route::prefix('mon-espace')->name('mon-espace.')->group(function () {
+                Route::get('avances', [PersonnelEspaceController::class, 'mesAvances'])->name('avances.index');
+                Route::post('avances/demandes', [PersonnelEspaceController::class, 'soumettreDemandeAvance'])->name('avances.demandes.store');
             });
 
             Route::middleware('permission:pedagogie.view')->group(function () {
@@ -282,12 +357,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
+                Route::get('progression-items/{id}/fiche', [ProgressionController::class, 'ficheShow'])->name('progression.fiche.show');
                 Route::get('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'champs'])->name('champs-personnalises.index');
                 Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
+                Route::put('progression-items/{id}/fiche', [ProgressionController::class, 'ficheSave'])->name('progression.fiche.save');
                 Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
                 Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');
@@ -433,6 +510,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('scolarite/situation', [ScolariteController::class, 'situation'])->name('scolarite.situation');
                 Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
                 Route::get('versements/{id}/recu', [ScolariteController::class, 'recu'])->name('scolarite.recu');
+
+                Route::get('finance/insolvables', [InsolvablesController::class, 'index'])->name('finance.insolvables');
+                Route::get('finance/insolvables/pdf', [InsolvablesController::class, 'pdf'])->name('finance.insolvables.pdf');
+
+                Route::get('eleves/{eleveId}/moratoires', [MoratoireController::class, 'index'])->name('moratoires.index');
+                Route::get('eleves/{eleveId}/remises', [RemiseController::class, 'index'])->name('remises.index');
+                Route::get('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'index'])->name('dettes-anterieures.index');
             });
 
             Route::middleware('permission:finance.encaisser')->group(function () {
@@ -441,6 +525,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:finance.annuler')->group(function () {
                 Route::post('versements/{id}/annuler', [ScolariteController::class, 'annuler'])->name('scolarite.annuler');
+            });
+
+            /*
+             * Moratoires, remises individuelles et dettes antérieures : des
+             * corrections à la situation d'un élève, réservées à qui peut
+             * décider un montant — `finance.manage`, pas le simple encaissement.
+             */
+            Route::middleware('permission:finance.manage')->group(function () {
+                Route::post('eleves/{eleveId}/moratoires', [MoratoireController::class, 'store'])->name('moratoires.store');
+                Route::delete('moratoires/{id}', [MoratoireController::class, 'destroy'])->name('moratoires.destroy');
+
+                Route::post('eleves/{eleveId}/remises', [RemiseController::class, 'store'])->name('remises.store');
+                Route::delete('remises/{id}', [RemiseController::class, 'destroy'])->name('remises.destroy');
+
+                Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store');
+                Route::delete('dettes-anterieures/{id}', [DetteAnterieureController::class, 'destroy'])->name('dettes-anterieures.destroy');
             });
 
             /*
@@ -461,6 +561,29 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:finance.rapports')->group(function () {
                 Route::get('depenses/bilan/pdf', [DepenseController::class, 'bilanPdf'])->name('depenses.bilan-pdf');
+
+                /*
+                 * État de synthèse des charges et dépenses : le document que
+                 * tient l'établissement, exercice par exercice, plus la lecture
+                 * qui sépare exploitation, investissement et capital.
+                 */
+                Route::get('etat-synthese', [EtatSyntheseController::class, 'show'])->name('etat-synthese.show');
+                Route::get('etat-synthese/pdf', [EtatSyntheseController::class, 'pdf'])->name('etat-synthese.pdf');
+                Route::get('etat-synthese/serie', [EtatSyntheseController::class, 'serie'])->name('etat-synthese.serie');
+                Route::get('etat-synthese/serie/pdf', [EtatSyntheseController::class, 'seriePdf'])->name('etat-synthese.serie-pdf');
+                Route::get('etat-synthese/exercices', [EtatSyntheseController::class, 'exercices'])->name('etat-synthese.exercices');
+                Route::get('prelevements-eleve', [EtatSyntheseController::class, 'prelevements'])->name('prelevements-eleve.index');
+                Route::get('amortissements', [EtatSyntheseController::class, 'amortissements'])->name('amortissements.index');
+            });
+
+            /*
+             * Régulariser passe des dépenses : c'est un acte de gestion, pas
+             * une consultation de rapport.
+             */
+            Route::middleware('permission:finance.depenses')->group(function () {
+                Route::post('prelevements-eleve/regulariser', [EtatSyntheseController::class, 'regulariser'])->name('prelevements-eleve.regulariser');
+                Route::post('amortissements/doter', [EtatSyntheseController::class, 'doter'])->name('amortissements.doter');
+                Route::patch('immobilisations/{id}', [EtatSyntheseController::class, 'reviserImmobilisation'])->name('immobilisations.update');
             });
 
             /*
@@ -501,6 +624,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('paie', [PaieController::class, 'index'])->name('paie.index');
                 Route::get('paie/etat-emargement', [PaieController::class, 'etatEmargement'])->name('paie.emargement');
+                Route::get('paie/bordereau', [PaieController::class, 'bordereau'])->name('paie.bordereau');
+                Route::get('paie/bordereau/pdf', [PaieController::class, 'bordereauPdf'])->name('paie.bordereau-pdf');
                 Route::post('paie/preparer', [PaieController::class, 'preparerLot'])->name('paie.preparer-lot');
                 Route::post('paie/personnels/{personnelId}/preparer', [PaieController::class, 'preparer'])->name('paie.preparer');
                 Route::get('paie/bulletins/{id}/pdf', [PaieController::class, 'bulletinPdf'])->name('paie.bulletin-pdf');
@@ -511,9 +636,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('paie/bulletins/{id}/emarger', [PaieController::class, 'emarger'])->name('paie.emarger');
 
                 Route::get('avances-salaire', [AvanceSalaireController::class, 'index'])->name('avances-salaire.index');
+                Route::get('avances-salaire/plafond', [AvanceSalaireController::class, 'plafond'])->name('avances-salaire.plafond');
                 Route::post('avances-salaire', [AvanceSalaireController::class, 'store'])->name('avances-salaire.store');
                 Route::post('avances-salaire/{id}/remboursements', [AvanceSalaireController::class, 'rembourser'])->name('avances-salaire.rembourser');
                 Route::post('avances-salaire/{id}/annuler', [AvanceSalaireController::class, 'annuler'])->name('avances-salaire.annuler');
+
+                Route::get('demandes-avance-salaire', [DemandeAvanceSalaireAdminController::class, 'index'])->name('demandes-avance-salaire.index');
+                Route::post('demandes-avance-salaire/{id}/valider', [DemandeAvanceSalaireAdminController::class, 'valider'])->name('demandes-avance-salaire.valider');
+                Route::post('demandes-avance-salaire/{id}/rejeter', [DemandeAvanceSalaireAdminController::class, 'rejeter'])->name('demandes-avance-salaire.rejeter');
             });
 
             Route::middleware('permission:discipline.manage')->group(function () {
@@ -525,16 +655,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:infirmerie.view')->group(function () {
                 Route::get('infirmerie/visites', [VisiteInfirmerieController::class, 'index'])->name('infirmerie.visites.index');
+                Route::get('infirmerie/malaises', [MalaiseReferentielController::class, 'index'])->name('infirmerie.malaises.index');
             });
 
             Route::middleware('permission:infirmerie.manage')->group(function () {
                 Route::post('infirmerie/visites', [VisiteInfirmerieController::class, 'store'])->name('infirmerie.visites.store');
                 Route::put('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'update'])->name('infirmerie.visites.update');
                 Route::delete('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'destroy'])->name('infirmerie.visites.destroy');
+                Route::post('infirmerie/malaises', [MalaiseReferentielController::class, 'store'])->name('infirmerie.malaises.store');
+                Route::put('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'update'])->name('infirmerie.malaises.update');
+                Route::delete('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'destroy'])->name('infirmerie.malaises.destroy');
             });
 
             Route::middleware('permission:bus.view')->group(function () {
                 Route::get('bus/vehicules', [BusVehiculeController::class, 'index'])->name('bus.vehicules.index');
+                Route::get('bus/vehicules/{id}/eleves/pdf', [BusVehiculeController::class, 'elevesPdf'])->name('bus.vehicules.eleves-pdf');
+                Route::get('bus/vehicules/{id}/bilan/pdf', [BusVehiculeController::class, 'bilanPdf'])->name('bus.vehicules.bilan-pdf');
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');

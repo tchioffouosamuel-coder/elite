@@ -16,6 +16,8 @@ class Personnel extends Model
         'fonction_id',
         'affectation',
         'matricule',
+        'banque',
+        'numero_compte',
         'nom_complet',
         'civilite',
         'sexe',
@@ -35,6 +37,13 @@ class Personnel extends Model
         'date_embauche',
         'date_fin',
         'date_retraite',
+        'pere_nom_complet',
+        'pere_statut',
+        'pere_telephone',
+        'mere_nom_complet',
+        'mere_statut',
+        'mere_telephone',
+        'enfants',
         'statut',
         'photo_path',
     ];
@@ -47,6 +56,7 @@ class Personnel extends Model
             'date_fin' => 'date',
             'date_retraite' => 'date',
             'nombre_enfants' => 'integer',
+            'enfants' => 'array',
         ];
     }
 

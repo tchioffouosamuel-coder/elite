@@ -23,10 +23,17 @@ class Eleve extends Model
         'lieu_naissance',
         'nationalite',
         'numero_acte_naissance',
+        'lieu_delivrance_acte',
+        'officier_etat_civil',
         'refugie',
         'deplace_interne',
         'adresse',
         'photo_path',
+        'photo_tenue_path',
+        'groupe_sanguin',
+        'situation_sanitaire',
+        'aptitude',
+        'allergies',
         'redoublant',
         'statut',
     ];
@@ -89,5 +96,11 @@ class Eleve extends Model
     public function busAffectations(): HasMany
     {
         return $this->hasMany(BusAffectation::class);
+    }
+
+    /** Âge en années révolues à la date du jour — nul si la date de naissance n'est pas renseignée. */
+    public function getAgeAttribute(): ?int
+    {
+        return $this->date_naissance?->age;
     }
 }

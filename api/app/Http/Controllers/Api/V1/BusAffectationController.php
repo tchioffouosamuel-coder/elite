@@ -26,7 +26,7 @@ class BusAffectationController extends Controller
 
         $affectations = $this->service->listerAffectations(Tenant::schoolIds(), $trajetId);
 
-        return ApiResponse::success($affectations->map(fn (BusAffectation $a) => $this->resumer($a))->values());
+        return ApiResponse::success($affectations->map(fn(BusAffectation $a) => $this->resumer($a))->values());
     }
 
     /** Tous les élèves de l'école, souscription bus incluse si elle existe — filtrable par classe. */
@@ -38,7 +38,7 @@ class BusAffectationController extends Controller
             $request->integer('annee_scolaire_id') ?: null,
         );
 
-        return ApiResponse::success($eleves->map(fn (Eleve $e) => $this->resumerEleve($e))->values());
+        return ApiResponse::success($eleves->map(fn(Eleve $e) => $this->resumerEleve($e))->values());
     }
 
     public function store(Request $request): JsonResponse
@@ -72,7 +72,7 @@ class BusAffectationController extends Controller
 
         $message = "{$resultat['souscrits']} élève(s) souscrit(s) au bus.";
         if ($resultat['ignores'] !== []) {
-            $message .= ' Déjà affecté(s) : '.implode(', ', $resultat['ignores']).'.';
+            $message .= ' Déjà affecté(s) : ' . implode(', ', $resultat['ignores']) . '.';
         }
 
         return ApiResponse::success($resultat, $message);
@@ -135,7 +135,12 @@ class BusAffectationController extends Controller
                 'classe' => $affectation->eleve->classe?->nom,
             ],
             'trajet' => ['id' => $affectation->trajet->id, 'nom' => $affectation->trajet->nom],
-            'arret' => $affectation->arret ? ['id' => $affectation->arret->id, 'nom' => $affectation->arret->nom] : null,
+            'arret' => $affectation->arret ? [
+                'id' => $affectation->arret->id,
+                'nom' => $affectation->arret->nom,
+                'lieu_dit' => $affectation->arret->lieu_dit,
+                'heure_passage' => $affectation->arret->heure_passage,
+            ] : null,
             'school' => $affectation->trajet->school ? [
                 'id' => $affectation->trajet->school->id,
                 'name' => $affectation->trajet->school->name,
@@ -164,7 +169,12 @@ class BusAffectationController extends Controller
             'bus' => $affectation ? [
                 'affectation_id' => $affectation->id,
                 'trajet' => ['id' => $affectation->trajet->id, 'nom' => $affectation->trajet->nom],
-                'arret' => $affectation->arret ? ['id' => $affectation->arret->id, 'nom' => $affectation->arret->nom] : null,
+                'arret' => $affectation->arret ? [
+                    'id' => $affectation->arret->id,
+                    'nom' => $affectation->arret->nom,
+                    'lieu_dit' => $affectation->arret->lieu_dit,
+                    'heure_passage' => $affectation->arret->heure_passage,
+                ] : null,
                 'option_trajet' => $affectation->option_trajet,
                 'tarif_mensuel' => $affectation->tarif_mensuel,
                 'statut_paiement' => $affectation->statut_paiement,
@@ -174,6 +184,6 @@ class BusAffectationController extends Controller
 
     private function affectation(int $id): BusAffectation
     {
-        return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool(Tenant::schoolIds()))->findOrFail($id);
+        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool(Tenant::schoolIds()))->findOrFail($id);
     }
 }

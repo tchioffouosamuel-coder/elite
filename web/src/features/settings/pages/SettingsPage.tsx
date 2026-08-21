@@ -20,6 +20,7 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   palmares: { fr: 'Palmarès', en: 'Honor roll' },
   mentions: { fr: 'Mentions & appréciations', en: 'Remarks & mentions' },
   examens: { fr: 'Examens officiels', en: 'Official examinations' },
+  finance: { fr: 'Finance', en: 'Finance' },
 }
 
 export function SettingsPage() {

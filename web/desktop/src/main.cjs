@@ -22,6 +22,17 @@ database.exec(`
     created_at TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0
   );
+  CREATE TABLE IF NOT EXISTS sync_state (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+  CREATE TABLE IF NOT EXISTS sync_entities (
+    entity TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (entity, entity_id)
+  );
 `);
 
 function registerIpc() {
@@ -84,6 +95,71 @@ function registerIpc() {
     }
     return synced;
   });
+  ipcMain.handle("desktop:bootstrap", async (_event, options) => {
+    let cursor =
+      database
+        .prepare("SELECT value FROM sync_state WHERE key = 'cursor'")
+        .get()?.value ?? null;
+    let complete = false;
+    let passes = 0;
+    let entities = 0;
+
+    while (!complete && passes < 100) {
+      const baseUrl = options.baseUrl.endsWith("/")
+        ? options.baseUrl
+        : `${options.baseUrl}/`;
+      const url = new URL("sync", baseUrl);
+      if (cursor) url.searchParams.set("depuis", cursor);
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${options.token}`,
+          "X-Locale": options.locale,
+          ...(options.schoolId
+            ? { "X-School-Id": String(options.schoolId) }
+            : {}),
+        },
+      });
+      if (!response.ok) throw new Error(`Bootstrap HTTP ${response.status}`);
+      const payload = await response.json();
+      const data = payload.data ?? {};
+      const transaction = database.transaction(() => {
+        for (const [entity, rows] of Object.entries(data.donnees ?? {})) {
+          for (const row of rows) {
+            if (!row || row.id === undefined || row.id === null) continue;
+            database
+              .prepare(
+                "INSERT OR REPLACE INTO sync_entities (entity, entity_id, value, updated_at) VALUES (?, ?, ?, ?)",
+              )
+              .run(
+                entity,
+                String(row.id),
+                JSON.stringify(row),
+                new Date().toISOString(),
+              );
+            entities += 1;
+          }
+        }
+        for (const deletion of data.suppressions ?? []) {
+          database
+            .prepare(
+              "DELETE FROM sync_entities WHERE entity = ? AND entity_id = ?",
+            )
+            .run(deletion.entite, String(deletion.id));
+        }
+        cursor = data.curseur ?? cursor;
+        database
+          .prepare(
+            "INSERT OR REPLACE INTO sync_state (key, value) VALUES ('cursor', ?)",
+          )
+          .run(cursor);
+      });
+      transaction();
+      complete = data.complet !== false;
+      passes += 1;
+    }
+    return { passes, entities };
+  });
 }
 
 function createWindow() {
@@ -117,7 +193,9 @@ app.whenReady().then(() => {
   });
   registerIpc();
   createWindow();
-  if (app.isPackaged) autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+  if (app.isPackaged && process.env.NODE_ENV === "production") {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+  }
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

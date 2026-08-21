@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BusArret extends Model
 {
     protected $fillable = [
-        'trajet_id', 'nom', 'ordre', 'heure_passage',
+        'trajet_id',
+        'nom',
+        'lieu_dit',
+        'ordre',
+        'heure_passage',
     ];
 
     protected function casts(): array

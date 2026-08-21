@@ -14,8 +14,13 @@ namespace App\Services\Paie;
  * Tous les montants sont en francs CFA, arrondis au franc : le franc n'a pas
  * de subdivision et la CNPS attend des entiers.
  */
-class BaremePaie
+class BaremePaie implements Bareme
 {
+    public function libelle(): string
+    {
+        return 'Barème légal camerounais';
+    }
+
     /**
      * @param  array<string, int>  $gains  salaire_base, prime_anciennete,
      *                                     prime_communication, prime_transport,

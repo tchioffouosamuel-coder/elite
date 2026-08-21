@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld("desktop", {
   cachePut: (key, value) => ipcRenderer.invoke("desktop:cache-put", key, value),
   enqueue: (request) => ipcRenderer.invoke("desktop:enqueue", request),
   sync: (options) => ipcRenderer.invoke("desktop:sync", options),
+  bootstrap: (options) => ipcRenderer.invoke("desktop:bootstrap", options),
 });

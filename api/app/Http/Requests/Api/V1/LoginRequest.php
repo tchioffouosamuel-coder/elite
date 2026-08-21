@@ -14,7 +14,10 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
+            // E-mail pour le personnel, numéro de téléphone pour un parent
+            // (cf. AuthService::login) : pas de règle `email`, qui rejetterait
+            // un numéro.
+            'identifiant' => ['required', 'string'],
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ];

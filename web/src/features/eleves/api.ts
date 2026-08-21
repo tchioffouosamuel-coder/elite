@@ -17,6 +17,7 @@ export interface Eleve {
   nom_complet: string;
   sexe: "M" | "F";
   date_naissance: string | null;
+  age: number | null;
   lieu_naissance: string | null;
   numero_acte_naissance: string | null;
   adresse: string | null;
@@ -24,6 +25,10 @@ export interface Eleve {
   refugie: "Oui" | "Non" | null;
   deplace_interne: "Oui" | "Non" | null;
   photo_url: string | null;
+  groupe_sanguin: string | null;
+  situation_sanitaire: string | null;
+  aptitude: "apte" | "inapte" | null;
+  allergies: string | null;
   redoublant: boolean;
   statut: "actif" | "parti" | "exclu";
   school_id: number | null;
@@ -151,6 +156,108 @@ export async function batchChangerClasseEleves(
   const { data } = await http.post<ApiResponse<{ transferes: number }>>(
     "/eleves/batch-transfert-classe",
     { ids, classe_id: classeId },
+  );
+  return data.data;
+}
+
+// ---------------------------------------------------------------- Rapports
+
+/** Une colonne = un critère compté indépendamment (pas une répartition croisée). */
+export interface LigneEffectifs {
+  nouveaux: number;
+  redoublants: number;
+  camerounais: number;
+  refugies: number;
+  effectif: number;
+}
+
+export interface RecapitulatifEcole {
+  school: { id: number; name: string };
+  classe?: { id: number; nom: string } | null;
+  garcons: LigneEffectifs;
+  filles: LigneEffectifs;
+  total: LigneEffectifs;
+}
+
+export interface RecapitulatifSousSysteme {
+  school: { id: number; name: string };
+  sous_systemes: {
+    sous_systeme: { id: number; nom: string } | null;
+    garcons: LigneEffectifs;
+    filles: LigneEffectifs;
+    total: LigneEffectifs;
+  }[];
+}
+
+/** `age` : notation exacte années.mois (ex. "1.2" = 1 an 2 mois), pas l'âge arrondi à l'année révolue. */
+export interface LigneAge {
+  age: string;
+  annees: number;
+  mois: number;
+  garcons: number;
+  filles: number;
+  total: number;
+}
+
+export async function fetchRecapitulatifEffectifs(classeId?: number | null): Promise<RecapitulatifEcole[]> {
+  const { data } = await http.get<ApiResponse<RecapitulatifEcole[]>>("/eleves/recapitulatif-effectifs", {
+    params: classeId ? { classe_id: classeId } : undefined,
+  });
+  return data.data;
+}
+
+export async function fetchRecapitulatifSousSystemes(): Promise<RecapitulatifSousSysteme[]> {
+  const { data } = await http.get<ApiResponse<RecapitulatifSousSysteme[]>>("/eleves/recapitulatif-sous-systemes");
+  return data.data;
+}
+
+export async function fetchTableauAges(params: {
+  school_id?: number | null;
+  sous_systeme_id?: number | null;
+  classe_id?: number | null;
+}): Promise<LigneAge[]> {
+  const { data } = await http.get<ApiResponse<LigneAge[]>>("/eleves/tableau-ages", { params });
+  return data.data;
+}
+
+/** Ouvre (ou renvoie) l'accès au portail parent pour ce tuteur — identifiant : son numéro de téléphone. */
+export async function creerCompteParent(
+  tuteurId: number,
+): Promise<{ user_id: number; identifiant: string; mot_de_passe_provisoire: string | null }> {
+  const { data } = await http.post<
+    ApiResponse<{ user_id: number; identifiant: string; mot_de_passe_provisoire: string | null }>
+  >(`/tuteurs/${tuteurId}/compte-parent`);
+  return data.data;
+}
+
+// ----------------------------------------------------------- Comptes parents
+
+export interface TuteurCompte {
+  id: number;
+  nom_complet: string;
+  telephone: string | null;
+  email: string | null;
+  a_compte: boolean;
+  enfants: { id: number; nom_complet: string }[];
+}
+
+export async function fetchTuteurs(params: {
+  search?: string;
+  sans_compte?: boolean;
+  page?: number;
+  per_page?: number;
+}): Promise<{ items: TuteurCompte[]; pagination: Pagination }> {
+  const { data } = await http.get<ApiResponse<TuteurCompte[]>>("/tuteurs", { params });
+  return { items: data.data, pagination: data.meta!.pagination! };
+}
+
+/** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore. */
+export async function creerComptesParentLot(): Promise<{
+  crees: number;
+  ignores: { tuteur: string; motif: string }[];
+}> {
+  const { data } = await http.post<ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>>(
+    "/tuteurs/comptes-parent-lot",
   );
   return data.data;
 }

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { ArrowLeft, Receipt, Wallet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { succes } from '@/shared/lib/alertes'
@@ -59,6 +59,7 @@ export function EncaissementPage() {
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     values: dossier
@@ -163,16 +164,23 @@ export function EncaissementPage() {
             ))}
           </dl>
 
-          <Input
-            label="Montant reçu (F CFA)"
-            type="number"
-            min={1}
-            autoFocus
-            error={errors.montant?.message}
-            {...register('montant', {
+          <Controller
+            name="montant"
+            control={control}
+            rules={{
               required: 'Saisissez le montant reçu.',
               min: { value: 1, message: 'Le montant doit être supérieur à zéro.' },
-            })}
+            }}
+            render={({ field }) => (
+              <MontantInput
+                label="Montant reçu (F CFA)"
+                autoFocus
+                error={errors.montant?.message}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              />
+            )}
           />
 
           {montant > 0 && (
@@ -212,19 +220,16 @@ export function EncaissementPage() {
                         <td className="px-2.5 py-1.5 text-right tabular-nums text-green-600">{francs(r.montant_paye)}</td>
                         <td className="px-2.5 py-1.5 text-right tabular-nums text-red-500">{francs(r.reste)}</td>
                         <td className="px-2.5 py-1.5 text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            value={allocations[i] ?? 0}
-                            onChange={(e) => {
+                          <MontantAlloueInput
+                            valeur={allocations[i] ?? 0}
+                            onChange={(v) => {
                               setAllocationsModifiees(true)
                               setAllocations((a) => {
                                 const suivant = [...a]
-                                suivant[i] = Number(e.target.value) || 0
+                                suivant[i] = v
                                 return suivant
                               })
                             }}
-                            className="w-24 rounded-lg border border-navy-200 px-1.5 py-1 text-right text-xs tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
                           />
                         </td>
                       </tr>
@@ -288,5 +293,16 @@ export function EncaissementPage() {
         </form>
       </Card>
     </div>
+  )
+}
+
+/** Montant alloué à une rubrique dans le tableau de répartition : milliers groupés, en composant à part pour que chaque ligne porte son propre état de saisie. */
+function MontantAlloueInput({ valeur, onChange }: { valeur: number; onChange: (valeur: number) => void }) {
+  const champ = useMontantSaisie(valeur, onChange)
+  return (
+    <input
+      {...champ}
+      className="w-24 rounded-lg border border-navy-200 px-1.5 py-1 text-right text-xs tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+    />
   )
 }

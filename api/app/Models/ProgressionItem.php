@@ -20,6 +20,15 @@ class ProgressionItem extends Model
     protected $fillable = [
         'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'ordre',
         'sequence_id', 'duree_prevue', 'objectifs', 'materiel', 'activites', 'devoirs',
+        'topic', 'lesson', 'competence', 'mode', 'entry_behaviour', 'teaching_aids',
+        'teaching_learning_strategies', 'references', 'research_questions',
+        'introduction', 'presentation', 'conclusion',
+    ];
+
+    protected $casts = [
+        'introduction' => 'array',
+        'presentation' => 'array',
+        'conclusion' => 'array',
     ];
 
     /** Scopé par école via la classe qui porte l'affectation. */

@@ -4,8 +4,8 @@
   "private": true,
   "main": "src/main.cjs",
   "scripts": {
-    "dev": "npm --prefix ../web run build && electron .",
-    "build": "npm --prefix ../web run build && electron-builder --win nsis",
+    "dev": "npm --prefix .. run build && electron .",
+    "build": "npm --prefix .. run build && node scripts/build-installer.cjs",
     "start": "electron ."
   },
   "dependencies": {
@@ -19,13 +19,14 @@
   "build": {
     "appId": "com.elites.school",
     "productName": "Elites School",
+    "executableName": "Elites School",
     "files": [
       "src/**/*",
       "package.json"
     ],
     "extraResources": [
       {
-        "from": "../web/dist",
+        "from": "../dist",
         "to": "web-dist"
       }
     ],

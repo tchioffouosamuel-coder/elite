@@ -30,6 +30,13 @@ class UserResource extends JsonResource
             // certains privilèges (ex : appel.manage) — cf. User::estEnseignant.
             'est_enseignant' => $this->estEnseignant(),
             /*
+             * Le compte représente-t-il un agent de l'établissement ? Ouvre
+             * l'espace libre-service « Mes avances » — un périmètre « moi-même »
+             * que ne porte aucun privilège de gestion (cf.
+             * PersonnelEspaceController).
+             */
+            'est_personnel' => $this->personnel()->exists(),
+            /*
              * Responsabilités nominatives : professeur principal, surveillant
              * général, censeur, conseiller d'orientation, chef de département,
              * avec les classes concernées. C'est ce qui distingue « il a le

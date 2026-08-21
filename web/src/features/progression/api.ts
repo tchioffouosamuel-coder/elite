@@ -11,11 +11,8 @@ export interface ProgressionItem {
   description?: string | null
   sequence_id?: number | null
   duree_prevue?: number | null
-  // Fiche de préparation, propre aux leçons.
-  objectifs?: string | null
-  materiel?: string | null
-  activites?: string | null
-  devoirs?: string | null
+  // Une leçon a une fiche de préparation dès qu'un de ses champs a été renseigné.
+  a_preparation?: boolean | null
   sequence?: { id: number; libelle: string; trimestre: string | null; numero: number } | null
   traitee?: boolean | null
   seances_count?: number
@@ -38,6 +35,52 @@ export async function fetchProgramme(classeMatiereId: number): Promise<Programme
 
 export async function enregistrerProgramme(classeMatiereId: number, items: ProgressionItem[]): Promise<Programme> {
   const { data } = await http.put<ApiResponse<Programme>>(`/classe-matieres/${classeMatiereId}/progression`, { items })
+  return data.data
+}
+
+/* ------------------------------------------------------------------ */
+/* Fiche de préparation d'une leçon (format MINESEC)                   */
+/* ------------------------------------------------------------------ */
+
+export type ModeLecon = 'digital' | 'practical' | 'normal'
+
+export interface EtapeLecon {
+  main_points_of_matter?: string | null
+  learners_activities?: string | null
+  facilitators_activities?: string | null
+}
+
+export interface FichePreparation {
+  id: number
+  titre: string
+  classe: { id: number; nom: string }
+  matiere: { id: number; nom: string }
+  topic?: string | null
+  lesson?: string | null
+  competence?: string | null
+  mode?: ModeLecon | null
+  entry_behaviour?: string | null
+  teaching_aids?: string | null
+  teaching_learning_strategies?: string | null
+  references?: string | null
+  research_questions?: string | null
+  introduction?: EtapeLecon | null
+  presentation?: EtapeLecon | null
+  conclusion?: EtapeLecon | null
+}
+
+export type FichePreparationPayload = Omit<FichePreparation, 'id' | 'titre' | 'classe' | 'matiere'>
+
+export async function fetchFichePreparation(leconId: number): Promise<FichePreparation> {
+  const { data } = await http.get<ApiResponse<FichePreparation>>(`/progression-items/${leconId}/fiche`)
+  return data.data
+}
+
+export async function enregistrerFichePreparation(
+  leconId: number,
+  payload: FichePreparationPayload,
+): Promise<FichePreparation> {
+  const { data } = await http.put<ApiResponse<FichePreparation>>(`/progression-items/${leconId}/fiche`, payload)
   return data.data
 }
 

@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Api\V1\Concerns;
 
+use Illuminate\Validation\Validator;
+
 /**
  * Règles du dossier administratif d'un agent, partagées par la création et la
- * mise à jour — seules l'identité et la fonction diffèrent entre les deux
- * (obligatoires à la création, `sometimes` ensuite).
+ * mise à jour — seules l'identité, la fonction et les informations de famille
+ * diffèrent entre les deux (obligatoires à la création, `sometimes` ensuite).
  */
 trait ReglesDossierPersonnel
 {
@@ -37,7 +39,84 @@ trait ReglesDossierPersonnel
             // saisie ; la laisser passer ferait basculer l'agent en « sorti ».
             'date_fin' => ['nullable', 'date', 'after_or_equal:date_embauche'],
             'date_retraite' => ['nullable', 'date'],
+            'pere_nom_complet' => ['nullable', 'string', 'max:200'],
+            'pere_statut' => ['nullable', 'in:vivant,decede'],
+            'pere_telephone' => ['nullable', 'string', 'max:30'],
+            'mere_nom_complet' => ['nullable', 'string', 'max:200'],
+            'mere_statut' => ['nullable', 'in:vivant,decede'],
+            'mere_telephone' => ['nullable', 'string', 'max:30'],
+            'enfants' => ['nullable', 'array', 'max:20'],
+            'enfants.*.nom_complet' => ['nullable', 'string', 'max:200'],
+            'enfants.*.sexe' => ['nullable', 'in:M,F'],
+            'enfants.*.date_naissance' => ['nullable', 'date', 'before:today'],
             'statut' => ['nullable', 'in:actif,ex_employe'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $this->validerParent($validator, 'pere');
+            $this->validerParent($validator, 'mere');
+            $this->validerEnfants($validator);
+        });
+    }
+
+    private function validerParent(Validator $validator, string $prefixe): void
+    {
+        $nom = trim((string) $this->input($prefixe . '_nom_complet', ''));
+        $statut = $this->input($prefixe . '_statut');
+        $telephone = trim((string) $this->input($prefixe . '_telephone', ''));
+
+        if ($nom === '' && $statut === null && $telephone === '') {
+            return;
+        }
+
+        if ($nom === '') {
+            $validator->errors()->add($prefixe . '_nom_complet', 'Le nom du parent est obligatoire.');
+        }
+
+        if ($statut === null || $statut === '') {
+            $validator->errors()->add($prefixe . '_statut', 'Le statut du parent est obligatoire.');
+        }
+
+        if (($statut === 'vivant') && $telephone === '') {
+            $validator->errors()->add($prefixe . '_telephone', 'Le téléphone du parent vivant est obligatoire.');
+        }
+    }
+
+    private function validerEnfants(Validator $validator): void
+    {
+        $enfants = $this->input('enfants', []);
+
+        if (! is_array($enfants)) {
+            return;
+        }
+
+        foreach ($enfants as $index => $enfant) {
+            if (! is_array($enfant)) {
+                continue;
+            }
+
+            $nom = trim((string) ($enfant['nom_complet'] ?? ''));
+            $sexe = $enfant['sexe'] ?? null;
+            $dateNaissance = trim((string) ($enfant['date_naissance'] ?? ''));
+
+            if ($nom === '' && ($sexe === null || $sexe === '') && $dateNaissance === '') {
+                continue;
+            }
+
+            if ($nom === '') {
+                $validator->errors()->add("enfants.$index.nom_complet", "Le nom de l'enfant est obligatoire.");
+            }
+
+            if ($sexe !== 'M' && $sexe !== 'F') {
+                $validator->errors()->add("enfants.$index.sexe", "Le sexe de l'enfant est obligatoire.");
+            }
+
+            if ($dateNaissance === '') {
+                $validator->errors()->add("enfants.$index.date_naissance", "La date de naissance de l'enfant est obligatoire.");
+            }
+        }
     }
 }

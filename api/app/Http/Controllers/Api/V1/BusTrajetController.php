@@ -20,7 +20,7 @@ class BusTrajetController extends Controller
     {
         $trajets = $this->service->listerTrajets(Tenant::schoolIds());
 
-        return ApiResponse::success($trajets->map(fn (BusTrajet $t) => $this->resumer($t))->values());
+        return ApiResponse::success($trajets->map(fn(BusTrajet $t) => $this->resumer($t))->values());
     }
 
     public function show(int $id): JsonResponse
@@ -99,6 +99,7 @@ class BusTrajetController extends Controller
 
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
+            'lieu_dit' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
         ]);
@@ -114,6 +115,7 @@ class BusTrajetController extends Controller
 
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
+            'lieu_dit' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
         ]);
@@ -144,7 +146,7 @@ class BusTrajetController extends Controller
                 'id' => $trajet->vehicule->id,
                 'immatriculation' => $trajet->vehicule->immatriculation,
             ] : null,
-            'arrets' => $trajet->arrets->map(fn (BusArret $a) => $this->resumerArret($a))->values(),
+            'arrets' => $trajet->arrets->map(fn(BusArret $a) => $this->resumerArret($a))->values(),
             'effectif' => $trajet->affectations_count ?? null,
             'school' => $trajet->school ? [
                 'id' => $trajet->school->id,
@@ -160,7 +162,7 @@ class BusTrajetController extends Controller
     {
         return [
             ...$this->resumer($trajet),
-            'affectations' => $trajet->affectations->map(fn ($a) => [
+            'affectations' => $trajet->affectations->map(fn($a) => [
                 'id' => $a->id,
                 'statut' => $a->statut,
                 'tarif_mensuel' => $a->tarif_mensuel,
@@ -171,7 +173,12 @@ class BusTrajetController extends Controller
                     'nom_complet' => $a->eleve->nom_complet,
                     'matricule' => $a->eleve->matricule,
                 ],
-                'arret' => $a->arret ? ['id' => $a->arret->id, 'nom' => $a->arret->nom] : null,
+                'arret' => $a->arret ? [
+                    'id' => $a->arret->id,
+                    'nom' => $a->arret->nom,
+                    'lieu_dit' => $a->arret->lieu_dit,
+                    'heure_passage' => $a->arret->heure_passage,
+                ] : null,
             ])->values(),
         ];
     }
@@ -182,6 +189,7 @@ class BusTrajetController extends Controller
         return [
             'id' => $arret->id,
             'nom' => $arret->nom,
+            'lieu_dit' => $arret->lieu_dit,
             'ordre' => $arret->ordre,
             'heure_passage' => $arret->heure_passage,
         ];

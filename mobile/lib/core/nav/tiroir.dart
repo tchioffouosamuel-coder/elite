@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../session/session.dart';
+import '../sync/tache_fond.dart';
 import '../ui/theme.dart';
 import 'destinations.dart';
 
@@ -93,10 +94,99 @@ class TiroirNavigation extends ConsumerWidget {
                 ],
               ),
             ),
+            const Divider(height: 1),
+            _PiedTiroir(session: session),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Pied du tiroir : identité et déconnexion.
+///
+/// En pied et non dans un groupe : la déconnexion n'est pas une destination
+/// parmi d'autres, et la placer au bout du menu la met hors du chemin des
+/// gestes quotidiens tout en la rendant toujours atteignable — elle était
+/// jusqu'ici enfouie dans un onglet « Plus » que la refonte a supprimé.
+class _PiedTiroir extends ConsumerWidget {
+  const _PiedTiroir({required this.session});
+
+  final Session session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Couleurs.navy900.withValues(alpha: 0.08),
+            child: Text(
+              _initiales(session.nom),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: Couleurs.navy900,
+              ),
+            ),
+          ),
+          title: Text(
+            session.nom,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text(
+            '${session.permissions.length} privilège(s)',
+            style: const TextStyle(fontSize: 11.5),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout, color: Couleurs.echec, size: 20),
+          title: const Text(
+            'Déconnexion',
+            style: TextStyle(color: Couleurs.echec, fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          onTap: () => _deconnecter(context, ref),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
+  Future<void> _deconnecter(BuildContext context, WidgetRef ref) async {
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Se déconnecter ?'),
+        content: const Text(
+          'Les données téléchargées seront effacées de cet appareil. '
+          'Les saisies pas encore envoyées seront perdues.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Couleurs.echec),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirme != true || !context.mounted) return;
+
+    // La tâche de fond s'annule AVANT la fermeture de session : un appareil
+    // rendu ne doit plus rien synchroniser au nom de son ancien utilisateur,
+    // cas réel sur un téléphone partagé entre deux surveillants.
+    await annulerSyncFond();
+    await ref.read(sessionProvider.notifier).fermer();
+  }
+
+  static String _initiales(String nom) {
+    final mots = nom.trim().split(RegExp(r'\s+'));
+    return mots.take(2).map((m) => m.isEmpty ? '' : m[0]).join().toUpperCase();
   }
 }
 

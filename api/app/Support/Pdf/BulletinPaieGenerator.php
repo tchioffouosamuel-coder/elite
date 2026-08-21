@@ -131,11 +131,34 @@ class BulletinPaieGenerator
 
         $rang = 1;
 
-        foreach ($bulletin->lignes->where('type', 'gain') as $ligne) {
+        $horaire = $bulletin->taux_horaire !== null;
+
+        /*
+         * Une vacation n'a pas de primes : le barème crée pourtant les six
+         * lignes de gain, cinq à zéro. Les imprimer donnerait à l'agent un
+         * bulletin de cinq lignes vides autour de la seule qui le concerne.
+         */
+        $gains = $bulletin->lignes->where('type', 'gain');
+
+        if ($horaire) {
+            $gains = $gains->where('montant_salarial', '>', 0);
+        }
+
+        foreach ($gains as $ligne) {
+            // Sur une vacation, le gain n'est pas un salaire convenu : c'est un
+            // produit. Les colonnes Base et Taux le montrent au lieu de rester
+            // vides comme pour un mensuel.
+            $estVacation = $horaire && $rang === 1;
+
             $html .= '<tr>'
                 .'<td>'.$rang++.'</td>'
-                .'<td class="lib">'.$this->e($ligne->libelle).' <i>/ '.$this->e($ligne->libelle_en).'</i></td>'
-                .'<td></td><td></td>'
+                .'<td class="lib">'
+                .($estVacation
+                    ? 'Vacations <i>/ Teaching hours</i>'
+                    : $this->e($ligne->libelle).' <i>/ '.$this->e($ligne->libelle_en).'</i>')
+                .'</td>'
+                .'<td>'.($estVacation ? (int) $bulletin->heures.' h' : '').'</td>'
+                .'<td>'.($estVacation ? $this->francs((int) $bulletin->taux_horaire) : '').'</td>'
                 .'<td class="num">'.$this->francs($ligne->montant_salarial).'</td>'
                 .'<td></td><td></td>'
                 .'</tr>';
@@ -173,9 +196,18 @@ class BulletinPaieGenerator
             ['Autre / Other', $bulletin->deduction_autre],
         ];
 
+        /*
+         * Deux régimes, deux bases à justifier. Le mensuel se proratise sur
+         * les jours ouvrables ; la vacation, elle, ne doit que les heures
+         * enseignées. Afficher « 22 jours travaillés » à un vacataire ne dirait
+         * rien de ce qui lui est dû — et masquerait le seul calcul qui compte.
+         */
+        $horaire = $bulletin->taux_horaire !== null;
+
         $html = '<table class="paie"><thead><tr>'
-            .'<th>Jours ouvrables<br><i>Working days</i></th>'
-            .'<th>Jours travaillés<br><i>Days worked</i></th>'
+            .($horaire
+                ? '<th>Heures<br><i>Hours</i></th><th>Taux horaire<br><i>Hourly rate</i></th>'
+                : '<th>Jours ouvrables<br><i>Working days</i></th><th>Jours travaillés<br><i>Days worked</i></th>')
             .'<th>Net taxable<br><i>Taxable</i></th>';
 
         foreach ($deductions as [$libelle]) {
@@ -183,8 +215,9 @@ class BulletinPaieGenerator
         }
 
         $html .= '</tr></thead><tbody><tr>'
-            .'<td>'.$bulletin->jours_ouvrables.'</td>'
-            .'<td>'.$bulletin->jours_travailles.'</td>'
+            .($horaire
+                ? '<td>'.(int) $bulletin->heures.'</td><td class="num">'.$this->francs((int) $bulletin->taux_horaire).'</td>'
+                : '<td>'.$bulletin->jours_ouvrables.'</td><td>'.$bulletin->jours_travailles.'</td>')
             .'<td class="num">'.$this->francs($bulletin->net_taxable).'</td>';
 
         foreach ($deductions as [, $montant]) {

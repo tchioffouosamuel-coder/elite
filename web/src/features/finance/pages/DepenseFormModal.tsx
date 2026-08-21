@@ -29,7 +29,18 @@ interface FormValues {
  * réglage : c'est lui qui décide si la trésorerie bouge, et se tromper fausse
  * le disponible en caisse sans qu'aucun écran ne le signale.
  */
-export function DepenseFormModal({ onClose, onEnregistre }: { onClose: () => void; onEnregistre: () => void }) {
+export function DepenseFormModal({
+  onClose,
+  onEnregistre,
+  vehiculeId,
+  titre = 'Nouvelle dépense',
+}: {
+  onClose: () => void
+  onEnregistre: () => void
+  /** Rattache la dépense à ce véhicule (maintenance, entretien…) — omis pour une dépense générale. */
+  vehiculeId?: number
+  titre?: string
+}) {
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -69,6 +80,7 @@ export function DepenseFormModal({ onClose, onEnregistre }: { onClose: () => voi
         responsable: valeurs.responsable,
         statut: valeurs.statut,
         justificatif: justificatif ?? undefined,
+        vehicule_id: vehiculeId,
       })
 
       succes(t('finance.expense_recorded'))
@@ -82,7 +94,7 @@ export function DepenseFormModal({ onClose, onEnregistre }: { onClose: () => voi
   }
 
   return (
-    <Modal title="Nouvelle dépense" onClose={onClose}>
+    <Modal title={titre} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input
           label="Libellé"

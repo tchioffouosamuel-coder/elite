@@ -49,7 +49,7 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
       {tab === 'affectations' && (
         <AffectationsTab classeId={classeId} titulaireId={classe.titulaire_id} ecoleType={classe.school?.type} />
       )}
-      {tab === 'eleves' && <ElevesTab classeId={classeId} />}
+      {tab === 'eleves' && <ElevesTab classeId={classeId} ecoleType={classe.school?.type} />}
       {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
       {tab === 'absences' && <AbsencesTab classeId={classeId} ecoleType={classe.school?.type} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}

@@ -18,13 +18,19 @@ class AvanceSalaire extends Model
     protected $table = 'avances_salaire';
 
     protected $fillable = [
-        'school_id', 'personnel_id', 'montant', 'date_avance', 'motif', 'accordee_par',
+        'school_id', 'personnel_id', 'montant', 'nombre_mois', 'mensualite', 'date_avance', 'motif', 'accordee_par',
         'annule_le', 'annule_par', 'motif_annulation',
     ];
 
     protected function casts(): array
     {
-        return ['date_avance' => 'date', 'montant' => 'integer', 'annule_le' => 'datetime'];
+        return [
+            'date_avance' => 'date',
+            'montant' => 'integer',
+            'nombre_mois' => 'integer',
+            'mensualite' => 'integer',
+            'annule_le' => 'datetime',
+        ];
     }
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder

@@ -27,6 +27,15 @@ export type SituationMatrimoniale =
   | "divorce"
   | "veuf";
 
+export type StatutParent = "vivant" | "decede" | "";
+export type SexeEnfant = "M" | "F" | "";
+
+export interface PersonnelEnfant {
+  nom_complet: string | null;
+  sexe: SexeEnfant | null;
+  date_naissance: string | null;
+}
+
 /** Dossier administratif de l'agent, hors identité et fonction. */
 export interface DossierPersonnel {
   affectation: string | null;
@@ -48,6 +57,13 @@ export interface DossierPersonnel {
   date_fin: string | null;
   /** Retombe sur naissance + 60 ans quand la date n'est pas saisie. */
   date_retraite: string | null;
+  pere_nom_complet: string | null;
+  pere_statut: StatutParent | null;
+  pere_telephone: string | null;
+  mere_nom_complet: string | null;
+  mere_statut: StatutParent | null;
+  mere_telephone: string | null;
+  enfants: PersonnelEnfant[];
 }
 
 export interface Personnel extends DossierPersonnel {
@@ -70,6 +86,7 @@ export type PersonnelPayload = Partial<DossierPersonnel> & {
   matricule?: string | null;
   statut?: "actif" | "ex_employe";
   school_id?: number | null;
+  enfants?: PersonnelEnfant[];
 };
 
 export interface FonctionReferentiel {

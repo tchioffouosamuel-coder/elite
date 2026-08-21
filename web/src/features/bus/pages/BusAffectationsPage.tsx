@@ -74,10 +74,10 @@ export function BusAffectationsPage() {
         affectationId: eleve.bus?.affectation_id,
         affectationActuelle: eleve.bus
           ? {
-              trajet_id: eleve.bus.trajet.id,
-              arret_id: eleve.bus.arret?.id ?? null,
-              option_trajet: eleve.bus.option_trajet,
-            }
+            trajet_id: eleve.bus.trajet.id,
+            arret_id: eleve.bus.arret?.id ?? null,
+            option_trajet: eleve.bus.option_trajet,
+          }
           : undefined,
         retour: '/bus/eleves',
       },
@@ -111,28 +111,28 @@ export function BusAffectationsPage() {
   const colonnes: Colonne<EleveTransport>[] = [
     ...(can('bus.manage')
       ? [
-          {
-            cle: 'selection',
-            sticky: 'left',
-            largeur: '44px',
-            entete: eleves ? (
-              <input
-                type="checkbox"
-                checked={selectedIds.size === eleves.length && eleves.length > 0}
-                onChange={() => handleSelectAll(eleves ?? [])}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ) : null,
-            cellule: (e: EleveTransport) => (
-              <input
-                type="checkbox"
-                checked={selectedIds.has(e.id)}
-                onChange={() => handleToggleSelect(e.id)}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ),
-          } satisfies Colonne<EleveTransport>,
-        ]
+        {
+          cle: 'selection',
+          sticky: 'left',
+          largeur: '44px',
+          entete: eleves ? (
+            <input
+              type="checkbox"
+              checked={selectedIds.size === eleves.length && eleves.length > 0}
+              onChange={() => handleSelectAll(eleves ?? [])}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ) : null,
+          cellule: (e: EleveTransport) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(e.id)}
+              onChange={() => handleToggleSelect(e.id)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+        } satisfies Colonne<EleveTransport>,
+      ]
       : []),
     {
       cle: 'eleve',
@@ -164,7 +164,7 @@ export function BusAffectationsPage() {
         e.bus?.arret ? (
           <span className="inline-flex items-center gap-1 text-navy-600">
             <MapPin className="h-3.5 w-3.5 text-navy-300" />
-            {e.bus.arret.nom}
+            {e.bus.arret.nom}{e.bus.arret.lieu_dit ? ` — ${e.bus.arret.lieu_dit}` : ''}
           </span>
         ) : (
           '—'
@@ -202,30 +202,30 @@ export function BusAffectationsPage() {
     },
     ...(can('bus.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: '',
-            sticky: 'right',
-            largeur: '150px',
-            cellule: (e: EleveTransport) => (
-              <div className="flex justify-end gap-1.5">
-                <Button size="sm" variant="secondary" onClick={() => souscrireUnEleve(e)}>
-                  <UserPlus className="h-3.5 w-3.5" />
-                  {e.bus ? t('common.edit') : t('bus.souscrire')}
-                </Button>
-                {e.bus && (
-                  <button
-                    title={t('bus.affectation_remove')}
-                    onClick={() => retirerUnEleve(e)}
-                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ),
-          } satisfies Colonne<EleveTransport>,
-        ]
+        {
+          cle: 'actions',
+          entete: '',
+          sticky: 'right',
+          largeur: '150px',
+          cellule: (e: EleveTransport) => (
+            <div className="flex justify-end gap-1.5">
+              <Button size="sm" variant="secondary" onClick={() => souscrireUnEleve(e)}>
+                <UserPlus className="h-3.5 w-3.5" />
+                {e.bus ? t('common.edit') : t('bus.souscrire')}
+              </Button>
+              {e.bus && (
+                <button
+                  title={t('bus.affectation_remove')}
+                  onClick={() => retirerUnEleve(e)}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ),
+        } satisfies Colonne<EleveTransport>,
+      ]
       : []),
   ]
 

@@ -20,18 +20,28 @@ readonly class ResultatPaie
         public int $chargesPatronales,
         public array $gains,
         public array $retenues,
+        /**
+         * L'établissement prend-il la part salariale à sa charge ? Dans les
+         * registres de l'école, oui : l'agent perçoit le montant négocie à la
+         * rentrée sans que taxes et CNPS ne l'amputent. Cela ne change pas ce
+         * qui est dû aux organismes, seulement qui le supporte.
+         */
+        public bool $chargesSalarialesSupporteesParEmployeur = false,
     ) {}
 
     /** Net avant les déductions maison. */
     public function netAvantDeductions(): int
     {
-        return $this->brut - $this->chargesSalariales;
+        return $this->chargesSalarialesSupporteesParEmployeur
+            ? $this->brut
+            : $this->brut - $this->chargesSalariales;
     }
 
     /** Ce que l'agent coûte réellement, part patronale comprise. */
     public function coutEmployeur(): int
     {
-        return $this->brut + $this->chargesPatronales;
+        return $this->brut + $this->chargesPatronales
+            + ($this->chargesSalarialesSupporteesParEmployeur ? $this->chargesSalariales : 0);
     }
 
     /** @return array<string, int|array> */
@@ -42,6 +52,7 @@ readonly class ResultatPaie
             'base_taxable' => $this->baseTaxable,
             'charges_salariales' => $this->chargesSalariales,
             'charges_patronales' => $this->chargesPatronales,
+            'charges_salariales_supportees_par_employeur' => $this->chargesSalarialesSupporteesParEmployeur,
             'net_avant_deductions' => $this->netAvantDeductions(),
             'cout_employeur' => $this->coutEmployeur(),
             'gains' => $this->gains,

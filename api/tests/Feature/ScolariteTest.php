@@ -205,6 +205,44 @@ class ScolariteTest extends TestCase
         $this->service()->annuler($versement->fresh(), 'Encore');
     }
 
+    public function test_une_revision_de_tarif_se_repercute_sur_les_dossiers_deja_ouverts(): void
+    {
+        $dossier = $this->service()->dossier($this->eleve(), $this->annee);
+        $this->assertSame(359000, $dossier->montant_scolarite);
+
+        GrilleFrais::where('school_id', $this->school->id)
+            ->where('classe_id', $this->classe->id)
+            ->update(['montant' => 400000]);
+
+        $misAJour = $this->service()->synchroniserTarifs($this->school->id, $this->annee);
+
+        $this->assertSame(1, $misAJour);
+        $this->assertSame(400000, $dossier->fresh()->montant_scolarite);
+        $this->assertSame(400000, $dossier->fresh()->load(['fraisAnnexes', 'versements'])->total_du);
+    }
+
+    public function test_un_frais_annexe_circonscrit_a_une_classe_ne_s_applique_pas_ailleurs(): void
+    {
+        $autre = Classe::create([
+            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'CLOTHING 1-A',
+        ]);
+
+        $frais = FraisAnnexe::create([
+            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
+            'libelle' => 'Tenue technique', 'montant' => 15000, 'obligatoire' => true,
+        ]);
+        $frais->synchroniserClasses([$this->classe->id]);
+
+        $dossierClasseVisee = $this->service()->dossier($this->eleve(), $this->annee);
+        $this->assertCount(1, $dossierClasseVisee->fraisAnnexes);
+
+        $dossierAutreClasse = $this->service()->dossier(
+            $this->eleve(['classe_id' => $autre->id, 'matricule' => '23PRIM3']),
+            $this->annee,
+        );
+        $this->assertCount(0, $dossierAutreClasse->fraisAnnexes);
+    }
+
     public function test_le_reliquat_est_repris_sur_l_annee_suivante(): void
     {
         $eleve = $this->eleve();

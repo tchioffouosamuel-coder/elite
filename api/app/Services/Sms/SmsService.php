@@ -4,6 +4,7 @@ namespace App\Services\Sms;
 
 use App\Services\Sms\Drivers\LogSmsDriver;
 use App\Services\Sms\Drivers\TwilioSmsDriver;
+use App\Support\Telephone;
 
 /**
  * Point d'entrée unique pour l'envoi de SMS (confirmations de paiement,
@@ -35,26 +36,6 @@ class SmsService
             return false;
         }
 
-        return $this->driver->envoyer($this->normaliser($telephone), $message);
-    }
-
-    /**
-     * Numéro camerounais local (ex. « 692 34 21 06 ») vers le format E.164
-     * qu'attend Twilio (+237692342106). Un numéro déjà international
-     * (commençant par +) n'est pas retouché.
-     */
-    private function normaliser(string $telephone): string
-    {
-        $nettoye = preg_replace('/[^\d+]/', '', $telephone) ?? $telephone;
-
-        if (str_starts_with($nettoye, '+')) {
-            return $nettoye;
-        }
-
-        // Les numéros locaux à 9 chiffres commencent par 6 (mobile) ou 2
-        // (fixe) ; un 0 initial est un préfixe national à retirer.
-        $nettoye = ltrim($nettoye, '0');
-
-        return '+237'.$nettoye;
+        return $this->driver->envoyer(Telephone::normaliser($telephone), $message);
     }
 }

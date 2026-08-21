@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CompteComptable;
 use App\Models\Depense;
 use App\Models\EcritureComptable;
+use App\Services\Comptabilite\AmortissementService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -24,6 +25,8 @@ use RuntimeException;
  */
 class DepenseService extends BaseService
 {
+    public function __construct(private readonly AmortissementService $amortissements) {}
+
     private const COMPTES_TRESORERIE = [
         'especes' => '571',
         'mobile_money' => '578',
@@ -32,8 +35,8 @@ class DepenseService extends BaseService
         'depot_bancaire' => '521',
     ];
 
-    /** Repli quand aucun compte n'est choisi : achats de fournitures. */
-    private const COMPTE_PAR_DEFAUT = '601';
+    /** Repli quand aucun compte n'est choisi : fournitures diverses. */
+    private const COMPTE_PAR_DEFAUT = '614';
 
     /**
      * @param  array<string, mixed>  $donnees
@@ -45,6 +48,7 @@ class DepenseService extends BaseService
                 'school_id' => $schoolId,
                 'annee_scolaire_id' => $donnees['annee_scolaire_id'] ?? null,
                 'compte_comptable_id' => $donnees['compte_comptable_id'] ?? $this->compte(self::COMPTE_PAR_DEFAUT),
+                'vehicule_id' => $donnees['vehicule_id'] ?? null,
                 'date_depense' => $donnees['date_depense'] ?? Carbon::today()->toDateString(),
                 'libelle' => $donnees['libelle'],
                 'montant' => (int) $donnees['montant'],
@@ -60,6 +64,13 @@ class DepenseService extends BaseService
             if ($depense->statut === 'payee') {
                 $this->comptabiliser($depense);
             }
+
+            /*
+             * Une dépense portée sur un compte d'investissement construit un
+             * actif : elle s'inscrit au patrimoine et s'amortira, au lieu de
+             * peser d'un coup sur le résultat de l'année.
+             */
+            $this->amortissements->immobiliserDepense($depense);
 
             return $depense;
         });
@@ -179,7 +190,7 @@ class DepenseService extends BaseService
      * Dépenses de la période, ventilées par compte : c'est la vue qu'attend le
      * bilan, et celle que lit le comptable.
      *
-     * @param  array{du?: ?string, au?: ?string, compte_comptable_id?: ?int, statut?: ?string}  $filtres
+     * @param  array{du?: ?string, au?: ?string, compte_comptable_id?: ?int, statut?: ?string, vehicule_id?: ?int}  $filtres
      * @return array{depenses: Collection, par_compte: array<string, array>, totaux: array<string, int>}
      */
     public function bilan(int $schoolId, array $filtres = []): array
@@ -189,7 +200,8 @@ class DepenseService extends BaseService
             ->when($filtres['au'] ?? null, fn ($q, $au) => $q->whereDate('date_depense', '<=', $au))
             ->when($filtres['compte_comptable_id'] ?? null, fn ($q, $id) => $q->where('compte_comptable_id', $id))
             ->when($filtres['statut'] ?? null, fn ($q, $statut) => $q->where('statut', $statut))
-            ->with(['compte', 'saisisseur'])
+            ->when($filtres['vehicule_id'] ?? null, fn ($q, $id) => $q->where('vehicule_id', $id))
+            ->with(['compte', 'saisisseur', 'vehicule'])
             ->orderByDesc('date_depense')
             ->get();
 

@@ -32,11 +32,32 @@ class AvanceSalaireController extends Controller
         ]);
     }
 
+    /**
+     * Bornes de remboursement d'un employé : salaire brut en cours et
+     * mensualité maximale (50%). Le formulaire d'octroi les affiche dès le
+     * choix de l'agent, pour que l'échéancier se corrige avant l'envoi
+     * plutôt qu'après un refus du serveur.
+     */
+    public function plafond(Request $request): JsonResponse
+    {
+        $donnees = $request->validate([
+            'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', Tenant::schoolIds())],
+        ]);
+
+        $personnel = Personnel::findOrFail($donnees['personnel_id']);
+
+        return ApiResponse::success($this->service->plafond($personnel) ?? [
+            'salaire_brut' => null,
+            'plafond_mensualite' => null,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $donnees = $request->validate([
             'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', Tenant::schoolIds())],
             'montant' => ['required', 'integer', 'min:1'],
+            'nombre_mois' => ['required', 'integer', 'min:1', 'max:36'],
             'date_avance' => ['required', 'date'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
@@ -45,7 +66,11 @@ class AvanceSalaireController extends Controller
         // ambiant : en mode agrégé, deviner serait arbitraire.
         $schoolId = Personnel::findOrFail($donnees['personnel_id'])->school_id;
 
-        $avance = $this->service->accorder($schoolId, $donnees, $request->user()?->id);
+        try {
+            $avance = $this->service->accorder($schoolId, $donnees, $request->user()?->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::created($this->resumer($avance->load('personnel.school')), 'Avance accordée.');
     }
@@ -99,6 +124,8 @@ class AvanceSalaireController extends Controller
                 'type' => $avance->personnel->school->type,
             ] : null,
             'montant' => $avance->montant,
+            'nombre_mois' => $avance->nombre_mois,
+            'mensualite' => $avance->mensualite,
             'date_avance' => $avance->date_avance->format('Y-m-d'),
             'motif' => $avance->motif,
             'montant_rembourse' => $avance->montant_rembourse,

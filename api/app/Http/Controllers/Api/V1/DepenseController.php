@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\CompteComptable;
 use App\Models\Depense;
 use App\Models\School;
@@ -16,6 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DepenseController extends Controller
 {
+    use ScopedRules;
+
     public function __construct(private readonly DepenseService $service) {}
 
     /** Dépenses de la période, ventilation par compte et totaux. */
@@ -47,6 +50,7 @@ class DepenseController extends Controller
             'montant' => ['required', 'integer', 'min:1'],
             'date_depense' => ['nullable', 'date'],
             'compte_comptable_id' => ['nullable', 'integer', 'exists:comptes_comptables,id'],
+            'vehicule_id' => ['nullable', 'integer', $this->scopedExists('bus_vehicules')],
             'annee_scolaire_id' => ['nullable', 'integer'],
             'mode' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'beneficiaire' => ['nullable', 'string', 'max:150'],
@@ -124,6 +128,7 @@ class DepenseController extends Controller
                 : null,
             'saisi_par' => $depense->saisisseur?->name,
             'motif_annulation' => $depense->motif_annulation,
+            'vehicule_id' => $depense->vehicule_id,
         ];
     }
 
@@ -139,6 +144,7 @@ class DepenseController extends Controller
             'du' => ['nullable', 'date'],
             'au' => ['nullable', 'date'],
             'statut' => ['nullable', 'in:engagee,payee,annulee'],
+            'vehicule_id' => ['nullable', 'integer'],
         ]);
 
         return [
@@ -146,6 +152,7 @@ class DepenseController extends Controller
             'au' => $request->string('au')->toString() ?: null,
             'compte_comptable_id' => $request->integer('compte_comptable_id') ?: null,
             'statut' => $request->string('statut')->toString() ?: null,
+            'vehicule_id' => $request->integer('vehicule_id') ?: null,
         ];
     }
 
