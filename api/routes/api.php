@@ -325,6 +325,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('preinscriptions', [ParentPreinscriptionController::class, 'index'])->name('preinscriptions.index');
                 Route::post('preinscriptions', [ParentPreinscriptionController::class, 'store'])->name('preinscriptions.store');
+                Route::get('preinscriptions/{id}', [ParentPreinscriptionController::class, 'show'])->name('preinscriptions.show');
+                Route::put('preinscriptions/{id}', [ParentPreinscriptionController::class, 'update'])->name('preinscriptions.update');
                 Route::get('ecoles-disponibles', [ParentPreinscriptionController::class, 'ecolesDisponibles'])->name('ecoles-disponibles');
                 Route::get('ecoles/{schoolId}/classes', [ParentPreinscriptionController::class, 'classesDisponibles'])->name('ecoles.classes');
             });
@@ -392,14 +394,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
-                Route::get('progression-items/{id}/fiche', [ProgressionController::class, 'ficheShow'])->name('progression.fiche.show');
                 Route::get('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'champs'])->name('champs-personnalises.index');
                 Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
-                Route::put('progression-items/{id}/fiche', [ProgressionController::class, 'ficheSave'])->name('progression.fiche.save');
+                Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
                 Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
                 Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');

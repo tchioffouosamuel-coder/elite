@@ -64,44 +64,51 @@ class ProgressionService extends BaseService
                 // Une leçon est traitée dès qu'une séance l'a couverte.
                 'traitee' => $item->type === 'lecon' ? $item->seances_count > 0 : null,
                 'seances_count' => $item->seances_count,
+                /*
+                 * La fiche voyage avec la ligne : l'enseignant la remplit dans
+                 * la progression, sans second ecran. La charger separement
+                 * aurait valu une requete par lecon a chaque depliage.
+                 */
+                ...$this->fiche($item),
                 'enfants' => $this->brancher($items, $item->id, $parTrimestre),
             ])
             ->values();
     }
 
+    /**
+     * Les champs de la fiche d'une leçon, vides ailleurs : un module n'a ni
+     * topic ni activités, mais la ligne doit garder la même forme côté client.
+     *
+     * @return array<string, mixed>
+     */
+    private function fiche(ProgressionItem $item): array
+    {
+        $champs = [...ProgressionItem::CHAMPS_FICHE, 'term', 'mois', 'semaine'];
+        $fiche = [];
+
+        foreach ($champs as $champ) {
+            $fiche[$champ] = $item->type === 'lecon' ? $item->{$champ} : null;
+        }
+
+        $fiche['date_prevue'] = $item->type === 'lecon' ? $item->date_prevue?->toDateString() : null;
+
+        return $fiche;
+    }
+
     /** Une leçon a une fiche de préparation dès qu'un de ses champs a été renseigné. */
     private function aPreparation(ProgressionItem $item): bool
     {
-        return $item->type === 'lecon' && (
-            filled($item->topic) || filled($item->lesson) || filled($item->competence)
-            || filled($item->mode) || filled($item->entry_behaviour) || filled($item->teaching_aids)
-            || filled($item->teaching_learning_strategies) || filled($item->references)
-            || filled($item->research_questions) || filled($item->introduction)
-            || filled($item->presentation) || filled($item->conclusion)
-        );
-    }
+        if ($item->type !== 'lecon') {
+            return false;
+        }
 
-    /** Fiche de préparation détaillée d'une leçon, avec le fil d'ariane classe/matière. */
-    public function fichePreparation(ProgressionItem $item): array
-    {
-        return [
-            'id' => $item->id,
-            'titre' => $item->titre,
-            'classe' => ['id' => $item->classeMatiere->classe->id, 'nom' => $item->classeMatiere->classe->nom],
-            'matiere' => ['id' => $item->classeMatiere->matiere->id, 'nom' => $item->classeMatiere->matiere->nom],
-            'topic' => $item->topic,
-            'lesson' => $item->lesson,
-            'competence' => $item->competence,
-            'mode' => $item->mode,
-            'entry_behaviour' => $item->entry_behaviour,
-            'teaching_aids' => $item->teaching_aids,
-            'teaching_learning_strategies' => $item->teaching_learning_strategies,
-            'references' => $item->references,
-            'research_questions' => $item->research_questions,
-            'introduction' => $item->introduction,
-            'presentation' => $item->presentation,
-            'conclusion' => $item->conclusion,
-        ];
+        foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
+            if (filled($item->{$champ})) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -232,6 +239,19 @@ class ProgressionService extends BaseService
                 'activites' => $noeud['type'] === 'lecon' ? ($noeud['activites'] ?? null) : null,
                 'devoirs' => $noeud['type'] === 'lecon' ? ($noeud['devoirs'] ?? null) : null,
             ];
+
+            /*
+             * La fiche de préparation se remplit désormais dans la progression
+             * elle-même : ses champs arrivent donc avec le nœud, au lieu d'être
+             * saisis dans un second écran.
+             *
+             * Ils ne concernent qu'une leçon — un module n'a ni topic ni
+             * activités — et sont remis à null sur les autres types pour qu'un
+             * élément converti en chapitre ne traîne pas une fiche orpheline.
+             */
+            foreach ([...ProgressionItem::CHAMPS_FICHE, 'term', 'mois', 'semaine', 'date_prevue'] as $champ) {
+                $attributs[$champ] = $noeud['type'] === 'lecon' ? ($noeud[$champ] ?? null) : null;
+            }
 
             $item = isset($noeud['id'])
                 ? ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->find($noeud['id'])

@@ -3,8 +3,42 @@ import type { ApiResponse } from '@/shared/types/api'
 
 export type TypeItem = 'module' | 'chapitre' | 'lecon'
 
+export type ModeLecon = 'digital' | 'practical' | 'normal'
+
+/**
+ * Les seize colonnes de la fiche de l'établissement, dans leur ordre de la
+ * feuille. La leçon ne se prépare plus dans un second écran : elle se remplit
+ * ici, ligne à ligne.
+ */
+export interface FicheLecon {
+  expected_learning_outcomes?: string | null
+  topic?: string | null
+  lesson?: string | null
+  competence?: string | null
+  mode?: ModeLecon | null
+  stages_of_lesson?: string | null
+  entry_behaviour?: string | null
+  teaching_aids?: string | null
+  teaching_learning_strategies?: string | null
+  references?: string | null
+  introduction?: string | null
+  presentation?: string | null
+  conclusion?: string | null
+  main_points?: string | null
+  learners_activities?: string | null
+  facilitators_activities?: string | null
+}
+
+/** Repères de calendrier repris des premières colonnes de la feuille. */
+export interface CalendrierLecon {
+  term?: string | null
+  mois?: string | null
+  semaine?: string | null
+  date_prevue?: string | null
+}
+
 /** Un élément du programme peut en contenir d'autres : modules → chapitres → leçons. */
-export interface ProgressionItem {
+export interface ProgressionItem extends FicheLecon, CalendrierLecon {
   id?: number
   type: TypeItem
   titre: string
@@ -39,48 +73,24 @@ export async function enregistrerProgramme(classeMatiereId: number, items: Progr
 }
 
 /* ------------------------------------------------------------------ */
-/* Fiche de préparation d'une leçon (format MINESEC)                   */
+/* Import de la feuille de progression de l'établissement              */
 /* ------------------------------------------------------------------ */
 
-export type ModeLecon = 'digital' | 'practical' | 'normal'
-
-export interface EtapeLecon {
-  main_points_of_matter?: string | null
-  learners_activities?: string | null
-  facilitators_activities?: string | null
+/** Ce que l'import a fait du fichier, ligne par ligne. */
+export interface ResultatImport extends Programme {
+  creees: number
+  completees: number
+  ignorees: number
 }
 
-export interface FichePreparation {
-  id: number
-  titre: string
-  classe: { id: number; nom: string }
-  matiere: { id: number; nom: string }
-  topic?: string | null
-  lesson?: string | null
-  competence?: string | null
-  mode?: ModeLecon | null
-  entry_behaviour?: string | null
-  teaching_aids?: string | null
-  teaching_learning_strategies?: string | null
-  references?: string | null
-  research_questions?: string | null
-  introduction?: EtapeLecon | null
-  presentation?: EtapeLecon | null
-  conclusion?: EtapeLecon | null
-}
+export async function importerProgression(classeMatiereId: number, fichier: File): Promise<ResultatImport> {
+  const corps = new FormData()
+  corps.append('fichier', fichier)
 
-export type FichePreparationPayload = Omit<FichePreparation, 'id' | 'titre' | 'classe' | 'matiere'>
-
-export async function fetchFichePreparation(leconId: number): Promise<FichePreparation> {
-  const { data } = await http.get<ApiResponse<FichePreparation>>(`/progression-items/${leconId}/fiche`)
-  return data.data
-}
-
-export async function enregistrerFichePreparation(
-  leconId: number,
-  payload: FichePreparationPayload,
-): Promise<FichePreparation> {
-  const { data } = await http.put<ApiResponse<FichePreparation>>(`/progression-items/${leconId}/fiche`, payload)
+  const { data } = await http.post<ApiResponse<ResultatImport>>(
+    `/classe-matieres/${classeMatiereId}/progression/import`,
+    corps,
+  )
   return data.data
 }
 

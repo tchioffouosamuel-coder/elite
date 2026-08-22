@@ -41,6 +41,23 @@ class SaveProgressionRequest extends FormRequest
             $regles[$chemin.'.*.devoirs'] = ['nullable', 'string', 'max:2000'];
             // La séquence cible doit appartenir à l'établissement courant.
             $regles[$chemin.'.*.sequence_id'] = ['nullable', $this->scopedExistsSequence()];
+
+            /*
+             * Les seize champs de la fiche, saisis directement dans la
+             * progression. Bornés large : ce sont des zones de texte libre que
+             * l'enseignant remplit à sa main, parfois sur plusieurs lignes.
+             */
+            foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
+                $regles[$chemin.'.*.'.$champ] = $champ === 'mode'
+                    ? ['nullable', Rule::in(['digital', 'practical', 'normal'])]
+                    : ['nullable', 'string', 'max:4000'];
+            }
+
+            // Repères de calendrier repris de la feuille de l'établissement.
+            $regles[$chemin.'.*.term'] = ['nullable', 'string', 'max:40'];
+            $regles[$chemin.'.*.mois'] = ['nullable', 'string', 'max:20'];
+            $regles[$chemin.'.*.semaine'] = ['nullable', 'string', 'max:20'];
+            $regles[$chemin.'.*.date_prevue'] = ['nullable', 'date'];
         }
 
         return $regles;

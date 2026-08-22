@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, FileDown } from 'lucide-react'
+import { BarChart3, ChevronRight, FileDown } from 'lucide-react'
 import {
   fetchRecapitulatifEffectifs,
   fetchRecapitulatifSousSystemes,
@@ -200,6 +200,9 @@ function OngletParSousSysteme() {
 }
 
 function OngletAges() {
+  // Lignes dépliées, par âge. Plusieurs peuvent l'être en même temps : on
+  // compare volontiers deux tranches côte à côte.
+  const [ouverts, setOuverts] = useState<Set<string>>(new Set())
   const [schoolId, setSchoolId] = useState<number | ''>('')
   const [sousSystemeId, setSousSystemeId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
@@ -229,6 +232,19 @@ function OngletAges() {
     (acc, l) => ({ garcons: acc.garcons + l.garcons, filles: acc.filles + l.filles, total: acc.total + l.total }),
     { garcons: 0, filles: 0, total: 0 },
   )
+
+  const basculerAge = (age: string) =>
+    setOuverts((actuels) => {
+      const suivant = new Set(actuels)
+
+      if (suivant.has(age)) {
+        suivant.delete(age)
+      } else {
+        suivant.add(age)
+      }
+
+      return suivant
+    })
 
   const pdfParams: Record<string, number> = {}
   if (schoolId) pdfParams.school_id = schoolId
@@ -317,14 +333,57 @@ function OngletAges() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((ligne) => (
-                  <tr key={ligne.age} className="border-b border-navy-50">
-                    <td className="py-2 text-left font-semibold text-navy-800">{ligne.age}</td>
-                    <td className="py-2 text-right tabular-nums">{ligne.garcons}</td>
-                    <td className="py-2 text-right tabular-nums">{ligne.filles}</td>
-                    <td className="py-2 text-right tabular-nums">{ligne.total}</td>
-                  </tr>
-                ))}
+                {data.map((ligne) => {
+                  const ouvert = ouverts.has(ligne.age)
+
+                  return (
+                    <Fragment key={ligne.age}>
+                      <tr
+                        className="cursor-pointer border-b border-navy-50 hover:bg-cream-50"
+                        onClick={() => basculerAge(ligne.age)}
+                      >
+                        <td className="py-2 text-left font-semibold text-navy-800">
+                          <span className="flex items-center gap-1.5">
+                            <ChevronRight
+                              className={`h-4 w-4 flex-none text-navy-400 transition-transform ${ouvert ? 'rotate-90' : ''}`}
+                            />
+                            {ligne.age}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right tabular-nums">{ligne.garcons}</td>
+                        <td className="py-2 text-right tabular-nums">{ligne.filles}</td>
+                        <td className="py-2 text-right tabular-nums">{ligne.total}</td>
+                      </tr>
+
+                      {ouvert && (
+                        <tr className="border-b border-navy-50 bg-cream-50/60">
+                          <td colSpan={4} className="px-3 py-2">
+                            {ligne.eleves.length === 0 ? (
+                              <p className="text-xs text-navy-400">Aucun élève à détailler pour cet âge.</p>
+                            ) : (
+                              <ul className="flex flex-col divide-y divide-navy-100/70">
+                                {ligne.eleves.map((eleve) => (
+                                  <li
+                                    key={eleve.id}
+                                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-1.5 text-xs"
+                                  >
+                                    <span className="font-medium text-navy-800">{eleve.nom_complet}</span>
+                                    <span className="flex flex-wrap items-center gap-x-3 text-navy-500">
+                                      <span className="font-mono">{eleve.matricule ?? '—'}</span>
+                                      <span>{eleve.classe ?? '—'}</span>
+                                      <span>{eleve.sexe === 'F' ? 'Fille' : 'Garçon'}</span>
+                                      <span className="tabular-nums">{eleve.date_naissance ?? '—'}</span>
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
                 {totaux && (
                   <tr className="bg-cream-100 font-bold">
                     <td className="py-2 text-left">Total</td>

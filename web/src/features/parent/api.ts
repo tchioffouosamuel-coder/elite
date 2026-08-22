@@ -312,6 +312,8 @@ export interface PreinscriptionResume {
   statut: StatutPreinscription
   eleve: { id?: number; nom_complet: string } | null
   nom_propose: string | null
+  /** École visée — fixée au dépôt, non modifiable ensuite. */
+  school: { id: number; name: string } | null
   montant_verser: number | null
   motif_rejet: string | null
   created_at: string
@@ -325,6 +327,29 @@ export async function fetchMesPreinscriptions(): Promise<PreinscriptionResume[]>
 
 export async function soumettrePreinscription(payload: PreinscriptionPayload): Promise<PreinscriptionResume> {
   const { data } = await http.post<ApiResponse<PreinscriptionResume>>('/parent/preinscriptions', payload)
+  return data.data
+}
+
+export interface PreinscriptionDetail extends PreinscriptionResume {
+  donnees_eleve: EleveProposePayload
+  donnees_tuteurs: TuteurPayload[]
+  note_admin: string | null
+  mode_versement: ModePaiement | null
+  reference_externe: string | null
+}
+
+/** Détail d'une préinscription du compte connecté — pour préremplir son formulaire de modification tant qu'elle est en attente. */
+export async function fetchMaPreinscription(id: number): Promise<PreinscriptionDetail> {
+  const { data } = await http.get<ApiResponse<PreinscriptionDetail>>(`/parent/preinscriptions/${id}`)
+  return data.data
+}
+
+/** Corrige une préinscription déjà déposée — le seul geste possible tant qu'elle est en attente : en redéposer une nouvelle est refusé côté API. */
+export async function modifierPreinscription(
+  id: number,
+  payload: Omit<PreinscriptionPayload, 'type' | 'eleve_id' | 'school_id'>,
+): Promise<PreinscriptionResume> {
+  const { data } = await http.put<ApiResponse<PreinscriptionResume>>(`/parent/preinscriptions/${id}`, payload)
   return data.data
 }
 

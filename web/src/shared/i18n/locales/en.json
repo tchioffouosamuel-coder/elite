@@ -973,12 +973,22 @@
     "aucune_matiere_classe": "No subject assigned to this class.",
     "retour_classes": "Back to classes",
     "retour_matieres": "Back to subjects",
-    "vide": "This syllabus is empty: add a module, a chapter or a lesson.",
+    "vide": "No lesson yet: add one, or import the subject's progression sheet.",
     "vide_etablissement": "No class in this school.",
     "sequence_libre": "No set sequence",
     "traitee": "Covered",
     "avancement": "{{traitees}} of {{lecons}} lesson(s) covered",
-    "saved": "Syllabus saved ({{count}} lesson(s))."
+    "saved": "Syllabus saved ({{count}} lesson(s)).",
+    "lecon": "Lesson",
+    "importer_fiche": "Import sheet",
+    "import_titre": "Import the progression sheet",
+    "import_format": "Workbook in the school's format: headers on row 6, one row per lesson. Only the first sheet is read.",
+    "import_complete": "Lessons already entered are completed, never overwritten: they are matched on their Topic + Lesson pair.",
+    "import_resultat": "{{creees}} lesson(s) created, {{completees}} completed.",
+    "import_ignorees": "{{count}} row(s) skipped.",
+    "deplier_fiche": "Expand the sheet",
+    "replier_fiche": "Collapse the sheet",
+    "partie": "Section title"
   },
   "journee": {
     "title": "My day",
@@ -1182,7 +1192,10 @@
     "tronc_commun_badge": "Shared",
     "tronc_commun_porte_par": "Held by {{classe}}",
     "tronc_commun_appel": "Shared lesson — {{count}} classes together. The roll call covers all their students.",
-    "classe_colonne": "Class"
+    "classe_colonne": "Class",
+    "tronc_commun_recherche": "Search a class…",
+    "tronc_commun_suggere": "{{count}} class(es) pre-ticked: {{enseignant}} already teaches the same subject there. Untick any that do not join this lesson.",
+    "tronc_commun_meme_enseignant": "same teacher"
   },
   "identification": {
     "title": "Photos & ID cards",

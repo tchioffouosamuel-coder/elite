@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { Spinner } from '@/shared/ui/Feedback'
 import {
   fetchEcolesDisponibles,
   fetchClassesDisponibles,
+  fetchMaPreinscription,
   soumettrePreinscription,
+  modifierPreinscription,
   type TuteurPayload,
 } from '@/features/parent/api'
 import { succes } from '@/shared/lib/alertes'
@@ -34,23 +37,55 @@ interface FormValues {
   tuteurs: TuteurPayload[]
 }
 
-/** Préinscription d'un nouvel enfant, dont le compte connecté deviendra le tuteur. */
+/** Préinscription d'un nouvel enfant, dont le compte connecté deviendra le tuteur — ou correction d'une demande déjà déposée (`?id=`). */
 export function ParentPreinscriptionNouveauPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const preinscriptionId = searchParams.get('id') ? Number(searchParams.get('id')) : undefined
+  const modeEdition = !!preinscriptionId
+
   const [currentStep, setCurrentStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const { data: ecoles } = useQuery({ queryKey: ['parent-ecoles-disponibles'], queryFn: fetchEcolesDisponibles })
+  const { data: preinscriptionDetail, isLoading: preinscriptionEnChargement } = useQuery({
+    queryKey: ['parent-preinscription', preinscriptionId],
+    queryFn: () => fetchMaPreinscription(preinscriptionId!),
+    enabled: modeEdition,
+  })
 
   const {
     register,
     control,
     handleSubmit,
+    reset,
     trigger,
     watch,
     formState: { errors },
   } = useForm<FormValues>({ defaultValues: { tuteurs: [{ nom_complet: '', is_principal: true }], aptitude: 'apte' } })
+
+  useEffect(() => {
+    if (!preinscriptionDetail) return
+    const d = preinscriptionDetail.donnees_eleve
+    reset({
+      school_id: preinscriptionDetail.school?.id ?? '',
+      classe_id: d.classe_id ?? '',
+      nom_complet: d.nom_complet,
+      sexe: d.sexe,
+      date_naissance: d.date_naissance ?? '',
+      lieu_naissance: d.lieu_naissance ?? '',
+      adresse: d.adresse ?? '',
+      numero_acte_naissance: d.numero_acte_naissance ?? '',
+      lieu_delivrance_acte: d.lieu_delivrance_acte ?? '',
+      officier_etat_civil: d.officier_etat_civil ?? '',
+      groupe_sanguin: d.groupe_sanguin ?? '',
+      situation_sanitaire: d.situation_sanitaire ?? '',
+      aptitude: d.aptitude ?? 'apte',
+      allergies: d.allergies ?? '',
+      tuteurs: preinscriptionDetail.donnees_tuteurs,
+    })
+  }, [preinscriptionDetail, reset])
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
   const schoolId = watch('school_id') ? Number(watch('school_id')) : undefined
@@ -79,27 +114,34 @@ export function ParentPreinscriptionNouveauPage() {
     setServerError(null)
     setSubmitting(true)
     try {
-      await soumettrePreinscription({
-        type: 'nouveau',
-        school_id: Number(values.school_id),
-        donnees_eleve: {
-          nom_complet: values.nom_complet,
-          sexe: values.sexe as 'M' | 'F',
-          date_naissance: values.date_naissance,
-          lieu_naissance: values.lieu_naissance || undefined,
-          adresse: values.adresse || undefined,
-          classe_id: Number(values.classe_id),
-          numero_acte_naissance: values.numero_acte_naissance || undefined,
-          lieu_delivrance_acte: values.lieu_delivrance_acte || undefined,
-          officier_etat_civil: values.officier_etat_civil || undefined,
-          groupe_sanguin: values.groupe_sanguin || undefined,
-          situation_sanitaire: values.situation_sanitaire || undefined,
-          aptitude: values.aptitude,
-          allergies: values.allergies || undefined,
-        },
-        donnees_tuteurs: values.tuteurs,
-      })
-      succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
+      const donneesEleve = {
+        nom_complet: values.nom_complet,
+        sexe: values.sexe as 'M' | 'F',
+        date_naissance: values.date_naissance,
+        lieu_naissance: values.lieu_naissance || undefined,
+        adresse: values.adresse || undefined,
+        classe_id: Number(values.classe_id),
+        numero_acte_naissance: values.numero_acte_naissance || undefined,
+        lieu_delivrance_acte: values.lieu_delivrance_acte || undefined,
+        officier_etat_civil: values.officier_etat_civil || undefined,
+        groupe_sanguin: values.groupe_sanguin || undefined,
+        situation_sanitaire: values.situation_sanitaire || undefined,
+        aptitude: values.aptitude,
+        allergies: values.allergies || undefined,
+      }
+
+      if (modeEdition && preinscriptionId) {
+        await modifierPreinscription(preinscriptionId, { donnees_eleve: donneesEleve, donnees_tuteurs: values.tuteurs })
+        succes('Préinscription mise à jour. / Pre-registration updated.')
+      } else {
+        await soumettrePreinscription({
+          type: 'nouveau',
+          school_id: Number(values.school_id),
+          donnees_eleve: donneesEleve,
+          donnees_tuteurs: values.tuteurs,
+        })
+        succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
+      }
       navigate('/parent/preinscriptions')
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -108,6 +150,8 @@ export function ParentPreinscriptionNouveauPage() {
     }
   }
 
+  if (modeEdition && (preinscriptionEnChargement || !preinscriptionDetail)) return <Spinner />
+
   return (
     <div>
       <Link to="/parent" className="mb-2 flex w-fit items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
@@ -115,8 +159,12 @@ export function ParentPreinscriptionNouveauPage() {
         Mes enfants / My children
       </Link>
       <PageHeader
-        titre="Inscrire un enfant / Register a child"
-        sousTitre="Nouvelle demande d'inscription, à valider par l'établissement. / New registration request, to be approved by the school."
+        titre={modeEdition ? 'Modifier ma préinscription / Edit my pre-registration' : 'Inscrire un enfant / Register a child'}
+        sousTitre={
+          modeEdition
+            ? "Cette demande est encore en attente : vous pouvez la corriger avant qu'elle ne soit traitée. / This request is still pending: you can correct it before it's processed."
+            : "Nouvelle demande d'inscription, à valider par l'établissement. / New registration request, to be approved by the school."
+        }
       />
 
       <div className="mt-6">
@@ -128,21 +176,43 @@ export function ParentPreinscriptionNouveauPage() {
             isLastStep={currentStep === steps.length - 1}
             isSubmitting={submitting}
             onSubmit={handleSubmit(onSubmit)}
-            onCancel={() => navigate('/parent')}
+            onCancel={() => navigate(modeEdition ? '/parent/preinscriptions' : '/parent')}
             onNext={handleNext}
           >
             {steps[currentStep]?.id === 'ecole' && (
               <div className="space-y-4">
-                <Select label="Établissement / School" error={errors.school_id?.message} {...register('school_id', { required: 'Requis. / Required.' })}>
+                {modeEdition && (
+                  <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-500">
+                    L'établissement et la classe visés ne peuvent plus changer une fois la demande déposée. / The target
+                    school and class can no longer change once the request has been submitted.
+                  </p>
+                )}
+                <Select
+                  label="Établissement / School"
+                  error={errors.school_id?.message}
+                  disabled={modeEdition}
+                  {...register('school_id', { required: 'Requis. / Required.' })}
+                >
                   <option value="">Sélectionner… / Select…</option>
                   {ecoles?.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.name}
                     </option>
                   ))}
+                  {/* L'école de la demande peut ne plus être dans la liste courante des
+                      écoles disponibles (ex. devenue inactive) : on l'ajoute au besoin
+                      pour que le select ait toujours une option correspondant à la valeur. */}
+                  {modeEdition && preinscriptionDetail?.school && !ecoles?.some((e) => e.id === preinscriptionDetail.school?.id) && (
+                    <option value={preinscriptionDetail.school.id}>{preinscriptionDetail.school.name}</option>
+                  )}
                 </Select>
                 {schoolId && (
-                  <Select label="Classe souhaitée / Desired class" error={errors.classe_id?.message} {...register('classe_id', { required: 'Requis. / Required.' })}>
+                  <Select
+                    label="Classe souhaitée / Desired class"
+                    error={errors.classe_id?.message}
+                    disabled={modeEdition}
+                    {...register('classe_id', { required: 'Requis. / Required.' })}
+                  >
                     <option value="">{classesEnChargement ? 'Chargement… / Loading…' : 'Sélectionner… / Select…'}</option>
                     {classes?.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -207,8 +277,9 @@ export function ParentPreinscriptionNouveauPage() {
               <div className="space-y-4">
                 {serverError && <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{serverError}</p>}
                 <p className="rounded-xl bg-green-50 px-3.5 py-2.5 text-sm text-green-800">
-                  Votre demande d'inscription sera transmise à l'établissement pour validation. / Your registration request
-                  will be sent to the school for approval.
+                  {modeEdition
+                    ? "Votre correction sera enregistrée sur la demande déjà en attente. / Your correction will be saved on the request already pending."
+                    : "Votre demande d'inscription sera transmise à l'établissement pour validation. / Your registration request will be sent to the school for approval."}
                 </p>
               </div>
             )}

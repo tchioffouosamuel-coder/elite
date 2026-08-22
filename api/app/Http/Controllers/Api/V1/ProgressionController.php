@@ -4,15 +4,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\ProgressionImport;
 use App\Http\Requests\Api\V1\SaveProgressionRequest;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\ChampPersonnalise;
-use App\Models\ProgressionItem;
 use App\Services\ProgressionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Validation\Rule;
 
 /**
@@ -48,48 +49,33 @@ class ProgressionController extends Controller
         );
     }
 
-    /** Fiche de préparation détaillée d'une leçon. */
-    public function ficheShow(int $id): JsonResponse
+    /**
+     * Import de la fiche de progression au format de l'établissement.
+     *
+     * L'import complète sans écraser : une leçon déjà saisie à l'écran ne voit
+     * remplir que ses champs restés vides (cf. ProgressionImport).
+     */
+    public function import(Request $request, int $classeMatiereId): JsonResponse
     {
-        $item = $this->lecon($id);
-
-        return ApiResponse::success($this->service->fichePreparation($item));
-    }
-
-    public function ficheSave(Request $request, int $id): JsonResponse
-    {
-        $item = $this->lecon($id);
-
-        $data = $request->validate([
-            'topic' => ['nullable', 'string', 'max:255'],
-            'lesson' => ['nullable', 'string', 'max:255'],
-            'competence' => ['nullable', 'string', 'max:2000'],
-            'mode' => ['nullable', Rule::in(['digital', 'practical', 'normal'])],
-            'entry_behaviour' => ['nullable', 'string', 'max:2000'],
-            'teaching_aids' => ['nullable', 'string', 'max:2000'],
-            'teaching_learning_strategies' => ['nullable', 'string', 'max:2000'],
-            'references' => ['nullable', 'string', 'max:2000'],
-            'research_questions' => ['nullable', 'string', 'max:2000'],
-            'introduction' => ['nullable', 'array'],
-            'introduction.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
-            'introduction.learners_activities' => ['nullable', 'string', 'max:4000'],
-            'introduction.facilitators_activities' => ['nullable', 'string', 'max:4000'],
-            'presentation' => ['nullable', 'array'],
-            'presentation.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
-            'presentation.learners_activities' => ['nullable', 'string', 'max:4000'],
-            'presentation.facilitators_activities' => ['nullable', 'string', 'max:4000'],
-            'conclusion' => ['nullable', 'array'],
-            'conclusion.main_points_of_matter' => ['nullable', 'string', 'max:4000'],
-            'conclusion.learners_activities' => ['nullable', 'string', 'max:4000'],
-            'conclusion.facilitators_activities' => ['nullable', 'string', 'max:4000'],
+        $request->validate([
+            'fichier' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
         ]);
 
-        $item->update($data);
+        $classeMatiere = $this->affectation($classeMatiereId);
 
-        return ApiResponse::success(
-            $this->service->fichePreparation($item->fresh(['classeMatiere.classe', 'classeMatiere.matiere'])),
-            'Fiche de préparation enregistrée.'
-        );
+        $import = new ProgressionImport($classeMatiere);
+        Excel::import($import, $request->file('fichier'));
+
+        $message = "{$import->creees} leçon(s) créée(s), {$import->completees} complétée(s)";
+        $message .= $import->ignorees > 0 ? ", {$import->ignorees} ligne(s) ignorée(s)." : '.';
+
+        return ApiResponse::success([
+            'creees' => $import->creees,
+            'completees' => $import->completees,
+            'ignorees' => $import->ignorees,
+            'items' => $this->service->arbre($classeMatiere),
+            ...$this->service->tauxAffectation($classeMatiere),
+        ], $message);
     }
 
     /** Avancement de chaque matière d'une classe. */
@@ -168,14 +154,6 @@ class ProgressionController extends Controller
     {
         return ClasseMatiere::forSchool(Tenant::schoolIds())
             ->with(['classe', 'matiere'])
-            ->findOrFail($id);
-    }
-
-    private function lecon(int $id): ProgressionItem
-    {
-        return ProgressionItem::forSchool(Tenant::schoolIds())
-            ->where('type', 'lecon')
-            ->with(['classeMatiere.classe', 'classeMatiere.matiere'])
             ->findOrFail($id);
     }
 }

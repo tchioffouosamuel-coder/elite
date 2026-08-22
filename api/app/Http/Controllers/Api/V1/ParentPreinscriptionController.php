@@ -31,6 +31,84 @@ class ParentPreinscriptionController extends Controller
         return ApiResponse::success($preinscriptions);
     }
 
+    /** Détail d'une préinscription du compte connecté — pour préremplir le formulaire d'édition tant qu'elle est en attente. */
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $tuteurIds = Tuteur::where('user_id', $request->user()->id)->pluck('id');
+        $preinscription = Preinscription::whereIn('tuteur_id', $tuteurIds)->findOrFail($id);
+
+        return ApiResponse::success([
+            ...$this->resume($preinscription),
+            'donnees_eleve' => $preinscription->donnees_eleve,
+            'donnees_tuteurs' => $preinscription->donnees_tuteurs,
+            'note_admin' => $preinscription->note_admin,
+            'mode_versement' => $preinscription->mode_versement,
+            'reference_externe' => $preinscription->reference_externe,
+        ]);
+    }
+
+    /**
+     * Corrige une préinscription déposée par le compte connecté, tant
+     * qu'elle n'a pas été traitée — évite d'avoir à en redéposer une
+     * nouvelle (refusé par {@see PreinscriptionService::soumettre()}) pour
+     * la moindre coquille.
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $tuteurIds = Tuteur::where('user_id', $request->user()->id)->pluck('id');
+        $preinscription = Preinscription::whereIn('tuteur_id', $tuteurIds)->findOrFail($id);
+
+        $data = $request->validate([
+            'donnees_eleve.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_eleve.sexe' => ['required', 'in:M,F'],
+            'donnees_eleve.date_naissance' => ['required', 'date'],
+            'donnees_eleve.lieu_naissance' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_eleve.classe_id' => ['nullable', 'integer', 'exists:classes,id'],
+            'donnees_eleve.numero_acte_naissance' => ['nullable', 'string', 'max:100'],
+            'donnees_eleve.lieu_delivrance_acte' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.officier_etat_civil' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.groupe_sanguin' => ['nullable', 'string', 'max:10'],
+            'donnees_eleve.situation_sanitaire' => ['nullable', 'string', 'max:1000'],
+            'donnees_eleve.aptitude' => ['nullable', 'in:apte,inapte'],
+            'donnees_eleve.allergies' => ['nullable', 'string', 'max:1000'],
+            'donnees_eleve.photo_tenue_path' => ['nullable', 'string'],
+
+            'donnees_tuteurs' => ['required', 'array', 'min:1'],
+            'donnees_tuteurs.*.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
+            'donnees_tuteurs.*.email' => ['nullable', 'email', 'max:150'],
+            'donnees_tuteurs.*.profession' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.lieu_service' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
+            'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+
+            'note_admin' => ['nullable', 'string', 'max:1000'],
+            'montant_verser' => ['nullable', 'integer', 'min:0'],
+            'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
+            'reference_externe' => ['nullable', 'string', 'max:100'],
+            'rubriques_versement' => ['nullable', 'array'],
+            'rubriques_versement.*.affectation' => ['required_with:rubriques_versement', 'in:scolarite,frais_annexe,report_dette,bus'],
+            'rubriques_versement.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
+            'rubriques_versement.*.libelle' => ['nullable', 'string', 'max:150'],
+            'rubriques_versement.*.montant' => ['required_with:rubriques_versement', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $preinscription = $this->service->modifierDonnees(
+                $preinscription,
+                $data['donnees_eleve'],
+                $data['donnees_tuteurs'],
+                collect($data)->except(['donnees_eleve', 'donnees_tuteurs'])->all(),
+            );
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success($this->resume($preinscription), 'Préinscription mise à jour.');
+    }
+
     public function store(Request $request): JsonResponse
     {
         $tuteur = Tuteur::where('user_id', $request->user()->id)->first();
@@ -122,6 +200,11 @@ class ParentPreinscriptionController extends Controller
             'statut' => $p->statut,
             'eleve' => $p->eleve ? ['id' => $p->eleve->id, 'nom_complet' => $p->eleve->nom_complet] : ['nom_complet' => $p->donnees_eleve['nom_complet'] ?? null],
             'nom_propose' => $p->donnees_eleve['nom_complet'] ?? null,
+            // École visée — surtout utile pour une inscription « nouveau »,
+            // fixée au dépôt : la modifier ensuite reviendrait à changer
+            // d'établissement en cours de route, donc l'écran de correction
+            // se contente de l'afficher.
+            'school' => $p->school ? ['id' => $p->school->id, 'name' => $p->school->name] : null,
             'montant_verser' => $p->montant_verser,
             'motif_rejet' => $p->motif_rejet,
             'created_at' => $p->created_at->format('Y-m-d H:i'),

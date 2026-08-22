@@ -57,7 +57,6 @@ import { NiveauxScolairesPage } from '@/features/primaire/pages/NiveauxScolaires
 import { NiveauScolaireDetailPage } from '@/features/primaire/pages/NiveauScolaireDetailPage'
 import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
-import { PreparationLeconPage } from '@/features/progression/pages/PreparationLeconPage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
 import { QrScanPage } from '@/features/progression/pages/QrScanPage'
 import { QrScannerPage } from '@/features/progression/pages/QrScannerPage'
@@ -170,7 +169,6 @@ export const router = createHashRouter([
       { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
       { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><ProgressionPage /></ProtectedRoute> },
-      { path: 'progression/lecons/:leconId/preparation', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><PreparationLeconPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
       { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
       {

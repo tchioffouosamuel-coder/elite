@@ -8,7 +8,15 @@ import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { fetchEnfant, fetchFinanceEnfant, soumettrePreinscription, type TuteurPayload } from '@/features/parent/api'
+import {
+  fetchEnfant,
+  fetchFinanceEnfant,
+  fetchMesPreinscriptions,
+  fetchMaPreinscription,
+  soumettrePreinscription,
+  modifierPreinscription,
+  type TuteurPayload,
+} from '@/features/parent/api'
 import { francs, MODES, ventilerAutomatiquement, type ModePaiement } from '@/features/finance/api'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -46,6 +54,19 @@ export function ParentPreinscriptionExistantPage() {
   const { data: enfant, isLoading, isError } = useQuery({ queryKey: ['parent-enfant', eleveId], queryFn: () => fetchEnfant(eleveId) })
   const { data: finance } = useQuery({ queryKey: ['parent-finance', eleveId], queryFn: () => fetchFinanceEnfant(eleveId) })
 
+  // Une demande est refusée en double par l'API tant qu'une précédente est en
+  // attente pour cet élève (cf. PreinscriptionService::soumettre) : on la
+  // retrouve donc ici pour basculer le formulaire en modification plutôt que
+  // de laisser le parent buter sur l'erreur au moment d'envoyer.
+  const { data: mesPreinscriptions } = useQuery({ queryKey: ['parent-preinscriptions'], queryFn: fetchMesPreinscriptions })
+  const preinscriptionEnAttente = mesPreinscriptions?.find((p) => p.eleve?.id === eleveId && p.statut === 'en_attente')
+  const { data: preinscriptionDetail } = useQuery({
+    queryKey: ['parent-preinscription', preinscriptionEnAttente?.id],
+    queryFn: () => fetchMaPreinscription(preinscriptionEnAttente!.id),
+    enabled: !!preinscriptionEnAttente,
+  })
+  const modeEdition = !!preinscriptionEnAttente
+
   const {
     register,
     control,
@@ -57,7 +78,36 @@ export function ParentPreinscriptionExistantPage() {
   } = useForm<FormValues>({ defaultValues: { tuteurs: [], mode_versement: 'especes', aptitude: 'apte' } })
 
   useEffect(() => {
+    // Tant que la demande en attente n'a pas fini de charger, on ne préremplit
+    // pas depuis la fiche actuelle de l'élève — ce serait écraser dans la
+    // foulée par les valeurs de la préinscription une fois arrivées.
+    if (modeEdition && !preinscriptionDetail) return
     if (!enfant) return
+
+    if (preinscriptionDetail) {
+      const d = preinscriptionDetail.donnees_eleve
+      reset({
+        nom_complet: d.nom_complet,
+        sexe: d.sexe,
+        date_naissance: d.date_naissance ?? '',
+        lieu_naissance: d.lieu_naissance ?? '',
+        adresse: d.adresse ?? '',
+        numero_acte_naissance: d.numero_acte_naissance ?? '',
+        lieu_delivrance_acte: d.lieu_delivrance_acte ?? '',
+        officier_etat_civil: d.officier_etat_civil ?? '',
+        groupe_sanguin: d.groupe_sanguin ?? '',
+        situation_sanitaire: d.situation_sanitaire ?? '',
+        aptitude: d.aptitude ?? 'apte',
+        allergies: d.allergies ?? '',
+        note_admin: preinscriptionDetail.note_admin ?? '',
+        tuteurs: preinscriptionDetail.donnees_tuteurs,
+        montant_verser: preinscriptionDetail.montant_verser ?? undefined,
+        mode_versement: preinscriptionDetail.mode_versement ?? 'especes',
+        reference_externe: preinscriptionDetail.reference_externe ?? '',
+      })
+      return
+    }
+
     reset({
       nom_complet: enfant.nom_complet,
       sexe: enfant.sexe,
@@ -84,7 +134,7 @@ export function ParentPreinscriptionExistantPage() {
       })),
       mode_versement: 'especes',
     })
-  }, [enfant, reset])
+  }, [enfant, preinscriptionDetail, modeEdition, reset])
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
   const montant = Number(watch('montant_verser') || 0)
@@ -113,30 +163,44 @@ export function ParentPreinscriptionExistantPage() {
     setServerError(null)
     setSubmitting(true)
     try {
-      await soumettrePreinscription({
-        type: 'existant',
-        eleve_id: eleveId,
-        donnees_eleve: {
-          nom_complet: values.nom_complet,
-          sexe: values.sexe as 'M' | 'F',
-          date_naissance: values.date_naissance,
-          lieu_naissance: values.lieu_naissance || undefined,
-          adresse: values.adresse || undefined,
-          numero_acte_naissance: values.numero_acte_naissance || undefined,
-          lieu_delivrance_acte: values.lieu_delivrance_acte || undefined,
-          officier_etat_civil: values.officier_etat_civil || undefined,
-          groupe_sanguin: values.groupe_sanguin || undefined,
-          situation_sanitaire: values.situation_sanitaire || undefined,
-          aptitude: values.aptitude,
-          allergies: values.allergies || undefined,
-        },
-        donnees_tuteurs: values.tuteurs,
-        note_admin: values.note_admin || undefined,
-        montant_verser: montant > 0 ? montant : undefined,
-        mode_versement: montant > 0 ? values.mode_versement : undefined,
-        reference_externe: montant > 0 ? values.reference_externe || undefined : undefined,
-      })
-      succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
+      const donneesEleve = {
+        nom_complet: values.nom_complet,
+        sexe: values.sexe as 'M' | 'F',
+        date_naissance: values.date_naissance,
+        lieu_naissance: values.lieu_naissance || undefined,
+        adresse: values.adresse || undefined,
+        numero_acte_naissance: values.numero_acte_naissance || undefined,
+        lieu_delivrance_acte: values.lieu_delivrance_acte || undefined,
+        officier_etat_civil: values.officier_etat_civil || undefined,
+        groupe_sanguin: values.groupe_sanguin || undefined,
+        situation_sanitaire: values.situation_sanitaire || undefined,
+        aptitude: values.aptitude,
+        allergies: values.allergies || undefined,
+      }
+
+      if (preinscriptionEnAttente) {
+        await modifierPreinscription(preinscriptionEnAttente.id, {
+          donnees_eleve: donneesEleve,
+          donnees_tuteurs: values.tuteurs,
+          note_admin: values.note_admin || undefined,
+          montant_verser: montant > 0 ? montant : undefined,
+          mode_versement: montant > 0 ? values.mode_versement : undefined,
+          reference_externe: montant > 0 ? values.reference_externe || undefined : undefined,
+        })
+        succes('Préinscription mise à jour. / Pre-registration updated.')
+      } else {
+        await soumettrePreinscription({
+          type: 'existant',
+          eleve_id: eleveId,
+          donnees_eleve: donneesEleve,
+          donnees_tuteurs: values.tuteurs,
+          note_admin: values.note_admin || undefined,
+          montant_verser: montant > 0 ? montant : undefined,
+          mode_versement: montant > 0 ? values.mode_versement : undefined,
+          reference_externe: montant > 0 ? values.reference_externe || undefined : undefined,
+        })
+        succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
+      }
       navigate('/parent/preinscriptions')
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -145,7 +209,7 @@ export function ParentPreinscriptionExistantPage() {
     }
   }
 
-  if (isLoading) return <Spinner />
+  if (isLoading || (modeEdition && !preinscriptionDetail)) return <Spinner />
   if (isError || !enfant) return <ErrorState />
 
   return (
@@ -155,8 +219,12 @@ export function ParentPreinscriptionExistantPage() {
         {enfant.nom_complet}
       </Link>
       <PageHeader
-        titre="Préinscription / Pre-registration"
-        sousTitre={`Réviser la fiche de ${enfant.nom_complet} pour l'année à venir. / Update ${enfant.nom_complet}'s profile for the coming year.`}
+        titre={modeEdition ? 'Modifier ma préinscription / Edit my pre-registration' : 'Préinscription / Pre-registration'}
+        sousTitre={
+          modeEdition
+            ? `Cette demande est encore en attente : vous pouvez la corriger avant qu'elle ne soit traitée. / This request is still pending: you can correct it before it's processed.`
+            : `Réviser la fiche de ${enfant.nom_complet} pour l'année à venir. / Update ${enfant.nom_complet}'s profile for the coming year.`
+        }
       />
 
       <div className="mt-6">
@@ -305,8 +373,9 @@ export function ParentPreinscriptionExistantPage() {
               <div className="space-y-4">
                 {serverError && <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{serverError}</p>}
                 <p className="rounded-xl bg-green-50 px-3.5 py-2.5 text-sm text-green-800">
-                  Votre demande sera transmise à l'établissement pour validation. Vous serez informé de la décision. / Your
-                  request will be sent to the school for approval. You will be informed of the decision.
+                  {modeEdition
+                    ? "Votre correction sera enregistrée sur la demande déjà en attente. / Your correction will be saved on the request already pending."
+                    : "Votre demande sera transmise à l'établissement pour validation. Vous serez informé de la décision. / Your request will be sent to the school for approval. You will be informed of the decision."}
                 </p>
               </div>
             )}

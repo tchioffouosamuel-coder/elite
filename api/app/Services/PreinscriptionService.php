@@ -44,6 +44,16 @@ class PreinscriptionService extends BaseService
                 throw new RuntimeException("Cet élève n'est pas rattaché à votre compte.");
             }
 
+            // Une demande en attente vaut déjà pour cet élève : en déposer une
+            // seconde ne ferait que dupliquer la file d'attente de l'admin.
+            // Le parent doit corriger celle qui existe déjà, pas en ouvrir
+            // une autre.
+            if (Preinscription::where('eleve_id', $eleve->id)->where('statut', 'en_attente')->exists()) {
+                throw new RuntimeException(
+                    "Une préinscription est déjà en attente de validation pour cet élève. Vous pouvez la modifier tant qu'elle n'a pas été traitée."
+                );
+            }
+
             $schoolId = $eleve->school_id;
         } else {
             // Une nouvelle inscription peut viser n'importe quelle école du
@@ -54,6 +64,24 @@ class PreinscriptionService extends BaseService
 
             if ($ecole->complexe_id !== $tuteur->school->complexe_id) {
                 throw new RuntimeException("Cet établissement n'appartient pas au même complexe.");
+            }
+
+            // Même garde-fou que ci-dessus, pour un enfant pas encore
+            // scolarisé : sans identifiant d'élève à comparer, on rapproche
+            // sur nom + date de naissance parmi les demandes du même tuteur.
+            $doublon = Preinscription::where('tuteur_id', $tuteur->id)
+                ->where('type', 'nouveau')
+                ->where('statut', 'en_attente')
+                ->get()
+                ->contains(
+                    fn (Preinscription $p) => ($p->donnees_eleve['nom_complet'] ?? null) === ($donnees['donnees_eleve']['nom_complet'] ?? null)
+                        && ($p->donnees_eleve['date_naissance'] ?? null) === ($donnees['donnees_eleve']['date_naissance'] ?? null)
+                );
+
+            if ($doublon) {
+                throw new RuntimeException(
+                    "Une préinscription est déjà en attente de validation pour cet enfant. Vous pouvez la modifier tant qu'elle n'a pas été traitée."
+                );
             }
 
             $eleve = null;
@@ -139,12 +167,17 @@ class PreinscriptionService extends BaseService
     }
 
     /**
-     * Corrige les informations proposées par le parent avant validation — une
+     * Corrige les informations d'une préinscription avant validation — une
      * coquille ou un champ mal orthographié ne doit pas obliger à rejeter puis
      * à faire redéposer toute la démarche. Fermé dès que la préinscription est
      * traitée : au-delà, c'est la fiche élève elle-même qu'il faut corriger.
+     *
+     * Sert aussi bien l'admin (qui ne corrige que l'élève et les tuteurs) que
+     * le parent (qui peut en plus revoir le versement annoncé) : `$extra` ne
+     * porte que les clés que l'appelant fournit, les autres restent
+     * inchangées.
      */
-    public function modifierDonnees(Preinscription $preinscription, array $donneesEleve, array $donneesTuteurs): Preinscription
+    public function modifierDonnees(Preinscription $preinscription, array $donneesEleve, array $donneesTuteurs, array $extra = []): Preinscription
     {
         if ($preinscription->statut !== 'en_attente') {
             throw new RuntimeException('Cette préinscription a déjà été traitée.');
@@ -153,6 +186,9 @@ class PreinscriptionService extends BaseService
         $preinscription->update([
             'donnees_eleve' => $donneesEleve,
             'donnees_tuteurs' => $donneesTuteurs,
+            ...array_intersect_key($extra, array_flip([
+                'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement',
+            ])),
         ]);
 
         return $preinscription->fresh();

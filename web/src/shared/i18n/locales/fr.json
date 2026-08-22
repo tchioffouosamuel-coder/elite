@@ -935,12 +935,22 @@
     "aucune_matiere_classe": "Aucune matière affectée à cette classe.",
     "retour_classes": "Retour aux classes",
     "retour_matieres": "Retour aux matières",
-    "vide": "Ce programme est vide : ajoutez un module, un chapitre ou une leçon.",
+    "vide": "Aucune leçon : ajoutez-en une, ou importez la fiche de progression de la matière.",
     "vide_etablissement": "Aucune classe pour cet établissement.",
     "sequence_libre": "Sans séquence imposée",
     "traitee": "Traitée",
     "avancement": "{{traitees}} leçon(s) traitée(s) sur {{lecons}}",
-    "saved": "Programme enregistré ({{count}} leçon(s))."
+    "saved": "Programme enregistré ({{count}} leçon(s)).",
+    "lecon": "Leçon",
+    "importer_fiche": "Importer la fiche",
+    "import_titre": "Importer la fiche de progression",
+    "import_format": "Classeur au format de l'établissement : en-têtes en ligne 6, une ligne par leçon. Seule la première feuille est lue.",
+    "import_complete": "Les leçons déjà saisies sont complétées, jamais écrasées : elles sont reconnues à leur couple Topic + Lesson.",
+    "import_resultat": "{{creees}} leçon(s) créée(s), {{completees}} complétée(s).",
+    "import_ignorees": "{{count}} ligne(s) ignorée(s).",
+    "deplier_fiche": "Déplier la fiche",
+    "replier_fiche": "Replier la fiche",
+    "partie": "Intitulé de la partie"
   },
   "journee": {
     "title": "Ma journée",
@@ -1182,7 +1192,10 @@
     "tronc_commun_badge": "Tronc commun",
     "tronc_commun_porte_par": "Porté par {{classe}}",
     "tronc_commun_appel": "Cours en tronc commun — {{count}} classes réunies. L'appel porte sur tous leurs élèves.",
-    "classe_colonne": "Classe"
+    "classe_colonne": "Classe",
+    "tronc_commun_recherche": "Rechercher une classe…",
+    "tronc_commun_suggere": "{{count}} classe(s) pré-cochée(s) : {{enseignant}} y enseigne déjà la même matière. Décochez celles qui ne suivent pas ce cours.",
+    "tronc_commun_meme_enseignant": "même enseignant"
   },
   "identification": {
     "title": "Photos & cartes scolaires",
