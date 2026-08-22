@@ -41,6 +41,8 @@ export interface Classe {
   capacite: number | null;
   qr_token: string | null;
   effectif?: number;
+  garcons?: number;
+  filles?: number;
   school_id?: number;
   niveau_id: number;
   niveau_scolaire_id: number | null;

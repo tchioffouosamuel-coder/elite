@@ -11,7 +11,10 @@ class Note extends Model
     /** Volets d'évaluation du primaire ; le secondaire n'utilise que 'unique'. */
     public const COMPOSANTES_PRIMAIRE = ['oral', 'ecrit', 'savoir_etre', 'pratique'];
 
-    protected $fillable = ['eleve_id', 'classe_matiere_id', 'sequence_id', 'composante', 'valeur', 'saisi_par'];
+    protected $fillable = [
+        'eleve_id', 'classe_matiere_id', 'classe_competence_id',
+        'sequence_id', 'composante', 'valeur', 'saisi_par',
+    ];
 
     protected function casts(): array
     {
@@ -28,9 +31,16 @@ class Note extends Model
         return $this->belongsTo(Eleve::class);
     }
 
+    /** Renseignée au secondaire, où la matière est l'unité notée. */
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    /** Renseignée au primaire et en maternelle, où l'unité notée est la compétence. */
+    public function classeCompetence(): BelongsTo
+    {
+        return $this->belongsTo(ClasseCompetence::class);
     }
 
     public function sequence(): BelongsTo

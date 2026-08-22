@@ -14,11 +14,14 @@ class MatiereResource extends JsonResource
             'nom' => $this->nom,
             'nom_en' => $this->nom_en,
             'abbreviation' => $this->abbreviation,
-            'notation' => $this->notation,
-            'evalue_pratique' => (bool) $this->evalue_pratique,
-            'composantes' => $this->composantes(),
-            'repartition_volets' => $this->repartitionVolets(),
             'statut' => $this->statut,
+            'competence_id' => $this->competence_id,
+            'competence' => $this->whenLoaded('competence', fn () => $this->competence ? [
+                'id' => $this->competence->id,
+                'label_fr' => $this->competence->label_fr,
+                'label_en' => $this->competence->label_en,
+                'notation' => $this->competence->notation,
+            ] : null),
             'classes_count' => $this->whenCounted('classeMatieres'),
             'departement' => $this->whenLoaded('departement', fn () => $this->departement ? [
                 'id' => $this->departement->id,

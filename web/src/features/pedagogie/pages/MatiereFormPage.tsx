@@ -4,7 +4,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useState } from 'react'
 import { ArrowLeft, BookOpen } from 'lucide-react'
-import { fetchMatieres, createMatiere, updateMatiere, type MatierePayload } from '@/features/pedagogie/api'
+import {
+  fetchCompetences,
+  fetchMatieres,
+  createMatiere,
+  updateMatiere,
+  type MatierePayload,
+} from '@/features/pedagogie/api'
 import { fetchDepartements } from '@/features/personnel/api'
 import { fetchSchools } from '@/features/classes/api'
 import { Button } from '@/shared/ui/Button'
@@ -13,14 +19,15 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { succes, erreur } from '@/shared/lib/alertes'
-import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import type { ApiError } from '@/shared/types/api'
 
-/** Volets systématiques, plus « pratique » si la matière l'évalue. */
-function composantesActives(evaluePratique: boolean): Composante[] {
-  return evaluePratique ? ['oral', 'ecrit', 'savoir_etre', 'pratique'] : ['oral', 'ecrit', 'savoir_etre']
-}
-
+/**
+ * Création et modification d'une matière.
+ *
+ * Au primaire et en maternelle, la matière ne porte plus ni barème ni volets :
+ * ils appartiennent à la compétence dont elle relève, et c'est cette compétence
+ * que le bulletin note. Le formulaire ne demande donc plus qu'un rattachement.
+ */
 export function MatiereFormPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -31,6 +38,7 @@ export function MatiereFormPage() {
   const { data: matieres, isLoading } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
   const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: competences } = useQuery({ queryKey: ['competences'], queryFn: fetchCompetences })
   const matiere = matiereId ? matieres?.find((m) => m.id === matiereId) : undefined
 
   const [serverError, setServerError] = useState<string | null>(null)
@@ -44,9 +52,7 @@ export function MatiereFormPage() {
         abbreviation: matiere.abbreviation ?? '',
         departement_id: matiere.departement?.id ?? null,
         school_id: matiere.school_id ?? null,
-        notation: matiere.notation ?? null,
-        evalue_pratique: matiere.composantes.includes('pratique'),
-        repartition_volets: matiere.repartition_volets,
+        competence_id: matiere.competence_id ?? null,
       }
       : undefined,
   })
@@ -56,29 +62,20 @@ export function MatiereFormPage() {
     ? departements?.filter((d) => d.school_id === Number(ecoleChoisie))
     : departements
 
-  // Au primaire une matière est notée sur un barème propre et se découpe en
-  // volets ; au secondaire elle est sur 20 et relève d'un département. Le
-  // type vient de l'école choisie dans ce formulaire (ou, en édition, de
-  // celle de la matière) — pas de l'école active globale, sans valeur unique
-  // en mode agrégé.
+  // Au primaire la matière relève d'une compétence ; au secondaire elle relève
+  // d'un département et se note elle-même. Le type vient de l'école choisie
+  // dans ce formulaire (ou, en édition, de celle de la matière) — pas de
+  // l'école active globale, sans valeur unique en mode agrégé.
   const typeEcoleFormulaire = ecoleChoisie
     ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
     : matiere?.school?.type
   const secondaire = estSecondaire(typeEcoleFormulaire)
 
-  const notationSaisie = Number(watch('notation')) || 0
-  const evaluePratique = !!watch('evalue_pratique')
-  const composantesForm = composantesActives(evaluePratique)
-  const repartitionSaisie = watch('repartition_volets')
-  const sommeVolets = composantesForm.reduce(
-    (total, c) => total + (Number(repartitionSaisie?.[c]) || 0),
-    0,
+  const competencesDisponibles = (competences ?? []).filter(
+    (competence) => !ecoleChoisie || competence.school_id === Number(ecoleChoisie),
   )
-  const repartitionValide = !secondaire && notationSaisie > 0 && Math.abs(sommeVolets - notationSaisie) < 0.01
 
   const onSubmit = async (values: MatierePayload) => {
-    if (!secondaire && !repartitionValide) return
-
     setServerError(null)
     setSubmitting(true)
     try {
@@ -86,10 +83,9 @@ export function MatiereFormPage() {
         ...values,
         departement_id: values.departement_id ? Number(values.departement_id) : null,
         school_id: values.school_id ? Number(values.school_id) : null,
-        notation: values.notation ? Number(values.notation) : null,
-        repartition_volets: secondaire
-          ? null
-          : Object.fromEntries(composantesForm.map((c) => [c, Number(values.repartition_volets?.[c]) || 0])),
+        // Le secondaire ne connaît pas les compétences : y laisser une valeur
+        // rattacherait la matière à un bloc qui ne la notera jamais.
+        competence_id: secondaire || !values.competence_id ? null : Number(values.competence_id),
       }
 
       if (matiere) {
@@ -98,6 +94,7 @@ export function MatiereFormPage() {
         await createMatiere(payload)
       }
       queryClient.invalidateQueries({ queryKey: ['matieres'] })
+      queryClient.invalidateQueries({ queryKey: ['competences'] })
       succes(matiere ? t('matieres.updated') : t('matieres.created'))
       navigate('/matieres')
     } catch (err) {
@@ -158,38 +155,27 @@ export function MatiereFormPage() {
           ) : (
             <>
               <Input label={t('matieres.nom_en')} {...register('nom_en')} />
-              <Input
-                type="number"
-                min={10}
-                max={100}
-                label={t('matieres.notation')}
-                {...register('notation', { required: true })}
-              />
-              <label className="flex items-center gap-2 text-sm text-navy-700">
-                <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
-                {t('matieres.evalue_pratique')}
-              </label>
 
-              <div className="flex flex-col gap-2 rounded-xl border border-navy-100 bg-cream-50/60 p-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
-                  {t('matieres.repartition_volets')}
-                </span>
-                <div className="grid grid-cols-2 gap-3">
-                  {composantesForm.map((composante) => (
-                    <Input
-                      key={composante}
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      label={LIBELLES_COMPOSANTES[composante]}
-                      {...register(`repartition_volets.${composante}`, { required: true, min: 0 })}
-                    />
-                  ))}
-                </div>
-                <span className={`text-xs font-medium ${repartitionValide ? 'text-green-600' : 'text-red-500'}`}>
-                  {t('matieres.repartition_somme', { somme: sommeVolets, notation: notationSaisie })}
-                </span>
-              </div>
+              <Select
+                label={t('competences.rattachement')}
+                error={errors.competence_id?.message}
+                {...register('competence_id', { required: t('competences.rattachement_requis') })}
+              >
+                <option value="">—</option>
+                {competencesDisponibles.map((competence) => (
+                  <option key={competence.id} value={competence.id}>
+                    {competence.label_fr} ({t('competences.sur_bareme', { bareme: competence.notation })})
+                  </option>
+                ))}
+              </Select>
+
+              <p className="rounded-xl border border-navy-100 bg-cream-50/60 px-3.5 py-2.5 text-xs text-navy-500">
+                {t('competences.aide_matiere')}
+              </p>
+
+              {competencesDisponibles.length === 0 && (
+                <p className="text-xs font-semibold text-gold-600">{t('competences.aucune_pour_ecole')}</p>
+              )}
             </>
           )}
 
@@ -199,7 +185,7 @@ export function MatiereFormPage() {
             <Button type="button" variant="secondary" onClick={() => navigate('/matieres')}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={submitting || (!secondaire && !repartitionValide)}>
+            <Button type="submit" disabled={submitting}>
               {t('common.save')}
             </Button>
           </div>

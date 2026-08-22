@@ -47,6 +47,7 @@ import {
   Megaphone,
   Boxes,
   Store,
+  Target,
   PiggyBank,
   Gavel,
   UserCog,
@@ -151,6 +152,16 @@ const navGroups = [
     label: 'nav.group.pedagogie',
     items: [
       { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true },
+      // Référentiel d'évaluation du primaire et de la maternelle : au
+      // secondaire la matière se note elle-même, l'écran n'y a rien à montrer.
+      {
+        to: '/competences',
+        label: 'nav.competences',
+        icon: Target,
+        permission: 'pedagogie.view',
+        masquerPourTitulaire: true,
+        types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
       { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view', masquerPourTitulaire: true },
       {
         to: '/ma-journee',

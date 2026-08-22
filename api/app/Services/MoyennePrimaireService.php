@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Classe;
-use App\Models\ClasseMatiere;
+use App\Models\ClasseCompetence;
 use App\Models\Eleve;
 use App\Models\Note;
 use App\Models\Setting;
@@ -16,21 +16,24 @@ use Illuminate\Support\Collection;
  *
  * Il diffère fondamentalement de celui du secondaire ({@see MoyenneService}) :
  *
- * - chaque matière est évaluée sur trois volets (oral, écrit, savoir-être),
- *   plus un volet pratique pour les matières concernées ;
+ * - l'unité évaluée est la COMPÉTENCE, pas la matière : « Langue et
+ *   communication » porte le barème et les volets, la lecture et l'écriture ne
+ *   sont que le contenu qu'elle recouvre ;
+ * - chaque compétence est évaluée sur trois volets (oral, écrit, savoir-être),
+ *   plus un volet pratique pour celles qui s'y prêtent ;
  * - le total d'une séquence est la SOMME des volets de cette séquence
  *   (`$tof1 = $m1_o + $m2_o + $m3_o [+ $m4_o]`) ;
- * - la note de la matière pour le trimestre est la moyenne des totaux de
+ * - la note de la compétence pour le trimestre est la moyenne des totaux de
  *   séquence (`$tterm = ($tof1 + $tof2 + $tof3) / 3`) ;
- * - la matière n'est pas notée sur 20 avec un coefficient mais sur un barème
- *   propre (`matieres.notation`, `disciplines.cot` chez archange), et la
+ * - la compétence n'est pas notée sur 20 avec un coefficient mais sur un barème
+ *   propre (`competences.notation`, `disciplines.cot` chez archange), et la
  *   moyenne générale ramène le total obtenu sur 20 :
  *   `$av = ($total * 20) / $sum` où `$sum = Σ barèmes`.
  *
  * Écart assumé avec archange : là où le legacy initialise toutes les notes à 0
- * en base et fait donc entrer chaque matière au dénominateur dès le départ
+ * en base et fait donc entrer chaque compétence au dénominateur dès le départ
  * (moyennes ininterprétables tant que la saisie n'est pas terminée), une
- * matière sans aucune note saisie est ici exclue du numérateur ET du barème
+ * compétence sans aucune note saisie est ici exclue du numérateur ET du barème
  * total — même règle d'exemption que le secondaire.
  */
 class MoyennePrimaireService extends BaseService
@@ -38,19 +41,19 @@ class MoyennePrimaireService extends BaseService
     public function __construct(private readonly MoyenneService $moyenneService) {}
 
     /**
-     * Note d'une matière pour le trimestre : moyenne des totaux de séquence,
+     * Note d'une compétence pour le trimestre : moyenne des totaux de séquence,
      * chaque total étant la somme des volets évalués.
      *
      * @return array{note: ?float, bareme: int, totaux_sequences: array<int, ?float>, volets: array<string, array<int, ?float>>}
      */
-    public function noteMatiereEleve(Eleve $eleve, ClasseMatiere $classeMatiere, Trimestre $trimestre): array
+    public function noteCompetenceEleve(Eleve $eleve, ClasseCompetence $classeCompetence, Trimestre $trimestre): array
     {
-        $matiere = $classeMatiere->matiere;
-        $composantes = $matiere->composantes();
+        $competence = $classeCompetence->competence;
+        $composantes = $competence->volets();
         $sequences = $trimestre->sequencesRetenues();
 
         $notes = Note::where('eleve_id', $eleve->id)
-            ->where('classe_matiere_id', $classeMatiere->id)
+            ->where('classe_competence_id', $classeCompetence->id)
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->whereNotNull('valeur')
             ->get();
@@ -67,11 +70,11 @@ class MoyennePrimaireService extends BaseService
             }
         }
 
-        // Aucune note du tout : matière exclue (pas de 0 imposé, cf. en-tête).
+        // Aucune note du tout : compétence exclue (pas de 0 imposé, cf. en-tête).
         if ($notes->isEmpty()) {
             return [
                 'note' => null,
-                'bareme' => (int) ($matiere->notation ?? 20),
+                'bareme' => (int) ($competence->notation ?? 20),
                 'totaux_sequences' => $sequences->mapWithKeys(fn ($s) => [$s->id => null])->all(),
                 'volets' => $volets,
             ];
@@ -90,7 +93,7 @@ class MoyennePrimaireService extends BaseService
 
         return [
             'note' => round(array_sum($totauxSequences) / $nbSequences, 2),
-            'bareme' => (int) ($matiere->notation ?? 20),
+            'bareme' => (int) ($competence->notation ?? 20),
             'totaux_sequences' => $totauxSequences,
             'volets' => $volets,
         ];
@@ -98,19 +101,20 @@ class MoyennePrimaireService extends BaseService
 
     /**
      * Moyenne générale du trimestre, ramenée sur 20 :
-     * `(Σ notes matières × 20) / Σ barèmes`.
+     * `(Σ notes compétences × 20) / Σ barèmes`.
      *
      * @return array{moyenne: ?float, total_obtenu: float, total_bareme: int}
      */
     public function moyenneGeneraleEleve(Eleve $eleve, Trimestre $trimestre): array
     {
-        $affectations = $eleve->classe?->classeMatieres()->where('statut', 'actif')->with('matiere')->get() ?? collect();
+        $affectations = $eleve->classe?->classeCompetences()
+            ->where('statut', 'actif')->with('competence')->get() ?? collect();
 
         $totalObtenu = 0.0;
         $totalBareme = 0;
 
-        foreach ($affectations as $classeMatiere) {
-            $resultat = $this->noteMatiereEleve($eleve, $classeMatiere, $trimestre);
+        foreach ($affectations as $classeCompetence) {
+            $resultat = $this->noteCompetenceEleve($eleve, $classeCompetence, $trimestre);
 
             if ($resultat['note'] === null) {
                 continue;
@@ -209,14 +213,14 @@ class MoyennePrimaireService extends BaseService
     }
 
     /**
-     * Taux de remplissage des notes d'une matière : rapport entre les notes
+     * Taux de remplissage des notes d'une compétence : rapport entre les notes
      * réellement saisies et celles attendues (volets × séquences × élèves).
      */
-    public function tauxRemplissage(ClasseMatiere $classeMatiere, Trimestre $trimestre): float
+    public function tauxRemplissage(ClasseCompetence $classeCompetence, Trimestre $trimestre): float
     {
-        $nbEleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->count();
+        $nbEleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
         $sequences = $trimestre->sequencesRetenues();
-        $nbComposantes = count($classeMatiere->matiere->composantes());
+        $nbComposantes = count($classeCompetence->competence->volets());
 
         $attendu = $nbEleves * $sequences->count() * $nbComposantes;
 
@@ -224,7 +228,7 @@ class MoyennePrimaireService extends BaseService
             return 0.0;
         }
 
-        $saisi = Note::where('classe_matiere_id', $classeMatiere->id)
+        $saisi = Note::where('classe_competence_id', $classeCompetence->id)
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->whereNotNull('valeur')
             ->count();

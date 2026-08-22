@@ -25,7 +25,11 @@ class ClasseRepository extends BaseRepository
             ->dansPerimetre($user)
             ->when($anneeScolaireId, fn ($query, $id) => $query->where('annee_scolaire_id', $id))
             ->when($filters['niveau_id'] ?? null, fn ($query, $id) => $query->where('niveau_id', $id))
-            ->withCount('eleves')
+            ->withCount([
+                'eleves',
+                'eleves as garcons_count' => fn ($query) => $query->where('sexe', 'M'),
+                'eleves as filles_count' => fn ($query) => $query->where('sexe', 'F'),
+            ])
             ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type'])
             ->orderBy('nom')
             ->get();

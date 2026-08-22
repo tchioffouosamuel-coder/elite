@@ -6,6 +6,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Annonce;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Competence;
 use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\Matiere;
@@ -76,7 +77,15 @@ class RegistreSync
             ],
             'matieres' => [
                 'modele' => Matiere::class,
-                'colonnes' => ['id', 'school_id', 'departement_id', 'nom', 'nom_en', 'abbreviation', 'notation', 'evalue_pratique', 'repartition_volets', 'statut'],
+                'colonnes' => ['id', 'school_id', 'departement_id', 'competence_id', 'nom', 'nom_en', 'abbreviation', 'statut'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'pedagogie.view',
+            ],
+            // Le barème et les volets du primaire vivent désormais ici : sans
+            // cette entrée, le poste hors ligne ne saurait plus sur quoi noter.
+            'competences' => [
+                'modele' => Competence::class,
+                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'abbreviation', 'notation', 'evalue_pratique', 'repartition_volets', 'ordre', 'statut'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],

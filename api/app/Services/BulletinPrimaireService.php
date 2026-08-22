@@ -3,16 +3,20 @@
 namespace App\Services;
 
 use App\Models\Classe;
-use App\Models\ClasseMatiere;
+use App\Models\ClasseCompetence;
 use App\Models\Eleve;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
 /**
  * Assemble le bulletin du primaire et de la maternelle sur le modèle
- * d'archange (`fr/admin/term_reports.php`) : chaque matière occupe autant de
+ * d'archange (`fr/admin/term_reports.php`) : chaque COMPÉTENCE occupe autant de
  * lignes qu'elle a de volets évalués, avec une colonne par séquence, puis une
- * note trimestrielle et une appréciation par compétence communes à la matière.
+ * note trimestrielle et une appréciation.
+ *
+ * Le bulletin ne montre pas les matières. Elles décrivent le contenu enseigné
+ * et servent à l'emploi du temps ou à la progression, mais le livret que reçoit
+ * la famille raisonne en compétences — c'est l'unité que l'école évalue.
  */
 class BulletinPrimaireService extends BaseService
 {
@@ -26,8 +30,14 @@ class BulletinPrimaireService extends BaseService
      */
     public function donneesClasse(Classe $classe, Trimestre $trimestre, ?array $eleveIds = null): array
     {
-        $affectations = $classe->classeMatieres()->where('statut', 'actif')
-            ->with(['matiere', 'enseignant'])->orderBy('id')->get();
+        // `statut` qualifié : la jointure sur `competences` en apporte un second.
+        $affectations = $classe->classeCompetences()->where('classe_competences.statut', 'actif')
+            ->with(['competence', 'enseignant'])
+            ->join('competences', 'competences.id', '=', 'classe_competences.competence_id')
+            ->orderBy('competences.ordre')
+            ->orderBy('competences.label_fr')
+            ->select('classe_competences.*')
+            ->get();
 
         $sequences = $trimestre->sequencesRetenues();
         $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
@@ -69,7 +79,7 @@ class BulletinPrimaireService extends BaseService
     }
 
     /**
-     * @param  Collection<int, ClasseMatiere>  $affectations
+     * @param  Collection<int, ClasseCompetence>  $affectations
      */
     private function donneesEleve(
         Eleve $eleve,
@@ -81,22 +91,26 @@ class BulletinPrimaireService extends BaseService
     ): array {
         $totauxParSequence = array_fill_keys($sequences->pluck('id')->all(), 0.0);
 
-        $lignes = $affectations->map(function (ClasseMatiere $cm) use ($eleve, $trimestre, $sequences, &$totauxParSequence) {
-            $resultat = $this->moyennes->noteMatiereEleve($eleve, $cm, $trimestre);
-            $repartition = $cm->matiere->repartitionVolets();
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence) {
+            $resultat = $this->moyennes->noteCompetenceEleve($eleve, $cc, $trimestre);
+            $competence = $cc->competence;
+            $repartition = $competence->repartitionVolets();
 
             foreach ($sequences as $sequence) {
                 $totauxParSequence[$sequence->id] += $resultat['totaux_sequences'][$sequence->id] ?? 0.0;
             }
 
             return [
-                'matiere' => $cm->matiere->nom,
-                'matiere_en' => $cm->matiere->nom_en,
-                'abreviation' => $cm->matiere->abbreviation,
+                // Les clés gardent leur nom : les gabarits PDF et le front les
+                // lisent déjà ainsi, et ce qu'elles désignent — la ligne notée
+                // du bulletin — n'a pas changé de rôle, seulement de nature.
+                'matiere' => $competence->label_fr,
+                'matiere_en' => $competence->label_en,
+                'abreviation' => $competence->abbreviation,
                 'bareme' => $resultat['bareme'],
-                'enseignant' => $cm->enseignant?->nom_complet ?? '—',
+                'enseignant' => $cc->enseignant?->nom_complet ?? '—',
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
-                'volets' => collect($cm->matiere->composantes())->map(fn(string $composante) => [
+                'volets' => collect($competence->volets())->map(fn(string $composante) => [
                     'code' => $composante,
                     'libelle' => self::LIBELLES_VOLETS[$composante]['fr'],
                     'libelle_en' => self::LIBELLES_VOLETS[$composante]['en'],

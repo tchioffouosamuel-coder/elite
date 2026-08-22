@@ -26,6 +26,7 @@ import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
 import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
 import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
+import { CompetencesPage } from '@/features/pedagogie/pages/CompetencesPage'
 import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
 import { RevendicationsPage } from '@/features/revendications/pages/RevendicationsPage'
@@ -137,6 +138,7 @@ export const router = createHashRouter([
       { path: 'eleves/transferts', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveTransfertsPage /></ProtectedRoute> },
       { path: 'eleves/:id/edit', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
       { path: 'matieres', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><MatieresPage /></ProtectedRoute> },
+      { path: 'competences', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><CompetencesPage /></ProtectedRoute> },
       { path: 'matieres/nouvelle', element: <ProtectedRoute permission="pedagogie.manage" masquerPourTitulaire><MatiereFormPage /></ProtectedRoute> },
       { path: 'matieres/:id/edit', element: <ProtectedRoute permission="pedagogie.manage" masquerPourTitulaire><MatiereFormPage /></ProtectedRoute> },
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },

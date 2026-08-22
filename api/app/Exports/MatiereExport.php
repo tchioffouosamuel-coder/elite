@@ -59,7 +59,7 @@ class MatiereExport implements FromCollection, ShouldAutoSize, WithHeadings
     public function collection(): Collection
     {
         $matieres = Matiere::forSchool($this->schoolId)
-            ->with('departement')
+            ->with(['departement', 'competence'])
             ->when($this->classeId, fn($query) => $query->whereHas('classeMatieres', fn($affectations) => $affectations->where('classe_id', $this->classeId)))
             ->orderBy('nom')
             ->get();
@@ -83,7 +83,9 @@ class MatiereExport implements FromCollection, ShouldAutoSize, WithHeadings
     /** @return list<mixed> */
     private function ligne(Matiere $matiere, ?ClasseMatiere $affectation): array
     {
-        $volets = $matiere->repartition_volets ?? [];
+        // Le barème n'appartient plus à la matière mais à sa compétence : au
+        // primaire, c'est l'export des compétences qui le porte.
+        $volets = $matiere->competence?->repartitionVolets() ?? [];
 
         return [
             $matiere->nom,

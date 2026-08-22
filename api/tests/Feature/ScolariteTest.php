@@ -9,9 +9,11 @@ use App\Models\Eleve;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\School;
+use App\Models\User;
 use App\Services\ScolariteService;
 use Database\Seeders\PlanComptableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ScolariteTest extends TestCase
@@ -256,5 +258,45 @@ class ScolariteTest extends TestCase
 
         // 359 000 − 100 000 = 259 000 reportés.
         $this->assertSame(259000, $this->service()->dossier($eleve->fresh(), $suivante)->report_dette);
+    }
+
+    /**
+     * Régression : un super admin en mode agrégé (sans X-School-Id) doit
+     * pouvoir ouvrir le dossier d'un élève de n'importe quelle école de son
+     * complexe, pas seulement de la première renvoyée par `ecolesAccessibles`
+     * — sinon la route 404 pour tout élève qui ne s'y trouve pas.
+     */
+    public function test_un_super_admin_en_mode_agrege_ouvre_le_dossier_d_une_autre_ecole(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $autreEcole = School::create(['name' => 'Elites Prim', 'code' => 'EBP', 'type' => 'primaire', 'is_active' => true]);
+        $autreAnnee = AnneeScolaire::create([
+            'school_id' => $autreEcole->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+        ]);
+        $autreClasse = Classe::create(['school_id' => $autreEcole->id, 'annee_scolaire_id' => $autreAnnee->id, 'nom' => 'CE1 A']);
+        GrilleFrais::create([
+            'school_id' => $autreEcole->id, 'annee_scolaire_id' => $autreAnnee->id,
+            'classe_id' => $autreClasse->id, 'montant' => 90000,
+        ]);
+        $eleveAutreEcole = Eleve::create([
+            'school_id' => $autreEcole->id, 'classe_id' => $autreClasse->id,
+            'matricule' => '26PRIM1', 'nom_complet' => 'NGONO PAUL', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+
+        // `school_id` place ce super admin en priorité sur la première école
+        // (`$this->school`) : sans le correctif, c'est celle-ci — pas
+        // `$autreEcole` — que le tenant retiendrait en mode agrégé.
+        $user = User::create([
+            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/v1/eleves/{$eleveAutreEcole->id}/scolarite");
+
+        $reponse->assertOk()->assertJsonPath('data.montant_scolarite', 90000);
     }
 }

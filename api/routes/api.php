@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\BusVehiculeController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
+use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
@@ -335,12 +336,27 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:pedagogie.view')->group(function () {
                 Route::get('matieres', [MatiereController::class, 'index'])->name('matieres.index');
+
+                /*
+                 * Compétences évaluées du primaire et de la maternelle : le
+                 * référentiel qui porte les barèmes, et son attribution aux
+                 * classes. Les matières en découlent.
+                 */
+                Route::get('competences', [CompetenceController::class, 'index'])->name('competences.index');
+                Route::get('classes/{classeId}/competences', [CompetenceController::class, 'parClasse'])->name('classes.competences.index');
                 Route::get('matieres/export', [MatiereController::class, 'export'])->name('matieres.export');
                 Route::get('matieres/{id}/classes', [MatiereController::class, 'classes'])->name('matieres.classes');
                 Route::get('classes/{classeId}/matieres', [ClasseMatiereController::class, 'index'])->name('classes.matieres.index');
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store');
+                Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update');
+                Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy');
+                Route::post('classes/{classeId}/competences', [CompetenceController::class, 'attribuer'])->name('classes.competences.attribuer');
+                Route::put('classe-competences/{id}', [CompetenceController::class, 'modifierAttribution'])->name('classe-competences.update');
+                Route::delete('classe-competences/{id}', [CompetenceController::class, 'retirer'])->name('classe-competences.destroy');
+
                 Route::post('matieres', [MatiereController::class, 'store'])->name('matieres.store');
                 Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update');
                 Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy');
@@ -425,11 +441,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:notes.view')->group(function () {
-                Route::get('classe-matieres/{classeMatiereId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
+                Route::get('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
             });
 
             Route::middleware('permission:notes.create')->group(function () {
-                Route::post('classe-matieres/{classeMatiereId}/notes-primaire', [NotePrimaireController::class, 'bulkStore'])->name('notes-primaire.bulk-store');
+                Route::post('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'bulkStore'])->name('notes-primaire.bulk-store');
             });
 
             Route::middleware('permission:notes.view')->group(function () {

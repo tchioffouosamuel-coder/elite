@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\StoreMatiereRequest;
 use App\Http\Resources\Api\V1\MatiereResource;
 use App\Imports\MatiereImport;
 use App\Models\Matiere;
+use App\Services\CompetenceAttributionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,10 +19,12 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MatiereController extends Controller
 {
+    public function __construct(private readonly CompetenceAttributionService $attribution) {}
+
     public function index(): JsonResponse
     {
         $matieres = Matiere::forSchool(Tenant::schoolIds())
-            ->with(['departement', 'school:id,name,code,type'])
+            ->with(['departement', 'competence', 'school:id,name,code,type'])
             ->withCount('classeMatieres')
             ->orderBy('nom')
             ->get();
@@ -55,9 +58,20 @@ class MatiereController extends Controller
         unset($data['school_id']);
 
         $matiere = Matiere::create([...$data, 'school_id' => $schoolId])->refresh();
-        $matiere->load('school:id,name,code,type');
 
-        return ApiResponse::created(new MatiereResource($matiere), 'Matière créée.');
+        // Une matière ajoutee a une competence deja attribuee doit rejoindre
+        // les classes qui la portent : sans cela, seules les classes
+        // attribuees ensuite la verraient, et il faudrait repasser sur chacune.
+        $installees = $this->attribution->propagerMatiere($matiere);
+
+        $matiere->load(['school:id,name,code,type', 'competence']);
+
+        return ApiResponse::created(
+            new MatiereResource($matiere),
+            $installees > 0
+                ? "Matière créée et installée dans {$installees} classe(s)."
+                : 'Matière créée.',
+        );
     }
 
     public function update(StoreMatiereRequest $request, int $id): JsonResponse
@@ -66,7 +80,12 @@ class MatiereController extends Controller
         $data = $request->validated();
         unset($data['school_id']);
         $matiere->update($data);
-        $matiere->load('school:id,name,code,type');
+
+        // Rattachement a une competence apres coup : meme propagation qu'a la
+        // creation, sinon la matiere resterait absente des classes concernees.
+        $this->attribution->propagerMatiere($matiere->refresh());
+
+        $matiere->load(['school:id,name,code,type', 'competence']);
 
         return ApiResponse::success(new MatiereResource($matiere), 'Matière mise à jour.');
     }

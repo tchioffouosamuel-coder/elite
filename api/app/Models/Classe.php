@@ -118,6 +118,12 @@ class Classe extends Model
         return $this->hasMany(Eleve::class);
     }
 
+    /** Compétences attribuées à la classe — primaire et maternelle. */
+    public function classeCompetences(): HasMany
+    {
+        return $this->hasMany(ClasseCompetence::class);
+    }
+
     public function classeMatieres(): HasMany
     {
         return $this->hasMany(ClasseMatiere::class);

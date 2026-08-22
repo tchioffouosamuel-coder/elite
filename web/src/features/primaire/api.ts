@@ -58,7 +58,7 @@ export interface GrillePrimaire {
   composantes: Composante[]
   sequences: { id: number; libelle: string }[]
   bareme: number
-  /** Points maximum par volet, tels que définis sur la matière. */
+  /** Points maximum par volet, tels que définis sur la compétence. */
   repartition: Record<Composante, number>
   lignes: {
     eleve_id: number
@@ -75,19 +75,21 @@ export interface NotePrimaireInput {
   valeur: number | null
 }
 
-export async function fetchGrillePrimaire(classeMatiereId: number, trimestreId?: number): Promise<GrillePrimaire> {
-  const { data } = await http.get<ApiResponse<GrillePrimaire>>(`/classe-matieres/${classeMatiereId}/notes-primaire`, {
-    params: trimestreId ? { trimestre_id: trimestreId } : undefined,
-  })
+/** La grille porte sur une compétence : c'est elle que le bulletin note. */
+export async function fetchGrillePrimaire(classeCompetenceId: number, trimestreId?: number): Promise<GrillePrimaire> {
+  const { data } = await http.get<ApiResponse<GrillePrimaire>>(
+    `/classe-competences/${classeCompetenceId}/notes-primaire`,
+    { params: trimestreId ? { trimestre_id: trimestreId } : undefined },
+  )
   return data.data
 }
 
 export async function sauvegarderNotesPrimaire(
-  classeMatiereId: number,
+  classeCompetenceId: number,
   notes: NotePrimaireInput[],
 ): Promise<{ saved: number }> {
   const { data } = await http.post<ApiResponse<{ saved: number }>>(
-    `/classe-matieres/${classeMatiereId}/notes-primaire`,
+    `/classe-competences/${classeCompetenceId}/notes-primaire`,
     { notes },
   )
   return data.data
@@ -114,19 +116,24 @@ export async function fetchClassementPrimaire(classeId: number, trimestreId?: nu
 }
 
 export interface LigneRemplissagePrimaire {
-  classe_matiere_id: number
-  matiere: string
+  classe_competence_id: number
+  competence: string
+  competence_en: string | null
   bareme: number
   volets: Composante[]
   enseignant: string | null
   taux: number
 }
 
-export async function fetchRemplissagePrimaire(classeId: number, trimestreId?: number): Promise<LigneRemplissagePrimaire[]> {
-  const { data } = await http.get<ApiResponse<LigneRemplissagePrimaire[]>>(`/classes/${classeId}/remplissage-primaire`, {
-    params: trimestreId ? { trimestre_id: trimestreId } : undefined,
-  })
-  return data.data
+export async function fetchRemplissagePrimaire(
+  classeId: number,
+  trimestreId?: number,
+): Promise<LigneRemplissagePrimaire[]> {
+  const { data } = await http.get<ApiResponse<{ competences: LigneRemplissagePrimaire[] }>>(
+    `/classes/${classeId}/remplissage-primaire`,
+    { params: trimestreId ? { trimestre_id: trimestreId } : undefined },
+  )
+  return data.data.competences
 }
 
 export interface LigneDecision {

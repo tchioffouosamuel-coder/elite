@@ -12,6 +12,7 @@ use App\Models\Versement;
 use App\Services\ScolariteService;
 use App\Services\Sms\SmsService;
 use App\Support\Pdf\RecuVersementGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -43,12 +44,21 @@ class ScolariteController extends Controller
         ]);
     }
 
-    /** Dossier de l'élève, ouvert au besoin depuis la grille tarifaire. */
+    /**
+     * Dossier de l'élève, ouvert au besoin depuis la grille tarifaire.
+     *
+     * Recherche sur `Tenant::schoolIds()` (pas `schoolId()`) : un super admin
+     * en mode agrégé (sans X-School-Id) doit pouvoir ouvrir le dossier d'un
+     * élève de n'importe quelle école du complexe, pas seulement de la
+     * première — sans quoi cette route 404 pour tout élève qui ne s'y trouve
+     * pas. L'année est ensuite résolue sur l'école propre de l'élève, pas sur
+     * celle — ambiguë en mode agrégé — du tenant.
+     */
     public function dossier(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->with('classe')->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($eleveId);
 
-        $dossier = $this->service->dossier($eleve, $this->annee($request));
+        $dossier = $this->service->dossier($eleve, $this->annee($request, $eleve->school_id));
         $dossier->load('eleve.classe');
         $dossier->loadMissing(['fraisAnnexes', 'versements' => fn ($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
 
@@ -113,7 +123,7 @@ class ScolariteController extends Controller
 
     public function annuler(Request $request, int $versementId): JsonResponse
     {
-        $versement = Versement::forSchool(app('tenant.school_id'))->findOrFail($versementId);
+        $versement = Versement::forSchool(Tenant::schoolIds())->findOrFail($versementId);
 
         $donnees = $request->validate(['motif' => ['required', 'string', 'min:3', 'max:255']]);
 
@@ -129,7 +139,7 @@ class ScolariteController extends Controller
     /** Reçu au format du ticket de caisse (rouleau 80 mm). */
     public function recu(int $versementId): Response
     {
-        $versement = Versement::forSchool(app('tenant.school_id'))->findOrFail($versementId);
+        $versement = Versement::forSchool(Tenant::schoolIds())->findOrFail($versementId);
 
         return response((new RecuVersementGenerator)->build($versement), 200, [
             'Content-Type' => 'application/pdf',
@@ -139,16 +149,21 @@ class ScolariteController extends Controller
 
     private function dossierDuTenant(int $id): DossierScolarite
     {
-        return DossierScolarite::forSchool(app('tenant.school_id'))->avecTotaux()->findOrFail($id);
+        return DossierScolarite::forSchool(Tenant::schoolIds())->avecTotaux()->findOrFail($id);
     }
 
     /**
-     * Année visée : celle passée en paramètre, sinon l'année active. Une
-     * situation financière n'a aucun sens hors d'une année précise.
+     * Année visée : celle passée en paramètre, sinon l'année active de
+     * l'école. Une situation financière n'a aucun sens hors d'une année
+     * précise.
+     *
+     * `$schoolId` se précise quand l'appelant connaît déjà l'école exacte du
+     * dossier consulté (ex. celle de l'élève) ; à défaut, celle du tenant —
+     * ambiguë en mode agrégé, mais alors sans meilleure alternative.
      */
-    private function annee(Request $request): AnneeScolaire
+    private function annee(Request $request, ?int $schoolId = null): AnneeScolaire
     {
-        $schoolId = app('tenant.school_id');
+        $schoolId ??= app('tenant.school_id');
 
         if ($id = $request->integer('annee_scolaire_id')) {
             return AnneeScolaire::where('school_id', $schoolId)->findOrFail($id);

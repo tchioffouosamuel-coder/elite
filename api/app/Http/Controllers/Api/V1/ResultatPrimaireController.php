@@ -55,19 +55,20 @@ class ResultatPrimaireController extends Controller
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
         }
 
-        $rows = $classe->classeMatieres()->where('statut', 'actif')->with(['matiere', 'enseignant'])->get()
-            ->map(fn ($cm) => [
-                'classe_matiere_id' => $cm->id,
-                'matiere' => $cm->matiere->nom,
-                'bareme' => (int) ($cm->matiere->notation ?? 20),
-                'volets' => $cm->matiere->composantes(),
-                'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
-                'taux' => $this->service->tauxRemplissage($cm, $trimestre),
+        $rows = $classe->classeCompetences()->where('statut', 'actif')->with(['competence', 'enseignant'])->get()
+            ->map(fn ($cc) => [
+                'classe_competence_id' => $cc->id,
+                'competence' => $cc->competence->label_fr,
+                'competence_en' => $cc->competence->label_en,
+                'bareme' => (int) ($cc->competence->notation ?? 20),
+                'volets' => $cc->competence->volets(),
+                'enseignant' => $cc->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
+                'taux' => $this->service->tauxRemplissage($cc, $trimestre),
             ]);
 
         return ApiResponse::success([
             'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
-            'matieres' => $rows->values(),
+            'competences' => $rows->values(),
         ]);
     }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Search } from 'lucide-react'
-import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
+import { fetchCompetencesClasse, fetchTrimestres, type ClasseCompetence } from '@/features/pedagogie/api'
 import {
   fetchGrillePrimaire,
   sauvegarderNotesPrimaire,
@@ -24,8 +24,12 @@ function cle(eleveId: number, composante: Composante, sequenceId: number): strin
 
 /**
  * Saisie des notes du primaire : contrairement au secondaire (une note par
- * séquence), une matière se note ici sur plusieurs volets, chacun évalué à
+ * séquence), une COMPÉTENCE se note ici sur plusieurs volets, chacun évalué à
  * chaque séquence du trimestre. La grille couvre donc tout le trimestre.
+ *
+ * On saisit la compétence et non ses matières : c'est elle que le bulletin
+ * note, et l'enseignant renseigne un bloc au lieu d'une dizaine de lignes qui
+ * aboutiraient au même endroit.
  */
 export function NotesPrimaireTab({
   classeId,
@@ -33,7 +37,7 @@ export function NotesPrimaireTab({
   onBack,
 }: {
   classeId: number
-  /** Matière déjà choisie ailleurs (ex. depuis « Remplissage des notes ») : saute la liste interne. */
+  /** Compétence déjà choisie ailleurs (ex. depuis « Remplissage des notes ») : saute la liste interne. */
   initialMatiereId?: number | null
   onBack?: () => void
 }) {
@@ -42,13 +46,12 @@ export function NotesPrimaireTab({
   const [selectedMatiereId, setSelectedMatiereId] = useState<number | null>(null)
 
   const { data: affectations } = useQuery({
-    queryKey: ['classe-matieres', classeId],
-    queryFn: () => fetchClasseMatieres(classeId),
+    queryKey: ['classe-competences', classeId],
+    queryFn: () => fetchCompetencesClasse(classeId),
   })
 
-  // Filtrer les matières selon la recherche
   const filteredMatieres = affectations?.filter((a) =>
-    a.matiere.nom.toLowerCase().includes(searchQuery.toLowerCase())
+    (a.competence?.label_fr ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const controleExterne = initialMatiereId != null
@@ -56,7 +59,7 @@ export function NotesPrimaireTab({
   if (controleExterne) {
     if (!affectations) return <Spinner />
 
-    const matiere = affectations.find((a) => a.id === initialMatiereId)
+    const matiere = affectations.find((a) => a.classe_competence_id === initialMatiereId)
     return (
       <div className="flex flex-col gap-4">
         <button
@@ -72,7 +75,7 @@ export function NotesPrimaireTab({
 
   if (selectedMatiereId && affectations) {
     // Afficher la vue détaillée de saisie de notes
-    const matiere = affectations.find((a) => a.id === selectedMatiereId)
+    const matiere = affectations.find((a) => a.classe_competence_id === selectedMatiereId)
     return (
       <div className="flex flex-col gap-4">
         <button
@@ -96,22 +99,22 @@ export function NotesPrimaireTab({
       />
 
       {!filteredMatieres || filteredMatieres.length === 0 ? (
-        <EmptyState label={searchQuery ? t('common.no_results') : 'Aucune matière affectée à cette classe'} />
+        <EmptyState label={searchQuery ? t('common.no_results') : t('competences.aucune_dans_classe')} />
       ) : (
         <Table>
           <Thead>
             <tr>
-              <Th>{t('matieres.title')}</Th>
+              <Th>{t('competences.title')}</Th>
               <Th className="text-center">{t('common.actions')}</Th>
             </tr>
           </Thead>
           <tbody>
             {filteredMatieres.map((affectation) => (
-              <Tr key={affectation.id}>
-                <Td className="font-medium">{affectation.matiere.nom}</Td>
+              <Tr key={affectation.classe_competence_id}>
+                <Td className="font-medium">{affectation.competence?.label_fr ?? '—'}</Td>
                 <Td className="text-center">
                   <button
-                    onClick={() => setSelectedMatiereId(affectation.id)}
+                    onClick={() => setSelectedMatiereId(affectation.classe_competence_id)}
                     className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 transition-colors"
                   >
                     {t('notes.saisir')}
@@ -129,8 +132,9 @@ export function NotesPrimaireTab({
 
 interface NotesPrimaireDetailProps {
   classeId: number
+  /** Attribution de la compétence à la classe : c'est elle qui porte les notes. */
   classeMatiereId: number
-  matiere: any
+  matiere: ClasseCompetence | undefined
 }
 
 function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailProps) {
@@ -206,8 +210,8 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
   return (
     <div className="flex flex-col gap-4">
       <div className="p-4 bg-cream-50 rounded-lg border border-navy-100">
-        <h3 className="text-lg font-semibold text-navy-900">{matiere.matiere.nom}</h3>
-        <p className="text-sm text-navy-500">{matiere.enseignant?.nom_complet ?? '—'}</p>
+        <h3 className="text-lg font-semibold text-navy-900">{matiere?.competence?.label_fr ?? '—'}</h3>
+        <p className="text-sm text-navy-500">{matiere?.enseignant?.nom_complet ?? '—'}</p>
       </div>
 
       <Select

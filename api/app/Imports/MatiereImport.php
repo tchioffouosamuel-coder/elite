@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Competence;
 use App\Models\Departement;
 use App\Models\Matiere;
 use App\Models\Personnel;
@@ -25,11 +26,14 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
  *   des classes avec un coefficient, un quota horaire et un enseignant. Les
  *   colonnes d'affectation sont facultatives — sans elles, on importe le seul
  *   catalogue des matières ;
- * - **primaire et maternelle** : pas de département, mais un barème réparti
- *   par volet d'évaluation (oral, écrit, savoir-être, et pratique quand la
- *   matière s'y prête). Le barème se déduit de la somme des volets plutôt que
- *   d'être ressaisi : les deux doivent de toute façon correspondre
- *   exactement (cf. StoreMatiereRequest).
+ * - **primaire et maternelle** : le fichier ne décrit pas des matières mais
+ *   des COMPÉTENCES ÉVALUÉES, puisque ce sont elles qui portent le barème
+ *   réparti par volet (oral, écrit, savoir-être, et pratique quand la
+ *   compétence s'y prête). Le barème se déduit de la somme des volets plutôt
+ *   que d'être ressaisi : les deux doivent de toute façon correspondre
+ *   exactement (cf. StoreCompetenceRequest). Les colonnes du fichier ne
+ *   changent pas — seul l'objet créé change, en même temps que ce que
+ *   l'établissement évalue.
  *
  * Les en-têtes sont tolérants — français, anglais, avec ou sans accent — parce
  * qu'un fichier d'établissement vient rarement du gabarit qu'on lui a donné.
@@ -142,11 +146,14 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
                 continue;
             }
 
-            $matiere = $this->enregistrerMatiere($nom, $ligne);
+            if ($this->cycle === self::CYCLE_PRIMAIRE) {
+                $this->enregistrerCompetence($nom, $ligne);
 
-            if ($this->cycle === self::CYCLE_SECONDAIRE || $this->classeId !== null) {
-                $this->rattacherAffectations($matiere, $ligne);
+                continue;
             }
+
+            $matiere = $this->enregistrerMatiere($nom, $ligne);
+            $this->rattacherAffectations($matiere, $ligne);
         }
     }
 
@@ -180,20 +187,45 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         return $canonique;
     }
 
+    /**
+     * Compétence évaluée du primaire et de la maternelle. Le nom de la colonne
+     * « matière » du fichier désigne ici la compétence : c'est elle que le
+     * bulletin note, et le barème par volet que porte la ligne n'a de sens
+     * qu'à ce niveau.
+     *
+     * @param  array<string, mixed>  $ligne
+     */
+    private function enregistrerCompetence(string $label, array $ligne): Competence
+    {
+        $attributs = [
+            'label_en' => $this->valeur($ligne, 'nom_en'),
+            'abbreviation' => $this->valeur($ligne, 'abbreviation'),
+            'statut' => 'actif',
+        ] + $this->bareme($ligne);
+
+        // Une colonne laissée vide ne doit pas effacer une valeur saisie à la
+        // main dans l'application : on ne réécrit que ce que le fichier porte.
+        $attributs = array_filter($attributs, fn($valeur) => $valeur !== null);
+
+        $competence = Competence::firstOrNew(['school_id' => $this->schoolId, 'label_fr' => $label]);
+        $existante = $competence->exists;
+
+        $competence->fill($attributs)->save();
+
+        $existante ? $this->updatedCount++ : $this->importedCount++;
+
+        return $competence;
+    }
+
     /** @param array<string, mixed> $ligne */
     private function enregistrerMatiere(string $nom, array $ligne): Matiere
     {
         $attributs = [
             'nom_en' => $this->valeur($ligne, 'nom_en'),
             'abbreviation' => $this->valeur($ligne, 'abbreviation'),
+            'departement_id' => $this->departementId($this->valeur($ligne, 'departement')),
             'statut' => 'actif',
         ];
-
-        if ($this->cycle === self::CYCLE_SECONDAIRE) {
-            $attributs['departement_id'] = $this->departementId($this->valeur($ligne, 'departement'));
-        } else {
-            $attributs += $this->bareme($ligne);
-        }
 
         // Renseigner explicitement une colonne à vide effacerait une valeur
         // saisie à la main dans l'application : on ne réécrit que ce que le
@@ -212,7 +244,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
 
     /**
      * Barème du primaire : la somme des volets fait la notation, et la
-     * présence de points en pratique dit si la matière évalue ce volet.
+     * présence de points en pratique dit si la compétence évalue ce volet.
      *
      * @param  array<string, mixed>  $ligne
      * @return array<string, mixed>
@@ -227,7 +259,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
             $points[$volet] = $valeur === null ? 0.0 : (float) $valeur;
         }
 
-        // Aucun volet renseigné : la matière garde le barème qu'elle a déjà.
+        // Aucun volet renseigné : la compétence garde le barème qu'elle a déjà.
         if (array_sum($points) <= 0) {
             return [];
         }

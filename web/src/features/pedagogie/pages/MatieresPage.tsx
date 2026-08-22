@@ -16,7 +16,6 @@ import { telechargerFichier } from '@/shared/lib/download'
 import { Modal } from '@/shared/ui/Modal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
-import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import type { Matiere } from '@/features/pedagogie/api'
 import type { ApiError } from '@/shared/types/api'
 
@@ -168,23 +167,24 @@ export function MatieresPage() {
         },
       ]
       : [
+        // La matière ne porte plus de barème : il appartient à la compétence
+        // qu'elle sert, et c'est cette compétence que le bulletin note.
         {
-          cle: 'notation',
-          entete: t('matieres.notation'),
-          valeur: (m: Matiere) => m.notation,
-          cellule: (m: Matiere) => (m.notation ? `/ ${m.notation}` : '—'),
+          cle: 'competence',
+          entete: t('competences.singulier'),
+          valeur: (m: Matiere) => m.competence?.label_fr ?? '',
+          cellule: (m: Matiere) =>
+            m.competence ? (
+              <span className="font-medium text-navy-700">{m.competence.label_fr}</span>
+            ) : (
+              <span className="text-xs text-gold-600">{t('competences.non_rattachee')}</span>
+            ),
         },
         {
-          cle: 'volets',
-          entete: t('matieres.volets'),
-          valeur: (m: Matiere) => m.composantes.length,
-          cellule: (m: Matiere) => (
-            <span title={m.composantes.map((c) => `${LIBELLES_COMPOSANTES[c as Composante]} : /${m.repartition_volets[c] ?? 0}`).join(' · ')}>
-              {m.composantes
-                .map((c) => `${LIBELLES_COMPOSANTES[c as Composante]} /${m.repartition_volets[c] ?? 0}`)
-                .join(' · ')}
-            </span>
-          ),
+          cle: 'bareme_competence',
+          entete: t('matieres.notation'),
+          valeur: (m: Matiere) => m.competence?.notation ?? 0,
+          cellule: (m: Matiere) => (m.competence ? `/ ${m.competence.notation}` : '—'),
           masquerMobile: true,
         },
       ]),

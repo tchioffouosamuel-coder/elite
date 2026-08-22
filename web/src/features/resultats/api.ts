@@ -48,18 +48,53 @@ function endpoint(classeId: number, ressource: string, ecoleType?: TypeEcole | n
     : `/classes/${classeId}/${ressource}-primaire`;
 }
 
+/** Réponse brute du primaire : l'unité suivie y est la compétence. */
+interface RemplissagePrimaireBrut {
+  trimestre: { id: number; libelle: string };
+  competences: {
+    classe_competence_id: number;
+    competence: string;
+    bareme?: number;
+    volets?: string[];
+    enseignant: string | null;
+    taux: number;
+  }[];
+}
+
 export async function fetchRemplissage(
   classeId: number,
   trimestreId?: number,
   ecoleType?: TypeEcole | null,
 ): Promise<Remplissage> {
-  const { data } = await http.get<ApiResponse<Remplissage>>(
+  const { data } = await http.get<ApiResponse<Remplissage | RemplissagePrimaireBrut>>(
     endpoint(classeId, "remplissage", ecoleType),
     {
       params: trimestreId ? { trimestre_id: trimestreId } : undefined,
     },
   );
-  return data.data;
+
+  const brut = data.data;
+
+  // Le primaire suit désormais des compétences, pas des matières. L'écran de
+  // remplissage est commun aux deux cycles : on ramène ici la réponse à
+  // l'enveloppe unique qu'il attend, plutôt que d'y ajouter un aiguillage.
+  // `classe_matiere_id` porte alors l'identifiant de l'attribution de
+  // compétence — c'est bien lui que la grille de saisie du primaire attend.
+  if ("competences" in brut) {
+    return {
+      trimestre: brut.trimestre,
+      matieres: brut.competences.map((ligne) => ({
+        classe_matiere_id: ligne.classe_competence_id,
+        matiere: ligne.competence,
+        bareme: ligne.bareme,
+        volets: ligne.volets,
+        enseignant: ligne.enseignant,
+        taux: ligne.taux,
+      })),
+    };
+  }
+
+  return brut;
 }
 
 export async function fetchClassement(

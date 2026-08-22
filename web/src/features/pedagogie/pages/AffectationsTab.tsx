@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Copy, Download, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
 import {
   fetchClasseMatieres,
   affecterMatiere,
@@ -12,12 +12,10 @@ import {
   fetchMatieres,
   type ClasseMatiere,
   type ClasseMatiereUpdatePayload,
-  type Matiere,
 } from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
-import { fetchClasses } from '@/features/classes/api'
-import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
+import { fetchClasses, type Classe } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
@@ -25,13 +23,11 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { Modal } from '@/shared/ui/Modal'
+import { AttribuerCompetencesModal } from '@/features/pedagogie/pages/AttribuerCompetencesModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
-
-const COLONNES_SECONDAIRE = ['nom', 'nom_en', 'abreviation', 'departement', 'classes', 'coefficient', 'periodes', 'enseignant']
-const COLONNES_PRIMAIRE = ['nom', 'nom_en', 'abreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']
 
 export function AffectationsTab({
   classeId,
@@ -46,12 +42,11 @@ export function AffectationsTab({
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
-  const [matiereIds, setMatiereIds] = useState<Set<number>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [submitting, setSubmitting] = useState(false)
   const [affectationEnEdition, setAffectationEnEdition] = useState<ClasseMatiere | null>(null)
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showCompetences, setShowCompetences] = useState(false)
   const [rechercheMatiere, setRechercheMatiere] = useState('')
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
@@ -87,13 +82,6 @@ export function AffectationsTab({
   const matieresById = new Map((matieres ?? []).map((m) => [m.id, m]))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
-
-  const basculerMatiere = (id: number) =>
-    setMatiereIds((courant) => {
-      const suivant = new Set(courant)
-      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
-      return suivant
-    })
 
   const basculerSelection = (id: number) =>
     setSelectedIds((courant) => {
@@ -144,45 +132,17 @@ export function AffectationsTab({
   }
 
   const onSubmit = async (values: ClasseMatierePayload) => {
-    // Au primaire et en maternelle, le titulaire enseigne seul la classe :
-    // cocher plusieurs matières les affecte toutes d'un coup à ce même
-    // enseignant, plutôt que de répéter le formulaire matière par matière.
-    if (!secondaire) {
-      if (matiereIds.size === 0) {
-        erreur('Sélectionnez au moins une matière.')
-        return
-      }
-
-      setSubmitting(true)
-      try {
-        await Promise.all(
-          [...matiereIds].map((matiereId) =>
-            affecterMatiere(classeId, {
-              matiere_id: matiereId,
-              personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
-              coefficient: 1,
-              quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
-              groupe: 1,
-            }),
-          ),
-        )
-        succes(`${matiereIds.size} matière(s) affectée(s).`)
-      } finally {
-        setSubmitting(false)
-      }
-    } else {
-      await affecterMatiere(classeId, {
-        ...values,
-        matiere_id: Number(values.matiere_id),
-        personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
-        coefficient: Number(values.coefficient),
-        quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
-        groupe: Number(values.groupe) || 1,
-      })
-    }
+    await affecterMatiere(classeId, {
+      ...values,
+      matiere_id: Number(values.matiere_id),
+      personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
+      coefficient: secondaire ? Number(values.coefficient) : 1,
+      quota_horaire: values.quota_horaire ? Number(values.quota_horaire) : null,
+      groupe: Number(values.groupe) || 1,
+    })
+    succes('Matière affectée à la classe.')
 
     reset()
-    setMatiereIds(new Set())
     setShowForm(false)
     invalidate()
   }
@@ -243,32 +203,31 @@ export function AffectationsTab({
           ]
           : [
             // Le titulaire enseigne déjà seul sa classe : plutôt que de
-            // réafficher son propre nom, on montre ce qu'il ne connaît pas
-            // par cœur — la notation et la répartition par volet de la matière.
+            // réafficher son propre nom, on montre à quelle compétence la
+            // matière se rattache — c'est elle qui sera notée au bulletin.
             {
-              cle: 'notation',
-              entete: t('matieres.notation'),
-              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.notation ?? 0,
+              cle: 'competence',
+              entete: t('competences.singulier'),
+              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.competence?.label_fr ?? '',
               cellule: (a: ClasseMatiere) => {
-                const notation = matieresById.get(a.matiere.id)?.notation
-                return notation ? `/${notation}` : '—'
+                const competence = matieresById.get(a.matiere.id)?.competence
+
+                return competence ? (
+                  <span className="font-medium text-navy-700">{competence.label_fr}</span>
+                ) : (
+                  <span className="text-xs text-gold-600">{t('competences.non_rattachee')}</span>
+                )
               },
             },
             {
-              cle: 'volets',
-              entete: t('matieres.repartition_volets'),
+              cle: 'bareme_competence',
+              entete: t('matieres.notation'),
+              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.competence?.notation ?? 0,
               cellule: (a: ClasseMatiere) => {
-                const matiere = matieresById.get(a.matiere.id)
-                if (!matiere) return '—'
-
-                return (
-                  <span className="text-xs text-navy-600">
-                    {matiere.composantes
-                      .map((c) => `${LIBELLES_COMPOSANTES[c as Composante] ?? c} ${matiere.repartition_volets[c] ?? 0}`)
-                      .join(' · ')}
-                  </span>
-                )
+                const competence = matieresById.get(a.matiere.id)?.competence
+                return competence ? `/${competence.notation}` : '—'
               },
+              masquerMobile: true,
             },
           ]),
         {
@@ -328,85 +287,53 @@ export function AffectationsTab({
               </Button>
             </>
           )}
-          <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-            <Plus className="h-4 w-4" />
-            {t('pedagogie.affecter')}
-          </Button>
+          {/* Au primaire on attribue des compétences, pas des matières : leurs
+              matières s'installent d'office. Le formulaire matière par matière
+              reste celui du secondaire, où la matière est l'unité notée. */}
+          {secondaire ? (
+            <Button size="sm" onClick={() => setShowForm((v) => !v)}>
+              <Plus className="h-4 w-4" />
+              {t('pedagogie.affecter')}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setShowCompetences(true)}>
+              <Target className="h-4 w-4" />
+              {t('competences.attribuer')}
+            </Button>
+          )}
           <Button size="sm" variant="secondary" onClick={() => telechargerFichier('/matieres/export', { classe_id: classeId }, 'matieres.xlsx')}>
             <Download className="h-4 w-4" />
             {t('export.excel')}
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4" />
-            {t('import.title')}
+            Importer une affectation
           </Button>
         </div>
       )}
 
-      {showForm && (
+      {showForm && secondaire && (
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-3 rounded-xl border border-navy-100 bg-white p-4 sm:grid-cols-4">
-          {secondaire ? (
+          <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
+              <Input
+                aria-label="Rechercher une matière"
+                placeholder="Rechercher une matière…"
+                value={rechercheMatiere}
+                onChange={(event) => setRechercheMatiere(event.target.value)}
+                className="pl-9"
+              />
+            </div>
             <Select label={t('matieres.title')} {...register('matiere_id', { required: true })}>
               <option value="">—</option>
-              {matieresDisponibles.map((m) => (
+              {matieresDisponiblesFiltrees.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.nom}
                 </option>
               ))}
             </Select>
-          ) : (
-            <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('matieres.title')}</span>
-                {matieresDisponiblesFiltrees.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMatiereIds((courant) =>
-                        courant.size === matieresDisponiblesFiltrees.length
-                          ? new Set()
-                          : new Set(matieresDisponiblesFiltrees.map((m) => m.id)),
-                      )
-                    }
-                    className="text-xs font-semibold text-navy-400 transition-colors hover:text-navy-700"
-                  >
-                    {matiereIds.size === matieresDisponiblesFiltrees.length ? 'Tout décocher' : 'Tout cocher'}
-                  </button>
-                )}
-              </div>
-              {matieresDisponibles.length > 0 && (
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
-                  <Input
-                    aria-label="Rechercher une matière"
-                    placeholder="Rechercher une matière…"
-                    value={rechercheMatiere}
-                    onChange={(event) => setRechercheMatiere(event.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              )}
-              {matieresDisponibles.length === 0 ? (
-                <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-400">
-                  Toutes les matières sont déjà affectées.
-                </p>
-              ) : (
-                <div className="grid max-h-48 grid-cols-2 gap-1.5 overflow-y-auto rounded-xl border border-navy-200 bg-white p-3 sm:grid-cols-3">
-                  {matieresDisponiblesFiltrees.map((m: Matiere) => (
-                    <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-cream-50">
-                      <input
-                        type="checkbox"
-                        checked={matiereIds.has(m.id)}
-                        onChange={() => basculerMatiere(m.id)}
-                        className="h-4 w-4 rounded border-navy-300 text-navy-700 focus:ring-navy-200"
-                      />
-                      <span className="truncate text-navy-700">{m.nom}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          </div>
           <Select label={t('pedagogie.enseignant')} {...register('personnel_id')}>
             <option value="">—</option>
             {personnels?.map((p) => (
@@ -420,7 +347,7 @@ export function AffectationsTab({
           )}
           <Input label={t('pedagogie.quota_horaire')} type="number" {...register('quota_horaire')} />
           <div className="col-span-2 flex items-end gap-2 sm:col-span-4">
-            <Button type="submit" size="sm" disabled={submitting}>
+            <Button type="submit" size="sm">
               {t('common.save')}
             </Button>
             <Button
@@ -429,7 +356,6 @@ export function AffectationsTab({
               size="sm"
               onClick={() => {
                 setShowForm(false)
-                setMatiereIds(new Set())
               }}
             >
               {t('common.cancel')}
@@ -465,23 +391,33 @@ export function AffectationsTab({
         />
       )}
 
+      {showCompetences && (
+        <AttribuerCompetencesModal
+          classeId={classeId}
+          titulaireId={titulaireId}
+          onClose={() => setShowCompetences(false)}
+          onAttribuees={() => {
+            setShowCompetences(false)
+            invalidate()
+            queryClient.invalidateQueries({ queryKey: ['classe-competences', classeId] })
+          }}
+        />
+      )}
+
       {showImport && (
         <ImportModal
-          title={t('import.title')}
+          title="Importer les affectations Excel"
           url="/matieres/import"
-          columns={secondaire ? COLONNES_SECONDAIRE : COLONNES_PRIMAIRE}
-          choix={{
-            nom: 'cycle',
-            label: t('matieres.import_cycle'),
-            defaut: secondaire ? 'secondaire' : 'primaire',
-            options: [
-              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_SECONDAIRE },
-              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_PRIMAIRE },
-            ],
+          columns={['nom', 'enseignant', 'quota_horaire']}
+          extraFields={{
+            classe_id: classeId,
+            cycle: secondaire ? 'secondaire' : 'primaire',
           }}
           onClose={() => setShowImport(false)}
-          extraFields={{ classe_id: classeId }}
-          onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
+          onImported={() => {
+            setShowImport(false)
+            invalidate()
+          }}
         />
       )}
 
@@ -603,6 +539,12 @@ function EditAffectationModal({
  * classes — le trio matière/enseignant/coefficient n'est plus à ressaisir
  * classe par classe. Une matière déjà affectée dans la classe visée est
  * simplement ignorée, jamais écrasée.
+ *
+ * L'enseignant fait exception, et l'écran le dit avant qu'on valide : au
+ * primaire et en maternelle, c'est le titulaire de la classe d'arrivée qui
+ * reprend la matière, pas celui de la classe copiée (cf. `enseignantPour`,
+ * côté API). Chaque classe proposée affiche donc l'enseignant qu'elle
+ * retiendra réellement.
  */
 function CopierVersClasseModal({
   classeId,
@@ -627,6 +569,11 @@ function CopierVersClasseModal({
   const classesFiltrees = recherche
     ? classesDisponibles.filter((c) => c.nom.toLowerCase().includes(recherche.toLowerCase()))
     : classesDisponibles
+
+  // Le titulaire ne s'impose qu'au primaire et en maternelle : au secondaire,
+  // la matière suit son professeur spécialiste.
+  const suitLeTitulaire = (classe: Classe) => !estSecondaire(classe.school?.type)
+  const regleTitulaireVisible = classesDisponibles.some(suitLeTitulaire)
 
   const basculerCible = (id: number) =>
     setCibleIds((courant) => {
@@ -670,6 +617,13 @@ function CopierVersClasseModal({
           autoFocus
         />
 
+        {regleTitulaireVisible && (
+          <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-xs text-navy-500">
+            Au primaire et en maternelle, la matière copiée revient au titulaire de la classe d'arrivée — pas à
+            l'enseignant de la classe copiée.
+          </p>
+        )}
+
         {isLoading ? (
           <Spinner />
         ) : classesFiltrees.length === 0 ? (
@@ -679,14 +633,24 @@ function CopierVersClasseModal({
         ) : (
           <div className="flex max-h-64 flex-col divide-y divide-navy-50 overflow-y-auto rounded-xl border border-navy-100">
             {classesFiltrees.map((c) => (
-              <label key={c.id} className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm hover:bg-cream-50">
+              <label key={c.id} className="flex cursor-pointer items-start gap-2.5 px-3 py-2 text-sm hover:bg-cream-50">
                 <input
                   type="checkbox"
                   checked={cibleIds.has(c.id)}
                   onChange={() => basculerCible(c.id)}
-                  className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                  className="mt-0.5 h-4 w-4 flex-none rounded border-navy-300 text-gold-600 focus:ring-gold-500"
                 />
-                <span className="text-navy-800">{c.nom}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-navy-800">{c.nom}</span>
+                  {suitLeTitulaire(c) &&
+                    (c.titulaire ? (
+                      <span className="truncate text-xs text-navy-400">
+                        Enseignant : {c.titulaire.nom_complet}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gold-600">Sans titulaire — enseignant laissé vide</span>
+                    ))}
+                </span>
               </label>
             ))}
           </div>

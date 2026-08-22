@@ -7,6 +7,7 @@ use App\Imports\MatiereImport;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Competence;
 use App\Models\Departement;
 use App\Models\Matiere;
 use App\Models\Niveau;
@@ -189,6 +190,11 @@ class MatiereImportExportTest extends TestCase
         $this->assertSame(2, $import->ignoredCount);
     }
 
+    /**
+     * Au primaire, le fichier décrit des COMPÉTENCES et non des matières :
+     * c'est la compétence qui porte le barème réparti par volet, depuis que
+     * l'évaluation a quitté la matière.
+     */
     public function test_le_primaire_deduit_le_bareme_des_volets(): void
     {
         $import = $this->importer([
@@ -197,13 +203,15 @@ class MatiereImportExportTest extends TestCase
         ], MatiereImport::CYCLE_PRIMAIRE);
 
         $this->assertSame(2, $import->importedCount);
+        // Aucune matière créée : la ligne du fichier est une compétence.
+        $this->assertSame(0, Matiere::count());
 
-        $lecture = Matiere::where('nom', 'Lecture')->firstOrFail();
+        $lecture = Competence::where('label_fr', 'Lecture')->firstOrFail();
         $this->assertSame(35, $lecture->notation);
         $this->assertFalse($lecture->evalue_pratique);
         $this->assertArrayNotHasKey('pratique', $lecture->repartition_volets);
 
-        $dessin = Matiere::where('nom', 'Dessin')->firstOrFail();
+        $dessin = Competence::where('label_fr', 'Dessin')->firstOrFail();
         $this->assertSame(20, $dessin->notation);
         $this->assertTrue($dessin->evalue_pratique);
         // Comparaison souple : la répartition transite en JSON, qui ne

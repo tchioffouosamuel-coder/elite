@@ -90,6 +90,8 @@ class ClasseMatiereController extends Controller
      * à la main la même configuration classe par classe. Une matière déjà
      * affectée dans la classe cible est laissée telle quelle : la copie
      * complète, elle n'écrase jamais un réglage déjà en place.
+     *
+     * L'enseignant, lui, ne se recopie qu'au secondaire (cf. `enseignantPour`).
      */
     public function copier(Request $request): JsonResponse
     {
@@ -103,7 +105,10 @@ class ClasseMatiereController extends Controller
         ]);
 
         $affectations = ClasseMatiere::forSchool($schoolIds)->whereIn('id', $data['affectation_ids'])->get();
-        $classesCibles = Classe::forSchool($schoolIds)->whereIn('id', $data['classe_ids'])->get();
+        $classesCibles = Classe::forSchool($schoolIds)
+            ->with('school:id,type')
+            ->whereIn('id', $data['classe_ids'])
+            ->get();
 
         if ($affectations->isEmpty() || $classesCibles->isEmpty()) {
             return ApiResponse::notFound();
@@ -124,7 +129,7 @@ class ClasseMatiereController extends Controller
 
                 $classe->classeMatieres()->create([
                     'matiere_id' => $source->matiere_id,
-                    'personnel_id' => $source->personnel_id,
+                    'personnel_id' => $this->enseignantPour($classe, $source),
                     'coefficient' => $source->coefficient,
                     'quota_horaire' => $source->quota_horaire,
                     'groupe' => $source->groupe,
@@ -139,5 +144,32 @@ class ClasseMatiereController extends Controller
             : "{$copiees} affectation(s) copiée(s).";
 
         return ApiResponse::success(['copiees' => $copiees, 'ignorees' => $ignorees], $message);
+    }
+
+    /**
+     * Qui enseignera la matière copiée dans la classe d'arrivée.
+     *
+     * Au primaire et en maternelle, un seul enseignant — le titulaire — tient
+     * toutes les matières de sa classe. Y recopier l'enseignant de la classe
+     * source désignerait un agent qui n'y met pas les pieds, et il faudrait
+     * corriger chaque ligne à la main juste après la copie. C'est donc le
+     * titulaire de la classe de destination qui prend la matière ; si elle n'en
+     * a pas encore, la colonne reste vide plutôt que fausse.
+     *
+     * Le secondaire garde le comportement inverse, et pour la même raison de
+     * fond : la matière y suit son professeur spécialiste, qui enseigne le même
+     * programme dans plusieurs classes d'un même niveau.
+     *
+     * Le type est lu sur l'école de LA classe cible, pas sur l'école active :
+     * en mode agrégé (super admin, « Toutes les écoles ») il n'y en a pas
+     * d'unique, et un complexe copie couramment d'une école vers une autre.
+     */
+    private function enseignantPour(Classe $classe, ClasseMatiere $source): ?int
+    {
+        if ($classe->school?->estSecondaire()) {
+            return $source->personnel_id;
+        }
+
+        return $classe->titulaire_id;
     }
 }
