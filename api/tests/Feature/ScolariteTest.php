@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\BusAffectation;
+use App\Models\BusTrajet;
 use App\Models\Classe;
 use App\Models\EcritureComptable;
 use App\Models\Eleve;
@@ -10,6 +12,8 @@ use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\School;
 use App\Models\User;
+use App\Models\Versement;
+use App\Support\Pdf\RecuVersementGenerator;
 use App\Services\ScolariteService;
 use Database\Seeders\PlanComptableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,17 +39,24 @@ class ScolariteTest extends TestCase
         $this->school = School::create(['name' => 'Elites Tech', 'code' => 'EBT', 'type' => 'secondaire', 'is_active' => true]);
 
         $this->annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'ACCOUNTING 1-A',
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'nom' => 'ACCOUNTING 1-A',
         ]);
 
         GrilleFrais::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
-            'classe_id' => $this->classe->id, 'montant' => 359000,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'classe_id' => $this->classe->id,
+            'montant' => 359000,
         ]);
     }
 
@@ -79,11 +90,15 @@ class ScolariteTest extends TestCase
     public function test_le_tarif_par_defaut_de_l_ecole_sert_de_repli(): void
     {
         GrilleFrais::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
-            'classe_id' => null, 'montant' => 200000,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'classe_id' => null,
+            'montant' => 200000,
         ]);
         $autre = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'CLOTHING 1-A',
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'nom' => 'CLOTHING 1-A',
         ]);
 
         $dossier = $this->service()->dossier($this->eleve(['classe_id' => $autre->id]), $this->annee);
@@ -94,12 +109,18 @@ class ScolariteTest extends TestCase
     public function test_les_frais_annexes_obligatoires_sont_rattaches(): void
     {
         FraisAnnexe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
-            'libelle' => 'Tenue scolaire', 'montant' => 15000, 'obligatoire' => true,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'libelle' => 'Tenue scolaire',
+            'montant' => 15000,
+            'obligatoire' => true,
         ]);
         FraisAnnexe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
-            'libelle' => 'Transport', 'montant' => 50000, 'obligatoire' => false,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'libelle' => 'Transport',
+            'montant' => 50000,
+            'obligatoire' => false,
         ]);
 
         $dossier = $this->service()->dossier($this->eleve(), $this->annee);
@@ -158,6 +179,47 @@ class ScolariteTest extends TestCase
             'montant' => 20000,
             'lignes' => [['affectation' => 'scolarite', 'montant' => 15000]],
         ]);
+    }
+
+    public function test_un_recu_bus_seul_ne_presente_que_le_transport(): void
+    {
+        $eleve = $this->eleve();
+        $dossier = $this->service()->dossier($eleve, $this->annee);
+        $trajet = BusTrajet::create([
+            'school_id' => $this->school->id,
+            'nom' => 'Ligne Nord',
+            'tarif_aller_retour' => 50000,
+        ]);
+        BusAffectation::create([
+            'eleve_id' => $eleve->id,
+            'trajet_id' => $trajet->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'tarif_mensuel' => 50000,
+            'option_trajet' => 'aller_retour',
+            'statut' => 'actif',
+        ]);
+        $versement = Versement::create([
+            'school_id' => $this->school->id,
+            'dossier_scolarite_id' => $dossier->id,
+            'numero_recu' => 'RC-EBT-BUS',
+            'date_versement' => '2026-09-01',
+            'montant' => 30000,
+            'mode' => 'especes',
+        ]);
+        $versement->lignes()->create([
+            'affectation' => 'bus',
+            'montant' => 30000,
+            'libelle' => 'Transport scolaire',
+        ]);
+
+        $mentions = new \ReflectionMethod(RecuVersementGenerator::class, 'mentions');
+        $mentions->setAccessible(true);
+        $html = $mentions->invoke(new RecuVersementGenerator, $versement->fresh('lignes'), $dossier->fresh());
+
+        $this->assertStringContainsString('Frais de bus', $html);
+        $this->assertStringNotContainsString('Frais de scolarité', $html);
+        $this->assertStringContainsString('30 000 F', $html);
+        $this->assertStringContainsString('20 000 F', $html);
     }
 
     public function test_l_encaissement_mouvemente_le_journal(): void
@@ -226,12 +288,17 @@ class ScolariteTest extends TestCase
     public function test_un_frais_annexe_circonscrit_a_une_classe_ne_s_applique_pas_ailleurs(): void
     {
         $autre = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'CLOTHING 1-A',
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'nom' => 'CLOTHING 1-A',
         ]);
 
         $frais = FraisAnnexe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
-            'libelle' => 'Tenue technique', 'montant' => 15000, 'obligatoire' => true,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'libelle' => 'Tenue technique',
+            'montant' => 15000,
+            'obligatoire' => true,
         ]);
         $frais->synchroniserClasses([$this->classe->id]);
 
@@ -252,8 +319,11 @@ class ScolariteTest extends TestCase
         $this->service()->encaisser($dossier, ['montant' => 100000]);
 
         $suivante = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2027-2028',
-            'date_debut' => '2027-09-01', 'date_fin' => '2028-07-31', 'is_active' => false,
+            'school_id' => $this->school->id,
+            'libelle' => '2027-2028',
+            'date_debut' => '2027-09-01',
+            'date_fin' => '2028-07-31',
+            'is_active' => false,
         ]);
 
         // 359 000 − 100 000 = 259 000 reportés.
@@ -272,25 +342,37 @@ class ScolariteTest extends TestCase
 
         $autreEcole = School::create(['name' => 'Elites Prim', 'code' => 'EBP', 'type' => 'primaire', 'is_active' => true]);
         $autreAnnee = AnneeScolaire::create([
-            'school_id' => $autreEcole->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $autreEcole->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $autreClasse = Classe::create(['school_id' => $autreEcole->id, 'annee_scolaire_id' => $autreAnnee->id, 'nom' => 'CE1 A']);
         GrilleFrais::create([
-            'school_id' => $autreEcole->id, 'annee_scolaire_id' => $autreAnnee->id,
-            'classe_id' => $autreClasse->id, 'montant' => 90000,
+            'school_id' => $autreEcole->id,
+            'annee_scolaire_id' => $autreAnnee->id,
+            'classe_id' => $autreClasse->id,
+            'montant' => 90000,
         ]);
         $eleveAutreEcole = Eleve::create([
-            'school_id' => $autreEcole->id, 'classe_id' => $autreClasse->id,
-            'matricule' => '26PRIM1', 'nom_complet' => 'NGONO PAUL', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $autreEcole->id,
+            'classe_id' => $autreClasse->id,
+            'matricule' => '26PRIM1',
+            'nom_complet' => 'NGONO PAUL',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
 
         // `school_id` place ce super admin en priorité sur la première école
         // (`$this->school`) : sans le correctif, c'est celle-ci — pas
         // `$autreEcole` — que le tenant retiendrait en mode agrégé.
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 

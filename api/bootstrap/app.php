@@ -91,4 +91,27 @@ return Application::configure(basePath: dirname(__DIR__))
                 return ApiResponse::error($e->getMessage() ?: 'Erreur.', $e->getStatusCode());
             }
         });
+
+        /*
+         * Filet de sécurité : toute exception non prévue ci-dessus (une
+         * contrainte SQL non validée en amont, par exemple) ne doit jamais
+         * atteindre le client avec sa requête brute, ses valeurs liées et les
+         * identifiants de connexion à la base — cf. l'incident où un libellé
+         * d'année scolaire en doublon a renvoyé jusqu'à l'hôte et au port
+         * MySQL dans le message d'erreur affiché au guichet.
+         *
+         * `return null` en debug laisse Laravel afficher le détail complet
+         * (utile en local) ; ce renderer ne s'applique donc qu'en production,
+         * où `APP_DEBUG` est à `false`.
+         */
+        $exceptions->render(function (\Throwable $e, Request $request) {
+            if (! $request->is('api/*') || config('app.debug')) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                "Une erreur inattendue est survenue. Veuillez réessayer, ou contacter le support si le problème persiste.",
+                500,
+            );
+        });
     })->create();

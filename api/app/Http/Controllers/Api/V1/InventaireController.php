@@ -35,12 +35,20 @@ class InventaireController extends Controller
     public function store(Request $request): JsonResponse
     {
         $donnees = $this->valider($request);
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
-        unset($donnees['school_id']);
+        $partage = (bool) ($donnees['toutes_ecoles'] ?? false);
+        unset($donnees['school_id'], $donnees['toutes_ecoles']);
 
+        /*
+         * « Toutes les écoles » : un seul article sans école, donc un seul
+         * stock où les trois établissements puisent ensemble.
+         */
+        $schoolId = $partage ? null : Tenant::resolveWriteSchoolId($request->input('school_id'));
         $article = $this->service->creer($schoolId, $donnees);
 
-        return ApiResponse::created($this->resumer($article->load('school:id,name,code,type')), 'Article ajouté.');
+        return ApiResponse::created(
+            $this->resumer($article->load('school:id,name,code,type')),
+            $partage ? 'Article ajouté, partagé par toutes les écoles.' : 'Article ajouté.'
+        );
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -115,6 +123,9 @@ class InventaireController extends Controller
     {
         return $request->validate([
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+            // Exclusif de school_id : l'article n'appartient à aucune école en
+            // particulier, les trois partagent son stock.
+            'toutes_ecoles' => ['nullable', 'boolean'],
             'nom' => ['required', 'string', 'max:150'],
             'categorie' => ['required', 'in:mobilier,informatique,pedagogique,sport,medical,autre'],
             'quantite' => ['required', 'integer', 'min:1'],

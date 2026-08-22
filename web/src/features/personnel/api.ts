@@ -115,6 +115,10 @@ export async function createDepartement(
   return data.data;
 }
 
+export async function deleteDepartement(id: number): Promise<void> {
+  await http.delete(`/departements/${id}`);
+}
+
 export async function updateDepartement(
   id: number,
   payload: { nom?: string; head_personnel_id?: number | null },
@@ -351,9 +355,8 @@ export async function batchFonctionPersonnel(
   ids: number[],
   fonctionId: number,
 ): Promise<{ modifies: number; ignores: number }> {
-  const { data } = await http.post<ApiResponse<{ modifies: number; ignores: number }>>(
-    "/personnels/batch-fonction",
-    { ids, fonction_id: fonctionId },
-  );
+  const { data } = await http.post<
+    ApiResponse<{ modifies: number; ignores: number }>
+  >("/personnels/batch-fonction", { ids, fonction_id: fonctionId });
   return data.data;
 }

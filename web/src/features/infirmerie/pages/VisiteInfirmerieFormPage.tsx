@@ -175,13 +175,18 @@ export function VisiteInfirmerieFormPage() {
   })
   const historiqueAffiche = (historique ?? []).filter((v) => v.id !== visiteId)
 
-  const coutMateriels = useMemo(() => {
-    return (materielsValues ?? []).reduce((total, ligne) => {
-      const article = articles.find((a) => a.id === Number(ligne.inventaire_article_id))
-      if (!article) return total
-      return total + (Number(ligne.quantite) || 0) * (article.valeur_unitaire ?? 0)
-    }, 0)
-  }, [materielsValues, articles])
+  /*
+   * Volontairement recalculé à chaque rendu, sans useMemo : react-hook-form
+   * mute son tableau de valeurs sur place, si bien que la référence de
+   * `materielsValues` ne change pas quand une ligne est modifiée. Mémoïsé, le
+   * total restait figé à sa première valeur — la ligne affichait 300 FCFA et
+   * le total 0. Sur quelques lignes, la somme ne coûte rien.
+   */
+  const coutMateriels = (materielsValues ?? []).reduce((total, ligne) => {
+    const article = articles.find((a) => a.id === Number(ligne.inventaire_article_id))
+    if (!article) return total
+    return total + (Number(ligne.quantite) || 0) * (article.valeur_unitaire ?? 0)
+  }, 0)
 
   const coutTotal = (Number(coutSoins) || 0) + coutMateriels + (Number(coutAutreMateriel) || 0)
 

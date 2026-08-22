@@ -34,6 +34,11 @@ export interface ArticleInventairePayload {
   date_acquisition?: string | null
   notes?: string | null
   school_id?: number | null
+  /**
+   * Article partagé par tout le complexe : aucune école propriétaire, un seul
+   * stock où les trois puisent. Exclusif de `school_id`.
+   */
+  toutes_ecoles?: boolean
 }
 
 export interface StatsInventaire {

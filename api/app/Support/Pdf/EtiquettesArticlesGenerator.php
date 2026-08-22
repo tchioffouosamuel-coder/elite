@@ -110,7 +110,11 @@ class EtiquettesArticlesGenerator
 
     private function etiquette(InventaireArticle $article): string
     {
-        $html = '<span class="ecole">'.$this->e($article->school?->name).'</span><br>';
+        // Un article partagé n'a pas d'école : le nommer, plutôt que de laisser
+        // la ligne vide sur l'étiquette collée à l'article.
+        $ecole = $article->school?->name ?? 'Toutes les écoles';
+
+        $html = '<span class="ecole">'.$this->e($ecole).'</span><br>';
         $html .= '<span class="nom">'.$this->e($article->nom).'</span><br>';
 
         if ($article->code_barre === null) {

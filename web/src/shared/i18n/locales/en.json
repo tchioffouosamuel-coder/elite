@@ -208,6 +208,10 @@
     "details": "Details",
     "search_placeholder": "Search for a department…",
     "empty": "No department for this school.",
+    "delete_title": "Delete department “{{nom}}”?",
+    "delete_message": "This action cannot be undone. Linked subjects and staff will be detached.",
+    "deleted": "Department deleted.",
+    "delete_error": "Error while deleting the department.",
     "detail": {
       "chef_title": "Department head",
       "chef_label": "Department head",
@@ -271,6 +275,10 @@
     "sigle_placeholder": "e.g. GS-A, CE1-B",
     "ecole": "School",
     "sous_systeme": "Subsystem",
+    "annee_scolaire": "School year",
+    "annee_scolaire_non_liee": "Not linked",
+    "annee_active": "active",
+    "all_annees_placeholder": "All school years",
     "all_schools_placeholder": "All schools",
     "bulk_school_placeholder": "Set school",
     "bulk_subsystem_placeholder": "Set subsystem",
@@ -1288,7 +1296,8 @@
     "code_barre_deja": "This item already has its barcode",
     "code_barre_genere": "Barcode assigned: {{code}}",
     "imprimer_etiquette": "Print the label",
-    "imprimer_selection": "Labels ({{count}})"
+    "imprimer_selection": "Labels ({{count}})",
+    "toutes_ecoles": "All schools"
   },
   "hub": {
     "actions": "Actions",

@@ -30,7 +30,7 @@ class ClasseRepository extends BaseRepository
                 'eleves as garcons_count' => fn ($query) => $query->where('sexe', 'M'),
                 'eleves as filles_count' => fn ($query) => $query->where('sexe', 'F'),
             ])
-            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type'])
+            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type', 'anneeScolaire:id,libelle,is_active'])
             ->orderBy('nom')
             ->get();
     }

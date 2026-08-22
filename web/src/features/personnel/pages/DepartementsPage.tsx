@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Plus, Eye } from 'lucide-react'
+import { Building2, Plus, Eye, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { fetchDepartements, createDepartement, type Departement } from '@/features/personnel/api'
+import { fetchDepartements, createDepartement, deleteDepartement, type Departement } from '@/features/personnel/api'
 import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
@@ -11,6 +11,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 
 export function DepartementsPage() {
   const { t } = useTranslation()
@@ -22,6 +23,25 @@ export function DepartementsPage() {
   const [nom, setNom] = useState('')
   const [schoolId, setSchoolId] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const handleDelete = async (departement: Departement) => {
+    const confirme = await confirmer({
+      titre: t('departements.delete_title', { nom: departement.nom }),
+      message: t('departements.delete_message'),
+      action: t('common.delete'),
+    })
+    if (!confirme) return
+
+    try {
+      await deleteDepartement(departement.id)
+      queryClient.invalidateQueries({ queryKey: ['departements'] })
+      queryClient.invalidateQueries({ queryKey: ['personnels'] })
+      queryClient.invalidateQueries({ queryKey: ['matieres'] })
+      succes(t('departements.deleted'))
+    } catch (err: any) {
+      erreur(err.message || t('departements.delete_error'))
+    }
+  }
 
   const handleAdd = async () => {
     if (!nom.trim()) return
@@ -66,13 +86,25 @@ export function DepartementsPage() {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (d) => (
-        <button
-          onClick={() => navigate(`/departements/${d.id}`)}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gold-600 hover:bg-gold-50"
-        >
-          <Eye className="h-4 w-4" />
-          {t('departements.details')}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate(`/departements/${d.id}`)}
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-gold-600 hover:bg-gold-50"
+          >
+            <Eye className="h-4 w-4" />
+            {t('departements.details')}
+          </button>
+          {can('personnel.manage') && (
+            <button
+              onClick={() => handleDelete(d)}
+              className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+              title={t('common.delete')}
+              aria-label={t('common.delete')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       ),
     },
   ]

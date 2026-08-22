@@ -48,6 +48,7 @@ export interface Classe {
   niveau_scolaire_id: number | null;
   sous_systeme_id: number | null;
   annee_scolaire_id: number;
+  annee_scolaire: { id: number; libelle: string; is_active: boolean } | null;
   niveau: { id: number; code: string; name_fr: string } | null;
   /** Niveau d'enseignement (SIL, CP…) — primaire et maternelle uniquement. */
   niveau_scolaire: { id: number; code: string; libelle: string } | null;

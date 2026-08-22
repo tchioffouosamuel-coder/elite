@@ -26,9 +26,28 @@ class InventaireArticle extends Model
         ];
     }
 
+    /**
+     * Le périmètre d'une école, plus les articles partagés.
+     *
+     * Un article sans école (`school_id` null) appartient à tout le complexe :
+     * il apparaît dans l'inventaire des trois établissements, qui puisent dans
+     * le même stock. Le groupement par closure est indispensable — un
+     * `orWhereNull` posé à plat s'échapperait des autres filtres de la requête
+     * et ramènerait tous les articles partagés quelle que soit la recherche.
+     */
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
+        return $query->where(function (Builder $q) use ($schoolId) {
+            is_array($schoolId) ? $q->whereIn('school_id', $schoolId) : $q->where('school_id', $schoolId);
+
+            $q->orWhereNull('school_id');
+        });
+    }
+
+    /** Article commun aux trois écoles, sans stock propre à l'une d'elles. */
+    public function estPartage(): bool
+    {
+        return $this->school_id === null;
     }
 
     /** Un article n'entre au comptoir qu'une fois son prix de vente fixé. */

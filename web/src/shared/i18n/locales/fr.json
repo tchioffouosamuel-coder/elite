@@ -208,6 +208,10 @@
     "details": "Détails",
     "search_placeholder": "Rechercher un département…",
     "empty": "Aucun département pour cet établissement.",
+    "delete_title": "Supprimer le département « {{nom}} » ?",
+    "delete_message": "Cette action est irréversible. Les matières et le personnel rattachés seront dissociés.",
+    "deleted": "Département supprimé.",
+    "delete_error": "Erreur lors de la suppression du département.",
     "detail": {
       "chef_title": "Chef de département",
       "chef_label": "Chef du département",
@@ -271,6 +275,10 @@
     "sigle_placeholder": "ex: GS-A, CE1-B",
     "ecole": "École",
     "sous_systeme": "Sous-système",
+    "annee_scolaire": "Année scolaire",
+    "annee_scolaire_non_liee": "Non liée",
+    "annee_active": "active",
+    "all_annees_placeholder": "Toutes les années",
     "all_schools_placeholder": "Toutes les écoles",
     "bulk_school_placeholder": "Définir l'école",
     "bulk_subsystem_placeholder": "Définir le sous-système",
@@ -1288,7 +1296,8 @@
     "code_barre_deja": "Cet article a déjà son code-barres",
     "code_barre_genere": "Code-barres attribué : {{code}}",
     "imprimer_etiquette": "Imprimer l’étiquette",
-    "imprimer_selection": "Étiquettes ({{count}})"
+    "imprimer_selection": "Étiquettes ({{count}})",
+    "toutes_ecoles": "Toutes les écoles"
   },
   "hub": {
     "actions": "Actions",

@@ -29,6 +29,12 @@ import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
+/*
+ * Valeur du choix « toutes les écoles » dans le sélecteur d'établissement.
+ * Une chaîne, jamais un identifiant : aucune école ne peut la prendre.
+ */
+const TOUTES_ECOLES = 'toutes'
+
 const CATEGORIES: CategorieArticle[] = ['mobilier', 'informatique', 'pedagogique', 'sport', 'medical', 'autre']
 const ETATS: EtatArticle[] = ['bon', 'moyen', 'mauvais', 'hors_service']
 
@@ -151,8 +157,15 @@ export function InventairePage() {
     {
       cle: 'school',
       entete: t('classes.ecole'),
-      valeur: (a) => a.school?.name,
-      cellule: (a) => <span className="text-navy-600">{a.school?.name ?? '—'}</span>,
+      valeur: (a) => a.school?.name ?? t('inventaire.toutes_ecoles'),
+      // Sans école, l'article est partagé par tout le complexe : le dire, plutôt
+      // qu'un tiret qu'on lirait comme une donnée manquante.
+      cellule: (a) =>
+        a.school ? (
+          <span className="text-navy-600">{a.school.name}</span>
+        ) : (
+          <span className="font-medium text-gold-600">{t('inventaire.toutes_ecoles')}</span>
+        ),
       masquerMobile: true,
     },
     {
@@ -360,6 +373,7 @@ function ArticleFormModal({
   })
 
   const onSubmit = async (values: ArticleInventairePayload) => {
+    const toutesEcoles = String(values.school_id) === TOUTES_ECOLES
     setServerError(null)
     const payload: ArticleInventairePayload = {
       ...values,
@@ -367,7 +381,10 @@ function ArticleFormModal({
       valeur_unitaire: values.valeur_unitaire ? Number(values.valeur_unitaire) : null,
       prix_vente: values.prix_vente ? Number(values.prix_vente) : null,
       date_acquisition: values.date_acquisition || null,
-      school_id: values.school_id ? Number(values.school_id) : undefined,
+      // Le sélecteur d'école porte une valeur sentinelle pour « toutes les
+      // écoles » : le backend attend un drapeau, pas un identifiant.
+      school_id: toutesEcoles || !values.school_id ? undefined : Number(values.school_id),
+      toutes_ecoles: toutesEcoles || undefined,
     }
 
     try {
@@ -394,6 +411,7 @@ function ArticleFormModal({
             {...register('school_id', { required: "L'école est requise." })}
           >
             <option value="">—</option>
+            <option value={TOUTES_ECOLES}>{t('inventaire.toutes_ecoles')}</option>
             {schools?.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}

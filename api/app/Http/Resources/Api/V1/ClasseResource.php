@@ -29,6 +29,11 @@ class ClasseResource extends JsonResource
             'niveau_scolaire_id' => $this->niveau_scolaire_id,
             'sous_systeme_id' => $this->sous_systeme_id,
             'annee_scolaire_id' => $this->annee_scolaire_id,
+            'annee_scolaire' => $this->whenLoaded('anneeScolaire', fn () => $this->anneeScolaire ? [
+                'id' => $this->anneeScolaire->id,
+                'libelle' => $this->anneeScolaire->libelle,
+                'is_active' => (bool) $this->anneeScolaire->is_active,
+            ] : null),
             'effectif' => $this->when(isset($this->eleves_count), $this->eleves_count),
             'garcons' => $this->when(isset($this->garcons_count), $this->garcons_count),
             'filles' => $this->when(isset($this->filles_count), $this->filles_count),

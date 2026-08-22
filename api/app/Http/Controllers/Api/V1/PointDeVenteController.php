@@ -87,12 +87,21 @@ class PointDeVenteController extends Controller
             'date_vente' => ['nullable', 'date'],
         ]);
 
-        // L'école se déduit des articles vendus : un article n'appartient qu'à
-        // une école, et le comptoir ne doit pas avoir à la désigner — un super
-        // admin en mode « Toutes les écoles » serait sinon bloqué au moment
-        // d'encaisser, ce qui est le pire endroit pour poser une question.
+        /*
+         * L'école se déduit des articles vendus : le comptoir ne doit pas avoir
+         * à la désigner — un super admin en mode « Toutes les écoles » serait
+         * sinon bloqué au moment d'encaisser, le pire endroit pour poser une
+         * question.
+         *
+         * Les articles partagés ne désignent aucune école : ils se glissent
+         * dans n'importe quelle facture sans la contraindre, et `filter()` les
+         * écarte du raisonnement. Une facture qui n'en contient que ceux-là
+         * n'apprend donc rien sur son école — d'où le repli sur le périmètre
+         * courant, qui redemandera de choisir en mode agrégé.
+         */
         $ecoles = InventaireArticle::whereIn('id', collect($donnees['lignes'])->pluck('article_id')->unique())
             ->pluck('school_id')
+            ->filter()
             ->unique();
 
         if ($ecoles->count() > 1) {
@@ -169,7 +178,9 @@ class PointDeVenteController extends Controller
             'comptabiliser' => ['nullable', 'boolean'],
         ]);
 
-        // Même principe qu'à la vente : le réassort suit l'école de l'article.
+        // Même principe qu'à la vente : le réassort suit l'école de l'article,
+        // et un article partagé n'en désigne aucune — il faut alors préciser
+        // sur quel budget l'achat est imputé.
         $schoolId = Tenant::resolveWriteSchoolId(
             $donnees['school_id'] ?? InventaireArticle::whereKey($donnees['article_id'])->value('school_id'),
         );

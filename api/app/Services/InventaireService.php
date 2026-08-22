@@ -31,8 +31,13 @@ class InventaireService extends BaseService
         return InventaireArticle::forSchool($schoolId)->findOrFail($id);
     }
 
-    /** @param array<string, mixed> $donnees */
-    public function creer(int $schoolId, array $donnees): InventaireArticle
+    /**
+     * `$schoolId` null crée un article partagé : un seul stock, commun aux
+     * trois écoles, dans lequel chacune puise.
+     *
+     * @param  array<string, mixed>  $donnees
+     */
+    public function creer(?int $schoolId, array $donnees): InventaireArticle
     {
         return InventaireArticle::create([...$donnees, 'school_id' => $schoolId]);
     }
