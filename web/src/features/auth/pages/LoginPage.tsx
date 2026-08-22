@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Mail, Lock, ShieldCheck } from 'lucide-react'
+import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
@@ -24,6 +24,7 @@ export function LoginPage() {
   const { locale, setLocale } = useUiStore()
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const {
     register,
@@ -124,14 +125,25 @@ export function LoginPage() {
                 error={errors.identifiant?.message}
                 {...register('identifiant', { required: true })}
               />
-              <Input
-                label={t('auth.password')}
-                type="password"
-                icon={Lock}
-                autoComplete="current-password"
-                error={errors.password?.message}
-                {...register('password', { required: true })}
-              />
+              <div className="relative">
+                <Input
+                  label={t('auth.password')}
+                  type={showPassword ? 'text' : 'password'}
+                  icon={Lock}
+                  autoComplete="current-password"
+                  error={errors.password?.message}
+                  className="pr-10"
+                  {...register('password', { required: true })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+                  className="absolute right-3 top-[52%] -translate-y-1/2 text-navy-400 transition-colors hover:text-navy-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
 
               {serverError && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{serverError}</p>
