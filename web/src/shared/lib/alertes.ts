@@ -83,13 +83,29 @@ export function info(message: string): void {
  * Popup de notification (titre + message), façon WhatsApp Web : reste plus
  * longtemps qu'un toast ordinaire et se ferme au clic — avec une action
  * optionnelle (ouvrir la notification concernée) plutôt qu'une simple lecture.
+ *
+ * `actionLabel` ajoute en plus un bouton explicite ("Traiter", par exemple) :
+ * le toast entier reste cliquable, mais certaines notifications (une demande
+ * qui attend un traitement) gagnent à nommer l'action plutôt qu'à compter sur
+ * le seul réflexe de cliquer le popup.
  */
-export function notification({ titre, message, onClick }: { titre: string; message: string; onClick?: () => void }): void {
+export function notification({
+  titre,
+  message,
+  onClick,
+  actionLabel,
+}: {
+  titre: string
+  message: string
+  onClick?: () => void
+  actionLabel?: string
+}): void {
   void Swal.fire({
     ...base,
     toast: true,
     position: 'top-end',
-    showConfirmButton: false,
+    showConfirmButton: !!(onClick && actionLabel),
+    confirmButtonText: actionLabel,
     showCloseButton: true,
     timer: 8000,
     timerProgressBar: true,
@@ -99,6 +115,7 @@ export function notification({ titre, message, onClick }: { titre: string; messa
     customClass: {
       ...base.customClass,
       popup: `rounded-xl border border-navy-100 shadow-lifted font-sans${onClick ? ' cursor-pointer' : ''}`,
+      confirmButton: `${(base.customClass as Record<string, string>).confirmButton} !text-xs !px-3 !py-1.5`,
     },
     didOpen: (popup) => {
       if (!onClick) return

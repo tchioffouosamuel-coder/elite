@@ -104,6 +104,7 @@ export function EleveInscriptionPage() {
         reset,
         trigger,
         getValues,
+        setValue,
         formState: { errors },
         watch,
     } = useForm<EleveFormValues>({
@@ -163,6 +164,18 @@ export function EleveInscriptionPage() {
     // Un tarif existe déjà pour la classe choisie : proposer l'encaissement
     // immédiat plutôt que de renvoyer l'utilisateur vers la caisse ensuite.
     const classeIdSelectionnee = watch('classe_id') ? Number(watch('classe_id')) : undefined
+    const classeSelectionnee = classes?.find((c) => c.id === classeIdSelectionnee)
+    // Primaire et maternelle seulement : `niveau_scolaire` (SIL, CP, CE1…) ne se
+    // renseigne que pour ces classes-là — le secondaire n'a pas de niveau
+    // scolaire unique par classe, donc rien à comparer.
+    const classesMemeNiveau =
+        classeSelectionnee?.niveau_scolaire_id != null
+            ? classes?.filter(
+                  (c) =>
+                      c.niveau_scolaire_id === classeSelectionnee.niveau_scolaire_id &&
+                      c.sous_systeme_id === classeSelectionnee.sous_systeme_id,
+              ) ?? []
+            : []
     const { data: tarifs } = useQuery({
         queryKey: ['tarifs'],
         queryFn: fetchTarifs,
@@ -435,6 +448,61 @@ export function EleveInscriptionPage() {
                                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                         <p className="text-sm text-blue-800">{t('eleves.inscription.classe_hint')}</p>
                                     </div>
+
+                                    {classesMemeNiveau.length > 1 && (
+                                        <div className="flex flex-col gap-2 pt-2">
+                                            <div>
+                                                <span className="text-sm font-semibold text-navy-800">
+                                                    {t('eleves.inscription.effectifs_niveau_title')}
+                                                </span>
+                                                <p className="text-xs text-navy-400">{t('eleves.inscription.effectifs_niveau_hint')}</p>
+                                            </div>
+
+                                            <div className="overflow-x-auto rounded-xl border border-navy-100">
+                                                <table className="w-full min-w-[420px] text-xs">
+                                                    <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                                                        <tr>
+                                                            <th className="px-2.5 py-2 text-left">{t('eleves.inscription.effectifs_niveau_classe')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_garcons')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_filles')}</th>
+                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_total')}</th>
+                                                            <th className="px-2.5 py-2 text-right" />
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-navy-50">
+                                                        {classesMemeNiveau.map((c) => {
+                                                            const estSelectionnee = c.id === classeIdSelectionnee
+                                                            return (
+                                                                <tr key={c.id} className={estSelectionnee ? 'bg-navy-50/60' : undefined}>
+                                                                    <td className="px-2.5 py-1.5 font-medium text-navy-800">{c.nom}</td>
+                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums text-navy-600">{c.garcons ?? 0}</td>
+                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums text-navy-600">{c.filles ?? 0}</td>
+                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold text-navy-800">{c.effectif ?? 0}</td>
+                                                                    <td className="px-2.5 py-1.5 text-right">
+                                                                        {estSelectionnee ? (
+                                                                            <span className="text-[11px] font-semibold text-navy-500">
+                                                                                {t('eleves.inscription.effectifs_niveau_selectionnee')}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setValue('classe_id', c.id, { shouldDirty: true })
+                                                                                }
+                                                                                className="rounded-lg px-2 py-1 text-[11px] font-semibold text-navy-600 hover:bg-navy-100"
+                                                                            >
+                                                                                {t('eleves.inscription.effectifs_niveau_choisir')}
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

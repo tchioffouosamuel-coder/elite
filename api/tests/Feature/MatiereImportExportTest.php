@@ -38,7 +38,10 @@ class MatiereImportExportTest extends TestCase
         parent::setUp();
 
         $this->school = School::create([
-            'name' => 'Elites Secondaire', 'code' => 'ES', 'type' => 'secondaire', 'is_active' => true,
+            'name' => 'Elites Secondaire',
+            'code' => 'ES',
+            'type' => 'secondaire',
+            'is_active' => true,
         ]);
     }
 
@@ -69,7 +72,7 @@ class MatiereImportExportTest extends TestCase
     private function importer(array $lignes, string $cycle = MatiereImport::CYCLE_SECONDAIRE): MatiereImport
     {
         $import = new MatiereImport($this->school->id, $cycle);
-        $import->collection(collect($lignes)->map(fn (array $ligne) => collect($ligne)));
+        $import->collection(collect($lignes)->map(fn(array $ligne) => collect($ligne)));
 
         return $import;
     }
@@ -178,6 +181,23 @@ class MatiereImportExportTest extends TestCase
         $this->assertSame('Langues', $matiere->departement->nom);
     }
 
+    public function test_le_modele_secondaire_peut_renseigner_le_nom_dans_nom_en(): void
+    {
+        $import = $this->importer([
+            ['nom' => '', 'nom_en' => 'Accounting', 'abreviation' => 'ACC'],
+            ['nom' => null, 'nom_en' => 'Business Mathematics'],
+        ]);
+
+        $this->assertSame(2, $import->importedCount);
+        $this->assertSame(0, $import->ignoredCount);
+        $this->assertSame(2, Matiere::count());
+
+        $accounting = Matiere::where('nom', 'Accounting')->firstOrFail();
+        $this->assertSame('Accounting', $accounting->nom_en);
+        $this->assertSame('ACC', $accounting->abbreviation);
+        $this->assertTrue(Matiere::where('nom', 'Business Mathematics')->exists());
+    }
+
     public function test_les_lignes_sans_nom_de_matiere_sont_ignorees(): void
     {
         $import = $this->importer([
@@ -237,7 +257,10 @@ class MatiereImportExportTest extends TestCase
         $classeA = $this->classe('6e A');
         $this->classe('6e B');
         $enseignant = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'Jean Mbarga', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'Jean Mbarga',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
         $departement = Departement::create(['school_id' => $this->school->id, 'nom' => 'Sciences']);
 
@@ -249,8 +272,12 @@ class MatiereImportExportTest extends TestCase
             'statut' => 'actif',
         ]);
         ClasseMatiere::create([
-            'classe_id' => $classeA->id, 'matiere_id' => $matiere->id,
-            'personnel_id' => $enseignant->id, 'coefficient' => 6, 'quota_horaire' => 5, 'statut' => 'actif',
+            'classe_id' => $classeA->id,
+            'matiere_id' => $matiere->id,
+            'personnel_id' => $enseignant->id,
+            'coefficient' => 6,
+            'quota_horaire' => 5,
+            'statut' => 'actif',
         ]);
         // Matière sans aucune affectation : elle doit tout de même sortir.
         Matiere::create(['school_id' => $this->school->id, 'nom' => 'Musique', 'statut' => 'actif']);
@@ -262,12 +289,12 @@ class MatiereImportExportTest extends TestCase
 
         // On rejoue l'export dans l'import, en passant les intitulés au slug
         // exactement comme le fait maatwebsite à la lecture du fichier.
-        $slugs = array_map(fn (string $entete) => str_replace('-', '_', Str::slug($entete, '_')), $entetes);
+        $slugs = array_map(fn(string $entete) => str_replace('-', '_', Str::slug($entete, '_')), $entetes);
 
         Matiere::query()->delete();
         ClasseMatiere::query()->delete();
 
-        $import = $this->importer($lignes->map(fn (array $ligne) => array_combine($slugs, $ligne))->all());
+        $import = $this->importer($lignes->map(fn(array $ligne) => array_combine($slugs, $ligne))->all());
 
         $this->assertSame(2, $import->importedCount);
         $this->assertSame(1, $import->affectationsCount);
@@ -308,8 +335,11 @@ class MatiereImportExportTest extends TestCase
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 

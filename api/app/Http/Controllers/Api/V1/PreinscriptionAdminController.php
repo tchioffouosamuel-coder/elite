@@ -45,6 +45,49 @@ class PreinscriptionAdminController extends Controller
         ]);
     }
 
+    /** Corrige les informations proposées par le parent avant validation (coquille, champ oublié…). */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $p = Preinscription::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        $data = $request->validate([
+            'donnees_eleve.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_eleve.sexe' => ['required', 'in:M,F'],
+            'donnees_eleve.date_naissance' => ['required', 'date'],
+            'donnees_eleve.lieu_naissance' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_eleve.numero_acte_naissance' => ['nullable', 'string', 'max:100'],
+            'donnees_eleve.lieu_delivrance_acte' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.officier_etat_civil' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.groupe_sanguin' => ['nullable', 'string', 'max:10'],
+            'donnees_eleve.situation_sanitaire' => ['nullable', 'string', 'max:1000'],
+            'donnees_eleve.aptitude' => ['nullable', 'in:apte,inapte'],
+            'donnees_eleve.allergies' => ['nullable', 'string', 'max:1000'],
+
+            'donnees_tuteurs' => ['required', 'array', 'min:1'],
+            'donnees_tuteurs.*.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
+            'donnees_tuteurs.*.email' => ['nullable', 'email', 'max:150'],
+            'donnees_tuteurs.*.profession' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.lieu_service' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
+            'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $p = $this->service->modifierDonnees($p, $data['donnees_eleve'], $data['donnees_tuteurs']);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([
+            ...$this->resume($p),
+            'donnees_eleve' => $p->donnees_eleve,
+            'donnees_tuteurs' => $p->donnees_tuteurs,
+        ], 'Informations mises à jour.');
+    }
+
     public function valider(Request $request, int $id): JsonResponse
     {
         $p = Preinscription::forSchool(Tenant::schoolIds())->findOrFail($id);

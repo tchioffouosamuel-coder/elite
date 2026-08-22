@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Eleve;
+use App\Models\ModificationEleve;
 use App\Models\Moratoire;
 use App\Models\Observation;
 use App\Models\Presence;
@@ -346,12 +347,34 @@ class ParentEspaceController extends Controller
         $e = ParentAccess::assertEnfant($request->user(), $eleveId);
         $modification = $this->modifications->enAttentePour($e->id);
 
-        return ApiResponse::success($modification ? [
+        return ApiResponse::success($modification ? $this->presenterModification($modification) : null);
+    }
+
+    /**
+     * Historique complet des demandes de révision pour cet enfant, traitées ou
+     * non — sans lui, une demande rejetée (ou déjà validée) disparaissait
+     * purement et simplement de l'écran une fois traitée par l'établissement,
+     * sans que le parent sache jamais ce qu'il en est advenu.
+     */
+    public function historiqueModifications(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        return ApiResponse::success(
+            $this->modifications->historiquePour($e->id)->map($this->presenterModification(...))->values()
+        );
+    }
+
+    private function presenterModification(ModificationEleve $modification): array
+    {
+        return [
             'id' => $modification->id,
             'donnees' => $modification->donnees,
             'statut' => $modification->statut,
+            'motif_rejet' => $modification->motif_rejet,
             'created_at' => $modification->created_at->format('Y-m-d H:i'),
-        ] : null);
+            'traite_le' => $modification->traite_le?->format('Y-m-d H:i'),
+        ];
     }
 
     /** Le parent propose une révision d'identité/santé — appliquée seulement une fois validée par l'admin. */

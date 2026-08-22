@@ -13,7 +13,7 @@ class Note extends Model
 
     protected $fillable = [
         'eleve_id', 'classe_matiere_id', 'classe_competence_id',
-        'sequence_id', 'composante', 'valeur', 'saisi_par',
+        'sequence_id', 'composante', 'valeur', 'appreciation_id', 'saisi_par',
     ];
 
     protected function casts(): array
@@ -35,6 +35,15 @@ class Note extends Model
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    /**
+     * Renseignée en maternelle, où l'on n'attribue pas de note chiffrée mais un
+     * niveau d'appréciation — `valeur` reste alors vide.
+     */
+    public function appreciation(): BelongsTo
+    {
+        return $this->belongsTo(Appreciation::class);
     }
 
     /** Renseignée au primaire et en maternelle, où l'unité notée est la compétence. */

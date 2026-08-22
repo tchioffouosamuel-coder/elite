@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardCheck, Check, X } from 'lucide-react'
+import { ClipboardCheck, Check, X, Search, Pencil } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs } from '@/features/finance/api'
@@ -8,7 +9,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Select, Textarea } from '@/shared/ui/Field'
+import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
@@ -68,7 +69,9 @@ const CHAMPS_ELEVE: [string, string][] = [
 /** File d'attente des préinscriptions déposées par les parents — à examiner, valider ou rejeter. */
 export function PreinscriptionsAdminPage() {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
+  const [recherche, setRecherche] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const { data, isLoading, isError } = useQuery({
@@ -76,10 +79,31 @@ export function PreinscriptionsAdminPage() {
     queryFn: () => fetchPreinscriptions(statut),
   })
 
+  // Ouvre directement le détail visé par le lien d'une notification
+  // (`/preinscriptions?id=…`) — sans quoi cliquer la notification amenait sur
+  // la liste sans jamais désigner la demande à traiter.
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (id) {
+      setDetailId(Number(id))
+      searchParams.delete('id')
+      setSearchParams(searchParams, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const invalider = () => {
     queryClient.invalidateQueries({ queryKey: ['preinscriptions-admin'] })
     setDetailId(null)
   }
+
+  const donneesFiltrees = (data ?? []).filter((p) => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [p.eleve?.nom_complet, p.nom_propose, p.eleve?.matricule, p.tuteur?.nom_complet, p.tuteur?.telephone, p.tuteur?.email]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q))
+  })
 
   return (
     <div className="flex flex-col gap-5">
@@ -88,12 +112,21 @@ export function PreinscriptionsAdminPage() {
         sousTitre="Demandes déposées par les parents, en attente de validation."
         icon={ClipboardCheck}
         actions={
-          <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
-            <option value="en_attente">En attente</option>
-            <option value="validee">Validées</option>
-            <option value="rejetee">Rejetées</option>
-            <option value="">Toutes</option>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher un élève, un tuteur…"
+              className="w-56"
+              icon={Search}
+            />
+            <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
+              <option value="en_attente">En attente</option>
+              <option value="validee">Validées</option>
+              <option value="rejetee">Rejetées</option>
+              <option value="">Toutes</option>
+            </Select>
+          </div>
         }
       />
 
@@ -103,9 +136,11 @@ export function PreinscriptionsAdminPage() {
         <ErrorState />
       ) : data.length === 0 ? (
         <EmptyState label="Aucune préinscription dans cet état." />
+      ) : donneesFiltrees.length === 0 ? (
+        <EmptyState label="Aucune préinscription ne correspond à cette recherche." />
       ) : (
         <div className="flex flex-col gap-3">
-          {data.map((p) => (
+          {donneesFiltrees.map((p) => (
             <div key={p.id} onClick={() => setDetailId(p.id)} className="cursor-pointer">
               <Card className="transition-shadow hover:shadow-lifted">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -131,11 +166,42 @@ export function PreinscriptionsAdminPage() {
 }
 
 function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onClose: () => void; onTraitee: () => void }) {
+  const queryClient = useQueryClient()
   const [motifRejet, setMotifRejet] = useState('')
   const [rejetOuvert, setRejetOuvert] = useState(false)
   const [traitement, setTraitement] = useState(false)
+  const [editionOuverte, setEditionOuverte] = useState(false)
+  const [champsEdites, setChampsEdites] = useState<Record<string, string>>({})
 
   const { data: p, isLoading } = useQuery({ queryKey: ['preinscription-admin', id], queryFn: () => fetchPreinscription(id) })
+
+  const ouvrirEdition = () => {
+    setChampsEdites(
+      Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String(p?.donnees_eleve[cle] ?? '')])),
+    )
+    setEditionOuverte(true)
+  }
+
+  const enregistrerEdition = async () => {
+    if (!p) return
+    setTraitement(true)
+    try {
+      await http.put(`/preinscriptions/${id}`, {
+        donnees_eleve: { ...p.donnees_eleve, ...champsEdites },
+        // Portée volontairement limitée aux informations de l'élève : les
+        // tuteurs proposés repartent inchangés, ce n'est pas ce qui motive
+        // une correction avant validation.
+        donnees_tuteurs: p.donnees_tuteurs,
+      })
+      succes('Informations mises à jour.')
+      setEditionOuverte(false)
+      queryClient.invalidateQueries({ queryKey: ['preinscription-admin', id] })
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setTraitement(false)
+    }
+  }
 
   const valider = async () => {
     const ok = await confirmer({
@@ -199,19 +265,55 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
           )}
 
           <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Informations proposées</h3>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {CHAMPS_ELEVE.map(([cle, libelle]) => {
-                const valeur = p.donnees_eleve[cle]
-                if (!valeur) return null
-                return (
-                  <div key={cle}>
-                    <span className="text-navy-400">{libelle} : </span>
-                    <span className="font-medium text-navy-800">{String(valeur)}</span>
-                  </div>
-                )
-              })}
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-navy-500">Informations proposées</h3>
+              {p.statut === 'en_attente' && !editionOuverte && (
+                <button
+                  type="button"
+                  onClick={ouvrirEdition}
+                  className="flex items-center gap-1 text-xs font-medium text-navy-500 hover:text-navy-800"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Modifier
+                </button>
+              )}
             </div>
+
+            {editionOuverte ? (
+              <div className="flex flex-col gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {CHAMPS_ELEVE.map(([cle, libelle]) => (
+                    <Input
+                      key={cle}
+                      label={libelle}
+                      value={champsEdites[cle] ?? ''}
+                      onChange={(e) => setChampsEdites((c) => ({ ...c, [cle]: e.target.value }))}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setEditionOuverte(false)} disabled={traitement}>
+                    Annuler
+                  </Button>
+                  <Button size="sm" onClick={enregistrerEdition} disabled={traitement}>
+                    Enregistrer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {CHAMPS_ELEVE.map(([cle, libelle]) => {
+                  const valeur = p.donnees_eleve[cle]
+                  if (!valeur) return null
+                  return (
+                    <div key={cle}>
+                      <span className="text-navy-400">{libelle} : </span>
+                      <span className="font-medium text-navy-800">{String(valeur)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div>
@@ -234,7 +336,7 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
             </p>
           ) : null}
 
-          {p.statut === 'en_attente' && (
+          {p.statut === 'en_attente' && !editionOuverte && (
             <>
               {rejetOuvert ? (
                 <div className="flex flex-col gap-2">

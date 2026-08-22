@@ -8,6 +8,7 @@ import {
   sauvegarderNotesPrimaire,
   LIBELLES_COMPOSANTES,
   type Composante,
+  type GrillePrimaire,
   type NotePrimaireInput,
 } from '@/features/primaire/api'
 import { Input, Select } from '@/shared/ui/Field'
@@ -162,11 +163,16 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
   useEffect(() => {
     if (!grille) return
 
+    // Les deux modes partagent la même carte de cellules : au primaire elle
+    // porte une note, en maternelle l'identifiant du niveau coché.
     const initial: Record<string, string> = {}
     for (const ligne of grille.lignes) {
       for (const composante of grille.composantes) {
         for (const sequence of grille.sequences) {
-          const valeur = ligne.notes[composante]?.[sequence.id]
+          const valeur =
+            grille.mode === 'appreciation'
+              ? ligne.appreciations?.[composante]?.[sequence.id]
+              : ligne.notes[composante]?.[sequence.id]
           initial[cle(ligne.eleve_id, composante, sequence.id)] = valeur !== null && valeur !== undefined ? String(valeur) : ''
         }
       }
@@ -185,11 +191,15 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
         for (const composante of grille.composantes) {
           for (const sequence of grille.sequences) {
             const brut = valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? ''
+            const vide = brut.trim() === ''
+
             notes.push({
               eleve_id: ligne.eleve_id,
               sequence_id: sequence.id,
               composante,
-              valeur: brut.trim() === '' ? null : Number(brut),
+              ...(grille.mode === 'appreciation'
+                ? { appreciation_id: vide ? null : Number(brut) }
+                : { valeur: vide ? null : Number(brut) }),
             })
           }
         }
@@ -228,6 +238,17 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
 
       {isLoading || !grille ? (
         <Spinner />
+      ) : grille.mode === 'appreciation' ? (
+        <>
+          <GrilleAppreciations grille={grille} valeurs={valeurs} onChange={setValeurs} />
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSave} disabled={submitting}>
+              {t('common.save')}
+            </Button>
+            {message && <span className="text-sm text-green-600">{message}</span>}
+          </div>
+        </>
       ) : (
         <>
           <p className="text-sm text-navy-500">
@@ -359,6 +380,121 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Grille de la maternelle : on ne saisit pas de chiffre, on coche un visage.
+ *
+ * Une ligne par élève et par volet — c'est la lecture du bulletin officiel, qui
+ * détaille l'oral, l'écrit, la pratique et le savoir-être sous chaque activité.
+ * Chaque cellule offre les niveaux du référentiel de l'école ; le niveau retenu
+ * s'affiche dans sa couleur, exactement celle que prendra la case du bulletin.
+ */
+function GrilleAppreciations({
+  grille,
+  valeurs,
+  onChange,
+}: {
+  grille: GrillePrimaire
+  valeurs: Record<string, string>
+  onChange: (maj: (v: Record<string, string>) => Record<string, string>) => void
+}) {
+  const { t } = useTranslation()
+
+  if (grille.appreciations.length === 0) {
+    return <EmptyState label={t('appreciations.aucun_niveau')} />
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-navy-100 bg-cream-50/60 px-3.5 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+          {t('appreciations.legende')}
+        </span>
+        {grille.appreciations.map((appreciation) => (
+          <span key={appreciation.id} className="flex items-center gap-1.5 text-xs text-navy-600">
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: appreciation.couleur }} />
+            {appreciation.emoji} {appreciation.label_fr}
+          </span>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-navy-100/70 bg-white shadow-card">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
+          <thead className="bg-cream-100/70 text-xs font-semibold uppercase tracking-wide text-navy-500">
+            <tr>
+              <th className="border-b border-navy-100 px-4 py-2 text-left">{t('eleves.nom_complet')}</th>
+              <th className="border-b border-l border-navy-100 px-3 py-2 text-left">
+                {t('appreciations.volet')}
+              </th>
+              {grille.sequences.map((sequence, index) => (
+                <th key={sequence.id} className="border-b border-l border-navy-100 px-3 py-2 text-center">
+                  S{index + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {grille.lignes.map((ligne) =>
+              grille.composantes.map((composante, indexVolet) => (
+                <tr
+                  key={`${ligne.eleve_id}-${composante}`}
+                  className={indexVolet === 0 ? 'border-t-2 border-navy-100' : 'border-t border-navy-50'}
+                >
+                  {indexVolet === 0 && (
+                    <td
+                      rowSpan={grille.composantes.length}
+                      className="px-4 py-2 align-top font-medium text-navy-800"
+                    >
+                      {ligne.nom_complet}
+                    </td>
+                  )}
+                  <td className="border-l border-navy-50 px-3 py-1.5 text-navy-600">
+                    {LIBELLES_COMPOSANTES[composante]}
+                  </td>
+                  {grille.sequences.map((sequence) => {
+                    const cleCellule = cle(ligne.eleve_id, composante, sequence.id)
+                    const choisi = valeurs[cleCellule] ?? ''
+
+                    return (
+                      <td key={sequence.id} className="border-l border-navy-50 px-2 py-1.5">
+                        <div className="flex items-center justify-center gap-1">
+                          {grille.appreciations.map((appreciation) => {
+                            const actif = choisi === String(appreciation.id)
+
+                            return (
+                              <button
+                                key={appreciation.id}
+                                type="button"
+                                title={appreciation.label_fr}
+                                // Recliquer le niveau déjà coché l'efface : c'est
+                                // le seul moyen de revenir à « non évalué ».
+                                onClick={() =>
+                                  onChange((v) => ({ ...v, [cleCellule]: actif ? '' : String(appreciation.id) }))
+                                }
+                                style={actif ? { backgroundColor: appreciation.couleur, borderColor: appreciation.couleur } : undefined}
+                                className={`flex h-7 w-7 items-center justify-center rounded-lg border text-base transition-colors ${
+                                  actif
+                                    ? 'border-transparent shadow-soft'
+                                    : 'border-navy-200 bg-white opacity-45 hover:opacity-100'
+                                }`}
+                              >
+                                {appreciation.emoji ?? appreciation.label_fr.slice(0, 1)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AbsenceController;
 use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AnnonceController;
+use App\Http\Controllers\Api\V1\AppreciationController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\V1\PaieController;
 use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
 use App\Http\Controllers\Api\V1\ParentEspaceController;
 use App\Http\Controllers\Api\V1\ParentPreinscriptionController;
+use App\Http\Controllers\Api\V1\ParentUsageStatsController;
 use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PersonnelController;
 use App\Http\Controllers\Api\V1\PersonnelEspaceController;
@@ -280,9 +282,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
                 Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
                 Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');
+                Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
 
                 Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
                 Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
+                Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');
                 Route::post('preinscriptions/{id}/rejeter', [PreinscriptionAdminController::class, 'rejeter'])->name('preinscriptions.rejeter');
 
@@ -315,6 +319,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('enfants/{eleveId}/observations', [ParentEspaceController::class, 'soumettreObservation'])->name('enfants.observations.store');
                 Route::get('enfants/{eleveId}/modification', [ParentEspaceController::class, 'modificationEnAttente'])->name('enfants.modification.show');
                 Route::post('enfants/{eleveId}/modification', [ParentEspaceController::class, 'soumettreModification'])->name('enfants.modification.store');
+                Route::get('enfants/{eleveId}/modifications', [ParentEspaceController::class, 'historiqueModifications'])->name('enfants.modifications.index');
 
                 Route::get('preinscriptions', [ParentPreinscriptionController::class, 'index'])->name('preinscriptions.index');
                 Route::post('preinscriptions', [ParentPreinscriptionController::class, 'store'])->name('preinscriptions.store');
@@ -343,6 +348,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                  * classes. Les matières en découlent.
                  */
                 Route::get('competences', [CompetenceController::class, 'index'])->name('competences.index');
+                // Référentiel d'appréciations de la maternelle : les niveaux
+                // cochés à la saisie et coloriés sur le bulletin.
+                Route::get('appreciations', [AppreciationController::class, 'index'])->name('appreciations.index');
                 Route::get('classes/{classeId}/competences', [CompetenceController::class, 'parClasse'])->name('classes.competences.index');
                 Route::get('matieres/export', [MatiereController::class, 'export'])->name('matieres.export');
                 Route::get('matieres/{id}/classes', [MatiereController::class, 'classes'])->name('matieres.classes');
@@ -350,6 +358,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('appreciations', [AppreciationController::class, 'store'])->name('appreciations.store');
+                Route::put('appreciations/{id}', [AppreciationController::class, 'update'])->name('appreciations.update');
+                Route::delete('appreciations/{id}', [AppreciationController::class, 'destroy'])->name('appreciations.destroy');
+
                 Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store');
                 Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update');
                 Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy');

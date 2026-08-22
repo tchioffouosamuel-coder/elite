@@ -21,18 +21,13 @@ import type { ApiError } from '@/shared/types/api'
 
 /*
  * Colonnes attendues par l'import, par cycle (cf. App\Imports\MatiereImport).
- * Au secondaire, les quatre dernières sont facultatives : sans elles on
- * importe le seul catalogue, avec elles les affectations suivent.
+ * Le modèle minimal du secondaire ne contient que les libellés et
+ * l'abréviation ; les colonnes d'affectation restent acceptées par l'API.
  */
 const COLONNES_SECONDAIRE = [
   'nom',
   'nom_en',
   'abreviation',
-  'departement',
-  'classes',
-  'coefficient',
-  'periodes',
-  'enseignant',
 ]
 
 const COLONNES_PRIMAIRE = ['nom', 'nom_en', 'abreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']

@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { UserCog, Check, X } from 'lucide-react'
+import { UserCog, Check, X, Search } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Select, Textarea } from '@/shared/ui/Field'
+import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
@@ -60,7 +61,9 @@ const LIBELLES_CHAMPS: Record<string, string> = {
 /** File d'attente des révisions d'identité/santé proposées par les parents — à examiner, valider ou rejeter. */
 export function ModificationsElevesAdminPage() {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
+  const [recherche, setRecherche] = useState('')
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const { data, isLoading, isError } = useQuery({
@@ -68,10 +71,30 @@ export function ModificationsElevesAdminPage() {
     queryFn: () => fetchModifications(statut),
   })
 
+  // Ouvre directement le détail visé par le lien d'une notification
+  // (`/modifications-eleves?id=…`).
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (id) {
+      setDetailId(Number(id))
+      searchParams.delete('id')
+      setSearchParams(searchParams, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const invalider = () => {
     queryClient.invalidateQueries({ queryKey: ['modifications-eleves-admin'] })
     setDetailId(null)
   }
+
+  const donneesFiltrees = (data ?? []).filter((m) => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [m.eleve?.nom_complet, m.eleve?.matricule, m.tuteur?.nom_complet, m.tuteur?.telephone, m.tuteur?.email]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q))
+  })
 
   return (
     <div className="flex flex-col gap-5">
@@ -80,12 +103,21 @@ export function ModificationsElevesAdminPage() {
         sousTitre="Révisions d'identité et de situation sanitaire proposées par les parents."
         icon={UserCog}
         actions={
-          <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
-            <option value="en_attente">En attente</option>
-            <option value="validee">Validées</option>
-            <option value="rejetee">Rejetées</option>
-            <option value="">Toutes</option>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher un élève, un tuteur…"
+              className="w-56"
+              icon={Search}
+            />
+            <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
+              <option value="en_attente">En attente</option>
+              <option value="validee">Validées</option>
+              <option value="rejetee">Rejetées</option>
+              <option value="">Toutes</option>
+            </Select>
+          </div>
         }
       />
 
@@ -95,9 +127,11 @@ export function ModificationsElevesAdminPage() {
         <ErrorState />
       ) : data.length === 0 ? (
         <EmptyState label="Aucune demande dans cet état." />
+      ) : donneesFiltrees.length === 0 ? (
+        <EmptyState label="Aucune demande ne correspond à cette recherche." />
       ) : (
         <div className="flex flex-col gap-3">
-          {data.map((m) => (
+          {donneesFiltrees.map((m) => (
             <div key={m.id} onClick={() => setDetailId(m.id)} className="cursor-pointer">
               <Card className="transition-shadow hover:shadow-lifted">
                 <div className="flex flex-wrap items-start justify-between gap-3">

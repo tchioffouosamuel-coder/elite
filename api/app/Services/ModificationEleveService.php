@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Eleve;
 use App\Models\ModificationEleve;
 use App\Models\Tuteur;
+use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 
 /**
@@ -38,6 +39,12 @@ class ModificationEleveService extends BaseService
         return ModificationEleve::where('eleve_id', $eleveId)->where('statut', 'en_attente')->latest()->first();
     }
 
+    /** Historique complet des demandes de révision de l'élève, la plus récente en tête — pour que le parent voie le retour donné à celles déjà traitées. */
+    public function historiquePour(int $eleveId): Collection
+    {
+        return ModificationEleve::where('eleve_id', $eleveId)->latest()->get();
+    }
+
     public function soumettre(Tuteur $tuteur, Eleve $eleve, array $donnees): ModificationEleve
     {
         if ($this->enAttentePour($eleve->id)) {
@@ -64,6 +71,7 @@ class ModificationEleveService extends BaseService
             'modification_eleve',
             'Modification de fiche proposée',
             "{$tuteur->nom_complet} propose une modification de la fiche de {$eleve->nom_complet}.",
+            "/modifications-eleves?id={$modification->id}",
         );
 
         return $modification;

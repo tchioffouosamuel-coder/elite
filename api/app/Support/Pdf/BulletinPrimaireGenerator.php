@@ -61,12 +61,20 @@ class BulletinPrimaireGenerator
     {
         $pages = [];
 
+        $parAppreciation = ($donnees['mode'] ?? 'note') === 'appreciation';
+
         foreach ($donnees['eleves'] as $bulletin) {
             $pages[] = $this->enTeteEcole($donnees['school'])
                 . $this->titre($donnees)
                 . $this->infosEleve($bulletin, $donnees)
-                . $this->tableauNotes($bulletin, $donnees)
-                . $this->pied($bulletin, $donnees);
+                . ($parAppreciation
+                    ? $this->tableauAppreciations($bulletin, $donnees)
+                    : $this->tableauNotes($bulletin, $donnees))
+                . ($parAppreciation
+                    // Ni moyenne, ni rang, ni récapitulatif : la maternelle ne
+                    // classe pas ses élèves. Restent la légende et les signatures.
+                    ? $this->piedMaternelle($bulletin, $donnees)
+                    : $this->pied($bulletin, $donnees));
         }
 
         if ($pages === []) {
@@ -211,6 +219,107 @@ class BulletinPrimaireGenerator
      * pour cette séquence (fusionné sur la hauteur du bloc) — avant la note
      * trimestrielle et l'appréciation, elles aussi fusionnées.
      */
+    /**
+     * Grille de la maternelle : une colonne par niveau d'appréciation, en-tête
+     * portant l'émoji du référentiel, et la case du niveau atteint remplie de
+     * sa couleur.
+     *
+     * La couleur porte seule l'information à l'impression couleur ; on inscrit
+     * aussi l'émoji dans la case remplie pour qu'une photocopie en noir et
+     * blanc reste lisible — un bulletin circule souvent sous cette forme.
+     */
+    private function tableauAppreciations(array $bulletin, array $donnees): string
+    {
+        $appreciations = collect($donnees['appreciations'] ?? [])->values();
+
+        if ($appreciations->isEmpty()) {
+            return '<p style="text-align:center;">Aucun niveau d\'appréciation n\'est configuré pour cet établissement.</p>';
+        }
+
+        $wComp = 30;
+        $wEval = 22;
+        $wNiveau = max((int) round((100 - $wComp - $wEval) / max($appreciations->count(), 1)), 6);
+
+        $entete = '<tr>'
+            . '<th class="left" style="width:' . $wComp . '%;">Activités<br><i>Activities</i></th>'
+            . '<th style="width:' . $wEval . '%;">Évaluation<br><i>Assessment</i></th>';
+
+        foreach ($appreciations as $appreciation) {
+            $entete .= '<th style="width:' . $wNiveau . '%;">'
+                . ($appreciation->emoji ? '<span style="font-size:5mm;">' . $this->e($appreciation->emoji) . '</span><br>' : '')
+                . '<span style="font-size:2.1mm;">' . $this->e($appreciation->label_fr) . '</span></th>';
+        }
+
+        $entete .= '</tr>';
+
+        $corps = '';
+
+        foreach ($bulletin['lignes'] as $ligne) {
+            $nbVolets = max(count($ligne['volets']), 1);
+
+            foreach ($ligne['volets'] as $index => $volet) {
+                $corps .= '<tr>';
+
+                if ($index === 0) {
+                    $corps .= '<td class="left" rowspan="' . $nbVolets . '">'
+                        . '<span class="matiere">' . $this->e($ligne['matiere']) . '</span>'
+                        . ($ligne['matiere_en']
+                            ? '<br><i style="font-size:2mm;color:#777;">' . $this->e($ligne['matiere_en']) . '</i>'
+                            : '')
+                        . '</td>';
+                }
+
+                $corps .= '<td class="volet left">' . $this->e($volet['libelle'])
+                    . ' <i style="font-size:2.1mm;color:#777;">/ ' . $this->e($volet['libelle_en']) . '</i></td>';
+
+                $atteinte = $volet['appreciation']['id'] ?? null;
+
+                foreach ($appreciations as $appreciation) {
+                    $corps .= $appreciation->id === $atteinte
+                        ? '<td style="background-color:' . $this->e($appreciation->couleur) . ';color:#fff;font-size:4mm;">'
+                            . $this->e($appreciation->emoji ?? '') . '</td>'
+                        : '<td>&nbsp;</td>';
+                }
+
+                $corps .= '</tr>';
+            }
+        }
+
+        return '<table class="grille"><thead>' . $entete . '</thead><tbody>' . $corps . '</tbody></table>';
+    }
+
+    /** Pied de la maternelle : la légende des niveaux, puis les signatures. */
+    private function piedMaternelle(array $bulletin, array $donnees): string
+    {
+        $legende = '<div class="codes-titre">Codes d\'appréciation <i>/ Assessment codes</i></div>';
+
+        foreach (collect($donnees['appreciations'] ?? []) as $appreciation) {
+            $legende .= '<div class="codes-l">'
+                . '<span style="color:' . $this->e($appreciation->couleur) . ';">■</span> '
+                . ($appreciation->emoji ? $this->e($appreciation->emoji) . ' ' : '')
+                . '<b>' . $this->e($appreciation->label_fr) . '</b>'
+                . ($appreciation->label_en ? ' <i>/ ' . $this->e($appreciation->label_en) . '</i>' : '')
+                . '</div>';
+        }
+
+        $absences = '<table class="pied-bloc"><tr><th colspan="2">Assiduité <i>/ Attendance</i></th></tr>'
+            . '<tr><td class="left">Jours justifiés <i>/ Justified</i></td><td>' . (int) ($bulletin['jours_justifies'] ?? 0) . '</td></tr>'
+            . '<tr><td class="left">Jours non justifiés <i>/ Unjustified</i></td><td>' . (int) ($bulletin['jours_non_justifies'] ?? 0) . '</td></tr>'
+            . '</table>';
+
+        $signatures = '<table class="pied-bloc">'
+            . '<tr><td class="sign-lbl">L\'Enseignant<br><i>Class teacher</i></td>'
+            . '<td class="sign-lbl">Parent</td></tr>'
+            . '<tr><td class="zone">&nbsp;</td><td class="zone">&nbsp;</td></tr></table>';
+
+        return '<table class="no-border"><tr>'
+            . '<td style="width:40%;vertical-align:top;border:none;">'
+            . '<table class="pied-bloc"><tr><td class="codes-cell">' . $legende . '</td></tr></table></td>'
+            . '<td style="width:26%;vertical-align:top;border:none;padding:0 2mm;">' . $absences . '</td>'
+            . '<td style="width:34%;vertical-align:top;border:none;">' . $signatures . '</td>'
+            . '</tr></table>';
+    }
+
     private function tableauNotes(array $bulletin, array $donnees): string
     {
         $sequences = $donnees['sequences']->values();

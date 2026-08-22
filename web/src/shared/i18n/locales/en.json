@@ -105,7 +105,8 @@
     "modificationsEleves": "Profile edit requests",
     "comptesParents": "Parent accounts",
     "pointDeVente": "Point of sale",
-    "competences": "Competencies"
+    "competences": "Competencies",
+    "appreciations": "Assessment codes"
   },
   "auth": {
     "login_title": "Sign in",
@@ -998,7 +999,8 @@
   "notifications": {
     "title": "Notifications",
     "tout_marquer_lu": "Mark all read",
-    "aucune": "No notifications yet."
+    "aucune": "No notifications yet.",
+    "traiter": "Process"
   },
   "annonces": {
     "title": "Announcements",
@@ -1473,5 +1475,27 @@
     "retirer": "Remove the competency",
     "retiree": "Competency removed from the class.",
     "enseignant": "Teacher for the block"
+  },
+  "appreciations": {
+    "title": "Assessment codes",
+    "subtitle": "The levels the teacher ticks in nursery, and the colours the report card fills its cells with. The order sets the document’s column positions.",
+    "ajouter": "Add a level",
+    "modifier": "Edit the level",
+    "libelle": "Label",
+    "libelle_en": "Label (English)",
+    "emoji": "Emoji",
+    "couleur": "Colour",
+    "couleur_format": "Expected format: #rrggbb (for example #16a34a).",
+    "ordre": "Order",
+    "apercu": "Preview",
+    "actif": "Active",
+    "inactif": "Inactive",
+    "recherche": "Search a level…",
+    "aucun_niveau": "No assessment level configured.",
+    "cree": "Level added.",
+    "modifie": "Level updated.",
+    "supprime": "Level deleted.",
+    "legende": "Levels",
+    "volet": "Strand"
   }
 }

@@ -16,6 +16,11 @@ import { jouerSonNotification } from '@/shared/lib/son'
 
 const INTERVALLE_SONDAGE_MS = 20_000
 
+// Ces deux types désignent une demande qui attend un traitement — le toast
+// gagne un bouton explicite plutôt que de compter sur le seul réflexe de
+// cliquer le popup.
+const TYPES_A_TRAITER = new Set(['preinscription', 'modification_eleve'])
+
 /**
  * Cloche de notifications internes : le pendant « en application » des SMS —
  * absences, annonces, etc. Pas de permission dédiée, chacun ne voit que les
@@ -94,6 +99,7 @@ export function NotificationBell() {
         titre: notif.titre,
         message: notif.message,
         onClick: () => ouvrirNotification(notif),
+        actionLabel: TYPES_A_TRAITER.has(notif.type) ? t('notifications.traiter') : undefined,
       })
 
       if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {

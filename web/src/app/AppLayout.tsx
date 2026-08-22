@@ -48,6 +48,7 @@ import {
   Boxes,
   Store,
   Target,
+  SmilePlus,
   PiggyBank,
   Gavel,
   UserCog,
@@ -129,6 +130,16 @@ const navGroups = [
         // classe générique n'ont pas leur place, sa propre classe suffit.
         estEnseignant: true,
         types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
+      // La maternelle n'attribue pas de note : elle coche un visage, et le
+      // bulletin colore la case. Le référentiel de ces niveaux se règle ici.
+      {
+        to: '/appreciations',
+        label: 'nav.appreciations',
+        icon: SmilePlus,
+        permission: 'pedagogie.view',
+        masquerPourTitulaire: true,
+        types: ['maternelle'] as TypeEcole[],
       },
       {
         to: '/mes-attributions',

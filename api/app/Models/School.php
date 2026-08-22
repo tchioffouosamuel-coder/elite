@@ -35,6 +35,16 @@ class School extends Model
         return $this->type === 'secondaire';
     }
 
+    /**
+     * La maternelle évalue par appréciation — un visage colorié sur le
+     * bulletin — et non par une note chiffrée : c'est ce test qui aiguille la
+     * saisie, le bulletin et l'absence de moyenne générale.
+     */
+    public function estMaternelle(): bool
+    {
+        return $this->type === 'maternelle';
+    }
+
     public function niveaux(): HasMany
     {
         return $this->hasMany(Niveau::class);

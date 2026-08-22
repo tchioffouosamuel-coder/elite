@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Appreciation;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Eleve;
+use App\Models\Note;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
@@ -17,12 +19,17 @@ use Illuminate\Support\Collection;
  * Le bulletin ne montre pas les matières. Elles décrivent le contenu enseigné
  * et servent à l'emploi du temps ou à la progression, mais le livret que reçoit
  * la famille raisonne en compétences — c'est l'unité que l'école évalue.
+ *
+ * La maternelle suit un autre document : pas de note, pas de moyenne, pas de
+ * rang. Chaque volet y porte un niveau d'appréciation, et la case de la colonne
+ * atteinte se colore. `mode` distingue les deux rendus.
  */
 class BulletinPrimaireService extends BaseService
 {
     public function __construct(
         private readonly MoyennePrimaireService $moyennes,
         private readonly DisciplineService $discipline,
+        private readonly AppreciationService $appreciations,
     ) {}
 
     /**
@@ -42,7 +49,11 @@ class BulletinPrimaireService extends BaseService
         $sequences = $trimestre->sequencesRetenues();
         $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
 
-        $classement = $this->moyennes->classementGeneral($classe, $trimestre);
+        // La maternelle n'a ni moyenne, ni rang, ni classement : on ne les
+        // calcule même pas, plutôt que de les produire pour ne pas les afficher.
+        $parAppreciation = (bool) $classe->school?->estMaternelle();
+
+        $classement = $parAppreciation ? collect() : $this->moyennes->classementGeneral($classe, $trimestre);
         $moyennes = $classement->pluck('moyenne')->filter(fn($m) => $m !== null);
 
         // Au primaire l'absence se compte en journées déduites des appels :
@@ -55,6 +66,11 @@ class BulletinPrimaireService extends BaseService
             : $tousEleves->whereIn('id', $eleveIds)->values();
 
         return [
+            'mode' => $parAppreciation ? 'appreciation' : 'note',
+            // Colonnes du bulletin de maternelle, dans l'ordre du référentiel.
+            'appreciations' => $parAppreciation
+                ? $this->appreciations->referentiel((int) $classe->school_id)
+                : collect(),
             'classe' => $classe,
             'school' => $classe->school,
             'trimestre' => $trimestre,
@@ -73,8 +89,79 @@ class BulletinPrimaireService extends BaseService
                 'evalues' => $moyennes->count(),
             ],
             'eleves' => $elevesDuDocument
-                ->map(fn(Eleve $eleve) => $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours))
+                ->map(fn(Eleve $eleve) => $parAppreciation
+                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours)
+                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours))
                 ->all(),
+        ];
+    }
+
+    /**
+     * Bulletin de maternelle : une ligne par volet, portant le niveau
+     * d'appréciation atteint plutôt qu'une note.
+     *
+     * Un trimestre compte plusieurs séquences alors que le document n'offre
+     * qu'un jeu de colonnes : on retient l'appréciation de la DERNIÈRE séquence
+     * renseignée. L'acquisition est une trajectoire — ce que le livret
+     * communique à la famille, c'est où l'enfant en est à la fin du trimestre,
+     * pas une moyenne de ses étapes.
+     *
+     * @param  Collection<int, ClasseCompetence>  $affectations
+     */
+    private function donneesEleveMaternelle(
+        Eleve $eleve,
+        Collection $affectations,
+        Collection $sequences,
+        Collection $jours,
+    ): array {
+        $notes = Note::where('eleve_id', $eleve->id)
+            ->whereIn('classe_competence_id', $affectations->pluck('id'))
+            ->whereIn('sequence_id', $sequences->pluck('id'))
+            ->whereNotNull('appreciation_id')
+            ->with('appreciation')
+            ->get();
+
+        // Rang de chaque séquence, par identifiant : c'est lui qui dit laquelle
+        // est la dernière. `flip()` sur la collection de modèles ne donnerait
+        // rien d'exploitable — il faut passer par les identifiants.
+        $rangSequence = $sequences->values()->pluck('id')->flip();
+
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($notes, $rangSequence) {
+            $competence = $cc->competence;
+
+            return [
+                'matiere' => $competence->label_fr,
+                'matiere_en' => $competence->label_en,
+                'abreviation' => $competence->abbreviation,
+                'enseignant' => $cc->enseignant?->nom_complet ?? '—',
+                'volets' => collect($competence->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
+                    $retenue = $notes
+                        ->where('classe_competence_id', $cc->id)
+                        ->where('composante', $volet)
+                        ->sortByDesc(fn(Note $note) => $rangSequence[$note->sequence_id] ?? -1)
+                        ->first();
+
+                    return [
+                        'code' => $volet,
+                        'libelle' => self::LIBELLES_VOLETS[$volet]['fr'],
+                        'libelle_en' => self::LIBELLES_VOLETS[$volet]['en'],
+                        'appreciation' => $retenue?->appreciation ? [
+                            'id' => $retenue->appreciation->id,
+                            'label_fr' => $retenue->appreciation->label_fr,
+                            'label_en' => $retenue->appreciation->label_en,
+                            'emoji' => $retenue->appreciation->emoji,
+                            'couleur' => $retenue->appreciation->couleur,
+                        ] : null,
+                    ];
+                })->values()->all(),
+            ];
+        });
+
+        return [
+            'eleve' => $eleve,
+            'lignes' => $lignes->all(),
+            'jours_justifies' => (int) ($jours[$eleve->id]['jours_justifies'] ?? 0),
+            'jours_non_justifies' => (int) ($jours[$eleve->id]['jours_non_justifies'] ?? 0),
         ];
     }
 

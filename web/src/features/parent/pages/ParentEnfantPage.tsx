@@ -22,6 +22,7 @@ import {
   CalendarClock,
   Stethoscope,
   Gavel,
+  FileEdit,
 } from 'lucide-react'
 import {
   fetchEnfant,
@@ -32,7 +33,7 @@ import {
   soumettreJustification,
   fetchObservationsEnfant,
   soumettreObservation,
-  fetchModificationEnAttente,
+  fetchHistoriqueModifications,
   soumettreModification,
   fetchEmploiDuTempsEnfant,
   fetchVisitesInfirmerieEnfant,
@@ -58,6 +59,9 @@ const MOTIFS_JUSTIFICATION: { valeur: MotifJustification; libelle: string }[] = 
   { valeur: 'permission', libelle: 'Permission' },
 ]
 
+const STATUT_MODIFICATION_TONE = { en_attente: 'gold', validee: 'green', rejetee: 'red' } as const
+const STATUT_MODIFICATION_LABEL = { en_attente: 'En attente', validee: 'Validée', rejetee: 'Rejetée' } as const
+
 function Champ({ label, valeur }: { label: string; valeur: string | null | undefined }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -79,10 +83,14 @@ export function ParentEnfantPage() {
   const [modificationOuverte, setModificationOuverte] = useState(false)
 
   const { data: e, isLoading, isError } = useQuery({ queryKey: ['parent-enfant', eleveId], queryFn: () => fetchEnfant(eleveId) })
-  const { data: modificationEnAttente } = useQuery({
-    queryKey: ['parent-modification', eleveId],
-    queryFn: () => fetchModificationEnAttente(eleveId),
+  // Un seul appel pour le bandeau "en attente" et l'historique complet : la
+  // demande en attente, s'il y en a une, est simplement la première de
+  // l'historique (déjà trié du plus récent au plus ancien côté API).
+  const { data: historiqueModifications } = useQuery({
+    queryKey: ['parent-modifications', eleveId],
+    queryFn: () => fetchHistoriqueModifications(eleveId),
   })
+  const modificationEnAttente = historiqueModifications?.find((m) => m.statut === 'en_attente')
 
   if (isLoading) return <Spinner />
   if (isError || !e) return <ErrorState />
@@ -212,13 +220,40 @@ export function ParentEnfantPage() {
       <DisciplineCard eleveId={eleveId} />
       <ObservationsCard eleveId={eleveId} />
 
+      {historiqueModifications && historiqueModifications.length > 0 && (
+        <Card>
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+            <FileEdit className="h-4 w-4" />
+            Mes demandes de modification
+          </h2>
+          <div className="flex flex-col divide-y divide-navy-50">
+            {historiqueModifications.map((m) => (
+              <div key={m.id} className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm text-navy-700">
+                    Déposée le {new Date(m.created_at).toLocaleString('fr-FR')}
+                  </span>
+                  <Badge tone={STATUT_MODIFICATION_TONE[m.statut]}>{STATUT_MODIFICATION_LABEL[m.statut]}</Badge>
+                </div>
+                {m.statut === 'rejetee' && m.motif_rejet && (
+                  <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-700">{m.motif_rejet}</p>
+                )}
+                {m.statut === 'validee' && (
+                  <p className="text-xs text-green-700">Appliquée à la fiche de l'enfant.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {modificationOuverte && (
         <ModifierInfosModal
           eleveId={eleveId}
           enfant={e}
           onClose={() => setModificationOuverte(false)}
           onSubmitted={() => {
-            queryClient.invalidateQueries({ queryKey: ['parent-modification', eleveId] })
+            queryClient.invalidateQueries({ queryKey: ['parent-modifications', eleveId] })
             setModificationOuverte(false)
           }}
         />

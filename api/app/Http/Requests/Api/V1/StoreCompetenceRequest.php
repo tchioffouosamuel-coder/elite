@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Models\School;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -31,7 +32,9 @@ class StoreCompetenceRequest extends FormRequest
             'abbreviation' => ['nullable', 'string', 'max:20'],
 
             // Barème de la compétence — archange borne la saisie entre 10 et 100.
-            'notation' => ['required', 'integer', 'min:10', 'max:100'],
+            // Facultatif en maternelle, qui évalue par appréciation et n'a donc
+            // ni barème ni répartition de volets à renseigner.
+            'notation' => [$this->parAppreciation() ? 'nullable' : 'required', 'integer', 'min:10', 'max:100'],
             'evalue_pratique' => ['nullable', 'boolean'],
             'ordre' => ['nullable', 'integer', 'min:0', 'max:999'],
             'statut' => ['nullable', 'in:actif,inactif'],
@@ -47,12 +50,20 @@ class StoreCompetenceRequest extends FormRequest
         ];
     }
 
+    /** La maternelle coche un visage : ni barème, ni répartition à valider. */
+    private function parAppreciation(): bool
+    {
+        $schoolId = $this->input('school_id') ?? app('tenant.school_id');
+
+        return $schoolId !== null && School::whereKey($schoolId)->value('type') === 'maternelle';
+    }
+
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
             $repartition = $this->input('repartition_volets');
 
-            if ($repartition === null) {
+            if ($repartition === null || $this->parAppreciation()) {
                 return;
             }
 

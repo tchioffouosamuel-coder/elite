@@ -237,12 +237,20 @@ export interface ModificationEnfantPayload {
 export interface ModificationEnfantResume {
   id: number
   donnees: ModificationEnfantPayload
-  statut: 'en_attente'
+  statut: 'en_attente' | 'validee' | 'rejetee'
+  motif_rejet: string | null
   created_at: string
+  traite_le: string | null
 }
 
 export async function fetchModificationEnAttente(eleveId: number): Promise<ModificationEnfantResume | null> {
   const { data } = await http.get<ApiResponse<ModificationEnfantResume | null>>(`/parent/enfants/${eleveId}/modification`)
+  return data.data
+}
+
+/** Historique complet — y compris les demandes déjà traitées, pour que le parent voie le retour donné à chacune. */
+export async function fetchHistoriqueModifications(eleveId: number): Promise<ModificationEnfantResume[]> {
+  const { data } = await http.get<ApiResponse<ModificationEnfantResume[]>>(`/parent/enfants/${eleveId}/modifications`)
   return data.data
 }
 

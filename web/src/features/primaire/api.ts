@@ -54,17 +54,52 @@ export async function deleteNiveauScolaire(id: number): Promise<void> {
 /* Saisie des notes par volets                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Niveau d'appréciation de la maternelle : le visage coché à la saisie, la
+ * couleur dont le bulletin remplit sa case.
+ */
+export interface Appreciation {
+  id: number
+  label_fr: string
+  label_en: string | null
+  emoji: string | null
+  couleur: string
+  ordre: number
+  statut?: string
+  school_id?: number
+  school?: { id: number; name: string; type: string } | null
+}
+
+export interface AppreciationPayload {
+  label_fr: string
+  label_en?: string | null
+  emoji?: string | null
+  couleur: string
+  ordre: number
+  statut?: string
+  school_id?: number | null
+}
+
 export interface GrillePrimaire {
+  /**
+   * « note » au primaire (saisie chiffrée), « appreciation » en maternelle
+   * (on coche un visage). C'est l'API qui tranche, d'après l'école de la classe.
+   */
+  mode: 'note' | 'appreciation'
   composantes: Composante[]
   sequences: { id: number; libelle: string }[]
   bareme: number
   /** Points maximum par volet, tels que définis sur la compétence. */
   repartition: Record<Composante, number>
+  /** Colonnes de la maternelle, dans l'ordre ; vide au primaire. */
+  appreciations: Appreciation[]
   lignes: {
     eleve_id: number
     nom_complet: string
-    /** notes[composante][sequence_id] */
+    /** notes[composante][sequence_id] — primaire. */
     notes: Record<Composante, Record<number, number | null>>
+    /** appreciations[composante][sequence_id] — maternelle. */
+    appreciations: Record<Composante, Record<number, number | null>>
   }[]
 }
 
@@ -72,7 +107,9 @@ export interface NotePrimaireInput {
   eleve_id: number
   sequence_id: number
   composante: Composante
-  valeur: number | null
+  valeur?: number | null
+  /** Renseigné en maternelle, à la place de `valeur`. */
+  appreciation_id?: number | null
 }
 
 /** La grille porte sur une compétence : c'est elle que le bulletin note. */
@@ -147,4 +184,31 @@ export interface LigneDecision {
 export async function fetchDecisions(classeId: number): Promise<LigneDecision[]> {
   const { data } = await http.get<ApiResponse<LigneDecision[]>>(`/classes/${classeId}/decisions`)
   return data.data
+}
+
+/* ------------------------------------------------------------------ */
+/* Référentiel d'appréciations — maternelle                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le référentiel se dote de ses niveaux d'usage à la première lecture : une
+ * école qui ouvre l'écran de saisie peut cocher un visage sans réglage.
+ */
+export async function fetchAppreciations(): Promise<Appreciation[]> {
+  const { data } = await http.get<ApiResponse<Appreciation[]>>('/appreciations')
+  return data.data
+}
+
+export async function creerAppreciation(payload: AppreciationPayload): Promise<Appreciation> {
+  const { data } = await http.post<ApiResponse<Appreciation>>('/appreciations', payload)
+  return data.data
+}
+
+export async function modifierAppreciation(id: number, payload: AppreciationPayload): Promise<Appreciation> {
+  const { data } = await http.put<ApiResponse<Appreciation>>(`/appreciations/${id}`, payload)
+  return data.data
+}
+
+export async function supprimerAppreciation(id: number): Promise<void> {
+  await http.delete(`/appreciations/${id}`)
 }

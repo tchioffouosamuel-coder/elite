@@ -84,6 +84,7 @@ class PreinscriptionService extends BaseService
             $type === 'nouveau'
                 ? "{$tuteur->nom_complet} propose l'inscription de {$nomPropose}."
                 : "{$tuteur->nom_complet} propose une révision de la fiche de {$nomPropose}.",
+            "/preinscriptions?id={$preinscription->id}",
         );
 
         return $preinscription;
@@ -135,6 +136,26 @@ class PreinscriptionService extends BaseService
 
             return $preinscription->fresh();
         });
+    }
+
+    /**
+     * Corrige les informations proposées par le parent avant validation — une
+     * coquille ou un champ mal orthographié ne doit pas obliger à rejeter puis
+     * à faire redéposer toute la démarche. Fermé dès que la préinscription est
+     * traitée : au-delà, c'est la fiche élève elle-même qu'il faut corriger.
+     */
+    public function modifierDonnees(Preinscription $preinscription, array $donneesEleve, array $donneesTuteurs): Preinscription
+    {
+        if ($preinscription->statut !== 'en_attente') {
+            throw new RuntimeException('Cette préinscription a déjà été traitée.');
+        }
+
+        $preinscription->update([
+            'donnees_eleve' => $donneesEleve,
+            'donnees_tuteurs' => $donneesTuteurs,
+        ]);
+
+        return $preinscription->fresh();
     }
 
     public function rejeter(Preinscription $preinscription, string $motif, ?int $adminUserId = null): Preinscription

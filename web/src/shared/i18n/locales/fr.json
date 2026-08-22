@@ -105,7 +105,8 @@
     "modificationsEleves": "Modifications de fiches",
     "comptesParents": "Comptes parents",
     "pointDeVente": "Point de vente",
-    "competences": "Compétences"
+    "competences": "Compétences",
+    "appreciations": "Codes d'appréciation"
   },
   "auth": {
     "login_title": "Connexion",
@@ -960,7 +961,8 @@
   "notifications": {
     "title": "Notifications",
     "tout_marquer_lu": "Tout marquer lu",
-    "aucune": "Aucune notification pour le moment."
+    "aucune": "Aucune notification pour le moment.",
+    "traiter": "Traiter"
   },
   "annonces": {
     "title": "Annonces",
@@ -1473,5 +1475,27 @@
     "retirer": "Retirer la compétence",
     "retiree": "Compétence retirée de la classe.",
     "enseignant": "Enseignant du bloc"
+  },
+  "appreciations": {
+    "title": "Codes d'appréciation",
+    "subtitle": "Les niveaux que l'enseignante coche en maternelle, et les couleurs dont le bulletin remplit ses cases. L'ordre fixe la position des colonnes du document.",
+    "ajouter": "Ajouter un niveau",
+    "modifier": "Modifier le niveau",
+    "libelle": "Libellé",
+    "libelle_en": "Libellé (anglais)",
+    "emoji": "Émoji",
+    "couleur": "Couleur",
+    "couleur_format": "Format attendu : #rrggbb (par exemple #16a34a).",
+    "ordre": "Ordre",
+    "apercu": "Aperçu",
+    "actif": "Actif",
+    "inactif": "Inactif",
+    "recherche": "Rechercher un niveau…",
+    "aucun_niveau": "Aucun niveau d'appréciation configuré.",
+    "cree": "Niveau ajouté.",
+    "modifie": "Niveau mis à jour.",
+    "supprime": "Niveau supprimé.",
+    "legende": "Niveaux",
+    "volet": "Volet"
   }
 }

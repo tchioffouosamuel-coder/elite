@@ -27,7 +27,7 @@ class NotePrimaireController extends Controller
     public function index(Request $request, int $classeCompetenceId): JsonResponse
     {
         $classeCompetence = ClasseCompetence::forSchool(app('tenant.school_id'))
-            ->with(['classe', 'competence'])
+            ->with(['classe.school', 'competence'])
             ->findOrFail($classeCompetenceId);
 
         $trimestre = $this->resoudreTrimestre($request);
@@ -42,24 +42,28 @@ class NotePrimaireController extends Controller
     public function bulkStore(BulkSaveNotesPrimaireRequest $request, int $classeCompetenceId): JsonResponse
     {
         $classeCompetence = ClasseCompetence::forSchool(app('tenant.school_id'))
-            ->with(['classe', 'competence'])
+            ->with(['classe.school', 'competence'])
             ->findOrFail($classeCompetenceId);
 
         if (! $this->service->peutSaisir($request->user(), $classeCompetence)) {
             return ApiResponse::forbidden("Vous n'êtes pas le titulaire de cette classe.");
         }
 
-        // Une note ne peut dépasser la part du barème allouée à son volet —
-        // répartition propre à la compétence, pas le barème divisé à parts égales.
-        $repartition = $classeCompetence->competence->repartitionVolets();
+        // Le plafond par volet ne concerne que la notation chiffrée : en
+        // maternelle, le volet porte un niveau d'appréciation, pas un nombre.
+        if (! $this->service->parAppreciation($classeCompetence)) {
+            // Une note ne peut dépasser la part du barème allouée à son volet —
+            // répartition propre à la compétence, pas le barème divisé à parts égales.
+            $repartition = $classeCompetence->competence->repartitionVolets();
 
-        foreach ($request->input('notes') as $index => $row) {
-            $maxVolet = $repartition[$row['composante']] ?? 0;
+            foreach ($request->input('notes') as $index => $row) {
+                $maxVolet = $repartition[$row['composante']] ?? 0;
 
-            if (isset($row['valeur']) && $row['valeur'] !== null && (float) $row['valeur'] > $maxVolet) {
-                return ApiResponse::validationError(
-                    ["notes.{$index}.valeur" => ['Ce volet est noté sur '.round($maxVolet, 2).' au maximum.']],
-                );
+                if (isset($row['valeur']) && $row['valeur'] !== null && (float) $row['valeur'] > $maxVolet) {
+                    return ApiResponse::validationError(
+                        ["notes.{$index}.valeur" => ['Ce volet est noté sur '.round($maxVolet, 2).' au maximum.']],
+                    );
+                }
             }
         }
 

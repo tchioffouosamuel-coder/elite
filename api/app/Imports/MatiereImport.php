@@ -138,6 +138,10 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
             $ligne = $this->canoniser($row instanceof Collection ? $row->all() : (array) $row);
             $nom = trim((string) ($ligne['nom'] ?? ''));
 
+            if ($nom === '' && $this->cycle === self::CYCLE_SECONDAIRE) {
+                $nom = trim((string) ($ligne['nom_en'] ?? ''));
+            }
+
             // Une ligne sans nom de matière n'est pas une erreur à signaler :
             // c'est un total, un intitulé de section ou une ligne de garde.
             if ($nom === '') {
