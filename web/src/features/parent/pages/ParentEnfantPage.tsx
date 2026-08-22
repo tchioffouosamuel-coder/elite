@@ -55,13 +55,17 @@ import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 const MOTIFS_JUSTIFICATION: { valeur: MotifJustification; libelle: string }[] = [
-  { valeur: 'maladie', libelle: 'Maladie' },
-  { valeur: 'scolarite', libelle: "Raison d'ordre scolaire" },
-  { valeur: 'permission', libelle: 'Permission' },
+  { valeur: 'maladie', libelle: 'Maladie / Illness' },
+  { valeur: 'scolarite', libelle: "Raison d'ordre scolaire / School-related reason" },
+  { valeur: 'permission', libelle: 'Permission / Leave' },
 ]
 
 const STATUT_MODIFICATION_TONE = { en_attente: 'gold', validee: 'green', rejetee: 'red' } as const
-const STATUT_MODIFICATION_LABEL = { en_attente: 'En attente', validee: 'Validée', rejetee: 'Rejetée' } as const
+const STATUT_MODIFICATION_LABEL = {
+  en_attente: 'En attente / Pending',
+  validee: 'Validée / Approved',
+  rejetee: 'Rejetée / Rejected',
+} as const
 
 function Champ({ label, valeur }: { label: string; valeur: string | null | undefined }) {
   return (
@@ -101,7 +105,7 @@ export function ParentEnfantPage() {
       <div>
         <Link to="/parent" className="mb-2 flex w-fit items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
           <ArrowLeft className="h-4 w-4" />
-          Mes enfants
+          Mes enfants / My children
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           {e.photo_url ? (
@@ -116,25 +120,25 @@ export function ParentEnfantPage() {
             <p className="break-words text-sm text-navy-400">{[e.matricule, e.classe?.nom, e.school?.name].filter(Boolean).join(' · ') || '—'}</p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-            {e.sante.aptitude === 'inapte' && <Badge tone="red">Inapte au sport</Badge>}
+            {e.sante.aptitude === 'inapte' && <Badge tone="red">Inapte au sport / Unfit for sports</Badge>}
             <Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => ouvrirDocument(`/parent/enfants/${eleveId}/bulletin`)}>
               <FileDown className="h-4 w-4" />
-              Bulletin
+              Bulletin / Report card
             </Button>
             {modificationEnAttente ? (
               <Badge tone="gold">
                 <Clock className="h-3 w-3" />
-                Modification en attente
+                Modification en attente / Edit pending
               </Badge>
             ) : (
               <Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => setModificationOuverte(true)}>
                 <Pencil className="h-4 w-4" />
-                Modifier mes informations
+                Modifier mes informations / Edit my information
               </Button>
             )}
             <Button className="flex-1 sm:flex-none" onClick={() => navigate(`/parent/preinscription/existant/${eleveId}`)}>
               <FilePlus2 className="h-4 w-4" />
-              Préinscription
+              Préinscription / Pre-registration
             </Button>
           </div>
         </div>
@@ -143,7 +147,8 @@ export function ParentEnfantPage() {
       {modificationEnAttente && (
         <p className="flex items-center gap-2 rounded-xl bg-gold-50 px-3.5 py-2.5 text-sm text-gold-800">
           <Clock className="h-4 w-4 flex-none" />
-          Une modification de fiche est en attente de validation par l'établissement, déposée le{' '}
+          Une modification de fiche est en attente de validation par l'établissement, déposée le / A profile edit is
+          awaiting the school's approval, submitted on{' '}
           {new Date(modificationEnAttente.created_at).toLocaleString('fr-FR')}.
         </p>
       )}
@@ -151,55 +156,55 @@ export function ParentEnfantPage() {
       <Card>
         <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
           <UserRound className="h-4 w-4" />
-          Identité
+          Identité / Identity
         </h2>
         <div className="mb-4 flex items-center gap-4">
           {e.photo_url ? (
             <img src={e.photo_url} alt={e.nom_complet} className="h-24 w-24 flex-none rounded-xl object-cover ring-1 ring-navy-100" />
           ) : (
             <span className="flex h-24 w-24 flex-none items-center justify-center rounded-xl bg-cream-100 text-xs font-medium text-navy-300 ring-1 ring-navy-100">
-              Aucune photo
+              Aucune photo / No photo
             </span>
           )}
-          <Champ label="Nom complet" valeur={e.nom_complet} />
+          <Champ label="Nom complet / Full name" valeur={e.nom_complet} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Champ label="Sexe" valeur={e.sexe === 'F' ? 'Féminin' : 'Masculin'} />
-          <Champ label="Date de naissance" valeur={e.date_naissance} />
-          <Champ label="Lieu de naissance" valeur={e.lieu_naissance} />
-          <Champ label="Adresse" valeur={e.adresse} />
-          <Champ label="N° acte de naissance" valeur={e.acte_naissance.numero} />
-          <Champ label="Lieu de délivrance" valeur={e.acte_naissance.lieu_delivrance} />
-          <Champ label="Officier d'état civil" valeur={e.acte_naissance.officier_etat_civil} />
+          <Champ label="Sexe / Sex" valeur={e.sexe === 'F' ? 'Féminin / Female' : 'Masculin / Male'} />
+          <Champ label="Date de naissance / Date of birth" valeur={e.date_naissance} />
+          <Champ label="Lieu de naissance / Place of birth" valeur={e.lieu_naissance} />
+          <Champ label="Adresse / Address" valeur={e.adresse} />
+          <Champ label="N° acte de naissance / Birth certificate no." valeur={e.acte_naissance.numero} />
+          <Champ label="Lieu de délivrance / Place of issue" valeur={e.acte_naissance.lieu_delivrance} />
+          <Champ label="Officier d'état civil / Registrar" valeur={e.acte_naissance.officier_etat_civil} />
         </div>
       </Card>
 
       <Card>
         <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
           <HeartPulse className="h-4 w-4 text-gold-500" />
-          Situation sanitaire
+          Situation sanitaire / Health situation
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Champ label="Groupe sanguin" valeur={e.sante.groupe_sanguin} />
-          <Champ label="Aptitude" valeur={e.sante.aptitude === 'apte' ? 'Apte' : 'Inapte'} />
+          <Champ label="Groupe sanguin / Blood type" valeur={e.sante.groupe_sanguin} />
+          <Champ label="Aptitude / Fitness" valeur={e.sante.aptitude === 'apte' ? 'Apte / Fit' : 'Inapte / Unfit'} />
           <div className="sm:col-span-2 lg:col-span-2">
             <Champ label="Allergies" valeur={e.sante.allergies} />
           </div>
           <div className="sm:col-span-2 lg:col-span-4">
-            <Champ label="Situation sanitaire" valeur={e.sante.situation_sanitaire} />
+            <Champ label="Situation sanitaire / Health situation" valeur={e.sante.situation_sanitaire} />
           </div>
         </div>
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Tuteurs</h2>
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Tuteurs / Guardians</h2>
         <div className="flex flex-col divide-y divide-navy-100">
           {e.tuteurs.map((t) => (
             <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div>
                 <p className="text-sm font-semibold text-navy-800">
                   {t.nom_complet}
-                  {t.is_principal && <span className="ml-2 text-xs font-medium text-gold-600">Principal</span>}
+                  {t.is_principal && <span className="ml-2 text-xs font-medium text-gold-600">Principal / Primary</span>}
                 </p>
                 <p className="text-xs text-navy-400">{t.lien_parente || '—'}</p>
               </div>
@@ -225,14 +230,14 @@ export function ParentEnfantPage() {
         <Card>
           <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
             <FileEdit className="h-4 w-4" />
-            Mes demandes de modification
+            Mes demandes de modification / My edit requests
           </h2>
           <div className="flex flex-col divide-y divide-navy-50">
             {historiqueModifications.map((m) => (
               <div key={m.id} className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm text-navy-700">
-                    Déposée le {new Date(m.created_at).toLocaleString('fr-FR')}
+                    Déposée le / Submitted on {new Date(m.created_at).toLocaleString('fr-FR')}
                   </span>
                   <Badge tone={STATUT_MODIFICATION_TONE[m.statut]}>{STATUT_MODIFICATION_LABEL[m.statut]}</Badge>
                 </div>
@@ -240,7 +245,7 @@ export function ParentEnfantPage() {
                   <p className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-700">{m.motif_rejet}</p>
                 )}
                 {m.statut === 'validee' && (
-                  <p className="text-xs text-green-700">Appliquée à la fiche de l'enfant.</p>
+                  <p className="text-xs text-green-700">Appliquée à la fiche de l'enfant. / Applied to the child's profile.</p>
                 )}
               </div>
             ))}
@@ -311,7 +316,7 @@ function ModifierInfosModal({
   const onSubmit = async (values: ModificationEnfantPayload) => {
     try {
       await soumettreModification(eleveId, values)
-      succes("Modification transmise, en attente de validation par l'établissement.")
+      succes("Modification transmise, en attente de validation par l'établissement. / Edit submitted, awaiting school approval.")
       onSubmitted()
     } catch (err) {
       erreur((err as ApiError).message)
@@ -319,49 +324,54 @@ function ModifierInfosModal({
   }
 
   return (
-    <Modal title="Modifier mes informations" onClose={onClose}>
+    <Modal title="Modifier mes informations / Edit my information" onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-500">
-          Ces modifications seront examinées par l'établissement avant d'être appliquées à la fiche de l'enfant.
+          Ces modifications seront examinées par l'établissement avant d'être appliquées à la fiche de l'enfant. / These
+          changes will be reviewed by the school before being applied to the child's profile.
         </p>
 
-        <h3 className="text-sm font-bold uppercase tracking-wide text-navy-500">Identité</h3>
-        <Input label="Nom complet" error={errors.nom_complet?.message} {...register('nom_complet', { required: 'Requis.' })} />
+        <h3 className="text-sm font-bold uppercase tracking-wide text-navy-500">Identité / Identity</h3>
+        <Input
+          label="Nom complet / Full name"
+          error={errors.nom_complet?.message}
+          {...register('nom_complet', { required: 'Requis. / Required.' })}
+        />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select label="Sexe" error={errors.sexe?.message} {...register('sexe', { required: 'Requis.' })}>
-            <option value="F">Féminin</option>
-            <option value="M">Masculin</option>
+          <Select label="Sexe / Sex" error={errors.sexe?.message} {...register('sexe', { required: 'Requis. / Required.' })}>
+            <option value="F">Féminin / Female</option>
+            <option value="M">Masculin / Male</option>
           </Select>
           <Input
-            label="Date de naissance"
+            label="Date de naissance / Date of birth"
             type="date"
             error={errors.date_naissance?.message}
-            {...register('date_naissance', { required: 'Requis.' })}
+            {...register('date_naissance', { required: 'Requis. / Required.' })}
           />
         </div>
-        <Input label="Lieu de naissance" {...register('lieu_naissance')} />
-        <Input label="Adresse" {...register('adresse')} />
-        <Input label="N° acte de naissance" {...register('numero_acte_naissance')} />
-        <Input label="Lieu de délivrance" {...register('lieu_delivrance_acte')} />
-        <Input label="Nom de l'officier d'état civil" {...register('officier_etat_civil')} />
+        <Input label="Lieu de naissance / Place of birth" {...register('lieu_naissance')} />
+        <Input label="Adresse / Address" {...register('adresse')} />
+        <Input label="N° acte de naissance / Birth certificate no." {...register('numero_acte_naissance')} />
+        <Input label="Lieu de délivrance / Place of issue" {...register('lieu_delivrance_acte')} />
+        <Input label="Nom de l'officier d'état civil / Registrar's name" {...register('officier_etat_civil')} />
 
-        <h3 className="mt-2 text-sm font-bold uppercase tracking-wide text-navy-500">Situation sanitaire</h3>
+        <h3 className="mt-2 text-sm font-bold uppercase tracking-wide text-navy-500">Situation sanitaire / Health situation</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input label="Groupe sanguin" placeholder="Ex. O+" {...register('groupe_sanguin')} />
-          <Select label="Aptitude" {...register('aptitude')}>
-            <option value="apte">Apte</option>
-            <option value="inapte">Inapte</option>
+          <Input label="Groupe sanguin / Blood type" placeholder="Ex. O+" {...register('groupe_sanguin')} />
+          <Select label="Aptitude / Fitness" {...register('aptitude')}>
+            <option value="apte">Apte / Fit</option>
+            <option value="inapte">Inapte / Unfit</option>
           </Select>
         </div>
         <Textarea label="Allergies" {...register('allergies')} />
-        <Textarea label="Situation sanitaire" {...register('situation_sanitaire')} />
+        <Textarea label="Situation sanitaire / Health situation" {...register('situation_sanitaire')} />
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Annuler
+            Annuler / Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Envoi…' : 'Transmettre pour validation'}
+            {isSubmitting ? 'Envoi… / Sending…' : 'Transmettre pour validation / Submit for approval'}
           </Button>
         </div>
       </form>
@@ -376,20 +386,20 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <Wallet className="h-4 w-4" />
-        Situation financière
+        Situation financière / Financial situation
       </h2>
       {isLoading ? (
         <Spinner />
       ) : !finance ? (
-        <p className="text-sm text-navy-400">Aucune année scolaire active pour l'instant.</p>
+        <p className="text-sm text-navy-400">Aucune année scolaire active pour l'instant. / No active school year at the moment.</p>
       ) : (
         <>
           <dl className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-cream-100 p-3 text-center sm:grid-cols-4">
             {[
-              ['Total dû', francs(finance.total_du), 'text-navy-700'],
-              ['Déjà versé', francs(finance.total_paye), 'text-green-600'],
-              ['Reste à payer', francs(finance.reste_a_payer), 'text-red-500'],
-              ['Statut', finance.statut_paiement, 'text-navy-700'],
+              ['Total dû / Total due', francs(finance.total_du), 'text-navy-700'],
+              ['Déjà versé / Already paid', francs(finance.total_paye), 'text-green-600'],
+              ['Reste à payer / Remaining', francs(finance.reste_a_payer), 'text-red-500'],
+              ['Statut / Status', finance.statut_paiement, 'text-navy-700'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>
                 <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
@@ -404,21 +414,22 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             <div className="mb-4 flex flex-col gap-1.5 text-xs">
               {finance.date_limite_paiement && (
                 <p className="text-navy-500">
-                  Date limite de paiement : <span className="font-semibold text-navy-800">{new Date(finance.date_limite_paiement).toLocaleDateString('fr-FR')}</span>
+                  Date limite de paiement / Payment deadline :{' '}
+                  <span className="font-semibold text-navy-800">{new Date(finance.date_limite_paiement).toLocaleDateString('fr-FR')}</span>
                 </p>
               )}
               {/* Un moratoire valide concerne cette famille précisément — il prime sur
                   la date d'exclusion générale de l'école, qui ne s'applique plus à elle. */}
               {finance.moratoire ? (
                 <p className="rounded-lg bg-gold-50 px-3 py-2 text-gold-800">
-                  Moratoire accordé jusqu'au{' '}
+                  Moratoire accordé jusqu'au / Moratorium granted until{' '}
                   <span className="font-semibold">{new Date(finance.moratoire.date_expiration).toLocaleDateString('fr-FR')}</span>
                   {finance.moratoire.motif ? ` · ${finance.moratoire.motif}` : ''}
                 </p>
               ) : (
                 finance.date_exclusion_insolvables && (
                   <p className="text-navy-500">
-                    Date d'exclusion des insolvables :{' '}
+                    Date d'exclusion des insolvables / Non-payment exclusion date :{' '}
                     <span className="font-semibold text-navy-800">{new Date(finance.date_exclusion_insolvables).toLocaleDateString('fr-FR')}</span>
                   </p>
                 )
@@ -433,9 +444,9 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
               <div key={`${r.cle}:${r.dossier_frais_annexe_id ?? ''}`} className="flex flex-col gap-1.5 px-3 py-2.5">
                 <span className="font-medium text-navy-800">{r.libelle}</span>
                 <div className="flex items-center justify-between text-xs tabular-nums">
-                  <span className="text-navy-400">Dû : <span className="text-navy-700">{francs(r.montant_du)}</span></span>
-                  <span className="text-navy-400">Payé : <span className="text-green-600">{francs(r.montant_paye)}</span></span>
-                  <span className="text-navy-400">Reste : <span className="text-red-500">{francs(r.reste)}</span></span>
+                  <span className="text-navy-400">Dû / Due : <span className="text-navy-700">{francs(r.montant_du)}</span></span>
+                  <span className="text-navy-400">Payé / Paid : <span className="text-green-600">{francs(r.montant_paye)}</span></span>
+                  <span className="text-navy-400">Reste / Remaining : <span className="text-red-500">{francs(r.reste)}</span></span>
                 </div>
               </div>
             ))}
@@ -445,10 +456,10 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             <table className="w-full min-w-[420px] text-xs">
               <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
-                  <th className="px-2.5 py-2 text-left">Rubrique</th>
-                  <th className="px-2.5 py-2 text-right">Dû</th>
-                  <th className="px-2.5 py-2 text-right">Payé</th>
-                  <th className="px-2.5 py-2 text-right">Reste</th>
+                  <th className="px-2.5 py-2 text-left">Rubrique / Item</th>
+                  <th className="px-2.5 py-2 text-right">Dû / Due</th>
+                  <th className="px-2.5 py-2 text-right">Payé / Paid</th>
+                  <th className="px-2.5 py-2 text-right">Reste / Remaining</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
@@ -492,12 +503,12 @@ function ProgressionCard({ eleveId }: { eleveId: number }) {
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <GitBranch className="h-4 w-4" />
-        Progression dans les matières
+        Progression dans les matières / Progress in subjects
       </h2>
       {isLoading ? (
         <Spinner />
       ) : !matieres || matieres.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucun programme renseigné pour l'instant.</p>
+        <p className="text-sm text-navy-400">Aucun programme renseigné pour l'instant. / No curriculum recorded yet.</p>
       ) : (
         <div className="flex flex-col divide-y divide-navy-50">
           {matieres.map((m) => (
@@ -537,32 +548,32 @@ function AssiduiteCard({ eleveId }: { eleveId: number }) {
       <div className="mb-4 flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
           <CalendarX className="h-4 w-4" />
-          Assiduité et absences
+          Assiduité et absences / Attendance and absences
         </h2>
         <Button size="sm" variant="secondary" onClick={() => setModalOuvert(true)}>
-          Justifier une absence
+          Justifier une absence / Justify an absence
         </Button>
       </div>
 
       {isLoading ? (
         <Spinner />
       ) : !absences || absences.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucune absence relevée.</p>
+        <p className="text-sm text-navy-400">Aucune absence relevée. / No absence recorded.</p>
       ) : (
         <>
           {nonJustifiees > 0 && (
             <p className="mb-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
-              {nonJustifiees} absence(s) non justifiée(s).
+              {nonJustifiees} absence(s) non justifiée(s). / {nonJustifiees} unexcused absence(s).
             </p>
           )}
           <div className="flex flex-col divide-y divide-navy-50">
             {absences.map((a, i) => (
               <div key={i} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <span className="text-navy-700">
-                  {new Date(a.date).toLocaleDateString('fr-FR')} — {a.statut === 'retard' ? 'Retard' : 'Absence'}
+                  {new Date(a.date).toLocaleDateString('fr-FR')} — {a.statut === 'retard' ? 'Retard / Late' : 'Absence / Absence'}
                   {a.remarque ? ` · ${a.remarque}` : ''}
                 </span>
-                <Badge tone={a.justifie ? 'green' : 'red'}>{a.justifie ? 'Justifiée' : 'Non justifiée'}</Badge>
+                <Badge tone={a.justifie ? 'green' : 'red'}>{a.justifie ? 'Justifiée / Excused' : 'Non justifiée / Unexcused'}</Badge>
               </div>
             ))}
           </div>
@@ -571,7 +582,7 @@ function AssiduiteCard({ eleveId }: { eleveId: number }) {
 
       {justifications && justifications.length > 0 && (
         <div className="mt-4 border-t border-navy-50 pt-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Justifications déposées</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">Justifications déposées / Submitted justifications</h3>
           <div className="flex flex-col divide-y divide-navy-50 text-sm">
             {justifications.map((j) => (
               <div key={j.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -581,7 +592,7 @@ function AssiduiteCard({ eleveId }: { eleveId: number }) {
                   {MOTIFS_JUSTIFICATION.find((m) => m.valeur === j.motif)?.libelle}
                 </span>
                 <Badge tone={j.statut === 'appliquee' ? 'green' : 'gold'}>
-                  {j.statut === 'appliquee' ? 'Prise en compte' : 'En attente'}
+                  {j.statut === 'appliquee' ? 'Prise en compte / Accounted for' : 'En attente / Pending'}
                 </Badge>
               </div>
             ))}
@@ -618,7 +629,7 @@ function JustifierAbsenceModal({ eleveId, onClose, onCreated }: { eleveId: numbe
         motif: values.motif,
         description: values.description || undefined,
       })
-      succes('Justification transmise à l\'établissement.')
+      succes("Justification transmise à l'établissement. / Justification submitted to the school.")
       onCreated()
       onClose()
     } catch (err) {
@@ -627,36 +638,37 @@ function JustifierAbsenceModal({ eleveId, onClose, onCreated }: { eleveId: numbe
   }
 
   return (
-    <Modal title="Justifier une absence" onClose={onClose}>
+    <Modal title="Justifier une absence / Justify an absence" onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <p className="text-xs text-navy-400">
-          Dès que l'enseignant fera l'appel sur cette période, l'absence sera automatiquement marquée justifiée.
+          Dès que l'enseignant fera l'appel sur cette période, l'absence sera automatiquement marquée justifiée. / As soon
+          as the teacher takes attendance for this period, the absence will automatically be marked as excused.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input
-            label="Du"
+            label="Du / From"
             type="date"
             error={errors.date_debut?.message}
-            {...register('date_debut', { required: 'Requis.' })}
+            {...register('date_debut', { required: 'Requis. / Required.' })}
           />
-          <Input label="Au (optionnel)" type="date" {...register('date_fin')} />
+          <Input label="Au (optionnel) / To (optional)" type="date" {...register('date_fin')} />
         </div>
-        <Select label="Motif" error={errors.motif?.message} {...register('motif', { required: 'Requis.' })}>
-          <option value="">Sélectionner…</option>
+        <Select label="Motif / Reason" error={errors.motif?.message} {...register('motif', { required: 'Requis. / Required.' })}>
+          <option value="">Sélectionner… / Select…</option>
           {MOTIFS_JUSTIFICATION.map((m) => (
             <option key={m.valeur} value={m.valeur}>
               {m.libelle}
             </option>
           ))}
         </Select>
-        <Textarea label="Précisions (optionnel)" {...register('description')} />
+        <Textarea label="Précisions (optionnel) / Details (optional)" {...register('description')} />
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Annuler
+            Annuler / Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Envoi…' : 'Transmettre'}
+            {isSubmitting ? 'Envoi… / Sending…' : 'Transmettre / Submit'}
           </Button>
         </div>
       </form>
@@ -681,7 +693,7 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
       await soumettreObservation(eleveId, contenu.trim())
       setContenu('')
       queryClient.invalidateQueries({ queryKey: ['parent-observations', eleveId] })
-      succes('Observation transmise.')
+      succes('Observation transmise. / Observation submitted.')
     } catch (err) {
       erreur((err as ApiError).message)
     } finally {
@@ -693,7 +705,7 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <MessageSquare className="h-4 w-4" />
-        Observations
+        Observations / Observations
       </h2>
 
       <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-end">
@@ -701,20 +713,20 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
           <Textarea
             value={contenu}
             onChange={(e) => setContenu(e.target.value)}
-            placeholder="Écrire une observation à l'attention de l'établissement…"
+            placeholder="Écrire une observation à l'attention de l'établissement… / Write a note for the school…"
             rows={3}
           />
         </div>
         <Button onClick={envoyer} disabled={envoi || !contenu.trim()} className="w-full sm:w-auto sm:flex-none">
           <Send className="h-4 w-4" />
-          Envoyer
+          Envoyer / Send
         </Button>
       </div>
 
       {isLoading ? (
         <Spinner />
       ) : !observations || observations.length === 0 ? (
-        <p className="px-1 text-sm text-navy-400">Aucune observation pour l'instant.</p>
+        <p className="px-1 text-sm text-navy-400">Aucune observation pour l'instant. / No observation yet.</p>
       ) : (
         <div className="flex flex-col divide-y divide-navy-50">
           {observations.map((o) => (
@@ -722,7 +734,7 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={o.origine === 'ecole' ? 'blue' : 'gold'}>
                   {o.origine === 'ecole' ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
-                  {o.origine === 'ecole' ? "L'établissement" : 'Vous'}
+                  {o.origine === 'ecole' ? "L'établissement / The school" : 'Vous / You'}
                 </Badge>
                 <span className="text-xs text-navy-400">
                   {o.auteur} · {new Date(o.date).toLocaleString('fr-FR')}
@@ -748,14 +760,16 @@ function EmploiDuTempsCard({ eleveId }: { eleveId: number }) {
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <CalendarClock className="h-4 w-4" />
-        Emploi du temps
+        Emploi du temps / Timetable
       </h2>
       {isLoading ? (
         <Spinner />
       ) : !creneaux || creneaux.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucun emploi du temps renseigné pour l'instant.</p>
+        <p className="text-sm text-navy-400">Aucun emploi du temps renseigné pour l'instant. / No timetable recorded yet.</p>
       ) : (
         <div className="flex flex-col divide-y divide-navy-50">
+          {/* Le nom du jour passe déjà par i18n (`t()`) : il suit la bascule
+              FR/EN existante plutôt qu'un texte bilingue figé. */}
           {JOURS.filter((j) => creneaux.some((c) => c.jour === j.valeur)).map((j) => (
             <div key={j.valeur} className="py-2.5 first:pt-0 last:pb-0">
               <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-400">
@@ -792,12 +806,12 @@ function InfirmerieCard({ eleveId }: { eleveId: number }) {
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <Stethoscope className="h-4 w-4 text-gold-500" />
-        Passages à l'infirmerie
+        Passages à l'infirmerie / School nurse visits
       </h2>
       {isLoading ? (
         <Spinner />
       ) : !visites || visites.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucun passage à l'infirmerie relevé.</p>
+        <p className="text-sm text-navy-400">Aucun passage à l'infirmerie relevé. / No school nurse visit recorded.</p>
       ) : (
         <div className="flex flex-col divide-y divide-navy-50">
           {visites.map((v) => (
@@ -835,13 +849,13 @@ function DisciplineCard({ eleveId }: { eleveId: number }) {
       {isLoading ? (
         <Spinner />
       ) : !dossier || dossier.sanctions.length === 0 ? (
-        <p className="text-sm text-navy-400">Rien à signaler.</p>
+        <p className="text-sm text-navy-400">Rien à signaler. / Nothing to report.</p>
       ) : (
         <>
           {dossier.est_exclu && (
             <p className="mb-3 flex items-center gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
               <ShieldAlert className="h-4 w-4 flex-none" />
-              Exclusion en cours{dossier.motif_exclusion ? ` — ${dossier.motif_exclusion}` : ''}
+              Exclusion en cours / Ongoing exclusion{dossier.motif_exclusion ? ` — ${dossier.motif_exclusion}` : ''}
             </p>
           )}
           <div className="flex flex-col divide-y divide-navy-50">
@@ -865,10 +879,10 @@ function DisciplineCard({ eleveId }: { eleveId: number }) {
 
 /** Couleur et libellé d'une échéance, selon où en est la famille. */
 const ETATS_TRANCHE: Record<StatutTranche, { libelle: string; classe: string; pastille: string }> = {
-  soldee: { libelle: 'Réglée', classe: 'text-green-700', pastille: 'bg-green-500' },
-  en_retard: { libelle: 'En retard', classe: 'text-red-600', pastille: 'bg-red-500' },
-  partielle: { libelle: 'Partielle', classe: 'text-gold-700', pastille: 'bg-gold-500' },
-  a_venir: { libelle: 'À venir', classe: 'text-navy-500', pastille: 'bg-navy-300' },
+  soldee: { libelle: 'Réglée / Paid', classe: 'text-green-700', pastille: 'bg-green-500' },
+  en_retard: { libelle: 'En retard / Overdue', classe: 'text-red-600', pastille: 'bg-red-500' },
+  partielle: { libelle: 'Partielle / Partial', classe: 'text-gold-700', pastille: 'bg-gold-500' },
+  a_venir: { libelle: 'À venir / Upcoming', classe: 'text-navy-500', pastille: 'bg-navy-300' },
 }
 
 function dateCourte(valeur: string | null): string {
@@ -890,23 +904,23 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-500">
           <CalendarClock className="h-3.5 w-3.5" />
-          Échéancier
+          Échéancier / Payment schedule
         </h3>
         {echeancier.retard > 0 ? (
           <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
-            {francs(echeancier.retard)} en retard
+            {francs(echeancier.retard)} en retard / overdue
           </span>
         ) : (
           <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-            À jour
+            À jour / Up to date
           </span>
         )}
       </div>
 
       {prochaine && prochaine.statut !== 'soldee' && (
         <p className="text-xs text-navy-500">
-          Prochaine échéance : <span className="font-semibold text-navy-800">{prochaine.libelle}</span> —{' '}
-          {francs(prochaine.reste)} avant le{' '}
+          Prochaine échéance / Next due date : <span className="font-semibold text-navy-800">{prochaine.libelle}</span> —{' '}
+          {francs(prochaine.reste)} avant le / before{' '}
           <span className="font-semibold text-navy-800">{dateCourte(prochaine.date_echeance)}</span>
         </p>
       )}
@@ -927,7 +941,7 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
               <span className="flex flex-col items-end">
                 <span className="text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
                 <span className={`text-[11px] font-semibold ${etat.classe}`}>
-                  {tranche.reste > 0 ? `${etat.libelle} · reste ${francs(tranche.reste)}` : etat.libelle}
+                  {tranche.reste > 0 ? `${etat.libelle} · reste / remaining ${francs(tranche.reste)}` : etat.libelle}
                 </span>
               </span>
             </li>
@@ -937,7 +951,8 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
 
       {echeancier.delai_grace > 0 && (
         <p className="text-[11px] text-navy-400">
-          Un délai de {echeancier.delai_grace} jour(s) est accordé après chaque échéance.
+          Un délai de {echeancier.delai_grace} jour(s) est accordé après chaque échéance. / A grace period of{' '}
+          {echeancier.delai_grace} day(s) is granted after each due date.
         </p>
       )}
     </div>

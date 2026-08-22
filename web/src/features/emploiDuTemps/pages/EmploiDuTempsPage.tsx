@@ -2,9 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Plus, Trash2, Wand2 } from 'lucide-react'
+import { CalendarClock, Plus, Search, Trash2, Wand2 } from 'lucide-react'
 import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
-import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
+import {
+  fetchClasseMatieres,
+  fetchMatiereClasses,
+  fetchTrimestres,
+  type ClasseMatiere,
+} from '@/features/pedagogie/api'
 import {
   JOURS,
   createCreneau,
@@ -289,7 +294,7 @@ function CreneauModal({
   onClose,
 }: {
   classeId: number
-  matieres: { id: number; matiere: { nom: string } }[]
+  matieres: ClasseMatiere[]
   onClose: () => void
 }) {
   const { t } = useTranslation()
@@ -301,6 +306,7 @@ function CreneauModal({
     heure_fin: '10:00',
     salle: '',
   })
+  const [rechercheClasse, setRechercheClasse] = useState('')
 
   /*
    * Tronc commun : les classes qui rejoignent celle-ci sur ce créneau. Rien
@@ -310,7 +316,49 @@ function CreneauModal({
   const [associees, setAssociees] = useState<number[]>([])
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+
+  const affectationChoisie = matieres.find((m) => m.id === form.classe_matiere_id)
+
+  /*
+   * Tronc commun prévisionnel.
+   *
+   * Un même enseignant qui donne la même matière dans plusieurs classes les
+   * réunit presque toujours sur le même créneau — c'est même la raison d'être
+   * du tronc commun. Plutôt que de laisser l'utilisateur recocher ces classes
+   * à la main à chaque créneau, on les lit dans les attributions de matières
+   * et on les propose déjà cochées.
+   *
+   * Ce n'est qu'une proposition : les cases restent décochables, et une classe
+   * sans enseignant assigné n'entre pas dans le calcul — deux affectations
+   * vides ne prouvent pas qu'il s'agit du même professeur.
+   */
+  const { data: classesDeLaMatiere } = useQuery({
+    queryKey: ['matiere-classes', affectationChoisie?.matiere.id],
+    queryFn: () => fetchMatiereClasses(Number(affectationChoisie?.matiere.id)),
+    enabled: !!affectationChoisie?.matiere.id,
+  })
+
+  const enseignantId = affectationChoisie?.enseignant?.id ?? null
+
+  const suggerees = useMemo(() => {
+    if (enseignantId === null) return []
+
+    return (classesDeLaMatiere ?? [])
+      .filter((ligne) => ligne.enseignant?.id === enseignantId && ligne.classe && ligne.classe.id !== classeId)
+      .map((ligne) => ligne.classe!.id)
+  }, [classesDeLaMatiere, enseignantId, classeId])
+
+  // La suggestion se recalcule à chaque changement de matière : garder les
+  // cases d'une matière précédente donnerait un regroupement faux.
+  useEffect(() => {
+    setAssociees(suggerees)
+  }, [suggerees])
+
   const autresClasses = (classes ?? []).filter((c) => c.id !== classeId)
+  const terme = rechercheClasse.trim().toLowerCase()
+  const classesAffichees = terme === ''
+    ? autresClasses
+    : autresClasses.filter((c) => c.nom.toLowerCase().includes(terme))
 
   const basculer = (id: number) =>
     setAssociees((actuelles) =>
@@ -383,18 +431,44 @@ function CreneauModal({
               {t('emploiDuTemps.tronc_commun_label')}
             </span>
             <p className="text-xs text-navy-400">{t('emploiDuTemps.tronc_commun_aide')}</p>
+
+            {suggerees.length > 0 && (
+              <p className="rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-600">
+                {t('emploiDuTemps.tronc_commun_suggere', {
+                  count: suggerees.length,
+                  enseignant: affectationChoisie?.enseignant?.nom_complet ?? '',
+                })}
+              </p>
+            )}
+
+            <Input
+              value={rechercheClasse}
+              onChange={(e) => setRechercheClasse(e.target.value)}
+              placeholder={t('emploiDuTemps.tronc_commun_recherche')}
+              icon={Search}
+            />
+
             <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-xl border border-navy-100 p-2">
-              {autresClasses.map((c) => (
-                <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-navy-50">
-                  <input
-                    type="checkbox"
-                    checked={associees.includes(c.id)}
-                    onChange={() => basculer(c.id)}
-                    className="h-4 w-4 rounded border-navy-200"
-                  />
-                  <span className="text-navy-700">{c.nom}</span>
-                </label>
-              ))}
+              {classesAffichees.length === 0 ? (
+                <p className="px-2 py-1 text-sm text-navy-400">{t('common.no_results')}</p>
+              ) : (
+                classesAffichees.map((c) => (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-navy-50">
+                    <input
+                      type="checkbox"
+                      checked={associees.includes(c.id)}
+                      onChange={() => basculer(c.id)}
+                      className="h-4 w-4 rounded border-navy-200"
+                    />
+                    <span className="text-navy-700">{c.nom}</span>
+                    {suggerees.includes(c.id) && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                        {t('emploiDuTemps.tronc_commun_meme_enseignant')}
+                      </span>
+                    )}
+                  </label>
+                ))
+              )}
             </div>
             {associees.length > 0 && (
               <p className="rounded-lg bg-gold-50 px-3 py-2 text-xs text-gold-800">

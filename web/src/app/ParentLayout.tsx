@@ -7,10 +7,10 @@ import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 
 const liens = [
-  { to: '/parent', label: 'Mes enfants', icon: Users, end: true },
-  { to: '/parent/annonces', label: 'Annonces', icon: Megaphone, end: true },
-  { to: '/parent/preinscription/nouveau', label: 'Inscrire un enfant', icon: FilePlus2, end: true },
-  { to: '/parent/preinscriptions', label: 'Mes démarches', icon: ClipboardList, end: true },
+  { to: '/parent', label: 'Mes enfants / My children', icon: Users, end: true },
+  { to: '/parent/annonces', label: 'Annonces / Announcements', icon: Megaphone, end: true },
+  { to: '/parent/preinscription/nouveau', label: 'Inscrire un enfant / Register a child', icon: FilePlus2, end: true },
+  { to: '/parent/preinscriptions', label: 'Mes démarches / My requests', icon: ClipboardList, end: true },
 ]
 
 function initiales(nom?: string) {
@@ -47,7 +47,7 @@ export function ParentLayout() {
             <span className="flex h-9 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft">
               <img src={logoWordmark} alt="Elites" className="h-5 w-auto object-contain" />
             </span>
-            <span className="font-display text-base font-bold tracking-tight">Espace parent</span>
+            <span className="font-display text-base font-bold tracking-tight">Espace parent / Parent portal</span>
           </div>
 
           <nav
@@ -92,7 +92,7 @@ export function ParentLayout() {
             </span>
             <button
               onClick={handleLogout}
-              title="Déconnexion"
+              title="Déconnexion / Logout"
               className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-navy-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <LogOut className="h-4 w-4" />

@@ -62,11 +62,11 @@ export function ParentPreinscriptionNouveauPage() {
   })
 
   const steps = [
-    { id: 'ecole', label: 'École', description: 'Établissement et classe visés' },
-    { id: 'identite', label: 'Identité', description: "Informations de l'enfant" },
-    { id: 'acte_sante', label: 'État civil & santé', description: 'Acte de naissance, fiche sanitaire' },
-    { id: 'tuteurs', label: 'Parents', description: 'Vos coordonnées' },
-    { id: 'confirmation', label: 'Confirmation', description: "Envoi à l'établissement" },
+    { id: 'ecole', label: 'École / School', description: 'Établissement et classe visés / Target school and class' },
+    { id: 'identite', label: 'Identité / Identity', description: "Informations de l'enfant / Child's information" },
+    { id: 'acte_sante', label: 'État civil & santé / Civil status & health', description: 'Acte de naissance, fiche sanitaire / Birth certificate, health record' },
+    { id: 'tuteurs', label: 'Parents / Parents', description: 'Vos coordonnées / Your contact details' },
+    { id: 'confirmation', label: 'Confirmation / Confirmation', description: "Envoi à l'établissement / Sent to the school" },
   ]
 
   const handleNext = async (): Promise<boolean> => {
@@ -99,7 +99,7 @@ export function ParentPreinscriptionNouveauPage() {
         },
         donnees_tuteurs: values.tuteurs,
       })
-      succes("Préinscription transmise, en attente de validation par l'établissement.")
+      succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
       navigate('/parent/preinscriptions')
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -112,9 +112,12 @@ export function ParentPreinscriptionNouveauPage() {
     <div>
       <Link to="/parent" className="mb-2 flex w-fit items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700">
         <ArrowLeft className="h-4 w-4" />
-        Mes enfants
+        Mes enfants / My children
       </Link>
-      <PageHeader titre="Inscrire un enfant" sousTitre="Nouvelle demande d'inscription, à valider par l'établissement." />
+      <PageHeader
+        titre="Inscrire un enfant / Register a child"
+        sousTitre="Nouvelle demande d'inscription, à valider par l'établissement. / New registration request, to be approved by the school."
+      />
 
       <div className="mt-6">
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -130,8 +133,8 @@ export function ParentPreinscriptionNouveauPage() {
           >
             {steps[currentStep]?.id === 'ecole' && (
               <div className="space-y-4">
-                <Select label="Établissement" error={errors.school_id?.message} {...register('school_id', { required: 'Requis.' })}>
-                  <option value="">Sélectionner…</option>
+                <Select label="Établissement / School" error={errors.school_id?.message} {...register('school_id', { required: 'Requis. / Required.' })}>
+                  <option value="">Sélectionner… / Select…</option>
                   {ecoles?.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.name}
@@ -139,8 +142,8 @@ export function ParentPreinscriptionNouveauPage() {
                   ))}
                 </Select>
                 {schoolId && (
-                  <Select label="Classe souhaitée" error={errors.classe_id?.message} {...register('classe_id', { required: 'Requis.' })}>
-                    <option value="">{classesEnChargement ? 'Chargement…' : 'Sélectionner…'}</option>
+                  <Select label="Classe souhaitée / Desired class" error={errors.classe_id?.message} {...register('classe_id', { required: 'Requis. / Required.' })}>
+                    <option value="">{classesEnChargement ? 'Chargement… / Loading…' : 'Sélectionner… / Select…'}</option>
                     {classes?.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nom}
@@ -153,37 +156,46 @@ export function ParentPreinscriptionNouveauPage() {
 
             {steps[currentStep]?.id === 'identite' && (
               <div className="space-y-4">
-                <Input label="Nom complet de l'enfant" error={errors.nom_complet?.message} {...register('nom_complet', { required: 'Requis.' })} />
+                <Input
+                  label="Nom complet de l'enfant / Child's full name"
+                  error={errors.nom_complet?.message}
+                  {...register('nom_complet', { required: 'Requis. / Required.' })}
+                />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Select label="Sexe" error={errors.sexe?.message} {...register('sexe', { required: 'Requis.' })}>
-                    <option value="">Sélectionner…</option>
-                    <option value="F">Féminin</option>
-                    <option value="M">Masculin</option>
+                  <Select label="Sexe / Sex" error={errors.sexe?.message} {...register('sexe', { required: 'Requis. / Required.' })}>
+                    <option value="">Sélectionner… / Select…</option>
+                    <option value="F">Féminin / Female</option>
+                    <option value="M">Masculin / Male</option>
                   </Select>
-                  <Input label="Date de naissance" type="date" error={errors.date_naissance?.message} {...register('date_naissance', { required: 'Requis.' })} />
+                  <Input
+                    label="Date de naissance / Date of birth"
+                    type="date"
+                    error={errors.date_naissance?.message}
+                    {...register('date_naissance', { required: 'Requis. / Required.' })}
+                  />
                 </div>
-                <Input label="Lieu de naissance" {...register('lieu_naissance')} />
-                <Input label="Adresse" {...register('adresse')} />
+                <Input label="Lieu de naissance / Place of birth" {...register('lieu_naissance')} />
+                <Input label="Adresse / Address" {...register('adresse')} />
               </div>
             )}
 
             {steps[currentStep]?.id === 'acte_sante' && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-navy-500">Acte de naissance</h3>
-                <Input label="N° acte de naissance" {...register('numero_acte_naissance')} />
-                <Input label="Lieu de délivrance" {...register('lieu_delivrance_acte')} />
-                <Input label="Nom de l'officier d'état civil" {...register('officier_etat_civil')} />
+                <h3 className="text-sm font-bold uppercase tracking-wide text-navy-500">Acte de naissance / Birth certificate</h3>
+                <Input label="N° acte de naissance / Birth certificate no." {...register('numero_acte_naissance')} />
+                <Input label="Lieu de délivrance / Place of issue" {...register('lieu_delivrance_acte')} />
+                <Input label="Nom de l'officier d'état civil / Registrar's name" {...register('officier_etat_civil')} />
 
-                <h3 className="mt-6 text-sm font-bold uppercase tracking-wide text-navy-500">Fiche sanitaire</h3>
+                <h3 className="mt-6 text-sm font-bold uppercase tracking-wide text-navy-500">Fiche sanitaire / Health record</h3>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Input label="Groupe sanguin" placeholder="Ex. O+" {...register('groupe_sanguin')} />
-                  <Select label="Aptitude" {...register('aptitude')}>
-                    <option value="apte">Apte</option>
-                    <option value="inapte">Inapte</option>
+                  <Input label="Groupe sanguin / Blood type" placeholder="Ex. O+" {...register('groupe_sanguin')} />
+                  <Select label="Aptitude / Fitness" {...register('aptitude')}>
+                    <option value="apte">Apte / Fit</option>
+                    <option value="inapte">Inapte / Unfit</option>
                   </Select>
                 </div>
-                <Textarea label="Allergies" {...register('allergies')} />
-                <Textarea label="Situation sanitaire" {...register('situation_sanitaire')} />
+                <Textarea label="Allergies / Allergies" {...register('allergies')} />
+                <Textarea label="Situation sanitaire / Health situation" {...register('situation_sanitaire')} />
               </div>
             )}
 
@@ -195,7 +207,8 @@ export function ParentPreinscriptionNouveauPage() {
               <div className="space-y-4">
                 {serverError && <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{serverError}</p>}
                 <p className="rounded-xl bg-green-50 px-3.5 py-2.5 text-sm text-green-800">
-                  Votre demande d'inscription sera transmise à l'établissement pour validation.
+                  Votre demande d'inscription sera transmise à l'établissement pour validation. / Your registration request
+                  will be sent to the school for approval.
                 </p>
               </div>
             )}

@@ -22,14 +22,18 @@ export function ParentAccueilPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre="Mes enfants" sousTitre="Sélectionnez un enfant pour voir tout ce qui le concerne." icon={Users} />
+      <PageHeader
+        titre="Mes enfants / My children"
+        sousTitre="Sélectionnez un enfant pour voir tout ce qui le concerne. / Select a child to see everything about them."
+        icon={Users}
+      />
 
       {isLoading ? (
         <Spinner />
       ) : isError || !enfants ? (
         <ErrorState />
       ) : enfants.length === 0 ? (
-        <EmptyState label="Aucun enfant rattaché à votre compte pour l'instant." />
+        <EmptyState label="Aucun enfant rattaché à votre compte pour l'instant. / No child linked to your account yet." />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {enfants.map((e) => (
