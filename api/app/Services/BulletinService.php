@@ -55,6 +55,8 @@ class BulletinService extends BaseService
             ? $tousEleves
             : $tousEleves->whereIn('id', $eleveIds)->values();
 
+        $elevesDuDocument = $this->parOrdreDeMerite($elevesDuDocument, $classementGeneral);
+
         return [
             'classe' => $classe,
             'school' => $classe->school,
@@ -71,6 +73,43 @@ class BulletinService extends BaseService
                 $eleve, $trimestre, $affectations, $sequences, $classementGeneral, $classementsMatiere
             ))->all(),
         ];
+    }
+
+    /**
+     * Range les élèves par ordre de mérite : la liasse imprimée suit le
+     * classement, du premier au dernier.
+     *
+     * Un paquet de bulletins se distribue en conseil de classe, où l'on part du
+     * premier ; l'ordre alphabétique obligeait à retrier la pile à la main.
+     *
+     * Les élèves sans moyenne — aucune note saisie — n'ont pas de rang : ils
+     * ferment la liasse par ordre alphabétique plutôt que de s'intercaler
+     * arbitrairement parmi les classés.
+     *
+     * @param  Collection<int, Eleve>  $eleves
+     * @param  Collection<int, array{eleve: Eleve, moyenne: ?float, rang: ?int}>  $classement
+     * @return Collection<int, Eleve>
+     */
+    private function parOrdreDeMerite(Collection $eleves, Collection $classement): Collection
+    {
+        $rangs = $classement
+            ->filter(fn (array $ligne) => $ligne['rang'] !== null)
+            ->mapWithKeys(fn (array $ligne) => [$ligne['eleve']->id => $ligne['rang']]);
+
+        /*
+         * Une seule clé de tri, et non un tableau de closures : passé un
+         * tableau, `sortBy()` traite chaque entrée comme un COMPARATEUR
+         * `($a, $b) => int` et non comme un extracteur de clé — des closures à
+         * un argument y produisent un ordre arbitraire.
+         *
+         * Le préfixe range les classés (0) avant les non classés (1) ; le rang
+         * est complété à six chiffres pour que 10 suive 9 et non 1.
+         */
+        return $eleves
+            ->sortBy(fn (Eleve $eleve) => $rangs->has($eleve->id)
+                ? sprintf('0%06d', $rangs->get($eleve->id))
+                : '1'.$eleve->nom_complet)
+            ->values();
     }
 
     /**

@@ -197,6 +197,15 @@ export interface LigneAge {
   garcons: number;
   filles: number;
   total: number;
+  /** Liste nominative des élèves de cet âge, dépliée à la demande. */
+  eleves: {
+    id: number;
+    matricule: string | null;
+    nom_complet: string;
+    sexe: "M" | "F";
+    classe: string | null;
+    date_naissance: string | null;
+  }[];
 }
 
 export async function fetchRecapitulatifEffectifs(classeId?: number | null): Promise<RecapitulatifEcole[]> {
@@ -259,6 +268,53 @@ export async function creerComptesParentLot(): Promise<{
   const { data } = await http.post<ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>>(
     "/tuteurs/comptes-parent-lot",
   );
+  return data.data;
+}
+
+// ------------------------------------------------- Usage du portail parent
+
+export interface PointSerie {
+  date: string;
+  total: number;
+}
+
+export interface VolumeDemandes {
+  total: number;
+  serie: PointSerie[];
+}
+
+export interface VolumeDemandesAvecStatut extends VolumeDemandes {
+  repartition: { en_attente: number; validee: number; rejetee: number };
+}
+
+export interface ParentUsageStats {
+  periode: { jours: number; debut: string; fin: string };
+  adoption: {
+    tuteurs_total: number;
+    comptes_parent_total: number;
+    taux_adoption: number;
+    comptes_ouverts_serie: PointSerie[];
+  };
+  activite: {
+    connexions_totales: number;
+    parents_actifs_distincts: number;
+    parents_actifs_7j: number;
+    serie_quotidienne: PointSerie[];
+  };
+  volumes: {
+    preinscriptions: VolumeDemandesAvecStatut;
+    modifications: VolumeDemandesAvecStatut;
+    justifications: VolumeDemandes;
+    observations: VolumeDemandes;
+  };
+  efficience: {
+    delai_moyen_preinscriptions_heures: number | null;
+    delai_moyen_modifications_heures: number | null;
+  };
+}
+
+export async function fetchParentUsageStats(jours: 7 | 30 | 90): Promise<ParentUsageStats> {
+  const { data } = await http.get<ApiResponse<ParentUsageStats>>("/parent-usage-stats", { params: { jours } });
   return data.data;
 }
 

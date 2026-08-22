@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload, UserCog } from 'lucide-react'
 import {
   fetchClasseMatieres,
   affecterMatiere,
   modifierAffectation,
   retirerMatiere,
   copierAffectations,
+  batchEnseignantAffectations,
   fetchMatieres,
   type ClasseMatiere,
   type ClasseMatiereUpdatePayload,
@@ -47,6 +48,7 @@ export function AffectationsTab({
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showCompetences, setShowCompetences] = useState(false)
+  const [enseignantEnMasse, setEnseignantEnMasse] = useState(false)
   const [rechercheMatiere, setRechercheMatiere] = useState('')
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
@@ -277,6 +279,13 @@ export function AffectationsTab({
         <div className="flex justify-end gap-2">
           {selectedIds.size > 0 && (
             <>
+              {/* Une matière transversale couvre toutes les classes d'un
+                  niveau : y reprendre le professeur ligne par ligne est
+                  exactement ce que ce bouton évite. */}
+              <Button size="sm" variant="secondary" onClick={() => setEnseignantEnMasse(true)}>
+                <UserCog className="h-4 w-4" />
+                Modifier l'enseignant ({selectedIds.size})
+              </Button>
               <Button size="sm" variant="secondary" onClick={() => setShowCopyModal(true)}>
                 <Copy className="h-4 w-4" />
                 Copier vers une classe ({selectedIds.size})
@@ -388,6 +397,18 @@ export function AffectationsTab({
               </div>
             ) : undefined
           }
+        />
+      )}
+
+      {enseignantEnMasse && (
+        <EnseignantEnMasseModal
+          ids={Array.from(selectedIds)}
+          onClose={() => setEnseignantEnMasse(false)}
+          onDone={() => {
+            setEnseignantEnMasse(false)
+            setSelectedIds(new Set())
+            invalidate()
+          }}
         />
       )}
 
@@ -663,6 +684,91 @@ function CopierVersClasseModal({
           <Button type="button" onClick={copier} disabled={envoi || cibleIds.size === 0}>
             <Copy className="h-4 w-4" />
             {envoi ? '…' : `Copier vers ${cibleIds.size || ''} classe(s)`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Change l'enseignant de plusieurs affectations d'un coup.
+ *
+ * « Aucun enseignant » est une option à part entière : c'est le seul moyen de
+ * détacher un agent affecté par erreur, ce qu'une liste sans entrée vide
+ * rendrait impossible.
+ */
+function EnseignantEnMasseModal({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: number[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { t } = useTranslation()
+  const [personnelId, setPersonnelId] = useState<number | '' | 'aucun'>('')
+  const [envoi, setEnvoi] = useState(false)
+
+  const { data: personnels, isLoading } = useQuery({
+    queryKey: ['personnels', 'enseignant-en-masse'],
+    queryFn: () => fetchPersonnels({ per_page: 500 }),
+  })
+
+  const valider = async () => {
+    if (personnelId === '') return
+
+    setEnvoi(true)
+    try {
+      const { modifiees, ignorees } = await batchEnseignantAffectations(
+        ids,
+        personnelId === 'aucun' ? null : Number(personnelId),
+      )
+      succes(
+        ignorees > 0
+          ? `${modifiees} affectation(s) mise(s) à jour, ${ignorees} ignorée(s) : classe d'une autre école.`
+          : `${modifiees} affectation(s) mise(s) à jour.`,
+      )
+      onDone()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Modifier l'enseignant (${ids.length} affectation(s))`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        {isLoading ? (
+          <Spinner />
+        ) : (
+          <Select
+            label={t('pedagogie.enseignant')}
+            value={personnelId}
+            onChange={(e) => {
+              const brut = e.target.value
+              setPersonnelId(brut === '' ? '' : brut === 'aucun' ? 'aucun' : Number(brut))
+            }}
+          >
+            <option value="">—</option>
+            <option value="aucun">Aucun enseignant (détacher)</option>
+            {personnels?.map((personnel) => (
+              <option key={personnel.id} value={personnel.id}>
+                {personnel.nom_complet}
+                {personnel.school ? ` — ${personnel.school.name}` : ''}
+              </option>
+            ))}
+          </Select>
+        )}
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button disabled={personnelId === '' || envoi} onClick={valider}>
+            {t('common.save')}
           </Button>
         </div>
       </div>

@@ -22,6 +22,7 @@ use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\ModificationEleveService;
 use App\Services\ProgressionService;
+use App\Services\EcheancierService;
 use App\Services\ScolariteService;
 use App\Support\ParentAccess;
 use App\Support\Pdf\BulletinGenerator;
@@ -46,6 +47,7 @@ class ParentEspaceController extends Controller
         private readonly JustificationAbsenceService $justifications,
         private readonly ModificationEleveService $modifications,
         private readonly EmploiDuTempsService $emploiDuTemps,
+        private readonly EcheancierService $echeancier,
     ) {}
 
     /** Enfants du compte connecté — la liste qui ouvre le portail. */
@@ -136,6 +138,10 @@ class ParentEspaceController extends Controller
             'reste_a_payer' => $dossier->reste_a_payer,
             'statut_paiement' => $dossier->statut_paiement,
             'rubriques' => $dossier->rubriques,
+            // Échéancier de la scolarité : ce que la famille doit, quand, et ce
+            // qui reste sur chaque tranche. `actif` à faux quand l'école n'a
+            // pas découpé son année — l'écran affiche alors la seule date limite.
+            'echeancier' => $this->echeancier->pourDossier($dossier),
             'versements' => $dossier->versements->whereNull('annule_le')->map(fn ($v) => [
                 'numero_recu' => $v->numero_recu,
                 'date_versement' => $v->date_versement?->format('Y-m-d'),

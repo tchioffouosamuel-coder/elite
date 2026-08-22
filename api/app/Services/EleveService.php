@@ -321,8 +321,13 @@ class EleveService extends BaseService
      * les deux filtres optionnels plutôt que deux méthodes qui dupliqueraient
      * le calcul.
      *
+     * Chaque ligne porte la liste nominative des élèves de cet âge : l'écran
+     * la déplie à la demande, pour répondre au « lesquels ? » que la pyramide
+     * appelle immédiatement. Le volume reste celui de l'effectif, quelques
+     * milliers de lignes au plus — une requête par âge coûterait davantage.
+     *
      * @param  list<int>  $schoolIds
-     * @return list<array{age: string, annees: int, mois: int, garcons: int, filles: int, total: int}>
+     * @return list<array{age: string, annees: int, mois: int, garcons: int, filles: int, total: int, eleves: list<array<string, mixed>>}>
      */
     public function tableauAges(array $schoolIds, ?int $sousSystemeId = null, ?int $classeId = null): array
     {
@@ -337,6 +342,12 @@ class EleveService extends BaseService
             $query->join('classes', 'classes.id', '=', 'eleves.classe_id')
                 ->where('classes.sous_systeme_id', $sousSystemeId);
         }
+
+        // Copie prise AVANT l'agrégation : un builder Eloquent est mutable, et
+        // `selectRaw()`/`groupBy()` ci-dessous modifient `$query` lui-même. La
+        // liste nominative hériterait sinon du `COUNT(*)` et du regroupement,
+        // et rendrait des lignes agrégées au lieu des élèves.
+        $requeteNominative = clone $query;
 
         // Alias `age_mois_total`, pas `age` : `Eleve::getAgeAttribute()`
         // (calculé depuis `date_naissance`, absente de ce `selectRaw`)
@@ -367,6 +378,7 @@ class EleveService extends BaseService
                 'garcons' => 0,
                 'filles' => 0,
                 'total' => 0,
+                'eleves' => [],
             ];
 
             if ($ligne->sexe === 'F') {
@@ -375,6 +387,32 @@ class EleveService extends BaseService
                 $parAge[$moisTotal]['garcons'] += (int) $ligne->total;
             }
             $parAge[$moisTotal]['total'] += (int) $ligne->total;
+        }
+
+        // Liste nominative, rattachée à la ligne d'âge correspondante. La même
+        // borne de vraisemblance qu'au comptage : un élève écarté du total ne
+        // doit pas réapparaître dans le détail.
+        $eleves = $requeteNominative
+            ->with('classe:id,nom')
+            ->selectRaw('eleves.*, TIMESTAMPDIFF(MONTH, eleves.date_naissance, CURDATE()) as age_mois_total')
+            ->orderBy('eleves.nom_complet')
+            ->get();
+
+        foreach ($eleves as $eleve) {
+            $moisTotal = (int) $eleve->age_mois_total;
+
+            if (! isset($parAge[$moisTotal])) {
+                continue;
+            }
+
+            $parAge[$moisTotal]['eleves'][] = [
+                'id' => $eleve->id,
+                'matricule' => $eleve->matricule,
+                'nom_complet' => $eleve->nom_complet,
+                'sexe' => $eleve->sexe,
+                'classe' => $eleve->classe?->nom,
+                'date_naissance' => $eleve->date_naissance?->format('Y-m-d'),
+            ];
         }
 
         ksort($parAge);

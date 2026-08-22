@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Eye, Pencil, KeyRound, Archive, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
 import {
   fetchPersonnels,
+  fetchFonctionsReferentiel,
+  batchFonctionPersonnel,
   archivePersonnel,
   reactivatePersonnel,
   deletePersonnel,
@@ -26,6 +28,7 @@ import { estSecondaire } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
 import { fetchSchools } from '@/features/classes/api'
 import { Select } from '@/shared/ui/Field'
+import { Modal } from '@/shared/ui/Modal'
 
 export function PersonnelListPage() {
   const { t } = useTranslation()
@@ -35,6 +38,7 @@ export function PersonnelListPage() {
   const navigate = useNavigate()
   const [showImport, setShowImport] = useState(false)
   const [accountFor, setAccountFor] = useState<number | null>(null)
+  const [fonctionEnMasse, setFonctionEnMasse] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [schoolFilter, setSchoolFilter] = useState('')
 
@@ -326,6 +330,13 @@ export function PersonnelListPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{selectedIds.size} membre(s) du personnel sélectionné(s)</p>
             <div className="flex flex-wrap gap-2">
+              {/* La fonction porte les privilèges : après un import, des dizaines
+                  d'agents arrivent sans, et les doter un par un est la corvée
+                  que ce bouton supprime. */}
+              <Button variant="secondary" onClick={() => setFonctionEnMasse(true)}>
+                <BriefcaseBusiness className="h-4 w-4" />
+                Modifier la fonction
+              </Button>
               <Button variant="secondary" onClick={handleBatchArchive}>
                 <Archive className="h-4 w-4" />
                 Archiver
@@ -371,6 +382,18 @@ export function PersonnelListPage() {
         />
       )}
 
+      {fonctionEnMasse && (
+        <FonctionEnMasseModal
+          ids={Array.from(selectedIds)}
+          onClose={() => setFonctionEnMasse(false)}
+          onDone={() => {
+            setFonctionEnMasse(false)
+            setSelectedIds(new Set())
+            invalidate()
+          }}
+        />
+      )}
+
       {accountFor && (
         <CreateAccountModal
           personnelId={accountFor}
@@ -410,5 +433,87 @@ export function PersonnelListPage() {
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Change la fonction de plusieurs agents d'un coup.
+ *
+ * Le référentiel est propre à chaque école : une sélection qui couvre
+ * plusieurs établissements verra les agents des autres écoles ignorés, ce que
+ * l'API remonte et que l'on répète ici plutôt que de le laisser deviner.
+ */
+function FonctionEnMasseModal({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: number[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { t } = useTranslation()
+  const [fonctionId, setFonctionId] = useState<number | ''>('')
+  const [envoi, setEnvoi] = useState(false)
+
+  const { data: fonctions, isLoading } = useQuery({
+    queryKey: ['fonctions-referentiel'],
+    queryFn: fetchFonctionsReferentiel,
+  })
+
+  const valider = async () => {
+    if (fonctionId === '') return
+
+    setEnvoi(true)
+    try {
+      const { modifies, ignores } = await batchFonctionPersonnel(ids, Number(fonctionId))
+      succes(
+        ignores > 0
+          ? `${modifies} agent(s) mis à jour, ${ignores} ignoré(s) : fonction d'une autre école.`
+          : `${modifies} agent(s) mis à jour.`,
+      )
+      onDone()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Modifier la fonction (${ids.length} agent(s))`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        {isLoading ? (
+          <Spinner />
+        ) : (
+          <Select
+            label={t('personnel.fonction')}
+            value={fonctionId}
+            onChange={(e) => setFonctionId(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">—</option>
+            {fonctions?.map((fonction) => (
+              <option key={fonction.id} value={fonction.id}>
+                {fonction.label}
+                {fonction.school ? ` — ${fonction.school.name}` : ''}
+              </option>
+            ))}
+          </Select>
+        )}
+
+        <p className="rounded-xl bg-cream-100 px-3.5 py-2.5 text-xs text-navy-500">
+          La fonction porte les privilèges de l'agent : ce changement ouvre ou retire des accès.
+        </p>
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button disabled={fonctionId === '' || envoi} onClick={valider}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

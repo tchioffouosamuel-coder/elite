@@ -106,6 +106,7 @@ export function InsolvablesPage() {
                     <th className="px-4 py-2.5 text-left">Élève</th>
                     <th className="px-3 py-2.5 text-left">École</th>
                     <th className="px-3 py-2.5 text-left">Classe</th>
+                    <th className="px-3 py-2.5 text-right">Retard</th>
                     <th className="px-3 py-2.5 text-right">Reste à payer</th>
                     <th className="px-3 py-2.5 text-left">Moratoire</th>
                     <th className="px-3 py-2.5"></th>
@@ -123,7 +124,19 @@ export function InsolvablesPage() {
                           </td>
                           <td className="px-3 py-2.5 text-navy-600">{ligne.school.name}</td>
                           <td className="px-3 py-2.5 text-navy-600">{ligne.eleve.classe ?? '—'}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-red-500">{francs(ligne.reste_a_payer)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className="font-semibold tabular-nums text-red-600">{francs(ligne.retard)}</span>
+                            {/* Sans échéancier, le retard vaut le reste à payer :
+                                répéter les échéances n'apprendrait rien. */}
+                            {ligne.echeancier_actif && ligne.tranches_en_retard.length > 0 && (
+                              <span className="block text-[11px] font-normal text-navy-400">
+                                {ligne.tranches_en_retard
+                                  .map((t) => `${t.libelle} (${new Date(t.date_echeance ?? '').toLocaleDateString('fr-FR')})`)
+                                  .join(' · ')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-navy-600">{francs(ligne.reste_a_payer)}</td>
                           <td className="px-3 py-2.5">
                             {ligne.moratoire ? (
                               <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 ring-1 ring-green-100">
@@ -151,7 +164,7 @@ export function InsolvablesPage() {
                         </tr>
                         {ouvert && (
                           <tr className="border-b border-navy-50 bg-cream-50/40">
-                            <td colSpan={6} className="px-4 py-3">
+                            <td colSpan={7} className="px-4 py-3">
                               <ul className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-navy-600">
                                 {ligne.rubriques.filter((r) => r.reste > 0).map((r) => (
                                   <li key={r.cle + (r.dossier_frais_annexe_id ?? '')}>

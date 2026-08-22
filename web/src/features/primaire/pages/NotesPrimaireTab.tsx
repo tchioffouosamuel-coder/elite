@@ -15,7 +15,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
-import { erreur } from '@/shared/lib/alertes'
+import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 /** Clé d'une cellule de la grille : élève × volet × séquence. */
@@ -144,7 +144,6 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
@@ -184,7 +183,6 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
     if (!grille) return
 
     setSubmitting(true)
-    setMessage(null)
     try {
       const notes: NotePrimaireInput[] = []
       for (const ligne of grille.lignes) {
@@ -206,7 +204,7 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
       }
 
       const resultat = await sauvegarderNotesPrimaire(Number(classeMatiereId), notes)
-      setMessage(t('notes.saved', { count: resultat.saved }))
+      succes(t('notes.saved', { count: resultat.saved }))
       queryClient.invalidateQueries({ queryKey: ['grille-primaire', classeMatiereId, trimestreId] })
     } catch (err) {
       const apiError = err as ApiError
@@ -246,7 +244,6 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
             <Button onClick={handleSave} disabled={submitting}>
               {t('common.save')}
             </Button>
-            {message && <span className="text-sm text-green-600">{message}</span>}
           </div>
         </>
       ) : (
@@ -376,7 +373,6 @@ function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailPr
             <Button onClick={handleSave} disabled={submitting}>
               {t('common.save')}
             </Button>
-            {message && <span className="text-sm text-green-600">{message}</span>}
           </div>
         </>
       )}

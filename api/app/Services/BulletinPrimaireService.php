@@ -65,6 +65,24 @@ class BulletinPrimaireService extends BaseService
             ? $tousEleves
             : $tousEleves->whereIn('id', $eleveIds)->values();
 
+        // La maternelle n'a pas de classement : ses bulletins restent dans
+        // l'ordre alphabétique, seul ordre qui ait un sens sans moyenne.
+        if (! $parAppreciation) {
+            $rangs = $classement
+                ->filter(fn(array $ligne) => $ligne['rang'] !== null)
+                ->mapWithKeys(fn(array $ligne) => [$ligne['eleve']->id => $ligne['rang']]);
+
+            // Ordre de mérite : la liasse se distribue en conseil du premier au
+            // dernier. Les élèves sans note, donc sans rang, ferment la marche.
+            // Clé unique : un tableau ferait interpréter chaque closure comme
+            // un comparateur `($a, $b) => int`, pas comme un extracteur de clé.
+            $elevesDuDocument = $elevesDuDocument
+                ->sortBy(fn(Eleve $eleve) => $rangs->has($eleve->id)
+                    ? sprintf('0%06d', $rangs->get($eleve->id))
+                    : '1'.$eleve->nom_complet)
+                ->values();
+        }
+
         return [
             'mode' => $parAppreciation ? 'appreciation' : 'note',
             // Colonnes du bulletin de maternelle, dans l'ordre du référentiel.

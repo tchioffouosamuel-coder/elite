@@ -5,7 +5,7 @@
 <title>Palmarès — {{ $trimestre->libelle }}</title>
 @include('pdf.partials.styles')
 <style>
-    .rang { font-weight: bold; color: #a56f18; }
+    .rang { font-weight: bold; color: #39b54a; }
 </style>
 </head>
 <body>

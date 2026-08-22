@@ -6,6 +6,7 @@ import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
 import { fetchGrilleNotes, sauvegarderNotes } from '@/features/notes/api'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
+import { succes } from '@/shared/lib/alertes'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 
@@ -115,7 +116,6 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   const [sequenceId, setSequenceId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<number, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
@@ -141,14 +141,13 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   const handleSave = async () => {
     if (!sequenceId) return
     setSubmitting(true)
-    setSavedMessage(null)
     try {
       const notes = Object.entries(valeurs).map(([eleveId, v]) => ({
         eleve_id: Number(eleveId),
         valeur: v.trim() === '' ? null : Number(v),
       }))
       const result = await sauvegarderNotes(classeMatiereId, Number(sequenceId), notes)
-      setSavedMessage(t('notes.saved', { count: result.saved }))
+      succes(t('notes.saved', { count: result.saved }))
       queryClient.invalidateQueries({ queryKey: ['grille-notes', classeMatiereId, sequenceId] })
     } finally {
       setSubmitting(false)
@@ -209,7 +208,6 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
             <Button onClick={handleSave} disabled={submitting}>
               {t('common.save')}
             </Button>
-            {savedMessage && <span className="text-sm text-green-600">{savedMessage}</span>}
           </div>
         </>
       ) : (

@@ -11,6 +11,8 @@ use App\Http\Requests\Api\V1\UpdatePersonnelRequest;
 use App\Http\Resources\Api\V1\PersonnelResource;
 use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
+use App\Models\FonctionReferentiel;
+use App\Models\Personnel;
 use App\Models\School;
 use App\Services\AttestationEmployeurService;
 use App\Services\CompteAgentService;
@@ -127,6 +129,48 @@ class PersonnelController extends Controller
         }
 
         return ApiResponse::success(['deleted' => $deleted], "{$deleted} membre(s) du personnel supprimé(s).");
+    }
+
+    /**
+     * Change la fonction de plusieurs agents d'un coup.
+     *
+     * La fonction porte les privilèges : la reprise d'un fichier laisse
+     * souvent des dizaines d'agents sans fonction, et les doter un par un
+     * demande autant d'allers-retours qu'il y a d'enseignants.
+     *
+     * Les agents hors du périmètre du compte sont ignorés plutôt que de faire
+     * échouer le lot — `find()` borne déjà à l'école, et une sélection peut
+     * couvrir plusieurs écoles en mode agrégé.
+     */
+    public function batchFonction(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'fonction_id' => ['required', 'integer', 'exists:fonction_referentiel,id'],
+        ]);
+
+        $fonction = FonctionReferentiel::forSchool(Tenant::schoolIds())->find($data['fonction_id']);
+
+        if ($fonction === null) {
+            return ApiResponse::error("Cette fonction n'appartient pas à votre établissement.", 422);
+        }
+
+        $modifies = Personnel::forSchool(Tenant::schoolIds())
+            ->whereIn('id', $data['ids'])
+            // Une fonction appartient à une école : l'appliquer à un agent
+            // d'une autre école le rattacherait à un référentiel étranger.
+            ->where('school_id', $fonction->school_id)
+            ->update(['fonction_id' => $fonction->id]);
+
+        $ignores = count($data['ids']) - $modifies;
+
+        return ApiResponse::success(
+            ['modifies' => $modifies, 'ignores' => $ignores],
+            $ignores > 0
+                ? "{$modifies} agent(s) mis à jour, {$ignores} ignoré(s) : la fonction « {$fonction->label_fr} » appartient à une autre école."
+                : "{$modifies} agent(s) rattaché(s) à la fonction « {$fonction->label_fr} ».",
+        );
     }
 
     public function import(Request $request): JsonResponse

@@ -51,7 +51,10 @@ class ScolariteService extends BaseService
 
     private const COMPTE_FRAIS_ANNEXES = '703';
 
-    public function __construct(private readonly NumeroRecuService $numeros) {}
+    public function __construct(
+        private readonly NumeroRecuService $numeros,
+        private readonly EcheancierService $echeancier,
+    ) {}
 
     /**
      * Dossier de l'élève pour l'année, ouvert au besoin.
@@ -573,8 +576,22 @@ class ScolariteService extends BaseService
             $situation = $this->situation($schoolId, $annee->id, ['classe_id' => $classeId]);
 
             foreach ($situation['dossiers'] as $dossier) {
-                if ($dossier->reste_a_payer > $seuil) {
-                    $candidats->push(['dossier' => $dossier, 'school' => $ecoles->get($schoolId), 'seuil' => $seuil]);
+                /*
+                 * Dès qu'un échéancier existe, l'insolvabilité se juge sur ce qui
+                 * est exigible AUJOURD'HUI et non sur le total de l'année : une
+                 * famille à jour de sa première tranche n'a pas à figurer à côté
+                 * de celle qui n'a rien versé. Sans échéancier, `retard()` rend
+                 * le reste à payer et le comportement antérieur est conservé.
+                 */
+                $echeancier = $this->echeancier->pourDossier($dossier);
+
+                if ($echeancier['retard'] > $seuil) {
+                    $candidats->push([
+                        'dossier' => $dossier,
+                        'school' => $ecoles->get($schoolId),
+                        'seuil' => $seuil,
+                        'echeancier' => $echeancier,
+                    ]);
                 }
             }
         }
@@ -599,6 +616,19 @@ class ScolariteService extends BaseService
                     'total_du' => $dossier->total_du,
                     'total_paye' => $dossier->total_paye,
                     'reste_a_payer' => $dossier->reste_a_payer,
+                    // Ce qui motive réellement la relance quand l'école a
+                    // découpé son année : le retard sur les échéances déjà
+                    // passées, distinct du reste à payer sur l'année entière.
+                    'echeancier_actif' => $candidat['echeancier']['actif'],
+                    'du_a_ce_jour' => $candidat['echeancier']['du_a_ce_jour'],
+                    'retard' => $candidat['echeancier']['retard'],
+                    'tranches_en_retard' => collect($candidat['echeancier']['tranches'])
+                        ->where('statut', 'en_retard')
+                        ->map(fn (array $t) => [
+                            'libelle' => $t['libelle'],
+                            'date_echeance' => $t['date_echeance'],
+                            'reste' => $t['reste'],
+                        ])->values()->all(),
                     'rubriques' => $dossier->rubriques,
                     // Une précision de date, pas un statut à part : un moratoire
                     // valide n'exclut pas l'élève de la liste — la famille reste

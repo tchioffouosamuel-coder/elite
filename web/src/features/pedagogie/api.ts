@@ -283,3 +283,22 @@ export async function modifierAttributionCompetence(
 export async function retirerCompetenceClasse(classeCompetenceId: number): Promise<void> {
   await http.delete(`/classe-competences/${classeCompetenceId}`);
 }
+
+/**
+ * Change l'enseignant de plusieurs affectations d'un coup. Une matière
+ * transversale couvre toutes les classes d'un niveau : reprendre son
+ * professeur ligne par ligne est le geste que ceci supprime.
+ *
+ * `personnelId` nul détache l'enseignant — le seul moyen de corriger une
+ * affectation posée sur le mauvais agent.
+ */
+export async function batchEnseignantAffectations(
+  ids: number[],
+  personnelId: number | null,
+): Promise<{ modifiees: number; ignorees: number }> {
+  const { data } = await http.post<ApiResponse<{ modifiees: number; ignorees: number }>>(
+    "/classe-matieres/batch-enseignant",
+    { ids, personnel_id: personnelId },
+  );
+  return data.data;
+}

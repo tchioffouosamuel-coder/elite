@@ -1,6 +1,6 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
-import type { RubriqueScolarite, StatutPaiement, ModePaiement } from '@/features/finance/api'
+import type { RubriqueScolarite, StatutPaiement, ModePaiement, Echeancier } from '@/features/finance/api'
 
 // -------------------------------------------------------------- Mes enfants
 
@@ -68,6 +68,8 @@ export interface FinanceEnfant {
   statut_paiement: StatutPaiement
   rubriques: RubriqueScolarite[]
   versements: { numero_recu: string; date_versement: string; montant: number; mode: ModePaiement }[]
+  /** Échéancier de la scolarité ; `actif` à faux si l'école n'a pas découpé son année. */
+  echeancier: Echeancier
   date_limite_paiement: string | null
   date_exclusion_insolvables: string | null
   moratoire: { date_expiration: string; motif: string | null } | null

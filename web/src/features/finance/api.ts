@@ -826,6 +826,55 @@ export async function fetchBalance(params: Periode): Promise<Balance> {
 
 // ------------------------------------------------------------- Insolvables
 
+/** Statuts d'une tranche, du plus favorable au plus préoccupant. */
+export type StatutTranche = "soldee" | "partielle" | "a_venir" | "en_retard";
+
+/** Une échéance de l'échéancier, telle que le dossier la voit. */
+export interface TrancheEcheancier {
+  id: number;
+  libelle: string;
+  ordre: number;
+  pourcentage: number;
+  date_echeance: string | null;
+  montant: number;
+  montant_paye: number;
+  reste: number;
+  echue: boolean;
+  statut: StatutTranche;
+}
+
+/**
+ * Échéancier d'un dossier. `actif` à faux quand l'école n'a pas découpé son
+ * année : tout reste alors exigible immédiatement, comme auparavant.
+ */
+export interface Echeancier {
+  actif: boolean;
+  total_du: number;
+  total_paye: number;
+  du_a_ce_jour: number;
+  retard: number;
+  delai_grace: number;
+  prochaine_echeance: TrancheEcheancier | null;
+  tranches: TrancheEcheancier[];
+}
+
+/** Une tranche du référentiel, telle qu'on la paramètre. */
+export interface TrancheScolarite {
+  id: number;
+  libelle: string;
+  pourcentage: number;
+  date_echeance: string;
+  ordre: number;
+  annee_scolaire_id: number;
+  school_id: number;
+}
+
+export interface TrancheScolaritePayload {
+  libelle: string;
+  pourcentage: number;
+  date_echeance: string;
+}
+
 export interface Insolvable {
   eleve: {
     id: number;
@@ -838,6 +887,13 @@ export interface Insolvable {
   total_du: number;
   total_paye: number;
   reste_a_payer: number;
+  /** Faux quand l'école n'a pas d'échéancier : le retard vaut alors le reste à payer. */
+  echeancier_actif: boolean;
+  /** Ce qui aurait dû être versé à ce jour, d'après les échéances passées. */
+  du_a_ce_jour: number;
+  /** Ce qui manque sur les échéances déjà passées — le motif réel de la relance. */
+  retard: number;
+  tranches_en_retard: { libelle: string; date_echeance: string | null; reste: number }[];
   rubriques: RubriqueScolarite[];
   moratoire: { date_expiration: string; motif: string | null } | null;
 }
@@ -1184,5 +1240,39 @@ export async function reviserImmobilisation(
   const { data } = await http.patch<
     ApiResponse<DotationAmortissement & { duree_annees: number }>
   >(`/immobilisations/${id}`, payload);
+  return data.data;
+}
+
+/* ------------------------------------------------------------------ */
+/* Échéancier de scolarité                                             */
+/* ------------------------------------------------------------------ */
+
+export async function fetchTranchesScolarite(anneeScolaireId?: number): Promise<{
+  annee_scolaire_id: number;
+  delai_grace: number;
+  tranches: TrancheScolarite[];
+}> {
+  const { data } = await http.get<
+    ApiResponse<{ annee_scolaire_id: number; delai_grace: number; tranches: TrancheScolarite[] }>
+  >("/tranches-scolarite", {
+    params: anneeScolaireId ? { annee_scolaire_id: anneeScolaireId } : undefined,
+  });
+  return data.data;
+}
+
+/**
+ * Remplace l'échéancier de l'année en un seul appel. Un tableau vide le
+ * supprime — c'est le moyen de revenir à une scolarité exigible en une fois.
+ */
+export async function remplacerTranchesScolarite(
+  anneeScolaireId: number,
+  tranches: TrancheScolaritePayload[],
+  schoolId?: number | null,
+): Promise<TrancheScolarite[]> {
+  const { data } = await http.put<ApiResponse<TrancheScolarite[]>>("/tranches-scolarite", {
+    annee_scolaire_id: anneeScolaireId,
+    school_id: schoolId ?? null,
+    tranches,
+  });
   return data.data;
 }

@@ -1,3 +1,10 @@
+{{--
+    Palette alignée sur celle des documents rendus par mPDF
+    (App\Support\Pdf\Concerns\RenduDocument) : vert #39b54a en accent, ardoise
+    #292F36 en texte. Ces vues-ci passent par dompdf et vivaient sur une palette
+    orange héritée, si bien qu'un PV de conseil ne ressemblait pas au bulletin
+    remis le même jour. Toute retouche ici doit suivre ce trait, pas l'inverse.
+--}}
 <style>
     @page {
         margin: 16px 22px 20px 22px;
@@ -37,7 +44,7 @@
 
     hr {
         border: none;
-        border-top: 2px solid #FFAB02;
+        border-top: 2px solid #39b54a;
         margin: 8px 0;
     }
 
@@ -95,12 +102,12 @@
         border-radius: 50%;
         margin: 0 auto;
         background: #292F36;
-        color: #FFAB02;
+        color: #39b54a;
         font-weight: bold;
         font-size: 18px;
         line-height: 56px;
         text-align: center;
-        border: 2px solid #FFAB02;
+        border: 2px solid #39b54a;
     }
 
     table.header-table .school-name {
@@ -117,14 +124,14 @@
     .doc-title .fr {
         font-size: 13px;
         font-weight: bold;
-        color: #292F36;
+        color: #39b54a;
         text-transform: uppercase;
     }
 
     .doc-title .en {
         font-size: 9.5px;
         font-style: italic;
-        color: #a56f18;
+        color: #39b54a;
         text-transform: uppercase;
     }
 
@@ -142,18 +149,18 @@
     }
 
     table.datatable th {
-        background: #FFAB02;
-        color: #292F36;
+        background: #39b54a;
+        color: #fff;
         font-weight: bold;
         font-size: 9px;
-        border: 1px solid #e69a00;
+        border: 1px solid #2e9a3e;
         padding: 4px 5px;
         text-align: center;
     }
 
     table.datatable td {
         background: #F9FBF9;
-        border: 1px solid #d1dbd1;
+        border: 1px solid #bdc3c7;
         padding: 3px 5px;
         font-size: 9px;
         color: #292F36;
@@ -182,7 +189,7 @@
 
     .info-box {
         background: #f1f5f1;
-        border: 2px solid #FFAB02;
+        border: 2px solid #39b54a;
         border-radius: 6px;
         padding: 8px 10px;
         margin: 8px 0;
@@ -206,7 +213,7 @@
     .accent-value {
         font-size: 15px;
         font-weight: bold;
-        color: #a56f18;
+        color: #39b54a;
     }
 
     .high-absence {

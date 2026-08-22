@@ -80,6 +80,7 @@ import { SessionPage } from '@/features/session/pages/SessionPage'
 import { PreinscriptionsAdminPage } from '@/features/eleves/pages/PreinscriptionsAdminPage'
 import { ModificationsElevesAdminPage } from '@/features/eleves/pages/ModificationsElevesAdminPage'
 import { ComptesParentsPage } from '@/features/eleves/pages/ComptesParentsPage'
+import { AdminParentStatsPage } from '@/features/eleves/pages/AdminParentStatsPage'
 import { ParentLayout } from '@/app/ParentLayout'
 import { ParentAccueilPage } from '@/features/parent/pages/ParentAccueilPage'
 import { ParentEnfantPage } from '@/features/parent/pages/ParentEnfantPage'
@@ -203,6 +204,7 @@ export const router = createHashRouter([
       { path: 'preinscriptions', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionsAdminPage /></ProtectedRoute> },
       { path: 'modifications-eleves', element: <ProtectedRoute permission="eleves.manage"><ModificationsElevesAdminPage /></ProtectedRoute> },
       { path: 'comptes-parents', element: <ProtectedRoute permission="eleves.manage"><ComptesParentsPage /></ProtectedRoute> },
+      { path: 'statistiques-parent', element: <ProtectedRoute permission="eleves.manage"><AdminParentStatsPage /></ProtectedRoute> },
     ],
   },
   // Portail parent : coquille et permissions distinctes du personnel (cf.

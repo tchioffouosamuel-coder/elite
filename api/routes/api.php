@@ -67,6 +67,7 @@ use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
+use App\Http\Controllers\Api\V1\TrancheScolariteController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\TuteurController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
@@ -178,6 +179,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
                 Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
                 Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete');
+                Route::post('personnels/batch-fonction', [PersonnelController::class, 'batchFonction'])->name('personnels.batch-fonction');
             });
 
             Route::middleware('permission:dashboard.view')->group(function () {
@@ -379,6 +381,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update');
                 Route::delete('classe-matieres/{id}', [ClasseMatiereController::class, 'destroy'])->name('classe-matieres.destroy');
                 Route::post('classe-matieres/copier', [ClasseMatiereController::class, 'copier'])->name('classe-matieres.copier');
+                Route::post('classe-matieres/batch-enseignant', [ClasseMatiereController::class, 'batchEnseignant'])->name('classe-matieres.batch-enseignant');
             });
 
             /*
@@ -624,9 +627,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::middleware('permission:finance.view')->group(function () {
                 Route::get('tarifs', [TarifsController::class, 'index'])->name('tarifs.index');
+                // Échéancier de la scolarité : le découpage de l'année en
+                // tranches, lu par le portail parent et par les insolvables.
+                Route::get('tranches-scolarite', [TrancheScolariteController::class, 'index'])->name('tranches-scolarite.index');
             });
 
             Route::middleware('permission:finance.manage')->group(function () {
+                Route::put('tranches-scolarite', [TrancheScolariteController::class, 'remplacer'])->name('tranches-scolarite.remplacer');
                 Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir');
                 Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer');
                 Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store');

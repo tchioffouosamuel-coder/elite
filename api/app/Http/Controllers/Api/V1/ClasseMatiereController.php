@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\UpdateClasseMatiereRequest;
 use App\Http\Resources\Api\V1\ClasseMatiereResource;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Personnel;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -144,6 +145,67 @@ class ClasseMatiereController extends Controller
             : "{$copiees} affectation(s) copiée(s).";
 
         return ApiResponse::success(['copiees' => $copiees, 'ignorees' => $ignorees], $message);
+    }
+
+    /**
+     * Change l'enseignant de plusieurs affectations d'un coup.
+     *
+     * Une matière transversale — éducation civique, sport, informatique — se
+     * retrouve dans toutes les classes d'un niveau : reprendre son professeur
+     * ligne par ligne est le geste que cette route supprime.
+     *
+     * `personnel_id` nul détache l'enseignant, ce qui est le seul moyen de
+     * corriger une affectation posée sur le mauvais agent.
+     */
+    public function batchEnseignant(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
+        ]);
+
+        $affectations = ClasseMatiere::forSchool(Tenant::schoolIds())
+            ->with('classe:id,school_id')
+            ->whereIn('id', $data['ids'])
+            ->get();
+
+        if ($affectations->isEmpty()) {
+            return ApiResponse::notFound();
+        }
+
+        $personnel = $data['personnel_id'] === null
+            ? null
+            : Personnel::forSchool(Tenant::schoolIds())->find($data['personnel_id']);
+
+        if ($data['personnel_id'] !== null && $personnel === null) {
+            return ApiResponse::error("Cet agent n'appartient pas à votre établissement.", 422);
+        }
+
+        $modifiees = 0;
+        $ignorees = 0;
+
+        foreach ($affectations as $affectation) {
+            // Un enseignant ne peut prendre une classe d'une autre école : la
+            // sélection peut couvrir plusieurs écoles en mode agrégé.
+            if ($personnel !== null && $affectation->classe?->school_id !== $personnel->school_id) {
+                $ignorees++;
+
+                continue;
+            }
+
+            $affectation->update(['personnel_id' => $personnel?->id]);
+            $modifiees++;
+        }
+
+        $message = $personnel === null
+            ? "{$modifiees} affectation(s) sans enseignant."
+            : "{$modifiees} affectation(s) confiée(s) à {$personnel->nom_complet}.";
+
+        return ApiResponse::success(
+            ['modifiees' => $modifiees, 'ignorees' => $ignorees],
+            $ignorees > 0 ? $message." {$ignorees} ignorée(s) : classe d'une autre école." : $message,
+        );
     }
 
     /**

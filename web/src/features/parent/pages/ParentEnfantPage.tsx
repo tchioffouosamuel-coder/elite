@@ -43,6 +43,7 @@ import {
   type ModificationEnfantPayload,
 } from '@/features/parent/api'
 import { francs } from '@/features/finance/api'
+import type { Echeancier as EcheancierType, StatutTranche } from '@/features/finance/api'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -396,6 +397,8 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
               </div>
             ))}
           </dl>
+
+          {finance.echeancier?.actif && <Echeancier echeancier={finance.echeancier} />}
 
           {(finance.date_limite_paiement || finance.moratoire || finance.date_exclusion_insolvables) && (
             <div className="mb-4 flex flex-col gap-1.5 text-xs">
@@ -857,5 +860,86 @@ function DisciplineCard({ eleveId }: { eleveId: number }) {
         </>
       )}
     </Card>
+  )
+}
+
+/** Couleur et libellé d'une échéance, selon où en est la famille. */
+const ETATS_TRANCHE: Record<StatutTranche, { libelle: string; classe: string; pastille: string }> = {
+  soldee: { libelle: 'Réglée', classe: 'text-green-700', pastille: 'bg-green-500' },
+  en_retard: { libelle: 'En retard', classe: 'text-red-600', pastille: 'bg-red-500' },
+  partielle: { libelle: 'Partielle', classe: 'text-gold-700', pastille: 'bg-gold-500' },
+  a_venir: { libelle: 'À venir', classe: 'text-navy-500', pastille: 'bg-navy-300' },
+}
+
+function dateCourte(valeur: string | null): string {
+  return valeur ? new Date(valeur).toLocaleDateString('fr-FR') : '—'
+}
+
+/**
+ * Échéancier de la scolarité tel que la famille le lit : ce qui est dû, à
+ * quelle date, et ce qui reste sur chaque tranche.
+ *
+ * Affiché seulement quand l'école a découpé son année ; sinon la carte s'en
+ * tient à la date limite unique, comme auparavant.
+ */
+function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
+  const prochaine = echeancier.prochaine_echeance
+
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-xl border border-navy-100 bg-white/70 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-500">
+          <CalendarClock className="h-3.5 w-3.5" />
+          Échéancier
+        </h3>
+        {echeancier.retard > 0 ? (
+          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+            {francs(echeancier.retard)} en retard
+          </span>
+        ) : (
+          <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+            À jour
+          </span>
+        )}
+      </div>
+
+      {prochaine && prochaine.statut !== 'soldee' && (
+        <p className="text-xs text-navy-500">
+          Prochaine échéance : <span className="font-semibold text-navy-800">{prochaine.libelle}</span> —{' '}
+          {francs(prochaine.reste)} avant le{' '}
+          <span className="font-semibold text-navy-800">{dateCourte(prochaine.date_echeance)}</span>
+        </p>
+      )}
+
+      <ul className="flex flex-col divide-y divide-navy-50">
+        {echeancier.tranches.map((tranche) => {
+          const etat = ETATS_TRANCHE[tranche.statut]
+
+          return (
+            <li key={tranche.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className={`h-2 w-2 flex-none rounded-full ${etat.pastille}`} />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium text-navy-800">{tranche.libelle}</span>
+                  <span className="text-[11px] text-navy-400">{dateCourte(tranche.date_echeance)}</span>
+                </span>
+              </span>
+              <span className="flex flex-col items-end">
+                <span className="text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
+                <span className={`text-[11px] font-semibold ${etat.classe}`}>
+                  {tranche.reste > 0 ? `${etat.libelle} · reste ${francs(tranche.reste)}` : etat.libelle}
+                </span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+
+      {echeancier.delai_grace > 0 && (
+        <p className="text-[11px] text-navy-400">
+          Un délai de {echeancier.delai_grace} jour(s) est accordé après chaque échéance.
+        </p>
+      )}
+    </div>
   )
 }

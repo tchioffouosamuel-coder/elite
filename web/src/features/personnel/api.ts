@@ -341,3 +341,19 @@ export async function createLoginAccount(
 ): Promise<void> {
   await http.post(`/personnels/${id}/compte`, email ? { email } : {});
 }
+
+/**
+ * Change la fonction de plusieurs agents d'un coup. La fonction porte les
+ * privilèges : après une reprise de fichier, les doter un par un demande
+ * autant d'allers-retours qu'il y a d'enseignants.
+ */
+export async function batchFonctionPersonnel(
+  ids: number[],
+  fonctionId: number,
+): Promise<{ modifies: number; ignores: number }> {
+  const { data } = await http.post<ApiResponse<{ modifies: number; ignores: number }>>(
+    "/personnels/batch-fonction",
+    { ids, fonction_id: fonctionId },
+  );
+  return data.data;
+}

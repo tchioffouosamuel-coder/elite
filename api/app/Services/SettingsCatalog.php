@@ -143,6 +143,15 @@ class SettingsCatalog
             // Politiques d'établissement, affichées aux parents sur la carte
             // finance de leur enfant — pas de date par élève ou par classe, une
             // seule échéance pour toute l'école.
+            // Tolérance après une échéance avant de compter le retard : une
+            // famille qui règle le lendemain de la date ne doit pas basculer
+            // sur la liste des insolvables entre-temps.
+            [
+                'key' => 'delai_grace_echeance', 'groupe' => 'finance', 'type' => 'number',
+                'default' => 0,
+                'label_fr' => "Délai de grâce après une échéance avant de compter le retard (jours)",
+                'label_en' => 'Grace period after a due date before counting arrears (days)',
+            ],
             [
                 'key' => 'date_limite_paiement', 'groupe' => 'finance', 'type' => 'date',
                 'default' => '',

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Tags, Plus, Save, Trash2, Info, Pencil } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -202,6 +203,10 @@ export function TarifsPage() {
           indiqué par classe.
         </span>
       </p>
+
+      {/* L'échéancier vaut pour toute l'année : il précède la grille par classe,
+          qui en découpe le montant. */}
+      {anneeId && <EcheancierCard anneeScolaireId={anneeId} montantExemple={data.tarif_par_defaut} />}
 
       {/*
         La colonne des frais annexes porte, sur une même ligne, un libellé, un

@@ -1,6 +1,7 @@
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { FileDown, FileText, FileSpreadsheet, AlertTriangle, Bus, Clock } from 'lucide-react'
+import { ChevronRight, FileDown, FileText, FileSpreadsheet, AlertTriangle, Bus, Clock } from 'lucide-react'
 import { fetchEleves, fetchTableauAges, type Eleve } from '@/features/eleves/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { fetchInsolvables, francs } from '@/features/finance/api'
@@ -162,6 +163,8 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
 }
 
 function TableauAgesClasse({ classeId }: { classeId: number }) {
+  const [ageOuvert, setAgeOuvert] = useState<string | null>(null)
+
   const { data, isLoading } = useQuery({
     queryKey: ['eleves-tableau-ages', { classe_id: classeId }],
     queryFn: () => fetchTableauAges({ classe_id: classeId }),
@@ -196,14 +199,54 @@ function TableauAgesClasse({ classeId }: { classeId: number }) {
               </tr>
             </thead>
             <tbody>
-              {data.map((ligne) => (
-                <tr key={ligne.age} className="border-b border-navy-50">
-                  <td className="py-1.5 text-left font-semibold text-navy-800">{ligne.age} ans</td>
-                  <td className="py-1.5 text-right tabular-nums">{ligne.garcons}</td>
-                  <td className="py-1.5 text-right tabular-nums">{ligne.filles}</td>
-                  <td className="py-1.5 text-right tabular-nums">{ligne.total}</td>
-                </tr>
-              ))}
+              {data.map((ligne) => {
+                const ouvert = ageOuvert === ligne.age
+
+                return (
+                  <Fragment key={ligne.age}>
+                    {/* La ligne entière déplie : la pyramide appelle
+                        immédiatement la question « lesquels ? ». */}
+                    <tr
+                      onClick={() => setAgeOuvert(ouvert ? null : ligne.age)}
+                      className="cursor-pointer border-b border-navy-50 hover:bg-cream-50/70"
+                    >
+                      <td className="py-1.5 text-left font-semibold text-navy-800">
+                        <span className="flex items-center gap-1.5">
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 flex-none text-navy-300 transition-transform ${ouvert ? 'rotate-90' : ''}`}
+                          />
+                          {ligne.age} ans
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-right tabular-nums">{ligne.garcons}</td>
+                      <td className="py-1.5 text-right tabular-nums">{ligne.filles}</td>
+                      <td className="py-1.5 text-right tabular-nums">{ligne.total}</td>
+                    </tr>
+
+                    {ouvert && (
+                      <tr className="border-b border-navy-50 bg-cream-50/60">
+                        <td colSpan={4} className="px-2 py-2">
+                          <ul className="flex flex-col divide-y divide-navy-100/60">
+                            {ligne.eleves.map((eleve) => (
+                              <li
+                                key={eleve.id}
+                                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-1.5 text-xs"
+                              >
+                                <span className="font-medium text-navy-800">{eleve.nom_complet}</span>
+                                <span className="flex items-center gap-2 text-navy-400">
+                                  {eleve.classe && <span>{eleve.classe}</span>}
+                                  <span>{eleve.sexe === 'F' ? 'F' : 'M'}</span>
+                                  {eleve.date_naissance && <span>{eleve.date_naissance}</span>}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
