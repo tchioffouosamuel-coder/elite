@@ -770,21 +770,3 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         });
     });
 });
-Route::get('/debug/admin-check', function () {
-    $user = \App\Models\User::where('email', 'admin@elites-school.test')->first();
-    return response()->json([
-        'exists' => (bool) $user,
-        'is_active' => $user?->is_active,
-        'roles' => $user?->getRoleNames(),
-    ]);
-});
-
-Route::post('/debug/reset-admin-password', function () {
-    $user = \App\Models\User::where('email', 'admin@elites-school.test')->first();
-    if (!$user) {
-        return response()->json(['error' => 'not found'], 404);
-    }
-    $user->password = \Illuminate\Support\Facades\Hash::make('TestProd2026!');
-    $user->save();
-    return response()->json(['reset' => true]);
-});
