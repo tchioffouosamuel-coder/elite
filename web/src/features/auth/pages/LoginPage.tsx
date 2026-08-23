@@ -125,25 +125,24 @@ export function LoginPage() {
                 error={errors.identifiant?.message}
                 {...register('identifiant', { required: true })}
               />
-              <div className="relative">
-                <Input
-                  label={t('auth.password')}
-                  type={showPassword ? 'text' : 'password'}
-                  icon={Lock}
-                  autoComplete="current-password"
-                  error={errors.password?.message}
-                  className="pr-10"
-                  {...register('password', { required: true })}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
-                  className="absolute right-3 top-[52%] -translate-y-1/2 text-navy-400 transition-colors hover:text-navy-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <Input
+                label={t('auth.password')}
+                type={showPassword ? 'text' : 'password'}
+                icon={Lock}
+                autoComplete="current-password"
+                error={errors.password?.message}
+                endAdornment={(
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+                    className="flex h-6 w-6 items-center justify-center text-navy-400 transition-colors hover:text-navy-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
+                {...register('password', { required: true })}
+              />
 
               {serverError && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{serverError}</p>

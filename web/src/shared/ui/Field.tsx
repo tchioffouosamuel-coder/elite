@@ -46,18 +46,20 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
   icon?: ComponentType<{ className?: string }>
+  endAdornment?: ReactNode
 }
 
-export function Input({ label, error, className, id, icon: Icon, ...props }: InputProps) {
+export function Input({ label, error, className, id, icon: Icon, endAdornment, ...props }: InputProps) {
   return (
     <FieldWrapper label={label} error={error} htmlFor={id}>
       <div className="relative">
         {Icon && <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />}
         <input
           id={id}
-          className={clsx(fieldClasses, Icon && 'pl-10', error && 'border-red-400 focus:border-red-400 focus:ring-red-100', className)}
+          className={clsx(fieldClasses, Icon && 'pl-10', endAdornment && 'pr-10', error && 'border-red-400 focus:border-red-400 focus:ring-red-100', className)}
           {...props}
         />
+        {endAdornment && <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center">{endAdornment}</div>}
       </div>
     </FieldWrapper>
   )

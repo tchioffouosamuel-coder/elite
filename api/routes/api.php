@@ -770,3 +770,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         });
     });
 });
+Route::get('/debug/admin-check', function () {
+    $user = \App\Models\User::where('email', 'admin@elites-school.test')->first();
+    return response()->json([
+        'exists' => (bool) $user,
+        'is_active' => $user?->is_active,
+        'roles' => $user?->getRoleNames(),
+    ]);
+});
