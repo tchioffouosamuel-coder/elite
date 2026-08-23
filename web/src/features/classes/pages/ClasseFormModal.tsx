@@ -66,6 +66,7 @@ export function ClasseFormModal({
   const secondaire = estSecondaire(ecoleFormulaire?.type)
   const avecNiveaux = utiliseNiveaux(ecoleFormulaire?.type)
   const niveauxEcole = ecoleFormulaire ? niveaux?.filter((n) => n.school_id === ecoleFormulaire.id) : niveaux
+  const sousSystemesEcole = ecoleFormulaire ? sousSystemes?.filter((s) => s.school_id === ecoleFormulaire.id) : sousSystemes
   const { data: niveauxScolaires } = useQuery({
     queryKey: ['niveaux-scolaires'],
     queryFn: fetchNiveauxScolaires,
@@ -144,7 +145,7 @@ export function ClasseFormModal({
 
         <Select label={t('classes.sous_systeme')} {...register('sous_systeme_id')}>
           <option value="">—</option>
-          {sousSystemes?.map((s) => (
+          {sousSystemesEcole?.map((s) => (
             <option key={s.id} value={String(s.id)}>
               {s.nom} ({s.code})
             </option>

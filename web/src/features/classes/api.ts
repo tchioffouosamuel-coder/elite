@@ -145,11 +145,13 @@ export async function deleteClasse(id: number): Promise<void> {
 }
 
 export async function fetchSousSystemes(): Promise<
-  Array<{ id: number; code: string; nom: string }>
+  Array<{ id: number; code: string; nom: string; school_id: number }>
 > {
   const { data } =
     await http.get<
-      ApiResponse<Array<{ id: number; code: string; nom: string }>>
+      ApiResponse<
+        Array<{ id: number; code: string; nom: string; school_id: number }>
+      >
     >("/sous-systemes");
   return data.data;
 }

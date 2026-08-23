@@ -16,10 +16,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('classes', function (Blueprint $table) {
-            $table->dropUnique(['school_id', 'annee_scolaire_id', 'nom']);
             $table->dropForeign(['annee_scolaire_id']);
-            $table->dropColumn('annee_scolaire_id');
             $table->unique(['school_id', 'nom']);
+            $table->dropUnique(['school_id', 'annee_scolaire_id', 'nom']);
+            $table->dropColumn('annee_scolaire_id');
         });
     }
 
