@@ -273,7 +273,7 @@ function AppreciationFormModal({
   const [serverError, setServerError] = useState<string | null>(null)
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
-  const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<AppreciationPayload>({
+  const { register, handleSubmit, watch, setValue, formState: { isSubmitting, errors } } = useForm<AppreciationPayload>({
     defaultValues: appreciation
       ? {
         label_fr: appreciation.label_fr,
@@ -361,13 +361,25 @@ function AppreciationFormModal({
               error={errors.couleur?.message}
             />
           </div>
-          {/* Aperçu de la case telle qu'elle sortira sur le bulletin. */}
-          <span
-            className="mb-1 flex h-10 w-16 flex-none items-center justify-center rounded-lg text-xl text-white shadow-soft"
+          {/*
+            Sélecteur de couleur natif superposé à l'aperçu de la case telle
+            qu'elle sortira sur le bulletin : tout le carré est cliquable et
+            ouvre le sélecteur du système, plutôt qu'un simple aperçu inerte
+            à côté du champ texte.
+          */}
+          <label
+            className="relative mb-1 flex h-10 w-16 flex-none cursor-pointer items-center justify-center overflow-hidden rounded-lg text-xl text-white shadow-soft"
             style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(couleur ?? '') ? couleur : '#cbd5e1' }}
           >
-            {emoji}
-          </span>
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(couleur ?? '') ? couleur : '#cbd5e1'}
+              onChange={(e) => setValue('couleur', e.target.value, { shouldValidate: true, shouldDirty: true })}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              aria-label={t('appreciations.couleur')}
+            />
+            <span className="pointer-events-none">{emoji}</span>
+          </label>
         </div>
 
         <Select label={t('eleves.statut')} {...register('statut')}>
