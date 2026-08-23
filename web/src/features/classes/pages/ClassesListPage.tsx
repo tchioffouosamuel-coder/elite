@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
-import { Plus, Pencil, Trash2, School, Upload, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, School, Upload, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown } from 'lucide-react'
 import {
   fetchClasses,
   deleteClasse,
@@ -11,9 +11,9 @@ import {
   fetchSchools,
   bulkUpdateClasses,
   fetchNiveaux,
-  fetchAnneesScolaires,
   type Classe,
 } from '@/features/classes/api'
+import { ouvrirBulletinsClasse } from '@/features/resultats/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -22,6 +22,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { Select } from '@/shared/ui/Select'
+import { DropdownMenu } from '@/shared/ui/DropdownMenu'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
@@ -37,25 +38,13 @@ export function ClassesListPage() {
   const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
-  // `null` = "Toutes les années" — le défaut, volontairement non restreint :
-  // en mode agrégé (super admin, plusieurs écoles) chaque école a sa propre
-  // année active, et présélectionner "l'" année active en filtre unique
-  // masquerait les classes des autres écoles (même défaut que corrigé sur
-  // ScolariteController plus tôt). La colonne "Année scolaire", elle,
-  // n'apparaît qu'ici, dans cette vue non filtrée — c'est elle qui explique
-  // un total (« 91 ») plus large que celui du tableau de bord ou des tarifs
-  // (« 43 »), tous deux bornés à l'année active de chaque école : le filtre
-  // reste un outil de recherche ponctuel, pas le nouveau défaut.
-  const [anneeFilter, setAnneeFilter] = useState<number | null>(null)
   const secondaire = estSecondaire()
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classes'] })
 
-  const { data: annees = [] } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
-
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['classes', anneeFilter],
-    queryFn: () => fetchClasses(anneeFilter ?? undefined),
+    queryKey: ['classes'],
+    queryFn: () => fetchClasses(),
   })
   const classesPleines = (data ?? []).filter((c) => c.capacite != null && (c.effectif ?? 0) > c.capacite)
   const { data: sousSystemes = [] } = useQuery({
@@ -106,6 +95,21 @@ export function ClassesListPage() {
       setSelectedClasses(new Set())
       invalidate()
       succes(t('classes.bulk_updated', { count: selectedClasses.size }))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const handleDelete = async (classe: Classe) => {
+    const confirme = await confirmerSuppression(
+      t('classes.delete_confirm_quoi', { nom: classe.nom }),
+      t('classes.delete_confirm_precision'),
+    )
+    if (!confirme) return
+    try {
+      await deleteClasse(classe.id)
+      invalidate()
+      succes(t('classes.deleted'))
     } catch (err) {
       erreur((err as ApiError).message)
     }
@@ -167,27 +171,6 @@ export function ClassesListPage() {
       cellule: (c) => <span className="text-navy-600">{c.school?.name ?? '—'}</span>,
       masquerMobile: true,
     },
-    // Colonne visible seulement en vue « Toutes les années » : avec une année
-    // précise déjà choisie dans le filtre, la répéter sur chaque ligne
-    // n'apprendrait rien. C'est aussi là qu'une classe sans année du tout
-    // (jamais reprise par les tarifs ni le tableau de bord, qui filtrent
-    // dessus) devient visible plutôt que silencieusement absente ailleurs.
-    ...(anneeFilter === null
-      ? [
-        {
-          cle: 'annee_scolaire',
-          entete: t('classes.annee_scolaire'),
-          valeur: (c) => c.annee_scolaire?.libelle,
-          cellule: (c) =>
-            c.annee_scolaire ? (
-              <Badge tone={c.annee_scolaire.is_active ? 'green' : 'neutral'}>{c.annee_scolaire.libelle}</Badge>
-            ) : (
-              <Badge tone="red">{t('classes.annee_scolaire_non_liee')}</Badge>
-            ),
-          masquerMobile: true,
-        } satisfies Colonne<Classe>,
-      ]
-      : []),
     {
       cle: 'effectif',
       entete: t('classes.effectif'),
@@ -232,39 +215,19 @@ export function ClassesListPage() {
       entete: t('common.actions'),
       cellule: (c) =>
         can('classes.manage') && (
-          <div className="flex items-center gap-1">
-            <button
-              title={t('common.edit')}
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditingClasse(c)
-              }}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              title={t('common.delete')}
-              onClick={async (e) => {
-                e.stopPropagation()
-                const confirme = await confirmerSuppression(
-                  t('classes.delete_confirm_quoi', { nom: c.nom }),
-                  t('classes.delete_confirm_precision'),
-                )
-                if (!confirme) return
-                try {
-                  await deleteClasse(c.id)
-                  invalidate()
-                  succes(t('classes.deleted'))
-                } catch (err) {
-                  erreur((err as ApiError).message)
-                }
-              }}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+          <DropdownMenu
+            title={t('common.actions')}
+            items={[
+              { label: t('classes.view'), icon: Eye, onClick: () => navigate(`/classes/${c.id}`) },
+              { label: t('classes.edit'), icon: Pencil, onClick: () => setEditingClasse(c) },
+              can('eleves.manage') && { label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') },
+              can('eleves.view') && { label: t('hub.classe.voir_eleves'), icon: Users, onClick: () => navigate(`/eleves?classe=${c.id}`) },
+              can('emploi_du_temps.view') && { label: t('nav.emploiDuTemps'), icon: CalendarClock, onClick: () => navigate(`/emploi-du-temps?classe=${c.id}`) },
+              can('pedagogie.view') && { label: t('nav.progression'), icon: GitBranch, onClick: () => navigate(`/progression/classes/${c.id}`) },
+              can('bulletins.view') && { label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) },
+              { label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true },
+            ]}
+          />
         ),
     },
   ]
@@ -369,16 +332,6 @@ export function ClassesListPage() {
           messageVide={t('classes.empty')}
           outils={
             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-              <div className="w-full sm:w-56">
-                <Select
-                  options={annees.map((a) => ({ value: a.id, label: a.is_active ? `${a.libelle} (${t('classes.annee_active')})` : a.libelle }))}
-                  value={anneeFilter === null ? null : annees.filter((a) => a.id === anneeFilter).map((a) => ({ value: a.id, label: a.libelle }))[0] ?? null}
-                  placeholder={t('classes.all_annees_placeholder')}
-                  onChange={(option) => setAnneeFilter(option ? Number(option.value) : null)}
-                  isSearchable={false}
-                  isClearable
-                />
-              </div>
               {schools.length > 1 && (
                 <div className="w-full sm:w-56">
                   <Select

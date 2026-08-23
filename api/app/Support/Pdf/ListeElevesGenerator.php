@@ -2,6 +2,7 @@
 
 namespace App\Support\Pdf;
 
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\School;
 use App\Services\VisaComposeService;
@@ -19,7 +20,7 @@ class ListeElevesGenerator
         return $this->rendre(
             $classe->school,
             'Classe <i>/ Class</i> : '.$this->e($classe->nom)
-                .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e($classe->anneeScolaire?->libelle ?? '—'),
+                .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e(AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—'),
             $eleves,
             'Liste des élèves — '.$classe->nom,
         );

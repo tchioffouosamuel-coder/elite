@@ -30,7 +30,6 @@ class Classe extends Model
         'school_id',
         'niveau_id',
         'niveau_scolaire_id',
-        'annee_scolaire_id',
         'sous_systeme_id',
         'professeur_principal_id',
         'titulaire_id',
@@ -71,11 +70,6 @@ class Classe extends Model
     public function titulaire(): BelongsTo
     {
         return $this->belongsTo(Personnel::class, 'titulaire_id');
-    }
-
-    public function anneeScolaire(): BelongsTo
-    {
-        return $this->belongsTo(AnneeScolaire::class);
     }
 
     public function professeurPrincipal(): BelongsTo

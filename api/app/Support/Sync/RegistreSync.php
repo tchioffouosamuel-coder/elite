@@ -93,7 +93,7 @@ class RegistreSync
             // --- Structure pédagogique.
             'classes' => [
                 'modele' => Classe::class,
-                'colonnes' => ['id', 'school_id', 'niveau_id', 'niveau_scolaire_id', 'annee_scolaire_id', 'professeur_principal_id', 'titulaire_id', 'surveillant_general_id', 'nom', 'sigle', 'sous_systeme_id', 'niveau_classe', 'filiere', 'capacite', 'qr_token'],
+                'colonnes' => ['id', 'school_id', 'niveau_id', 'niveau_scolaire_id', 'professeur_principal_id', 'titulaire_id', 'surveillant_general_id', 'nom', 'sigle', 'sous_systeme_id', 'niveau_classe', 'filiere', 'capacite', 'qr_token'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'classes.view',
             ],

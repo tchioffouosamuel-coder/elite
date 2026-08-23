@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Trimestre;
 use App\Services\MoyennePrimaireService;
@@ -76,12 +77,13 @@ class ResultatPrimaireController extends Controller
     public function decisions(int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $anneeScolaireId = AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('id');
 
-        if (! $classe->annee_scolaire_id) {
-            return ApiResponse::error("Cette classe n'est rattachée à aucune année scolaire.", 422);
+        if (! $anneeScolaireId) {
+            return ApiResponse::error("Cet établissement n'a aucune année scolaire active.", 422);
         }
 
-        $rows = $this->service->decisionsAnnuelles($classe, $classe->annee_scolaire_id)->map(fn ($row) => [
+        $rows = $this->service->decisionsAnnuelles($classe, $anneeScolaireId)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
             'nom_complet' => $row['eleve']->nom_complet,
             'matricule' => $row['eleve']->matricule,

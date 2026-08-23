@@ -138,7 +138,7 @@ class PrimaireMaternelleSeeder extends Seeder
             $nomClasse = $avecNiveaux ? $code.' A' : $libelle;
 
             $classe = Classe::firstOrCreate(
-                ['school_id' => $school->id, 'nom' => $nomClasse, 'annee_scolaire_id' => $annee->id],
+                ['school_id' => $school->id, 'nom' => $nomClasse],
                 [
                     'niveau_id' => $niveauReference?->id,
                     'niveau_scolaire_id' => $niveauScolaire?->id,

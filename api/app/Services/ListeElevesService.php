@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Support\Word\EnTeteWord;
 use Illuminate\Database\Eloquent\Collection;
@@ -124,7 +125,7 @@ class ListeElevesService extends BaseService
 
         $mentions = [
             ['Classe ', '/ Class', ' : '.$classe->nom],
-            ['Année scolaire ', '/ Academic year', ' : '.($classe->anneeScolaire?->libelle ?? '—')],
+            ['Année scolaire ', '/ Academic year', ' : '.(AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—')],
             ['Effectif ', '/ Headcount', ' : '.$effectif],
         ];
 

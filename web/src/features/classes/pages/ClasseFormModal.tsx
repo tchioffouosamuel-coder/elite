@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
-import { fetchNiveaux, fetchAnneesScolaires, createClasse, updateClasse, fetchSousSystemes, fetchSchools, type Classe, type ClassePayload } from '@/features/classes/api'
+import { fetchNiveaux, createClasse, updateClasse, fetchSousSystemes, fetchSchools, type Classe, type ClassePayload } from '@/features/classes/api'
 import { fetchEcole } from '@/features/settings/api'
 import { fetchNiveauxScolaires } from '@/features/primaire/api'
 import { fetchPersonnels } from '@/features/personnel/api'
@@ -24,12 +24,10 @@ export function ClasseFormModal({
   const { t } = useTranslation()
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: fetchNiveaux })
   const { data: ecole } = useQuery({ queryKey: ['ecole'], queryFn: fetchEcole })
-  const { data: annees } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
   const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const activeAnnee = annees?.find((a) => a.is_active) ?? annees?.[0]
 
   const buildDefaultValues = (): Partial<ClassePayload> =>
     classe
@@ -38,7 +36,6 @@ export function ClasseFormModal({
         sigle: classe.sigle ?? '',
         niveau_classe: classe.niveau_classe ?? '',
         niveau_id: classe.niveau_id,
-        annee_scolaire_id: classe.annee_scolaire_id,
         niveau_scolaire_id: classe.niveau_scolaire_id ?? undefined,
         sous_systeme_id: classe.sous_systeme_id ?? undefined,
         school_id: classe.school_id ?? undefined,
@@ -47,7 +44,7 @@ export function ClasseFormModal({
         code_examen: classe.code_examen ?? '',
         capacite: classe.capacite ?? undefined,
       }
-      : { annee_scolaire_id: activeAnnee?.id }
+      : {}
 
   const {
     register,
@@ -86,7 +83,7 @@ export function ClasseFormModal({
   // formulaire dès que chaque source de données arrive.
   useEffect(() => {
     if (classe) reset(buildDefaultValues())
-  }, [classe, niveaux, annees, sousSystemes, schools, niveauxScolaires, personnels])
+  }, [classe, niveaux, sousSystemes, schools, niveauxScolaires, personnels])
 
   const onSubmit = async (values: ClassePayload) => {
     setServerError(null)
@@ -95,7 +92,6 @@ export function ClasseFormModal({
       const payload = {
         ...values,
         niveau_id: Number(values.niveau_id),
-        annee_scolaire_id: Number(values.annee_scolaire_id),
         capacite: values.capacite ? Number(values.capacite) : null,
         niveau_scolaire_id: values.niveau_scolaire_id ? Number(values.niveau_scolaire_id) : null,
         sous_systeme_id: values.sous_systeme_id ? Number(values.sous_systeme_id) : null,
@@ -142,18 +138,6 @@ export function ClasseFormModal({
           {niveauxEcole?.map((n) => (
             <option key={n.id} value={n.id}>
               {n.name_fr}
-            </option>
-          ))}
-        </Select>
-
-        <Select
-          label={t('session.title')}
-          error={errors.annee_scolaire_id?.message}
-          {...register('annee_scolaire_id', { required: true })}
-        >
-          {annees?.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.libelle}
             </option>
           ))}
         </Select>

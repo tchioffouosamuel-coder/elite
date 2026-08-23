@@ -6,7 +6,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={onClose}
+      role="presentation"
     >
       {/* Feuille ancrée en bas sur mobile, boîte centrée à partir de sm. */}
       <div
@@ -18,7 +18,9 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
             {title}
           </h2>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fermer"
             className="flex-none rounded-full p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
           >
             <X className="h-5 w-5" />

@@ -18,19 +18,18 @@ class ClasseRepository extends BaseRepository
      * reçoit toutes les classes de l'établissement, un enseignant ou un
      * surveillant général seulement les siennes.
      */
-    public function forSchoolAndAnnee(?User $user, int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
+    public function forSchool(?User $user, int|array $schoolId, array $filters = []): Collection
     {
         return $this->query()
             ->forSchool($schoolId)
             ->dansPerimetre($user)
-            ->when($anneeScolaireId, fn ($query, $id) => $query->where('annee_scolaire_id', $id))
             ->when($filters['niveau_id'] ?? null, fn ($query, $id) => $query->where('niveau_id', $id))
             ->withCount([
                 'eleves',
                 'eleves as garcons_count' => fn ($query) => $query->where('sexe', 'M'),
                 'eleves as filles_count' => fn ($query) => $query->where('sexe', 'F'),
             ])
-            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type', 'anneeScolaire:id,libelle,is_active'])
+            ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type'])
             ->orderBy('nom')
             ->get();
     }

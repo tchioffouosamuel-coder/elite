@@ -20,7 +20,7 @@ class ProgressionService extends BaseService
 {
     /**
      * Arbre du programme d'une affectation classe↔matière, chaque leçon
-     * portant son état d'avancement.
+     * portant sa fiche de préparation et son état d'avancement.
      *
      * @return Collection<int, array<string, mixed>>
      */
@@ -66,8 +66,8 @@ class ProgressionService extends BaseService
                 'seances_count' => $item->seances_count,
                 /*
                  * La fiche voyage avec la ligne : l'enseignant la remplit dans
-                 * la progression, sans second ecran. La charger separement
-                 * aurait valu une requete par lecon a chaque depliage.
+                 * la progression, sans second écran. La charger séparément
+                 * aurait valu une requête par leçon à chaque dépliage.
                  */
                 ...$this->fiche($item),
                 'enfants' => $this->brancher($items, $item->id, $parTrimestre),
@@ -83,14 +83,18 @@ class ProgressionService extends BaseService
      */
     private function fiche(ProgressionItem $item): array
     {
-        $champs = [...ProgressionItem::CHAMPS_FICHE, 'term', 'mois', 'semaine'];
+        $estLecon = $item->type === 'lecon';
         $fiche = [];
 
-        foreach ($champs as $champ) {
-            $fiche[$champ] = $item->type === 'lecon' ? $item->{$champ} : null;
+        foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
+            $fiche[$champ] = $estLecon ? $item->{$champ} : null;
         }
 
-        $fiche['date_prevue'] = $item->type === 'lecon' ? $item->date_prevue?->toDateString() : null;
+        $fiche['semaine'] = $estLecon ? $item->semaine : null;
+        $fiche['duree'] = $estLecon ? $item->duree : null;
+        $fiche['date_prevue'] = $estLecon ? $item->date_prevue?->toDateString() : null;
+        $fiche['date_realisee'] = $estLecon ? $item->date_realisee?->toDateString() : null;
+        $fiche['colonnes_libres'] = $estLecon ? ($item->colonnes_libres ?? []) : [];
 
         return $fiche;
     }
@@ -108,7 +112,7 @@ class ProgressionService extends BaseService
             }
         }
 
-        return false;
+        return filled($item->duree) || ($item->colonnes_libres ?? []) !== [];
     }
 
     /**
@@ -224,6 +228,8 @@ class ProgressionService extends BaseService
         $compte = 0;
 
         foreach (array_values($noeuds) as $ordre => $noeud) {
+            $estLecon = $noeud['type'] === 'lecon';
+
             $attributs = [
                 'classe_matiere_id' => $classeMatiere->id,
                 'parent_id' => $parentId,
@@ -231,26 +237,29 @@ class ProgressionService extends BaseService
                 'titre' => $noeud['titre'],
                 'description' => $noeud['description'] ?? null,
                 'ordre' => $ordre + 1,
-                // Seule une leçon porte une séquence cible et une préparation.
-                'sequence_id' => $noeud['type'] === 'lecon' ? ($noeud['sequence_id'] ?? null) : null,
-                'duree_prevue' => $noeud['type'] === 'lecon' ? ($noeud['duree_prevue'] ?? null) : null,
-                'objectifs' => $noeud['type'] === 'lecon' ? ($noeud['objectifs'] ?? null) : null,
-                'materiel' => $noeud['type'] === 'lecon' ? ($noeud['materiel'] ?? null) : null,
-                'activites' => $noeud['type'] === 'lecon' ? ($noeud['activites'] ?? null) : null,
-                'devoirs' => $noeud['type'] === 'lecon' ? ($noeud['devoirs'] ?? null) : null,
+                // Seule une leçon porte une séquence cible et une fiche.
+                'sequence_id' => $estLecon ? ($noeud['sequence_id'] ?? null) : null,
+                'duree_prevue' => $estLecon ? ($noeud['duree_prevue'] ?? null) : null,
+                'semaine' => $estLecon ? ($noeud['semaine'] ?? null) : null,
+                'duree' => $estLecon ? ($noeud['duree'] ?? null) : null,
+                'date_prevue' => $estLecon ? ($noeud['date_prevue'] ?? null) : null,
+                'date_realisee' => $estLecon ? ($noeud['date_realisee'] ?? null) : null,
+                // Colonnes libres de la matière : {colonne_id: valeur}, un
+                // module ou chapitre n'en porte pas.
+                'colonnes_libres' => $estLecon ? ($noeud['colonnes_libres'] ?? null) : null,
             ];
 
             /*
-             * La fiche de préparation se remplit désormais dans la progression
-             * elle-même : ses champs arrivent donc avec le nœud, au lieu d'être
-             * saisis dans un second écran.
-             *
-             * Ils ne concernent qu'une leçon — un module n'a ni topic ni
-             * activités — et sont remis à null sur les autres types pour qu'un
-             * élément converti en chapitre ne traîne pas une fiche orpheline.
+             * La fiche de préparation se remplit dans la progression
+             * elle-même, au format du gabarit de l'établissement : ses champs
+             * arrivent donc avec le nœud plutôt que d'être saisis dans un
+             * second écran. Ils ne concernent qu'une leçon — un module n'a ni
+             * topic ni activités — et sont remis à null sur les autres types
+             * pour qu'un élément converti en chapitre ne traîne pas une fiche
+             * orpheline.
              */
-            foreach ([...ProgressionItem::CHAMPS_FICHE, 'term', 'mois', 'semaine', 'date_prevue'] as $champ) {
-                $attributs[$champ] = $noeud['type'] === 'lecon' ? ($noeud[$champ] ?? null) : null;
+            foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
+                $attributs[$champ] = $estLecon ? ($noeud[$champ] ?? null) : null;
             }
 
             $item = isset($noeud['id'])

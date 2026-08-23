@@ -23,9 +23,9 @@ class ClasseService extends BaseService
      * surveillant général ne voit que ce qu'il enseigne et ce qui lui a été
      * confié, là où la direction voit tout.
      */
-    public function list(?User $user, int|array $schoolId, ?int $anneeScolaireId, array $filters = []): Collection
+    public function list(?User $user, int|array $schoolId, array $filters = []): Collection
     {
-        return $this->repository->forSchoolAndAnnee($user, $schoolId, $anneeScolaireId, $filters);
+        return $this->repository->forSchool($user, $schoolId, $filters);
     }
 
     public function find(int|array $schoolId, int $id): Classe

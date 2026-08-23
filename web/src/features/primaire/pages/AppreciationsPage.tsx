@@ -20,7 +20,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Feedback'
-import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -36,6 +36,7 @@ export function AppreciationsPage() {
   const queryClient = useQueryClient()
   const [formOuvert, setFormOuvert] = useState(false)
   const [enEdition, setEnEdition] = useState<Appreciation | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data: appreciations, isLoading } = useQuery({
     queryKey: ['appreciations'],
@@ -47,7 +48,66 @@ export function AppreciationsPage() {
     queryClient.invalidateQueries({ queryKey: ['grille-primaire'] })
   }
 
+  const basculerSelection = (id: number) => {
+    setSelectedIds((actuels) => {
+      const suivants = new Set(actuels)
+      if (suivants.has(id)) suivants.delete(id)
+      else suivants.add(id)
+      return suivants
+    })
+  }
+
+  const basculerToutes = () => {
+    const lignes = appreciations ?? []
+    setSelectedIds((actuels) => actuels.size === lignes.length ? new Set() : new Set(lignes.map((a) => a.id)))
+  }
+
+  const supprimerSelection = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const ok = await confirmer({
+      titre: t('appreciations.supprimer_selection_titre', { count: ids.length }),
+      message: t('alerts.irreversible'),
+      action: t('common.delete'),
+    })
+    if (!ok) return
+
+    try {
+      await Promise.all(ids.map((id) => supprimerAppreciation(id)))
+      setSelectedIds(new Set())
+      invalider()
+      succes(t('appreciations.supprimes', { count: ids.length }))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
   const colonnes: Colonne<Appreciation>[] = [
+    ...(can('pedagogie.manage')
+      ? [{
+        cle: 'selection',
+        entete: (
+          <input
+            type="checkbox"
+            checked={(appreciations?.length ?? 0) > 0 && selectedIds.size === appreciations?.length}
+            onChange={basculerToutes}
+            className="h-4 w-4 rounded border-navy-300"
+            aria-label={t('common.selectAll')}
+          />
+        ),
+        valeur: () => '',
+        cellule: (a: Appreciation) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(a.id)}
+            onChange={() => basculerSelection(a.id)}
+            className="h-4 w-4 rounded border-navy-300"
+            aria-label={a.label_fr}
+          />
+        ),
+      } satisfies Colonne<Appreciation>]
+      : []),
     {
       cle: 'ordre',
       entete: t('appreciations.ordre'),
@@ -166,6 +226,12 @@ export function AppreciationsPage() {
           placeholderRecherche={t('appreciations.recherche')}
           messageVide={t('appreciations.aucun_niveau')}
           largeurMin={720}
+          outils={can('pedagogie.manage') && selectedIds.size > 0 ? (
+            <Button variant="danger" onClick={supprimerSelection}>
+              <Trash2 className="h-4 w-4" />
+              {t('appreciations.supprimer_selection', { count: selectedIds.size })}
+            </Button>
+          ) : undefined}
         />
       )}
 

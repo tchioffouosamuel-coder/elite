@@ -394,6 +394,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
+                Route::get('classe-matieres/{classeMatiereId}/progression/pdf', [ProgressionController::class, 'pdf'])->name('progression.pdf');
+                Route::get('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'colonnes'])->name('progression-colonnes.index');
                 Route::get('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'champs'])->name('champs-personnalises.index');
                 Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
@@ -401,6 +403,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
                 Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
+                Route::put('classe-matieres/{classeMatiereId}/progression/cartouche', [ProgressionController::class, 'enregistrerCartouche'])->name('progression.cartouche');
+                Route::put('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'enregistrerColonnes'])->name('progression-colonnes.save');
                 Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
                 Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');

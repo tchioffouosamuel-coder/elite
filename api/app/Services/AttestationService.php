@@ -41,7 +41,7 @@ class AttestationService extends BaseService
     {
         $classe = $eleve->classe;
         $school = $eleve->school;
-        $annee = $classe?->anneeScolaire;
+        $annee = AnneeScolaire::where('school_id', $eleve->school_id)->where('is_active', true)->first();
         $feminin = $eleve->sexe === 'F';
 
         $phpWord = new PhpWord;

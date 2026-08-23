@@ -74,7 +74,7 @@ class ListeElevesController extends Controller
 
     private function classe(int $id): Classe
     {
-        return Classe::forSchool(app('tenant.school_id'))->with(['school', 'anneeScolaire'])->findOrFail($id);
+        return Classe::forSchool(app('tenant.school_id'))->with('school')->findOrFail($id);
     }
 
     private function eleves(Classe $classe): Collection

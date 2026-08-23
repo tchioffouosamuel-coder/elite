@@ -216,7 +216,7 @@ class DemoDataSeeder extends Seeder
 
         $classesDefinition = ['6ème A', '5ème A', '4ème A', '3ème A'];
         $classes = collect($classesDefinition)->map(fn ($nom, $i) => Classe::updateOrCreate(
-            ['school_id' => $school->id, 'annee_scolaire_id' => $annee->id, 'nom' => $nom],
+            ['school_id' => $school->id, 'nom' => $nom],
             [
                 'niveau_id' => $niveauCollege->id,
                 'filiere' => 'Général',

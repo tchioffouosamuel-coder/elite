@@ -275,10 +275,6 @@
     "sigle_placeholder": "e.g. GS-A, CE1-B",
     "ecole": "School",
     "sous_systeme": "Subsystem",
-    "annee_scolaire": "School year",
-    "annee_scolaire_non_liee": "Not linked",
-    "annee_active": "active",
-    "all_annees_placeholder": "All school years",
     "all_schools_placeholder": "All schools",
     "bulk_school_placeholder": "Set school",
     "bulk_subsystem_placeholder": "Set subsystem",
@@ -930,7 +926,10 @@
     "view": "View classes",
     "classes_title": "Classes of {{code}} — {{libelle}}",
     "empty_classes": "No class attached to this level.",
-    "search_placeholder": "Search a code, a label…"
+    "search_placeholder": "Search a code, a label…",
+    "assign_classes": "Assign classes",
+    "classes_updated": "The level's classes were updated.",
+    "classes_update_error": "Error assigning classes."
   },
   "niveauxGlobaux": {
     "title": "Global levels",
@@ -1519,7 +1518,10 @@
     "aucun_niveau": "No assessment level configured.",
     "cree": "Level added.",
     "modifie": "Level updated.",
-    "supprime": "Level deleted.",
+    "supprime": "Assessment code deleted.",
+    "supprimes": "{{count}} assessment code(s) deleted.",
+    "supprimer_selection": "Delete ({{count}})",
+    "supprimer_selection_titre": "Delete {{count}} assessment code(s)?",
     "legende": "Levels",
     "volet": "Strand"
   }

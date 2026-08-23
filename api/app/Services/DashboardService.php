@@ -118,7 +118,7 @@ class DashboardService extends BaseService
         return [
             'scope' => 'classe',
             'classe' => ['id' => $classe->id, 'nom' => $classe->nom],
-            'annee_scolaire_active' => $classe->anneeScolaire?->libelle,
+            'annee_scolaire_active' => AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle'),
             'effectifs' => [
                 'eleves' => $totalEleves,
                 'matieres' => $totalMatieres,

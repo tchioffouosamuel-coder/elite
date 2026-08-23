@@ -12,6 +12,9 @@ class ClasseMatiere extends Model
     protected $fillable = [
         'classe_id', 'matiere_id', 'personnel_id', 'coefficient',
         'quota_horaire', 'groupe', 'competences', 'statut',
+        // Cartouche du gabarit de progression secondaire — sans objet pour le
+        // primaire/maternelle, dont le cartouche n'a ni Specialty ni Module.
+        'module_competence', 'specialite',
     ];
 
     protected function casts(): array
@@ -43,5 +46,10 @@ class ClasseMatiere extends Model
     public function notes(): HasMany
     {
         return $this->hasMany(Note::class);
+    }
+
+    public function progressionColonnes(): HasMany
+    {
+        return $this->hasMany(ProgressionColonne::class)->orderBy('ordre');
     }
 }

@@ -86,14 +86,10 @@ export function TarifsPage() {
     queryKey: ['tarifs', activeSchoolId],
     queryFn: () => fetchTarifs(),
   })
-  // Scopée à l'année de la grille affichée : sans ce filtre, une classe d'une
-  // année révolue (ou mal rattachée) pourrait se glisser dans la portée d'un
-  // frais de l'année courante.
   const anneeId = data?.annee_scolaire.id
   const { data: classes = [] } = useQuery({
-    queryKey: ['classes', anneeId],
-    queryFn: () => fetchClasses(anneeId),
-    enabled: !!anneeId,
+    queryKey: ['classes'],
+    queryFn: () => fetchClasses(),
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['tarifs'] })

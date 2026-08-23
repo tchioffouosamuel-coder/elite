@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { createPortal } from 'react-dom'
-import { MoreVertical } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { clsx } from 'clsx'
 
 export interface DropdownMenuItem {
@@ -66,7 +66,7 @@ export function DropdownMenu({ items, title = 'Plus d’actions' }: { items: Dro
         }}
         className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreHorizontal className="h-4 w-4" />
       </button>
 
       {ouvert &&

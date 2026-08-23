@@ -159,28 +159,28 @@ export function NiveauxScolairesPage() {
   const colonnes: Colonne<NiveauScolaire>[] = [
     ...(can('pedagogie.manage')
       ? [
-          {
-            cle: 'selection',
-            entete: data ? (
-              <input
-                type="checkbox"
-                checked={selectedIds.size === data.length && data.length > 0}
-                onChange={handleSelectAll}
-                className="h-4 w-4 rounded border-navy-300"
-              />
-            ) : null,
-            valeur: () => '',
-            cellule: (n: NiveauScolaire) => (
-              <input
-                type="checkbox"
-                checked={selectedIds.has(n.id)}
-                onChange={() => handleToggleSelect(n.id)}
-                className="h-4 w-4 rounded border-navy-300"
-              />
-            ),
-            largeur: '44px',
-          } satisfies Colonne<NiveauScolaire>,
-        ]
+        {
+          cle: 'selection',
+          entete: data ? (
+            <input
+              type="checkbox"
+              checked={selectedIds.size === data.length && data.length > 0}
+              onChange={handleSelectAll}
+              className="h-4 w-4 rounded border-navy-300"
+            />
+          ) : null,
+          valeur: () => '',
+          cellule: (n: NiveauScolaire) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(n.id)}
+              onChange={() => handleToggleSelect(n.id)}
+              className="h-4 w-4 rounded border-navy-300"
+            />
+          ),
+          largeur: '44px',
+        } satisfies Colonne<NiveauScolaire>,
+      ]
       : []),
     {
       cle: 'code',
@@ -220,7 +220,7 @@ export function NiveauxScolairesPage() {
       valeur: (n) => n.animateur?.nom_complet,
       cellule: (n) =>
         can('pedagogie.manage') ? (
-          <select
+          <Select
             value={n.animateur_personnel_id ?? ''}
             onChange={(e) => handleAnimateur(n.id, e.target.value)}
             onClick={(e) => e.stopPropagation()}
@@ -232,7 +232,7 @@ export function NiveauxScolairesPage() {
                 {p.nom_complet}
               </option>
             ))}
-          </select>
+          </Select>
         ) : (
           (n.animateur?.nom_complet ?? '—')
         ),

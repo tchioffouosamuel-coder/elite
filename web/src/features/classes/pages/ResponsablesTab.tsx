@@ -149,7 +149,6 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
     mutationFn: (courant: Classe) =>
       updateClasse(classeId, {
         niveau_id: courant.niveau_id,
-        annee_scolaire_id: courant.annee_scolaire_id,
         nom: courant.nom,
         filiere: courant.filiere,
         capacite: courant.capacite,

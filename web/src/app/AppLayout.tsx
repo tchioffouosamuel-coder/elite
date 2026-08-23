@@ -444,13 +444,21 @@ export function AppLayout() {
 
       <aside
         className={clsx(
-          'fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-none flex-col overflow-y-auto bg-navy-800 text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
+          'relative fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-none flex-col overflow-y-auto bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
           'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
           menuOuvert ? 'translate-x-0' : '-translate-x-full',
           sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
         )}
       >
-        <div className={clsx('flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1.5px, transparent 0)', backgroundSize: '28px 28px' }}
+          aria-hidden
+        />
+        <div className="pointer-events-none absolute -right-28 -top-24 h-96 w-96 rounded-full bg-gold-500/15 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-green-500/20 blur-3xl" aria-hidden />
+
+        <div className={clsx('relative z-10 flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
           <span className={clsx('flex h-10 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft', !sidebarOpen && 'lg:hidden')}>
             <img src={logoWordmark} alt={t('app.name')} className="h-7 w-auto object-contain" />
           </span>
@@ -466,7 +474,7 @@ export function AppLayout() {
           </button>
         </div>
 
-        <div className={clsx('px-3 pb-3', !sidebarOpen && 'lg:hidden')}>
+        <div className={clsx('relative z-10 px-3 pb-3', !sidebarOpen && 'lg:hidden')}>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
             <input
@@ -478,7 +486,7 @@ export function AppLayout() {
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1.5 px-3 pt-1 pb-4">
+        <nav className="relative z-10 flex flex-1 flex-col gap-1.5 px-3 pt-1 pb-4">
           {groupesSidebar.map((group) => {
             // Pour les enseignants, tout est visible en sidebar puisqu'il n'y a pas de topbar
             const groupeEnTopbar = !user?.est_enseignant && groupesTopbarDesktop.has(group.label)
@@ -555,7 +563,7 @@ export function AppLayout() {
 
         <div
           className={clsx(
-            'sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800 px-4 py-4',
+            'relative z-10 sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800/70 px-4 py-4 backdrop-blur-sm',
             !sidebarOpen && 'lg:flex-col lg:gap-2 lg:px-2',
           )}
         >

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AnneeScolaire;
 use App\Models\Appreciation;
 use App\Models\ClasseCompetence;
 use App\Models\Note;
@@ -141,10 +142,11 @@ class NotePrimaireService extends BaseService
             : collect();
         $eleveIdsValides = $classeCompetence->classe->eleves()->pluck('id')->flip();
         $composantesValides = array_flip($classeCompetence->competence->volets());
-        $sequenceIdsValides = $classeCompetence->classe->anneeScolaire
+        $anneeActive = AnneeScolaire::where('school_id', $classeCompetence->classe->school_id)->where('is_active', true)->first();
+        $sequenceIdsValides = $anneeActive
             ? Sequence::whereHas(
                 'trimestre',
-                fn ($q) => $q->where('annee_scolaire_id', $classeCompetence->classe->annee_scolaire_id)
+                fn ($q) => $q->where('annee_scolaire_id', $anneeActive->id)
             )->pluck('id')->flip()
             : collect();
 

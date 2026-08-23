@@ -275,10 +275,6 @@
     "sigle_placeholder": "ex: GS-A, CE1-B",
     "ecole": "École",
     "sous_systeme": "Sous-système",
-    "annee_scolaire": "Année scolaire",
-    "annee_scolaire_non_liee": "Non liée",
-    "annee_active": "active",
-    "all_annees_placeholder": "Toutes les années",
     "all_schools_placeholder": "Toutes les écoles",
     "bulk_school_placeholder": "Définir l'école",
     "bulk_subsystem_placeholder": "Définir le sous-système",
@@ -581,7 +577,10 @@
     "view": "Voir les classes",
     "classes_title": "Classes de {{code}} — {{libelle}}",
     "empty_classes": "Aucune classe rattachée à ce niveau.",
-    "search_placeholder": "Rechercher un code, un libellé…"
+    "search_placeholder": "Rechercher un code, un libellé…",
+    "assign_classes": "Attribuer les classes",
+    "classes_updated": "Les classes du niveau ont été mises à jour.",
+    "classes_update_error": "Erreur lors de l'attribution des classes."
   },
   "discipline": {
     "title": "Discipline",
@@ -1519,7 +1518,10 @@
     "aucun_niveau": "Aucun niveau d'appréciation configuré.",
     "cree": "Niveau ajouté.",
     "modifie": "Niveau mis à jour.",
-    "supprime": "Niveau supprimé.",
+    "supprime": "Code d'appréciation supprimé.",
+    "supprimes": "{{count}} code(s) d'appréciation supprimé(s).",
+    "supprimer_selection": "Supprimer ({{count}})",
+    "supprimer_selection_titre": "Supprimer {{count}} code(s) d'appréciation ?",
     "legende": "Niveaux",
     "volet": "Volet"
   }

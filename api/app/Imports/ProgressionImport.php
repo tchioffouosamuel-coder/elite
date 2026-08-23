@@ -5,80 +5,54 @@ namespace App\Imports;
 use App\Models\ClasseMatiere;
 use App\Models\ProgressionItem;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 /**
- * Import de la fiche de progression de l'établissement.
+ * Import de la fiche de progression au format du gabarit de l'établissement.
  *
- * Le classeur (« Mr/Mrs XX Subject XX progression sheet class-XX ») porte ses
- * en-têtes en ligne 6 : les cinq premières lignes sont un cartouche (école,
- * classe, matière, enseignant, horaires) que l'application connaît déjà par
- * l'affectation visée. Chaque ligne suivante est une leçon.
+ * Il en existe deux — un pour maternelle/primaire, un pour le secondaire —
+ * qui partagent la plupart de leurs colonnes mais pas la ligne d'en-tête (7
+ * pour le premier, 8 pour le second, à cause du cartouche « Department /
+ * Specialty » propre au secondaire) : le cycle de l'affectation visée
+ * détermine laquelle lire, pas une détection sur le contenu du fichier.
  *
- * L'import COMPLÈTE, il n'écrase pas : une leçon déjà présente — reconnue à son
- * couple Topic + Lesson — ne voit remplir que ses champs restés vides. Un
- * enseignant qui a commencé sa saisie à l'écran ne la perd donc pas en
- * important le fichier de son collègue, ce qui serait le pire moment pour
- * découvrir la règle.
+ * L'import COMPLÈTE, il n'écrase pas : une leçon déjà présente — reconnue à
+ * son couple Topic + Sub-topic — ne voit remplir que ses champs restés vides.
  */
-class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleSheets
+class ProgressionImport implements ToCollection, WithHeadingRow
 {
     /**
-     * En-tête du fichier (normalisé) => champ du modèle.
-     *
-     * Les libellés viennent de la feuille réelle, apostrophes typographiques
-     * comprises ; la normalisation par `cle()` les ramène à des lettres, si
-     * bien qu'une variante de casse ou de ponctuation tombe au même endroit.
+     * En-tête du fichier (normalisé) => champ du modèle. Commune aux deux
+     * gabarits : « Competency » (primaire seul) et « Teaching / Strategy »
+     * (secondaire seul) y figurent toutes les deux, la colonne absente du
+     * fichier importé n'apparaissant simplement jamais dans les en-têtes lus.
      */
     private const COLONNES = [
-        'term' => 'term',
-        'month' => 'mois',
-        'mois' => 'mois',
         'week' => 'semaine',
-        'semaine' => 'semaine',
-        'dates' => 'date_prevue',
-        'date' => 'date_prevue',
-        'expectedlearningoutcomes' => 'expected_learning_outcomes',
+        'dateplanned' => 'date_prevue',
+        'datetaught' => 'date_realisee',
+        'duration' => 'duree',
+        'periods' => 'duree',
         'topic' => 'topic',
-        'lesson' => 'lesson',
-        'competence' => 'competence',
-        'digitalpracticalnormal' => 'mode',
-        'stagesofthelesson' => 'stages_of_lesson',
-        'entrybehaviour' => 'entry_behaviour',
+        'subtopic' => 'sous_topic',
+        'competency' => 'competence',
+        'learningoutcomes' => 'expected_learning_outcomes',
+        'entrybehaviourpreviousknowledge' => 'entry_behaviour',
         'teachingaids' => 'teaching_aids',
-        'teachinglearningstrategies' => 'teaching_learning_strategies',
-        'references' => 'references',
-        'stageintroduction' => 'introduction',
-        'stagepresentation' => 'presentation',
-        'stageconclusion' => 'conclusion',
-        'mainpointsofmatter' => 'main_points',
+        'resourcesteachingaids' => 'teaching_aids',
+        'teachingstrategy' => 'teaching_learning_strategies',
+        'teachersactivities' => 'facilitators_activities',
         'learnersactivities' => 'learners_activities',
-        'facilitatorsactivities' => 'facilitators_activities',
-        'reserchquestions' => 'research_questions',
-        'researchquestions' => 'research_questions',
+        'assessment' => 'assessment',
+        'assessmentevaluation' => 'assessment',
+        'assignment' => 'assignment',
+        'remarks' => 'remarks',
     ];
-
-    /**
-     * Nombre de lignes sans leçon qui marque la fin du tableau.
-     *
-     * Le gabarit se termine par une dizaine de lignes pré-formatées vides,
-     * puis un pied de page de signatures — « The teacher », « The dean of
-     * studies », « The head teacher » — dont les cellules tombent sous des
-     * colonnes du tableau. Prises pour des données, elles créent une leçon
-     * fantôme intitulée d'après un signataire. Le trou qui les précède est ce
-     * qui les distingue : cinq lignes vides tolèrent qu'un enseignant en
-     * saute quelques-unes, sans laisser passer le pied de page.
-     *
-     * C'est aussi pourquoi cet import n'implémente pas SkipsEmptyRows : sans
-     * les lignes vides, le pied de page suivrait la dernière leçon sans trou
-     * et redeviendrait indiscernable d'une donnée.
-     */
-    private const FIN_DE_TABLE = 5;
 
     public int $creees = 0;
 
@@ -86,57 +60,37 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
 
     public int $ignorees = 0;
 
-    public function __construct(private readonly ClasseMatiere $classeMatiere) {}
+    public function __construct(private readonly ClasseMatiere $classeMatiere, private readonly string $cycle) {}
 
-    /**
-     * Première feuille seulement : le classeur porte aussi « Subjects per
-     * staff », un annuaire du personnel qui n'a rien d'une progression.
-     */
-    public function sheets(): array
-    {
-        return [0 => $this];
-    }
-
-    /** Les en-têtes utiles sont en ligne 6 ; au-dessus vit le cartouche. */
+    /** Ligne 7 pour maternelle/primaire, ligne 8 pour le secondaire (cartouche Department/Specialty en plus). */
     public function headingRow(): int
     {
-        return 6;
+        return $this->cycle === 'secondaire' ? 8 : 7;
     }
 
     public function collection(Collection $rows): void
     {
-        // Les leçons déjà en base, indexées par Topic + Lesson : c'est ce
-        // couple qui identifie une ligne de la feuille, le titre libre de
-        // l'application ne s'y prêtant pas.
+        // Leçons déjà en base, indexées par Topic + Sub-topic : c'est ce
+        // couple qui identifie une ligne de la feuille.
         $existantes = ProgressionItem::where('classe_matiere_id', $this->classeMatiere->id)
             ->where('type', 'lecon')
             ->get()
-            ->keyBy(fn (ProgressionItem $item) => self::cle($item->topic).'|'.self::cle($item->lesson));
+            ->keyBy(fn (ProgressionItem $item) => self::cle($item->topic).'|'.self::cle($item->sous_topic));
 
         $ordre = (int) ProgressionItem::where('classe_matiere_id', $this->classeMatiere->id)->max('ordre');
-
-        $vides = 0;
 
         foreach ($rows as $row) {
             $ligne = $this->canoniser($row instanceof Collection ? $row->all() : (array) $row);
 
-            // Une ligne sans topic ni leçon est une ligne de garde, un total ou
-            // une ligne vide pré-formatée : le gabarit en compte des dizaines.
-            if (($ligne['topic'] ?? null) === null && ($ligne['lesson'] ?? null) === null) {
+            // Une ligne sans topic ni sous-sujet est une ligne vide
+            // pré-formatée : les deux gabarits en comptent plusieurs.
+            if (($ligne['topic'] ?? null) === null && ($ligne['sous_topic'] ?? null) === null) {
                 $this->ignorees++;
-
-                // Assez de vide d'affilée : le tableau est fini, ce qui suit
-                // relève du pied de page.
-                if (++$vides >= self::FIN_DE_TABLE) {
-                    break;
-                }
 
                 continue;
             }
 
-            $vides = 0;
-
-            $cle = self::cle($ligne['topic'] ?? null).'|'.self::cle($ligne['lesson'] ?? null);
+            $cle = self::cle($ligne['topic'] ?? null).'|'.self::cle($ligne['sous_topic'] ?? null);
             $existante = $existantes->get($cle);
 
             if ($existante !== null) {
@@ -148,9 +102,9 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
             $item = ProgressionItem::create([
                 'classe_matiere_id' => $this->classeMatiere->id,
                 'type' => 'lecon',
-                // Le titre affiché dans la liste : la leçon quand elle est
-                // nommée, le sujet à défaut — jamais vide, la colonne l'exige.
-                'titre' => $ligne['lesson'] ?? $ligne['topic'],
+                // Le titre affiché dans la liste : le sujet, le sous-sujet à
+                // défaut — jamais vide, la colonne l'exige.
+                'titre' => $ligne['topic'] ?? $ligne['sous_topic'],
                 'ordre' => ++$ordre,
                 ...$ligne,
             ]);
@@ -170,7 +124,7 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
         $aRemplir = [];
 
         foreach ($ligne as $champ => $valeur) {
-            $actuel = $item->{$champ};
+            $actuel = $champ === 'colonnes_libres' ? null : $item->{$champ};
 
             if ($valeur !== null && ($actuel === null || trim((string) $actuel) === '')) {
                 $aRemplir[$champ] = $valeur;
@@ -189,9 +143,9 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
 
     /**
      * Traduit les en-têtes du fichier en champs du modèle, et normalise les
-     * valeurs. Une colonne inconnue est écartée : le gabarit en porte
-     * plusieurs — horaires, appel, visa — qui relèvent de la séance tenue et
-     * non de sa préparation.
+     * valeurs. Une colonne inconnue est écartée : les gabarits en portent
+     * plusieurs (cartouche, colonnes propres à une matière) qui ne relèvent
+     * pas de l'import ligne à ligne.
      *
      * @param  array<string, mixed>  $ligne
      * @return array<string, mixed>
@@ -207,33 +161,14 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
                 continue;
             }
 
-            $valeur = $champ === 'date_prevue' ? self::date($valeur) : self::texte($valeur);
+            $valeur = in_array($champ, ['date_prevue', 'date_realisee'], true) ? self::date($valeur) : self::texte($valeur);
 
             if ($valeur !== null) {
-                $canonique[$champ] = $champ === 'mode' ? self::mode($valeur) : $valeur;
+                $canonique[$champ] = $valeur;
             }
         }
 
-        // Un mode illisible ne doit pas faire échouer la ligne entière : la
-        // colonne est renseignée à la main, souvent en abrégé.
-        if (($canonique['mode'] ?? false) === null) {
-            unset($canonique['mode']);
-        }
-
         return $canonique;
-    }
-
-    /** « Digital », « prat. », « N » : la colonne est saisie à la main. */
-    private static function mode(string $valeur): ?string
-    {
-        $cle = self::cle($valeur);
-
-        return match (true) {
-            str_starts_with($cle, 'dig') || str_starts_with($cle, 'num') => 'digital',
-            str_starts_with($cle, 'prat') || str_starts_with($cle, 'pract') => 'practical',
-            str_starts_with($cle, 'norm') || $cle === 'n' => 'normal',
-            default => null,
-        };
     }
 
     private static function texte(mixed $valeur): ?string
@@ -242,8 +177,6 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
             return null;
         }
 
-        // Les cellules de durée du gabarit arrivent en objets date : elles ne
-        // concernent pas la préparation, mais mieux vaut un texte qu'une erreur.
         if ($valeur instanceof \DateTimeInterface) {
             return CarbonImmutable::instance($valeur)->format('H:i');
         }
@@ -286,5 +219,31 @@ class ProgressionImport implements ToCollection, WithHeadingRow, WithMultipleShe
     private static function cle(?string $valeur): string
     {
         return preg_replace('/[^a-z0-9]+/', '', mb_strtolower(Str::ascii((string) $valeur))) ?? '';
+    }
+
+    /**
+     * En-têtes du fichier, normalisés comme le fait maatwebsite (formateur
+     * « slug » par défaut) : sert à choisir la ligne d'en-tête à passer à
+     * Excel::import() (7 ou 8) avant de savoir si le fichier correspond
+     * vraiment au cycle de l'affectation visée — l'appelant compare le
+     * résultat à ce qu'il attend et rejette sinon.
+     */
+    public static function ligneEnTete(UploadedFile $fichier): ?int
+    {
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $lecteur->setReadDataOnly(true);
+        $feuille = $lecteur->load($fichier->getRealPath())->getSheet(0);
+
+        foreach ([7, 8] as $ligne) {
+            foreach ($feuille->getRowIterator($ligne, $ligne) as $ligneEntete) {
+                foreach ($ligneEntete->getCellIterator() as $cellule) {
+                    if (self::cle((string) $cellule->getValue()) === 'week') {
+                        return $ligne;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }

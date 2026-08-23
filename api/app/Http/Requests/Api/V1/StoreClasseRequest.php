@@ -33,7 +33,6 @@ class StoreClasseRequest extends FormRequest
                 Rule::prohibitedIf(fn() => ! $this->ecoleUtiliseNiveaux()),
                 $this->scopedExists('niveau_scolaires'),
             ],
-            'annee_scolaire_id' => ['required', $this->scopedExists('annee_scolaires')],
             'sous_systeme_id' => ['nullable', $this->scopedExists('sous_systemes')],
             'professeur_principal_id' => ['nullable', $this->scopedExists('personnels')],
             // Enseignant unique de la classe au primaire et en maternelle.

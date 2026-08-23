@@ -43,30 +43,40 @@ class AttestationEmployeurService extends BaseService
         $phpWord = new PhpWord;
         $phpWord->setDefaultFontName('Montserrat');
         $section = $phpWord->addSection([
-            'marginTop' => 720, 'marginBottom' => 720, 'marginLeft' => 900, 'marginRight' => 900,
+            'marginTop' => 720,
+            'marginBottom' => 720,
+            'marginLeft' => 900,
+            'marginRight' => 900,
         ]);
 
         EnTeteWord::filigrane($section, $school);
         EnTeteWord::ajouter($section, $school);
 
-        $section->addText("ATTESTATION DE L'EMPLOYEUR", ['bold' => true, 'size' => 15], ['alignment' => 'center', 'spaceAfter' => 0]);
-        $section->addText('EMPLOYER ATTESTATION', ['bold' => true, 'italic' => true, 'size' => 12], ['alignment' => 'center', 'spaceAfter' => 160]);
+        $avecConge = ! empty($conge['debut']);
+        $titre = ! $avecConge
+            ? "ATTESTATION DE L'EMPLOYEUR N° "
+            : "ATTESTATION DE L'EMPLOYEUR ET NOTIFICATION DE CONGE ANNUEL N° ";
+        $titreEn = ! $avecConge
+            ? 'EMPLOYER ATTESTATION N° '
+            : 'EMPLOYER ATTESTATION AND ANNUAL LEAVE NOTIFICATION N° ';
+        $section->addText($titre . $reference->numero, ['bold' => true, 'size' => 13], ['alignment' => 'center', 'spaceAfter' => 0]);
+        $section->addText($titreEn . $reference->numero, ['bold' => true, 'italic' => true, 'size' => 10], ['alignment' => 'center', 'spaceAfter' => 160]);
 
         $ligne = $section->addTextRun(['spaceAfter' => 240]);
-        $ligne->addText('Réf. N° '.$reference->numeroFormate().' / '.($school->code ?: 'ATT'), ['size' => 10, 'italic' => true]);
+        $ligne->addText('Réf. N° ' . $reference->numeroFormate() . ' / ' . ($school->code ?: 'ATT'), ['size' => 10, 'italic' => true]);
 
         // Déclarant.
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 0]);
-        $ligne->addText('Nous, ', ['size' => 11]);
+        $ligne->addText('Nous ', ['size' => 11]);
         $ligne->addText($school->name, ['size' => 11, 'bold' => true]);
-        $ligne->addText(', attestons que :', ['size' => 11]);
+        $ligne->addText(' attestons que l\'employé(e) de nommé(e) :', ['size' => 11]);
 
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 160]);
-        $ligne->addText('We, the ', ['size' => 11, 'italic' => true]);
+        $ligne->addText('We, ', ['size' => 11, 'italic' => true]);
         $ligne->addText($school->name, ['size' => 11, 'italic' => true, 'bold' => true]);
-        $ligne->addText(', hereby certify that:', ['size' => 11, 'italic' => true]);
+        $ligne->addText(' hereby certify that the employee named:', ['size' => 11, 'italic' => true]);
 
-        $this->champ($section, 'Nom et prénoms', 'Full name', trim(($personnel->civilite ?? '').' '.mb_strtoupper($personnel->nom_complet)));
+        $this->champ($section, 'Nom et prénoms', 'Full name', trim(($personnel->civilite ?? '') . ' ' . mb_strtoupper($personnel->nom_complet)));
         $this->champ($section, 'Matricule interne N°', 'Internal staff N°', $personnel->matricule);
         $this->champ($section, 'N° CNPS', 'Social security N°', $personnel->numero_cnps);
         $this->champ($section, $feminin ? 'Née le' : 'Né le', 'Born on', $personnel->date_naissance?->format('d/m/Y'));
@@ -82,7 +92,7 @@ class AttestationEmployeurService extends BaseService
         } else {
             $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 0]);
             $ligne->addText(
-                'Est employé'.($feminin ? 'e' : '').' dans notre établissement et y exerce régulièrement ses fonctions.',
+                'Est employé' . ($feminin ? 'e' : '') . ' dans notre établissement et y exerce régulièrement ses fonctions.',
                 ['size' => 11],
             );
             $section->addText(
@@ -110,7 +120,7 @@ class AttestationEmployeurService extends BaseService
             mkdir($directory, 0755, true);
         }
 
-        $path = $directory.'/attestation-employeur-'.uniqid().'.docx';
+        $path = $directory . '/attestation-employeur-' . uniqid() . '.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         return $path;
@@ -121,14 +131,14 @@ class AttestationEmployeurService extends BaseService
     {
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 0]);
         $ligne->addText(
-            'Nous lui notifions que son absence '.($conge['motif'] ? '('.$conge['motif'].') ' : '')
-                .'est autorisée pour la période suivante :',
-            ['size' => 11],
+            'Nous lui notifions que son congé annuel ' . ($conge['motif'] ? '(' . $conge['motif'] . ') ' : '')
+                . 'est autorisé pour la période suivante :',
+            ['size' => 11, 'color' => 'C00000', 'bold' => true],
         );
 
         $section->addText(
-            'We hereby notify that the following period of absence is authorised:',
-            ['size' => 11, 'italic' => true],
+            'We hereby notify that the following period of annual leave is authorised:',
+            ['size' => 11, 'italic' => true, 'color' => 'C00000', 'bold' => true],
             ['alignment' => 'both', 'spaceAfter' => 120],
         );
 
@@ -142,8 +152,8 @@ class AttestationEmployeurService extends BaseService
         $section->addTextBreak(1, null, ['spaceAfter' => 0]);
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 160]);
         $ligne->addText(
-            'Passé ce délai, l\'intéressé'.($feminin ? 'e' : '').' est tenu'.($feminin ? 'e' : '')
-                .' de reprendre son service.',
+            'Passé ce délai, l\'intéressé' . ($feminin ? 'e' : '') . ' est tenu' . ($feminin ? 'e' : '')
+                . ' de reprendre son service.',
             ['size' => 11],
         );
     }
@@ -151,7 +161,7 @@ class AttestationEmployeurService extends BaseService
     private function champ(Section $section, string $fr, string $en, ?string $valeur): void
     {
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 100]);
-        $ligne->addText($fr.' / ', ['size' => 11]);
+        $ligne->addText($fr . ' / ', ['size' => 11]);
         $ligne->addText($en, ['size' => 11, 'italic' => true]);
         $ligne->addText(' : ', ['size' => 11]);
         $ligne->addText(
@@ -172,8 +182,8 @@ class AttestationEmployeurService extends BaseService
         $mois = $ecart->m;
 
         return trim(
-            ($annees > 0 ? $annees.' an'.($annees > 1 ? 's' : '').' ' : '')
-            .($mois > 0 || $annees === 0 ? $mois.' mois' : '')
+            ($annees > 0 ? $annees . ' an' . ($annees > 1 ? 's' : '') . ' ' : '')
+                . ($mois > 0 || $annees === 0 ? $mois . ' mois' : '')
         );
     }
 
@@ -187,9 +197,9 @@ class AttestationEmployeurService extends BaseService
         $ville = trim(explode(',', (string) $school->address)[0] ?? '');
 
         $ligne = $section->addTextRun(['spaceAfter' => 240]);
-        $ligne->addText('Fait à '.($ville !== '' ? $ville : '…………').', le / ', ['size' => 11]);
-        $ligne->addText('Done at '.($ville !== '' ? $ville : '…………').' on', ['size' => 11, 'italic' => true]);
-        $ligne->addText(' : '.now()->format('d/m/Y'), ['size' => 11]);
+        $ligne->addText('Fait à ' . ($ville !== '' ? $ville : '…………') . ', le / ', ['size' => 11]);
+        $ligne->addText('Done at ' . ($ville !== '' ? $ville : '…………') . ' on', ['size' => 11, 'italic' => true]);
+        $ligne->addText(' : ' . now()->format('d/m/Y'), ['size' => 11]);
 
         $titre = $section->addTextRun(['alignment' => 'right', 'spaceAfter' => 0]);
         $titre->addText($school->type === 'secondaire' ? 'Le Principal' : 'Le Directeur', ['size' => 11, 'bold' => true]);

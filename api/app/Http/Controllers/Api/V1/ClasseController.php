@@ -23,7 +23,6 @@ class ClasseController extends Controller
         $classes = $this->service->list(
             $request->user(),
             Tenant::schoolIds(),
-            $request->integer('annee_scolaire_id') ?: null,
             $request->only(['niveau_id']),
         );
 

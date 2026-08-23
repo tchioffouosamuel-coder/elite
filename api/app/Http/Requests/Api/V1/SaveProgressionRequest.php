@@ -33,31 +33,31 @@ class SaveProgressionRequest extends FormRequest
             $regles[$chemin.'.*.titre'] = ['required', 'string', 'max:255'];
             $regles[$chemin.'.*.description'] = ['nullable', 'string', 'max:2000'];
             $regles[$chemin.'.*.duree_prevue'] = ['nullable', 'integer', 'min:1', 'max:200'];
-            // Fiche de préparation : uniquement pertinente sur une leçon, mais
-            // validée à plat comme le reste plutôt que par une règle conditionnelle.
-            $regles[$chemin.'.*.objectifs'] = ['nullable', 'string', 'max:2000'];
-            $regles[$chemin.'.*.materiel'] = ['nullable', 'string', 'max:2000'];
-            $regles[$chemin.'.*.activites'] = ['nullable', 'string', 'max:2000'];
-            $regles[$chemin.'.*.devoirs'] = ['nullable', 'string', 'max:2000'];
             // La séquence cible doit appartenir à l'établissement courant.
             $regles[$chemin.'.*.sequence_id'] = ['nullable', $this->scopedExistsSequence()];
 
             /*
-             * Les seize champs de la fiche, saisis directement dans la
-             * progression. Bornés large : ce sont des zones de texte libre que
-             * l'enseignant remplit à sa main, parfois sur plusieurs lignes.
+             * Champs de la fiche, communs aux deux gabarits (primaire/
+             * maternelle et secondaire) — cf. ProgressionItem::CHAMPS_FICHE.
+             * Bornés large : ce sont des zones de texte libre que l'enseignant
+             * remplit à sa main, parfois sur plusieurs lignes.
              */
             foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
-                $regles[$chemin.'.*.'.$champ] = $champ === 'mode'
-                    ? ['nullable', Rule::in(['digital', 'practical', 'normal'])]
-                    : ['nullable', 'string', 'max:4000'];
+                $regles[$chemin.'.*.'.$champ] = ['nullable', 'string', 'max:4000'];
             }
 
-            // Repères de calendrier repris de la feuille de l'établissement.
-            $regles[$chemin.'.*.term'] = ['nullable', 'string', 'max:40'];
-            $regles[$chemin.'.*.mois'] = ['nullable', 'string', 'max:20'];
+            // Repères de calendrier de la ligne : Week, Date Planned, Date
+            // Taught, Duration/Periods.
             $regles[$chemin.'.*.semaine'] = ['nullable', 'string', 'max:20'];
             $regles[$chemin.'.*.date_prevue'] = ['nullable', 'date'];
+            $regles[$chemin.'.*.date_realisee'] = ['nullable', 'date'];
+            $regles[$chemin.'.*.duree'] = ['nullable', 'string', 'max:50'];
+
+            // Valeurs des colonnes libres de la matière (cf. ProgressionColonne),
+            // indexées par l'id de la colonne — dynamique, donc validées comme
+            // un tableau générique plutôt que par clé nommée.
+            $regles[$chemin.'.*.colonnes_libres'] = ['nullable', 'array'];
+            $regles[$chemin.'.*.colonnes_libres.*'] = ['nullable', 'string', 'max:1000'];
         }
 
         return $regles;
