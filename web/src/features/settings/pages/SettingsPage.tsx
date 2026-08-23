@@ -163,13 +163,20 @@ export function SettingsPage() {
                         ))}
                       </select>
                     ) : (
-                      <input
-                        type={s.type === 'text' ? 'text' : s.type === 'date' ? 'date' : 'number'}
-                        step={s.type === 'text' || s.type === 'date' ? undefined : '0.5'}
-                        value={valeurs[s.key] ?? ''}
-                        onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
-                        className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
-                      />
+                      <div className="relative">
+                        <input
+                          type={s.type === 'text' ? 'text' : s.type === 'date' ? 'date' : 'number'}
+                          min={s.key === 'seuil_insolvabilite' ? 0 : undefined}
+                          max={s.key === 'seuil_insolvabilite' ? 100 : undefined}
+                          step={s.type === 'text' || s.type === 'date' ? undefined : '0.5'}
+                          value={valeurs[s.key] ?? ''}
+                          onChange={(e) => setValeurs((v) => ({ ...v, [s.key]: e.target.value }))}
+                          className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 pr-10 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+                        />
+                        {s.key === 'seuil_insolvabilite' && (
+                          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-navy-400">%</span>
+                        )}
+                      </div>
                     )}
                   </label>
                 ),

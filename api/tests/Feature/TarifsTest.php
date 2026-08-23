@@ -27,7 +27,7 @@ class TarifsTest extends TestCase
             'school_id' => $school->id, 'libelle' => '2026-2027',
             'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
         ]);
-        $classe = Classe::create(['school_id' => $school->id, 'annee_scolaire_id' => $annee->id, 'nom' => '6e A']);
+        $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
 
         GrilleFrais::create([
             'school_id' => $school->id, 'annee_scolaire_id' => $annee->id,
@@ -65,8 +65,8 @@ class TarifsTest extends TestCase
             'school_id' => $school->id, 'libelle' => '2026-2027',
             'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
         ]);
-        $classeA = Classe::create(['school_id' => $school->id, 'annee_scolaire_id' => $annee->id, 'nom' => '6e A']);
-        $classeB = Classe::create(['school_id' => $school->id, 'annee_scolaire_id' => $annee->id, 'nom' => '6e B']);
+        $classeA = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
+        $classeB = Classe::create(['school_id' => $school->id, 'nom' => '6e B']);
 
         $user = User::create([
             'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',

@@ -959,7 +959,11 @@
     "import_ignorees": "{{count}} ligne(s) ignorée(s).",
     "deplier_fiche": "Déplier la fiche",
     "replier_fiche": "Replier la fiche",
-    "partie": "Intitulé de la partie"
+    "partie": "Intitulé de la partie",
+    "colonnes_libres": "Colonnes libres",
+    "colonnes_libres_hint": "Jusqu'à dix colonnes propres à cette matière, en plus de celles du gabarit — utile pour du vocabulaire, un support numérique, une note libre…",
+    "colonne_placeholder": "Intitulé de la colonne",
+    "colonnes_enregistrees": "Colonnes enregistrées."
   },
   "journee": {
     "title": "Ma journée",

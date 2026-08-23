@@ -201,7 +201,7 @@ class DepenseBilanTest extends TestCase
     private function recette(int $montant): void
     {
         $classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'ACCOUNTING 1-A',
+            'school_id' => $this->school->id, 'nom' => 'ACCOUNTING 1-A',
         ]);
         GrilleFrais::create([
             'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,

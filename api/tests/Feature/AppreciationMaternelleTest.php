@@ -74,7 +74,7 @@ class AppreciationMaternelleTest extends TestCase
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'Petite section A',
+            'school_id' => $this->school->id, 'nom' => 'Petite section A',
         ]);
 
         $this->admin = User::create([

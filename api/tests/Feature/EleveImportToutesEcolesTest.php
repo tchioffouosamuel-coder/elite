@@ -112,7 +112,7 @@ class EleveImportToutesEcolesTest extends TestCase
             'school_id' => $this->primaire->id, 'libelle' => '2026-2027',
             'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
         ]);
-        Classe::create(['school_id' => $this->primaire->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'CLASS 1-A']);
+        Classe::create(['school_id' => $this->primaire->id, 'nom' => 'CLASS 1-A']);
 
         $fichier = $this->fichier([
             ['matricule' => 'P2', 'nom' => 'DEUXIEME ELEVE', 'categorie' => 'primaire', 'classe' => 'CLASS 1-A'],

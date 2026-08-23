@@ -51,7 +51,6 @@ class TroncCommunTest extends TestCase
         foreach (['ACT F3', 'ACC F3', 'Marketing F3'] as $nom) {
             $this->classes[$nom] = Classe::create([
                 'school_id' => $this->school->id,
-                'annee_scolaire_id' => $this->annee->id,
                 'nom' => $nom,
             ]);
         }
@@ -256,7 +255,7 @@ class TroncCommunTest extends TestCase
         $seance = $this->seanceAvecEleves();
 
         $autre = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'Home eco F3',
+            'school_id' => $this->school->id, 'nom' => 'Home eco F3',
         ]);
         $intrus = Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $autre->id,

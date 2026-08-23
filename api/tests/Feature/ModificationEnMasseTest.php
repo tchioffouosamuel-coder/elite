@@ -88,7 +88,7 @@ class ModificationEnMasseTest extends TestCase
             ]);
 
         return Classe::create([
-            'school_id' => $ecole->id, 'annee_scolaire_id' => $annee->id, 'nom' => $nom,
+            'school_id' => $ecole->id, 'nom' => $nom,
         ]);
     }
 

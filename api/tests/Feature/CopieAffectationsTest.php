@@ -82,7 +82,6 @@ class CopieAffectationsTest extends TestCase
     {
         return Classe::create([
             'school_id' => $school->id,
-            'annee_scolaire_id' => $this->annees[$school->id],
             'nom' => $nom,
             'titulaire_id' => $titulaire?->id,
         ]);

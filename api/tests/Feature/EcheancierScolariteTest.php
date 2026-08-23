@@ -58,7 +58,7 @@ class EcheancierScolariteTest extends TestCase
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id, 'nom' => 'CE1-A',
+            'school_id' => $this->school->id, 'nom' => 'CE1-A',
         ]);
 
         GrilleFrais::create([

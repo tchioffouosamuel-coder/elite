@@ -48,7 +48,6 @@ class ScolariteTest extends TestCase
 
         $this->classe = Classe::create([
             'school_id' => $this->school->id,
-            'annee_scolaire_id' => $this->annee->id,
             'nom' => 'ACCOUNTING 1-A',
         ]);
 
@@ -97,7 +96,6 @@ class ScolariteTest extends TestCase
         ]);
         $autre = Classe::create([
             'school_id' => $this->school->id,
-            'annee_scolaire_id' => $this->annee->id,
             'nom' => 'CLOTHING 1-A',
         ]);
 
@@ -289,7 +287,6 @@ class ScolariteTest extends TestCase
     {
         $autre = Classe::create([
             'school_id' => $this->school->id,
-            'annee_scolaire_id' => $this->annee->id,
             'nom' => 'CLOTHING 1-A',
         ]);
 
@@ -348,7 +345,7 @@ class ScolariteTest extends TestCase
             'date_fin' => '2027-07-31',
             'is_active' => true,
         ]);
-        $autreClasse = Classe::create(['school_id' => $autreEcole->id, 'annee_scolaire_id' => $autreAnnee->id, 'nom' => 'CE1 A']);
+        $autreClasse = Classe::create(['school_id' => $autreEcole->id, 'nom' => 'CE1 A']);
         GrilleFrais::create([
             'school_id' => $autreEcole->id,
             'annee_scolaire_id' => $autreAnnee->id,

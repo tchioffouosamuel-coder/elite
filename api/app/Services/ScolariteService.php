@@ -247,7 +247,7 @@ class ScolariteService extends BaseService
         // parenthésé, il ferait sortir la recherche du périmètre de l'école.
         $grilles = GrilleFrais::forSchool($eleve->school_id)
             ->where('annee_scolaire_id', $annee->id)
-            ->where(fn ($q) => $q->whereNull('classe_id')->orWhere('classe_id', $eleve->classe_id))
+            ->where(fn($q) => $q->whereNull('classe_id')->orWhere('classe_id', $eleve->classe_id))
             ->get();
 
         return (int) ($grilles->firstWhere('classe_id', $eleve->classe_id)?->montant
@@ -263,7 +263,7 @@ class ScolariteService extends BaseService
     {
         $precedent = DossierScolarite::where('eleve_id', $eleve->id)
             ->where('annee_scolaire_id', '!=', $annee->id)
-            ->whereHas('anneeScolaire', fn ($q) => $q->where('date_debut', '<', $annee->date_debut))
+            ->whereHas('anneeScolaire', fn($q) => $q->where('date_debut', '<', $annee->date_debut))
             ->avecTotaux()
             ->latest('id')
             ->first();
@@ -289,7 +289,7 @@ class ScolariteService extends BaseService
                 $q->whereDoesntHave('classes');
 
                 if ($classeId !== null) {
-                    $q->orWhereHas('classes', fn ($q2) => $q2->where('classes.id', $classeId));
+                    $q->orWhereHas('classes', fn($q2) => $q2->where('classes.id', $classeId));
                 }
             })
             ->get();
@@ -394,7 +394,7 @@ class ScolariteService extends BaseService
     /** @param  list<array{montant: int}>  $lignes */
     private function verifierVentilation(int $montant, array $lignes): void
     {
-        $total = array_sum(array_map(static fn ($l) => (int) $l['montant'], $lignes));
+        $total = array_sum(array_map(static fn($l) => (int) $l['montant'], $lignes));
 
         if ($total !== $montant) {
             throw new RuntimeException(
@@ -429,7 +429,7 @@ class ScolariteService extends BaseService
         ];
 
         EcritureComptable::create($commun + [
-            'libelle' => 'Encaissement scolarité — reçu '.$versement->numero_recu,
+            'libelle' => 'Encaissement scolarité — reçu ' . $versement->numero_recu,
             'montant' => $versement->montant,
             'sens' => 'debit',
             'compte_comptable_id' => $this->compte(self::COMPTES_TRESORERIE[$versement->mode] ?? '571'),
@@ -437,7 +437,7 @@ class ScolariteService extends BaseService
 
         foreach ($versement->lignes as $ligne) {
             EcritureComptable::create($commun + [
-                'libelle' => $ligne->libelle.' — reçu '.$versement->numero_recu,
+                'libelle' => $ligne->libelle . ' — reçu ' . $versement->numero_recu,
                 'montant' => $ligne->montant,
                 'sens' => 'credit',
                 'compte_comptable_id' => $this->compte(
@@ -477,7 +477,7 @@ class ScolariteService extends BaseService
          */
         $eleves = Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
-            ->when($filtres['classe_id'] ?? null, fn ($q, $classeId) => $q->where('classe_id', $classeId))
+            ->when($filtres['classe_id'] ?? null, fn($q, $classeId) => $q->where('classe_id', $classeId))
             ->with(['classe', 'tuteurs'])
             ->orderBy('nom_complet')
             ->get();
@@ -527,7 +527,7 @@ class ScolariteService extends BaseService
             // SQL sans dupliquer le calcul des soldes dans la requête.
             ->when(
                 $filtres['statut'] ?? null,
-                fn ($c, $statut) => $c->where('statut_paiement', $statut),
+                fn($c, $statut) => $c->where('statut_paiement', $statut),
             )
             ->values();
 
@@ -551,8 +551,8 @@ class ScolariteService extends BaseService
     /**
      * Liste des insolvables, un ou plusieurs établissements à la fois — c'est
      * ce qui change par rapport à `situation()` (une seule école, un statut
-     * binaire) : ici le seuil est un montant, propre à chaque école
-     * (réglage `seuil_insolvabilite`), et le mode agrégé du super admin doit
+     * binaire) : ici le seuil est un pourcentage de la scolarité, propre à
+     * chaque école (réglage `seuil_insolvabilite`), et le mode agrégé doit
      * pouvoir balayer tout le complexe en un seul écran.
      *
      * @param  list<int>  $schoolIds
@@ -572,7 +572,7 @@ class ScolariteService extends BaseService
                 continue;
             }
 
-            $seuil = (int) Setting::get($schoolId, 'seuil_insolvabilite', 0);
+            $seuilPourcentage = (float) Setting::get($schoolId, 'seuil_insolvabilite', 0);
             $situation = $this->situation($schoolId, $annee->id, ['classe_id' => $classeId]);
 
             foreach ($situation['dossiers'] as $dossier) {
@@ -585,6 +585,8 @@ class ScolariteService extends BaseService
                  */
                 $echeancier = $this->echeancier->pourDossier($dossier);
 
+                $seuil = (int) round($dossier->montant_scolarite * $seuilPourcentage / 100);
+
                 if ($echeancier['retard'] > $seuil) {
                     $candidats->push([
                         'dossier' => $dossier,
@@ -596,7 +598,7 @@ class ScolariteService extends BaseService
             }
         }
 
-        $eleveIds = $candidats->map(fn (array $c) => $c['dossier']->eleve->id)->filter()->unique()->values();
+        $eleveIds = $candidats->map(fn(array $c) => $c['dossier']->eleve->id)->filter()->unique()->values();
         $moratoires = Moratoire::whereIn('eleve_id', $eleveIds)->valides()->get()->keyBy('eleve_id');
 
         $lignes = $candidats
@@ -624,7 +626,7 @@ class ScolariteService extends BaseService
                     'retard' => $candidat['echeancier']['retard'],
                     'tranches_en_retard' => collect($candidat['echeancier']['tranches'])
                         ->where('statut', 'en_retard')
-                        ->map(fn (array $t) => [
+                        ->map(fn(array $t) => [
                             'libelle' => $t['libelle'],
                             'date_echeance' => $t['date_echeance'],
                             'reste' => $t['reste'],
@@ -708,7 +710,7 @@ class ScolariteService extends BaseService
                     'school_id' => $ecriture->school_id,
                     'annee_scolaire_id' => $ecriture->annee_scolaire_id,
                     'date_ecriture' => now()->toDateString(),
-                    'libelle' => 'Annulation — '.$ecriture->libelle,
+                    'libelle' => 'Annulation — ' . $ecriture->libelle,
                     'montant' => $ecriture->montant,
                     'sens' => $ecriture->sens === 'debit' ? 'credit' : 'debit',
                     'compte_comptable_id' => $ecriture->compte_comptable_id,

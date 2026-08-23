@@ -17,7 +17,7 @@ class SettingController extends Controller
         $schoolId = app('tenant.school_id');
         $current = Setting::where('school_id', $schoolId)->pluck('value', 'key');
 
-        $settings = collect(SettingsCatalog::definitions())->map(fn ($def) => [
+        $settings = collect(SettingsCatalog::definitions())->map(fn($def) => [
             ...$def,
             'value' => $current->has($def['key']) ? $current->get($def['key']) : $def['default'],
         ]);
@@ -38,6 +38,10 @@ class SettingController extends Controller
         foreach ($data['settings'] as $key => $value) {
             if (! $types->has($key) || $value === null || $value === '') {
                 continue;
+            }
+
+            if ($key === 'seuil_insolvabilite' && (! is_numeric($value) || (float) $value < 0 || (float) $value > 100)) {
+                return ApiResponse::error("Le seuil d'insolvabilité doit être compris entre 0 et 100 %.", 422);
             }
 
             // Comme header_fr/header_en : le HTML saisi via l'éditeur WYSIWYG

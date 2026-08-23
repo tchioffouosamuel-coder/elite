@@ -997,7 +997,11 @@
     "import_ignorees": "{{count}} row(s) skipped.",
     "deplier_fiche": "Expand the sheet",
     "replier_fiche": "Collapse the sheet",
-    "partie": "Section title"
+    "partie": "Section title",
+    "colonnes_libres": "Custom columns",
+    "colonnes_libres_hint": "Up to ten columns of your own for this subject, on top of the template's — handy for vocabulary, a digital resource, a free note…",
+    "colonne_placeholder": "Column title",
+    "colonnes_enregistrees": "Columns saved."
   },
   "journee": {
     "title": "My day",

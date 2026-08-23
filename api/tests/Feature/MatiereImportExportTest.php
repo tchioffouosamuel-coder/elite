@@ -60,7 +60,6 @@ class MatiereImportExportTest extends TestCase
         return Classe::create([
             'school_id' => $this->school->id,
             'niveau_id' => $niveau->id,
-            'annee_scolaire_id' => $annee->id,
             'nom' => $nom,
             'sigle' => $sigle,
         ]);

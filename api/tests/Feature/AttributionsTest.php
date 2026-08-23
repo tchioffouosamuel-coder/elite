@@ -74,7 +74,6 @@ class AttributionsTest extends TestCase
         return Classe::create([
             'school_id' => $this->school->id,
             'niveau_id' => $this->niveau->id,
-            'annee_scolaire_id' => $this->annee->id,
             'nom' => $nom,
         ]);
     }

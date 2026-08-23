@@ -182,7 +182,7 @@ class EleveImportDetteTest extends TestCase
             'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
         ]);
         $classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'ACCOUNTING 1',
+            'school_id' => $this->school->id, 'nom' => 'ACCOUNTING 1',
         ]);
         $eleve = Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $classe->id,

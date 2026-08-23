@@ -38,7 +38,6 @@ class VisiteInfirmerieTest extends TestCase
 
         $classe = Classe::create([
             'school_id' => $school->id,
-            'annee_scolaire_id' => $annee->id,
             'nom' => '6e A',
         ]);
 
@@ -129,7 +128,6 @@ class VisiteInfirmerieTest extends TestCase
 
         $classe = Classe::create([
             'school_id' => $school->id,
-            'annee_scolaire_id' => $annee->id,
             'nom' => '6e A',
         ]);
 

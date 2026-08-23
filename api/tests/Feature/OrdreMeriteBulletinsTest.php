@@ -67,7 +67,7 @@ class OrdreMeriteBulletinsTest extends TestCase
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'ACCOUNTING 1',
+            'school_id' => $this->school->id, 'nom' => 'ACCOUNTING 1',
         ]);
 
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Comptabilité']);

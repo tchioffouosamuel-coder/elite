@@ -43,7 +43,7 @@ class PersonnelImportTest extends TestCase
         ]);
 
         Classe::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'NURSERY 1-A',
+            'school_id' => $this->school->id, 'nom' => 'NURSERY 1-A',
         ]);
     }
 

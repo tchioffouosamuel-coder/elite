@@ -55,7 +55,7 @@ class VisiteInfirmerieAgregeTest extends TestCase
         ]);
 
         $classe = Classe::create([
-            'school_id' => $maternelle->id, 'annee_scolaire_id' => $annee->id, 'nom' => 'NURSERY 2-A',
+            'school_id' => $maternelle->id, 'nom' => 'NURSERY 2-A',
         ]);
 
         $this->eleve = Eleve::create([
