@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Barcode, Minus, Plus, ScanLine, Search, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Camera, Minus, Plus, ScanLine, Search, Trash2, Wallet } from 'lucide-react'
 import {
   enregistrerVente,
   fetchArticleParCodeBarre,
@@ -20,6 +20,91 @@ import { Select as SelectRecherche } from '@/shared/ui/Select'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+function ScannerArticleModal({ onCode, onClose }: { onCode: (code: string) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [code, setCode] = useState('')
+  const [erreurCamera, setErreurCamera] = useState<string | null>(null)
+
+  useEffect(() => {
+    let arret = false
+    let flux: MediaStream | null = null
+    let animation = 0
+
+    const demarrer = async () => {
+      try {
+        flux = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+        if (arret || !videoRef.current) return
+        videoRef.current.srcObject = flux
+        await videoRef.current.play()
+
+        const BarcodeDetector = (window as Window & { BarcodeDetector?: new (options?: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector
+        if (!BarcodeDetector) {
+          setErreurCamera('La détection caméra n’est pas disponible : saisissez le code ci-dessous.')
+          return
+        }
+
+        const detecteur = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a'] })
+        const chercher = async () => {
+          if (arret || !videoRef.current) return
+          try {
+            const resultats = await detecteur.detect(videoRef.current)
+            const valeur = resultats[0]?.rawValue?.trim()
+            if (valeur) {
+              onCode(valeur)
+              return
+            }
+          } catch {
+            // La caméra peut ne pas avoir encore produit une image exploitable.
+          }
+          animation = window.requestAnimationFrame(chercher)
+        }
+        animation = window.requestAnimationFrame(chercher)
+      } catch {
+        setErreurCamera('Impossible d’accéder à la caméra : saisissez le code ci-dessous.')
+      }
+    }
+
+    void demarrer()
+    return () => {
+      arret = true
+      window.cancelAnimationFrame(animation)
+      flux?.getTracks().forEach((track) => track.stop())
+    }
+  }, [onCode])
+
+  const valider = () => {
+    const valeur = code.trim()
+    if (valeur) onCode(valeur)
+  }
+
+  return (
+    <Modal title="Scanner le code de l’article" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div className="overflow-hidden rounded-xl bg-navy-900">
+          <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
+        </div>
+        <p className="text-sm text-navy-500">Placez le code-barres dans le cadre. Le code détecté sera recherché automatiquement dans le catalogue.</p>
+        {erreurCamera && <p className="text-sm text-amber-600">{erreurCamera}</p>}
+        <div className="flex gap-2">
+          <Input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                valider()
+              }
+            }}
+            placeholder="Saisir le code de l’article…"
+            className="font-mono"
+          />
+          <Button onClick={valider} disabled={!code.trim()}>Utiliser le code</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 interface LignePanier {
   article: ArticleComptoir
@@ -57,6 +142,7 @@ export function ComptoirTab() {
   const [note, setNote] = useState('')
   const [encaissementEnCours, setEncaissementEnCours] = useState(false)
   const [messageScan, setMessageScan] = useState<string | null>(null)
+  const [scannerOuvert, setScannerOuvert] = useState(false)
   const champScanRef = useRef<HTMLInputElement>(null)
 
   const { data: catalogue = [], isLoading } = useQuery({
@@ -148,8 +234,8 @@ export function ComptoirTab() {
    * c'est ici que tout se joue, d'où le traitement des deux cas — code connu
    * de l'API, ou terme à chercher dans le catalogue.
    */
-  const validerSaisie = async () => {
-    const valeur = saisie.trim()
+  const validerSaisie = async (saisieRecue = saisie, forcerApi = false) => {
+    const valeur = saisieRecue.trim()
     if (valeur === '') return
 
     if (!CODE_BARRE.test(valeur)) {
@@ -159,7 +245,7 @@ export function ComptoirTab() {
     }
 
     // Le catalogue en mémoire répond sans réseau quand l'article y est déjà.
-    const local = catalogue.find((article) => article.code_barre === valeur)
+    const local = forcerApi ? undefined : catalogue.find((article) => article.code_barre === valeur)
 
     if (local) {
       ajouter(local)
@@ -183,6 +269,14 @@ export function ComptoirTab() {
       setSaisie('')
       redonnerLeFocus()
     }
+  }
+
+  const recevoirCodeScanner = (code: string) => {
+    setScannerOuvert(false)
+    setSaisie(code)
+    // Un scan caméra repasse toujours par l'API : le stock et le prix doivent
+    // être vérifiés au moment de l'ajout, avant l'encaissement.
+    void validerSaisie(code, true)
   }
 
   const viderPanier = () => {
@@ -261,6 +355,10 @@ export function ComptoirTab() {
               <Search className="h-4 w-4" />
               {t('pointDeVente.chercher')}
             </Button>
+            <Button variant="secondary" onClick={() => setScannerOuvert(true)} title="Scanner avec la caméra">
+              <Camera className="h-4 w-4" />
+              <span className="hidden sm:inline">Scanner</span>
+            </Button>
           </div>
           <p className="mt-2 text-xs text-navy-400">{t('pointDeVente.scanner_aide')}</p>
           {messageScan && <p className="mt-1 text-xs font-semibold text-gold-600">{messageScan}</p>}
@@ -319,6 +417,8 @@ export function ComptoirTab() {
           )}
         </Card>
       </div>
+
+      {scannerOuvert && <ScannerArticleModal onCode={recevoirCodeScanner} onClose={() => setScannerOuvert(false)} />}
 
       {/* ----------------------------------------------------------- Panier */}
       <Card className="lg:sticky lg:top-4">
