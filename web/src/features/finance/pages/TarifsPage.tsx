@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Tags, Plus, Save, Trash2, Info, Pencil } from 'lucide-react'
+import { Tags, Plus, Save, Trash2, Info, Pencil, Search } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Input } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -20,7 +20,7 @@ import {
   modifierFraisAnnexe,
   supprimerTarif,
 } from '@/features/finance/api'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClassesForSchool } from '@/features/classes/api'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -68,9 +68,21 @@ function SelectionClasses({
 export function TarifsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
   const modifiable = can('finance.manage')
+
+  // Grille de tarifs = réglage propre à une école : même en mode "toutes les
+  // écoles" (super admin sans école active), il en faut une précise. Ce
+  // filtre local ne change que le périmètre de cette page — pas l'école
+  // active globale — pour ne pas perturber le reste de l'application.
+  const ecolesAccessibles = user?.ecoles_accessibles ?? []
+  const afficherFiltreEcole = !!user?.is_super_admin && ecolesAccessibles.length >= 2
+  const [ecoleFiltreId, setEcoleFiltreId] = useState<number | null>(
+    activeSchoolId ?? user?.school_id ?? ecolesAccessibles[0]?.id ?? null,
+  )
+  const [recherche, setRecherche] = useState('')
 
   const [brouillons, setBrouillons] = useState<Record<string, string>>({})
   const [nouveauFrais, setNouveauFrais] = useState<{ libelle: string; montant: string; obligatoire: boolean; classe_ids: number[] }>({
@@ -83,14 +95,20 @@ export function TarifsPage() {
   const [classesEnEdition, setClassesEnEdition] = useState<number[]>([])
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['tarifs', activeSchoolId],
-    queryFn: () => fetchTarifs(),
+    queryKey: ['tarifs', ecoleFiltreId],
+    queryFn: () => fetchTarifs(ecoleFiltreId),
   })
   const anneeId = data?.annee_scolaire.id
   const { data: classes = [] } = useQuery({
-    queryKey: ['classes'],
-    queryFn: () => fetchClasses(),
+    queryKey: ['tarifs-classes', ecoleFiltreId],
+    queryFn: () => fetchClassesForSchool(ecoleFiltreId as number),
+    enabled: ecoleFiltreId != null,
   })
+
+  const classesFiltrees = useMemo(() => {
+    const q = recherche.trim().toLowerCase()
+    return q === '' ? data?.classes ?? [] : (data?.classes ?? []).filter((c) => c.nom.toLowerCase().includes(q))
+  }, [data?.classes, recherche])
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['tarifs'] })
 
@@ -121,7 +139,7 @@ export function TarifsPage() {
 
     mutation.mutate(
       async () => {
-        const { dossiers_mis_a_jour } = await definirTarif(classeId, Number(valeur))
+        const { dossiers_mis_a_jour } = await definirTarif(classeId, Number(valeur), ecoleFiltreId)
         succes(messageMiseAJour(t('finance.tariff_recorded'), dossiers_mis_a_jour))
       },
       { onError: (e: ApiError) => e.status !== 403 && erreur(e.message) },
@@ -143,7 +161,7 @@ export function TarifsPage() {
 
     mutation.mutate(
       async () => {
-        const { dossiers_mis_a_jour } = await supprimerTarif(classeId)
+        const { dossiers_mis_a_jour } = await supprimerTarif(classeId, ecoleFiltreId)
         succes(messageMiseAJour(t('finance.tariff_removed'), dossiers_mis_a_jour))
       },
       { onError: (e: ApiError) => e.status !== 403 && erreur(e.message) },
@@ -155,12 +173,15 @@ export function TarifsPage() {
 
     agir(
       () =>
-        creerFraisAnnexe({
-          libelle: nouveauFrais.libelle,
-          montant: Number(nouveauFrais.montant),
-          obligatoire: nouveauFrais.obligatoire,
-          classe_ids: nouveauFrais.classe_ids,
-        }),
+        creerFraisAnnexe(
+          {
+            libelle: nouveauFrais.libelle,
+            montant: Number(nouveauFrais.montant),
+            obligatoire: nouveauFrais.obligatoire,
+            classe_ids: nouveauFrais.classe_ids,
+          },
+          ecoleFiltreId,
+        ),
       t('finance.additional_fee_added'),
     )
     setNouveauFrais({ libelle: '', montant: '', obligatoire: false, classe_ids: [] })
@@ -173,7 +194,10 @@ export function TarifsPage() {
 
   const enregistrerClasses = () => {
     if (fraisEnEdition === null) return
-    agir(() => modifierFraisAnnexe(fraisEnEdition, { classe_ids: classesEnEdition }), 'Portée du frais mise à jour.')
+    agir(
+      () => modifierFraisAnnexe(fraisEnEdition, { classe_ids: classesEnEdition }, ecoleFiltreId),
+      'Portée du frais mise à jour.',
+    )
     setFraisEnEdition(null)
   }
 
@@ -216,6 +240,33 @@ export function TarifsPage() {
             Scolarité par classe
           </h2>
 
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            {afficherFiltreEcole && (
+              <div className="w-56">
+                <Select
+                  label="École"
+                  value={ecoleFiltreId ?? ''}
+                  onChange={(e) => setEcoleFiltreId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {ecolesAccessibles.map((ecole) => (
+                    <option key={ecole.id} value={ecole.id}>
+                      {ecole.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            <div className="min-w-48 flex-1">
+              <Input
+                label="Rechercher une classe"
+                icon={Search}
+                placeholder="Nom de la classe…"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl bg-cream-100 p-3">
             <Input
               label="Tarif par défaut de l'établissement"
@@ -241,8 +292,14 @@ export function TarifsPage() {
             </p>
           )}
 
+          {data.classes.length > 0 && classesFiltrees.length === 0 && (
+            <p className="rounded-xl bg-cream-50 px-3 py-2.5 text-sm text-navy-400">
+              Aucune classe ne correspond à « {recherche} ».
+            </p>
+          )}
+
           <ul className="flex flex-col divide-y divide-navy-50">
-            {data.classes.map((classe) => {
+            {classesFiltrees.map((classe) => {
               const cle = String(classe.id)
               const modifie = brouillons[cle] !== undefined
 
@@ -336,7 +393,7 @@ export function TarifsPage() {
                         title={frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
                         onClick={() =>
                           agir(
-                            () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }),
+                            () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }, ecoleFiltreId),
                             'Frais annexe mis à jour.',
                           )
                         }
@@ -348,7 +405,7 @@ export function TarifsPage() {
                         size="sm"
                         variant="danger"
                         title="Désactiver"
-                        onClick={() => agir(() => desactiverFraisAnnexe(frais.id), 'Frais annexe désactivé.')}
+                        onClick={() => agir(() => desactiverFraisAnnexe(frais.id, ecoleFiltreId), 'Frais annexe désactivé.')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

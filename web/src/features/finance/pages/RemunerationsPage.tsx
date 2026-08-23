@@ -111,10 +111,12 @@ export function RemunerationsPage() {
       largeur: '120px',
       valeur: (p) => p.remuneration?.salaire_base ?? -1,
       cellule: (p) =>
-        p.remuneration ? (
-          <span className="tabular-nums">{francs(p.remuneration.salaire_base)}</span>
-        ) : (
+        !p.remuneration ? (
           <Badge tone="red">Non défini</Badge>
+        ) : p.remuneration.mode === 'horaire' ? (
+          <span className="tabular-nums text-navy-600">{francs(p.remuneration.taux_horaire ?? 0)} / h</span>
+        ) : (
+          <span className="tabular-nums">{francs(p.remuneration.salaire_base)}</span>
         ),
     },
     {
@@ -122,9 +124,14 @@ export function RemunerationsPage() {
       entete: 'Brut mensuel',
       largeur: '100px',
       valeur: (p) => p.remuneration?.brut ?? -1,
-      cellule: (p) => (
-        <span className="font-semibold tabular-nums">{p.remuneration ? francs(p.remuneration.brut) : '—'}</span>
-      ),
+      cellule: (p) =>
+        !p.remuneration ? (
+          <span>—</span>
+        ) : p.remuneration.mode === 'horaire' ? (
+          <Badge tone="blue">Selon les heures</Badge>
+        ) : (
+          <span className="font-semibold tabular-nums">{francs(p.remuneration.brut)}</span>
+        ),
       masquerMobile: true,
     },
     {
@@ -132,20 +139,28 @@ export function RemunerationsPage() {
       entete: 'Net estimé',
       largeur: '100px',
       valeur: (p) => p.remuneration?.net ?? -1,
-      cellule: (p) => (
-        <span className="tabular-nums text-green-600">{p.remuneration ? francs(p.remuneration.net) : '—'}</span>
-      ),
+      cellule: (p) =>
+        !p.remuneration ? (
+          <span>—</span>
+        ) : p.remuneration.mode === 'horaire' ? (
+          <Badge tone="blue">Selon les heures</Badge>
+        ) : (
+          <span className="tabular-nums text-green-600">{francs(p.remuneration.net)}</span>
+        ),
     },
     {
       cle: 'cout',
       entete: 'Coût employeur',
       largeur: '120px',
       valeur: (p) => p.remuneration?.cout_employeur ?? -1,
-      cellule: (p) => (
-        <span className="tabular-nums text-navy-500">
-          {p.remuneration ? francs(p.remuneration.cout_employeur) : '—'}
-        </span>
-      ),
+      cellule: (p) =>
+        !p.remuneration ? (
+          <span>—</span>
+        ) : p.remuneration.mode === 'horaire' ? (
+          <Badge tone="blue">Selon les heures</Badge>
+        ) : (
+          <span className="tabular-nums text-navy-500">{francs(p.remuneration.cout_employeur)}</span>
+        ),
       masquerMobile: true,
     },
     {

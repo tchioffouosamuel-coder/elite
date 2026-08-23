@@ -714,8 +714,13 @@ export interface Tarifs {
   }[];
 }
 
-export async function fetchTarifs(): Promise<Tarifs> {
-  const { data } = await http.get<ApiResponse<Tarifs>>("/tarifs");
+/** `schoolId` cible une école précise du complexe sans changer l'école active (cf. `fetchClassesForSchool`). */
+function enTeteEcole(schoolId?: number | null) {
+  return schoolId ? { headers: { "X-School-Id": String(schoolId) } } : undefined;
+}
+
+export async function fetchTarifs(schoolId?: number | null): Promise<Tarifs> {
+  const { data } = await http.get<ApiResponse<Tarifs>>("/tarifs", enTeteEcole(schoolId));
   return data.data;
 }
 
@@ -723,29 +728,34 @@ export async function fetchTarifs(): Promise<Tarifs> {
 export async function definirTarif(
   classeId: number | null,
   montant: number,
+  schoolId?: number | null,
 ): Promise<{ dossiers_mis_a_jour: number }> {
   const { data } = await http.post<
     ApiResponse<{ dossiers_mis_a_jour: number }>
-  >("/tarifs", { classe_id: classeId, montant });
+  >("/tarifs", { classe_id: classeId, montant }, enTeteEcole(schoolId));
   return data.data;
 }
 
 export async function supprimerTarif(
   classeId: number,
+  schoolId?: number | null,
 ): Promise<{ dossiers_mis_a_jour: number }> {
   const { data } = await http.delete<
     ApiResponse<{ dossiers_mis_a_jour: number }>
-  >(`/tarifs/classes/${classeId}`);
+  >(`/tarifs/classes/${classeId}`, enTeteEcole(schoolId));
   return data.data;
 }
 
-export async function creerFraisAnnexe(payload: {
-  libelle: string;
-  montant: number;
-  obligatoire: boolean;
-  classe_ids?: number[];
-}): Promise<void> {
-  await http.post("/tarifs/frais-annexes", payload);
+export async function creerFraisAnnexe(
+  payload: {
+    libelle: string;
+    montant: number;
+    obligatoire: boolean;
+    classe_ids?: number[];
+  },
+  schoolId?: number | null,
+): Promise<void> {
+  await http.post("/tarifs/frais-annexes", payload, enTeteEcole(schoolId));
 }
 
 export async function modifierFraisAnnexe(
@@ -757,12 +767,13 @@ export async function modifierFraisAnnexe(
     is_active: boolean;
     classe_ids: number[];
   }>,
+  schoolId?: number | null,
 ): Promise<void> {
-  await http.put(`/tarifs/frais-annexes/${id}`, payload);
+  await http.put(`/tarifs/frais-annexes/${id}`, payload, enTeteEcole(schoolId));
 }
 
-export async function desactiverFraisAnnexe(id: number): Promise<void> {
-  await http.delete(`/tarifs/frais-annexes/${id}`);
+export async function desactiverFraisAnnexe(id: number, schoolId?: number | null): Promise<void> {
+  await http.delete(`/tarifs/frais-annexes/${id}`, enTeteEcole(schoolId));
 }
 
 // ---------------------------------------------------------------- Rapports
