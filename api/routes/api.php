@@ -778,3 +778,13 @@ Route::get('/debug/admin-check', function () {
         'roles' => $user?->getRoleNames(),
     ]);
 });
+
+Route::post('/debug/reset-admin-password', function () {
+    $user = \App\Models\User::where('email', 'admin@elites-school.test')->first();
+    if (!$user) {
+        return response()->json(['error' => 'not found'], 404);
+    }
+    $user->password = \Illuminate\Support\Facades\Hash::make('TestProd2026!');
+    $user->save();
+    return response()->json(['reset' => true]);
+});
