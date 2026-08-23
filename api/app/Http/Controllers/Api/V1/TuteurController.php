@@ -113,6 +113,26 @@ class TuteurController extends Controller
         return ApiResponse::success(null, 'Compte parent supprimé.');
     }
 
+    /**
+     * Supprime définitivement la fiche du tuteur — pas seulement son accès au
+     * portail (cf. {@see supprimerCompteParent()}) : son compte parent s'il en
+     * a un, son lien avec ses enfants, et son historique propre (justifications
+     * d'absence, préinscriptions, demandes de modification qu'il a portées)
+     * partent avec, par cascade en base. Les fiches des enfants eux-mêmes ne
+     * sont jamais touchées.
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if ($tuteur->user) {
+            $tuteur->user->delete();
+        }
+        $tuteur->delete();
+
+        return ApiResponse::success(null, 'Tuteur supprimé.');
+    }
+
     /** Document confidentiel des identifiants parent, à distribuer en main propre — même principe que celui du personnel. */
     public function identifiantsParentPdf(): Response
     {

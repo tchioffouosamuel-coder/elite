@@ -305,6 +305,11 @@ export async function supprimerCompteParent(tuteurId: number): Promise<void> {
   await http.post(`/tuteurs/${tuteurId}/supprimer-compte-parent`);
 }
 
+/** Supprime la fiche du tuteur elle-même — pas seulement son accès au portail, cf. `supprimerCompteParent`. */
+export async function supprimerTuteur(tuteurId: number): Promise<void> {
+  await http.delete(`/tuteurs/${tuteurId}`);
+}
+
 // ------------------------------------------------- Usage du portail parent
 
 export interface PointSerie {

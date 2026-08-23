@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2 } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, creerComptesParentLot, basculerAccesParent, supprimerCompteParent, type TuteurCompte } from '@/features/eleves/api'
+import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX } from 'lucide-react'
+import { fetchTuteurs, creerCompteParent, creerComptesParentLot, basculerAccesParent, supprimerCompteParent, supprimerTuteur, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -45,11 +45,11 @@ export function ComptesParentsPage() {
     }
   }
 
-  const supprimerSelection = async () => {
+  const supprimerAccesSelection = async () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
     const ok = await confirmer({
-      titre: `Supprimer ${ids.length} compte(s) parent(s) ?`,
+      titre: `Supprimer l’accès de ${ids.length} compte(s) parent(s) ?`,
       message: 'Les fiches des parents et leurs enfants seront conservées, seul l’accès au portail sera supprimé.',
       action: 'Supprimer',
     })
@@ -58,7 +58,30 @@ export function ComptesParentsPage() {
       await Promise.all(ids.map((id) => supprimerCompteParent(id)))
       setSelectedIds(new Set())
       invalider()
-      succes(`${ids.length} compte(s) parent(s) supprimé(s).`)
+      succes(`Accès supprimé pour ${ids.length} compte(s) parent(s).`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const supprimerTuteurs = async (ids: number[]) => {
+    if (ids.length === 0) return
+    const ok = await confirmer({
+      titre: ids.length === 1 ? 'Supprimer ce tuteur ?' : `Supprimer ${ids.length} tuteur(s) ?`,
+      message:
+        'La fiche du tuteur, son lien avec ses enfants, son accès au portail s’il en a un, et son historique propre (justifications, préinscriptions, demandes de modification) seront définitivement supprimés. Les fiches des enfants ne sont pas concernées.',
+      action: 'Supprimer',
+    })
+    if (!ok) return
+    try {
+      await Promise.all(ids.map((id) => supprimerTuteur(id)))
+      setSelectedIds((actuels) => {
+        const suivants = new Set(actuels)
+        ids.forEach((id) => suivants.delete(id))
+        return suivants
+      })
+      invalider()
+      succes(ids.length === 1 ? 'Tuteur supprimé.' : `${ids.length} tuteur(s) supprimé(s).`)
     } catch (err) {
       erreur((err as ApiError).message)
     }
@@ -189,6 +212,14 @@ export function ComptesParentsPage() {
               <Ban className="h-4 w-4" />
             </button>
           )}
+          <button
+            type="button"
+            title="Supprimer ce tuteur"
+            onClick={() => supprimerTuteurs([t.id])}
+            className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
@@ -229,10 +260,16 @@ export function ComptesParentsPage() {
           outils={
             <div className="flex flex-wrap items-center gap-3">
               {selectedIds.size > 0 && (
-                <Button variant="danger" onClick={supprimerSelection}>
-                  <Trash2 className="h-4 w-4" />
-                  Supprimer ({selectedIds.size})
-                </Button>
+                <>
+                  <Button variant="danger" onClick={() => supprimerTuteurs(Array.from(selectedIds))}>
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer les tuteurs ({selectedIds.size})
+                  </Button>
+                  <Button variant="secondary" onClick={supprimerAccesSelection}>
+                    <UserX className="h-4 w-4" />
+                    Supprimer l’accès ({selectedIds.size})
+                  </Button>
+                </>
               )}
               <label className="flex items-center gap-2 text-sm text-navy-600">
                 <input
