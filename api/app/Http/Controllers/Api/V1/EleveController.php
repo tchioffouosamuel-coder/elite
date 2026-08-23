@@ -14,6 +14,7 @@ use App\Services\EleveService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -86,9 +87,24 @@ class EleveController extends Controller
     {
         $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
 
-        $result = $this->service->importFromExcel(app('tenant.school_id'), $request->file('file'));
+        // En mode agrégé (super admin sans X-School-Id), chaque ligne rejoint son
+        // école d'après categorie_ecole plutôt que de toutes atterrir dans une
+        // seule — cf. EleveService::importPourToutesLesEcoles().
+        $schoolId = Tenant::isAggregate() ? Tenant::schoolIds() : Tenant::schoolId();
 
-        return ApiResponse::success($result, "{$result['imported']} élève(s) créé(s), {$result['updated']} mis à jour.");
+        try {
+            $result = $this->service->importFromExcel($schoolId, $request->file('file'), $request->user()?->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        $message = "{$result['imported']} élève(s) créé(s), {$result['updated']} mis à jour.";
+
+        if ($result['dettes'] > 0) {
+            $message .= ' '.$result['dettes']." dette(s) antérieure(s) reprise(s) (".number_format($result['dettes_montant'], 0, ',', ' ')." FCFA).";
+        }
+
+        return ApiResponse::success($result, $message);
     }
 
     public function photo(Request $request, int $id): JsonResponse

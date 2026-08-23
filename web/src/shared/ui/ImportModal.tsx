@@ -17,6 +17,10 @@ interface ImportResult {
   comptes_ouverts?: number
   /** Affectations classe ↔ matière rattachées au passage (import des matières). */
   affectations?: number
+  /** Dettes antérieures reprises depuis le fichier de situation (import des élèves). */
+  dettes?: number
+  dettes_montant?: number
+  dettes_ignorees?: number
   /** Libellés que l'import n'a pas su rattacher, avec le nombre de lignes concernées. */
   classes_introuvables?: Record<string, number>
   enseignants_introuvables?: Record<string, number>
@@ -124,6 +128,14 @@ export function ImportModal({
             </p>
             {!!result.affectations && (
               <p className="text-navy-500">{t('import.affectations', { count: result.affectations })}</p>
+            )}
+            {!!result.dettes && (
+              <p className="text-navy-500">
+                {t('import.dettes', { count: result.dettes, montant: result.dettes_montant?.toLocaleString('fr-FR') })}
+              </p>
+            )}
+            {!!result.dettes_ignorees && (
+              <p className="text-navy-400">{t('import.dettes_ignorees', { count: result.dettes_ignorees })}</p>
             )}
             {!!result.ignored && <p className="text-navy-500">{t('import.ignored', { count: result.ignored })}</p>}
             {!!result.comptes_ouverts && (

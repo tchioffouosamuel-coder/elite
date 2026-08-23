@@ -480,6 +480,9 @@ export function ElevesListPage() {
             'fonction_mere',
             'tel_autre',
             'adresse_parent',
+            'frais_scolarite (montant dû)',
+            'montant_scolarite (déjà réglé)',
+            'remise_scol',
           ]}
           onClose={() => setShowImport(false)}
           onImported={invalidate}

@@ -10,14 +10,19 @@ use App\Models\SousSysteme;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Repositories\EleveRepository;
+use App\Services\ScolariteService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Maatwebsite\Excel\Facades\Excel;
 
 class EleveService extends BaseService
 {
-    public function __construct(private readonly EleveRepository $repository) {}
+    public function __construct(
+        private readonly EleveRepository $repository,
+        private readonly ScolariteService $scolarite,
+    ) {}
 
     /** @param int|array<int> $schoolId */
     public function list(?User $user, int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
@@ -138,11 +143,20 @@ class EleveService extends BaseService
      * `classes_introuvables` les libellés de classe non rattachés : sans ce
      * retour, l'utilisateur ne verrait qu'un total d'import inexpliqué.
      *
-     * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>}
+     * `$schoolId` en tableau (super admin sans X-School-Id, mode agrégé) répartit
+     * chaque ligne dans son école d'après `categorie_ecole` plutôt que de
+     * toutes les rattacher à une seule — cf. `importPourToutesLesEcoles()`.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
      */
-    public function importFromExcel(int $schoolId, UploadedFile $file): array
+    public function importFromExcel(int|array $schoolId, UploadedFile $file, ?int $importePar = null): array
     {
-        $import = new EleveImport($schoolId);
+        if (is_array($schoolId)) {
+            return $this->importPourToutesLesEcoles($schoolId, $file, $importePar);
+        }
+
+        $import = new EleveImport($schoolId, $this->scolarite, $importePar);
         Excel::import($import, $file);
 
         return [
@@ -152,7 +166,73 @@ class EleveService extends BaseService
             'failed' => count($import->failures()),
             'errors' => $import->failures(),
             'classes_introuvables' => $import->classesIntrouvables,
+            'dettes' => $import->dettesCount,
+            'dettes_montant' => $import->dettesMontantTotal,
+            'dettes_ignorees' => $import->dettesIgnoreesCount,
         ];
+    }
+
+    /**
+     * Un même fichier, une passe par école du complexe : chaque ligne n'est
+     * retenue que par l'école dont `categorie_ecole` porte le type (cf.
+     * `EleveImport::concerneCetteEcole()`), si bien que les résultats de
+     * chaque passe portent sur des lignes disjointes — sauf la validation
+     * (nom, sexe...), qui s'applique à toute ligne quelle que soit l'école et
+     * échouerait donc identiquement à chaque passe : on ne garde que les
+     * échecs de la première pour ne pas les compter en double.
+     *
+     * Sans la colonne, une ligne appartiendrait à toutes les écoles à la fois
+     * — createOrUpdate() la dupliquerait dans chacune. On refuse plutôt que de
+     * deviner : le fichier est probablement destiné à une seule école dans ce
+     * cas, à importer avec un school_id précis (X-School-Id).
+     *
+     * @param  list<int>  $schoolIds
+     * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
+     */
+    private function importPourToutesLesEcoles(array $schoolIds, UploadedFile $file, ?int $importePar): array
+    {
+        if (! EleveImport::porteColonneCategorieEcole($file)) {
+            throw new RuntimeException(
+                "Ce fichier ne porte pas de colonne categorie_ecole : précisez l'établissement pour l'importer."
+            );
+        }
+
+        $total = [
+            'imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => [],
+            'classes_introuvables' => [], 'dettes' => 0, 'dettes_montant' => 0, 'dettes_ignorees' => 0,
+        ];
+        $lignesCount = 0;
+
+        foreach ($schoolIds as $index => $schoolId) {
+            $import = new EleveImport($schoolId, $this->scolarite, $importePar);
+            Excel::import($import, $file);
+
+            $lignesCount = $import->lignesCount;
+
+            $total['imported'] += $import->importedCount;
+            $total['updated'] += $import->updatedCount;
+            $total['dettes'] += $import->dettesCount;
+            $total['dettes_montant'] += $import->dettesMontantTotal;
+            $total['dettes_ignorees'] += $import->dettesIgnoreesCount;
+
+            foreach ($import->classesIntrouvables as $libelle => $n) {
+                $total['classes_introuvables'][$libelle] = ($total['classes_introuvables'][$libelle] ?? 0) + $n;
+            }
+
+            // Une seule passe suffit à connaître les échecs de validation : ils
+            // ne dépendent pas de l'école, les compter à chaque passe les
+            // tripleraient pour un complexe à trois écoles.
+            if ($index === array_key_first($schoolIds)) {
+                $total['failed'] = count($import->failures());
+                $total['errors'] = $import->failures();
+            }
+        }
+
+        // Ce qu'aucune des écoles n'a reconnu comme sien : ni créé, ni mis à
+        // jour, ni en échec de validation.
+        $total['ignored'] = max(0, $lignesCount - $total['imported'] - $total['updated'] - $total['failed']);
+
+        return $total;
     }
 
     public function delete(Eleve $eleve): void

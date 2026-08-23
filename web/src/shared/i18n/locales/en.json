@@ -904,7 +904,9 @@
     "affectations_non_rattachees": "Duty posts kept as plain text, with no matching class:",
     "template_hint": "Expected columns (first row as headers):",
     "affectations": "{{count}} assignment(s) linked.",
-    "enseignants_introuvables": "Teachers not found:"
+    "enseignants_introuvables": "Teachers not found:",
+    "dettes": "{{count}} prior debt(s) carried over ({{montant}} XAF).",
+    "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated."
   },
   "niveaux": {
     "title": "Teaching levels",

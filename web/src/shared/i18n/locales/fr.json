@@ -928,7 +928,9 @@
     "affectations_non_rattachees": "Affectations conservées en texte, faute de classe correspondante :",
     "template_hint": "Colonnes attendues (première ligne d'en-têtes) :",
     "affectations": "{{count}} affectation(s) rattachée(s).",
-    "enseignants_introuvables": "Enseignants non trouvés :"
+    "enseignants_introuvables": "Enseignants non trouvés :",
+    "dettes": "{{count}} dette(s) antérieure(s) reprise(s) ({{montant}} FCFA).",
+    "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s)."
   },
   "progression": {
     "title": "Progression pédagogique",

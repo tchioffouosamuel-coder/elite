@@ -3,9 +3,11 @@
 namespace App\Imports;
 
 use App\Models\Classe;
+use App\Models\DetteAnterieure;
 use App\Models\Eleve;
 use App\Models\School;
 use App\Models\Tuteur;
+use App\Services\ScolariteService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -84,14 +86,48 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         'tuteur_nom_complet' => 'tuteur_nom',
         'tel_autre' => 'tuteur_telephone',
         'tuteur_telephone' => 'tuteur_telephone',
+
+        /*
+         * Situation financière de l'année couverte par le fichier. Le nom de
+         * la colonne source (« MONTANT_SCOLARITE ») est trompeur : la formule
+         * du fichier (frais_scolarite - MONTANT_SCOLARITE - remise_scol =
+         * DEBTS) ne se vérifie que si elle porte le montant déjà réglé, pas le
+         * montant dû — c'est ce que confirme un « Reglé » chaque fois que les
+         * deux colonnes sont égales.
+         */
+        'frais_scolarite' => 'scolarite_due',
+        'montant_scolarite' => 'scolarite_payee',
+        'remise_scol' => 'scolarite_remise',
+        'annee_scol' => 'annee_source',
     ];
 
     public int $importedCount = 0;
 
     public int $updatedCount = 0;
 
+    /** Dette antérieure enregistrée (report_dette du prochain dossier ouvert). */
+    public int $dettesCount = 0;
+
+    public int $dettesMontantTotal = 0;
+
+    /**
+     * Lignes dont la dette calculée avait déjà été importée — le fichier de
+     * situation est réexporté et réimporté au fil de l'année, sans qu'on
+     * veuille dupliquer le report à chaque passage.
+     */
+    public int $dettesIgnoreesCount = 0;
+
     /** Lignes appartenant à une autre école du complexe (cf. `categorie_ecole`). */
     public int $ignoredCount = 0;
+
+    /**
+     * Total des lignes de données lues, toutes écoles confondues — sert de
+     * référence à `EleveService::importPourToutesLesEcoles()` pour établir un
+     * compte de lignes non attribuées qui ne double pas en sommant les
+     * `ignoredCount` de plusieurs écoles (chacun compte les lignes des
+     * *autres* écoles, qui se recoupent forcément entre deux imports).
+     */
+    public int $lignesCount = 0;
 
     /** @var array<string, int> libellé de classe non résolu => nombre de lignes */
     public array $classesIntrouvables = [];
@@ -103,7 +139,11 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
 
     private bool $typeEcoleCharge = false;
 
-    public function __construct(private readonly int $schoolId) {}
+    public function __construct(
+        private readonly int $schoolId,
+        private readonly ScolariteService $scolarite,
+        private readonly ?int $importePar = null,
+    ) {}
 
     /**
      * Appelé par maatwebsite avant validation, sur la ligne brute : c'est aussi
@@ -151,6 +191,10 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'mere_profession' => isset($ligne['mere_profession']) ? self::texte($ligne['mere_profession']) : null,
             'tuteur_nom' => isset($ligne['tuteur_nom']) ? self::texte($ligne['tuteur_nom']) : null,
             'tuteur_telephone' => self::telephone($ligne['tuteur_telephone'] ?? null),
+            'scolarite_due' => self::montant($ligne['scolarite_due'] ?? null),
+            'scolarite_payee' => self::montant($ligne['scolarite_payee'] ?? null),
+            'scolarite_remise' => self::montant($ligne['scolarite_remise'] ?? null),
+            'annee_source' => isset($ligne['annee_source']) ? self::texte($ligne['annee_source']) : null,
         ];
     }
 
@@ -158,6 +202,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
     {
         foreach ($rows as $row) {
             $ligne = $row instanceof Collection ? $row->all() : $row;
+            $this->lignesCount++;
 
             if (! $this->concerneCetteEcole($ligne)) {
                 $this->ignoredCount++;
@@ -167,6 +212,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
 
             $eleve = $this->enregistrerEleve($ligne);
             $this->rattacherTuteurs($eleve, $ligne);
+            $this->traiterDette($eleve, $ligne);
         }
     }
 
@@ -177,6 +223,31 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'sexe' => ['required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
         ];
+    }
+
+    /**
+     * En-têtes du fichier, normalisés comme le fait maatwebsite (formateur
+     * « slug » par défaut) : sert à sonder la présence de `categorie_ecole`
+     * avant de lancer un import multi-écoles, sans dépendre de l'ordre dans
+     * lequel Excel::import() lira effectivement le fichier.
+     */
+    public static function porteColonneCategorieEcole(\Illuminate\Http\UploadedFile $fichier): bool
+    {
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $lecteur->setReadDataOnly(true);
+        $feuille = $lecteur->load($fichier->getRealPath())->getSheet(0);
+
+        foreach ($feuille->getRowIterator(1, 1) as $ligneEntete) {
+            foreach ($ligneEntete->getCellIterator() as $cellule) {
+                $slug = Str::slug((string) $cellule->getValue(), '_');
+
+                if ((self::COLONNES[$slug] ?? null) === 'categorie_ecole') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -313,6 +384,48 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         if ($rattachements !== []) {
             $eleve->tuteurs()->sync($rattachements);
         }
+    }
+
+    /**
+     * Reprend en dette antérieure ce que le fichier de situation dit encore dû
+     * pour son année (frais - montant réglé - remise). Une ligne soldée ou en
+     * trop-perçu ne crée rien : `enregistrerDetteAnterieure` refuse un montant
+     * nul ou négatif.
+     *
+     * Idempotent sur (élève, année source) via le motif : réimporter le même
+     * fichier de situation, à jour ou non, ne double pas le report. Une
+     * nouvelle année source (le prochain export de fin d'année) crée en
+     * revanche sa propre dette, distincte de celle déjà reprise.
+     *
+     * @param  array<string, mixed>  $ligne
+     */
+    private function traiterDette(Eleve $eleve, array $ligne): void
+    {
+        $du = $ligne['scolarite_due'] ?? null;
+
+        if ($du === null) {
+            return;
+        }
+
+        $dette = $du - ($ligne['scolarite_payee'] ?? 0) - ($ligne['scolarite_remise'] ?? 0);
+
+        if ($dette <= 0) {
+            return;
+        }
+
+        $motif = 'Report scolarité '.($ligne['annee_source'] ?? 'année antérieure').' (import situation)';
+
+        $dejaImportee = DetteAnterieure::where('eleve_id', $eleve->id)->where('motif', $motif)->exists();
+
+        if ($dejaImportee) {
+            $this->dettesIgnoreesCount++;
+
+            return;
+        }
+
+        $this->scolarite->enregistrerDetteAnterieure($eleve, $dette, $motif, $this->importePar);
+        $this->dettesCount++;
+        $this->dettesMontantTotal += $dette;
     }
 
     /**
@@ -473,5 +586,17 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         $chiffres = preg_replace('/\D+/', '', (string) ($valeur ?? ''));
 
         return ($chiffres === '' || ltrim($chiffres, '0') === '') ? null : $chiffres;
+    }
+
+    /** Le fichier écrit parfois ses montants en texte (« 90 000 », « 90000,00 »). */
+    private static function montant(mixed $valeur): ?int
+    {
+        if ($valeur === null) {
+            return null;
+        }
+
+        $nombre = preg_replace('/[^\d-]/', '', str_replace(',', '.', (string) $valeur));
+
+        return $nombre === '' || $nombre === '-' ? null : (int) round((float) $nombre);
     }
 }
