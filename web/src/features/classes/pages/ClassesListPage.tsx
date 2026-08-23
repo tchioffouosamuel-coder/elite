@@ -215,19 +215,39 @@ export function ClassesListPage() {
       entete: t('common.actions'),
       cellule: (c) =>
         can('classes.manage') && (
-          <DropdownMenu
-            title={t('common.actions')}
-            items={[
-              { label: t('classes.view'), icon: Eye, onClick: () => navigate(`/classes/${c.id}`) },
-              { label: t('classes.edit'), icon: Pencil, onClick: () => setEditingClasse(c) },
-              can('eleves.manage') && { label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') },
-              can('eleves.view') && { label: t('hub.classe.voir_eleves'), icon: Users, onClick: () => navigate(`/eleves?classe=${c.id}`) },
-              can('emploi_du_temps.view') && { label: t('nav.emploiDuTemps'), icon: CalendarClock, onClick: () => navigate(`/emploi-du-temps?classe=${c.id}`) },
-              can('pedagogie.view') && { label: t('nav.progression'), icon: GitBranch, onClick: () => navigate(`/progression/classes/${c.id}`) },
-              can('bulletins.view') && { label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) },
-              { label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true },
-            ]}
-          />
+          <div className="flex items-center gap-1">
+            <button
+              title={t('classes.view')}
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/classes/${c.id}`)
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              title={t('classes.edit')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingClasse(c)
+              }}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <DropdownMenu
+              title={t('common.actions')}
+              items={[
+                can('eleves.manage') && { label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') },
+                can('eleves.view') && { label: t('hub.classe.voir_eleves'), icon: Users, onClick: () => navigate(`/eleves?classe=${c.id}`) },
+                can('emploi_du_temps.view') && { label: t('nav.emploiDuTemps'), icon: CalendarClock, onClick: () => navigate(`/emploi-du-temps?classe=${c.id}`) },
+                can('pedagogie.view') && { label: t('nav.progression'), icon: GitBranch, onClick: () => navigate(`/progression/classes/${c.id}`) },
+                can('bulletins.view') && { label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) },
+                { label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true },
+              ]}
+            />
+          </div>
         ),
     },
   ]

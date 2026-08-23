@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Closure;
 use Maatwebsite\Excel\Facades\Excel;
 
 class EleveService extends BaseService
@@ -150,13 +151,13 @@ class EleveService extends BaseService
      * @param  int|array<int>  $schoolId
      * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
      */
-    public function importFromExcel(int|array $schoolId, UploadedFile $file, ?int $importePar = null): array
+    public function importFromExcel(int|array $schoolId, UploadedFile $file, ?int $importePar = null, ?Closure $progress = null): array
     {
         if (is_array($schoolId)) {
-            return $this->importPourToutesLesEcoles($schoolId, $file, $importePar);
+            return $this->importPourToutesLesEcoles($schoolId, $file, $importePar, $progress);
         }
 
-        $import = new EleveImport($schoolId, $this->scolarite, $importePar);
+        $import = new EleveImport($schoolId, $this->scolarite, $importePar, $progress);
         Excel::import($import, $file);
 
         return [
@@ -189,7 +190,7 @@ class EleveService extends BaseService
      * @param  list<int>  $schoolIds
      * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
      */
-    private function importPourToutesLesEcoles(array $schoolIds, UploadedFile $file, ?int $importePar): array
+    private function importPourToutesLesEcoles(array $schoolIds, UploadedFile $file, ?int $importePar, ?Closure $progress = null): array
     {
         if (! EleveImport::porteColonneCategorieEcole($file)) {
             throw new RuntimeException(
@@ -198,13 +199,19 @@ class EleveService extends BaseService
         }
 
         $total = [
-            'imported' => 0, 'updated' => 0, 'failed' => 0, 'errors' => [],
-            'classes_introuvables' => [], 'dettes' => 0, 'dettes_montant' => 0, 'dettes_ignorees' => 0,
+            'imported' => 0,
+            'updated' => 0,
+            'failed' => 0,
+            'errors' => [],
+            'classes_introuvables' => [],
+            'dettes' => 0,
+            'dettes_montant' => 0,
+            'dettes_ignorees' => 0,
         ];
         $lignesCount = 0;
 
         foreach ($schoolIds as $index => $schoolId) {
-            $import = new EleveImport($schoolId, $this->scolarite, $importePar);
+            $import = new EleveImport($schoolId, $this->scolarite, $importePar, $progress);
             Excel::import($import, $file);
 
             $lignesCount = $import->lignesCount;
@@ -287,7 +294,7 @@ class EleveService extends BaseService
         $lignes = Eleve::query()
             ->whereIn('eleves.school_id', $schoolIds)
             ->where('eleves.statut', 'actif')
-            ->when($classe, fn ($q) => $q->where('eleves.classe_id', $classe->id))
+            ->when($classe, fn($q) => $q->where('eleves.classe_id', $classe->id))
             ->selectRaw('eleves.school_id as school_id, eleves.sexe as sexe, ' . self::SELECT_EFFECTIFS)
             ->groupBy('eleves.school_id', 'eleves.sexe')
             ->get();
@@ -386,7 +393,7 @@ class EleveService extends BaseService
         }
 
         return collect($parEcole)
-            ->map(fn (array $e) => ['school' => $e['school'], 'sous_systemes' => array_values($e['sous_systemes'])])
+            ->map(fn(array $e) => ['school' => $e['school'], 'sous_systemes' => array_values($e['sous_systemes'])])
             ->values()
             ->all();
     }

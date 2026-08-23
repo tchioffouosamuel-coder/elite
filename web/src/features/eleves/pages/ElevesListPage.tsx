@@ -459,6 +459,7 @@ export function ElevesListPage() {
         <ImportModal
           title={t('import.title')}
           url="/eleves/import"
+          progressUrl="/eleves/import-progress"
           columns={[
             'IDEleves (matricule)',
             'nom_eleves',

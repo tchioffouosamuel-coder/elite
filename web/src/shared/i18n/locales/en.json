@@ -902,7 +902,8 @@
     "affectations": "{{count}} assignment(s) linked.",
     "enseignants_introuvables": "Teachers not found:",
     "dettes": "{{count}} prior debt(s) carried over ({{montant}} XAF).",
-    "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated."
+    "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated.",
+    "processing": "Import in progress…"
   },
   "niveaux": {
     "title": "Teaching levels",
@@ -984,6 +985,7 @@
     "retour_matieres": "Back to subjects",
     "vide": "No lesson yet: add one, or import the subject's progression sheet.",
     "vide_etablissement": "No class in this school.",
+    "recherche_classe": "Search for a class…",
     "sequence_libre": "No set sequence",
     "traitee": "Covered",
     "avancement": "{{traitees}} of {{lecons}} lesson(s) covered",
@@ -1348,6 +1350,7 @@
       "accorder_avance": "Grant an advance",
       "definir_remuneration": "Set pay",
       "attestation": "Employer certificate",
+      "attestation_error": "Unable to generate the employer certificate.",
       "identite": "Identity",
       "contact": "Contact",
       "carriere": "Career",

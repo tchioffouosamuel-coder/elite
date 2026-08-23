@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, ChevronRight, GitBranch } from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronRight, GitBranch, Search } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchProgressionClasse, fetchProgressionEtablissement, fetchProgramme } from '@/features/progression/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -44,14 +45,33 @@ export function ProgressionPage() {
 function ClassesProgressionView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [recherche, setRecherche] = useState('')
   const { data: etablissement, isLoading } = useQuery({
     queryKey: ['progression-etablissement'],
     queryFn: fetchProgressionEtablissement,
+  })
+  const classesFiltrees = (etablissement ?? []).filter((ligne) => {
+    const terme = recherche.trim().toLocaleLowerCase()
+    if (!terme) return true
+
+    return [ligne.classe, ligne.niveau].filter(Boolean).some((valeur) => valeur!.toLocaleLowerCase().includes(terme))
   })
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader titre={t('progression.title')} sousTitre={t('progression.hint')} icon={GitBranch} />
+
+      <div className="relative w-full sm:max-w-xs">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
+        <input
+          type="search"
+          value={recherche}
+          onChange={(event) => setRecherche(event.target.value)}
+          placeholder={t('progression.recherche_classe')}
+          aria-label={t('progression.recherche_classe')}
+          className="w-full rounded-xl border border-navy-200 bg-white py-2.5 pl-10 pr-3 text-sm shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+        />
+      </div>
 
       {isLoading ? (
         <Spinner />
@@ -68,7 +88,7 @@ function ClassesProgressionView() {
             </tr>
           </Thead>
           <tbody>
-            {etablissement.map((ligne) => (
+            {classesFiltrees.map((ligne) => (
               <Tr
                 key={ligne.classe_id}
                 role="button"

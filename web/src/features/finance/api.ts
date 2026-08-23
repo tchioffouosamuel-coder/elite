@@ -309,13 +309,38 @@ export async function fetchPaie(params: {
   return data.data as never;
 }
 
+/** Un agent que le lot n'a pas su préparer — et pourquoi. */
+export interface AgentIgnore {
+  personnel_id: number;
+  nom_complet: string;
+  // heures_requises : vacataire du technique, ses heures du mois manquent —
+  // se règle avec preparerBulletinAgent(). sans_remuneration : aucune
+  // rémunération définie, à corriger dans sa fiche.
+  motif: "heures_requises" | "sans_remuneration";
+  message: string;
+}
+
 export async function preparerPaie(
   params: { annee: number; mois: number },
   payload: { jours_ouvrables?: number; jours_travailles?: number },
-): Promise<{ prepares: number; ignores: string[] }> {
+): Promise<{ prepares: number; ignores: AgentIgnore[] }> {
   const { data } = await http.post<
-    ApiResponse<{ prepares: number; ignores: string[] }>
+    ApiResponse<{ prepares: number; ignores: AgentIgnore[] }>
   >("/paie/preparer", payload, { params });
+  return data.data;
+}
+
+/** Prépare le bulletin d'un seul agent — c'est ici qu'un vacataire déclare ses heures du mois. */
+export async function preparerBulletinAgent(
+  personnelId: number,
+  params: { annee: number; mois: number },
+  payload: { heures?: number },
+): Promise<BulletinPaie> {
+  const { data } = await http.post<ApiResponse<BulletinPaie>>(
+    `/paie/personnels/${personnelId}/preparer`,
+    payload,
+    { params },
+  );
   return data.data;
 }
 

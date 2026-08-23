@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, FileDown, Users2, Check, X } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, creerComptesParentLot, type TuteurCompte } from '@/features/eleves/api'
+import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2 } from 'lucide-react'
+import { fetchTuteurs, creerCompteParent, creerComptesParentLot, basculerAccesParent, supprimerCompteParent, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -26,6 +26,7 @@ export function ComptesParentsPage() {
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
   const [lotEnCours, setLotEnCours] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['tuteurs', { page, sansCompteSeulement }],
@@ -33,6 +34,35 @@ export function ComptesParentsPage() {
   })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['tuteurs'] })
+
+  const basculerAcces = async (tuteur: TuteurCompte) => {
+    try {
+      await basculerAccesParent(tuteur.id)
+      invalider()
+      succes(tuteur.acces_bloque ? 'Accès parent débloqué.' : 'Accès parent bloqué.')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const supprimerSelection = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    const ok = await confirmer({
+      titre: `Supprimer ${ids.length} compte(s) parent(s) ?`,
+      message: 'Les fiches des parents et leurs enfants seront conservées, seul l’accès au portail sera supprimé.',
+      action: 'Supprimer',
+    })
+    if (!ok) return
+    try {
+      await Promise.all(ids.map((id) => supprimerCompteParent(id)))
+      setSelectedIds(new Set())
+      invalider()
+      succes(`${ids.length} compte(s) parent(s) supprimé(s).`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
 
   const ouvrirAcces = async (tuteur: TuteurCompte) => {
     setOuvertureEnCours(tuteur.id)
@@ -50,9 +80,8 @@ export function ComptesParentsPage() {
   const ouvrirEnMasse = async () => {
     const ok = await confirmer({
       titre: 'Ouvrir tous les accès manquants ?',
-      message: `Un compte sera créé pour chaque tuteur ${
-        ecoleActive ? `de ${ecoleActive.name}` : 'de toutes les écoles affichées'
-      } qui a un numéro de téléphone mais pas encore d'accès. Les tuteurs sans numéro seront ignorés.`,
+      message: `Un compte sera créé pour chaque tuteur ${ecoleActive ? `de ${ecoleActive.name}` : 'de toutes les écoles affichées'
+        } qui a un numéro de téléphone mais pas encore d'accès. Les tuteurs sans numéro seront ignorés.`,
       action: 'Ouvrir les accès',
       destructif: false,
     })
@@ -75,6 +104,34 @@ export function ComptesParentsPage() {
   }
 
   const colonnes: Colonne<TuteurCompte>[] = [
+    {
+      cle: 'selection',
+      entete: (
+        <input
+          type="checkbox"
+          checked={(data?.items.length ?? 0) > 0 && selectedIds.size === data?.items.length}
+          onChange={() => setSelectedIds(selectedIds.size === data?.items.length ? new Set() : new Set(data?.items.map((t) => t.id)))}
+          className="h-4 w-4 rounded border-navy-300"
+          aria-label="Tout sélectionner"
+        />
+      ),
+      valeur: () => '',
+      cellule: (t) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(t.id)}
+          onChange={() => setSelectedIds((actuels) => {
+            const suivants = new Set(actuels)
+            if (suivants.has(t.id)) suivants.delete(t.id)
+            else suivants.add(t.id)
+            return suivants
+          })}
+          className="h-4 w-4 rounded border-navy-300"
+          aria-label={t.nom_complet}
+        />
+      ),
+      largeur: '48px',
+    },
     {
       cle: 'nom',
       entete: 'Nom complet',
@@ -101,8 +158,8 @@ export function ComptesParentsPage() {
       cellule: (t) =>
         t.a_compte ? (
           <Badge tone="green">
-            <Check className="h-3 w-3" />
-            Ouvert
+            {t.acces_bloque ? <Ban className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+            {t.acces_bloque ? 'Bloqué' : 'Ouvert'}
           </Badge>
         ) : (
           <Badge tone="neutral">
@@ -114,13 +171,26 @@ export function ComptesParentsPage() {
     {
       cle: 'actions',
       entete: '',
-      cellule: (t) =>
-        t.a_compte ? null : (
-          <Button size="sm" variant="secondary" disabled={ouvertureEnCours === t.id} onClick={() => ouvrirAcces(t)}>
-            <KeyRound className="h-3.5 w-3.5" />
-            {ouvertureEnCours === t.id ? 'Ouverture…' : "Ouvrir l'accès"}
-          </Button>
-        ),
+      cellule: (t) => (
+        <div className="flex items-center gap-1">
+          {!t.a_compte && (
+            <Button size="sm" variant="secondary" disabled={ouvertureEnCours === t.id} onClick={() => ouvrirAcces(t)}>
+              <KeyRound className="h-3.5 w-3.5" />
+              {ouvertureEnCours === t.id ? 'Ouverture…' : "Ouvrir l'accès"}
+            </Button>
+          )}
+          {t.a_compte && (
+            <button
+              type="button"
+              title={t.acces_bloque ? 'Débloquer l’accès' : 'Bloquer l’accès'}
+              onClick={() => basculerAcces(t)}
+              className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600"
+            >
+              <Ban className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
     },
   ]
 
@@ -157,18 +227,27 @@ export function ComptesParentsPage() {
           messageVide="Aucun tuteur pour cet établissement."
           largeurMin={760}
           outils={
-            <label className="flex items-center gap-2 text-sm text-navy-600">
-              <input
-                type="checkbox"
-                checked={sansCompteSeulement}
-                onChange={(e) => {
-                  setSansCompteSeulement(e.target.checked)
-                  setPage(1)
-                }}
-                className="rounded border-navy-300"
-              />
-              Sans accès seulement
-            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              {selectedIds.size > 0 && (
+                <Button variant="danger" onClick={supprimerSelection}>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer ({selectedIds.size})
+                </Button>
+              )}
+              <label className="flex items-center gap-2 text-sm text-navy-600">
+                <input
+                  type="checkbox"
+                  checked={sansCompteSeulement}
+                  onChange={(e) => {
+                    setSansCompteSeulement(e.target.checked)
+                    setPage(1)
+                    setSelectedIds(new Set())
+                  }}
+                  className="rounded border-navy-300"
+                />
+                Sans accès seulement
+              </label>
+            </div>
           }
         />
       )}

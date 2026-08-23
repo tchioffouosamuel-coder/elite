@@ -10,6 +10,7 @@ use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\School;
 use App\Services\Paie\Bareme;
+use App\Services\Paie\ResultatPaie;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -118,7 +119,23 @@ class PaieService extends BaseService
                 ];
             }
 
-            $resultat = $this->bareme->calculer($gains);
+            /*
+             * Un vacataire n'est pas salarié : ni IRPP, ni CNPS, ni aucune des
+             * charges du barème. Le document remis n'est pas un bulletin de
+             * paie mais un reçu de paiement pour les heures enseignées — d'où
+             * un résultat directement construit plutôt que passé au barème,
+             * qui ne connaît que des salariés mensuels.
+             */
+            $resultat = $remuneration->estHoraire()
+                ? new ResultatPaie(
+                    brut: $gains['salaire_base'],
+                    baseTaxable: 0,
+                    chargesSalariales: 0,
+                    chargesPatronales: 0,
+                    gains: [],
+                    retenues: [],
+                )
+                : $this->bareme->calculer($gains);
 
             $joursOuvrables = (int) ($saisie['jours_ouvrables'] ?? 22);
             $joursTravailles = (int) ($saisie['jours_travailles'] ?? $joursOuvrables);
@@ -203,7 +220,21 @@ class PaieService extends BaseService
             try {
                 $bulletins->push($this->preparer($personnel, $annee, $mois, $saisie));
             } catch (RuntimeException $e) {
-                $ignores[] = $personnel->nom_complet.' — '.$e->getMessage();
+                /*
+                 * Un vacataire n'échoue ici que pour une raison : ses heures du
+                 * mois ne sont pas dans la saisie globale, propre à tout le
+                 * personnel mensuel. Le distinguer d'un agent sans rémunération
+                 * permet à l'écran de proposer la bonne action — un champ
+                 * heures, pas un renvoi vers la fiche de rémunération.
+                 */
+                $remuneration = $this->remuneration($personnel, $annee, $mois);
+
+                $ignores[] = [
+                    'personnel_id' => $personnel->id,
+                    'nom_complet' => $personnel->nom_complet,
+                    'motif' => $remuneration?->estHoraire() ? 'heures_requises' : 'sans_remuneration',
+                    'message' => $e->getMessage(),
+                ];
             }
         }
 
@@ -248,9 +279,25 @@ class PaieService extends BaseService
      * telles quelles une fois le bulletin arrêté : c'est ce qui permet de le
      * rééditer à l'identique des années plus tard.
      */
-    private function enregistrerLignes(BulletinPaie $bulletin, $resultat): void
+    private function enregistrerLignes(BulletinPaie $bulletin, ResultatPaie $resultat): void
     {
         $bulletin->lignes()->delete();
+
+        // Le vacataire n'a qu'une ligne : les heures du mois à son taux. Les
+        // six libellés de salaire/primes et les retenues légales ne relèvent
+        // que du salarié mensuel — $resultat les porte vides pour lui.
+        if ($bulletin->taux_horaire !== null) {
+            $bulletin->lignes()->create([
+                'ordre' => 1,
+                'type' => 'gain',
+                'libelle' => sprintf('Vacation horaire (%d h × %s F CFA)', $bulletin->heures, number_format($bulletin->taux_horaire, 0, ',', ' ')),
+                'libelle_en' => sprintf('Hourly vacation (%d h × %s F CFA)', $bulletin->heures, number_format($bulletin->taux_horaire, 0, ',', ' ')),
+                'montant_salarial' => $resultat->brut,
+            ]);
+
+            return;
+        }
+
         $ordre = 1;
 
         $libelles = [

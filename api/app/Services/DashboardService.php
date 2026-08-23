@@ -42,14 +42,10 @@ class DashboardService extends BaseService
      */
     private function statsEcole(int|array $schoolId): array
     {
-        // Chaque école a sa propre année active, avec un `annee_scolaire_id`
-        // qui lui est propre : filtrer sur un seul id (celui d'une école
-        // "gagnante" au hasard) excluait les classes de toutes les autres.
-        // Il faut retenir l'année active de CHAQUE école du périmètre.
-        $anneesActives = AnneeScolaire::whereIn('school_id', (array) $schoolId)->where('is_active', true)->get();
-        $anneeActive = $anneesActives->first();
-        $classesQuery = Classe::forSchool($schoolId)
-            ->when($anneesActives->isNotEmpty(), fn ($q) => $q->whereIn('annee_scolaire_id', $anneesActives->pluck('id')));
+        // Chaque école a sa propre année active ; en mode agrégé (plusieurs
+        // écoles), le libellé affiché reste celui de la première trouvée.
+        $anneeActive = AnneeScolaire::whereIn('school_id', (array) $schoolId)->where('is_active', true)->first();
+        $classesQuery = Classe::forSchool($schoolId);
 
         $totalEleves = Eleve::forSchool($schoolId)->where('statut', 'actif')->count();
         $totalClasses = (clone $classesQuery)->count();

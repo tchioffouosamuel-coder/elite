@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Layers, ListPlus } from 'lucide-react'
+import { ArrowLeft, Layers, ListPlus, Search } from 'lucide-react'
 import { fetchNiveauxScolaires } from '@/features/primaire/api'
 import { fetchClasses, updateClasse, type Classe } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Modal } from '@/shared/ui/Modal'
+import { Input } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -24,6 +25,7 @@ export function NiveauScolaireDetailPage() {
   const [affectationOuverte, setAffectationOuverte] = useState(false)
   const [classesSelectionnees, setClassesSelectionnees] = useState<Set<number>>(new Set())
   const [enregistrement, setEnregistrement] = useState(false)
+  const [rechercheClasse, setRechercheClasse] = useState('')
 
   const { data: niveaux, isLoading: chargementNiveaux, isError: erreurNiveaux } = useQuery({
     queryKey: ['niveaux-scolaires'],
@@ -39,6 +41,7 @@ export function NiveauScolaireDetailPage() {
 
   const ouvrirAffectation = () => {
     setClassesSelectionnees(new Set(classesDuNiveau.map((c) => c.id)))
+    setRechercheClasse('')
     setAffectationOuverte(true)
   }
 
@@ -139,9 +142,17 @@ export function NiveauScolaireDetailPage() {
 
       {affectationOuverte && (
         <Modal title={t('niveaux.assign_classes')} onClose={() => setAffectationOuverte(false)}>
+          <Input
+            icon={Search}
+            placeholder={t('classes.search_placeholder')}
+            value={rechercheClasse}
+            onChange={(e) => setRechercheClasse(e.target.value)}
+            className="mb-3"
+          />
           <div className="flex flex-col gap-2">
             {(classes ?? [])
               .filter((classe) => classe.school_id === niveau.school_id)
+              .filter((classe) => classe.nom.toLowerCase().includes(rechercheClasse.trim().toLowerCase()))
               .map((classe) => (
                 <label key={classe.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-cream-50">
                   <input

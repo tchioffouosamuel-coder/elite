@@ -277,12 +277,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe');
                 Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
+                Route::get('eleves/import-progress/{token}', [EleveController::class, 'importProgress'])->name('eleves.import-progress');
                 Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
 
                 Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index');
                 Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
                 Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
+                Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces');
+                Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent');
                 Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');
                 Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
 

@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -85,7 +86,20 @@ class EleveController extends Controller
 
     public function import(Request $request): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'progress_token' => ['nullable', 'uuid'],
+        ]);
+        $progressToken = $request->string('progress_token')->toString() ?: null;
+        $progress = $progressToken
+            ? function (int $processed, int $total, string $name) use ($progressToken): void {
+                Cache::put('eleves-import:' . $progressToken, [
+                    'processed' => $processed,
+                    'total' => $total,
+                    'current_name' => $name,
+                ], now()->addMinutes(30));
+            }
+            : null;
 
         // En mode agrégé (super admin sans X-School-Id), chaque ligne rejoint son
         // école d'après categorie_ecole plutôt que de toutes atterrir dans une
@@ -93,7 +107,7 @@ class EleveController extends Controller
         $schoolId = Tenant::isAggregate() ? Tenant::schoolIds() : Tenant::schoolId();
 
         try {
-            $result = $this->service->importFromExcel($schoolId, $request->file('file'), $request->user()?->id);
+            $result = $this->service->importFromExcel($schoolId, $request->file('file'), $request->user()?->id, $progress);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
@@ -101,10 +115,19 @@ class EleveController extends Controller
         $message = "{$result['imported']} élève(s) créé(s), {$result['updated']} mis à jour.";
 
         if ($result['dettes'] > 0) {
-            $message .= ' '.$result['dettes']." dette(s) antérieure(s) reprise(s) (".number_format($result['dettes_montant'], 0, ',', ' ')." FCFA).";
+            $message .= ' ' . $result['dettes'] . " dette(s) antérieure(s) reprise(s) (" . number_format($result['dettes_montant'], 0, ',', ' ') . " FCFA).";
         }
 
         return ApiResponse::success($result, $message);
+    }
+
+    public function importProgress(string $token): JsonResponse
+    {
+        return ApiResponse::success(Cache::get('eleves-import:' . $token, [
+            'processed' => 0,
+            'total' => 0,
+            'current_name' => null,
+        ]));
     }
 
     public function photo(Request $request, int $id): JsonResponse

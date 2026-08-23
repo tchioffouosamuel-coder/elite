@@ -23,7 +23,10 @@ class StoreClasseRequest extends FormRequest
             // contrôleur — un id hors du périmètre du compte y est rejeté (403)
             // plutôt qu'ici, où on ne connaît que l'existence de l'école.
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
-            'niveau_id' => ['required', 'exists:niveaux,id'], // référentiel global, non scopé
+            // Nullable : l'import en masse (nom, sigle, capacité) ne l'impose
+            // pas, il s'affecte après coup classe par classe — une mise à
+            // jour d'un autre champ ne doit pas être bloquée en attendant.
+            'niveau_id' => ['nullable', 'exists:niveaux,id'], // référentiel global, non scopé
             // Degré d'enseignement propre à l'établissement (SIL, CP…) : le
             // primaire seul s'organise ainsi. Le secondaire suit ses
             // départements, et la maternelle ne connaît pas cette notion — ses

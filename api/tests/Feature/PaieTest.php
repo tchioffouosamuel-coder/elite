@@ -178,7 +178,26 @@ class PaieTest extends TestCase
 
         $this->assertCount(2, $lot['bulletins']);
         $this->assertCount(1, $lot['ignores']);
-        $this->assertStringContainsString('SANS SALAIRE', $lot['ignores'][0]);
+        $this->assertSame('SANS SALAIRE', $lot['ignores'][0]['nom_complet']);
+        $this->assertSame('sans_remuneration', $lot['ignores'][0]['motif']);
+    }
+
+    /** Un vacataire sans heures saisies est distingué d'un agent sans rémunération : l'écran doit lui proposer le bon geste. */
+    public function test_le_lot_distingue_un_vacataire_sans_heures(): void
+    {
+        $vacataire = Personnel::create([
+            'school_id' => $this->school->id, 'nom_complet' => 'SONG ERIC MUNYAM', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        Remuneration::create([
+            'school_id' => $this->school->id, 'personnel_id' => $vacataire->id,
+            'date_effet' => '2024-01-01', 'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+        ]);
+
+        $lot = $this->service()->preparerLot($this->school->id, 2024, 4);
+
+        $this->assertCount(1, $lot['ignores']);
+        $this->assertSame($vacataire->id, $lot['ignores'][0]['personnel_id']);
+        $this->assertSame('heures_requises', $lot['ignores'][0]['motif']);
     }
 
     public function test_le_lot_agrege_prepare_les_agents_de_plusieurs_ecoles(): void

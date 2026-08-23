@@ -23,21 +23,22 @@ class TuteurController extends Controller
     public function index(Request $request): JsonResponse
     {
         $tuteurs = Tuteur::forSchool(Tenant::schoolIds())
-            ->with('eleves:id,nom_complet')
-            ->when($request->boolean('sans_compte'), fn ($q) => $q->whereNull('user_id'))
-            ->when($request->string('search')->toString(), fn ($q, $s) => $q->where(fn ($qq) => $qq
+            ->with(['eleves:id,nom_complet', 'user:id,is_active'])
+            ->when($request->boolean('sans_compte'), fn($q) => $q->whereNull('user_id'))
+            ->when($request->string('search')->toString(), fn($q, $s) => $q->where(fn($qq) => $qq
                 ->where('nom_complet', 'like', "%{$s}%")
                 ->orWhere('telephone', 'like', "%{$s}%")))
             ->orderBy('nom_complet')
             ->paginate((int) $request->integer('per_page', 50));
 
-        $tuteurs->getCollection()->transform(fn (Tuteur $t) => [
+        $tuteurs->getCollection()->transform(fn(Tuteur $t) => [
             'id' => $t->id,
             'nom_complet' => $t->nom_complet,
             'telephone' => $t->telephone,
             'email' => $t->email,
             'a_compte' => $t->user_id !== null,
-            'enfants' => $t->eleves->map(fn ($e) => ['id' => $e->id, 'nom_complet' => $e->nom_complet])->values(),
+            'acces_bloque' => $t->user?->is_active === false,
+            'enfants' => $t->eleves->map(fn($e) => ['id' => $e->id, 'nom_complet' => $e->nom_complet])->values(),
         ]);
 
         return ApiResponse::paginated($tuteurs);
@@ -87,6 +88,31 @@ class TuteurController extends Controller
         return ApiResponse::success($resultat, $message);
     }
 
+    public function basculerAcces(int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if (! $tuteur->user) {
+            return ApiResponse::error("Ce tuteur n'a pas encore de compte parent.", 422);
+        }
+
+        $tuteur->user->update(['is_active' => ! $tuteur->user->is_active]);
+
+        return ApiResponse::success(null, $tuteur->user->is_active ? 'Accès parent débloqué.' : 'Accès parent bloqué.');
+    }
+
+    public function supprimerCompteParent(int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if ($tuteur->user) {
+            $tuteur->user->delete();
+            $tuteur->forceFill(['user_id' => null])->save();
+        }
+
+        return ApiResponse::success(null, 'Compte parent supprimé.');
+    }
+
     /** Document confidentiel des identifiants parent, à distribuer en main propre — même principe que celui du personnel. */
     public function identifiantsParentPdf(): Response
     {
@@ -94,7 +120,7 @@ class TuteurController extends Controller
         $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
 
         if (Tenant::isAggregate()) {
-            $documents = $schools->map(fn (School $school) => [
+            $documents = $schools->map(fn(School $school) => [
                 'donnees' => $this->service->identifiants($school->id),
                 'school' => $school,
             ])->all();
@@ -103,12 +129,12 @@ class TuteurController extends Controller
         } else {
             $school = $schools->firstOrFail();
             $pdf = (new IdentifiantsGenerator)->build($this->service->identifiants($school->id), $school);
-            $nom = 'identifiants-parents-'.Str::slug($school->name);
+            $nom = 'identifiants-parents-' . Str::slug($school->name);
         }
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$nom.'.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $nom . '.pdf"',
         ]);
     }
 }

@@ -18,6 +18,7 @@ use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use Closure;
 
 /**
  * Import du fichier de situation scolaire (un onglet, une ligne par élève).
@@ -143,6 +144,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         private readonly int $schoolId,
         private readonly ScolariteService $scolarite,
         private readonly ?int $importePar = null,
+        private readonly ?Closure $progress = null,
     ) {}
 
     /**
@@ -200,6 +202,9 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
 
     public function collection(Collection $rows): void
     {
+        $total = $rows->count();
+        $processed = 0;
+
         foreach ($rows as $row) {
             $ligne = $row instanceof Collection ? $row->all() : $row;
             $this->lignesCount++;
@@ -213,6 +218,8 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             $eleve = $this->enregistrerEleve($ligne);
             $this->rattacherTuteurs($eleve, $ligne);
             $this->traiterDette($eleve, $ligne);
+            $processed++;
+            ($this->progress)?->call(null, $processed, $total, $eleve->nom_complet);
         }
     }
 
@@ -293,7 +300,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'refugie' => $ligne['refugie'],
             'deplace_interne' => $ligne['deplace_interne'],
             'statut' => $ligne['statut'],
-        ], fn ($valeur) => $valeur !== null);
+        ], fn($valeur) => $valeur !== null);
 
         $eleve = Eleve::updateOrCreate([
             'school_id' => $this->schoolId,
@@ -413,7 +420,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             return;
         }
 
-        $motif = 'Report scolarité '.($ligne['annee_source'] ?? 'année antérieure').' (import situation)';
+        $motif = 'Report scolarité ' . ($ligne['annee_source'] ?? 'année antérieure') . ' (import situation)';
 
         $dejaImportee = DetteAnterieure::where('eleve_id', $eleve->id)->where('motif', $motif)->exists();
 
@@ -445,7 +452,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         if ($contact['nom'] !== null) {
             $tuteur->nom_complet = $contact['nom'];
         } elseif (! $tuteur->exists) {
-            $tuteur->nom_complet = $contact['lien'].' de '.$eleve->nom_complet;
+            $tuteur->nom_complet = $contact['lien'] . ' de ' . $eleve->nom_complet;
         }
 
         $tuteur->profession = $contact['profession'] ?? $tuteur->profession;

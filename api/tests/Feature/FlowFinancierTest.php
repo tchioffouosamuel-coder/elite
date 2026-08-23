@@ -330,6 +330,38 @@ class FlowFinancierTest extends TestCase
         app(PaieService::class)->preparer($agent, 2026, 1);
     }
 
+    /**
+     * Un vacataire n'est pas salarié : ni IRPP, ni CNPS, ni aucune charge du
+     * barème légal, quel que soit le montant de ses heures. Forcer le barème
+     * légal (celui qui prélève réellement, contrairement au barème maison des
+     * autres tests) est ce qui distingue ce test des précédents — sans le
+     * contournement du barème pour les vacataires, cette assertion échouerait.
+     */
+    public function test_un_vacataire_ne_subit_aucune_charge_meme_sous_le_bareme_legal(): void
+    {
+        config(['paie.bareme' => 'legal']);
+        $this->app->forgetInstance(\App\Services\Paie\Bareme::class);
+
+        $agent = $this->agent('SONG ERIC MUNYAM', [
+            'mode' => 'horaire', 'taux_horaire' => 5000, 'salaire_base' => 0,
+        ]);
+
+        $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 100]);
+
+        // 100 h x 5000 F : sous le barème légal, un salarié mensuel paierait
+        // ici IRPP et CNPS. Le vacataire, lui, perçoit tout.
+        $this->assertSame(500000, $bulletin->salaire_brut);
+        $this->assertSame(0, $bulletin->net_taxable);
+        $this->assertSame(0, $bulletin->charges_salariales);
+        $this->assertSame(0, $bulletin->charges_patronales);
+        $this->assertSame(500000, $bulletin->net_a_payer);
+        $this->assertCount(0, $bulletin->retenues);
+
+        // Une seule ligne de gain : les heures, pas les six libellés du salarié mensuel.
+        $this->assertCount(1, $bulletin->gains);
+        $this->assertStringContainsString('Vacation', $bulletin->gains->first()->libelle);
+    }
+
     public function test_le_mensuel_ignore_les_heures(): void
     {
         $bulletin = app(PaieService::class)->preparer($this->agent(), 2026, 1, ['heures' => 999]);

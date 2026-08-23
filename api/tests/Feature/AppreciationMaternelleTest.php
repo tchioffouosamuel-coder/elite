@@ -53,33 +53,51 @@ class AppreciationMaternelleTest extends TestCase
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
         $this->school = School::create([
-            'name' => 'Elites Maternelle', 'code' => 'EM', 'type' => 'maternelle', 'is_active' => true,
+            'name' => 'Elites Maternelle',
+            'code' => 'EM',
+            'type' => 'maternelle',
+            'is_active' => true,
         ]);
 
         $annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2025-2026',
-            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01',
+            'date_fin' => '2026-07-31',
+            'is_active' => true,
         ]);
 
         $this->trimestre = Trimestre::create([
-            'annee_scolaire_id' => $annee->id, 'libelle' => 'Trimestre 1', 'ordre' => 1,
-            'date_debut' => '2025-09-01', 'date_fin' => '2025-12-15', 'is_active' => true,
+            'annee_scolaire_id' => $annee->id,
+            'libelle' => 'Trimestre 1',
+            'ordre' => 1,
+            'date_debut' => '2025-09-01',
+            'date_fin' => '2025-12-15',
+            'is_active' => true,
         ]);
 
         $this->sequence1 = Sequence::create([
-            'trimestre_id' => $this->trimestre->id, 'libelle' => 'Séquence 1', 'ordre' => 1,
+            'trimestre_id' => $this->trimestre->id,
+            'libelle' => 'Séquence 1',
+            'ordre' => 1,
         ]);
         $this->sequence2 = Sequence::create([
-            'trimestre_id' => $this->trimestre->id, 'libelle' => 'Séquence 2', 'ordre' => 2,
+            'trimestre_id' => $this->trimestre->id,
+            'libelle' => 'Séquence 2',
+            'ordre' => 2,
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'nom' => 'Petite section A',
+            'school_id' => $this->school->id,
+            'nom' => 'Petite section A',
         ]);
 
         $this->admin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $this->admin->assignRole('super_admin');
     }
@@ -113,8 +131,11 @@ class AppreciationMaternelleTest extends TestCase
     private function eleve(string $nom = 'ENFANT UN'): Eleve
     {
         return Eleve::create([
-            'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
-            'nom_complet' => $nom, 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'classe_id' => $this->classe->id,
+            'nom_complet' => $nom,
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
     }
 
@@ -158,12 +179,34 @@ class AppreciationMaternelleTest extends TestCase
             ->assertJsonPath('data.emoji', '⭐');
     }
 
+    public function test_la_suppression_de_tous_les_codes_ne_les_recree_pas(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/v1/appreciations')
+            ->assertOk();
+
+        $ids = Appreciation::where('school_id', $this->school->id)->pluck('id');
+
+        foreach ($ids as $id) {
+            $this->actingAs($this->admin, 'sanctum')
+                ->deleteJson("/api/v1/appreciations/{$id}")
+                ->assertOk();
+        }
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/v1/appreciations')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_une_couleur_invalide_est_refusee(): void
     {
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/v1/appreciations', [
                 'school_id' => $this->school->id,
-                'label_fr' => 'Test', 'couleur' => 'vert', 'ordre' => 1,
+                'label_fr' => 'Test',
+                'couleur' => 'vert',
+                'ordre' => 1,
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('couleur');
@@ -236,10 +279,16 @@ class AppreciationMaternelleTest extends TestCase
     public function test_une_appreciation_etrangere_est_ignoree(): void
     {
         $autre = School::create([
-            'name' => 'Autre', 'code' => 'AU', 'type' => 'maternelle', 'is_active' => true,
+            'name' => 'Autre',
+            'code' => 'AU',
+            'type' => 'maternelle',
+            'is_active' => true,
         ]);
         $niveauEtranger = Appreciation::create([
-            'school_id' => $autre->id, 'label_fr' => 'Acquis', 'couleur' => '#16a34a', 'ordre' => 1,
+            'school_id' => $autre->id,
+            'label_fr' => 'Acquis',
+            'couleur' => '#16a34a',
+            'ordre' => 1,
         ]);
 
         $attribution = $this->attribution();
@@ -328,8 +377,10 @@ class AppreciationMaternelleTest extends TestCase
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
                 'notes' => [[
-                    'eleve_id' => $eleve->id, 'sequence_id' => $this->sequence1->id,
-                    'composante' => 'oral', 'appreciation_id' => $acquis->id,
+                    'eleve_id' => $eleve->id,
+                    'sequence_id' => $this->sequence1->id,
+                    'composante' => 'oral',
+                    'appreciation_id' => $acquis->id,
                 ]],
             ])
             ->assertOk();

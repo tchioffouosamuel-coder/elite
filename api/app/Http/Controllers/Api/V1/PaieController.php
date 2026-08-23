@@ -110,6 +110,9 @@ class PaieController extends Controller
         $saisie = $request->validate([
             'jours_ouvrables' => ['nullable', 'integer', 'min:1', 'max:31'],
             'jours_travailles' => ['nullable', 'integer', 'min:0', 'max:31'],
+            // Un vacataire n'a ni jours ni primes : seules ses heures du mois
+            // déterminent ce qu'il touche.
+            'heures' => ['nullable', 'integer', 'min:0', 'max:744'],
             'deduction_raff' => ['nullable', 'integer', 'min:0'],
             'deduction_njangi' => ['nullable', 'integer', 'min:0'],
             'deduction_pret' => ['nullable', 'integer', 'min:0'],

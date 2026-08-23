@@ -253,7 +253,7 @@ export function RemunerationModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={enregistrer} disabled={submitting || brut <= 0}>
+          <Button onClick={enregistrer} disabled={submitting || (horaire ? Number(tauxHoraire) <= 0 : brut <= 0)}>
             <Save className="h-4 w-4" />
             {submitting ? t('finance.remuneration.saving') : t('common.save')}
           </Button>

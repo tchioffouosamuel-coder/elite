@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appreciation;
+use App\Models\Setting;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -37,6 +38,15 @@ class AppreciationService extends BaseService
     public function assurerDefauts(int $schoolId): void
     {
         if (Appreciation::forSchool($schoolId)->exists()) {
+            // Les écoles déjà dotées par la migration doivent aussi être
+            // marquées : sinon la suppression volontaire du dernier code
+            // déclencherait une recréation au prochain affichage.
+            Setting::set($schoolId, 'appreciations_initialisees', 1);
+
+            return;
+        }
+
+        if (Setting::get($schoolId, 'appreciations_initialisees') !== null) {
             return;
         }
 
@@ -44,6 +54,8 @@ class AppreciationService extends BaseService
             foreach (Appreciation::DEFAUTS as $defaut) {
                 Appreciation::create([...$defaut, 'school_id' => $schoolId, 'statut' => 'actif']);
             }
+
+            Setting::set($schoolId, 'appreciations_initialisees', 1);
         });
     }
 }

@@ -39,7 +39,6 @@ class TarifsController extends Controller
             ->keyBy(fn (GrilleFrais $g) => $g->classe_id ?? 0);
 
         $classes = Classe::forSchool($schoolId)
-            ->when($annee->id, fn ($q) => $q->where('annee_scolaire_id', $annee->id))
             ->orderBy('nom')
             ->get(['id', 'nom']);
 

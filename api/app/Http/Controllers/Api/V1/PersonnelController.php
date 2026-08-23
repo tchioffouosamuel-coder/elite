@@ -106,7 +106,7 @@ class PersonnelController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
         $this->service->delete($personnel);
 
         return ApiResponse::success(null, 'Membre du personnel supprimé.');

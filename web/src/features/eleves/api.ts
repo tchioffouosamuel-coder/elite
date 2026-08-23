@@ -32,7 +32,12 @@ export interface Eleve {
   redoublant: boolean;
   statut: "actif" | "parti" | "exclu";
   school_id: number | null;
-  school: { id: number; name: string; code: string; type: "maternelle" | "primaire" | "secondaire" } | null;
+  school: {
+    id: number;
+    name: string;
+    code: string;
+    type: "maternelle" | "primaire" | "secondaire";
+  } | null;
   classe: { id: number; nom: string; niveau: string | null } | null;
   tuteurs: Tuteur[];
 }
@@ -208,15 +213,24 @@ export interface LigneAge {
   }[];
 }
 
-export async function fetchRecapitulatifEffectifs(classeId?: number | null): Promise<RecapitulatifEcole[]> {
-  const { data } = await http.get<ApiResponse<RecapitulatifEcole[]>>("/eleves/recapitulatif-effectifs", {
-    params: classeId ? { classe_id: classeId } : undefined,
-  });
+export async function fetchRecapitulatifEffectifs(
+  classeId?: number | null,
+): Promise<RecapitulatifEcole[]> {
+  const { data } = await http.get<ApiResponse<RecapitulatifEcole[]>>(
+    "/eleves/recapitulatif-effectifs",
+    {
+      params: classeId ? { classe_id: classeId } : undefined,
+    },
+  );
   return data.data;
 }
 
-export async function fetchRecapitulatifSousSystemes(): Promise<RecapitulatifSousSysteme[]> {
-  const { data } = await http.get<ApiResponse<RecapitulatifSousSysteme[]>>("/eleves/recapitulatif-sous-systemes");
+export async function fetchRecapitulatifSousSystemes(): Promise<
+  RecapitulatifSousSysteme[]
+> {
+  const { data } = await http.get<ApiResponse<RecapitulatifSousSysteme[]>>(
+    "/eleves/recapitulatif-sous-systemes",
+  );
   return data.data;
 }
 
@@ -225,16 +239,27 @@ export async function fetchTableauAges(params: {
   sous_systeme_id?: number | null;
   classe_id?: number | null;
 }): Promise<LigneAge[]> {
-  const { data } = await http.get<ApiResponse<LigneAge[]>>("/eleves/tableau-ages", { params });
+  const { data } = await http.get<ApiResponse<LigneAge[]>>(
+    "/eleves/tableau-ages",
+    { params },
+  );
   return data.data;
 }
 
 /** Ouvre (ou renvoie) l'accès au portail parent pour ce tuteur — identifiant : son numéro de téléphone. */
 export async function creerCompteParent(
   tuteurId: number,
-): Promise<{ user_id: number; identifiant: string; mot_de_passe_provisoire: string | null }> {
+): Promise<{
+  user_id: number;
+  identifiant: string;
+  mot_de_passe_provisoire: string | null;
+}> {
   const { data } = await http.post<
-    ApiResponse<{ user_id: number; identifiant: string; mot_de_passe_provisoire: string | null }>
+    ApiResponse<{
+      user_id: number;
+      identifiant: string;
+      mot_de_passe_provisoire: string | null;
+    }>
   >(`/tuteurs/${tuteurId}/compte-parent`);
   return data.data;
 }
@@ -247,6 +272,7 @@ export interface TuteurCompte {
   telephone: string | null;
   email: string | null;
   a_compte: boolean;
+  acces_bloque: boolean;
   enfants: { id: number; nom_complet: string }[];
 }
 
@@ -256,7 +282,9 @@ export async function fetchTuteurs(params: {
   page?: number;
   per_page?: number;
 }): Promise<{ items: TuteurCompte[]; pagination: Pagination }> {
-  const { data } = await http.get<ApiResponse<TuteurCompte[]>>("/tuteurs", { params });
+  const { data } = await http.get<ApiResponse<TuteurCompte[]>>("/tuteurs", {
+    params,
+  });
   return { items: data.data, pagination: data.meta!.pagination! };
 }
 
@@ -265,10 +293,18 @@ export async function creerComptesParentLot(): Promise<{
   crees: number;
   ignores: { tuteur: string; motif: string }[];
 }> {
-  const { data } = await http.post<ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>>(
-    "/tuteurs/comptes-parent-lot",
-  );
+  const { data } = await http.post<
+    ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>
+  >("/tuteurs/comptes-parent-lot");
   return data.data;
+}
+
+export async function basculerAccesParent(tuteurId: number): Promise<void> {
+  await http.post(`/tuteurs/${tuteurId}/basculer-acces`);
+}
+
+export async function supprimerCompteParent(tuteurId: number): Promise<void> {
+  await http.delete(`/tuteurs/${tuteurId}/compte-parent`);
 }
 
 // ------------------------------------------------- Usage du portail parent
@@ -313,8 +349,13 @@ export interface ParentUsageStats {
   };
 }
 
-export async function fetchParentUsageStats(jours: 7 | 30 | 90): Promise<ParentUsageStats> {
-  const { data } = await http.get<ApiResponse<ParentUsageStats>>("/parent-usage-stats", { params: { jours } });
+export async function fetchParentUsageStats(
+  jours: 7 | 30 | 90,
+): Promise<ParentUsageStats> {
+  const { data } = await http.get<ApiResponse<ParentUsageStats>>(
+    "/parent-usage-stats",
+    { params: { jours } },
+  );
   return data.data;
 }
 

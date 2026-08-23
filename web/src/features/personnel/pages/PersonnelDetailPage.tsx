@@ -187,12 +187,13 @@ export function PersonnelDetailPage() {
         can('personnel.manage') && {
           label: t('hub.personnel.attestation'),
           icon: FileText,
-          onClick: () =>
-            telechargerFichier(
+          onClick: () => {
+            void telechargerFichier(
               `/personnels/${personnel.id}/attestation-employeur`,
               undefined,
               'attestation-employeur.docx',
-            ),
+            ).catch((err) => erreur((err as ApiError).message ?? t('hub.personnel.attestation_error')))
+          },
         },
       ],
     },

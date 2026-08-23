@@ -173,10 +173,7 @@ class ProgressionController extends Controller
     /** Avancement de l'établissement, classe par classe. */
     public function etablissement(Request $request): JsonResponse
     {
-        return ApiResponse::success($this->service->tauxEtablissement(
-            Tenant::schoolIds(),
-            $request->integer('annee_scolaire_id') ?: null,
-        ));
+        return ApiResponse::success($this->service->tauxEtablissement(Tenant::schoolIds()));
     }
 
     /** Champs personnalisés définis pour une matière (tableaux d'informations spécifiques — module Ma journée). */

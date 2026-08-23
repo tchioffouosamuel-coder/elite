@@ -146,6 +146,13 @@ export function AppreciationsPage() {
       masquerMobile: true,
     },
     {
+      cle: 'school',
+      entete: t('classes.ecole'),
+      valeur: (a) => a.school?.name,
+      cellule: (a) => <span className="text-navy-600">{a.school?.name ?? '—'}</span>,
+      masquerMobile: true,
+    },
+    {
       cle: 'statut',
       entete: t('eleves.statut'),
       valeur: (a) => a.statut ?? 'actif',

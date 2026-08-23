@@ -929,7 +929,8 @@
     "affectations": "{{count}} affectation(s) rattachée(s).",
     "enseignants_introuvables": "Enseignants non trouvés :",
     "dettes": "{{count}} dette(s) antérieure(s) reprise(s) ({{montant}} FCFA).",
-    "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s)."
+    "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s).",
+    "processing": "Importation en cours…"
   },
   "progression": {
     "title": "Progression pédagogique",
@@ -946,6 +947,7 @@
     "retour_matieres": "Retour aux matières",
     "vide": "Aucune leçon : ajoutez-en une, ou importez la fiche de progression de la matière.",
     "vide_etablissement": "Aucune classe pour cet établissement.",
+    "recherche_classe": "Rechercher une classe…",
     "sequence_libre": "Sans séquence imposée",
     "traitee": "Traitée",
     "avancement": "{{traitees}} leçon(s) traitée(s) sur {{lecons}}",
@@ -1348,6 +1350,7 @@
       "accorder_avance": "Accorder une avance",
       "definir_remuneration": "Définir la rémunération",
       "attestation": "Attestation d'employeur",
+      "attestation_error": "Impossible de générer l'attestation d'employeur.",
       "identite": "Identité",
       "contact": "Contact",
       "carriere": "Carrière",

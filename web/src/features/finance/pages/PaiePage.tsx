@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play } from 'lucide-react'
@@ -21,7 +21,9 @@ import {
   payerBulletin,
   payerBulletins,
   preparerPaie,
+  preparerBulletinAgent,
   fetchBordereauVirement,
+  type AgentIgnore,
   type BulletinPaie,
 } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
@@ -52,6 +54,9 @@ export function PaiePage() {
   const [mois, setMois] = useState(aujourdhui.getMonth() + 1)
   const [enCours, setEnCours] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  // Vacataires que le lot n'a pas pu préparer faute d'heures : c'est ici
+  // qu'on les leur demande, un par un.
+  const [vacatairesEnAttente, setVacatairesEnAttente] = useState<AgentIgnore[]>([])
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['paie', activeSchoolId, annee, mois],
@@ -59,6 +64,13 @@ export function PaiePage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['paie'] })
+
+  // La liste des vacataires en attente ne vaut que pour le mois où elle a été
+  // établie : changer de période sans la vider laisserait croire qu'ils
+  // manquent toujours ici, alors que le lot n'a simplement pas encore tourné.
+  useEffect(() => {
+    setVacatairesEnAttente([])
+  }, [annee, mois])
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds)
@@ -150,10 +162,22 @@ export function PaiePage() {
       const { prepares, ignores } = await preparerPaie({ annee, mois }, { jours_ouvrables: 22 })
       succes(t('finance.bulletins_prepared', { prepares }))
 
+      const vacataires = ignores.filter((i) => i.motif === 'heures_requises')
+      const sansRemuneration = ignores.filter((i) => i.motif === 'sans_remuneration')
+
+      setVacatairesEnAttente(vacataires)
+
       // Un agent sans rémunération définie est presque toujours un oubli de
-      // saisie : le taire reviendrait à le payer zéro sans le dire.
-      if (ignores.length > 0) {
-        info(t('finance.staff_without_remuneration', { count: ignores.length, names: ignores.slice(0, 3).join(' · ') }))
+      // saisie : le taire reviendrait à le payer zéro sans le dire. Les
+      // vacataires, eux, ont leur propre encart ci-dessous — inutile de les
+      // répéter dans ce toast.
+      if (sansRemuneration.length > 0) {
+        info(
+          t('finance.staff_without_remuneration', {
+            count: sansRemuneration.length,
+            names: sansRemuneration.slice(0, 3).map((i) => i.nom_complet).join(' · '),
+          }),
+        )
       }
       rafraichir()
     } catch (e) {
@@ -161,6 +185,18 @@ export function PaiePage() {
       if (err.status !== 403) erreur(err.message)
     } finally {
       setEnCours(false)
+    }
+  }
+
+  const preparerVacataire = async (agent: AgentIgnore, heures: number) => {
+    try {
+      await preparerBulletinAgent(agent.personnel_id, { annee, mois }, { heures })
+      setVacatairesEnAttente((liste) => liste.filter((a) => a.personnel_id !== agent.personnel_id))
+      succes(`Bulletin de ${agent.nom_complet} préparé pour ${heures} h.`)
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
     }
   }
 
@@ -356,6 +392,10 @@ export function PaiePage() {
         </div>
       )}
 
+      {vacatairesEnAttente.length > 0 && (
+        <VacatairesEnAttenteCard agents={vacatairesEnAttente} onPreparer={preparerVacataire} />
+      )}
+
       {isLoading ? (
         <Spinner />
       ) : isError || !data ? (
@@ -488,6 +528,74 @@ function BordereauCard({ annee, mois }: { annee: number; mois: number }) {
             {data.sans_domiciliation.map((l) => l.nom_complet).join(', ')}.
           </div>
         )}
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * Vacataires du technique : le lot n'a pas pu les préparer, faute d'heures —
+ * une saisie globale (jours ouvrables) n'a pas de sens pour eux. Une ligne
+ * par agent, un champ heures, un bouton : c'est ici que leur bulletin naît.
+ */
+function VacatairesEnAttenteCard({
+  agents,
+  onPreparer,
+}: {
+  agents: AgentIgnore[]
+  onPreparer: (agent: AgentIgnore, heures: number) => Promise<void>
+}) {
+  const [heures, setHeures] = useState<Record<number, string>>({})
+  const [enCours, setEnCours] = useState<number | null>(null)
+
+  const preparerLigne = async (agent: AgentIgnore) => {
+    const valeur = Number(heures[agent.personnel_id] ?? 0)
+    if (!Number.isFinite(valeur) || valeur <= 0) return
+
+    setEnCours(agent.personnel_id)
+    try {
+      await onPreparer(agent, valeur)
+    } finally {
+      setEnCours(null)
+    }
+  }
+
+  return (
+    <Card>
+      <div className="mb-3">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-navy-500">
+          Vacataires à préparer ({agents.length})
+        </h2>
+        <p className="mt-0.5 text-xs text-navy-400">
+          Payés à l'heure, sans salaire de base : leurs heures du mois manquent au lot préparé ci-dessus.
+        </p>
+      </div>
+
+      <div className="flex flex-col divide-y divide-navy-50">
+        {agents.map((agent) => (
+          <div key={agent.personnel_id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+            <span className="font-medium text-navy-800">{agent.nom_complet}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={744}
+                placeholder="Heures du mois"
+                value={heures[agent.personnel_id] ?? ''}
+                onChange={(e) => setHeures((h) => ({ ...h, [agent.personnel_id]: e.target.value }))}
+                className="w-32 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+              />
+              <Button
+                size="sm"
+                onClick={() => preparerLigne(agent)}
+                disabled={enCours === agent.personnel_id || !Number(heures[agent.personnel_id] ?? 0)}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Préparer
+              </Button>
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   )

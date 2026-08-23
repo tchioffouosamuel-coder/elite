@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 import { http } from '@/shared/lib/http'
@@ -27,6 +27,12 @@ interface ImportResult {
   affectations_non_rattachees?: Record<string, number>
 }
 
+interface ImportProgress {
+  processed: number
+  total: number
+  current_name: string | null
+}
+
 /**
  * Choix que l'utilisateur pose avant d'envoyer le fichier, quand celui-ci ne
  * suffit pas à le déduire — le cycle d'un catalogue de matières, par exemple :
@@ -47,6 +53,7 @@ export function ImportModal({
   columns,
   choix,
   extraFields,
+  progressUrl,
   onClose,
   onImported,
 }: {
@@ -55,6 +62,7 @@ export function ImportModal({
   columns: string[]
   choix?: ChoixImport
   extraFields?: Record<string, string | number>
+  progressUrl?: string
   onClose: () => void
   onImported: () => void
 }) {
@@ -64,6 +72,19 @@ export function ImportModal({
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<ImportProgress | null>(null)
+  const [progressToken, setProgressToken] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!submitting || !progressUrl || !progressToken) return
+    const timer = window.setInterval(() => {
+      void http.get<{ data: ImportProgress }>(`${progressUrl}/${progressToken}`)
+        .then(({ data }) => setProgress(data.data))
+        .catch(() => undefined)
+    }, 700)
+
+    return () => window.clearInterval(timer)
+  }, [progressToken, progressUrl, submitting])
 
   // Les colonnes attendues dépendent du choix : afficher celles du primaire à
   // qui importe un fichier de secondaire l'enverrait corriger le mauvais.
@@ -73,11 +94,15 @@ export function ImportModal({
     if (!file) return
     setSubmitting(true)
     setError(null)
+    const token = progressUrl ? crypto.randomUUID() : null
+    setProgressToken(token)
+    setProgress(progressUrl ? { processed: 0, total: 0, current_name: null } : null)
     try {
       const formData = new FormData()
       formData.append('file', file)
       if (choix) formData.append(choix.nom, choisi)
       Object.entries(extraFields ?? {}).forEach(([key, value]) => formData.append(key, String(value)))
+      if (token) formData.append('progress_token', token)
 
       const { data } = await http.post<{ data: ImportResult }>(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -120,6 +145,20 @@ export function ImportModal({
         </label>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
+        {submitting && progress && (
+          <div className="rounded-lg border border-navy-100 bg-cream-50 p-3" aria-live="polite">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-navy-600">
+              <span className="truncate">{progress.current_name ?? t('import.processing')}</span>
+              <span className="flex-none">{progress.total > 0 ? `${progress.processed}/${progress.total}` : '…'}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-navy-100">
+              <div
+                className="h-full rounded-full bg-gold-500 transition-[width] duration-300"
+                style={{ width: `${progress.total > 0 ? Math.min(100, progress.processed * 100 / progress.total) : 8}%` }}
+              />
+            </div>
+          </div>
+        )}
         {result && (
           <div className="flex flex-col gap-1.5 text-sm">
             <p className="text-green-600">

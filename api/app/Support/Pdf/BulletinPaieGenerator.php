@@ -57,9 +57,15 @@ class BulletinPaieGenerator
 
     private function titre(BulletinPaie $bulletin): string
     {
+        // Un vacataire n'est pas salarié : ce qu'on lui remet est un reçu
+        // pour les heures enseignées, pas un bulletin de paie — le document
+        // n'a ni IRPP ni CNPS à y justifier.
+        $horaire = $bulletin->taux_horaire !== null;
+
         return '<div style="text-align:center;line-height:1.4;">'
-            . '<span class="titre">Bulletin de paie</span><br>'
-            . '<span class="titre-en">Pay slip</span>'
+            . ($horaire
+                ? '<span class="titre">Reçu de paiement</span><br><span class="titre-en">Payment receipt</span>'
+                : '<span class="titre">Bulletin de paie</span><br><span class="titre-en">Pay slip</span>')
             . '</div>'
             . '<div class="bandeau" style="background:' . self::ARDOISE . ';color:#fff;padding:1.5mm;text-align:center;'
             . 'font-size:2.8mm;font-weight:bold;margin:2mm 0;">'
@@ -197,6 +203,12 @@ class BulletinPaieGenerator
                 . '<td class="num">' . $this->francs((int) $ligne->montant_salarial) . '</td>'
                 . '<td class="num">' . $this->francs((int) $ligne->montant_patronal) . '</td>'
                 . '</tr>';
+        }
+
+        // Un vacataire n'a aucune cotisation : la ligne resterait à zéro sur
+        // toute sa largeur, un artefact de mise en page plutôt qu'une donnée.
+        if ($horaire) {
+            return $html . '</tbody></table>';
         }
 
         return $html . '<tr class="sous-total">'
