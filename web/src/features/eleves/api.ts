@@ -247,9 +247,7 @@ export async function fetchTableauAges(params: {
 }
 
 /** Ouvre (ou renvoie) l'accès au portail parent pour ce tuteur — identifiant : son numéro de téléphone. */
-export async function creerCompteParent(
-  tuteurId: number,
-): Promise<{
+export async function creerCompteParent(tuteurId: number): Promise<{
   user_id: number;
   identifiant: string;
   mot_de_passe_provisoire: string | null;
@@ -304,7 +302,7 @@ export async function basculerAccesParent(tuteurId: number): Promise<void> {
 }
 
 export async function supprimerCompteParent(tuteurId: number): Promise<void> {
-  await http.delete(`/tuteurs/${tuteurId}/compte-parent`);
+  await http.post(`/tuteurs/${tuteurId}/supprimer-compte-parent`);
 }
 
 // ------------------------------------------------- Usage du portail parent

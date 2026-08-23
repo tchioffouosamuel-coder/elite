@@ -444,7 +444,7 @@ export function AppLayout() {
 
       <aside
         className={clsx(
-          'relative fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-none flex-col overflow-y-auto bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
+          'relative fixed inset-y-0 left-0 z-50 flex w-[17rem] min-w-0 flex-none flex-col overflow-x-hidden overflow-y-auto bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
           'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
           menuOuvert ? 'translate-x-0' : '-translate-x-full',
           sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
@@ -486,7 +486,7 @@ export function AppLayout() {
           </div>
         </div>
 
-        <nav className="relative z-10 flex flex-1 flex-col gap-1.5 px-3 pt-1 pb-4">
+        <nav className="relative z-10 flex min-w-0 flex-1 flex-col gap-1.5 overflow-x-hidden px-3 pt-1 pb-4">
           {groupesSidebar.map((group) => {
             // Pour les enseignants, tout est visible en sidebar puisqu'il n'y a pas de topbar
             const groupeEnTopbar = !user?.est_enseignant && groupesTopbarDesktop.has(group.label)
