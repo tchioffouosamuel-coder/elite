@@ -9,6 +9,7 @@ use App\Models\EcritureComptable;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\School;
+use App\Models\Seance;
 use App\Services\Paie\Bareme;
 use App\Services\Paie\ResultatPaie;
 use Illuminate\Support\Carbon;
@@ -38,6 +39,14 @@ class PaieService extends BaseService
      * regrouper sur un compte unique interdirait de rapprocher l'application
      * du classeur, où les trois lignes se lisent séparément.
      */
+    /**
+     * Durée d'une heure pédagogique — un créneau de cours, pas une heure
+     * d'horloge : c'est ainsi que l'établissement compte les vacations,
+     * conformément à l'usage scolaire camerounais. Un créneau de 100 minutes
+     * (deux périodes accolées) vaut deux heures, pas 1,67.
+     */
+    private const MINUTES_PAR_HEURE_PEDAGOGIQUE = 50;
+
     private const COMPTE_SALAIRES = '661';
 
     private const COMPTE_CNPS_CHARGE = '662';
@@ -101,10 +110,27 @@ class PaieService extends BaseService
             $heures = isset($saisie['heures']) ? max(0, (int) $saisie['heures']) : null;
 
             if ($remuneration->estHoraire()) {
+                /*
+                 * Sans heure saisie à la main, le mois se reconstitue depuis
+                 * ce que l'enseignant a lui-même déclaré tenu dans Ma journée
+                 * — la validation de cours fait, créneau par créneau. La
+                 * saisie manuelle garde le dernier mot quand elle existe : un
+                 * rattrapage tenu hors emploi du temps, ou une correction,
+                 * ne doivent pas attendre un pointage qui n'aura pas lieu.
+                 */
                 if ($heures === null) {
-                    throw new RuntimeException(
-                        "{$personnel->nom_complet} est payé à l'heure : le nombre d'heures du mois est requis.",
-                    );
+                    $heures = $this->heuresValidees($personnel, $annee, $mois);
+
+                    // Zéro saisi à la main est une confirmation — l'agent n'a
+                    // effectivement rien tenu. Zéro déduit de Ma journée, en
+                    // revanche, ne veut rien dire par défaut : ni « rien
+                    // tenu » ni « juste pas pointé » ne se déduisent l'un de
+                    // l'autre, la question mérite une réponse explicite.
+                    if ($heures === 0) {
+                        throw new RuntimeException(
+                            "{$personnel->nom_complet} est payé à l'heure : aucune séance effectuée n'est enregistrée pour ce mois dans Ma journée, et aucune heure n'a été saisie explicitement.",
+                        );
+                    }
                 }
 
                 $gains = ['salaire_base' => $heures * (int) $remuneration->taux_horaire];
@@ -253,6 +279,25 @@ class PaieService extends BaseService
             ->whereDate('date_fin', '>=', $mois)
             ->value('id')
             ?? AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->value('id');
+    }
+
+    /**
+     * Heures payables au vacataire pour le mois : ses séances déclarées
+     * effectuées dans Ma journée, converties en heures pédagogiques de 50
+     * minutes. Une séance annulée ou restée à l'état prévu ne compte pas —
+     * seule la validation de cours fait, pas l'emploi du temps théorique,
+     * engage le paiement.
+     */
+    private function heuresValidees(Personnel $personnel, int $annee, int $mois): int
+    {
+        $minutes = Seance::whereHas('classeMatiere', fn ($q) => $q->where('personnel_id', $personnel->id))
+            ->where('statut', 'effectuee')
+            ->whereYear('date_seance', $annee)
+            ->whereMonth('date_seance', $mois)
+            ->get()
+            ->sum(fn (Seance $s) => $s->dureeHeures() * 60);
+
+        return (int) round($minutes / self::MINUTES_PAR_HEURE_PEDAGOGIQUE);
     }
 
     /** Rémunération en vigueur au mois considéré. */

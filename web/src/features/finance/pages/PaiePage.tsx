@@ -534,9 +534,11 @@ function BordereauCard({ annee, mois }: { annee: number; mois: number }) {
 }
 
 /**
- * Vacataires du technique : le lot n'a pas pu les préparer, faute d'heures —
- * une saisie globale (jours ouvrables) n'a pas de sens pour eux. Une ligne
- * par agent, un champ heures, un bouton : c'est ici que leur bulletin naît.
+ * Vacataires du technique dont les heures n'ont pas pu se déduire d'elles-
+ * mêmes : aucune séance effectuée n'est enregistrée dans Ma journée pour ce
+ * mois. Pour tous les autres vacataires, le lot a déjà calculé leurs heures
+ * depuis les créneaux qu'ils ont eux-mêmes déclarés tenus — ceux-ci n'ont pas
+ * besoin de cet encart. Une ligne par agent, un champ heures, un bouton.
  */
 function VacatairesEnAttenteCard({
   agents,
@@ -548,13 +550,21 @@ function VacatairesEnAttenteCard({
   const [heures, setHeures] = useState<Record<number, string>>({})
   const [enCours, setEnCours] = useState<number | null>(null)
 
+  // Zéro est une réponse valide : c'est la confirmation que l'agent n'a
+  // effectivement rien tenu ce mois-ci, pas une absence de saisie.
+  const saisieValide = (agent: AgentIgnore) => {
+    const brut = heures[agent.personnel_id] ?? ''
+    if (brut.trim() === '') return false
+    const valeur = Number(brut)
+    return Number.isFinite(valeur) && valeur >= 0
+  }
+
   const preparerLigne = async (agent: AgentIgnore) => {
-    const valeur = Number(heures[agent.personnel_id] ?? 0)
-    if (!Number.isFinite(valeur) || valeur <= 0) return
+    if (!saisieValide(agent)) return
 
     setEnCours(agent.personnel_id)
     try {
-      await onPreparer(agent, valeur)
+      await onPreparer(agent, Number(heures[agent.personnel_id]))
     } finally {
       setEnCours(null)
     }
@@ -567,7 +577,8 @@ function VacatairesEnAttenteCard({
           Vacataires à préparer ({agents.length})
         </h2>
         <p className="mt-0.5 text-xs text-navy-400">
-          Payés à l'heure, sans salaire de base : leurs heures du mois manquent au lot préparé ci-dessus.
+          Aucune séance effectuée n'est enregistrée dans Ma journée pour eux ce mois-ci — confirmez qu'ils n'ont
+          effectivement rien tenu, ou saisissez leurs heures réelles.
         </p>
       </div>
 
@@ -588,7 +599,7 @@ function VacatairesEnAttenteCard({
               <Button
                 size="sm"
                 onClick={() => preparerLigne(agent)}
-                disabled={enCours === agent.personnel_id || !Number(heures[agent.personnel_id] ?? 0)}
+                disabled={enCours === agent.personnel_id || !saisieValide(agent)}
               >
                 <Play className="h-3.5 w-3.5" />
                 Préparer

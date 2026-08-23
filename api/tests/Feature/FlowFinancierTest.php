@@ -3,6 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\Classe;
+use App\Models\ClasseMatiere;
+use App\Models\Matiere;
+use App\Models\Seance;
 use App\Models\AvanceSalaire;
 use App\Models\CompteComptable;
 use App\Models\Immobilisation;
@@ -316,6 +320,96 @@ class FlowFinancierTest extends TestCase
         // compterait deux fois.
         $this->assertSame(0, $bulletin->deduction_absences);
         $this->assertSame(30000, $bulletin->net_a_payer);
+    }
+
+    /**
+     * Le lien complet : emploi du temps tenu, cours déclaré fait dans Ma
+     * journée, heures qui en découlent sans aucune saisie manuelle. Une
+     * heure pédagogique dure 50 minutes — un créneau de 100 minutes (deux
+     * périodes accolées) vaut deux heures, pas 1,67.
+     */
+    public function test_les_heures_se_deduisent_des_seances_effectuees(): void
+    {
+        $agent = $this->agent('SONG ERIC MUNYAM', [
+            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+        ]);
+        $classeMatiere = $this->affectation($agent);
+
+        // Trois créneaux de 50 minutes tenus, un quatrième resté à l'état
+        // prévu (jamais pointé) : celui-ci ne doit rien rapporter.
+        foreach (['2026-01-05', '2026-01-12', '2026-01-19'] as $date) {
+            $this->seance($classeMatiere, $date, '08:00', '08:50', 'effectuee');
+        }
+        $this->seance($classeMatiere, '2026-01-26', '08:00', '08:50', 'prevue');
+
+        // Un créneau de rattrapage de 100 minutes, deux périodes accolées :
+        // il vaut deux heures pédagogiques, pas 1,67 heure d'horloge.
+        $this->seance($classeMatiere, '2026-01-20', '14:00', '15:40', 'effectuee');
+
+        // Une séance annulée ne compte pas davantage qu'une séance prévue.
+        $this->seance($classeMatiere, '2026-01-27', '08:00', '08:50', 'annulee');
+
+        $bulletin = app(PaieService::class)->preparer($agent, 2026, 1);
+
+        // 3 x 50 min + 100 min = 250 min, soit 5 heures pédagogiques.
+        $this->assertSame(5, $bulletin->heures);
+        $this->assertSame(5000, $bulletin->salaire_brut);
+        $this->assertSame(5000, $bulletin->net_a_payer);
+    }
+
+    /** La saisie manuelle garde le dernier mot sur ce que Ma journée a validé. */
+    public function test_la_saisie_manuelle_prevaut_sur_les_seances_effectuees(): void
+    {
+        $agent = $this->agent('SONG ERIC MUNYAM', [
+            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+        ]);
+        $classeMatiere = $this->affectation($agent);
+        $this->seance($classeMatiere, '2026-01-05', '08:00', '08:50', 'effectuee');
+
+        // Un rattrapage tenu hors emploi du temps, jamais pointé dans Ma
+        // journée : l'économe le sait et le corrige à la saisie.
+        $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 10]);
+
+        $this->assertSame(10, $bulletin->heures);
+        $this->assertSame(10000, $bulletin->salaire_brut);
+    }
+
+    /** Zéro saisi à la main est une confirmation, pas une absence de réponse : il n'est pas refusé comme un zéro déduit de Ma journée le serait. */
+    public function test_zero_heure_saisi_explicitement_est_accepte(): void
+    {
+        $agent = $this->agent('SONG ERIC MUNYAM', [
+            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+        ]);
+
+        $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 0]);
+
+        $this->assertSame(0, $bulletin->heures);
+        $this->assertSame(0, $bulletin->salaire_brut);
+        $this->assertSame(0, $bulletin->net_a_payer);
+    }
+
+    private function affectation(Personnel $enseignant): ClasseMatiere
+    {
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'ELECTRICAL 1']);
+        $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Electrical Installation']);
+
+        return ClasseMatiere::create([
+            'classe_id' => $classe->id, 'matiere_id' => $matiere->id,
+            'personnel_id' => $enseignant->id, 'coefficient' => 1,
+        ]);
+    }
+
+    private function seance(ClasseMatiere $classeMatiere, string $date, string $debut, string $fin, string $statut): Seance
+    {
+        return Seance::create([
+            'school_id' => $this->school->id,
+            'classe_id' => $classeMatiere->classe_id,
+            'classe_matiere_id' => $classeMatiere->id,
+            'date_seance' => $date,
+            'heure_debut' => $debut,
+            'heure_fin' => $fin,
+            'statut' => $statut,
+        ]);
     }
 
     public function test_un_vacataire_sans_heures_saisies_est_refuse(): void
