@@ -80,6 +80,26 @@ class AuthService extends BaseService
     }
 
     /**
+     * Réinitialisation forcée par le super administrateur.
+     *
+     * À la différence de {@see changerMotDePasse()}, aucun mot de passe actuel
+     * n'est exigé — c'est précisément l'intérêt de la fonction pour un compte
+     * bloqué ou dont le titulaire ne peut plus se connecter. Le compte devra
+     * le changer dès sa prochaine connexion, et toutes ses sessions ouvertes
+     * tombent : un accès ainsi réinitialisé ne doit profiter qu'à qui vient de
+     * le recevoir.
+     */
+    public function reinitialiserMotDePasse(User $cible, string $nouveau): void
+    {
+        $cible->forceFill([
+            'password' => Hash::make($nouveau),
+            'doit_changer_mot_de_passe' => true,
+        ])->save();
+
+        $cible->tokens()->delete();
+    }
+
+    /**
      * @return array{user: User, token: string}
      */
     public function refresh(User $user, string $deviceName = 'web'): array

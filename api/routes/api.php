@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\CompetenceController;
+use App\Http\Controllers\Api\V1\CompteController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
@@ -140,6 +141,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
                 Route::get('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'show'])->name('permissions.show');
                 Route::put('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'update'])->name('permissions.update');
+
+                // Administration des comptes utilisateurs : liste, activité, et
+                // réinitialisation de mot de passe — même logique de protection
+                // par rôle, pour la même raison. Préfixe distinct de `comptes`
+                // (comptes comptables, cf. DepenseController::comptes) : un autre
+                // sens du mot « compte ».
+                Route::get('comptes-utilisateurs', [CompteController::class, 'index'])->name('comptes-utilisateurs.index');
+                Route::get('comptes-utilisateurs/{id}/activite', [CompteController::class, 'activite'])->name('comptes-utilisateurs.activite');
+                Route::post('comptes-utilisateurs/{id}/reinitialiser-mot-de-passe', [CompteController::class, 'reinitialiserMotDePasse'])->name('comptes-utilisateurs.reinitialiser-mot-de-passe');
             });
 
             Route::middleware('permission:personnel.view')->group(function () {

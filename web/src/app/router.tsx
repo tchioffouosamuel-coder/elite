@@ -62,6 +62,7 @@ import { QrScanPage } from '@/features/progression/pages/QrScanPage'
 import { QrScannerPage } from '@/features/progression/pages/QrScannerPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
+import { ComptesPage } from '@/features/comptes/pages/ComptesPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
 import { InsolvablesPage } from '@/features/finance/pages/InsolvablesPage'
 import { EncaissementPage } from '@/features/finance/pages/EncaissementPage'
@@ -198,6 +199,7 @@ export const router = createHashRouter([
       { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
+      { path: 'comptes', element: <ProtectedRoute superAdminOnly><ComptesPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
       { path: 'preinscriptions', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionsAdminPage /></ProtectedRoute> },
       { path: 'modifications-eleves', element: <ProtectedRoute permission="eleves.manage"><ModificationsElevesAdminPage /></ProtectedRoute> },

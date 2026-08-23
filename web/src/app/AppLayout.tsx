@@ -299,6 +299,7 @@ const navGroups = [
     items: [
       { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view' },
       { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true },
+      { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true },
       { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage' },
       { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage' },
     ],
