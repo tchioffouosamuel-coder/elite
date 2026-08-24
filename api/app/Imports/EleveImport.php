@@ -238,11 +238,12 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
      * avant de lancer un import multi-écoles, sans dépendre de l'ordre dans
      * lequel Excel::import() lira effectivement le fichier.
      */
-    public static function porteColonneCategorieEcole(\Illuminate\Http\UploadedFile $fichier): bool
+    public static function porteColonneCategorieEcole(\Illuminate\Http\UploadedFile|string $fichier): bool
     {
-        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $chemin = is_string($fichier) ? $fichier : $fichier->getRealPath();
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($chemin);
         $lecteur->setReadDataOnly(true);
-        $feuille = $lecteur->load($fichier->getRealPath())->getSheet(0);
+        $feuille = $lecteur->load($chemin)->getSheet(0);
 
         foreach ($feuille->getRowIterator(1, 1) as $ligneEntete) {
             foreach ($ligneEntete->getCellIterator() as $cellule) {

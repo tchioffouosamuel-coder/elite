@@ -459,7 +459,13 @@ export function ElevesListPage() {
         <ImportModal
           title={t('import.title')}
           url="/eleves/import"
-          progressUrl="/eleves/import-progress"
+          /*
+           * En petits lots plutôt qu'en un seul envoi : un effectif de 500+
+           * lignes dépasse facilement le délai d'exécution du serveur en une
+           * seule requête, un problème qu'on ne peut pas corriger sans accès
+           * au serveur — mieux vaut donc l'éviter d'entrée.
+           */
+          decoupe={{ preparerUrl: '/eleves/import/preparer', traiterUrl: '/eleves/import/traiter' }}
           columns={[
             'IDEleves (matricule)',
             'nom_eleves',

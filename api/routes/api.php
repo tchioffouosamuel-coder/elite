@@ -288,6 +288,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
                 Route::get('eleves/import-progress/{token}', [EleveController::class, 'importProgress'])->name('eleves.import-progress');
+                Route::post('eleves/import/preparer', [EleveController::class, 'importPreparer'])->name('eleves.import-preparer');
+                Route::post('eleves/import/traiter/{token}', [EleveController::class, 'importerLot'])->name('eleves.import-traiter');
                 Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
 

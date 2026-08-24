@@ -15,6 +15,7 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
@@ -128,6 +129,44 @@ class EleveController extends Controller
             'total' => 0,
             'current_name' => null,
         ]));
+    }
+
+    /**
+     * Découpe un fichier de situation en petits lots avant l'import — pour un
+     * gros effectif, une seule requête synchrone dépasserait facilement le
+     * délai d'exécution du serveur. Le client importe ensuite chaque lot par
+     * son propre appel à `importerLot()`, sans jamais renvoyer le fichier
+     * entier (cf. EleveService::preparerImportDecoupe).
+     */
+    public function importPreparer(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $token = (string) Str::uuid();
+        $lots = $this->service->preparerImportDecoupe($request->file('file'), $token);
+
+        return ApiResponse::success(['token' => $token, 'lots' => $lots]);
+    }
+
+    public function importerLot(Request $request, string $token): JsonResponse
+    {
+        $data = $request->validate([
+            'index' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $schoolId = Tenant::isAggregate() ? Tenant::schoolIds() : Tenant::schoolId();
+
+        try {
+            ['resultat' => $result, 'dernier' => $dernier] = $this->service->importerChunk(
+                $schoolId, $token, $data['index'], $request->user()?->id,
+            );
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([...$result, 'dernier' => $dernier]);
     }
 
     public function photo(Request $request, int $id): JsonResponse

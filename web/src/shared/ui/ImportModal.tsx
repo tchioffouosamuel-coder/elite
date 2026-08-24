@@ -47,6 +47,19 @@ export interface ChoixImport {
   options: { valeur: string; libelle: string; colonnes?: string[] }[]
 }
 
+/**
+ * Import en petits lots plutôt qu'en un seul envoi : au-delà de quelques
+ * centaines de lignes, une requête unique dépasse facilement le délai
+ * d'exécution du serveur — sans qu'on puisse le changer sans accès devops.
+ * Le fichier est d'abord déposé (`preparerUrl`), qui répond un jeton et un
+ * nombre de lots ; chacun est ensuite traité par sa propre requête vers
+ * `${traiterUrl}/{jeton}`, les résultats s'additionnant au fil de l'eau.
+ */
+export interface ImportDecoupe {
+  preparerUrl: string
+  traiterUrl: string
+}
+
 export function ImportModal({
   title,
   url,
@@ -54,6 +67,7 @@ export function ImportModal({
   choix,
   extraFields,
   progressUrl,
+  decoupe,
   onClose,
   onImported,
   onChoixChange,
@@ -65,6 +79,8 @@ export function ImportModal({
   choix?: ChoixImport
   extraFields?: Record<string, string | number>
   progressUrl?: string
+  /** Bascule l'envoi en petits lots successifs — voir `ImportDecoupe`. Incompatible avec `progressUrl`, sans objet ici. */
+  decoupe?: ImportDecoupe
   onClose: () => void
   onImported: () => void
   /** Prévient l'appelant d'un changement de choix (ex. cycle) — pour en déduire un contexte, comme l'école visée. */
@@ -96,14 +112,63 @@ export function ImportModal({
   // qui importe un fichier de secondaire l'enverrait corriger le mauvais.
   const colonnesAttendues = choix?.options.find((o) => o.valeur === choisi)?.colonnes ?? columns
 
+  const handleSubmitDecoupe = async (decoupeConfig: ImportDecoupe, fichier: File) => {
+    const formData = new FormData()
+    formData.append('file', fichier)
+    if (choix) formData.append(choix.nom, choisi)
+    Object.entries(extraFields ?? {}).forEach(([key, value]) => formData.append(key, String(value)))
+
+    const { data: prepare } = await http.post<{ data: { token: string; lots: number } }>(
+      decoupeConfig.preparerUrl,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    const { token: lotToken, lots } = prepare.data
+    setProgress({ processed: 0, total: lots, current_name: null })
+
+    // Additionnés au fil des lots plutôt que renvoyés en un bloc : chaque
+    // requête ne porte que le résultat de son propre lot.
+    const agrege: ImportResult = { imported: 0, failed: 0 }
+    const cartes: (keyof ImportResult)[] = ['classes_introuvables', 'enseignants_introuvables', 'affectations_non_rattachees']
+
+    for (let i = 0; i < lots; i++) {
+      const { data: lot } = await http.post<{ data: ImportResult }>(`${decoupeConfig.traiterUrl}/${lotToken}`, {
+        index: i,
+        ...(extraFields ?? {}),
+      })
+      const r = lot.data
+
+      for (const cle of ['imported', 'failed', 'updated', 'ignored', 'dettes', 'dettes_montant', 'dettes_ignorees', 'affectations', 'comptes_ouverts'] as const) {
+        if (r[cle] !== undefined) agrege[cle] = (agrege[cle] ?? 0) + r[cle]!
+      }
+      for (const cle of cartes) {
+        const libelles = r[cle] as Record<string, number> | undefined
+        if (!libelles) continue
+        const courant = (agrege[cle] as Record<string, number> | undefined) ?? {}
+        for (const [nom, n] of Object.entries(libelles)) courant[nom] = (courant[nom] ?? 0) + n
+        ;(agrege[cle] as Record<string, number>) = courant
+      }
+
+      setProgress({ processed: i + 1, total: lots, current_name: null })
+    }
+
+    setResult(agrege)
+  }
+
   const handleSubmit = async () => {
     if (!file) return
     setSubmitting(true)
     setError(null)
-    const token = progressUrl ? crypto.randomUUID() : null
+    const token = progressUrl && !decoupe ? crypto.randomUUID() : null
     setProgressToken(token)
-    setProgress(progressUrl ? { processed: 0, total: 0, current_name: null } : null)
+    setProgress(progressUrl || decoupe ? { processed: 0, total: 0, current_name: null } : null)
     try {
+      if (decoupe) {
+        await handleSubmitDecoupe(decoupe, file)
+        onImported()
+        return
+      }
+
       const formData = new FormData()
       formData.append('file', file)
       if (choix) formData.append(choix.nom, choisi)

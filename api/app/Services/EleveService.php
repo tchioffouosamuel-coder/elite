@@ -148,10 +148,15 @@ class EleveService extends BaseService
      * chaque ligne dans son école d'après `categorie_ecole` plutôt que de
      * toutes les rattacher à une seule — cf. `importPourToutesLesEcoles()`.
      *
+     * `$file` accepte aussi un chemin (import découpé en lots, cf.
+     * `importerChunk()`, qui rejoue cette même méthode sur un fichier
+     * temporaire bien plus petit que l'original).
+     *
      * @param  int|array<int>  $schoolId
+     * @param  UploadedFile|string  $file
      * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
      */
-    public function importFromExcel(int|array $schoolId, UploadedFile $file, ?int $importePar = null, ?Closure $progress = null): array
+    public function importFromExcel(int|array $schoolId, UploadedFile|string $file, ?int $importePar = null, ?Closure $progress = null): array
     {
         if (is_array($schoolId)) {
             return $this->importPourToutesLesEcoles($schoolId, $file, $importePar, $progress);
@@ -188,9 +193,10 @@ class EleveService extends BaseService
      * cas, à importer avec un school_id précis (X-School-Id).
      *
      * @param  list<int>  $schoolIds
+     * @param  UploadedFile|string  $file
      * @return array{imported: int, updated: int, ignored: int, failed: int, errors: array, classes_introuvables: array<string, int>, dettes: int, dettes_montant: int, dettes_ignorees: int}
      */
-    private function importPourToutesLesEcoles(array $schoolIds, UploadedFile $file, ?int $importePar, ?Closure $progress = null): array
+    private function importPourToutesLesEcoles(array $schoolIds, UploadedFile|string $file, ?int $importePar, ?Closure $progress = null): array
     {
         if (! EleveImport::porteColonneCategorieEcole($file)) {
             throw new RuntimeException(
@@ -240,6 +246,85 @@ class EleveService extends BaseService
         $total['ignored'] = max(0, $lignesCount - $total['imported'] - $total['updated'] - $total['failed']);
 
         return $total;
+    }
+
+    /**
+     * Découpe le fichier de situation en petits lots avant l'import, pour un
+     * gros effectif (500+ lignes) : traiter chaque ligne coûte plusieurs
+     * requêtes en base (élève, jusqu'à trois tuteurs, dette antérieure), et
+     * un import synchrone d'un seul tenant dépasse alors facilement le délai
+     * d'exécution PHP ou du serveur web — sans qu'on puisse le changer sans
+     * accès au serveur. Chaque lot est ensuite importé par sa propre requête
+     * HTTP (cf. `importerChunk()`), en rejouant `EleveImport` inchangée sur
+     * un fichier bien plus petit : aucun risque de dénaturer les données en
+     * réinventant sa logique de lecture.
+     *
+     * @return int nombre de lots créés
+     */
+    public function preparerImportDecoupe(UploadedFile $file, string $token, int $tailleLot = 60): int
+    {
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file->getRealPath());
+        $lecteur->setReadDataOnly(true);
+        $feuille = $lecteur->load($file->getRealPath())->getSheet(0);
+
+        // `formatData: false` : les dates restent leur numéro de série Excel
+        // brut, exactement ce que lirait un import non découpé — EleveImport
+        // sait déjà convertir cette valeur (cf. sa méthode `date()`).
+        $lignes = $feuille->toArray(null, true, false, false);
+        $entetes = array_shift($lignes) ?? [];
+
+        $dossier = $this->dossierImportDecoupe($token);
+        if (! is_dir($dossier)) {
+            mkdir($dossier, 0755, true);
+        }
+
+        $lots = array_chunk($lignes, max(1, $tailleLot));
+
+        foreach ($lots as $i => $lot) {
+            $classeur = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $feuilleLot = $classeur->getActiveSheet();
+            $feuilleLot->fromArray($entetes, null, 'A1');
+            $feuilleLot->fromArray($lot, null, 'A2');
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($classeur))->save("{$dossier}/{$i}.xlsx");
+            $classeur->disconnectWorksheets();
+        }
+
+        return count($lots);
+    }
+
+    /**
+     * Importe un lot préparé par `preparerImportDecoupe()`. Le lot traité est
+     * supprimé aussitôt, et le dossier avec lui une fois le dernier lot passé
+     * — rien ne doit s'accumuler sur le disque au-delà de la durée de l'import.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{resultat: array, dernier: bool}
+     */
+    public function importerChunk(int|array $schoolId, string $token, int $index, ?int $importePar = null): array
+    {
+        $dossier = $this->dossierImportDecoupe($token);
+        $chemin = "{$dossier}/{$index}.xlsx";
+
+        if (! is_file($chemin)) {
+            throw new RuntimeException("Ce lot est introuvable — il a peut-être déjà été traité, ou l'import a expiré.");
+        }
+
+        $resultat = $this->importFromExcel($schoolId, $chemin, $importePar);
+
+        @unlink($chemin);
+        $dernier = ! is_file("{$dossier}/" . ($index + 1) . '.xlsx');
+        if ($dernier) {
+            @rmdir($dossier);
+        }
+
+        return ['resultat' => $resultat, 'dernier' => $dernier];
+    }
+
+    private function dossierImportDecoupe(string $token): string
+    {
+        // Un UUID généré côté serveur (cf. EleveController::importPreparer) :
+        // jamais de segment de chemin fourni par le client dans `$token`.
+        return storage_path('app/private/imports-eleves/' . $token);
     }
 
     public function delete(Eleve $eleve): void

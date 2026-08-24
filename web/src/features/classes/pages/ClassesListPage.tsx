@@ -55,9 +55,14 @@ export function ClassesListPage() {
     queryKey: ['schools'],
     queryFn: fetchSchools,
   })
+  // Uniquement utilisé par la barre d'actions groupées, réservée aux comptes
+  // qui gèrent les classes : l'appeler pour tout le monde expose un privilège
+  // (« Consulter les niveaux ») qu'un enseignant n'a pas, et déclenche pour
+  // lui une alerte de permission manquante sans rapport avec sa navigation.
   const { data: niveaux = [] } = useQuery({
     queryKey: ['niveaux'],
     queryFn: fetchNiveaux,
+    enabled: can('classes.manage'),
   })
 
   const classesFiltrees = schoolFilter === null
