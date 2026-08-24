@@ -119,7 +119,7 @@ class PersonnelController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $schoolId = app('tenant.school_id');
+        $schoolId = Tenant::schoolIds();
         $deleted = 0;
 
         foreach ($data['ids'] as $id) {
@@ -254,7 +254,7 @@ class PersonnelController extends Controller
      */
     public function attestationEmployeur(Request $request, int $id): BinaryFileResponse
     {
-        $personnel = $this->service->find(app('tenant.school_id'), $id);
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
 
         $conge = $request->validate([
             'debut' => ['nullable', 'date'],
