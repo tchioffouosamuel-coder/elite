@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 import { http } from '@/shared/lib/http'
@@ -56,6 +56,8 @@ export function ImportModal({
   progressUrl,
   onClose,
   onImported,
+  onChoixChange,
+  note,
 }: {
   title: string
   url: string
@@ -65,6 +67,10 @@ export function ImportModal({
   progressUrl?: string
   onClose: () => void
   onImported: () => void
+  /** Prévient l'appelant d'un changement de choix (ex. cycle) — pour en déduire un contexte, comme l'école visée. */
+  onChoixChange?: (valeur: string) => void
+  /** Précision affichée sous le choix — ex. l'établissement que le fichier va effectivement viser. */
+  note?: ReactNode
 }) {
   const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
@@ -120,7 +126,14 @@ export function ImportModal({
     <Modal title={title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         {choix && (
-          <Select label={choix.label} value={choisi} onChange={(e) => setChoisi(e.target.value)}>
+          <Select
+            label={choix.label}
+            value={choisi}
+            onChange={(e) => {
+              setChoisi(e.target.value)
+              onChoixChange?.(e.target.value)
+            }}
+          >
             {choix.options.map((option) => (
               <option key={option.valeur} value={option.valeur}>
                 {option.libelle}
@@ -128,6 +141,8 @@ export function ImportModal({
             ))}
           </Select>
         )}
+
+        {note}
 
         <div className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">
           <p className="mb-1 font-semibold">{t('import.template_hint')}</p>

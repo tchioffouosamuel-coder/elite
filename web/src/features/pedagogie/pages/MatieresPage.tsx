@@ -49,9 +49,27 @@ export function MatieresPage() {
     ? data ?? []
     : (data ?? []).filter((matiere) => (matiere.school_id ?? matiere.school?.id) === schoolFilter)
 
+  /**
+   * École unique de ce type dans le complexe, s'il y en a exactement une — le
+   * cas courant d'un établissement par cycle. Sert à faire correspondre le
+   * cycle choisi à l'école visée sans que l'utilisateur ait à le redire.
+   */
+  const ecoleParType = (type: 'secondaire' | 'primaire' | 'maternelle') => {
+    const correspondantes = schools.filter((school) => school.type === type)
+    return correspondantes.length === 1 ? correspondantes[0] : null
+  }
+
+  const cibleCycle = (valeur: string) => {
+    if (valeur !== 'secondaire' && valeur !== 'primaire' && valeur !== 'maternelle') return
+    const ecole = ecoleParType(valeur)
+    if (ecole) setSchoolFilter(ecole.id)
+  }
+
   // Le secondaire classe ses matières par département ; le primaire les note
   // sur un barème propre, réparti sur ses volets d'évaluation.
   const secondaire = estSecondaire()
+  const typeEcoleActive = useAuthStore((s) => s.activeSchool()?.type)
+  const cycleDefaut = typeEcoleActive ?? 'secondaire'
 
   const handleExport = async () => {
     setExportEnCours(true)
@@ -251,7 +269,13 @@ export function MatieresPage() {
               {t('export.excel')}
             </Button>
             {can('pedagogie.manage') && (
-              <Button variant="secondary" onClick={() => setShowImport(true)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  cibleCycle(cycleDefaut)
+                  setShowImport(true)
+                }}
+              >
                 <Upload className="h-4 w-4" />
                 {t('import.title')}
               </Button>
@@ -300,21 +324,45 @@ export function MatieresPage() {
           url="/matieres/import"
           columns={COLONNES_SECONDAIRE}
           /*
-           * Le cycle est déclaré, pas déduit : les deux fichiers se
-           * ressemblent trop (un nom, une abréviation) pour qu'on devine
-           * lequel on lit, et se tromper importerait un barème comme un
-           * coefficient. L'école active donne le choix par défaut, l'import
-           * d'un autre cycle restant possible d'un clic.
+           * Même école que le filtre de la liste : en mode « Toutes les
+           * écoles » (aucune sélectionnée), l'API refuse l'import plutôt que
+           * de deviner — deviner avait justement écrit sous la mauvaise école
+           * en production, un import qui se disait réussi mais dont les
+           * lignes restaient introuvables dans la liste.
+           */
+          extraFields={schoolFilter ? { school_id: schoolFilter } : undefined}
+          /*
+           * Le cycle est déclaré, pas déduit : les fichiers se ressemblent
+           * trop (un nom, une abréviation) pour qu'on devine lequel on lit, et
+           * se tromper importerait un barème comme un coefficient. Primaire et
+           * maternelle sont deux choix distincts — pas un « Primaire /
+           * maternelle » ambigu — précisément pour que l'école visée soit
+           * déclarée, pas devinée : chacun choisit sa propre école dans le
+           * complexe (cf. `cibleCycle`).
            */
           choix={{
             nom: 'cycle',
             label: t('matieres.import_cycle'),
-            defaut: secondaire ? 'secondaire' : 'primaire',
+            defaut: cycleDefaut,
             options: [
               { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_SECONDAIRE },
               { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_PRIMAIRE },
+              { valeur: 'maternelle', libelle: t('matieres.cycle_maternelle'), colonnes: COLONNES_PRIMAIRE },
             ],
           }}
+          onChoixChange={cibleCycle}
+          note={
+            schoolFilter ? (
+              <p className="text-xs text-navy-500">
+                {t('matieres.import_ecole_visee')}{' '}
+                <span className="font-semibold text-navy-700">
+                  {schools.find((school) => school.id === schoolFilter)?.name}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-gold-600">{t('matieres.import_choisir_ecole')}</p>
+            )
+          }
           onClose={() => setShowImport(false)}
           onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
         />

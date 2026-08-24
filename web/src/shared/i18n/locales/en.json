@@ -537,7 +537,10 @@
     "empty": "No subjects for this school.",
     "import_cycle": "File cycle",
     "cycle_secondaire": "Secondary — departments and assignments",
-    "cycle_primaire": "Primary / nursery — marks split by component"
+    "cycle_primaire": "Primary — marks split by component",
+    "cycle_maternelle": "Nursery — marks split by component",
+    "import_ecole_visee": "Target school:",
+    "import_choisir_ecole": "Pick a school in the list filter before importing."
   },
   "pedagogie": {
     "title": "Subjects & assignments",

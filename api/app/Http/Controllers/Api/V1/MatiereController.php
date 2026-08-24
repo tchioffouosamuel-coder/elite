@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreMatiereRequest;
 use App\Http\Resources\Api\V1\MatiereResource;
 use App\Imports\MatiereImport;
+use App\Models\Classe;
 use App\Models\Matiere;
 use App\Services\CompetenceAttributionService;
 use App\Support\Tenant;
@@ -123,14 +124,22 @@ class MatiereController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
             'cycle' => ['required', Rule::in(MatiereImport::CYCLES)],
             'classe_id' => ['nullable', 'integer'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
         ]);
+
+        // Comme `store()` : en mode agrégé (super admin, « Toutes les écoles »),
+        // deviner l'établissement serait arbitraire — et c'était précisément le
+        // bug qu'a connu la production, où l'import écrivait sous l'école
+        // propre du compte plutôt que sous celle affichée, la laissant hors du
+        // périmètre que la liste relit ensuite.
+        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
 
         $classeId = $request->integer('classe_id') ?: null;
         if ($classeId !== null) {
             Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         }
 
-        $import = new MatiereImport(Tenant::schoolId(), $request->string('cycle')->toString(), $classeId);
+        $import = new MatiereImport($schoolId, $request->string('cycle')->toString(), $classeId);
         Excel::import($import, $request->file('file'));
 
         return ApiResponse::success([

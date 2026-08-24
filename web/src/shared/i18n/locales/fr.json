@@ -537,7 +537,10 @@
     "empty": "Aucune matière pour cet établissement.",
     "import_cycle": "Cycle du fichier",
     "cycle_secondaire": "Secondaire — départements et affectations",
-    "cycle_primaire": "Primaire / maternelle — barème par volet"
+    "cycle_primaire": "Primaire — barème par volet",
+    "cycle_maternelle": "Maternelle — barème par volet",
+    "import_ecole_visee": "École visée :",
+    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer."
   },
   "pedagogie": {
     "title": "Matières & affectations",

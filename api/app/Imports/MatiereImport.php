@@ -19,8 +19,11 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
  * Import des matières, dans le cycle que l'utilisateur désigne au moment du
  * dépôt du fichier.
  *
- * Les deux cycles ne décrivent pas la même chose, et un import unique aurait
- * exigé de l'un des deux des colonnes qui n'ont aucun sens chez lui :
+ * Le secondaire d'un côté, le primaire et la maternelle de l'autre, ne
+ * décrivent pas la même chose, et un import unique aurait exigé de l'un des
+ * deux des colonnes qui n'ont aucun sens chez lui. Primaire et maternelle
+ * partagent le même fichier et le même traitement — seul l'établissement visé
+ * change, d'où deux valeurs de cycle distinctes plutôt qu'un choix ambigu :
  *
  * - **secondaire** : la matière appartient à un département et s'enseigne dans
  *   des classes avec un coefficient, un quota horaire et un enseignant. Les
@@ -47,7 +50,19 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
 
     public const CYCLE_PRIMAIRE = 'primaire';
 
-    public const CYCLES = [self::CYCLE_SECONDAIRE, self::CYCLE_PRIMAIRE];
+    /**
+     * Même fichier, mêmes colonnes, même traitement que le primaire (barème
+     * réparti par volet) : distingué du primaire uniquement pour que
+     * l'utilisateur déclare explicitement l'établissement visé plutôt qu'un
+     * « Primaire / maternelle » ambigu qui ne dit pas vers laquelle des deux
+     * écoles le fichier part.
+     */
+    public const CYCLE_MATERNELLE = 'maternelle';
+
+    public const CYCLES = [self::CYCLE_SECONDAIRE, self::CYCLE_PRIMAIRE, self::CYCLE_MATERNELLE];
+
+    /** Cycles qui décrivent des compétences évaluées (barème par volet) plutôt que des matières de département. */
+    private const CYCLES_COMPETENCE = [self::CYCLE_PRIMAIRE, self::CYCLE_MATERNELLE];
 
     /**
      * En-tête source (slug minuscule produit par maatwebsite) => clé
@@ -150,7 +165,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
                 continue;
             }
 
-            if ($this->cycle === self::CYCLE_PRIMAIRE) {
+            if (in_array($this->cycle, self::CYCLES_COMPETENCE, true)) {
                 $this->enregistrerCompetence($nom, $ligne);
 
                 continue;

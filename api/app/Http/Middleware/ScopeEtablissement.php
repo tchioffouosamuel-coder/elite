@@ -62,9 +62,15 @@ class ScopeEtablissement
             } else {
                 // Pas d'en-tête : mode agrégé par défaut — tout le complexe,
                 // sans que le super admin ait à choisir une école pour voir ses
-                // propres données.
+                // propres données. `$user->school_id` ne sert de repli que s'il
+                // pointe encore vers une école accessible : sinon (école
+                // désactivée ou hors complexe), une écriture non explicitement
+                // ciblée irait s'y perdre silencieusement — hors de portée de
+                // toute liste qui lit `school_ids`.
                 $schoolIds = $accessibles->pluck('id')->all();
-                $schoolId = $user->school_id ?? $accessibles->first()->id;
+                $schoolId = $user->school_id !== null && $accessibles->contains('id', $user->school_id)
+                    ? $user->school_id
+                    : $accessibles->first()->id;
                 $isAggregate = true;
             }
         }
