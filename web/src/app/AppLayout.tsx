@@ -445,7 +445,11 @@ export function AppLayout() {
 
       <aside
         className={clsx(
-          'relative fixed inset-y-0 left-0 z-50 flex w-[17rem] min-w-0 flex-none flex-col overflow-hidden bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
+          // `fixed` seul : `relative` en plus faisait gagner `position:
+          // relative` selon l'ordre de génération des classes Tailwind — la
+          // sidebar restait alors dans le flux flex même repoussée hors
+          // champ par `-translate-x-full`, écrasant <main> sur mobile.
+          'fixed inset-y-0 left-0 z-50 flex w-[17rem] min-w-0 flex-none flex-col overflow-hidden bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
           'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
           menuOuvert ? 'translate-x-0' : '-translate-x-full',
           sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
