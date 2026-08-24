@@ -31,21 +31,21 @@ class StoreCompetenceRequest extends FormRequest
             'label_en' => ['nullable', 'string', 'max:150'],
             'abbreviation' => ['nullable', 'string', 'max:20'],
 
-            // Barème de la compétence — archange borne la saisie entre 10 et 100.
+            // Barème de la compétence — borne la saisie entre 5 et 100.
             // Facultatif en maternelle, qui évalue par appréciation et n'a donc
             // ni barème ni répartition de volets à renseigner.
-            'notation' => [$this->parAppreciation() ? 'nullable' : 'required', 'integer', 'min:10', 'max:100'],
+            'notation' => [$this->parAppreciation() ? 'nullable' : 'required', 'integer', 'min:5', 'max:100'],
             'evalue_pratique' => ['nullable', 'boolean'],
             'ordre' => ['nullable', 'integer', 'min:0', 'max:999'],
             'statut' => ['nullable', 'in:actif,inactif'],
 
-            // Répartition du barème entre les volets : facultative, mais si
-            // fournie elle doit couvrir exactement les volets évalués et sommer
-            // au barème (cf. withValidator).
+            // Répartition du barème entre les volets : chaque volet est
+            // facultatif, y compris quand on en renseigne un autre — celui
+            // qu'on laisse vide compte pour 0 point (cf. Competence::repartitionVolets).
             'repartition_volets' => ['nullable', 'array'],
-            'repartition_volets.oral' => ['required_with:repartition_volets', 'numeric', 'min:0'],
-            'repartition_volets.ecrit' => ['required_with:repartition_volets', 'numeric', 'min:0'],
-            'repartition_volets.savoir_etre' => ['required_with:repartition_volets', 'numeric', 'min:0'],
+            'repartition_volets.oral' => ['nullable', 'numeric', 'min:0'],
+            'repartition_volets.ecrit' => ['nullable', 'numeric', 'min:0'],
+            'repartition_volets.savoir_etre' => ['nullable', 'numeric', 'min:0'],
             'repartition_volets.pratique' => ['nullable', 'numeric', 'min:0'],
         ];
     }
@@ -67,37 +67,15 @@ class StoreCompetenceRequest extends FormRequest
                 return;
             }
 
-            $evaluePratique = $this->boolean('evalue_pratique');
-
-            if ($evaluePratique && ! isset($repartition['pratique'])) {
-                $validator->errors()->add(
-                    'repartition_volets.pratique',
-                    'La répartition du volet pratique est requise.'
-                );
-
-                return;
-            }
-
-            if (! $evaluePratique && (float) ($repartition['pratique'] ?? 0) > 0) {
+            // Le seul garde-fou qui reste : un volet non évalué ne doit pas
+            // porter de points, sans quoi le bulletin en tiendrait compte
+            // malgré la case décochée. Chaque volet renseigné est sinon
+            // libre — y compris de ne pas sommer au barème, celui qu'on
+            // laisse vide comptant simplement pour 0 (cf. Competence::repartitionVolets).
+            if (! $this->boolean('evalue_pratique') && (float) ($repartition['pratique'] ?? 0) > 0) {
                 $validator->errors()->add(
                     'repartition_volets.pratique',
                     "Le volet pratique n'est pas évalué pour cette compétence."
-                );
-
-                return;
-            }
-
-            $volets = $evaluePratique
-                ? ['oral', 'ecrit', 'savoir_etre', 'pratique']
-                : ['oral', 'ecrit', 'savoir_etre'];
-
-            $somme = array_sum(array_intersect_key($repartition, array_flip($volets)));
-            $notation = (float) $this->input('notation');
-
-            if (abs($somme - $notation) > 0.01) {
-                $validator->errors()->add(
-                    'repartition_volets',
-                    "La somme des volets ({$somme}) doit être égale au barème ({$notation})."
                 );
             }
         });

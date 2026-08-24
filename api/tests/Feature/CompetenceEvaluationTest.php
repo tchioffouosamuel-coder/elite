@@ -401,17 +401,50 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertDatabaseHas('competences', ['id' => $competence->id]);
     }
 
-    /** La somme des volets doit égaler le barème. */
-    public function test_une_repartition_incoherente_est_refusee(): void
+    /**
+     * Chaque volet est facultatif : la somme n'a plus à égaler le barème pour
+     * enregistrer — celui qu'on laisse vide compte simplement pour 0 point.
+     */
+    public function test_une_repartition_qui_ne_somme_pas_au_bareme_est_acceptee(): void
     {
-        $this->actingAs($this->admin, 'sanctum')
+        $reponse = $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/v1/competences', [
                 'school_id' => $this->school->id,
                 'label_fr' => 'Mathématiques',
                 'notation' => 20,
                 'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 10],
             ])
+            ->assertCreated();
+
+        $competence = Competence::find($reponse->json('data.id'));
+        $this->assertSame(['oral' => 10.0, 'ecrit' => 10.0, 'savoir_etre' => 10.0], $competence->repartitionVolets());
+    }
+
+    /** Un volet laissé de côté n'est même plus exigé dans le tableau. */
+    public function test_un_volet_manquant_n_est_plus_refuse(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences', [
+                'school_id' => $this->school->id,
+                'label_fr' => 'Français',
+                'notation' => 20,
+                'repartition_volets' => ['oral' => 20],
+            ])
+            ->assertCreated();
+    }
+
+    /** Un volet non évalué (pratique décoché) ne doit toujours pas porter de points. */
+    public function test_le_volet_pratique_non_evalue_ne_peut_pas_porter_de_points(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences', [
+                'school_id' => $this->school->id,
+                'label_fr' => 'Sport',
+                'notation' => 20,
+                'evalue_pratique' => false,
+                'repartition_volets' => ['pratique' => 5],
+            ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('repartition_volets');
+            ->assertJsonValidationErrors('repartition_volets.pratique');
     }
 }

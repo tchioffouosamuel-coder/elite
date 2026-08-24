@@ -110,12 +110,14 @@ export function CompetencesPage() {
       entete: t('competences.attribuee_dans'),
       valeur: (c) => c.classes_count ?? 0,
       cellule: (c) => <Badge tone={(c.classes_count ?? 0) > 0 ? 'green' : 'neutral'}>{c.classes_count ?? 0}</Badge>,
+      masquerMobile: true,
     },
     ...(can('pedagogie.manage')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
+          sticky: 'right',
           cellule: (c: Competence) => (
             <div className="flex items-center gap-1">
               <button
@@ -214,7 +216,11 @@ function CompetenceFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: toutesLesEcoles } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  // Les compétences n'existent qu'au primaire et en maternelle : le secondaire
+  // note ses matières directement, avec un coefficient (cf. l'en-tête de ce
+  // fichier).
+  const schools = toutesLesEcoles?.filter((ecole) => ecole.type !== 'secondaire')
 
   const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<CompetencePayload>({
     defaultValues: competence
@@ -247,12 +253,12 @@ function CompetenceFormModal({
   const volets = voletsActifs(evaluePratique)
   const repartitionSaisie = watch('repartition_volets')
   const somme = volets.reduce((total, volet) => total + (Number(repartitionSaisie?.[volet]) || 0), 0)
-  // L'API refuse tout écart : autant le dire avant l'aller-retour.
-  const repartitionValide = estMaternelle || (notationSaisie > 0 && Math.abs(somme - notationSaisie) < 0.01)
+  // Purement indicatif : chaque volet est facultatif, celui qu'on laisse vide
+  // compte pour 0 point (cf. Competence::repartitionVolets côté API) — la
+  // somme n'a donc plus à égaler le barème pour enregistrer.
+  const repartitionEquilibree = notationSaisie > 0 && Math.abs(somme - notationSaisie) < 0.01
 
   const onSubmit = async (values: CompetencePayload) => {
-    if (!repartitionValide) return
-
     setServerError(null)
     try {
       const payload: CompetencePayload = {
@@ -311,7 +317,7 @@ function CompetenceFormModal({
         {!estMaternelle && (
           <Input
             type="number"
-            min={10}
+            min={5}
             max={100}
             label={t('matieres.notation')}
             {...register('notation', { required: true })}
@@ -341,11 +347,11 @@ function CompetenceFormModal({
                   min={0}
                   step={0.5}
                   label={LIBELLES_COMPOSANTES[volet]}
-                  {...register(`repartition_volets.${volet}`, { required: true, min: 0 })}
+                  {...register(`repartition_volets.${volet}`, { min: 0 })}
                 />
               ))}
             </div>
-            <span className={`text-xs font-medium ${repartitionValide ? 'text-green-600' : 'text-red-500'}`}>
+            <span className={`text-xs font-medium ${repartitionEquilibree ? 'text-green-600' : 'text-navy-400'}`}>
               {t('matieres.repartition_somme', { somme, notation: notationSaisie })}
             </span>
           </div>
@@ -357,7 +363,7 @@ function CompetenceFormModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isSubmitting || !repartitionValide}>
+          <Button type="submit" disabled={isSubmitting}>
             {t('common.save')}
           </Button>
         </div>
