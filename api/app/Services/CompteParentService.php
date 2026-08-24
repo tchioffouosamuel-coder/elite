@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Setting;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Support\Telephone;
@@ -46,7 +47,7 @@ class CompteParentService extends BaseService
             $user = User::create([
                 'name' => $tuteur->nom_complet,
                 'phone' => $telephoneNormalise,
-                'password' => Hash::make(config('personnel.mot_de_passe_defaut')),
+                'password' => Hash::make($this->motDePasseDefaut($tuteur->school_id)),
                 'school_id' => $tuteur->school_id,
                 'is_active' => true,
                 'doit_changer_mot_de_passe' => true,
@@ -110,7 +111,20 @@ class CompteParentService extends BaseService
         return [
             'comptes' => $comptes,
             'total' => $comptes->count(),
-            'mot_de_passe_defaut' => config('personnel.mot_de_passe_defaut'),
+            // Appelée par établissement même en mode agrégé (une fois par
+            // école, cf. TuteurController::identifiantsParentPdf) : le
+            // premier id suffit dans le cas — improbable — d'un tableau.
+            'mot_de_passe_defaut' => $this->motDePasseDefaut(is_array($schoolId) ? $schoolId[0] : $schoolId),
         ];
+    }
+
+    /**
+     * Réglage de l'établissement plutôt que variable d'environnement : un
+     * super admin le change depuis Paramètres sans jamais dépendre du devops
+     * ou d'un accès au serveur — cf. SettingsCatalog.
+     */
+    private function motDePasseDefaut(int $schoolId): string
+    {
+        return Setting::get($schoolId, 'mot_de_passe_defaut', SettingsCatalog::default('mot_de_passe_defaut'));
     }
 }

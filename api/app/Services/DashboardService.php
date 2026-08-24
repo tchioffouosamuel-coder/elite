@@ -9,23 +9,27 @@ use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
 use App\Models\User;
+use App\Support\Perimetre;
+use Illuminate\Support\Collection;
 
 class DashboardService extends BaseService
 {
     /**
-     * Un titulaire de primaire/maternelle ne gère qu'une classe : lui montrer
-     * les effectifs de tout l'établissement ne l'intéresse pas et exposerait
-     * des données hors de son périmètre. Les autres profils (secondaire,
-     * administration) gardent le tableau de bord d'établissement.
+     * Un enseignant ne gère que les classes où il intervient (titulariat ou
+     * affectation matière) : lui montrer les effectifs de tout l'établissement,
+     * ou le journal d'activité de l'école, exposerait des données hors de son
+     * périmètre. Les autres profils (administration) gardent le tableau de
+     * bord d'établissement.
      */
     /** @param int|array<int> $schoolId */
     public function stats(int|array $schoolId, User $user): array
     {
         if ($user->estEnseignant()) {
-            $classe = Classe::forSchool($schoolId)->where('titulaire_id', $user->personnel?->id)->first();
+            $classeIds = (new Perimetre($user))->classesEnseignees();
+            $classes = Classe::forSchool($schoolId)->whereIn('id', $classeIds)->get();
 
-            if ($classe) {
-                return $this->statsClasse($schoolId, $classe);
+            if ($classes->isNotEmpty()) {
+                return $this->statsClasse($schoolId, $classes);
             }
         }
 
@@ -95,26 +99,35 @@ class DashboardService extends BaseService
         ];
     }
 
-    /** @param int|array<int> $schoolId */
-    private function statsClasse(int|array $schoolId, Classe $classe): array
+    /**
+     * @param  int|array<int>  $schoolId
+     * @param  Collection<int, Classe>  $classes  Les classes où l'enseignant intervient (une ou plusieurs).
+     */
+    private function statsClasse(int|array $schoolId, Collection $classes): array
     {
-        $eleves = Eleve::forSchool($schoolId)->where('classe_id', $classe->id)->where('statut', 'actif');
+        $classeIds = $classes->pluck('id')->all();
+        $premiere = $classes->first();
+
+        $eleves = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->where('statut', 'actif');
 
         $totalEleves = (clone $eleves)->count();
         $parGenre = (clone $eleves)->selectRaw('sexe, count(*) as total')->groupBy('sexe')->pluck('total', 'sexe');
         $filles = (int) ($parGenre['F'] ?? 0);
         $garcons = (int) ($parGenre['M'] ?? 0);
 
-        $totalMatieres = ClasseMatiere::where('classe_id', $classe->id)->where('statut', 'actif')->count();
+        $totalMatieres = ClasseMatiere::whereIn('classe_id', $classeIds)->where('statut', 'actif')->count();
 
-        $activiteRecente = Eleve::forSchool($schoolId)->where('classe_id', $classe->id)->latest()->limit(5)->get()
+        $activiteRecente = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->latest()->limit(5)->get()
             ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
             ->values();
 
         return [
             'scope' => 'classe',
-            'classe' => ['id' => $classe->id, 'nom' => $classe->nom],
-            'annee_scolaire_active' => AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle'),
+            'classe' => [
+                'id' => $premiere->id,
+                'nom' => $classes->count() === 1 ? $premiere->nom : $classes->pluck('nom')->implode(', '),
+            ],
+            'annee_scolaire_active' => AnneeScolaire::where('school_id', $premiere->school_id)->where('is_active', true)->value('libelle'),
             'effectifs' => [
                 'eleves' => $totalEleves,
                 'matieres' => $totalMatieres,

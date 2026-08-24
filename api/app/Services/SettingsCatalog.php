@@ -213,6 +213,26 @@ class SettingsCatalog
                 'label_fr' => 'Date d\'exclusion des élèves insolvables',
                 'label_en' => 'Exclusion date for insolvent students',
             ],
+            // Configurables ici plutôt que dans `.env` : un mot de passe par
+            // défaut qui ne dépend plus d'une variable serveur inaccessible
+            // sans le devops, et modifiable par le super admin lui-même dès
+            // qu'il en a besoin — voir CompteAgentService/CompteParentService.
+            [
+                'key' => 'mot_de_passe_defaut',
+                'groupe' => 'personnel',
+                'type' => 'text',
+                'default' => 'Elite@2026',
+                'label_fr' => 'Mot de passe par défaut des nouveaux comptes (personnel et parents)',
+                'label_en' => 'Default password for new accounts (staff and parents)',
+            ],
+            [
+                'key' => 'domaine_email',
+                'groupe' => 'personnel',
+                'type' => 'text',
+                'default' => 'elite.school',
+                'label_fr' => "Domaine des adresses e-mail générées pour le personnel",
+                'label_en' => 'Domain for generated staff email addresses',
+            ],
         ];
     }
 

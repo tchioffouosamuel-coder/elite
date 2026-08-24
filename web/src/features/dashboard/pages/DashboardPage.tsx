@@ -4,6 +4,7 @@ import { UserRound, Users, GraduationCap, School, UserPlus, BriefcaseBusiness, B
 import { fetchDashboardStats } from '@/features/dashboard/api'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 
 export function DashboardPage() {
   const { data, isLoading, isError } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboardStats })
@@ -59,6 +60,7 @@ function ActiviteRecente({ activite }: { activite: { type: string; libelle: stri
 /** Titulaire de primaire/maternelle : le tableau de bord se limite à sa classe. */
 function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'classe' }> }) {
   const { t } = useTranslation()
+  const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { classe, effectifs, repartition_genre, indicateurs, activite_recente, annee_scolaire_active } = data
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
   const partGarcons = Math.round((repartition_genre.garcons / totalGenre) * 100)
@@ -93,13 +95,14 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
         </dl>
       </Card>
 
-      <ActiviteRecente activite={activite_recente} />
+      {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
     </div>
   )
 }
 
 function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'ecole' }> }) {
   const { t } = useTranslation()
+  const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
@@ -176,7 +179,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
         </Card>
       </div>
 
-      <ActiviteRecente activite={activite_recente} />
+      {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
     </div>
   )
 }

@@ -21,6 +21,7 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   mentions: { fr: 'Mentions & appréciations', en: 'Remarks & mentions' },
   examens: { fr: 'Examens officiels', en: 'Official examinations' },
   finance: { fr: 'Finance', en: 'Finance' },
+  personnel: { fr: 'Comptes du personnel', en: 'Staff accounts' },
 }
 
 export function SettingsPage() {

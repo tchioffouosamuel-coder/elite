@@ -8,6 +8,7 @@ use App\Models\School;
 use App\Models\User;
 use App\Services\CompteAgentService;
 use App\Services\PersonnelService;
+use App\Services\SettingsCatalog;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -66,7 +67,7 @@ class CompteAgentTest extends TestCase
     {
         $user = $this->creer()->user;
 
-        $this->assertTrue(Hash::check(config('personnel.mot_de_passe_defaut'), $user->password));
+        $this->assertTrue(Hash::check(SettingsCatalog::default('mot_de_passe_defaut'), $user->password));
     }
 
     /** Le cœur de la demande : les droits viennent de la fonction, et d'elle seule. */

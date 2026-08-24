@@ -6,6 +6,7 @@ use App\Models\FonctionReferentiel;
 use App\Models\School;
 use App\Models\User;
 use App\Services\PersonnelService;
+use App\Services\SettingsCatalog;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -53,7 +54,7 @@ class MotDePasseProvisoireTest extends TestCase
     {
         $this->postJson('/api/v1/auth/login', [
             'email' => $this->agent->email,
-            'password' => config('personnel.mot_de_passe_defaut'),
+            'password' => SettingsCatalog::default('mot_de_passe_defaut'),
         ])
             ->assertOk()
             ->assertJsonPath('data.user.doit_changer_mot_de_passe', true);
@@ -89,7 +90,7 @@ class MotDePasseProvisoireTest extends TestCase
 
     public function test_le_nouveau_mot_de_passe_doit_differer_de_l_ancien(): void
     {
-        $defaut = config('personnel.mot_de_passe_defaut');
+        $defaut = SettingsCatalog::default('mot_de_passe_defaut');
 
         $this->actingAs($this->agent, 'sanctum')
             ->postJson('/api/v1/auth/mot-de-passe', [
@@ -104,7 +105,7 @@ class MotDePasseProvisoireTest extends TestCase
     {
         $this->actingAs($this->agent, 'sanctum')
             ->postJson('/api/v1/auth/mot-de-passe', [
-                'ancien_mot_de_passe' => config('personnel.mot_de_passe_defaut'),
+                'ancien_mot_de_passe' => SettingsCatalog::default('mot_de_passe_defaut'),
                 'nouveau_mot_de_passe' => 'Bertoua2026',
                 'nouveau_mot_de_passe_confirmation' => 'Bertoua2026',
             ])
@@ -127,7 +128,7 @@ class MotDePasseProvisoireTest extends TestCase
 
         $this->actingAs($this->agent, 'sanctum')
             ->postJson('/api/v1/auth/mot-de-passe', [
-                'ancien_mot_de_passe' => config('personnel.mot_de_passe_defaut'),
+                'ancien_mot_de_passe' => SettingsCatalog::default('mot_de_passe_defaut'),
                 'nouveau_mot_de_passe' => 'Bertoua2026',
                 'nouveau_mot_de_passe_confirmation' => 'Bertoua2026',
             ])

@@ -20,6 +20,7 @@ import type { Classe } from '@/features/classes/api'
 export function ClasseTabs({ classe }: { classe: Classe }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
   const classeId = classe.id
   const [tab, setTab] = useState('affectations')
 
@@ -29,17 +30,27 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
   // valeur unique en mode agrégé (super admin, "Toutes les écoles").
   const estSecondaire = estSecondaireHelper(classe.school?.type)
 
+  const estEnseignant = user?.est_enseignant ?? false
+  // `discipline.view` n'est qu'un privilège global : au secondaire, la
+  // discipline d'UNE classe reste réservée à son surveillant général — un
+  // enseignant qui n'occupe pas cette fonction sur cette classe précise n'a
+  // rien à y faire, même s'il enseigne dans la classe.
+  const estSurveillantGeneralDeClasse =
+    user?.attributions?.some((a) => a.code === 'surveillant_general' && a.classes.includes(classeId)) ?? false
+  const peutVoirDiscipline = can('discipline.view') && (!estEnseignant || !estSecondaire || estSurveillantGeneralDeClasse)
+
   const tabs = [
     can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },
     can('eleves.view') && { key: 'eleves', label: t('eleves.title') },
     can('notes.view') && { key: 'notes', label: t('notes.title') },
-    can('discipline.view') && { key: 'absences', label: t('discipline.title') },
+    peutVoirDiscipline && { key: 'absences', label: t('discipline.title') },
     can('notes.view') && { key: 'resultats', label: t('resultats.title') },
     // Professeur principal, censeur, surveillant général et conseiller
     // d'orientation sont des fonctions du secondaire. Au primaire et en
     // maternelle, le titulaire tient seul la classe : l'onglet n'aurait que
-    // des listes vides à proposer.
-    estSecondaire && can('classes.view') && { key: 'responsables', label: t('classes.responsables_tab') },
+    // des listes vides à proposer. Un enseignant, lui, n'a pas à administrer
+    // ces responsabilités — l'onglet ne le concerne pas.
+    estSecondaire && can('classes.view') && !estEnseignant && { key: 'responsables', label: t('classes.responsables_tab') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   return (
@@ -51,9 +62,9 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
       )}
       {tab === 'eleves' && <ElevesTab classeId={classeId} ecoleType={classe.school?.type} />}
       {tab === 'notes' && (estSecondaire ? <NotesTab classeId={classeId} /> : <NotesPrimaireTab classeId={classeId} />)}
-      {tab === 'absences' && <AbsencesTab classeId={classeId} ecoleType={classe.school?.type} />}
+      {tab === 'absences' && peutVoirDiscipline && <AbsencesTab classeId={classeId} ecoleType={classe.school?.type} />}
       {tab === 'resultats' && <ResultatsTab classeId={classeId} />}
-      {tab === 'responsables' && estSecondaire && <ResponsablesTab classeId={classeId} />}
+      {tab === 'responsables' && estSecondaire && !estEnseignant && <ResponsablesTab classeId={classeId} />}
     </div>
   )
 }

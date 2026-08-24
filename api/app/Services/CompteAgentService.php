@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Personnel;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -42,7 +43,10 @@ class CompteAgentService extends BaseService
         return [
             'comptes' => $comptes,
             'total' => $comptes->count(),
-            'mot_de_passe_defaut' => config('personnel.mot_de_passe_defaut'),
+            // Appelée par établissement même en mode agrégé (une fois par
+            // école, cf. PersonnelController::identifiants) : le premier id
+            // suffit dans le cas — improbable — d'un tableau.
+            'mot_de_passe_defaut' => $this->motDePasseDefaut(is_array($schoolId) ? $schoolId[0] : $schoolId),
         ];
     }
 
@@ -71,7 +75,7 @@ class CompteAgentService extends BaseService
             $user = User::create([
                 'name' => $personnel->nom_complet,
                 'email' => $email,
-                'password' => Hash::make(config('personnel.mot_de_passe_defaut')),
+                'password' => Hash::make($this->motDePasseDefaut($personnel->school_id)),
                 'school_id' => $personnel->school_id,
                 'is_active' => true,
                 // Le mot de passe est commun à tout l'établissement : il ne
@@ -97,7 +101,7 @@ class CompteAgentService extends BaseService
             return $saisie;
         }
 
-        return $this->emailGenerique($personnel->nom_complet);
+        return $this->emailGenerique($personnel->nom_complet, $personnel->school_id);
     }
 
     /**
@@ -108,9 +112,9 @@ class CompteAgentService extends BaseService
      * d'identifiant de connexion — l'agent doit pouvoir la retrouver seul. En
      * cas de collision malgré tout, un rang est ajouté.
      */
-    private function emailGenerique(string $nomComplet): string
+    private function emailGenerique(string $nomComplet, int $schoolId): string
     {
-        $domaine = config('personnel.domaine_email');
+        $domaine = Setting::get($schoolId, 'domaine_email', SettingsCatalog::default('domaine_email'));
         $base = Str::slug($nomComplet, '.') ?: 'agent';
 
         $email = $base . '@' . $domaine;
@@ -127,5 +131,15 @@ class CompteAgentService extends BaseService
     private function prise(string $email): bool
     {
         return User::where('email', $email)->exists();
+    }
+
+    /**
+     * Réglage de l'établissement plutôt que variable d'environnement : un
+     * super admin le change depuis Paramètres sans jamais dépendre du devops
+     * ou d'un accès au serveur — cf. SettingsCatalog.
+     */
+    private function motDePasseDefaut(int $schoolId): string
+    {
+        return Setting::get($schoolId, 'mot_de_passe_defaut', SettingsCatalog::default('mot_de_passe_defaut'));
     }
 }

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\School;
+use App\Models\Setting;
 use App\Models\Tuteur;
 use App\Services\CompteParentService;
+use App\Services\SettingsCatalog;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -61,7 +63,9 @@ class TuteurController extends Controller
         return ApiResponse::success([
             'user_id' => $user->id,
             'identifiant' => $user->phone,
-            'mot_de_passe_provisoire' => $user->doit_changer_mot_de_passe ? config('personnel.mot_de_passe_defaut') : null,
+            'mot_de_passe_provisoire' => $user->doit_changer_mot_de_passe
+                ? Setting::get($tuteur->school_id, 'mot_de_passe_defaut', SettingsCatalog::default('mot_de_passe_defaut'))
+                : null,
         ], 'Accès parent ouvert.');
     }
 
