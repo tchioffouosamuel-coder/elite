@@ -447,4 +447,57 @@ class CompetenceEvaluationTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('repartition_volets.pratique');
     }
+
+    // ------------------------------------------------------- Suppression en masse
+
+    public function test_la_suppression_en_masse_retire_plusieurs_competences(): void
+    {
+        $a = $this->competence(['label_fr' => 'A']);
+        $b = $this->competence(['label_fr' => 'B']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences/batch-delete', ['ids' => [$a->id, $b->id]])
+            ->assertOk()
+            ->assertJsonPath('data.supprimees', 2)
+            ->assertJsonPath('data.ignorees', []);
+
+        $this->assertDatabaseMissing('competences', ['id' => $a->id]);
+        $this->assertDatabaseMissing('competences', ['id' => $b->id]);
+    }
+
+    /** Une compétence déjà notée est ignorée plutôt que de bloquer tout le lot. */
+    public function test_la_suppression_en_masse_ignore_une_competence_notee(): void
+    {
+        $noteee = $this->competence(['label_fr' => 'Notée']);
+        $libre = $this->competence(['label_fr' => 'Libre']);
+        $eleve = $this->eleve('ELEVE UN');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$noteee->id]]);
+        $attribution = ClasseCompetence::where('competence_id', $noteee->id)->firstOrFail();
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
+                'notes' => [[
+                    'eleve_id' => $eleve->id, 'sequence_id' => $this->sequence->id,
+                    'composante' => 'oral', 'valeur' => 7,
+                ]],
+            ])
+            ->assertOk();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences/batch-delete', ['ids' => [$noteee->id, $libre->id]])
+            ->assertOk()
+            ->assertJsonPath('data.supprimees', 1)
+            ->assertJsonPath('data.ignorees', ['Notée']);
+
+        $this->assertDatabaseHas('competences', ['id' => $noteee->id]);
+        $this->assertDatabaseMissing('competences', ['id' => $libre->id]);
+    }
+
+    public function test_la_suppression_en_masse_sans_ids_est_refusee(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences/batch-delete', ['ids' => []])
+            ->assertStatus(400);
+    }
 }

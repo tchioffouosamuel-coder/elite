@@ -8,6 +8,7 @@ use App\Models\Competence;
 use App\Models\Departement;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Services\CompetenceAttributionService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
@@ -29,14 +30,15 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
  *   des classes avec un coefficient, un quota horaire et un enseignant. Les
  *   colonnes d'affectation sont facultatives — sans elles, on importe le seul
  *   catalogue des matières ;
- * - **primaire et maternelle** : le fichier ne décrit pas des matières mais
- *   des COMPÉTENCES ÉVALUÉES, puisque ce sont elles qui portent le barème
- *   réparti par volet (oral, écrit, savoir-être, et pratique quand la
- *   compétence s'y prête). Le barème se déduit de la somme des volets plutôt
- *   que d'être ressaisi : les deux doivent de toute façon correspondre
- *   exactement (cf. StoreCompetenceRequest). Les colonnes du fichier ne
- *   changent pas — seul l'objet créé change, en même temps que ce que
- *   l'établissement évalue.
+ * - **primaire et maternelle** : chaque ligne porte le barème réparti par
+ *   volet (oral, écrit, savoir-être, et pratique quand la compétence s'y
+ *   prête) — c'est donc d'abord une COMPÉTENCE ÉVALUÉE qui s'écrit, puisque
+ *   c'est elle que le bulletin note. Une matière du même nom, rattachée à
+ *   cette compétence, est installée dans le même geste : sans elle, la
+ *   compétence resterait invisible dans la liste des matières alors que
+ *   l'emploi du temps, les séances et la progression suivent les matières au
+ *   quotidien (cf. Matiere::competence_id). L'établissement peut ensuite en
+ *   ajouter d'autres à la main sous le même bloc.
  *
  * Les en-têtes sont tolérants — français, anglais, avec ou sans accent — parce
  * qu'un fichier d'établissement vient rarement du gabarit qu'on lui a donné.
@@ -233,7 +235,34 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
 
         $existante ? $this->updatedCount++ : $this->importedCount++;
 
+        $this->rattacherMatiere($competence, $label, $ligne);
+
         return $competence;
+    }
+
+    /**
+     * Matière de contenu installée du même nom que la compétence qu'elle
+     * rejoint. Sans elle, la compétence resterait invisible dans la liste des
+     * matières — c'est pourtant elle que l'emploi du temps, les séances et la
+     * progression suivent au quotidien. Propagée aussitôt vers les classes qui
+     * portent déjà la compétence, comme le fait l'ajout manuel d'une matière
+     * au référentiel (cf. CompetenceAttributionService::propagerMatiere).
+     *
+     * @param  array<string, mixed>  $ligne
+     */
+    private function rattacherMatiere(Competence $competence, string $label, array $ligne): void
+    {
+        $attributs = array_filter([
+            'nom_en' => $this->valeur($ligne, 'nom_en'),
+            'abbreviation' => $this->valeur($ligne, 'abbreviation'),
+            'competence_id' => $competence->id,
+            'statut' => 'actif',
+        ], fn($valeur) => $valeur !== null);
+
+        $matiere = Matiere::firstOrNew(['school_id' => $this->schoolId, 'nom' => $label]);
+        $matiere->fill($attributs)->save();
+
+        app(CompetenceAttributionService::class)->propagerMatiere($matiere);
     }
 
     /** @param array<string, mixed> $ligne */

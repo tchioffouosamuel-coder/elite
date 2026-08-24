@@ -384,6 +384,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store');
                 Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update');
                 Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy');
+                Route::post('competences/batch-delete', [CompetenceController::class, 'batchDestroy'])->name('competences.batch-delete');
                 Route::post('classes/{classeId}/competences', [CompetenceController::class, 'attribuer'])->name('classes.competences.attribuer');
                 Route::put('classe-competences/{id}', [CompetenceController::class, 'modifierAttribution'])->name('classe-competences.update');
                 Route::delete('classe-competences/{id}', [CompetenceController::class, 'retirer'])->name('classe-competences.destroy');

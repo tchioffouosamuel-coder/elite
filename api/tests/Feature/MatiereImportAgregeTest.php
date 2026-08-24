@@ -101,7 +101,13 @@ class MatiereImportAgregeTest extends TestCase
         $competence = Competence::sole();
         $this->assertSame($maternelle->id, $competence->school_id);
         $this->assertSame(20, $competence->notation);
-        $this->assertSame(0, Matiere::count());
+
+        // Une matière de contenu du même nom est installée avec la compétence,
+        // sous la même école — sans elle, la compétence resterait invisible
+        // dans la liste des matières.
+        $matiere = Matiere::sole();
+        $this->assertSame($maternelle->id, $matiere->school_id);
+        $this->assertSame($competence->id, $matiere->competence_id);
     }
 
     /** Sans école explicite ni X-School-Id, deviner serait justement le bug : l'API doit refuser plutôt qu'écrire au hasard. */

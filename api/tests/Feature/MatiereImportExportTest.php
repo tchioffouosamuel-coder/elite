@@ -6,6 +6,7 @@ use App\Exports\MatiereExport;
 use App\Imports\MatiereImport;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Competence;
 use App\Models\Departement;
@@ -14,6 +15,7 @@ use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\School;
 use App\Models\User;
+use App\Services\CompetenceAttributionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -212,7 +214,9 @@ class MatiereImportExportTest extends TestCase
     /**
      * Au primaire, le fichier décrit des COMPÉTENCES et non des matières :
      * c'est la compétence qui porte le barème réparti par volet, depuis que
-     * l'évaluation a quitté la matière.
+     * l'évaluation a quitté la matière. Une matière de contenu du même nom
+     * est installée avec elle, sans quoi la compétence resterait invisible
+     * dans la liste des matières.
      */
     public function test_le_primaire_deduit_le_bareme_des_volets(): void
     {
@@ -222,8 +226,6 @@ class MatiereImportExportTest extends TestCase
         ], MatiereImport::CYCLE_PRIMAIRE);
 
         $this->assertSame(2, $import->importedCount);
-        // Aucune matière créée : la ligne du fichier est une compétence.
-        $this->assertSame(0, Matiere::count());
 
         $lecture = Competence::where('label_fr', 'Lecture')->firstOrFail();
         $this->assertSame(35, $lecture->notation);
@@ -236,6 +238,12 @@ class MatiereImportExportTest extends TestCase
         // Comparaison souple : la répartition transite en JSON, qui ne
         // distingue pas 5 de 5.0 — c'est la valeur qui compte, pas le type.
         $this->assertEquals(5, $dessin->repartition_volets['pratique']);
+
+        $this->assertSame(2, Matiere::count());
+        $matiereLecture = Matiere::where('nom', 'Lecture')->firstOrFail();
+        $this->assertSame($lecture->id, $matiereLecture->competence_id);
+        $matiereDessin = Matiere::where('nom', 'Dessin')->firstOrFail();
+        $this->assertSame($dessin->id, $matiereDessin->competence_id);
     }
 
     public function test_le_primaire_ignore_les_colonnes_d_affectation(): void
@@ -249,6 +257,40 @@ class MatiereImportExportTest extends TestCase
 
         $this->assertSame(0, $import->affectationsCount);
         $this->assertSame(0, ClasseMatiere::count());
+    }
+
+    /**
+     * La matière installée avec la compétence rejoint aussitôt les classes
+     * qui portent déjà cette compétence — même propagation que l'ajout
+     * manuel d'une matière au référentiel (CompetenceAttributionService).
+     */
+    public function test_la_matiere_installee_rejoint_les_classes_deja_attribuees(): void
+    {
+        $classe = $this->classe('SIL-A');
+
+        $this->importer(
+            [['nom' => 'Lecture', 'oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0]],
+            MatiereImport::CYCLE_PRIMAIRE,
+        );
+        $lecture = Competence::where('label_fr', 'Lecture')->firstOrFail();
+
+        // Pas encore attribuée à la classe : rien à propager pour l'instant.
+        $this->assertSame(0, ClasseMatiere::count());
+
+        app(CompetenceAttributionService::class)->attribuer($classe, [$lecture->id]);
+        $this->assertTrue(ClasseCompetence::where('classe_id', $classe->id)->where('competence_id', $lecture->id)->exists());
+
+        // Réimporter la même ligne (mise à jour) doit désormais installer la
+        // matière dans la classe, comme si on venait de l'ajouter au référentiel.
+        $this->importer(
+            [['nom' => 'Lecture', 'oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0]],
+            MatiereImport::CYCLE_PRIMAIRE,
+        );
+
+        $matiere = Matiere::where('nom', 'Lecture')->firstOrFail();
+        $this->assertTrue(
+            ClasseMatiere::where('classe_id', $classe->id)->where('matiere_id', $matiere->id)->exists(),
+        );
     }
 
     public function test_l_export_se_relit_par_l_import(): void

@@ -71,8 +71,7 @@ class CompetenceController extends Controller
     {
         $competence = Competence::forSchool(Tenant::schoolIds())->findOrFail($id);
 
-        $notes = ClasseCompetence::where('competence_id', $competence->id)
-            ->withCount('notes')->get()->sum('notes_count');
+        $notes = $this->notesCount($competence);
 
         if ($notes > 0) {
             return ApiResponse::error(
@@ -84,6 +83,50 @@ class CompetenceController extends Controller
         $competence->delete();
 
         return ApiResponse::success(null, 'Compétence supprimée.');
+    }
+
+    /**
+     * Supprime plusieurs compétences d'un coup. Même garde-fou que la
+     * suppression individuelle, mais appliqué ligne par ligne : une
+     * compétence déjà notée est ignorée plutôt que de bloquer tout le lot —
+     * l'utilisateur perd un clic, pas la sélection entière.
+     */
+    public function batchDestroy(Request $request): JsonResponse
+    {
+        $ids = $request->input('ids', []);
+
+        if (empty($ids)) {
+            return ApiResponse::error('Aucune compétence à supprimer.');
+        }
+
+        $competences = Competence::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->get();
+
+        $ignorees = [];
+        $supprimees = 0;
+
+        foreach ($competences as $competence) {
+            if ($this->notesCount($competence) > 0) {
+                $ignorees[] = $competence->label_fr;
+
+                continue;
+            }
+
+            $competence->delete();
+            $supprimees++;
+        }
+
+        $message = "{$supprimees} compétence(s) supprimée(s).";
+        if ($ignorees !== []) {
+            $message .= ' '.count($ignorees)." déjà notée(s), ignorée(s) : ".implode(', ', $ignorees).'.';
+        }
+
+        return ApiResponse::success(['supprimees' => $supprimees, 'ignorees' => $ignorees], $message);
+    }
+
+    private function notesCount(Competence $competence): int
+    {
+        return ClasseCompetence::where('competence_id', $competence->id)
+            ->withCount('notes')->get()->sum('notes_count');
     }
 
     /** Compétences attribuées à une classe, avec leur enseignant et leurs matières. */

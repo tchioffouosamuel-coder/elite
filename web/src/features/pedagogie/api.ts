@@ -252,6 +252,16 @@ export async function supprimerCompetence(id: number): Promise<void> {
   await http.delete(`/competences/${id}`);
 }
 
+/** Compétence déjà notée ignorée plutôt que de bloquer tout le lot. */
+export async function batchDeleteCompetences(
+  ids: number[],
+): Promise<{ supprimees: number; ignorees: string[] }> {
+  const { data } = await http.post<
+    ApiResponse<{ supprimees: number; ignorees: string[] }>
+  >("/competences/batch-delete", { ids });
+  return data.data;
+}
+
 /** Compétences attribuées à une classe. */
 export async function fetchCompetencesClasse(classeId: number): Promise<ClasseCompetence[]> {
   const { data } = await http.get<ApiResponse<ClasseCompetence[]>>(`/classes/${classeId}/competences`);

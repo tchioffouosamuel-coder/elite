@@ -139,7 +139,8 @@ class MatiereController extends Controller
             Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         }
 
-        $import = new MatiereImport($schoolId, $request->string('cycle')->toString(), $classeId);
+        $cycle = $request->string('cycle')->toString();
+        $import = new MatiereImport($schoolId, $cycle, $classeId);
         Excel::import($import, $request->file('file'));
 
         return ApiResponse::success([
@@ -153,7 +154,7 @@ class MatiereController extends Controller
             // manque en comparant deux listes.
             'classes_introuvables' => $import->classesIntrouvables,
             'enseignants_introuvables' => $import->enseignantsIntrouvables,
-        ], $this->messageImport($import));
+        ], $this->messageImport($import, $cycle));
     }
 
     /**
@@ -170,9 +171,18 @@ class MatiereController extends Controller
         return Excel::download(new MatiereExport(Tenant::schoolIds(), $classeId), 'matieres.xlsx');
     }
 
-    private function messageImport(MatiereImport $import): string
+    /**
+     * Au primaire et en maternelle, ce qui porte le barème est la compétence,
+     * pas la matière (cf. MatiereImport) — la nommer ainsi dans le message
+     * évite de la chercher en vain dans la liste des matières. Sa matière de
+     * contenu du même nom est installée dans le même geste, elle.
+     */
+    private function messageImport(MatiereImport $import, string $cycle): string
     {
-        $parties = ["{$import->importedCount} matière(s) importée(s)"];
+        $creeDesCompetences = in_array($cycle, [MatiereImport::CYCLE_PRIMAIRE, MatiereImport::CYCLE_MATERNELLE], true);
+        $unite = $creeDesCompetences ? 'compétence(s)' : 'matière(s)';
+
+        $parties = ["{$import->importedCount} {$unite} importée(s)"];
 
         if ($import->updatedCount > 0) {
             $parties[] = "{$import->updatedCount} mise(s) à jour";

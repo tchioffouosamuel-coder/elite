@@ -540,7 +540,8 @@
     "cycle_primaire": "Primaire — barème par volet",
     "cycle_maternelle": "Maternelle — barème par volet",
     "import_ecole_visee": "École visée :",
-    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer."
+    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer.",
+    "import_cree_competence_et_matiere": "Chaque ligne crée à la fois la compétence notée (barème par volet) et une matière de contenu du même nom — visibles dans « Compétences évaluées » comme dans cette liste."
   },
   "pedagogie": {
     "title": "Matières & affectations",

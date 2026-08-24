@@ -8,6 +8,7 @@ import {
   creerCompetence,
   modifierCompetence,
   supprimerCompetence,
+  batchDeleteCompetences,
   type Competence,
   type CompetencePayload,
 } from '@/features/pedagogie/api'
@@ -42,6 +43,7 @@ export function CompetencesPage() {
   const queryClient = useQueryClient()
   const [formOuvert, setFormOuvert] = useState(false)
   const [enEdition, setEnEdition] = useState<Competence | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data: competences, isLoading } = useQuery({ queryKey: ['competences'], queryFn: fetchCompetences })
 
@@ -50,7 +52,68 @@ export function CompetencesPage() {
     queryClient.invalidateQueries({ queryKey: ['matieres'] })
   }
 
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((actuels) => {
+      const suivants = new Set(actuels)
+      if (suivants.has(id)) suivants.delete(id)
+      else suivants.add(id)
+      return suivants
+    })
+  }
+
+  const handleSelectAll = (lignes: Competence[]) => {
+    if (selectedIds.size === lignes.length && lignes.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(lignes.map((c) => c.id)))
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const ok = await confirmerSuppression(`${ids.length} compétence(s)`)
+    if (!ok) return
+
+    try {
+      const { supprimees, ignorees } = await batchDeleteCompetences(ids)
+      setSelectedIds(new Set())
+      invalider()
+      succes(
+        ignorees.length > 0
+          ? `${supprimees} compétence(s) supprimée(s). ${ignorees.length} déjà notée(s) ignorée(s) : ${ignorees.join(', ')}.`
+          : `${supprimees} compétence(s) supprimée(s).`,
+      )
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
   const colonnes: Colonne<Competence>[] = [
+    ...(can('pedagogie.manage')
+      ? [
+        {
+          cle: 'selection',
+          entete: competences ? (
+            <input
+              type="checkbox"
+              checked={selectedIds.size === competences.length && competences.length > 0}
+              onChange={() => handleSelectAll(competences)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ) : null,
+          cellule: (c: Competence) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(c.id)}
+              onChange={() => handleToggleSelect(c.id)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+        } satisfies Colonne<Competence>,
+      ]
+      : []),
     {
       cle: 'label',
       entete: t('competences.libelle'),
@@ -161,15 +224,23 @@ export function CompetencesPage() {
         icon={Target}
         actions={
           can('pedagogie.manage') && (
-            <Button
-              onClick={() => {
-                setEnEdition(null)
-                setFormOuvert(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('competences.ajouter')}
-            </Button>
+            <>
+              {selectedIds.size > 0 && (
+                <Button variant="danger" onClick={handleBatchDelete}>
+                  <Trash2 className="h-4 w-4" />
+                  {t('common.delete')} ({selectedIds.size})
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  setEnEdition(null)
+                  setFormOuvert(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('competences.ajouter')}
+              </Button>
+            </>
           )
         }
       />

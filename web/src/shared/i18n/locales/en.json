@@ -540,7 +540,8 @@
     "cycle_primaire": "Primary — marks split by component",
     "cycle_maternelle": "Nursery — marks split by component",
     "import_ecole_visee": "Target school:",
-    "import_choisir_ecole": "Pick a school in the list filter before importing."
+    "import_choisir_ecole": "Pick a school in the list filter before importing.",
+    "import_cree_competence_et_matiere": "Each row creates both the graded competency (marks split by component) and a matching content subject — visible under \"Evaluated competencies\" as well as in this list."
   },
   "pedagogie": {
     "title": "Subjects & assignments",

@@ -59,7 +59,10 @@ export function MatieresPage() {
     return correspondantes.length === 1 ? correspondantes[0] : null
   }
 
+  const [cycleChoisi, setCycleChoisi] = useState<string>('secondaire')
+
   const cibleCycle = (valeur: string) => {
+    setCycleChoisi(valeur)
     if (valeur !== 'secondaire' && valeur !== 'primaire' && valeur !== 'maternelle') return
     const ecole = ecoleParType(valeur)
     if (ecole) setSchoolFilter(ecole.id)
@@ -352,16 +355,21 @@ export function MatieresPage() {
           }}
           onChoixChange={cibleCycle}
           note={
-            schoolFilter ? (
-              <p className="text-xs text-navy-500">
-                {t('matieres.import_ecole_visee')}{' '}
-                <span className="font-semibold text-navy-700">
-                  {schools.find((school) => school.id === schoolFilter)?.name}
-                </span>
-              </p>
-            ) : (
-              <p className="text-xs text-gold-600">{t('matieres.import_choisir_ecole')}</p>
-            )
+            <div className="flex flex-col gap-1.5">
+              {schoolFilter ? (
+                <p className="text-xs text-navy-500">
+                  {t('matieres.import_ecole_visee')}{' '}
+                  <span className="font-semibold text-navy-700">
+                    {schools.find((school) => school.id === schoolFilter)?.name}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-gold-600">{t('matieres.import_choisir_ecole')}</p>
+              )}
+              {(cycleChoisi === 'primaire' || cycleChoisi === 'maternelle') && (
+                <p className="text-xs text-navy-500">{t('matieres.import_cree_competence_et_matiere')}</p>
+              )}
+            </div>
           }
           onClose={() => setShowImport(false)}
           onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}
