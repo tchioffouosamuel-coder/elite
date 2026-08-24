@@ -1506,7 +1506,8 @@
     "attribuees": "{{competences}} compétence(s) attribuée(s), {{matieres}} matière(s) installée(s).",
     "retirer": "Retirer la compétence",
     "retiree": "Compétence retirée de la classe.",
-    "enseignant": "Enseignant du bloc"
+    "enseignant": "Enseignant du bloc",
+    "par_appreciation": "Par appréciation"
   },
   "appreciations": {
     "title": "Codes d'appréciation",

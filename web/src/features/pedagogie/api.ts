@@ -12,8 +12,8 @@ export interface Competence {
   label_fr: string;
   label_en: string | null;
   abbreviation: string | null;
-  /** Barème propre : la moyenne générale ramène le total obtenu sur 20. */
-  notation: number;
+  /** Barème propre : la moyenne générale ramène le total obtenu sur 20. Absent en maternelle, qui évalue par appréciation. */
+  notation: number | null;
   evalue_pratique: boolean;
   /** Volets évalués, dans l'ordre d'affichage du bulletin. */
   volets: string[];
@@ -32,9 +32,10 @@ export interface CompetencePayload {
   label_fr: string;
   label_en?: string | null;
   abbreviation?: string | null;
-  notation: number;
+  /** Requis sauf en maternelle, qui évalue par appréciation et n'a ni barème ni volets à répartir. */
+  notation?: number | null;
   evalue_pratique?: boolean;
-  /** La somme doit égaler `notation` — l'API refuse l'écart. */
+  /** La somme doit égaler `notation` — l'API refuse l'écart. Sans objet en maternelle. */
   repartition_volets?: Record<string, number> | null;
   ordre?: number | null;
   statut?: string;

@@ -19,7 +19,6 @@ export interface School {
   id: number;
   name: string;
   code: string;
-  /** Absent des réponses de `/schools` (choix d'une école), présent sur les données déjà scopées (ex. `classe.school`). */
   type?: "maternelle" | "primaire" | "secondaire";
 }
 

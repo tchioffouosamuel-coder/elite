@@ -65,8 +65,13 @@ export function CompetencesPage() {
     {
       cle: 'notation',
       entete: t('matieres.notation'),
-      valeur: (c) => c.notation,
-      cellule: (c) => <span className="font-semibold tabular-nums">/ {c.notation}</span>,
+      valeur: (c) => c.notation ?? -1,
+      cellule: (c) =>
+        c.notation != null ? (
+          <span className="font-semibold tabular-nums">/ {c.notation}</span>
+        ) : (
+          <span className="text-xs text-navy-400">{t('competences.par_appreciation')}</span>
+        ),
     },
     {
       cle: 'volets',
@@ -74,9 +79,11 @@ export function CompetencesPage() {
       valeur: (c) => c.volets.length,
       cellule: (c) => (
         <span className="text-xs text-navy-600">
-          {c.volets
-            .map((volet) => `${LIBELLES_COMPOSANTES[volet as Composante] ?? volet} /${c.repartition_volets[volet] ?? 0}`)
-            .join(' · ')}
+          {c.notation != null
+            ? c.volets
+              .map((volet) => `${LIBELLES_COMPOSANTES[volet as Composante] ?? volet} /${c.repartition_volets[volet] ?? 0}`)
+              .join(' · ')
+            : c.volets.map((volet) => LIBELLES_COMPOSANTES[volet as Composante] ?? volet).join(' · ')}
         </span>
       ),
       masquerMobile: true,
@@ -223,13 +230,25 @@ function CompetenceFormModal({
       : { notation: 20, evalue_pratique: false, ordre: 0 },
   })
 
+  // La maternelle évalue par appréciation (un visage coché), pas par barème :
+  // ni la notation, ni la répartition des volets en points ne s'y appliquent
+  // (cf. StoreCompetenceRequest::parAppreciation côté API). Quand le
+  // sélecteur d'école est masqué (un seul établissement accessible), on
+  // retombe sur celui-là.
+  const schoolIdSaisi = watch('school_id')
+  const ecoleSelectionnee =
+    competence?.school ??
+    schools?.find((ecole) => ecole.id === Number(schoolIdSaisi)) ??
+    (schools?.length === 1 ? schools[0] : undefined)
+  const estMaternelle = ecoleSelectionnee?.type === 'maternelle'
+
   const notationSaisie = Number(watch('notation')) || 0
   const evaluePratique = !!watch('evalue_pratique')
   const volets = voletsActifs(evaluePratique)
   const repartitionSaisie = watch('repartition_volets')
   const somme = volets.reduce((total, volet) => total + (Number(repartitionSaisie?.[volet]) || 0), 0)
   // L'API refuse tout écart : autant le dire avant l'aller-retour.
-  const repartitionValide = notationSaisie > 0 && Math.abs(somme - notationSaisie) < 0.01
+  const repartitionValide = estMaternelle || (notationSaisie > 0 && Math.abs(somme - notationSaisie) < 0.01)
 
   const onSubmit = async (values: CompetencePayload) => {
     if (!repartitionValide) return
@@ -238,12 +257,16 @@ function CompetenceFormModal({
     try {
       const payload: CompetencePayload = {
         ...values,
-        notation: Number(values.notation),
         ordre: values.ordre ? Number(values.ordre) : 0,
         school_id: values.school_id ? Number(values.school_id) : null,
-        repartition_volets: Object.fromEntries(
-          volets.map((volet) => [volet, Number(values.repartition_volets?.[volet]) || 0]),
-        ),
+        ...(estMaternelle
+          ? { notation: null, repartition_volets: null }
+          : {
+            notation: Number(values.notation),
+            repartition_volets: Object.fromEntries(
+              volets.map((volet) => [volet, Number(values.repartition_volets?.[volet]) || 0]),
+            ),
+          }),
       }
 
       if (competence) {
@@ -285,39 +308,48 @@ function CompetenceFormModal({
           <Input type="number" min={0} max={999} label={t('competences.ordre')} {...register('ordre')} />
         </div>
 
-        <Input
-          type="number"
-          min={10}
-          max={100}
-          label={t('matieres.notation')}
-          {...register('notation', { required: true })}
-        />
+        {!estMaternelle && (
+          <Input
+            type="number"
+            min={10}
+            max={100}
+            label={t('matieres.notation')}
+            {...register('notation', { required: true })}
+          />
+        )}
 
         <label className="flex items-center gap-2 text-sm text-navy-700">
           <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
           {t('matieres.evalue_pratique')}
         </label>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-navy-100 bg-cream-50/60 p-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
-            {t('matieres.repartition_volets')}
-          </span>
-          <div className="grid grid-cols-2 gap-3">
-            {volets.map((volet) => (
-              <Input
-                key={volet}
-                type="number"
-                min={0}
-                step={0.5}
-                label={LIBELLES_COMPOSANTES[volet]}
-                {...register(`repartition_volets.${volet}`, { required: true, min: 0 })}
-              />
-            ))}
+        {/*
+          La maternelle évalue par appréciation (un visage coché par volet),
+          pas par barème réparti en points : ni la notation ni cette
+          répartition ne s'y appliquent (cf. StoreCompetenceRequest côté API).
+        */}
+        {!estMaternelle && (
+          <div className="flex flex-col gap-2 rounded-xl border border-navy-100 bg-cream-50/60 p-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+              {t('matieres.repartition_volets')}
+            </span>
+            <div className="grid grid-cols-2 gap-3">
+              {volets.map((volet) => (
+                <Input
+                  key={volet}
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  label={LIBELLES_COMPOSANTES[volet]}
+                  {...register(`repartition_volets.${volet}`, { required: true, min: 0 })}
+                />
+              ))}
+            </div>
+            <span className={`text-xs font-medium ${repartitionValide ? 'text-green-600' : 'text-red-500'}`}>
+              {t('matieres.repartition_somme', { somme, notation: notationSaisie })}
+            </span>
           </div>
-          <span className={`text-xs font-medium ${repartitionValide ? 'text-green-600' : 'text-red-500'}`}>
-            {t('matieres.repartition_somme', { somme, notation: notationSaisie })}
-          </span>
-        </div>
+        )}
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

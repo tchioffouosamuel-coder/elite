@@ -1506,7 +1506,8 @@
     "attribuees": "{{competences}} competency(ies) assigned, {{matieres}} subject(s) installed.",
     "retirer": "Remove the competency",
     "retiree": "Competency removed from the class.",
-    "enseignant": "Teacher for the block"
+    "enseignant": "Teacher for the block",
+    "par_appreciation": "By appreciation"
   },
   "appreciations": {
     "title": "Assessment codes",
