@@ -282,6 +282,10 @@ export function ComptesParentsPage() {
           placeholderRecherche="Rechercher un tuteur, un numéro…"
           messageVide="Aucun tuteur pour cet établissement."
           largeurMin={760}
+          // La pagination se fait déjà côté serveur (Précédent/Suivant plus
+          // bas, sur data.pagination) : sans ça, DataTable redécoupait la
+          // page de 50 en pages de 15 par-dessus, doublant l'affichage.
+          parPage={0}
           outils={
             <div className="flex flex-wrap items-center gap-3">
               {selectedIds.size > 0 && (
