@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\BulkSaveNotesPrimaireRequest;
 use App\Models\ClasseCompetence;
 use App\Models\Trimestre;
 use App\Services\NotePrimaireService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,11 +27,11 @@ class NotePrimaireController extends Controller
 
     public function index(Request $request, int $classeCompetenceId): JsonResponse
     {
-        $classeCompetence = ClasseCompetence::forSchool(app('tenant.school_id'))
+        $classeCompetence = ClasseCompetence::forSchool(Tenant::schoolIds())
             ->with(['classe.school', 'competence'])
             ->findOrFail($classeCompetenceId);
 
-        $trimestre = $this->resoudreTrimestre($request);
+        $trimestre = $this->resoudreTrimestre($request, $classeCompetence->classe->school_id);
 
         if (! $trimestre) {
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
@@ -41,7 +42,7 @@ class NotePrimaireController extends Controller
 
     public function bulkStore(BulkSaveNotesPrimaireRequest $request, int $classeCompetenceId): JsonResponse
     {
-        $classeCompetence = ClasseCompetence::forSchool(app('tenant.school_id'))
+        $classeCompetence = ClasseCompetence::forSchool(Tenant::schoolIds())
             ->with(['classe.school', 'competence'])
             ->findOrFail($classeCompetenceId);
 
@@ -72,10 +73,14 @@ class NotePrimaireController extends Controller
         return ApiResponse::success(['saved' => $count], "{$count} note(s) enregistrée(s).");
     }
 
-    private function resoudreTrimestre(Request $request): ?Trimestre
+    /**
+     * L'école du trimestre est celle de la classe consultée, pas le repli
+     * générique du périmètre : en mode agrégé (super admin sans école
+     * choisie), `Tenant::schoolId()` vaudrait l'école "par défaut" du compte,
+     * pas forcément celle de cette classe-compétence.
+     */
+    private function resoudreTrimestre(Request $request, int $schoolId): ?Trimestre
     {
-        $schoolId = app('tenant.school_id');
-
         $query = Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $schoolId));
 
         return $request->integer('trimestre_id')

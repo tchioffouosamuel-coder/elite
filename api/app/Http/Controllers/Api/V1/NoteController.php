@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\BulkSaveNotesRequest;
 use App\Models\ClasseMatiere;
 use App\Models\Sequence;
 use App\Services\NoteService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +18,7 @@ class NoteController extends Controller
 
     public function index(Request $request, int $classeMatiereId): JsonResponse
     {
-        $classeMatiere = ClasseMatiere::forSchool(app('tenant.school_id'))->with('classe')->findOrFail($classeMatiereId);
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeMatiereId);
         $sequenceId = $request->integer('sequence_id');
 
         if (! $sequenceId) {
@@ -29,7 +30,7 @@ class NoteController extends Controller
 
     public function bulkStore(BulkSaveNotesRequest $request, int $classeMatiereId): JsonResponse
     {
-        $classeMatiere = ClasseMatiere::forSchool(app('tenant.school_id'))->with('classe')->findOrFail($classeMatiereId);
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeMatiereId);
 
         if (! $this->service->peutSaisir($request->user(), $classeMatiere)) {
             return ApiResponse::forbidden("Vous n'êtes pas l'enseignant assigné à cette matière pour cette classe.");
@@ -47,8 +48,10 @@ class NoteController extends Controller
 
     public function import(Request $request, int $classeMatiereId): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
-        $classeMatiere = ClasseMatiere::forSchool($schoolId)->with('classe')->findOrFail($classeMatiereId);
+        // Le stockage de l'import (NoteImport) exige une école unique ; la
+        // consultation, elle, doit voir tout le périmètre agrégé du compte
+        // — c'est ce qui distingue `Tenant::schoolId()` de `schoolIds()` ici.
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeMatiereId);
 
         if (! $this->service->peutSaisir($request->user(), $classeMatiere)) {
             return ApiResponse::forbidden("Vous n'êtes pas l'enseignant assigné à cette matière pour cette classe.");
@@ -58,10 +61,10 @@ class NoteController extends Controller
 
         $sequence = Sequence::whereHas(
             'trimestre.anneeScolaire',
-            fn ($q) => $q->where('school_id', $schoolId)
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->findOrFail($request->integer('sequence_id'));
 
-        $result = $this->service->importFromExcel($schoolId, $classeMatiere, $sequence->id, $request->user(), $request->file('file'));
+        $result = $this->service->importFromExcel($classeMatiere->classe->school_id, $classeMatiere, $sequence->id, $request->user(), $request->file('file'));
 
         return ApiResponse::success($result, "{$result['imported']} note(s) importée(s).");
     }
