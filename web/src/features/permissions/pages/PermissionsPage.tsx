@@ -11,6 +11,7 @@ import { succes, erreur, confirmer } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchMatricePermissions, updatePermissionsFonction } from '@/features/permissions/api'
 import { fetchMe } from '@/features/auth/api'
+import { SchoolSwitcher } from '@/app/SchoolSwitcher'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -120,10 +121,16 @@ export function PermissionsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         titre="Privilèges et permissions"
-        sousTitre="Chaque fonction porte un groupe de privilèges dont héritent tous les agents qui l'exercent."
+        sousTitre="Chaque fonction porte un groupe de privilèges dont héritent tous les agents qui l'exercent — propres à l'établissement affiché ci-contre."
         icon={ShieldCheck}
         actions={
           <>
+            {/* Le référentiel de fonctions est propre à chaque établissement : une
+                même fonction (« Vendeur »…) existe une fois par école, avec ses
+                propres privilèges. Sans ce sélecteur explicite, un super admin en
+                mode agrégé retombait silencieusement sur une école par défaut et
+                pouvait éditer la mauvaise fiche sans s'en apercevoir. */}
+            <SchoolSwitcher />
             <Button
               variant="secondary"
               disabled={!modifie || mutation.isPending}
