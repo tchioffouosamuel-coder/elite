@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { BookOpen, Building2, Compass, ShieldAlert, UserCog, Users } from 'lucide-react'
+import { BookOpen, Building2, Compass, Layers, ShieldAlert, UserCog, Users } from 'lucide-react'
 import { fetchMesAttributions, type AttributionDetaillee } from '@/features/classes/api'
 import type { CodeAttribution } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
@@ -26,6 +26,7 @@ const ICONES: Record<CodeAttribution, typeof UserCog> = {
   censeur: BookOpen,
   conseiller_orientation: Compass,
   chef_departement: Building2,
+  animateur_niveau: Layers,
 }
 
 function CarteAttribution({ attribution }: { attribution: AttributionDetaillee }) {

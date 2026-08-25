@@ -127,6 +127,15 @@ const navGroups = [
         types: ['secondaire'] as TypeEcole[],
       },
       {
+        to: '/enseignant/ma-classe-prof-principal',
+        label: 'nav.maClasseProfPrincipal',
+        icon: School,
+        // Aucun privilège de base : seule l'attribution « professeur
+        // principal » ouvre cet écran, borné à sa classe.
+        professeurPrincipal: true,
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
         to: '/niveaux',
         label: 'nav.niveaux',
         icon: Layers,
@@ -199,8 +208,29 @@ const navGroups = [
         icon: BookOpen,
         permission: 'notes.view',
         // Table des matières affectées au compte connecté, avec saisie des
-        // notes dédiée — pas la liste d'établissement de « Matières ».
+        // notes dédiée — pas la liste d'établissement de « Matières ». Le
+        // primaire/maternelle a son pendant ci-dessous, sur la compétence.
         estEnseignant: true,
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
+        to: '/enseignant/mes-competences',
+        label: 'nav.mesCompetences',
+        icon: BookOpen,
+        permission: 'notes.view',
+        // Pendant primaire/maternelle de « Mes matières » ci-dessus : la
+        // compétence y remplace la matière comme unité notée.
+        estEnseignant: true,
+        types: ['primaire', 'maternelle'] as TypeEcole[],
+      },
+      {
+        to: '/enseignant/mon-niveau',
+        label: 'nav.monNiveau',
+        icon: Layers,
+        // Aucun privilège de base : seule l'attribution « animateur de
+        // niveau » ouvre cet écran, borné au sien.
+        animateurNiveau: true,
+        types: ['primaire', 'maternelle'] as TypeEcole[],
       },
       {
         to: '/ma-journee',
@@ -404,6 +434,14 @@ export function AppLayout() {
   // département (cf. EnseignantController::monDepartement()).
   const estChefDepartement = aAttribution('chef_departement')
 
+  // Professeur principal d'au moins une classe : ouvre « Ma classe », sur sa
+  // seule classe (cf. EnseignantController::maClasseProfPrincipal()).
+  const estProfesseurPrincipal = aAttribution('professeur_principal')
+
+  // Anime au moins un niveau scolaire (primaire/maternelle) : ouvre « Mon
+  // niveau », le pendant de « Mon département » pour ces cycles.
+  const estAnimateurNiveau = aAttribution('animateur_niveau')
+
   const groupesVisibles = useMemo(
     () =>
       navGroups
@@ -419,6 +457,8 @@ export function AppLayout() {
               (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
               (!('estPersonnel' in item) || !item.estPersonnel || estPersonnel) &&
               (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
+              (!('professeurPrincipal' in item) || !item.professeurPrincipal || estProfesseurPrincipal) &&
+              (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse),
           )
           const items = requeteMenu
@@ -434,7 +474,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel, estChefDepartement],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
   )
 
   /**

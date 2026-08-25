@@ -22,6 +22,8 @@ export function ProtectedRoute({
   parentOnly = false,
   personnelOnly = false,
   chefDepartementOnly = false,
+  professeurPrincipalOnly = false,
+  animateurNiveauOnly = false,
 }: {
   children: ReactNode
   permission?: string
@@ -53,6 +55,18 @@ export function ProtectedRoute({
    * y répond de toute façon 403 (cf. EnseignantController::monDepartement()).
    */
   chefDepartementOnly?: boolean
+  /**
+   * Réservé aux comptes professeur principal d'au moins une classe — masquer
+   * le lien du menu n'empêcherait pas d'y entrer par une URL directe, et
+   * l'API y répond de toute façon 403 (cf. EnseignantController::maClasseProfPrincipal()).
+   */
+  professeurPrincipalOnly?: boolean
+  /**
+   * Réservé aux comptes qui animent au moins un niveau scolaire
+   * (primaire/maternelle) — pendant de `chefDepartementOnly` pour ces
+   * cycles (cf. EnseignantController::monNiveau()).
+   */
+  animateurNiveauOnly?: boolean
 }) {
   const { token, user, can, aAttribution, activeSchool, refreshUser } = useAuthStore()
   const dejaRafraichi = useRef(false)
@@ -92,6 +106,8 @@ export function ProtectedRoute({
   if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
   if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
   if (chefDepartementOnly && !aAttribution('chef_departement')) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (professeurPrincipalOnly && !aAttribution('professeur_principal')) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (animateurNiveauOnly && !aAttribution('animateur_niveau')) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
 
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')

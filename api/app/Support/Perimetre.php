@@ -6,6 +6,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Departement;
 use App\Models\Matiere;
+use App\Models\NiveauScolaire;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -48,6 +49,9 @@ class Perimetre
 
     /** @var list<int>|null */
     private ?array $departements = null;
+
+    /** @var list<int>|null */
+    private ?array $niveauxScolaires = null;
 
     public function __construct(private readonly User $user) {}
 
@@ -107,6 +111,10 @@ class Perimetre
             $attributions[Attributions::CHEF_DEPARTEMENT] = $this->classesDuDepartement();
         }
 
+        if ($this->niveauxScolairesDiriges() !== []) {
+            $attributions[Attributions::ANIMATEUR_NIVEAU] = $this->classesDuNiveauScolaire();
+        }
+
         return $this->attributions = $attributions;
     }
 
@@ -122,6 +130,40 @@ class Perimetre
         return $this->departements = $personnelId === null
             ? []
             : Departement::where('head_personnel_id', $personnelId)->pluck('id')->all();
+    }
+
+    /**
+     * Niveaux scolaires (primaire/maternelle) que l'agent anime — pendant de
+     * {@see departementsDiriges()} pour un établissement qui n'a pas de
+     * département mais des niveaux (SIL, CP, CE1… ou sections de maternelle).
+     *
+     * @return list<int>
+     */
+    public function niveauxScolairesDiriges(): array
+    {
+        if ($this->niveauxScolaires !== null) {
+            return $this->niveauxScolaires;
+        }
+
+        $personnelId = $this->personnelId();
+
+        return $this->niveauxScolaires = $personnelId === null
+            ? []
+            : NiveauScolaire::where('animateur_personnel_id', $personnelId)->pluck('id')->all();
+    }
+
+    /**
+     * Classes de son ou ses niveaux animés — contrairement au département,
+     * pas de passage par les matières : `Classe.niveau_scolaire_id` porte
+     * déjà le rattachement direct.
+     *
+     * @return list<int>
+     */
+    public function classesDuNiveauScolaire(): array
+    {
+        $niveaux = $this->niveauxScolairesDiriges();
+
+        return $niveaux === [] ? [] : Classe::whereIn('niveau_scolaire_id', $niveaux)->pluck('id')->all();
     }
 
     /**
@@ -382,6 +424,17 @@ class Perimetre
             && in_array($permission, Attributions::permissions(Attributions::CHEF_DEPARTEMENT), true);
     }
 
+    /** Pendant de {@see peutSurDepartement()} pour les routes qui nomment un niveau scolaire. */
+    public function peutSurNiveauScolaire(string $permission, int $niveauScolaireId): bool
+    {
+        if ($this->user->estSuperAdmin() || $this->user->permissionsDeBase()->contains($permission)) {
+            return true;
+        }
+
+        return in_array($niveauScolaireId, $this->niveauxScolairesDiriges(), true)
+            && in_array($permission, Attributions::permissions(Attributions::ANIMATEUR_NIVEAU), true);
+    }
+
     /**
      * Résumé destiné aux clients : ce que l'agent s'est vu confier, pour qu'ils
      * composent sa navigation sans recharger chaque liste. Le chef de
@@ -399,6 +452,7 @@ class Perimetre
                 'portee' => Attributions::portee($code),
                 'classes' => $classes,
                 'departements' => $code === Attributions::CHEF_DEPARTEMENT ? $this->departementsDiriges() : [],
+                'niveaux_scolaires' => $code === Attributions::ANIMATEUR_NIVEAU ? $this->niveauxScolairesDiriges() : [],
             ])
             ->values()
             ->all();

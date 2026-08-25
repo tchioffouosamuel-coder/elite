@@ -42,6 +42,8 @@ class Attributions
 
     public const CHEF_DEPARTEMENT = 'chef_departement';
 
+    public const ANIMATEUR_NIVEAU = 'animateur_niveau';
+
     /**
      * code => [
      *   colonne     : colonne porteuse (sur `classes`, ou `departements` pour
@@ -160,6 +162,28 @@ class Attributions
             'colonne' => 'head_personnel_id',
             'portee' => 'departement',
             'libelles' => ['Chef de département', 'Head of department'],
+            'roles' => ['enseignant'],
+            'permissions' => [
+                'personnel.view',
+                'classes.view',
+                'pedagogie.view',
+                'pedagogie.manage',
+                'notes.view',
+                'bulletins.view',
+                'annonces.view',
+                'dashboard.view',
+            ],
+        ],
+        /*
+         * Animateur de niveau : l'équivalent primaire/maternelle du chef de
+         * département — pas de matières là où les classes tiennent des
+         * compétences, mais le même suivi pédagogique sur son niveau
+         * (SIL, CP, CE1… ou Petite/Moyenne/Grande section).
+         */
+        self::ANIMATEUR_NIVEAU => [
+            'colonne' => 'animateur_personnel_id',
+            'portee' => 'niveau',
+            'libelles' => ['Animateur de niveau', 'Level animator'],
             'roles' => ['enseignant'],
             'permissions' => [
                 'personnel.view',

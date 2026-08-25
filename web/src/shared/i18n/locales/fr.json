@@ -104,6 +104,9 @@
     "mesInformations": "Mes informations",
     "mesMatieres": "Mes matières",
     "monDepartement": "Mon département",
+    "maClasseProfPrincipal": "Ma classe",
+    "mesCompetences": "Mes compétences",
+    "monNiveau": "Mon niveau",
     "mesAttributions": "Mes attributions",
     "preinscriptions": "Préinscriptions",
     "modificationsEleves": "Modifications de fiches",
@@ -153,7 +156,10 @@
     "recent_activity": "Activité récente",
     "girls_rate": "Taux de filles",
     "avg_students_per_class": "Élèves par classe (moyenne)",
-    "classSubjects": "Matières affectées"
+    "classSubjects": "Matières affectées",
+    "competenciesCount": "Compétences tenues",
+    "fillRate": "Remplissage",
+    "progressRate": "Progression"
   },
   "personnel": {
     "title": "Personnel",

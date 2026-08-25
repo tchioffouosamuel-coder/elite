@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
@@ -17,6 +18,7 @@ class DashboardService extends BaseService
 {
     public function __construct(
         private readonly NoteService $notes,
+        private readonly NotePrimaireService $notesPrimaire,
         private readonly ProgressionService $progression,
     ) {}
 
@@ -186,9 +188,29 @@ class DashboardService extends BaseService
             fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', (array) $schoolId))
         )->first();
 
-        $tauxRemplissageNotes = $sequenceActive === null
-            ? null
-            : (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->notes->tauxRemplissage($cm, $sequenceActive->id)));
+        if ($sequenceActive === null) {
+            return [null, $tauxProgression];
+        }
+
+        // Le primaire et la maternelle notent la compétence, pas la matière
+        // que `ClasseMatiere` installe sous elle : le remplissage s'y lit sur
+        // `ClasseCompetence`, où vivent réellement les notes de ce cycle.
+        $primaireOuMaternelle = ! (Classe::find($classeIds[0])?->school?->estSecondaire() ?? true);
+
+        if ($primaireOuMaternelle) {
+            $mesCompetences = ClasseCompetence::whereIn('classe_id', $classeIds)
+                ->where('statut', 'actif')
+                ->where(fn ($q) => $q
+                    ->where('personnel_id', $personnelId)
+                    ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+                ->get();
+
+            $tauxRemplissageNotes = $mesCompetences->isEmpty()
+                ? null
+                : (int) round($mesCompetences->avg(fn (ClasseCompetence $cc) => $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive)));
+        } else {
+            $tauxRemplissageNotes = (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->notes->tauxRemplissage($cm, $sequenceActive->id)));
+        }
 
         return [$tauxRemplissageNotes, $tauxProgression];
     }

@@ -78,6 +78,10 @@ import { MesInformationsPage } from '@/features/enseignant/pages/MesInformations
 import { MesMatieresPage } from '@/features/enseignant/pages/MesMatieresPage'
 import { RemplirNotesPage } from '@/features/enseignant/pages/RemplirNotesPage'
 import { MonDepartementPage } from '@/features/enseignant/pages/MonDepartementPage'
+import { MaClasseProfPrincipalPage } from '@/features/enseignant/pages/MaClasseProfPrincipalPage'
+import { MesCompetencesPage } from '@/features/enseignant/pages/MesCompetencesPage'
+import { RemplirCompetencesPage } from '@/features/enseignant/pages/RemplirCompetencesPage'
+import { MonNiveauPage } from '@/features/enseignant/pages/MonNiveauPage'
 import { InventairePage } from '@/features/inventaire/pages/InventairePage'
 import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
@@ -211,6 +215,19 @@ export const router = createHashRouter([
       {
         path: 'enseignant/mon-departement',
         element: <ProtectedRoute enseignantOnly chefDepartementOnly><MonDepartementPage /></ProtectedRoute>,
+      },
+      {
+        path: 'enseignant/ma-classe-prof-principal',
+        element: <ProtectedRoute enseignantOnly professeurPrincipalOnly><MaClasseProfPrincipalPage /></ProtectedRoute>,
+      },
+      { path: 'enseignant/mes-competences', element: <ProtectedRoute enseignantOnly permission="notes.view"><MesCompetencesPage /></ProtectedRoute> },
+      {
+        path: 'enseignant/mes-competences/:classeCompetenceId/notes',
+        element: <ProtectedRoute enseignantOnly permission="notes.create"><RemplirCompetencesPage /></ProtectedRoute>,
+      },
+      {
+        path: 'enseignant/mon-niveau',
+        element: <ProtectedRoute enseignantOnly animateurNiveauOnly><MonNiveauPage /></ProtectedRoute>,
       },
       { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },

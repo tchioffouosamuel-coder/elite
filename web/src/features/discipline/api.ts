@@ -93,6 +93,10 @@ export async function fetchBilanDisciplinaire(classeId: number, trimestreId: num
   return data.data
 }
 
+export function ouvrirBilanDisciplinairePdf(classeId: number, trimestreId: number): Promise<void> {
+  return ouvrirDocument(`/classes/${classeId}/bilan-disciplinaire/pdf`, { trimestre_id: trimestreId })
+}
+
 export async function fetchSanctions(params: { classe_id?: number; eleve_id?: number }): Promise<Sanction[]> {
   const { data } = await http.get<ApiResponse<Sanction[]>>('/sanctions', { params })
   return data.data

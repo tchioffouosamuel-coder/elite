@@ -17,13 +17,15 @@ export type CodeAttribution =
   | 'censeur'
   | 'conseiller_orientation'
   | 'chef_departement'
+  | 'animateur_niveau'
 
 export interface Attribution {
   code: CodeAttribution
   libelle: string
-  portee: 'classe' | 'departement'
+  portee: 'classe' | 'departement' | 'niveau'
   classes: number[]
   departements: number[]
+  niveaux_scolaires: number[]
 }
 
 export interface AuthUser {

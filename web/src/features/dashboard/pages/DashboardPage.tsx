@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { UserRound, Users, GraduationCap, School, UserPlus, BriefcaseBusiness, BookOpen, LogIn } from 'lucide-react'
+import { UserRound, Users, GraduationCap, School, UserPlus, BriefcaseBusiness, BookOpen, LogIn, ListChecks, GitBranch } from 'lucide-react'
 import { fetchDashboardStats } from '@/features/dashboard/api'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
@@ -61,9 +61,14 @@ function ActiviteRecente({ activite }: { activite: { type: string; libelle: stri
 function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'classe' }> }) {
   const { t } = useTranslation()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const { classe, effectifs, repartition_genre, indicateurs, activite_recente, annee_scolaire_active } = data
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
   const partGarcons = Math.round((repartition_genre.garcons / totalGenre) * 100)
+  // Le décompte reste celui des matières installées sous les compétences au
+  // primaire/maternelle (cf. ClasseMatiereController) : le nombre est juste,
+  // seul le mot doit parler le langage de l'enseignant qui le lit.
+  const libelleMatieres = typeEcole === 'secondaire' ? t('dashboard.classSubjects') : t('dashboard.competenciesCount')
 
   return (
     <div className="flex flex-col gap-6">
@@ -73,27 +78,51 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label={t('dashboard.students')} value={effectifs.eleves} icon={UserRound} accent="navy" />
-        <StatCard label={t('dashboard.classSubjects')} value={effectifs.matieres} icon={BookOpen} accent="gold" />
-        <StatCard label={t('dashboard.girls')} value={repartition_genre.filles} icon={Users} accent="green" />
-        <StatCard label={t('dashboard.boys')} value={repartition_genre.garcons} icon={GraduationCap} accent="navy" />
+        <StatCard label={t('dashboard.classes')} value={effectifs.classes} icon={School} accent="navy" />
+        <StatCard label={libelleMatieres} value={effectifs.matieres} icon={BookOpen} accent="gold" />
+        <StatCard
+          label={t('dashboard.fillRate')}
+          value={indicateurs.taux_remplissage_notes === null ? '—' : `${indicateurs.taux_remplissage_notes}%`}
+          icon={ListChecks}
+          accent="green"
+        />
+        <StatCard
+          label={t('dashboard.progressRate')}
+          value={indicateurs.taux_progression === null ? '—' : `${indicateurs.taux_progression}%`}
+          icon={GitBranch}
+          accent="navy"
+        />
       </div>
 
-      <Card className="max-w-md">
-        <h2 className="mb-5 font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.gender_distribution')}</h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card>
+          <h2 className="mb-5 font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.gender_distribution')}</h2>
 
-        <div className="flex h-2.5 overflow-hidden rounded-full bg-cream-100">
-          <div className="h-full bg-navy-600" style={{ width: `${partGarcons}%` }} />
-          <div className="h-full bg-gold-500" style={{ width: `${100 - partGarcons}%` }} />
-        </div>
-
-        <dl className="mt-5 flex flex-col gap-2 border-t border-navy-50 pt-4 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-navy-400">{t('dashboard.girls_rate')}</dt>
-            <dd className="font-semibold tabular-nums text-navy-700">{indicateurs.taux_filles}%</dd>
+          <div className="flex h-2.5 overflow-hidden rounded-full bg-cream-100">
+            <div className="h-full bg-navy-600" style={{ width: `${partGarcons}%` }} />
+            <div className="h-full bg-gold-500" style={{ width: `${100 - partGarcons}%` }} />
           </div>
-        </dl>
-      </Card>
+
+          <dl className="mt-5 flex flex-col gap-2 border-t border-navy-50 pt-4 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-navy-400">{t('dashboard.students')}</dt>
+              <dd className="font-semibold tabular-nums text-navy-700">{effectifs.eleves}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-navy-400">{t('dashboard.boys')}</dt>
+              <dd className="font-semibold tabular-nums text-navy-700">{repartition_genre.garcons}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-navy-400">{t('dashboard.girls')}</dt>
+              <dd className="font-semibold tabular-nums text-navy-700">{repartition_genre.filles}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-navy-400">{t('dashboard.girls_rate')}</dt>
+              <dd className="font-semibold tabular-nums text-navy-700">{indicateurs.taux_filles}%</dd>
+            </div>
+          </dl>
+        </Card>
+      </div>
 
       {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
     </div>

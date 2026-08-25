@@ -62,10 +62,12 @@ class ClasseMatiereController extends Controller
      * Le middleware `permission:pedagogie.manage` ne borne pas cette route :
      * elle nomme une affectation (`{id}`), pas une classe ou un département
      * qu'il saurait reconnaître (cf. VerifierPermission::classeConcernee()).
-     * Un chef de département ne tient `pedagogie.manage` que via son
-     * attribution — le vérifier ici évite qu'il modifie les affectations d'un
-     * département qui n'est pas le sien. Qui détient déjà le privilège de
-     * base (admin, censeur) n'est pas concerné : sa portée reste l'école.
+     * Un chef de département ou un professeur principal ne tiennent
+     * `pedagogie.manage` que via leur attribution — le vérifier ici évite que
+     * l'un modifie les affectations d'un département qui n'est pas le sien,
+     * ou l'autre celles d'une classe dont il n'a pas la charge. Qui détient
+     * déjà le privilège de base (admin, censeur) n'est pas concerné : sa
+     * portée reste l'école.
      */
     private function autoriserGestionAffectation(Request $request, ClasseMatiere $affectation): void
     {
@@ -75,10 +77,13 @@ class ClasseMatiereController extends Controller
             return;
         }
 
+        $perimetre = $user->perimetre();
+
         abort_unless(
-            $user->perimetre()->peutSurDepartement('pedagogie.manage', $affectation->matiere->departement_id ?? -1),
+            $perimetre->peutSurDepartement('pedagogie.manage', $affectation->matiere->departement_id ?? -1)
+                || $perimetre->peutSurClasse('pedagogie.manage', $affectation->classe_id),
             403,
-            "Cette matière n'entre pas dans le département que vous dirigez.",
+            "Cette matière n'entre pas dans votre périmètre de gestion.",
         );
     }
 

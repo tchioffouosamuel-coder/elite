@@ -9,7 +9,9 @@ use App\Http\Resources\Api\V1\CompetenceResource;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Competence;
+use App\Models\Sequence;
 use App\Services\CompetenceAttributionService;
+use App\Services\NotePrimaireService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,45 @@ use Illuminate\Http\Request;
  */
 class CompetenceController extends Controller
 {
-    public function __construct(private readonly CompetenceAttributionService $attribution) {}
+    public function __construct(
+        private readonly CompetenceAttributionService $attribution,
+        private readonly NotePrimaireService $notes,
+    ) {}
+
+    /**
+     * Compétences que je tiens, toutes classes confondues — pendant primaire
+     * de `ClasseMatiereController::mesAffectations()`. Le titulaire les tient
+     * toutes dans sa classe sans être nommé sur chacune.
+     */
+    public function mesAffectations(Request $request): JsonResponse
+    {
+        $personnelId = $request->user()->personnel?->id;
+
+        if ($personnelId === null) {
+            return ApiResponse::success([]);
+        }
+
+        $attributions = ClasseCompetence::whereHas('classe', fn ($q) => $q->forSchool(Tenant::schoolIds()))
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+            ->with(['classe', 'competence'])
+            ->get();
+
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
+        )->first();
+
+        return ApiResponse::success($attributions->map(fn (ClasseCompetence $cc) => [
+            'classe_competence_id' => $cc->id,
+            'classe_id' => $cc->classe->id,
+            'classe' => $cc->classe->nom,
+            'competence' => $cc->competence->label_fr,
+            'taux_remplissage' => $sequenceActive ? $this->notes->tauxRemplissage($cc, $sequenceActive) : null,
+        ])->values());
+    }
 
     public function index(): JsonResponse
     {
@@ -173,7 +213,8 @@ class CompetenceController extends Controller
     /** Change l'enseignant qui tient une compétence dans une classe. */
     public function modifierAttribution(Request $request, int $classeCompetenceId): JsonResponse
     {
-        $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->findOrFail($classeCompetenceId);
+        $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
+        $this->autoriserGestionAttribution($request, $attribution);
 
         $data = $request->validate([
             'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
@@ -195,9 +236,10 @@ class CompetenceController extends Controller
     }
 
     /** Retire une compétence d'une classe, et les affectations de ses matières. */
-    public function retirer(int $classeCompetenceId): JsonResponse
+    public function retirer(Request $request, int $classeCompetenceId): JsonResponse
     {
-        $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->findOrFail($classeCompetenceId);
+        $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
+        $this->autoriserGestionAttribution($request, $attribution);
 
         if ($attribution->notes()->exists()) {
             return ApiResponse::error(
@@ -209,5 +251,31 @@ class CompetenceController extends Controller
         $this->attribution->retirer($attribution);
 
         return ApiResponse::success(null, 'Compétence retirée de la classe.');
+    }
+
+    /**
+     * Le middleware `permission:pedagogie.manage` ne borne pas cette route :
+     * elle nomme une attribution (`{classeCompetenceId}`), pas une classe
+     * qu'il saurait reconnaître. Un animateur de niveau ne tient
+     * `pedagogie.manage` que via son attribution — le vérifier ici évite
+     * qu'il modifie les attributions d'un niveau qui n'est pas le sien. Qui
+     * détient déjà le privilège de base (admin, censeur) n'est pas concerné.
+     */
+    private function autoriserGestionAttribution(Request $request, ClasseCompetence $attribution): void
+    {
+        $user = $request->user();
+
+        if ($user->permissionsDeBase()->contains('pedagogie.manage')) {
+            return;
+        }
+
+        $perimetre = $user->perimetre();
+        $niveauScolaireId = $attribution->classe->niveau_scolaire_id ?? -1;
+
+        abort_unless(
+            $perimetre->peutSurNiveauScolaire('pedagogie.manage', $niveauScolaireId),
+            403,
+            "Cette compétence n'entre pas dans le niveau que vous animez.",
+        );
     }
 }

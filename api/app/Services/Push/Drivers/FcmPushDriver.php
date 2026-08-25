@@ -2,6 +2,7 @@
 
 namespace App\Services\Push\Drivers;
 
+use App\Services\Push\FcmCredentials;
 use App\Services\Push\PushDriver;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -66,7 +67,7 @@ class FcmPushDriver implements PushDriver
      */
     private function jetonAcces(): ?string
     {
-        $chemin = config('services.fcm.credentials');
+        $chemin = FcmCredentials::chemin();
 
         if (! $chemin || ! is_file($chemin)) {
             return null;

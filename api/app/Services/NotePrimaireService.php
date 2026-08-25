@@ -197,6 +197,28 @@ class NotePrimaireService extends BaseService
         });
     }
 
+    /** Part des cellules (élève × volet) déjà renseignées pour cette compétence, sur une séquence. */
+    public function tauxRemplissage(ClasseCompetence $classeCompetence, Sequence $sequence): int
+    {
+        $composantes = $classeCompetence->competence->volets();
+        $effectif = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
+        $total = $effectif * count($composantes);
+
+        if ($total === 0) {
+            return 0;
+        }
+
+        $maternelle = $this->parAppreciation($classeCompetence);
+
+        $remplies = Note::where('classe_competence_id', $classeCompetence->id)
+            ->where('sequence_id', $sequence->id)
+            ->get()
+            ->filter(fn (Note $n) => $maternelle ? $n->appreciation_id !== null : $n->valeur !== null)
+            ->count();
+
+        return (int) round(min($remplies, $total) / $total * 100);
+    }
+
     /**
      * Au primaire, c'est le titulaire de la classe qui saisit toutes les
      * compétences — contrairement au secondaire où chaque enseignant ne saisit

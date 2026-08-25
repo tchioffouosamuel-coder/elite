@@ -131,14 +131,14 @@ export function NotesPrimaireTab({
   )
 }
 
-interface NotesPrimaireDetailProps {
+export interface NotesPrimaireDetailProps {
   classeId: number
   /** Attribution de la compétence à la classe : c'est elle qui porte les notes. */
   classeMatiereId: number
   matiere: ClasseCompetence | undefined
 }
 
-function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailProps) {
+export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [trimestreId, setTrimestreId] = useState<number | ''>('')

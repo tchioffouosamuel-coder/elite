@@ -4,15 +4,20 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Classe;
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Departement;
 use App\Models\Evaluation;
+use App\Models\NiveauScolaire;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\Sequence;
 use App\Services\EvaluationService;
+use App\Services\NotePrimaireService;
 use App\Services\NoteService;
 use App\Services\Paie\BaremePaie;
+use App\Support\Attributions;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +45,7 @@ class EnseignantController extends Controller
     public function __construct(
         private readonly EvaluationService $evaluations,
         private readonly NoteService $notes,
+        private readonly NotePrimaireService $notesPrimaire,
     ) {}
 
     /** Ma fiche personnel : identité, carrière, famille. */
@@ -134,6 +140,95 @@ class EnseignantController extends Controller
             ->with(['classe', 'matiere', 'enseignant'])
             ->get();
 
+        [$lignes, $tauxMoyen] = $this->affectationsAvecRemplissage($affectations);
+
+        return ApiResponse::success([
+            'departement' => ['id' => $departement->id, 'nom' => $departement->nom],
+            'matieres' => $departement->matieres->map(fn ($m) => ['id' => $m->id, 'nom' => $m->nom])->values(),
+            'affectations' => $lignes,
+            'taux_remplissage_moyen' => $tauxMoyen,
+        ]);
+    }
+
+    /**
+     * Le niveau scolaire que j'anime (primaire/maternelle) : les compétences
+     * tenues dans ses classes, avec le remplissage des notes de la séquence
+     * active, et le taux consolidé. 403 si je n'anime aucun niveau —
+     * l'attribution est la seule porte de ce module.
+     */
+    public function monNiveau(Request $request): JsonResponse
+    {
+        $niveauIds = $request->user()->perimetre()->niveauxScolairesDiriges();
+
+        abort_if($niveauIds === [], 403, "Vous n'animez aucun niveau.");
+
+        $niveau = NiveauScolaire::forSchool(Tenant::schoolIds())->with('animateur')->findOrFail($niveauIds[0]);
+
+        $classeIds = Classe::where('niveau_scolaire_id', $niveau->id)->pluck('id');
+
+        $attributions = ClasseCompetence::whereIn('classe_id', $classeIds)
+            ->where('statut', 'actif')
+            ->with(['classe', 'competence', 'enseignant'])
+            ->get();
+
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
+        )->first();
+
+        $lignes = $attributions->map(fn (ClasseCompetence $cc) => [
+            'classe_competence_id' => $cc->id,
+            'classe' => $cc->classe->nom,
+            'competence' => $cc->competence->label_fr,
+            'competence_id' => $cc->competence_id,
+            'enseignant' => $cc->enseignant?->nom_complet,
+            'personnel_id' => $cc->personnel_id,
+            'taux_remplissage' => $sequenceActive ? $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive) : null,
+        ])->values();
+
+        $tauxAvecValeur = $lignes->pluck('taux_remplissage')->filter(fn ($t) => $t !== null);
+
+        return ApiResponse::success([
+            'niveau' => ['id' => $niveau->id, 'libelle' => $niveau->libelle],
+            'affectations' => $lignes,
+            'taux_remplissage_moyen' => $tauxAvecValeur->isEmpty() ? null : (int) round($tauxAvecValeur->avg()),
+        ]);
+    }
+
+    /**
+     * La classe dont je suis professeur principal : ses affectations de
+     * matières (avec le remplissage des notes de la séquence active), et le
+     * taux de remplissage consolidé. 403 si je ne suis professeur principal
+     * d'aucune classe — l'attribution est la seule porte de ce module.
+     */
+    public function maClasseProfPrincipal(Request $request): JsonResponse
+    {
+        $classeIds = $request->user()->perimetre()->attributions()[Attributions::PROFESSEUR_PRINCIPAL] ?? [];
+
+        abort_if($classeIds === [], 403, "Vous n'êtes professeur principal d'aucune classe.");
+
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeIds[0]);
+
+        $affectations = ClasseMatiere::where('classe_id', $classe->id)
+            ->where('statut', 'actif')
+            ->with(['classe', 'matiere', 'enseignant'])
+            ->get();
+
+        [$lignes, $tauxMoyen] = $this->affectationsAvecRemplissage($affectations);
+
+        return ApiResponse::success([
+            'classe' => ['id' => $classe->id, 'nom' => $classe->nom],
+            'affectations' => $lignes,
+            'taux_remplissage_moyen' => $tauxMoyen,
+        ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, ClasseMatiere>  $affectations
+     * @return array{0: \Illuminate\Support\Collection, 1: ?int}
+     */
+    private function affectationsAvecRemplissage($affectations): array
+    {
         $sequenceActive = Sequence::whereHas(
             'trimestre',
             fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
@@ -151,12 +246,7 @@ class EnseignantController extends Controller
 
         $tauxAvecValeur = $lignes->pluck('taux_remplissage')->filter(fn ($t) => $t !== null);
 
-        return ApiResponse::success([
-            'departement' => ['id' => $departement->id, 'nom' => $departement->nom],
-            'matieres' => $departement->matieres->map(fn ($m) => ['id' => $m->id, 'nom' => $m->nom])->values(),
-            'affectations' => $lignes,
-            'taux_remplissage_moyen' => $tauxAvecValeur->isEmpty() ? null : (int) round($tauxAvecValeur->avg()),
-        ]);
+        return [$lignes, $tauxAvecValeur->isEmpty() ? null : (int) round($tauxAvecValeur->avg())];
     }
 
     /**

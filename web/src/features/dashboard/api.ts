@@ -11,14 +11,20 @@ export interface DashboardStatsEcole {
   activite_recente: { type: string; libelle: string; date: string }[]
 }
 
-/** Titulaire de primaire/maternelle : le tableau de bord se limite à sa classe. */
+/** Enseignant (ou titulaire de primaire/maternelle) : le tableau de bord se limite à ses classes. */
 export interface DashboardStatsClasse {
   scope: 'classe'
   classe: { id: number; nom: string }
   annee_scolaire_active: string | null
-  effectifs: { eleves: number; matieres: number }
+  effectifs: { eleves: number; matieres: number; classes: number }
   repartition_genre: { garcons: number; filles: number }
-  indicateurs: { taux_filles: number }
+  indicateurs: {
+    taux_filles: number
+    /** % d'élèves notés sur la séquence active, moyenné sur mes affectations — `null` hors séquence active ou sans affectation notée. */
+    taux_remplissage_notes: number | null
+    /** % de leçons traitées, moyenné sur mes affectations — `null` sans affectation. */
+    taux_progression: number | null
+  }
   activite_recente: { type: string; libelle: string; date: string }[]
 }
 

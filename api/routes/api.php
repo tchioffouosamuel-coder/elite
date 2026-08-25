@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
 use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\PushDiagnosticController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
@@ -151,6 +152,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('comptes-utilisateurs', [CompteController::class, 'index'])->name('comptes-utilisateurs.index');
                 Route::get('comptes-utilisateurs/{id}/activite', [CompteController::class, 'activite'])->name('comptes-utilisateurs.activite');
                 Route::post('comptes-utilisateurs/{id}/reinitialiser-mot-de-passe', [CompteController::class, 'reinitialiserMotDePasse'])->name('comptes-utilisateurs.reinitialiser-mot-de-passe');
+
+                // Diagnostic des notifications push : vérifiable depuis un
+                // simple appel API, sans accès au `.env` du serveur.
+                Route::get('diagnostics/push', [PushDiagnosticController::class, 'index'])->name('diagnostics.push');
+                Route::post('diagnostics/push/test', [PushDiagnosticController::class, 'test'])->name('diagnostics.push.test');
             });
 
             Route::middleware('permission:personnel.view')->group(function () {
@@ -378,6 +384,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('mes-informations', [EnseignantController::class, 'mettreAJourMesInformations'])->name('mes-informations.update');
                 Route::get('remuneration', [EnseignantController::class, 'maRemuneration'])->name('remuneration.show');
                 Route::get('mon-departement', [EnseignantController::class, 'monDepartement'])->name('mon-departement.show');
+                Route::get('ma-classe-prof-principal', [EnseignantController::class, 'maClasseProfPrincipal'])->name('ma-classe-prof-principal.show');
+                Route::get('mon-niveau', [EnseignantController::class, 'monNiveau'])->name('mon-niveau.show');
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EnseignantController::class, 'ajouterEvaluation'])->name('evaluations.store');
             });
 
@@ -520,6 +528,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-matieres/mes-affectations', [ClasseMatiereController::class, 'mesAffectations'])->name('classe-matieres.mes-affectations');
+                Route::get('competences/mes-affectations', [CompetenceController::class, 'mesAffectations'])->name('competences.mes-affectations');
                 Route::get('classes/{classeId}/remplissage', [ResultatController::class, 'remplissage'])->name('resultats.remplissage');
                 Route::get('classes/{classeId}/classement', [ResultatController::class, 'classement'])->name('resultats.classement');
                 Route::get('classes/{classeId}/classement/export', [ResultatController::class, 'exportClassement'])->name('resultats.classement.export');

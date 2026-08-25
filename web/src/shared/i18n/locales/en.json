@@ -104,6 +104,9 @@
     "mesInformations": "My information",
     "mesMatieres": "My subjects",
     "monDepartement": "My department",
+    "maClasseProfPrincipal": "My class",
+    "mesCompetences": "My competencies",
+    "monNiveau": "My level",
     "mesAttributions": "My responsibilities",
     "preinscriptions": "Pre-registrations",
     "modificationsEleves": "Profile edit requests",
@@ -153,7 +156,10 @@
     "recent_activity": "Recent activity",
     "girls_rate": "Girls' rate",
     "avg_students_per_class": "Average students per class",
-    "classSubjects": "Assigned subjects"
+    "classSubjects": "Assigned subjects",
+    "competenciesCount": "Competencies held",
+    "fillRate": "Fill rate",
+    "progressRate": "Progress"
   },
   "personnel": {
     "title": "Staff",
