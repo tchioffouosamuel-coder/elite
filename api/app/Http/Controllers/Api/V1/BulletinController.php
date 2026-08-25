@@ -11,6 +11,7 @@ use App\Models\Trimestre;
 use App\Services\BulletinService;
 use App\Services\NotificationService;
 use App\Support\Pdf\BulletinGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -26,13 +27,13 @@ class BulletinController extends Controller
     /** Bulletin d'un seul élève (le reste de la classe sert au calcul des rangs). */
     public function show(Request $request, int $eleveId): Response
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->with('classe.school')->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('classe.school')->findOrFail($eleveId);
 
         if (! $eleve->classe) {
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
         }
 
-        $trimestre = $this->trimestre($request);
+        $trimestre = $this->trimestre($request, $eleve->classe->school_id);
         $donnees = $this->service->donneesClasse($eleve->classe, $trimestre, [$eleve->id]);
 
         return $this->pdf($donnees, 'bulletin-'.Str::slug($eleve->nom_complet).'-'.Str::slug($trimestre->libelle));
@@ -44,8 +45,8 @@ class BulletinController extends Controller
      */
     public function classe(Request $request, int $classeId): Response
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->with('school')->findOrFail($classeId);
-        $trimestre = $this->trimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+        $trimestre = $this->trimestre($request, $classe->school_id);
 
         $donnees = $this->service->donneesClasse($classe, $trimestre);
 
@@ -59,8 +60,8 @@ class BulletinController extends Controller
      */
     public function publier(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->trimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->trimestre($request, $classe->school_id);
 
         $publication = BulletinPublication::firstOrCreate(
             ['trimestre_id' => $trimestre->id, 'classe_id' => $classe->id],
@@ -84,11 +85,11 @@ class BulletinController extends Controller
         return ApiResponse::success($publication, 'Bulletins publiés.');
     }
 
-    private function trimestre(Request $request): Trimestre
+    private function trimestre(Request $request, int $schoolId): Trimestre
     {
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', $schoolId)
         );
 
         return ($id = $request->integer('trimestre_id'))

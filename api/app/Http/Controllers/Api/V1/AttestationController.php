@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Eleve;
 use App\Services\AttestationService;
+use App\Support\Tenant;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -16,7 +17,7 @@ class AttestationController extends Controller
     {
         // `tuteurs` : le modèle de certificat mentionne la filiation
         // (« Fils de… Et de… »), résolue depuis les rattachements de l'élève.
-        $eleve = Eleve::forSchool(app('tenant.school_id'))
+        $eleve = Eleve::forSchool(Tenant::schoolIds())
             ->with(['classe', 'school', 'tuteurs'])
             ->findOrFail($eleveId);
 

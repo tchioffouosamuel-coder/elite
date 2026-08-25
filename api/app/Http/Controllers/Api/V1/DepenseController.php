@@ -10,6 +10,7 @@ use App\Models\Depense;
 use App\Models\School;
 use App\Services\DepenseService;
 use App\Support\Pdf\BilanDepensesGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -24,7 +25,7 @@ class DepenseController extends Controller
     /** Dépenses de la période, ventilation par compte et totaux. */
     public function index(Request $request): JsonResponse
     {
-        $bilan = $this->service->bilan(app('tenant.school_id'), $this->filtres($request));
+        $bilan = $this->service->bilan(Tenant::schoolId(), $this->filtres($request));
 
         return ApiResponse::success([
             'depenses' => $bilan['depenses']->map(fn(Depense $d) => $this->resumer($d))->values(),
@@ -136,7 +137,7 @@ class DepenseController extends Controller
 
     private function depense(int $id): Depense
     {
-        return Depense::forSchool(app('tenant.school_id'))->findOrFail($id);
+        return Depense::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
     /** @return array<string, mixed> */
@@ -161,7 +162,7 @@ class DepenseController extends Controller
     /** Bilan de la periode en PDF : ventilation par poste, puis detail chronologique. */
     public function bilanPdf(Request $request): Response
     {
-        $schoolId = app('tenant.school_id');
+        $schoolId = Tenant::schoolId();
         $du = $request->string('du')->toString() ?: null;
         $au = $request->string('au')->toString() ?: null;
 

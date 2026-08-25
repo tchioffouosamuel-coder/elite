@@ -9,6 +9,7 @@ use App\Models\Trimestre;
 use App\Services\DisciplineService;
 use App\Services\StatistiquesService;
 use App\Support\Pdf\StatistiquesGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -33,7 +34,7 @@ class StatistiqueController extends Controller
         $trimestre = $this->trimestre($request);
 
         return ApiResponse::success(
-            $this->service->pedagogiquesEtablissement(app('tenant.school_id'), $trimestre)
+            $this->service->pedagogiquesEtablissement(Tenant::schoolId(), $trimestre)
         );
     }
 
@@ -42,14 +43,14 @@ class StatistiqueController extends Controller
         $trimestre = $this->trimestre($request);
 
         return ApiResponse::success(
-            $this->service->disciplinairesEtablissement(app('tenant.school_id'), $trimestre, $this->discipline)
+            $this->service->disciplinairesEtablissement(Tenant::schoolId(), $trimestre, $this->discipline)
         );
     }
 
     public function pedagogiquesPdf(Request $request): Response
     {
         $trimestre = $this->trimestre($request);
-        $donnees = $this->service->pedagogiquesEtablissement(app('tenant.school_id'), $trimestre);
+        $donnees = $this->service->pedagogiquesEtablissement(Tenant::schoolId(), $trimestre);
 
         return $this->pdf(
             (new StatistiquesGenerator)->pedagogiques($donnees, $this->ecole()),
@@ -60,7 +61,7 @@ class StatistiqueController extends Controller
     public function disciplinairesPdf(Request $request): Response
     {
         $trimestre = $this->trimestre($request);
-        $donnees = $this->service->disciplinairesEtablissement(app('tenant.school_id'), $trimestre, $this->discipline);
+        $donnees = $this->service->disciplinairesEtablissement(Tenant::schoolId(), $trimestre, $this->discipline);
 
         return $this->pdf(
             (new StatistiquesGenerator)->disciplinaires($donnees, $this->ecole()),
@@ -70,14 +71,14 @@ class StatistiqueController extends Controller
 
     private function ecole(): School
     {
-        return School::findOrFail(app('tenant.school_id'));
+        return School::findOrFail(Tenant::schoolId());
     }
 
     private function trimestre(Request $request): Trimestre
     {
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', Tenant::schoolId())
         );
 
         return ($id = $request->integer('trimestre_id'))

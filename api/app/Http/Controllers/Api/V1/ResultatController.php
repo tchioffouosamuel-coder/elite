@@ -13,6 +13,7 @@ use App\Models\Trimestre;
 use App\Services\BulletinService;
 use App\Services\MoyenneService;
 use App\Support\Pdf\MpdfFactory;
+use App\Support\Tenant;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,8 +31,8 @@ class ResultatController extends Controller
 
     public function remplissage(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->resolveTrimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->resolveTrimestre($request, $classe->school_id);
 
         return ApiResponse::success([
             'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
@@ -41,8 +42,8 @@ class ResultatController extends Controller
 
     public function classement(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->resolveTrimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->resolveTrimestre($request, $classe->school_id);
 
         return ApiResponse::success([
             'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
@@ -52,8 +53,8 @@ class ResultatController extends Controller
 
     public function exportClassement(Request $request, int $classeId): BinaryFileResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->resolveTrimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->resolveTrimestre($request, $classe->school_id);
 
         return Excel::download(
             new ClassementExport($this->classementRows($classe, $trimestre)),
@@ -70,8 +71,8 @@ class ResultatController extends Controller
      */
     public function pvConseilPdf(Request $request, int $classeId): Response
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->with('school')->findOrFail($classeId);
-        $trimestre = $this->resolveTrimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+        $trimestre = $this->resolveTrimestre($request, $classe->school_id);
 
         $donnees = $this->bulletinService->donneesClasse($classe, $trimestre);
 
@@ -118,8 +119,7 @@ class ResultatController extends Controller
 
     public function palmaresPdf(Request $request): Response
     {
-        [$trimestre, $rows] = $this->palmaresRows($request);
-        $schoolId = app('tenant.school_id');
+        [$trimestre, $rows, $schoolId] = $this->palmaresRows($request);
         $classeId = $request->integer('classe_id') ?: null;
 
         $pdf = Pdf::loadView('pdf.palmares', [
@@ -171,34 +171,49 @@ class ResultatController extends Controller
     /** @return Collection<int, array<string, mixed>> */
     private function classementRows(Classe $classe, Trimestre $trimestre): Collection
     {
-        $schoolId = app('tenant.school_id');
-
         return $this->service->classementGeneral($classe, $trimestre)->map(fn ($row) => [
             'eleve_id' => $row['eleve']->id,
             'nom_complet' => $row['eleve']->nom_complet,
             'moyenne' => $row['moyenne'],
             'rang' => $row['rang'],
             'cote' => $this->service->lettreCote($row['moyenne']),
-            'mention' => $this->service->mentionTravail($schoolId, $row['moyenne']),
+            'mention' => $this->service->mentionTravail($classe->school_id, $row['moyenne']),
         ]);
     }
 
-    /** @return array{0: Trimestre, 1: Collection} */
+    /**
+     * Le palmarès porte sur toute une école, pas sur une classe : sans
+     * `classe_id`, il n'y a pas de ressource dont déduire l'établissement, et
+     * `Tenant::schoolId()` (le repli à une seule école du périmètre) reste le
+     * seul choix raisonnable — au même titre que `pdfEcole()` côté listes
+     * d'élèves. Avec `classe_id`, l'école de la classe prévaut : le palmarès
+     * doit rester cohérent avec la classe réellement demandée.
+     *
+     * @return array{0: Trimestre, 1: Collection, 2: int}
+     */
     private function palmaresRows(Request $request): array
     {
-        $trimestre = $this->resolveTrimestre($request);
         $classeId = $request->integer('classe_id') ?: null;
+        $schoolId = Tenant::schoolId();
 
         if ($classeId) {
-            Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+            $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+            $schoolId = $classe->school_id;
         }
 
-        return [$trimestre, $this->service->palmares(app('tenant.school_id'), $trimestre, $classeId)];
+        $trimestre = $this->resolveTrimestre($request, $schoolId);
+
+        return [$trimestre, $this->service->palmares($schoolId, $trimestre, $classeId), $schoolId];
     }
 
-    private function resolveTrimestre(Request $request): Trimestre
+    /**
+     * `$schoolId` vient de la ressource déjà résolue par l'appelant (classe,
+     * ou repli d'établissement pour un rapport sans classe) : chercher un
+     * trimestre sans lui reviendrait à retomber sur l'école par défaut du
+     * périmètre, indépendamment de la ressource réellement visée.
+     */
+    private function resolveTrimestre(Request $request, int $schoolId): Trimestre
     {
-        $schoolId = app('tenant.school_id');
         $query = Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $schoolId));
 
         if ($trimestreId = $request->integer('trimestre_id')) {

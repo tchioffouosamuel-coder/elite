@@ -9,6 +9,7 @@ use App\Models\Eleve;
 use App\Models\Trimestre;
 use App\Services\BulletinPrimaireService;
 use App\Support\Pdf\BulletinPrimaireGenerator;
+use App\Support\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +25,7 @@ class BulletinPrimaireController extends Controller
 
     public function show(Request $request, int $eleveId): Response
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))
+        $eleve = Eleve::forSchool(Tenant::schoolIds())
             ->with('classe.school', 'classe.niveauScolaire', 'classe.titulaire')
             ->findOrFail($eleveId);
 
@@ -32,7 +33,7 @@ class BulletinPrimaireController extends Controller
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
         }
 
-        $trimestre = $this->trimestre($request);
+        $trimestre = $this->trimestre($request, $eleve->classe->school_id);
         $donnees = $this->service->donneesClasse($eleve->classe, $trimestre, [$eleve->id]);
 
         return $this->pdf($donnees, 'bulletin-'.Str::slug($eleve->nom_complet).'-'.Str::slug($trimestre->libelle));
@@ -40,21 +41,21 @@ class BulletinPrimaireController extends Controller
 
     public function classe(Request $request, int $classeId): Response
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))
+        $classe = Classe::forSchool(Tenant::schoolIds())
             ->with('school', 'niveauScolaire', 'titulaire')
             ->findOrFail($classeId);
 
-        $trimestre = $this->trimestre($request);
+        $trimestre = $this->trimestre($request, $classe->school_id);
         $donnees = $this->service->donneesClasse($classe, $trimestre);
 
         return $this->pdf($donnees, 'bulletins-'.Str::slug($classe->nom).'-'.Str::slug($trimestre->libelle));
     }
 
-    private function trimestre(Request $request): Trimestre
+    private function trimestre(Request $request, int $schoolId): Trimestre
     {
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', $schoolId)
         );
 
         return ($id = $request->integer('trimestre_id'))

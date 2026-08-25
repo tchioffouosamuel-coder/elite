@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Services\PhotoExamenService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +23,7 @@ class PhotoExamenController extends Controller
     /** Classes d'examen de l'établissement. */
     public function classes(): JsonResponse
     {
-        $classes = Classe::forSchool(app('tenant.school_id'))
+        $classes = Classe::forSchool(Tenant::schoolIds())
             ->whereNotNull('code_examen')
             ->where('code_examen', '!=', '')
             ->withCount(['eleves as effectif' => fn($q) => $q->where('statut', 'actif')])
@@ -78,7 +79,7 @@ class PhotoExamenController extends Controller
 
     private function classeExamen(int $classeId): Classe
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
         abort_if(
             blank($classe->code_examen),
