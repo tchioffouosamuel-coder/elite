@@ -210,6 +210,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:annonces.publish')->group(function () {
                 Route::post('annonces', [AnnonceController::class, 'store'])->name('annonces.store');
                 Route::delete('annonces/{id}', [AnnonceController::class, 'destroy'])->name('annonces.destroy');
+                Route::get('annonces/fonctions', [AnnonceController::class, 'fonctions'])->name('annonces.fonctions');
+                Route::get('annonces/destinataires', [AnnonceController::class, 'destinataires'])->name('annonces.destinataires');
             });
 
             Route::middleware('permission:ecoles.manage')->group(function () {
