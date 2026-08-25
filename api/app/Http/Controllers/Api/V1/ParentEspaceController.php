@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\ModificationEleve;
 use App\Models\Moratoire;
@@ -250,6 +251,28 @@ class ParentEspaceController extends Controller
         }
 
         return ApiResponse::success($this->progression->tauxClasse($e->classe));
+    }
+
+    /**
+     * Programme d'une matière de l'enfant : titres des leçons et celle où
+     * l'enseignant s'est arrêté. La matière doit appartenir à la classe de
+     * l'enfant — sans ce contrôle, un identifiant deviné donnerait accès au
+     * programme de n'importe quelle classe de l'établissement.
+     */
+    public function progressionMatiere(Request $request, int $eleveId, int $classeMatiereId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        abort_unless($e->classe, 404);
+
+        $classeMatiere = ClasseMatiere::where('classe_id', $e->classe->id)
+            ->with('matiere')
+            ->findOrFail($classeMatiereId);
+
+        return ApiResponse::success([
+            'matiere' => $classeMatiere->matiere->nom,
+            ...$this->progression->programmeParent($classeMatiere),
+        ]);
     }
 
     /** Absences relevées à l'appel, les plus récentes en tête. */

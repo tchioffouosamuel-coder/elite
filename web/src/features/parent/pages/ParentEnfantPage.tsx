@@ -23,11 +23,14 @@ import {
   Stethoscope,
   Gavel,
   FileEdit,
+  ChevronRight,
+  Check,
 } from 'lucide-react'
 import {
   fetchEnfant,
   fetchFinanceEnfant,
   fetchProgressionEnfant,
+  fetchProgrammeMatiereEnfant,
   fetchAbsencesEnfant,
   fetchJustificationsEnfant,
   soumettreJustification,
@@ -494,6 +497,8 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
 }
 
 function ProgressionCard({ eleveId }: { eleveId: number }) {
+  const [matiereOuverte, setMatiereOuverte] = useState<{ id: number; nom: string } | null>(null)
+
   const { data: matieres, isLoading } = useQuery({
     queryKey: ['parent-progression', eleveId],
     queryFn: () => fetchProgressionEnfant(eleveId),
@@ -512,7 +517,12 @@ function ProgressionCard({ eleveId }: { eleveId: number }) {
       ) : (
         <div className="flex flex-col divide-y divide-navy-50">
           {matieres.map((m) => (
-            <div key={m.classe_matiere_id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+            <button
+              key={m.classe_matiere_id}
+              type="button"
+              onClick={() => setMatiereOuverte({ id: m.classe_matiere_id, nom: m.matiere })}
+              className="flex items-center justify-between gap-3 py-2.5 text-left first:pt-0 last:pb-0 transition-colors hover:bg-cream-50/80"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-navy-800">{m.matiere}</p>
                 <p className="truncate text-xs text-navy-400">{m.enseignant || '—'}</p>
@@ -522,12 +532,78 @@ function ProgressionCard({ eleveId }: { eleveId: number }) {
                   <div className="h-full rounded-full bg-gold-500" style={{ width: `${m.taux}%` }} />
                 </div>
                 <span className="w-10 text-right text-xs font-semibold tabular-nums text-navy-700">{m.taux}%</span>
+                <ChevronRight className="h-4 w-4 flex-none text-navy-300" />
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      {matiereOuverte && (
+        <ProgrammeMatiereModal
+          eleveId={eleveId}
+          classeMatiereId={matiereOuverte.id}
+          matiere={matiereOuverte.nom}
+          onClose={() => setMatiereOuverte(null)}
+        />
+      )}
     </Card>
+  )
+}
+
+/**
+ * Programme d'une matière, en lecture seule : titres des leçons dans
+ * l'ordre, et celle où l'enseignant s'est arrêté — pas la fiche de
+ * préparation complète, qui ne concerne pas le parent.
+ */
+function ProgrammeMatiereModal({
+  eleveId,
+  classeMatiereId,
+  matiere,
+  onClose,
+}: {
+  eleveId: number
+  classeMatiereId: number
+  matiere: string
+  onClose: () => void
+}) {
+  const { data: programme, isLoading } = useQuery({
+    queryKey: ['parent-programme-matiere', eleveId, classeMatiereId],
+    queryFn: () => fetchProgrammeMatiereEnfant(eleveId, classeMatiereId),
+  })
+
+  return (
+    <Modal title={`${matiere} — Programme / Curriculum`} onClose={onClose}>
+      {isLoading ? (
+        <Spinner />
+      ) : !programme || programme.lecons.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucune leçon renseignée pour l'instant. / No lesson recorded yet.</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-navy-50">
+          {programme.lecons.map((lecon, index) => {
+            const estCourante = lecon.id === programme.derniere_lecon_id
+
+            return (
+              <li key={lecon.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <span
+                  className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${
+                    lecon.traitee ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-300'
+                  }`}
+                >
+                  {lecon.traitee ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                </span>
+                <span className={`flex-1 text-sm ${lecon.traitee ? 'font-medium text-navy-800' : 'text-navy-400'}`}>
+                  {lecon.titre}
+                </span>
+                {estCourante && (
+                  <Badge tone="gold">Arrêté ici / Stopped here</Badge>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Modal>
   )
 }
 

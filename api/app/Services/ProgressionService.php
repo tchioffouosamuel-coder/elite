@@ -40,6 +40,35 @@ class ProgressionService extends BaseService
     }
 
     /**
+     * Vue simplifiée du programme pour le portail parent : titres des leçons
+     * uniquement, dans l'ordre du programme, avec la dernière traitée — « où
+     * l'enseignant s'est arrêté en classe ». Pas de fiche de préparation :
+     * ce n'est pas le registre pédagogique de l'enseignant.
+     *
+     * @return array{lecons: list<array{id:int, titre:string, traitee:bool}>, derniere_lecon_id: ?int}
+     */
+    public function programmeParent(ClasseMatiere $classeMatiere): array
+    {
+        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+            ->where('type', 'lecon')
+            ->withCount('seances')
+            ->orderBy('ordre')->orderBy('id')
+            ->get()
+            ->map(fn (ProgressionItem $item) => [
+                'id' => $item->id,
+                'titre' => $item->titre,
+                'traitee' => $item->seances_count > 0,
+            ]);
+
+        $derniereTraitee = $lecons->filter(fn (array $l) => $l['traitee'])->last();
+
+        return [
+            'lecons' => $lecons->values()->all(),
+            'derniere_lecon_id' => $derniereTraitee['id'] ?? null,
+        ];
+    }
+
+    /**
      * @param  Collection<int, ProgressionItem>  $items
      * @return Collection<int, array<string, mixed>>
      */

@@ -96,6 +96,24 @@ export async function fetchProgressionEnfant(eleveId: number): Promise<MatierePr
   return data.data
 }
 
+export interface LeconProgramme {
+  id: number
+  titre: string
+  traitee: boolean
+}
+
+export interface ProgrammeMatiere {
+  matiere: string
+  lecons: LeconProgramme[]
+  /** Dernière leçon traitée — là où l'enseignant s'est arrêté en classe. `null` si rien n'est encore traité. */
+  derniere_lecon_id: number | null
+}
+
+export async function fetchProgrammeMatiereEnfant(eleveId: number, classeMatiereId: number): Promise<ProgrammeMatiere> {
+  const { data } = await http.get<ApiResponse<ProgrammeMatiere>>(`/parent/enfants/${eleveId}/progression/${classeMatiereId}`)
+  return data.data
+}
+
 export interface CreneauEmploiDuTemps {
   id: number
   jour: number

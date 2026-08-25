@@ -339,6 +339,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('enfants/{eleveId}/finance', [ParentEspaceController::class, 'finance'])->name('enfants.finance');
                 Route::get('enfants/{eleveId}/bulletin', [ParentEspaceController::class, 'bulletin'])->name('enfants.bulletin');
                 Route::get('enfants/{eleveId}/progression', [ParentEspaceController::class, 'progression'])->name('enfants.progression');
+                Route::get('enfants/{eleveId}/progression/{classeMatiereId}', [ParentEspaceController::class, 'progressionMatiere'])->name('enfants.progression.show');
                 Route::get('enfants/{eleveId}/absences', [ParentEspaceController::class, 'absences'])->name('enfants.absences');
                 Route::get('enfants/{eleveId}/emploi-du-temps', [ParentEspaceController::class, 'emploiDuTemps'])->name('enfants.emploi-du-temps');
                 Route::get('enfants/{eleveId}/visites-infirmerie', [ParentEspaceController::class, 'visitesInfirmerie'])->name('enfants.visites-infirmerie');
