@@ -135,6 +135,20 @@ class RolePermissionSeeder extends Seeder
             'annonces.view',
             'dashboard.view',
         ],
+        /*
+         * Le vendeur écoule le stock au comptoir et tient la fiche des
+         * articles — pas de `dashboard.view` : le tableau de bord
+         * d'établissement (effectifs élèves, personnel…) ne le concerne pas,
+         * son accueil est directement le point de vente (cf.
+         * redirectionParDefaut côté web).
+         */
+        'vendeur' => [
+            'inventaire.view',
+            'inventaire.manage',
+            'point_de_vente.view',
+            'point_de_vente.vendre',
+            'point_de_vente.manage',
+        ],
         'parent' => [
             'eleves.view',
             'notes.view',
