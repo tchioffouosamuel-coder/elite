@@ -37,7 +37,11 @@ class AnnonceController extends Controller
             'contenu' => ['required', 'string', 'max:2000'],
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'cible_type' => ['nullable', 'string', 'in:tous,roles,utilisateurs'],
-            'cible' => ['required_unless:cible_type,tous', 'array'],
+            // `required_if` (et non `required_unless:cible_type,tous`) : un
+            // appelant qui n'envoie pas du tout `cible_type` (le formulaire web
+            // actuel, par exemple) doit rester équivalent à "tous" plutôt que
+            // de se voir exiger un champ `cible` qu'il ne connaît pas.
+            'cible' => ['required_if:cible_type,roles,utilisateurs', 'array'],
             'cible.*' => ['string'],
         ]);
 
