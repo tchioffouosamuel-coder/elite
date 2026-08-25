@@ -149,11 +149,16 @@ class ProgressionService extends BaseService
     /**
      * Avancement matière par matière pour une classe.
      *
+     * `$personnelId` restreint aux seules matières de cet enseignant — un
+     * enseignant qui partage la classe avec des collègues sans en être
+     * titulaire ne doit voir que ce qui lui est confié.
+     *
      * @return Collection<int, array<string, mixed>>
      */
-    public function tauxClasse(Classe $classe): Collection
+    public function tauxClasse(Classe $classe, ?int $personnelId = null): Collection
     {
         return $classe->classeMatieres()->where('statut', 'actif')
+            ->when($personnelId !== null, fn ($q) => $q->where('personnel_id', $personnelId))
             ->with(['matiere', 'enseignant'])->get()
             ->map(fn (ClasseMatiere $cm) => [
                 'classe_matiere_id' => $cm->id,
@@ -167,16 +172,22 @@ class ProgressionService extends BaseService
     /**
      * Avancement de tout l'établissement, une ligne par classe.
      *
+     * `$classeIds` restreint les classes listées au périmètre du compte
+     * (`null` = tout l'établissement). `$personnelIdPourClasse` décide, classe
+     * par classe, s'il faut en plus filtrer les matières affichées.
+     *
+     * @param  list<int>|null  $classeIds
      * @return Collection<int, array<string, mixed>>
      */
-    public function tauxEtablissement(int|array $schoolId): Collection
+    public function tauxEtablissement(int|array $schoolId, ?array $classeIds = null, ?\Closure $personnelIdPourClasse = null): Collection
     {
         return Classe::forSchool($schoolId)
+            ->when($classeIds !== null, fn ($q) => $q->whereIn('id', $classeIds))
             ->with('niveauScolaire')
             ->orderBy('nom')
             ->get()
-            ->map(function (Classe $classe) {
-                $matieres = $this->tauxClasse($classe);
+            ->map(function (Classe $classe) use ($personnelIdPourClasse) {
+                $matieres = $this->tauxClasse($classe, $personnelIdPourClasse ? $personnelIdPourClasse($classe) : null);
                 $lecons = $matieres->sum('lecons');
                 $traitees = $matieres->sum('traitees');
 

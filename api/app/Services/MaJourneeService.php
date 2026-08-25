@@ -166,6 +166,13 @@ class MaJourneeService extends BaseService
                 'statut' => $seance->statut,
                 'observations' => $seance->observations,
                 'donnees_personnalisees' => $seance->donnees_personnalisees ?? [],
+                // L'appel ET les leçons cochées se soumettent ensemble ici : le
+                // même verrou couvre les deux, 15 minutes après la première
+                // déclaration de cette séance (cf. `enregistrer()`).
+                'verrouille' => $seance->appelVerrouille(),
+                'modifiable_jusqua' => $seance->appel_verrouille_le
+                    ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
+                    ?->toIso8601String(),
             ],
             'lecons' => $lecons,
             'appel' => $this->emploiDuTemps->feuilleAppel($seance)->map(fn ($ligne) => [
@@ -201,6 +208,16 @@ class MaJourneeService extends BaseService
         ?string $observations = null,
         array $donneesPersonnalisees = [],
     ): array {
+        // L'appel et les leçons cochées se soumettent depuis le même écran :
+        // un seul verrou couvre les deux, sans quoi un enseignant pourrait
+        // continuer à ajouter des leçons « traitées » bien après la fenêtre de
+        // correction de l'appel — ou l'inverse.
+        abort_if(
+            $seance->appelVerrouille(),
+            403,
+            "La déclaration de cette séance est verrouillée depuis plus de ".Seance::MINUTES_VERROUILLAGE_APPEL." minutes. Contactez le Surveillant Général pour une correction."
+        );
+
         return $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $observations, $donneesPersonnalisees) {
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
             $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
@@ -210,12 +227,22 @@ class MaJourneeService extends BaseService
 
             $seance->lecons()->sync($valides);
 
+            // « Date Taught » suit désormais la séance qui a réellement couvert
+            // la leçon plutôt que de rester à la charge du professeur : c'est
+            // exactement l'information que cette déclaration vient d'apporter.
+            if ($valides->isNotEmpty()) {
+                ProgressionItem::whereIn('id', $valides)->update(['date_realisee' => $seance->date_seance]);
+            }
+
             $eleves = $appel === [] ? 0 : $this->emploiDuTemps->enregistrerAppel($seance, $appel);
 
             $seance->update([
                 'statut' => 'effectuee',
                 'observations' => $observations,
                 'donnees_personnalisees' => $donneesPersonnalisees ?: null,
+                // Figé une seule fois, que l'appel ait été rempli ou non : une
+                // déclaration de leçons seule doit tout autant se verrouiller.
+                'appel_verrouille_le' => $seance->appel_verrouille_le ?? now(),
             ]);
 
             return ['lecons' => $valides->count(), 'eleves' => $eleves];

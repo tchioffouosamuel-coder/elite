@@ -162,18 +162,34 @@ class ProgressionController extends Controller
         ]);
     }
 
-    /** Avancement de chaque matière d'une classe. */
-    public function classe(int $classeId): JsonResponse
+    /**
+     * Avancement de chaque matière d'une classe.
+     *
+     * L'appartenance de la classe au périmètre est déjà vérifiée par le
+     * middleware `permission` (cf. VerifierPermission::classeConcernee), mais
+     * pas le détail des matières : un enseignant qui partage la classe avec
+     * des collègues ne doit voir que les siennes.
+     */
+    public function classe(Request $request, int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->with('titulaire')->findOrFail($classeId);
+        $perimetre = $request->user()->perimetre();
 
-        return ApiResponse::success($this->service->tauxClasse($classe));
+        $personnelId = $perimetre->matieresRestreintesDans($classeId) ? $perimetre->personnelId() : null;
+
+        return ApiResponse::success($this->service->tauxClasse($classe, $personnelId));
     }
 
-    /** Avancement de l'établissement, classe par classe. */
+    /** Avancement de l'établissement, classe par classe — borné au périmètre du compte. */
     public function etablissement(Request $request): JsonResponse
     {
-        return ApiResponse::success($this->service->tauxEtablissement(Tenant::schoolIds()));
+        $perimetre = $request->user()->perimetre();
+
+        return ApiResponse::success($this->service->tauxEtablissement(
+            Tenant::schoolIds(),
+            $perimetre->classes(),
+            fn (Classe $classe) => $perimetre->matieresRestreintesDans($classe->id) ? $perimetre->personnelId() : null,
+        ));
     }
 
     /** Champs personnalisés définis pour une matière (tableaux d'informations spécifiques — module Ma journée). */
@@ -309,10 +325,37 @@ class ProgressionController extends Controller
         return AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->value('libelle');
     }
 
+    /**
+     * L'id de l'affectation ne porte pas la classe dans l'URL : le middleware
+     * `permission` ne peut donc pas la border comme il le fait pour les routes
+     * `{classeId}`. Il faut le refaire ici, à la main, sans quoi un enseignant
+     * verrait — et éditerait — la progression de matières qui ne lui ont
+     * jamais été confiées, simplement en devinant un identifiant.
+     */
     private function affectation(int $id): ClasseMatiere
     {
-        return ClasseMatiere::forSchool(Tenant::schoolIds())
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())
             ->with(['classe.school', 'matiere'])
             ->findOrFail($id);
+
+        $perimetre = request()->user()?->perimetre();
+
+        if ($perimetre) {
+            abort_unless(
+                $perimetre->couvre($classeMatiere->classe_id),
+                403,
+                "Cette classe n'entre pas dans votre périmètre : vous n'y enseignez pas et elle ne vous a pas été confiée.",
+            );
+
+            if ($perimetre->matieresRestreintesDans($classeMatiere->classe_id)) {
+                abort_unless(
+                    $classeMatiere->personnel_id === $perimetre->personnelId(),
+                    403,
+                    "Cette matière n'entre pas dans votre périmètre : elle ne vous a pas été confiée.",
+                );
+            }
+        }
+
+        return $classeMatiere;
     }
 }

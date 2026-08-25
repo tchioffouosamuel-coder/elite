@@ -38,6 +38,15 @@ interface DataTableProps<T> {
   /** Barre de recherche : masquée en dessous de ce nombre de lignes. */
   recherche?: boolean
   placeholderRecherche?: string
+  /**
+   * Recherche pilotée par le parent (typiquement une recherche serveur sur
+   * tout le jeu de données, pas seulement la page chargée) : quand
+   * `onTermeChange` est fourni, le tableau n'applique plus son propre filtre
+   * texte sur `lignes` — il fait confiance à l'appelant pour lui avoir déjà
+   * passé les bonnes lignes, et se contente d'afficher/piloter le champ.
+   */
+  terme?: string
+  onTermeChange?: (terme: string) => void
   /** Pagination : 0 désactive le découpage. */
   parPage?: number
   messageVide?: string
@@ -60,13 +69,18 @@ export function DataTable<T>({
   cleLigne,
   recherche = true,
   placeholderRecherche = 'Rechercher…',
+  terme: termeControle,
+  onTermeChange,
   parPage = 15,
   messageVide,
   onLigneClick,
   outils,
   largeurMin = 640,
 }: DataTableProps<T>) {
-  const [terme, setTerme] = useState('')
+  const controle = onTermeChange !== undefined
+  const [termeInterne, setTermeInterne] = useState('')
+  const terme = controle ? (termeControle ?? '') : termeInterne
+  const setTerme = controle ? onTermeChange! : setTermeInterne
   const [tri, setTri] = useState<{ cle: string; sens: Sens } | null>(null)
   const [page, setPage] = useState(1)
   const layoutFixe = colonnes.some((c) => c.largeur)
@@ -74,13 +88,18 @@ export function DataTable<T>({
   const texteDe = (ligne: T, colonne: Colonne<T>) => String(colonne.valeur?.(ligne) ?? '').toLowerCase()
 
   const filtrees = useMemo(() => {
+    // Recherche contrôlée : `lignes` vient déjà filtré du serveur, filtrer à
+    // nouveau localement ne ferait que masquer des lignes pertinentes que le
+    // texte affiché ne contient pas forcément mot pour mot.
+    if (controle) return lignes
+
     const q = terme.trim().toLowerCase()
     if (!q) return lignes
 
     const cherchables = colonnes.filter((c) => c.valeur)
     return lignes.filter((ligne) => cherchables.some((c) => texteDe(ligne, c).includes(q)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lignes, colonnes, terme])
+  }, [lignes, colonnes, terme, controle])
 
   const triees = useMemo(() => {
     if (!tri) return filtrees

@@ -52,7 +52,7 @@ class Perimetre
     public function __construct(private readonly User $user) {}
 
     /** Fiche personnel du compte, seule porteuse des attributions. */
-    private function personnelId(): ?int
+    public function personnelId(): ?int
     {
         return $this->user->personnel?->id;
     }
@@ -216,6 +216,28 @@ class Perimetre
         $classes = $this->classes();
 
         return $classes === null || in_array($classeId, $classes, true);
+    }
+
+    /**
+     * Dans cette classe, le compte ne doit-il voir que ses propres matières ?
+     *
+     * Oui pour un enseignant qui y intervient sans en être titulaire — il n'a
+     * affaire qu'à ce qu'on lui a affecté, pas au programme des collègues qui
+     * partagent la classe. Non pour le titulaire (primaire/maternelle, qui
+     * tient toute la classe), non pour censeur/surveillant général (vue de
+     * supervision) et non pour un compte non borné.
+     */
+    public function matieresRestreintesDans(int $classeId): bool
+    {
+        if (! $this->estBorne()) {
+            return false;
+        }
+
+        if (Classe::where('id', $classeId)->where('titulaire_id', $this->personnelId())->exists()) {
+            return false;
+        }
+
+        return FonctionRoles::role($this->user->fonction()?->label_fr) === 'enseignant';
     }
 
     /**

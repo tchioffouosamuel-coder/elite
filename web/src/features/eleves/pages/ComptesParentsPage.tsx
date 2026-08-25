@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX } from 'lucide-react'
 import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, type TuteurCompte } from '@/features/eleves/api'
@@ -24,14 +24,34 @@ export function ComptesParentsPage() {
   const ecoleActive = useAuthStore((s) => s.activeSchool())
   const [page, setPage] = useState(1)
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const [rechercheDebounced, setRechercheDebounced] = useState('')
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
   const [lotEnCours, setLotEnCours] = useState(false)
   const [lotProgres, setLotProgres] = useState<{ traites: number; total: number } | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
+  // La recherche doit porter sur tous les tuteurs de l'établissement, pas
+  // seulement sur la page de 50 déjà chargée — elle part donc au serveur
+  // (`GET /tuteurs?search=`), avec un court débounce pour ne pas déclencher
+  // une requête à chaque frappe.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setRechercheDebounced(recherche)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [recherche])
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['tuteurs', { page, sansCompteSeulement }],
-    queryFn: () => fetchTuteurs({ page, sans_compte: sansCompteSeulement || undefined, per_page: 50 }),
+    queryKey: ['tuteurs', { page, sansCompteSeulement, rechercheDebounced }],
+    queryFn: () =>
+      fetchTuteurs({
+        page,
+        sans_compte: sansCompteSeulement || undefined,
+        search: rechercheDebounced || undefined,
+        per_page: 50,
+      }),
   })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['tuteurs'] })
@@ -280,6 +300,8 @@ export function ComptesParentsPage() {
           lignes={data.items}
           cleLigne={(t) => t.id}
           placeholderRecherche="Rechercher un tuteur, un numéro…"
+          terme={recherche}
+          onTermeChange={setRecherche}
           messageVide="Aucun tuteur pour cet établissement."
           largeurMin={760}
           // La pagination se fait déjà côté serveur (Précédent/Suivant plus

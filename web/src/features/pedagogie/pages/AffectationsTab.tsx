@@ -11,8 +11,12 @@ import {
   copierAffectations,
   batchEnseignantAffectations,
   fetchMatieres,
+  fetchCompetencesClasse,
+  modifierAttributionCompetence,
+  retirerCompetenceClasse,
   type ClasseMatiere,
   type ClasseMatiereUpdatePayload,
+  type ClasseCompetence,
 } from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
@@ -50,17 +54,28 @@ export function AffectationsTab({
   const [showCompetences, setShowCompetences] = useState(false)
   const [enseignantEnMasse, setEnseignantEnMasse] = useState(false)
   const [rechercheMatiere, setRechercheMatiere] = useState('')
+  const [competenceEnEdition, setCompetenceEnEdition] = useState<ClasseCompetence | null>(null)
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
   // valeur 1 côté payload (l'API l'exige) mais on ne la montre nulle part.
   const secondaire = estSecondaire(ecoleType)
 
+  // Au secondaire l'unité affectée est la matière (`classe_matieres`) ; au
+  // primaire et en maternelle c'est la compétence (`classe_competences`), dont
+  // les matières s'installent d'office — cf. CompetenceAttributionService.
+  // Chaque cycle ne charge donc que ce qu'il affiche réellement.
   const { data: affectations, isLoading } = useQuery({
     queryKey: ['classe-matieres', classeId],
     queryFn: () => fetchClasseMatieres(classeId),
+    enabled: secondaire,
   })
-  const { data: matieres } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
+  const { data: competencesClasse, isLoading: isLoadingCompetences } = useQuery({
+    queryKey: ['classe-competences', classeId],
+    queryFn: () => fetchCompetencesClasse(classeId),
+    enabled: !secondaire,
+  })
+  const { data: matieres } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres, enabled: secondaire })
   // Uniquement pour le select « Enseignant » du formulaire d'affectation, réservé
   // à qui peut gérer — un titulaire en lecture seule n'a pas le privilège
   // « Consulter le personnel » et n'a de toute façon pas accès à ce formulaire.
@@ -81,9 +96,9 @@ export function AffectationsTab({
   const matieresDisponiblesFiltrees = matieresDisponibles.filter((matiere) =>
     matiere.nom.toLowerCase().includes(rechercheMatiere.trim().toLowerCase()),
   )
-  const matieresById = new Map((matieres ?? []).map((m) => [m.id, m]))
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
+  const invalidateCompetences = () => queryClient.invalidateQueries({ queryKey: ['classe-competences', classeId] })
 
   const basculerSelection = (id: number) =>
     setSelectedIds((courant) => {
@@ -114,6 +129,24 @@ export function AffectationsTab({
     })
     invalidate()
     succes('Affectation retirée.')
+  }
+
+  const retirerCompetence = async (attribution: ClasseCompetence) => {
+    if (
+      !(await confirmerSuppression(
+        `la compétence ${attribution.competence?.label_fr ?? ''}`,
+        'Les matières installées par cette compétence dans la classe seront également retirées.',
+      ))
+    )
+      return
+
+    try {
+      await retirerCompetenceClasse(attribution.classe_competence_id)
+      invalidateCompetences()
+      succes('Compétence retirée de la classe.')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
   }
 
   const supprimerSelection = async () => {
@@ -188,50 +221,18 @@ export function AffectationsTab({
           valeur: (a) => a.matiere.nom,
           cellule: (a) => <span className="font-medium text-navy-900">{a.matiere.nom}</span>,
         },
-        ...(secondaire
-          ? [
-            {
-              cle: 'enseignant',
-              entete: t('pedagogie.enseignant'),
-              valeur: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '',
-              cellule: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '—',
-            },
-            {
-              cle: 'coefficient',
-              entete: t('pedagogie.coefficient'),
-              valeur: (a: ClasseMatiere) => a.coefficient,
-              cellule: (a: ClasseMatiere) => a.coefficient,
-            },
-          ]
-          : [
-            // Le titulaire enseigne déjà seul sa classe : plutôt que de
-            // réafficher son propre nom, on montre à quelle compétence la
-            // matière se rattache — c'est elle qui sera notée au bulletin.
-            {
-              cle: 'competence',
-              entete: t('competences.singulier'),
-              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.competence?.label_fr ?? '',
-              cellule: (a: ClasseMatiere) => {
-                const competence = matieresById.get(a.matiere.id)?.competence
-
-                return competence ? (
-                  <span className="font-medium text-navy-700">{competence.label_fr}</span>
-                ) : (
-                  <span className="text-xs text-gold-600">{t('competences.non_rattachee')}</span>
-                )
-              },
-            },
-            {
-              cle: 'bareme_competence',
-              entete: t('matieres.notation'),
-              valeur: (a: ClasseMatiere) => matieresById.get(a.matiere.id)?.competence?.notation ?? 0,
-              cellule: (a: ClasseMatiere) => {
-                const competence = matieresById.get(a.matiere.id)?.competence
-                return competence ? `/${competence.notation}` : '—'
-              },
-              masquerMobile: true,
-            },
-          ]),
+        {
+          cle: 'enseignant',
+          entete: t('pedagogie.enseignant'),
+          valeur: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '',
+          cellule: (a: ClasseMatiere) => a.enseignant?.nom_complet ?? '—',
+        },
+        {
+          cle: 'coefficient',
+          entete: t('pedagogie.coefficient'),
+          valeur: (a: ClasseMatiere) => a.coefficient,
+          cellule: (a: ClasseMatiere) => a.coefficient,
+        },
         {
           cle: 'quota_horaire',
           entete: t('pedagogie.quota_horaire'),
@@ -271,7 +272,70 @@ export function AffectationsTab({
       ]
       : []
 
-  if (isLoading) return <Spinner />
+  const colonnesCompetences: Colonne<ClasseCompetence>[] = [
+    {
+      cle: 'competence',
+      entete: t('competences.singulier'),
+      valeur: (a) => a.competence?.label_fr ?? '',
+      cellule: (a) => <span className="font-medium text-navy-900">{a.competence?.label_fr ?? '—'}</span>,
+    },
+    {
+      cle: 'matieres',
+      entete: t('competences.contenu'),
+      valeur: (a) => a.competence?.matieres?.map((m) => m.nom).join(', ') ?? '',
+      cellule: (a) =>
+        (a.competence?.matieres?.length ?? 0) === 0 ? (
+          <span className="text-xs text-gold-600">{t('competences.sans_matiere')}</span>
+        ) : (
+          <span className="text-navy-600">{a.competence?.matieres?.map((m) => m.nom).join(' · ')}</span>
+        ),
+      masquerMobile: true,
+    },
+    {
+      cle: 'notation',
+      entete: t('matieres.notation'),
+      valeur: (a) => a.competence?.notation ?? 0,
+      cellule: (a) => (a.competence?.notation ? `/${a.competence.notation}` : t('competences.par_appreciation')),
+    },
+    {
+      cle: 'enseignant',
+      entete: t('competences.enseignant'),
+      valeur: (a) => a.enseignant?.nom_complet ?? '',
+      cellule: (a) => a.enseignant?.nom_complet ?? '—',
+    },
+    ...(can('pedagogie.manage')
+      ? [
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (a: ClasseCompetence) => (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setCompetenceEnEdition(a)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  retirerCompetence(a)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        },
+      ]
+      : []),
+  ]
+
+  if (isLoading || isLoadingCompetences) return <Spinner />
 
   return (
     <div className="flex flex-col gap-4">
@@ -373,30 +437,43 @@ export function AffectationsTab({
         </form>
       )}
 
-      {!affectations || affectations.length === 0 ? (
-        <EmptyState />
+      {secondaire ? (
+        !affectations || affectations.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <DataTable
+            colonnes={colonnes}
+            lignes={affectations}
+            cleLigne={(a) => a.id}
+            placeholderRecherche="Rechercher une matière ou un enseignant…"
+            messageVide="Aucune affectation pour cette classe."
+            parPage={10}
+            outils={
+              selectedIds.size > 0 && can('pedagogie.manage') ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>
+                    <Copy className="h-4 w-4" />
+                    Copier vers une classe ({selectedIds.size})
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={supprimerSelection}>
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer ({selectedIds.size})
+                  </Button>
+                </div>
+              ) : undefined
+            }
+          />
+        )
+      ) : !competencesClasse || competencesClasse.length === 0 ? (
+        <EmptyState label={t('competences.aucune_dans_classe')} />
       ) : (
         <DataTable
-          colonnes={colonnes}
-          lignes={affectations}
-          cleLigne={(a) => a.id}
-          placeholderRecherche={secondaire ? 'Rechercher une matière ou un enseignant…' : 'Rechercher une matière…'}
-          messageVide="Aucune affectation pour cette classe."
+          colonnes={colonnesCompetences}
+          lignes={competencesClasse}
+          cleLigne={(a) => a.classe_competence_id}
+          placeholderRecherche="Rechercher une compétence…"
+          messageVide={t('competences.aucune_dans_classe')}
           parPage={10}
-          outils={
-            selectedIds.size > 0 && can('pedagogie.manage') ? (
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>
-                  <Copy className="h-4 w-4" />
-                  Copier vers une classe ({selectedIds.size})
-                </Button>
-                <Button variant="danger" size="sm" onClick={supprimerSelection}>
-                  <Trash2 className="h-4 w-4" />
-                  Supprimer ({selectedIds.size})
-                </Button>
-              </div>
-            ) : undefined
-          }
         />
       )}
 
@@ -419,8 +496,18 @@ export function AffectationsTab({
           onClose={() => setShowCompetences(false)}
           onAttribuees={() => {
             setShowCompetences(false)
-            invalidate()
-            queryClient.invalidateQueries({ queryKey: ['classe-competences', classeId] })
+            invalidateCompetences()
+          }}
+        />
+      )}
+
+      {competenceEnEdition && (
+        <EditCompetenceModal
+          attribution={competenceEnEdition}
+          onClose={() => setCompetenceEnEdition(null)}
+          onSaved={() => {
+            setCompetenceEnEdition(null)
+            invalidateCompetences()
           }}
         />
       )}
@@ -539,6 +626,67 @@ function EditAffectationModal({
         )}
 
         <Input label={t('pedagogie.quota_horaire')} type="number" {...register('quota_horaire')} />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/** Change l'enseignant du bloc de compétence dans la classe (primaire/maternelle). */
+function EditCompetenceModal({
+  attribution,
+  onClose,
+  onSaved,
+}: {
+  attribution: ClasseCompetence
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useTranslation()
+  const [serverError, setServerError] = useState<string | null>(null)
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', 'all'],
+    queryFn: () => fetchPersonnels({ per_page: 100 }),
+  })
+
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<{ personnel_id?: number }>({
+    defaultValues: { personnel_id: attribution.enseignant?.id ?? undefined },
+  })
+
+  const onSubmit = async (values: { personnel_id?: number }) => {
+    setServerError(null)
+    try {
+      await modifierAttributionCompetence(attribution.classe_competence_id, {
+        personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
+      })
+      succes('Attribution mise à jour.')
+      onSaved()
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    }
+  }
+
+  return (
+    <Modal title={`Modifier — ${attribution.competence?.label_fr ?? ''}`} onClose={onClose}>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <Select label={t('competences.enseignant')} {...register('personnel_id')}>
+          <option value="">—</option>
+          {personnels?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nom_complet}
+            </option>
+          ))}
+        </Select>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 
