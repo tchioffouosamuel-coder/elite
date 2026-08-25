@@ -11,6 +11,7 @@ import {
 import { francs, type ModePaiement } from '@/features/finance/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { jouerBipErreur, jouerBipScan } from '@/shared/lib/son'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -178,10 +179,10 @@ export function ComptoirTab() {
   const dejaAuPanier = (articleId: number) =>
     panier.find((ligne) => ligne.article.id === articleId)?.quantite ?? 0
 
-  const ajouter = (article: ArticleComptoir) => {
+  const ajouter = (article: ArticleComptoir): boolean => {
     if (article.quantite <= dejaAuPanier(article.id)) {
       erreur(t('pointDeVente.stock_epuise', { nom: article.nom, quantite: article.quantite }))
-      return
+      return false
     }
 
     setPanier((actuel) => {
@@ -198,6 +199,8 @@ export function ComptoirTab() {
 
     setMessageScan(t('pointDeVente.ajoute', { nom: article.nom }))
     redonnerLeFocus()
+
+    return true
   }
 
   const changerQuantite = (articleId: number, delta: number) => {
@@ -249,7 +252,7 @@ export function ComptoirTab() {
     const local = forcerApi ? undefined : catalogue.find((article) => article.code_barre === valeur)
 
     if (local) {
-      ajouter(local)
+      if (ajouter(local)) jouerBipScan(); else jouerBipErreur()
       setSaisie('')
       return
     }
@@ -258,13 +261,15 @@ export function ComptoirTab() {
       const article = await fetchArticleParCodeBarre(valeur)
 
       if (article.prix_vente === null) {
+        jouerBipErreur()
         setMessageScan(t('pointDeVente.sans_prix', { nom: article.nom }))
         setSaisie('')
         return
       }
 
-      ajouter(article)
+      if (ajouter(article)) jouerBipScan(); else jouerBipErreur()
     } catch {
+      jouerBipErreur()
       setMessageScan(t('pointDeVente.code_inconnu', { code: valeur }))
     } finally {
       setSaisie('')
@@ -352,7 +357,7 @@ export function ComptoirTab() {
                 className="w-full rounded-xl border border-navy-200 bg-white py-2.5 pl-10 pr-3.5 font-mono text-sm text-navy-900 shadow-soft transition-colors placeholder:font-sans placeholder:text-navy-300 focus:border-gold-400 focus:outline-none focus:ring-4 focus:ring-gold-100"
               />
             </div>
-            <Button variant="secondary" onClick={validerSaisie}>
+            <Button variant="secondary" onClick={() => validerSaisie()}>
               <Search className="h-4 w-4" />
               {t('pointDeVente.chercher')}
             </Button>

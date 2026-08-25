@@ -98,19 +98,23 @@ class InventaireController extends Controller
         $donnees = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
-            // Combien d'étiquettes tirer par article — un carton de 50 cahiers
-            // identiques en demande 50, pas une.
+            // Impose le même tirage à tous les articles sélectionnés (ex. un
+            // carton de 50 cahiers identiques). Sans lui, chaque article tire
+            // autant d'étiquettes que sa quantité en stock — l'économe n'a
+            // pas à ressaisir un nombre qu'il vient de saisir sur la fiche.
             'exemplaires' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
         $articles = $this->service->attribuerCodesBarres(Tenant::schoolIds(), $donnees['ids']);
-        $tirage = (int) ($donnees['exemplaires'] ?? 1);
 
-        $pdf = (new EtiquettesArticlesGenerator)->build(
-            $articles,
-            $articles->first()?->school,
-            $articles->mapWithKeys(fn (InventaireArticle $a) => [$a->id => $tirage])->all(),
-        );
+        $tirages = $articles->mapWithKeys(fn (InventaireArticle $a) => [
+            // Plafonné comme le tirage explicite : une quantité en stock mal
+            // saisie ne doit pas produire une planche de plusieurs centaines
+            // de pages.
+            $a->id => $donnees['exemplaires'] ?? min(200, max(1, $a->quantite)),
+        ])->all();
+
+        $pdf = (new EtiquettesArticlesGenerator)->build($articles, $articles->first()?->school, $tirages);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

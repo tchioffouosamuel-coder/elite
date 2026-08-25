@@ -91,8 +91,12 @@ export async function genererCodeBarre(id: number): Promise<ArticleInventaire> {
  * Requête POST : la liste d'identifiants peut être longue et n'a pas sa place
  * dans une URL. On récupère donc le PDF en blob avant de l'afficher, plutôt
  * que de pointer une fenêtre sur l'adresse.
+ *
+ * Sans `exemplaires` explicite, l'API tire autant d'étiquettes que la
+ * quantité en stock de chaque article — ne pas lui donner de valeur par
+ * défaut ici, sous peine d'imposer silencieusement un tirage de 1 partout.
  */
-export async function ouvrirEtiquettes(ids: number[], exemplaires = 1): Promise<void> {
+export async function ouvrirEtiquettes(ids: number[], exemplaires?: number): Promise<void> {
   const { data } = await http.post('/inventaire/etiquettes', { ids, exemplaires }, { responseType: 'blob' })
   const url = URL.createObjectURL(new Blob([data as BlobPart], { type: 'application/pdf' }))
   window.open(url, '_blank', 'noopener')

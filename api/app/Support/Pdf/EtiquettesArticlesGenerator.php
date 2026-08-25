@@ -16,9 +16,10 @@ use Mpdf\Output\Destination;
  * — un code rasterisé se dégrade à l'impression et cesse d'être lu par la
  * douchette, ce qui est précisément ce qu'on ne peut pas se permettre ici.
  *
- * La grille est calée sur des planches A4 courantes de 3 × 8 : si l'école
- * imprime sur du papier ordinaire, elle découpe ; si elle achète des planches
- * autocollantes, les repères tombent juste.
+ * La grille est calée à 3 colonnes × 9 lignes, soit 27 étiquettes par page
+ * pleine (au moins 25 exigées) : si l'école imprime sur du papier ordinaire,
+ * elle découpe ; si elle achète des planches autocollantes proches de ce
+ * format, les repères tombent à peu près juste.
  */
 class EtiquettesArticlesGenerator
 {
@@ -26,8 +27,11 @@ class EtiquettesArticlesGenerator
 
     private const COLONNES = 3;
 
+    /** Lignes complètes par page — 3 × 9 = 27 étiquettes, au moins les 25 exigées. */
+    private const LIGNES_PAR_PAGE = 9;
+
     /** Hauteur d'une étiquette, en millimètres. */
-    private const HAUTEUR = 33;
+    private const HAUTEUR = 28;
 
     /**
      * @param  Collection<int, InventaireArticle>  $articles
@@ -93,6 +97,23 @@ class EtiquettesArticlesGenerator
             $cellules[] = null;
         }
 
+        /*
+         * Pagination explicite plutôt que laissée au débordement naturel du
+         * tableau : c'est le seul moyen de garantir 27 étiquettes par page
+         * pleine (l'exigence en fixe au moins 25), indépendamment de la façon
+         * dont mPDF calcule l'espace disponible.
+         */
+        $parPage = self::COLONNES * self::LIGNES_PAR_PAGE;
+        $pages = array_chunk($cellules, $parPage);
+
+        return collect($pages)
+            ->map(fn (array $cellulesPage, int $index) => $this->page($cellulesPage, $index < count($pages) - 1))
+            ->implode('');
+    }
+
+    /** @param  list<string|null>  $cellules */
+    private function page(array $cellules, bool $sautDePageApres): string
+    {
         $html = '<table class="grille">';
 
         foreach (array_chunk($cellules, self::COLONNES) as $ligne) {
@@ -105,7 +126,9 @@ class EtiquettesArticlesGenerator
             $html .= '</tr>';
         }
 
-        return $html.'</table>';
+        $html .= '</table>';
+
+        return $sautDePageApres ? '<div style="page-break-after: always"></div>'.$html : $html;
     }
 
     private function etiquette(InventaireArticle $article): string
