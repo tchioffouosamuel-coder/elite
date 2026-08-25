@@ -21,6 +21,7 @@ export function ProtectedRoute({
   masquerPourTitulaire = false,
   parentOnly = false,
   personnelOnly = false,
+  chefDepartementOnly = false,
 }: {
   children: ReactNode
   permission?: string
@@ -46,8 +47,14 @@ export function ProtectedRoute({
    * de toute façon 404 (cf. PersonnelEspaceController::moi()).
    */
   personnelOnly?: boolean
+  /**
+   * Réservé aux comptes qui dirigent au moins un département — masquer le
+   * lien du menu n'empêcherait pas d'y entrer par une URL directe, et l'API
+   * y répond de toute façon 403 (cf. EnseignantController::monDepartement()).
+   */
+  chefDepartementOnly?: boolean
 }) {
-  const { token, user, can, activeSchool, refreshUser } = useAuthStore()
+  const { token, user, can, aAttribution, activeSchool, refreshUser } = useAuthStore()
   const dejaRafraichi = useRef(false)
 
   // Le profil vient du stockage local et peut dater d'une version antérieure de
@@ -84,6 +91,7 @@ export function ProtectedRoute({
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
   if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
   if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
+  if (chefDepartementOnly && !aAttribution('chef_departement')) return <Navigate to={redirectionParDefaut(user?.roles)} replace />
 
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')

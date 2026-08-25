@@ -87,6 +87,14 @@ const navGroups = [
       { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
       { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view' },
       {
+        to: '/enseignant/mes-informations',
+        label: 'nav.mesInformations',
+        icon: UserRound,
+        // Aucun privilège : la fiche et la rémunération du compte connecté
+        // uniquement — cf. EnseignantController::mesInformations().
+        estEnseignant: true,
+      },
+      {
         to: '/mes-avances',
         label: 'nav.mesAvances',
         icon: HandCoins,
@@ -107,6 +115,15 @@ const navGroups = [
         label: 'nav.departements',
         icon: Building2,
         permission: 'personnel.view',
+        types: ['secondaire'] as TypeEcole[],
+      },
+      {
+        to: '/enseignant/mon-departement',
+        label: 'nav.monDepartement',
+        icon: Building2,
+        // Aucun privilège de base : seule l'attribution « chef de
+        // département » ouvre cet écran, borné au sien.
+        chefDepartement: true,
         types: ['secondaire'] as TypeEcole[],
       },
       {
@@ -176,6 +193,15 @@ const navGroups = [
         types: ['primaire', 'maternelle'] as TypeEcole[],
       },
       { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view', masquerPourTitulaire: true },
+      {
+        to: '/enseignant/mes-matieres',
+        label: 'nav.mesMatieres',
+        icon: BookOpen,
+        permission: 'notes.view',
+        // Table des matières affectées au compte connecté, avec saisie des
+        // notes dédiée — pas la liste d'établissement de « Matières ».
+        estEnseignant: true,
+      },
       {
         to: '/ma-journee',
         label: 'nav.maJournee',
@@ -323,7 +349,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, can, clearSession, activeSchool } = useAuthStore()
+  const { user, can, aAttribution, clearSession, activeSchool } = useAuthStore()
   const { locale, setLocale, sidebarOpen, toggleSidebar } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
   const [groupeTopbarOuvert, setGroupeTopbarOuvert] = useState<string | null>(null)
@@ -374,6 +400,10 @@ export function AppLayout() {
   // un privilège — l'écran ne parle que du salaire de son titulaire.
   const estPersonnel = Boolean(user?.est_personnel)
 
+  // Dirige au moins un département : ouvre « Mon département », sur son seul
+  // département (cf. EnseignantController::monDepartement()).
+  const estChefDepartement = aAttribution('chef_departement')
+
   const groupesVisibles = useMemo(
     () =>
       navGroups
@@ -388,6 +418,7 @@ export function AppLayout() {
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
               (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
               (!('estPersonnel' in item) || !item.estPersonnel || estPersonnel) &&
+              (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse),
           )
           const items = requeteMenu
@@ -403,7 +434,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel, estChefDepartement],
   )
 
   /**

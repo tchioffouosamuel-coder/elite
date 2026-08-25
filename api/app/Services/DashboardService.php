@@ -8,12 +8,18 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
+use App\Models\Sequence;
 use App\Models\User;
 use App\Support\Perimetre;
 use Illuminate\Support\Collection;
 
 class DashboardService extends BaseService
 {
+    public function __construct(
+        private readonly NoteService $notes,
+        private readonly ProgressionService $progression,
+    ) {}
+
     /**
      * Un enseignant ne gère que les classes où il intervient (titulariat ou
      * affectation matière) : lui montrer les effectifs de tout l'établissement,
@@ -29,7 +35,7 @@ class DashboardService extends BaseService
             $classes = Classe::forSchool($schoolId)->whereIn('id', $classeIds)->get();
 
             if ($classes->isNotEmpty()) {
-                return $this->statsClasse($schoolId, $classes);
+                return $this->statsClasse($schoolId, $classes, $user);
             }
         }
 
@@ -103,7 +109,7 @@ class DashboardService extends BaseService
      * @param  int|array<int>  $schoolId
      * @param  Collection<int, Classe>  $classes  Les classes où l'enseignant intervient (une ou plusieurs).
      */
-    private function statsClasse(int|array $schoolId, Collection $classes): array
+    private function statsClasse(int|array $schoolId, Collection $classes, User $user): array
     {
         $classeIds = $classes->pluck('id')->all();
         $premiere = $classes->first();
@@ -121,6 +127,8 @@ class DashboardService extends BaseService
             ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
             ->values();
 
+        [$tauxRemplissageNotes, $tauxProgression] = $this->indicateursPedagogiques($schoolId, $classeIds, $user);
+
         return [
             'scope' => 'classe',
             'classe' => [
@@ -131,12 +139,57 @@ class DashboardService extends BaseService
             'effectifs' => [
                 'eleves' => $totalEleves,
                 'matieres' => $totalMatieres,
+                'classes' => $classes->count(),
             ],
             'repartition_genre' => ['garcons' => $garcons, 'filles' => $filles],
             'indicateurs' => [
                 'taux_filles' => $totalEleves > 0 ? round($filles / $totalEleves * 100, 1) : 0,
+                'taux_remplissage_notes' => $tauxRemplissageNotes,
+                'taux_progression' => $tauxProgression,
             ],
             'activite_recente' => $activiteRecente,
         ];
+    }
+
+    /**
+     * Moyenne du remplissage des notes (séquence active) et de l'avancement
+     * du programme, sur les seules affectations de l'agent connecté — pas sur
+     * toute la classe, dont d'autres enseignants peuvent avoir la charge.
+     *
+     * @param  int|array<int>  $schoolId
+     * @param  list<int>  $classeIds
+     * @return array{0: ?int, 1: ?int}
+     */
+    private function indicateursPedagogiques(int|array $schoolId, array $classeIds, User $user): array
+    {
+        $personnelId = $user->personnel?->id;
+
+        if ($personnelId === null || $classeIds === []) {
+            return [null, null];
+        }
+
+        $mesAffectations = ClasseMatiere::whereIn('classe_id', $classeIds)
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+            ->get();
+
+        if ($mesAffectations->isEmpty()) {
+            return [null, null];
+        }
+
+        $tauxProgression = (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->progression->tauxAffectation($cm)['taux']));
+
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', (array) $schoolId))
+        )->first();
+
+        $tauxRemplissageNotes = $sequenceActive === null
+            ? null
+            : (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->notes->tauxRemplissage($cm, $sequenceActive->id)));
+
+        return [$tauxRemplissageNotes, $tauxProgression];
     }
 }

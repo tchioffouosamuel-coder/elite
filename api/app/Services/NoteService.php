@@ -102,4 +102,16 @@ class NoteService extends BaseService
 
         return $user->personnel && $classeMatiere->personnel_id === $user->personnel->id;
     }
+
+    /** Part des élèves actifs de la classe ayant déjà une note pour cette séquence. */
+    public function tauxRemplissage(ClasseMatiere $classeMatiere, int $sequenceId): int
+    {
+        $grille = $this->grille($classeMatiere, $sequenceId);
+
+        if ($grille->isEmpty()) {
+            return 0;
+        }
+
+        return (int) round($grille->filter(fn (array $ligne) => $ligne['valeur'] !== null)->count() / $grille->count() * 100);
+    }
 }

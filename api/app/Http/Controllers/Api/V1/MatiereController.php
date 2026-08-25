@@ -154,7 +154,7 @@ class MatiereController extends Controller
             // manque en comparant deux listes.
             'classes_introuvables' => $import->classesIntrouvables,
             'enseignants_introuvables' => $import->enseignantsIntrouvables,
-        ], $this->messageImport($import, $cycle));
+        ], $this->messageImport($import));
     }
 
     /**
@@ -172,17 +172,12 @@ class MatiereController extends Controller
     }
 
     /**
-     * Au primaire et en maternelle, ce qui porte le barème est la compétence,
-     * pas la matière (cf. MatiereImport) — la nommer ainsi dans le message
-     * évite de la chercher en vain dans la liste des matières. Sa matière de
-     * contenu du même nom est installée dans le même geste, elle.
+     * Le cycle ne change plus la nature de ce qui est importé (cf.
+     * MatiereImport) : toujours des matières, quel que soit l'établissement.
      */
-    private function messageImport(MatiereImport $import, string $cycle): string
+    private function messageImport(MatiereImport $import): string
     {
-        $creeDesCompetences = in_array($cycle, [MatiereImport::CYCLE_PRIMAIRE, MatiereImport::CYCLE_MATERNELLE], true);
-        $unite = $creeDesCompetences ? 'compétence(s)' : 'matière(s)';
-
-        $parties = ["{$import->importedCount} {$unite} importée(s)"];
+        $parties = ["{$import->importedCount} matière(s) importée(s)"];
 
         if ($import->updatedCount > 0) {
             $parties[] = "{$import->updatedCount} mise(s) à jour";

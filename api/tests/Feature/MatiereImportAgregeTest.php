@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Competence;
 use App\Models\Matiere;
 use App\Models\School;
 use App\Models\User;
@@ -67,47 +66,28 @@ class MatiereImportAgregeTest extends TestCase
         return new UploadedFile($chemin, 'matieres.xlsx', null, null, true);
     }
 
-    private function fichierAvecBareme(): UploadedFile
-    {
-        $tableur = new Spreadsheet;
-        $feuille = $tableur->getActiveSheet();
-        $feuille->fromArray(['nom', 'oral', 'ecrit', 'savoir_etre'], null, 'A1');
-        $feuille->fromArray(['Langage', 5, 10, 5], null, 'A2');
-
-        $chemin = tempnam(sys_get_temp_dir(), 'competences').'.xlsx';
-        (new Xlsx($tableur))->save($chemin);
-
-        return new UploadedFile($chemin, 'competences.xlsx', null, null, true);
-    }
-
     /**
      * Le cycle `maternelle` est distinct de `primaire` uniquement pour que
-     * l'établissement visé soit déclaré explicitement — le traitement
-     * (compétences évaluées, barème par volet) est identique.
+     * l'établissement visé soit déclaré explicitement — le traitement est
+     * identique, et identique à celui du secondaire : seule une matière est
+     * créée, sans compétence associée (cf. MatiereImport).
      */
-    public function test_le_cycle_maternelle_cree_des_competences_sous_la_bonne_ecole(): void
+    public function test_le_cycle_maternelle_importe_une_matiere_sous_la_bonne_ecole(): void
     {
         $maternelle = School::create(['name' => 'Elites Maternelle', 'code' => 'EM', 'type' => 'maternelle', 'is_active' => true]);
 
         $this->actingAs($this->superAdmin, 'sanctum')
             ->post('/api/v1/matieres/import', [
-                'file' => $this->fichierAvecBareme(),
+                'file' => $this->fichier(),
                 'cycle' => 'maternelle',
                 'school_id' => $maternelle->id,
             ])
             ->assertOk()
             ->assertJsonPath('data.imported', 1);
 
-        $competence = Competence::sole();
-        $this->assertSame($maternelle->id, $competence->school_id);
-        $this->assertSame(20, $competence->notation);
-
-        // Une matière de contenu du même nom est installée avec la compétence,
-        // sous la même école — sans elle, la compétence resterait invisible
-        // dans la liste des matières.
         $matiere = Matiere::sole();
         $this->assertSame($maternelle->id, $matiere->school_id);
-        $this->assertSame($competence->id, $matiere->competence_id);
+        $this->assertNull($matiere->competence_id);
     }
 
     /** Sans école explicite ni X-School-Id, deviner serait justement le bug : l'API doit refuser plutôt qu'écrire au hasard. */

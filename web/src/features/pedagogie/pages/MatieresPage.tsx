@@ -20,17 +20,16 @@ import type { Matiere } from '@/features/pedagogie/api'
 import type { ApiError } from '@/shared/types/api'
 
 /*
- * Colonnes attendues par l'import, par cycle (cf. App\Imports\MatiereImport).
- * Le modèle minimal du secondaire ne contient que les libellés et
- * l'abréviation ; les colonnes d'affectation restent acceptées par l'API.
+ * Colonnes attendues par l'import, identiques quel que soit le cycle (cf.
+ * App\Imports\MatiereImport) : seul l'établissement visé change. Le modèle
+ * minimal ne contient que les libellés et l'abréviation ; les colonnes
+ * d'affectation restent acceptées par l'API.
  */
-const COLONNES_SECONDAIRE = [
+const COLONNES_MATIERES = [
   'nom',
   'nom_en',
   'abreviation',
 ]
-
-const COLONNES_PRIMAIRE = ['nom', 'nom_en', 'abreviation', 'oral', 'ecrit', 'savoir_etre', 'pratique']
 
 export function MatieresPage() {
   const { t } = useTranslation()
@@ -59,17 +58,13 @@ export function MatieresPage() {
     return correspondantes.length === 1 ? correspondantes[0] : null
   }
 
-  const [cycleChoisi, setCycleChoisi] = useState<string>('secondaire')
-
   const cibleCycle = (valeur: string) => {
-    setCycleChoisi(valeur)
     if (valeur !== 'secondaire' && valeur !== 'primaire' && valeur !== 'maternelle') return
     const ecole = ecoleParType(valeur)
     if (ecole) setSchoolFilter(ecole.id)
   }
 
-  // Le secondaire classe ses matières par département ; le primaire les note
-  // sur un barème propre, réparti sur ses volets d'évaluation.
+  // Le secondaire classe ses matières par département.
   const secondaire = estSecondaire()
   const typeEcoleActive = useAuthStore((s) => s.activeSchool()?.type)
   const cycleDefaut = typeEcoleActive ?? 'secondaire'
@@ -325,7 +320,7 @@ export function MatieresPage() {
         <ImportModal
           title={t('import.title')}
           url="/matieres/import"
-          columns={COLONNES_SECONDAIRE}
+          columns={COLONNES_MATIERES}
           /*
            * Même école que le filtre de la liste : en mode « Toutes les
            * écoles » (aucune sélectionnée), l'API refuse l'import plutôt que
@@ -335,41 +330,36 @@ export function MatieresPage() {
            */
           extraFields={schoolFilter ? { school_id: schoolFilter } : undefined}
           /*
-           * Le cycle est déclaré, pas déduit : les fichiers se ressemblent
-           * trop (un nom, une abréviation) pour qu'on devine lequel on lit, et
-           * se tromper importerait un barème comme un coefficient. Primaire et
-           * maternelle sont deux choix distincts — pas un « Primaire /
-           * maternelle » ambigu — précisément pour que l'école visée soit
-           * déclarée, pas devinée : chacun choisit sa propre école dans le
-           * complexe (cf. `cibleCycle`).
+           * Le cycle est déclaré, pas déduit : rien dans le fichier (un nom,
+           * une abréviation) ne dit vers quelle école du complexe il part.
+           * Primaire et maternelle sont deux choix distincts — pas un
+           * « Primaire / maternelle » ambigu — précisément pour que l'école
+           * visée soit déclarée, pas devinée : chacun choisit sa propre école
+           * dans le complexe (cf. `cibleCycle`). Les colonnes lues sont les
+           * mêmes pour les trois : seule l'école cible change.
            */
           choix={{
             nom: 'cycle',
             label: t('matieres.import_cycle'),
             defaut: cycleDefaut,
             options: [
-              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_SECONDAIRE },
-              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_PRIMAIRE },
-              { valeur: 'maternelle', libelle: t('matieres.cycle_maternelle'), colonnes: COLONNES_PRIMAIRE },
+              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_MATIERES },
+              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_MATIERES },
+              { valeur: 'maternelle', libelle: t('matieres.cycle_maternelle'), colonnes: COLONNES_MATIERES },
             ],
           }}
           onChoixChange={cibleCycle}
           note={
-            <div className="flex flex-col gap-1.5">
-              {schoolFilter ? (
-                <p className="text-xs text-navy-500">
-                  {t('matieres.import_ecole_visee')}{' '}
-                  <span className="font-semibold text-navy-700">
-                    {schools.find((school) => school.id === schoolFilter)?.name}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-xs text-gold-600">{t('matieres.import_choisir_ecole')}</p>
-              )}
-              {(cycleChoisi === 'primaire' || cycleChoisi === 'maternelle') && (
-                <p className="text-xs text-navy-500">{t('matieres.import_cree_competence_et_matiere')}</p>
-              )}
-            </div>
+            schoolFilter ? (
+              <p className="text-xs text-navy-500">
+                {t('matieres.import_ecole_visee')}{' '}
+                <span className="font-semibold text-navy-700">
+                  {schools.find((school) => school.id === schoolFilter)?.name}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-gold-600">{t('matieres.import_choisir_ecole')}</p>
+            )
           }
           onClose={() => setShowImport(false)}
           onImported={() => queryClient.invalidateQueries({ queryKey: ['matieres'] })}

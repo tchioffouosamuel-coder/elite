@@ -217,6 +217,8 @@ export interface MonAffectation {
   classe_id: number;
   classe: string;
   matiere: string;
+  /** % d'élèves notés sur la séquence active ; `null` hors séquence active. */
+  taux_remplissage: number | null;
 }
 
 /**

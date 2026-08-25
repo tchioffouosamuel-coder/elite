@@ -101,6 +101,9 @@
     "scannerQr": "Scan a QR code",
     "transferts": "Bulk transfers",
     "mesAvances": "My advances",
+    "mesInformations": "My information",
+    "mesMatieres": "My subjects",
+    "monDepartement": "My department",
     "mesAttributions": "My responsibilities",
     "preinscriptions": "Pre-registrations",
     "modificationsEleves": "Profile edit requests",
@@ -536,12 +539,11 @@
     "search_placeholder": "Search a subject…",
     "empty": "No subjects for this school.",
     "import_cycle": "File cycle",
-    "cycle_secondaire": "Secondary — departments and assignments",
-    "cycle_primaire": "Primary — marks split by component",
-    "cycle_maternelle": "Nursery — marks split by component",
+    "cycle_secondaire": "Secondary",
+    "cycle_primaire": "Primary",
+    "cycle_maternelle": "Nursery",
     "import_ecole_visee": "Target school:",
-    "import_choisir_ecole": "Pick a school in the list filter before importing.",
-    "import_cree_competence_et_matiere": "Each row creates both the graded competency (marks split by component) and a matching content subject — visible under \"Evaluated competencies\" as well as in this list."
+    "import_choisir_ecole": "Pick a school in the list filter before importing."
   },
   "pedagogie": {
     "title": "Subjects & assignments",

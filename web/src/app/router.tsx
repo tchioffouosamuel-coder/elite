@@ -74,6 +74,10 @@ import { TarifsPage } from '@/features/finance/pages/TarifsPage'
 import { RemunerationsPage } from '@/features/finance/pages/RemunerationsPage'
 import { AvancesSalairePage } from '@/features/finance/pages/AvancesSalairePage'
 import { MesAvancesPage } from '@/features/mon-espace/pages/MesAvancesPage'
+import { MesInformationsPage } from '@/features/enseignant/pages/MesInformationsPage'
+import { MesMatieresPage } from '@/features/enseignant/pages/MesMatieresPage'
+import { RemplirNotesPage } from '@/features/enseignant/pages/RemplirNotesPage'
+import { MonDepartementPage } from '@/features/enseignant/pages/MonDepartementPage'
 import { InventairePage } from '@/features/inventaire/pages/InventairePage'
 import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
@@ -196,6 +200,18 @@ export const router = createHashRouter([
       // Libre-service de l'agent sur ses propres avances : aucun privilège de
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
+      // Espace enseignant : fiche personnelle, rémunération et matières
+      // enseignées, en libre-service — cf. EnseignantController.
+      { path: 'enseignant/mes-informations', element: <ProtectedRoute enseignantOnly><MesInformationsPage /></ProtectedRoute> },
+      { path: 'enseignant/mes-matieres', element: <ProtectedRoute enseignantOnly permission="notes.view"><MesMatieresPage /></ProtectedRoute> },
+      {
+        path: 'enseignant/mes-matieres/:classeMatiereId/notes',
+        element: <ProtectedRoute enseignantOnly permission="notes.create"><RemplirNotesPage /></ProtectedRoute>,
+      },
+      {
+        path: 'enseignant/mon-departement',
+        element: <ProtectedRoute enseignantOnly chefDepartementOnly><MonDepartementPage /></ProtectedRoute>,
+      },
       { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },

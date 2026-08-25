@@ -101,6 +101,9 @@
     "scannerQr": "Scanner un code QR",
     "transferts": "Transferts en masse",
     "mesAvances": "Mes avances",
+    "mesInformations": "Mes informations",
+    "mesMatieres": "Mes matières",
+    "monDepartement": "Mon département",
     "mesAttributions": "Mes attributions",
     "preinscriptions": "Préinscriptions",
     "modificationsEleves": "Modifications de fiches",
@@ -536,12 +539,11 @@
     "search_placeholder": "Rechercher une matière…",
     "empty": "Aucune matière pour cet établissement.",
     "import_cycle": "Cycle du fichier",
-    "cycle_secondaire": "Secondaire — départements et affectations",
-    "cycle_primaire": "Primaire — barème par volet",
-    "cycle_maternelle": "Maternelle — barème par volet",
+    "cycle_secondaire": "Secondaire",
+    "cycle_primaire": "Primaire",
+    "cycle_maternelle": "Maternelle",
     "import_ecole_visee": "École visée :",
-    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer.",
-    "import_cree_competence_et_matiere": "Chaque ligne crée à la fois la compétence notée (barème par volet) et une matière de contenu du même nom — visibles dans « Compétences évaluées » comme dans cette liste."
+    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer."
   },
   "pedagogie": {
     "title": "Matières & affectations",

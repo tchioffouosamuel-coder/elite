@@ -4,11 +4,9 @@ namespace App\Imports;
 
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
-use App\Models\Competence;
 use App\Models\Departement;
 use App\Models\Matiere;
 use App\Models\Personnel;
-use App\Services\CompetenceAttributionService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
@@ -20,25 +18,17 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
  * Import des matières, dans le cycle que l'utilisateur désigne au moment du
  * dépôt du fichier.
  *
- * Le secondaire d'un côté, le primaire et la maternelle de l'autre, ne
- * décrivent pas la même chose, et un import unique aurait exigé de l'un des
- * deux des colonnes qui n'ont aucun sens chez lui. Primaire et maternelle
- * partagent le même fichier et le même traitement — seul l'établissement visé
- * change, d'où deux valeurs de cycle distinctes plutôt qu'un choix ambigu :
+ * Le fichier importe des MATIÈRES, jamais des compétences — au primaire et en
+ * maternelle comme au secondaire. Le rattachement d'une matière à une
+ * compétence (`Matiere::competence_id`) est un geste manuel, posé ensuite dans
+ * l'application : le confondre avec l'import créait une compétence par ligne
+ * du fichier, sans que l'établissement l'ait demandé.
  *
- * - **secondaire** : la matière appartient à un département et s'enseigne dans
- *   des classes avec un coefficient, un quota horaire et un enseignant. Les
- *   colonnes d'affectation sont facultatives — sans elles, on importe le seul
- *   catalogue des matières ;
- * - **primaire et maternelle** : chaque ligne porte le barème réparti par
- *   volet (oral, écrit, savoir-être, et pratique quand la compétence s'y
- *   prête) — c'est donc d'abord une COMPÉTENCE ÉVALUÉE qui s'écrit, puisque
- *   c'est elle que le bulletin note. Une matière du même nom, rattachée à
- *   cette compétence, est installée dans le même geste : sans elle, la
- *   compétence resterait invisible dans la liste des matières alors que
- *   l'emploi du temps, les séances et la progression suivent les matières au
- *   quotidien (cf. Matiere::competence_id). L'établissement peut ensuite en
- *   ajouter d'autres à la main sous le même bloc.
+ * Le cycle ne sert donc plus qu'à distinguer l'établissement visé dans le
+ * message de confirmation ; les colonnes lues sont les mêmes pour les trois
+ * valeurs : la matière appartient à un département et s'enseigne dans des
+ * classes avec un coefficient, un quota horaire et un enseignant, toutes
+ * facultatives — sans elles, on importe le seul catalogue des matières.
  *
  * Les en-têtes sont tolérants — français, anglais, avec ou sans accent — parce
  * qu'un fichier d'établissement vient rarement du gabarit qu'on lui a donné.
@@ -53,18 +43,14 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
     public const CYCLE_PRIMAIRE = 'primaire';
 
     /**
-     * Même fichier, mêmes colonnes, même traitement que le primaire (barème
-     * réparti par volet) : distingué du primaire uniquement pour que
-     * l'utilisateur déclare explicitement l'établissement visé plutôt qu'un
-     * « Primaire / maternelle » ambigu qui ne dit pas vers laquelle des deux
-     * écoles le fichier part.
+     * Même fichier, mêmes colonnes, même traitement que le primaire :
+     * distingué uniquement pour que l'utilisateur déclare explicitement
+     * l'établissement visé plutôt qu'un « Primaire / maternelle » ambigu qui
+     * ne dit pas vers laquelle des deux écoles le fichier part.
      */
     public const CYCLE_MATERNELLE = 'maternelle';
 
     public const CYCLES = [self::CYCLE_SECONDAIRE, self::CYCLE_PRIMAIRE, self::CYCLE_MATERNELLE];
-
-    /** Cycles qui décrivent des compétences évaluées (barème par volet) plutôt que des matières de département. */
-    private const CYCLES_COMPETENCE = [self::CYCLE_PRIMAIRE, self::CYCLE_MATERNELLE];
 
     /**
      * En-tête source (slug minuscule produit par maatwebsite) => clé
@@ -98,10 +84,6 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         'enseignants' => 'enseignant',
         'teacher' => 'enseignant',
         'teachers' => 'enseignant',
-        'oral' => 'oral',
-        'ecrit' => 'ecrit',
-        'savoir_etre' => 'savoir_etre',
-        'pratique' => 'pratique',
     ];
 
     /**
@@ -134,6 +116,8 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
 
     public function __construct(
         private readonly int $schoolId,
+        // Ne pilote plus le traitement, identique pour les trois cycles :
+        // gardé pour la signature de l'appel (MatiereController::import).
         private readonly string $cycle = self::CYCLE_SECONDAIRE,
         private readonly ?int $classeId = null,
     ) {}
@@ -155,7 +139,7 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
             $ligne = $this->canoniser($row instanceof Collection ? $row->all() : (array) $row);
             $nom = trim((string) ($ligne['nom'] ?? ''));
 
-            if ($nom === '' && $this->cycle === self::CYCLE_SECONDAIRE) {
+            if ($nom === '') {
                 $nom = trim((string) ($ligne['nom_en'] ?? ''));
             }
 
@@ -163,12 +147,6 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
             // c'est un total, un intitulé de section ou une ligne de garde.
             if ($nom === '') {
                 $this->ignoredCount++;
-
-                continue;
-            }
-
-            if (in_array($this->cycle, self::CYCLES_COMPETENCE, true)) {
-                $this->enregistrerCompetence($nom, $ligne);
 
                 continue;
             }
@@ -208,63 +186,6 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         return $canonique;
     }
 
-    /**
-     * Compétence évaluée du primaire et de la maternelle. Le nom de la colonne
-     * « matière » du fichier désigne ici la compétence : c'est elle que le
-     * bulletin note, et le barème par volet que porte la ligne n'a de sens
-     * qu'à ce niveau.
-     *
-     * @param  array<string, mixed>  $ligne
-     */
-    private function enregistrerCompetence(string $label, array $ligne): Competence
-    {
-        $attributs = [
-            'label_en' => $this->valeur($ligne, 'nom_en'),
-            'abbreviation' => $this->valeur($ligne, 'abbreviation'),
-            'statut' => 'actif',
-        ] + $this->bareme($ligne);
-
-        // Une colonne laissée vide ne doit pas effacer une valeur saisie à la
-        // main dans l'application : on ne réécrit que ce que le fichier porte.
-        $attributs = array_filter($attributs, fn($valeur) => $valeur !== null);
-
-        $competence = Competence::firstOrNew(['school_id' => $this->schoolId, 'label_fr' => $label]);
-        $existante = $competence->exists;
-
-        $competence->fill($attributs)->save();
-
-        $existante ? $this->updatedCount++ : $this->importedCount++;
-
-        $this->rattacherMatiere($competence, $label, $ligne);
-
-        return $competence;
-    }
-
-    /**
-     * Matière de contenu installée du même nom que la compétence qu'elle
-     * rejoint. Sans elle, la compétence resterait invisible dans la liste des
-     * matières — c'est pourtant elle que l'emploi du temps, les séances et la
-     * progression suivent au quotidien. Propagée aussitôt vers les classes qui
-     * portent déjà la compétence, comme le fait l'ajout manuel d'une matière
-     * au référentiel (cf. CompetenceAttributionService::propagerMatiere).
-     *
-     * @param  array<string, mixed>  $ligne
-     */
-    private function rattacherMatiere(Competence $competence, string $label, array $ligne): void
-    {
-        $attributs = array_filter([
-            'nom_en' => $this->valeur($ligne, 'nom_en'),
-            'abbreviation' => $this->valeur($ligne, 'abbreviation'),
-            'competence_id' => $competence->id,
-            'statut' => 'actif',
-        ], fn($valeur) => $valeur !== null);
-
-        $matiere = Matiere::firstOrNew(['school_id' => $this->schoolId, 'nom' => $label]);
-        $matiere->fill($attributs)->save();
-
-        app(CompetenceAttributionService::class)->propagerMatiere($matiere);
-    }
-
     /** @param array<string, mixed> $ligne */
     private function enregistrerMatiere(string $nom, array $ligne): Matiere
     {
@@ -288,47 +209,6 @@ class MatiereImport implements SkipsEmptyRows, ToCollection, WithHeadingRow, Wit
         $existante ? $this->updatedCount++ : $this->importedCount++;
 
         return $matiere;
-    }
-
-    /**
-     * Barème du primaire : la somme des volets fait la notation, et la
-     * présence de points en pratique dit si la compétence évalue ce volet.
-     *
-     * @param  array<string, mixed>  $ligne
-     * @return array<string, mixed>
-     */
-    private function bareme(array $ligne): array
-    {
-        $volets = ['oral', 'ecrit', 'savoir_etre', 'pratique'];
-        $points = [];
-
-        foreach ($volets as $volet) {
-            $valeur = $this->valeur($ligne, $volet);
-            $points[$volet] = $valeur === null ? 0.0 : (float) $valeur;
-        }
-
-        // Aucun volet renseigné : la compétence garde le barème qu'elle a déjà.
-        if (array_sum($points) <= 0) {
-            return [];
-        }
-
-        $evaluePratique = $points['pratique'] > 0;
-
-        $repartition = [
-            'oral' => $points['oral'],
-            'ecrit' => $points['ecrit'],
-            'savoir_etre' => $points['savoir_etre'],
-        ];
-
-        if ($evaluePratique) {
-            $repartition['pratique'] = $points['pratique'];
-        }
-
-        return [
-            'notation' => (int) round(array_sum($repartition)),
-            'evalue_pratique' => $evaluePratique,
-            'repartition_volets' => $repartition,
-        ];
     }
 
     /**

@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
+use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
@@ -362,6 +363,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('mon-espace')->name('mon-espace.')->group(function () {
                 Route::get('avances', [PersonnelEspaceController::class, 'mesAvances'])->name('avances.index');
                 Route::post('avances/demandes', [PersonnelEspaceController::class, 'soumettreDemandeAvance'])->name('avances.demandes.store');
+            });
+
+            /*
+             * Espace enseignant : même principe que « mon-espace » ci-dessus,
+             * étendu à la fiche personnel, la rémunération en lecture seule, et
+             * à l'unique geste de gestion qu'un enseignant garde sur sa fiche de
+             * progression (ajouter une évaluation) quand `pedagogie.manage` ne
+             * lui est pas accordé. Le périmètre est vérifié dans le contrôleur,
+             * pas ici : ce sont des routes sans `{classeId}` à borner.
+             */
+            Route::prefix('enseignant')->name('enseignant.')->group(function () {
+                Route::get('mes-informations', [EnseignantController::class, 'mesInformations'])->name('mes-informations.show');
+                Route::put('mes-informations', [EnseignantController::class, 'mettreAJourMesInformations'])->name('mes-informations.update');
+                Route::get('remuneration', [EnseignantController::class, 'maRemuneration'])->name('remuneration.show');
+                Route::get('mon-departement', [EnseignantController::class, 'monDepartement'])->name('mon-departement.show');
+                Route::post('classe-matieres/{classeMatiereId}/evaluations', [EnseignantController::class, 'ajouterEvaluation'])->name('evaluations.store');
             });
 
             Route::middleware('permission:pedagogie.view')->group(function () {

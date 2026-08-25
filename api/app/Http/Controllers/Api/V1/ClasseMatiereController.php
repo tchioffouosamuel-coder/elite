@@ -10,12 +10,16 @@ use App\Http\Resources\Api\V1\ClasseMatiereResource;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Personnel;
+use App\Models\Sequence;
+use App\Services\NoteService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClasseMatiereController extends Controller
 {
+    public function __construct(private readonly NoteService $notes) {}
+
     public function index(int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
@@ -38,18 +42,44 @@ class ClasseMatiereController extends Controller
 
     public function update(UpdateClasseMatiereRequest $request, int $id): JsonResponse
     {
-        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->with('matiere')->findOrFail($id);
+        $this->autoriserGestionAffectation($request, $affectation);
         $affectation->update($request->validated());
 
         return ApiResponse::success(new ClasseMatiereResource($affectation->load(['matiere', 'enseignant'])), 'Affectation mise à jour.');
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->with('matiere')->findOrFail($id);
+        $this->autoriserGestionAffectation($request, $affectation);
         $affectation->delete();
 
         return ApiResponse::success(message: 'Matière retirée de la classe.');
+    }
+
+    /**
+     * Le middleware `permission:pedagogie.manage` ne borne pas cette route :
+     * elle nomme une affectation (`{id}`), pas une classe ou un département
+     * qu'il saurait reconnaître (cf. VerifierPermission::classeConcernee()).
+     * Un chef de département ne tient `pedagogie.manage` que via son
+     * attribution — le vérifier ici évite qu'il modifie les affectations d'un
+     * département qui n'est pas le sien. Qui détient déjà le privilège de
+     * base (admin, censeur) n'est pas concerné : sa portée reste l'école.
+     */
+    private function autoriserGestionAffectation(Request $request, ClasseMatiere $affectation): void
+    {
+        $user = $request->user();
+
+        if ($user->permissionsDeBase()->contains('pedagogie.manage')) {
+            return;
+        }
+
+        abort_unless(
+            $user->perimetre()->peutSurDepartement('pedagogie.manage', $affectation->matiere->departement_id ?? -1),
+            403,
+            "Cette matière n'entre pas dans le département que vous dirigez.",
+        );
     }
 
     /**
@@ -77,11 +107,19 @@ class ClasseMatiereController extends Controller
             ->with(['classe', 'matiere'])
             ->get();
 
+        // Remplissage des notes de la séquence active : lu une seule fois pour
+        // tout le lot plutôt que par affectation, elle est commune à l'école.
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
+        )->first();
+
         return ApiResponse::success($affectations->map(fn (ClasseMatiere $cm) => [
             'classe_matiere_id' => $cm->id,
             'classe_id' => $cm->classe->id,
             'classe' => $cm->classe->nom,
             'matiere' => $cm->matiere->nom,
+            'taux_remplissage' => $sequenceActive ? $this->notes->tauxRemplissage($cm, $sequenceActive->id) : null,
         ])->values());
     }
 
