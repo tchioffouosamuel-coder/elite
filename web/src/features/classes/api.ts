@@ -34,6 +34,8 @@ export interface Classe {
   effectif?: number;
   garcons?: number;
   filles?: number;
+  /** Séances du trimestre actif — sert la page « Séances & appel ». */
+  seances_count?: number;
   school_id?: number;
   niveau_id: number;
   niveau_scolaire_id: number | null;

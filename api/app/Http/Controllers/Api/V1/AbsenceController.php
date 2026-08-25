@@ -8,15 +8,21 @@ use App\Http\Requests\Api\V1\BulkSaveAbsencesRequest;
 use App\Models\Classe;
 use App\Models\Trimestre;
 use App\Services\DisciplineService;
+use App\Services\EmploiDuTempsService;
+use App\Support\Pdf\FicheAppelHebdomadaireGenerator;
 use App\Support\Pdf\MpdfFactory;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response;
 
 class AbsenceController extends Controller
 {
-    public function __construct(private readonly DisciplineService $service) {}
+    public function __construct(
+        private readonly DisciplineService $service,
+        private readonly EmploiDuTempsService $emploiDuTemps,
+    ) {}
 
     public function index(Request $request, int $classeId): JsonResponse
     {
@@ -67,5 +73,29 @@ class AbsenceController extends Controller
             'bilan' => $this->service->bilanClasse($classe, $trimestre),
             'eleves' => $this->service->lignesDetail($classe, $trimestre),
         ], "bilan-disciplinaire-{$classe->nom}.pdf", school: $classe->school);
+    }
+
+    /**
+     * Fiche d'appel hebdomadaire remplie (une colonne par période, croix
+     * rouge sur les absences relevées à l'appel) — `semaine` est une date
+     * quelconque de la semaine visée, ramenée à son lundi.
+     */
+    public function ficheHebdomadairePdf(Request $request, int $classeId): Response
+    {
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+
+        $semaine = $request->date('semaine') ?? now();
+        $lundi = Carbon::parse($semaine)->startOfWeek(Carbon::MONDAY);
+
+        $grille = $this->emploiDuTemps->ficheAppelHebdomadaire($classe, $lundi);
+
+        return response(
+            (new FicheAppelHebdomadaireGenerator)->build($classe, $grille),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="fiche-appel-'.$classe->nom.'-'.$lundi->toDateString().'.pdf"',
+            ]
+        );
     }
 }

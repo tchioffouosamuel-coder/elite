@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ArrowLeft, Check, ChevronDown, ClipboardCheck } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, ClipboardCheck, Lock } from 'lucide-react'
 import { enregistrerAppel, fetchAppel, MOTIFS, type LigneAppel, type MotifAbsence } from '@/features/emploiDuTemps/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -55,6 +55,10 @@ export function AppelPage() {
   if (isError) return <ErrorState />
 
   const absents = lignes.filter((l) => l.statut === 'absent').length
+  const verrouille = data.verrouille
+  const heureLimite = data.modifiable_jusqua
+    ? new Date(data.modifiable_jusqua).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -74,6 +78,13 @@ export function AppelPage() {
       </div>
 
       <Card className="p-4">
+        {verrouille && (
+          <p className="mb-3 flex items-center gap-2 rounded-xl bg-navy-50 px-3.5 py-2.5 text-sm text-navy-700">
+            <Lock className="h-4 w-4 shrink-0" />
+            {t('emploiDuTemps.appel_verrouille_message', { heure: heureLimite })}
+          </p>
+        )}
+
         {/* Un enseignant qui voit trois fois plus d'élèves que sa classe doit
             comprendre pourquoi avant de pointer. */}
         {data.tronc_commun && (
@@ -109,9 +120,11 @@ export function AppelPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    disabled={verrouille}
                     onClick={() => marquerPresent(ligne.eleve_id)}
                     className={clsx(
                       'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
+                      verrouille && 'cursor-not-allowed opacity-60',
                       present ? 'bg-green-500 text-white shadow-sm' : 'bg-navy-50 text-navy-400 hover:bg-navy-100',
                     )}
                   >
@@ -119,7 +132,7 @@ export function AppelPage() {
                     {t('emploiDuTemps.present')}
                   </button>
 
-                  <details className="group relative">
+                  <details className={clsx('group relative', verrouille && 'pointer-events-none opacity-60')}>
                     <summary
                       className={clsx(
                         'flex list-none cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors select-none',
@@ -159,7 +172,7 @@ export function AppelPage() {
         <Button variant="secondary" onClick={() => navigate('/seances')}>
           {t('common.cancel')}
         </Button>
-        <Button onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending || lignes.length === 0}>
+        <Button onClick={() => enregistrement.mutate()} disabled={verrouille || enregistrement.isPending || lignes.length === 0}>
           {t('emploiDuTemps.enregistrer_appel')}
         </Button>
       </div>

@@ -2,18 +2,26 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck, UserCheck } from 'lucide-react'
-import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
+import { ArrowLeft, ClipboardCheck, Download, Lock, UserCheck } from 'lucide-react'
+import { fetchClasses, fetchMaClasse, type Classe } from '@/features/classes/api'
 import { fetchSeances, type Seance } from '@/features/emploiDuTemps/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { ouvrirDocument } from '@/shared/lib/download'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
-import { Select } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
+
+/** Lundi de la semaine en cours, au format `YYYY-MM-DD` — semaine par défaut de la fiche téléchargée. */
+function lundiCourant(): string {
+  const date = new Date()
+  const jour = date.getDay() || 7 // dimanche = 0 → 7, pour rester dans la semaine ISO
+  date.setDate(date.getDate() - jour + 1)
+  return date.toISOString().slice(0, 10)
+}
 
 export function SeancesPage() {
   const { t } = useTranslation()
@@ -47,6 +55,43 @@ export function SeancesPage() {
     enabled: classeActive !== null,
   })
 
+  const colonnesClasses: Colonne<Classe>[] = [
+    {
+      cle: 'nom',
+      entete: t('emploiDuTemps.classe_label'),
+      valeur: (c) => c.nom,
+      cellule: (c) => <span className="font-semibold text-navy-900">{c.nom}</span>,
+    },
+    {
+      cle: 'seances',
+      entete: t('emploiDuTemps.seances_col'),
+      valeur: (c) => c.seances_count ?? 0,
+      cellule: (c) => c.seances_count ?? 0,
+    },
+    {
+      cle: 'actions',
+      entete: '',
+      cellule: (c) => (
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => ouvrirDocument(`/classes/${c.id}/fiche-appel/pdf`, { semaine: lundiCourant() })}
+          >
+            <Download className="h-4 w-4" />
+            {t('emploiDuTemps.telecharger_fiche_hebdo')}
+          </Button>
+          {can('appel.manage') && (
+            <Button size="sm" onClick={() => setClasseId(c.id)}>
+              <UserCheck className="h-4 w-4" />
+              {t('emploiDuTemps.faire_appel')}
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ]
+
   const colonnes: Colonne<Seance>[] = [
     {
       cle: 'date',
@@ -78,13 +123,18 @@ export function SeancesPage() {
       entete: t('emploiDuTemps.statut_col'),
       valeur: (s) => s.statut,
       cellule: (s) => (
-        <Badge tone={s.statut === 'effectuee' ? 'green' : s.statut === 'annulee' ? 'red' : 'neutral'}>
-          {s.statut === 'effectuee'
-            ? t('emploiDuTemps.statut_effectuee')
-            : s.statut === 'annulee'
-              ? t('emploiDuTemps.statut_annulee')
-              : t('emploiDuTemps.statut_prevue')}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge tone={s.statut === 'effectuee' ? 'green' : s.statut === 'annulee' ? 'red' : 'neutral'}>
+            {s.statut === 'effectuee'
+              ? t('emploiDuTemps.statut_effectuee')
+              : s.statut === 'annulee'
+                ? t('emploiDuTemps.statut_annulee')
+                : t('emploiDuTemps.statut_prevue')}
+          </Badge>
+          {s.verrouille && (
+            <Lock className="h-3.5 w-3.5 text-navy-400" aria-label={t('emploiDuTemps.appel_verrouille') ?? undefined} />
+          )}
+        </div>
       ),
     },
     {
@@ -111,49 +161,67 @@ export function SeancesPage() {
       <PageHeader titre={t('nav.seances')} icon={ClipboardCheck} />
 
       {restreintATitulaire ? (
-        maClasse && (
+        <>
+          {maClasse && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('emploiDuTemps.classe_label')}</span>
+              <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
+            </div>
+          )}
+          {maClasseEnChargement ? (
+            <Spinner />
+          ) : !maClasse ? (
+            <Card>
+              <EmptyState label={t('classes.aucune_classe_confiee')} />
+            </Card>
+          ) : isLoading ? (
+            <Spinner />
+          ) : (
+            <DataTable
+              colonnes={colonnes}
+              lignes={seances ?? []}
+              cleLigne={(s) => s.id}
+              placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+              messageVide={t('emploiDuTemps.empty_seances')}
+              largeurMin={820}
+            />
+          )}
+        </>
+      ) : classeActive === null ? (
+        <DataTable
+          colonnes={colonnesClasses}
+          lignes={classes ?? []}
+          cleLigne={(c) => c.id}
+          placeholderRecherche={t('emploiDuTemps.search_classe_placeholder')}
+          messageVide={t('emploiDuTemps.empty_classes')}
+          largeurMin={640}
+        />
+      ) : (
+        <>
+          <button
+            onClick={() => setClasseId('')}
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t('emploiDuTemps.retour_classes')}
+          </button>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('emploiDuTemps.classe_label')}</span>
-            <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
+            <span className="text-sm font-semibold text-navy-800">{classes?.find((c) => c.id === classeActive)?.nom}</span>
           </div>
-        )
-      ) : (
-        <Select
-          label={t('emploiDuTemps.classe_label')}
-          value={classeId}
-          onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-          className="max-w-xs"
-        >
-          <option value="">{t('emploiDuTemps.select_classe_placeholder')}</option>
-          {classes?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </Select>
-      )}
-
-      {restreintATitulaire && maClasseEnChargement ? (
-        <Spinner />
-      ) : restreintATitulaire && !maClasse ? (
-        <Card>
-          <EmptyState label={t('classes.aucune_classe_confiee')} />
-        </Card>
-      ) : !classeActive ? (
-        <Card>
-          <EmptyState label={t('emploiDuTemps.choisir_classe_seances_hint')} />
-        </Card>
-      ) : isLoading ? (
-        <Spinner />
-      ) : (
-        <DataTable
-          colonnes={colonnes}
-          lignes={seances ?? []}
-          cleLigne={(s) => s.id}
-          placeholderRecherche={t('emploiDuTemps.search_placeholder')}
-          messageVide={t('emploiDuTemps.empty_seances')}
-          largeurMin={820}
-        />
+          {isLoading ? (
+            <Spinner />
+          ) : (
+            <DataTable
+              colonnes={colonnes}
+              lignes={seances ?? []}
+              cleLigne={(s) => s.id}
+              placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+              messageVide={t('emploiDuTemps.empty_seances')}
+              largeurMin={820}
+            />
+          )}
+        </>
       )}
 
     </div>

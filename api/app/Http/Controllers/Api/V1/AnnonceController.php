@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Annonce;
+use App\Models\User;
 use App\Services\NotificationService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -35,9 +36,14 @@ class AnnonceController extends Controller
             'titre' => ['required', 'string', 'max:200'],
             'contenu' => ['required', 'string', 'max:2000'],
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+            'cible_type' => ['nullable', 'string', 'in:tous,roles,utilisateurs'],
+            'cible' => ['required_unless:cible_type,tous', 'array'],
+            'cible.*' => ['string'],
         ]);
 
         $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
+        $cibleType = $data['cible_type'] ?? 'tous';
+        $cible = $data['cible'] ?? [];
 
         $annonce = Annonce::create([
             'school_id' => $schoolId,
@@ -45,13 +51,24 @@ class AnnonceController extends Controller
             'contenu' => $data['contenu'],
             'publie_par' => $request->user()->personnel?->id,
             'publiee_le' => now(),
+            'cible_type' => $cibleType,
+            'cible_data' => $cibleType === 'tous' ? null : $cible,
         ]);
 
         // Le personnel voit l'annonce immédiatement dans sa cloche ; les
         // parents la découvrent, eux, dans le résumé hebdomadaire par SMS.
-        $this->notifications->notifierParPermission(
+        // La permission `annonces.view` reste le garde-fou dans tous les cas :
+        // cibler quelqu'un qui n'a pas le droit de voir les annonces ne doit
+        // pas le faire sortir du contrôle d'accès.
+        $userIds = match ($cibleType) {
+            'roles' => User::where('school_id', $schoolId)->role($cible)->permission('annonces.view')->pluck('id'),
+            'utilisateurs' => User::where('school_id', $schoolId)->whereIn('id', $cible)->permission('annonces.view')->pluck('id'),
+            default => User::where('school_id', $schoolId)->permission('annonces.view')->pluck('id'),
+        };
+
+        $this->notifications->notifier(
             $schoolId,
-            'annonces.view',
+            $userIds,
             'annonce',
             $annonce->titre,
             $annonce->contenu,

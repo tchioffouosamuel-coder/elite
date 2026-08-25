@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
+use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
 use App\Http\Middleware\Idempotence;
@@ -32,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // le résumé porte sur une semaine complète plutôt que sur un
         // découpage arbitraire à cheval sur deux semaines scolaires.
         $schedule->command(EnvoyerRapportHebdomadaireParents::class)->weeklyOn(6, '18:00');
+
+        // Chaque matin, avant l'ouverture du guichet : le personnel finance a
+        // la journée pour relancer les familles dont l'échéance approche.
+        $schedule->command(RappelEcheancesCommand::class)->dailyAt('07:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Render (comme tout hébergeur derrière un load balancer) termine le

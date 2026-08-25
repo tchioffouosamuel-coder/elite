@@ -103,6 +103,10 @@ class SeanceController extends Controller
              */
             'tronc_commun' => $classes->count() > 1,
             'classes' => $classes->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+            'verrouille' => $seance->appelVerrouille(),
+            'modifiable_jusqua' => $seance->appel_verrouille_le
+                ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
+                ?->toIso8601String(),
             'lignes' => $this->service->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
                 'nom_complet' => $ligne['eleve']->nom_complet,
@@ -120,6 +124,12 @@ class SeanceController extends Controller
     public function enregistrerAppel(Request $request, int $id): JsonResponse
     {
         $seance = $this->seance($id);
+
+        abort_if(
+            $seance->appelVerrouille(),
+            403,
+            "L'appel de cette séance est verrouillé depuis plus de ".Seance::MINUTES_VERROUILLAGE_APPEL." minutes. Contactez le Surveillant Général pour une correction."
+        );
 
         $data = $request->validate([
             'lignes' => ['required', 'array', 'min:1'],
@@ -161,6 +171,7 @@ class SeanceController extends Controller
             'contenu' => $seance->contenu,
             'statut' => $seance->statut,
             'absents' => $seance->absents_count,
+            'verrouille' => $seance->appelVerrouille(),
         ];
     }
 }

@@ -69,19 +69,18 @@ class TuteurController extends Controller
         ], 'Accès parent ouvert.');
     }
 
-    /** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore — le rattrapage pour les familles inscrites avant le portail. */
+    /**
+     * Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore —
+     * le rattrapage pour les familles inscrites avant le portail. Traite tout
+     * en une requête : correct pour un petit effectif, mais `Hash::make()`
+     * (bcrypt, délibérément coûteux) sur plusieurs centaines de tuteurs
+     * dépasse facilement le délai d'exécution du serveur — cf.
+     * `comptesParentLotPreparer()`/`comptesParentLotTraiter()` pour le
+     * découpage en lots qu'utilise désormais l'écran.
+     */
     public function creerComptesParentLot(Request $request): JsonResponse
     {
-        // Le périmètre du rattrapage est celui de la liste affichée : `index()`
-        // agrège déjà tout le complexe pour un super admin en mode « Toutes les
-        // écoles », le bouton « ouvrir tous les accès manquants » ne peut donc
-        // pas exiger une école unique — il refuserait précisément le lot le
-        // plus utile. Un `school_id` explicite reste accepté pour le restreindre.
-        $demandee = $request->integer('school_id') ?: null;
-
-        $schoolIds = $demandee !== null
-            ? [Tenant::resolveWriteSchoolId($demandee)]
-            : Tenant::schoolIds();
+        $schoolIds = $this->perimetreLot($request);
 
         $resultat = $this->service->assurerLot($schoolIds);
 
@@ -90,6 +89,49 @@ class TuteurController extends Controller
             : 'Aucun nouvel accès à ouvrir — tous les tuteurs avec un numéro valide en ont déjà un.';
 
         return ApiResponse::success($resultat, $message);
+    }
+
+    /** Liste stable des tuteurs sans accès, à découper en lots côté client avant d'appeler `comptesParentLotTraiter()`. */
+    public function comptesParentLotPreparer(Request $request): JsonResponse
+    {
+        $ids = $this->service->tuteursSansCompte($this->perimetreLot($request));
+
+        return ApiResponse::success(['ids' => $ids]);
+    }
+
+    /**
+     * Ouvre l'accès de ce seul lot d'identifiants — revalidés dans le
+     * périmètre courant plutôt que de faire confiance à ce que renvoie le
+     * client, au cas où l'école active aurait changé entre-temps.
+     */
+    public function comptesParentLotTraiter(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $idsAutorises = Tuteur::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->pluck('id')->all();
+
+        return ApiResponse::success($this->service->assurerChunk($idsAutorises));
+    }
+
+    /**
+     * Le périmètre du rattrapage est celui de la liste affichée : `index()`
+     * agrège déjà tout le complexe pour un super admin en mode « Toutes les
+     * écoles », le bouton « ouvrir tous les accès manquants » ne peut donc
+     * pas exiger une école unique — il refuserait précisément le lot le
+     * plus utile. Un `school_id` explicite reste accepté pour le restreindre.
+     *
+     * @return int|list<int>
+     */
+    private function perimetreLot(Request $request): int|array
+    {
+        $demandee = $request->integer('school_id') ?: null;
+
+        return $demandee !== null
+            ? [Tenant::resolveWriteSchoolId($demandee)]
+            : Tenant::schoolIds();
     }
 
     public function basculerAcces(int $id): JsonResponse

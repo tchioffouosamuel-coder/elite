@@ -300,6 +300,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent');
                 Route::post('tuteurs/{id}/supprimer-compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent-post');
                 Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');
+                Route::post('tuteurs/comptes-parent-lot/preparer', [TuteurController::class, 'comptesParentLotPreparer'])->name('tuteurs.comptes-parent-lot-preparer');
+                Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter');
                 Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy');
                 Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
 
@@ -520,6 +522,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('statistiques/disciplinaires/pdf', [StatistiqueController::class, 'disciplinairesPdf'])->name('statistiques.disciplinaires.pdf');
             });
 
+            Route::middleware('permission:bulletins.publish')->group(function () {
+                Route::post('classes/{classeId}/bulletins/publier', [BulletinController::class, 'publier'])->name('classes.bulletins.publier');
+            });
+
             Route::middleware('permission:revendications.view')->group(function () {
                 Route::get('revendications', [RevendicationController::class, 'index'])->name('revendications.index');
             });
@@ -554,6 +560,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/absences', [AbsenceController::class, 'index'])->name('absences.index');
                 Route::get('classes/{classeId}/bilan-disciplinaire', [AbsenceController::class, 'bilan'])->name('absences.bilan');
                 Route::get('classes/{classeId}/bilan-disciplinaire/pdf', [AbsenceController::class, 'bilanPdf'])->name('absences.bilan.pdf');
+                Route::get('classes/{classeId}/fiche-appel/pdf', [AbsenceController::class, 'ficheHebdomadairePdf'])->name('absences.fiche-appel.pdf');
                 Route::get('sanctions', [SanctionController::class, 'index'])->name('sanctions.index');
                 Route::get('eleves/{eleveId}/sanctions', [SanctionController::class, 'dossier'])->name('sanctions.dossier');
                 Route::get('sanctions/pv-conseil/pdf', [SanctionController::class, 'pvConseilPdf'])->name('sanctions.pv-conseil-pdf');

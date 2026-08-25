@@ -59,6 +59,8 @@ export interface Seance {
   contenu: string | null
   statut: 'prevue' | 'effectuee' | 'annulee'
   absents: number
+  /** Plus de 15 minutes se sont écoulées depuis le premier enregistrement de l'appel. */
+  verrouille: boolean
 }
 
 export type MotifAbsence = 'maladie' | 'inconnu' | 'scolarite' | 'permission'
@@ -122,6 +124,10 @@ export interface FeuilleAppel {
   tronc_commun: boolean
   classes: ClasseAssociee[]
   lignes: LigneAppel[]
+  /** Plus de 15 minutes depuis le premier enregistrement : l'appel n'est plus modifiable. */
+  verrouille: boolean
+  /** Jusqu'à quand la correction reste possible, si l'appel a déjà été enregistré une fois. */
+  modifiable_jusqua: string | null
 }
 
 export async function fetchAppel(seanceId: number): Promise<FeuilleAppel> {

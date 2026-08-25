@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, creerComptesParentLot, basculerAccesParent, supprimerCompteParent, supprimerTuteur, type TuteurCompte } from '@/features/eleves/api'
+import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -26,6 +26,7 @@ export function ComptesParentsPage() {
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
   const [lotEnCours, setLotEnCours] = useState(false)
+  const [lotProgres, setLotProgres] = useState<{ traites: number; total: number } | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data, isLoading, isError } = useQuery({
@@ -100,6 +101,12 @@ export function ComptesParentsPage() {
     }
   }
 
+  // Petits lots plutôt qu'un seul envoi : `Hash::make()` (bcrypt) est
+  // délibérément coûteux, et plusieurs centaines de tuteurs dans une seule
+  // requête dépassaient le délai d'exécution du serveur (408) sur un gros
+  // établissement.
+  const TAILLE_LOT = 25
+
   const ouvrirEnMasse = async () => {
     const ok = await confirmer({
       titre: 'Ouvrir tous les accès manquants ?',
@@ -112,7 +119,20 @@ export function ComptesParentsPage() {
 
     setLotEnCours(true)
     try {
-      const { crees, ignores } = await creerComptesParentLot()
+      const ids = await fetchTuteursSansCompte()
+      setLotProgres({ traites: 0, total: ids.length })
+
+      let crees = 0
+      const ignores: { tuteur: string; motif: string }[] = []
+
+      for (let i = 0; i < ids.length; i += TAILLE_LOT) {
+        const lot = ids.slice(i, i + TAILLE_LOT)
+        const resultat = await assurerComptesParentChunk(lot)
+        crees += resultat.crees
+        ignores.push(...resultat.ignores)
+        setLotProgres({ traites: Math.min(i + TAILLE_LOT, ids.length), total: ids.length })
+      }
+
       succes(
         ignores.length > 0
           ? `${crees} accès ouvert(s), ${ignores.length} tuteur(s) ignoré(s) faute de numéro exploitable.`
@@ -123,6 +143,7 @@ export function ComptesParentsPage() {
       erreur((err as ApiError).message)
     } finally {
       setLotEnCours(false)
+      setLotProgres(null)
     }
   }
 
@@ -239,7 +260,11 @@ export function ComptesParentsPage() {
             </Button>
             <Button onClick={ouvrirEnMasse} disabled={lotEnCours}>
               <KeyRound className="h-4 w-4" />
-              {lotEnCours ? 'Ouverture en cours…' : 'Ouvrir tous les accès manquants'}
+              {lotEnCours
+                ? lotProgres && lotProgres.total > 0
+                  ? `Ouverture… ${lotProgres.traites}/${lotProgres.total}`
+                  : 'Ouverture en cours…'
+                : 'Ouvrir tous les accès manquants'}
             </Button>
           </>
         }

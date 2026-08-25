@@ -19,15 +19,24 @@ class DisciplineService extends BaseService
     /** Pointages valant absence au cours. */
     private const STATUTS_ABSENCE = ['absent', 'renvoye'];
 
+    public function __construct(private readonly EmploiDuTempsService $emploiDuTemps) {}
+
     /**
      * Grille des absences de la classe pour le trimestre.
      *
-     * Le secondaire cumule des heures saisies à la main (deux compteurs par
-     * élève, comme _smapp). Le primaire et la maternelle comptent des
-     * journées : l'enfant n'y suit pas des cours indépendants mais une
-     * journée de classe tenue par un titulaire unique, si bien qu'une demi-
-     * journée manquée ne se compte pas en volume horaire. Ces journées sont
-     * déduites des appels plutôt que ressaisies — {@see joursAbsence()}.
+     * Le primaire et la maternelle comptent des journées, déduites des
+     * appels — {@see joursAbsence()}. Le secondaire compte des heures,
+     * déduites des mêmes appels par durée réelle de séance
+     * ({@see \App\Services\EmploiDuTempsService::cumulAbsences()}) : un
+     * élève absent à un cours de 50 minutes voit ses heures non justifiées
+     * augmenter de 50 minutes, quel que soit le motif — seul un motif
+     * reconnu (hors « inconnu ») saisi à l'appel la justifie déjà à ce
+     * moment-là (cf. `EmploiDuTempsService::enregistrerAppel()`).
+     *
+     * Le Surveillant Général garde la main pour corriger un élève en
+     * particulier (erreur d'appel, cas rattrapé a posteriori) : dès qu'une
+     * ligne `AbsenceTrimestre` existe pour lui sur ce trimestre, elle prime
+     * sur le calcul et le remplace intégralement — {@see sauvegarderEnLot()}.
      *
      * @return Collection<int, array{eleve_id:int, nom_complet:string, unite:string, justifiees:float, non_justifiees:float, calculee:bool}>
      */
@@ -48,18 +57,37 @@ class DisciplineService extends BaseService
             ]);
         }
 
-        $absences = AbsenceTrimestre::where('trimestre_id', $trimestre->id)
+        $calculees = $this->emploiDuTemps->cumulAbsences($classe, $trimestre)->keyBy('eleve_id');
+
+        // Une correction manuelle du Surveillant Général (ligne existante,
+        // forcément passée par sauvegarderEnLot()) prime sur le calcul.
+        $corrections = AbsenceTrimestre::where('trimestre_id', $trimestre->id)
             ->whereIn('eleve_id', $eleves->pluck('id'))
             ->get()->keyBy('eleve_id');
 
-        return $eleves->map(fn (Eleve $eleve) => [
-            'eleve_id' => $eleve->id,
-            'nom_complet' => $eleve->nom_complet,
-            'unite' => 'heures',
-            'justifiees' => (float) ($absences->get($eleve->id)?->heures_justifiees ?? 0),
-            'non_justifiees' => (float) ($absences->get($eleve->id)?->heures_non_justifiees ?? 0),
-            'calculee' => false,
-        ]);
+        return $eleves->map(function (Eleve $eleve) use ($calculees, $corrections) {
+            if ($correction = $corrections->get($eleve->id)) {
+                return [
+                    'eleve_id' => $eleve->id,
+                    'nom_complet' => $eleve->nom_complet,
+                    'unite' => 'heures',
+                    'justifiees' => (float) $correction->heures_justifiees,
+                    'non_justifiees' => (float) $correction->heures_non_justifiees,
+                    'calculee' => false,
+                ];
+            }
+
+            $calcul = $calculees->get($eleve->id);
+
+            return [
+                'eleve_id' => $eleve->id,
+                'nom_complet' => $eleve->nom_complet,
+                'unite' => 'heures',
+                'justifiees' => (float) ($calcul['heures_justifiees'] ?? 0),
+                'non_justifiees' => (float) ($calcul['heures_non_justifiees'] ?? 0),
+                'calculee' => true,
+            ];
+        });
     }
 
     /**
@@ -111,6 +139,12 @@ class DisciplineService extends BaseService
     }
 
     /**
+     * Corrige à la main les heures d'un ou plusieurs élèves — la ligne créée
+     * remplace alors intégralement le calcul automatique pour cet élève sur
+     * ce trimestre (cf. `grille()`). Un élève absent de `$absences` garde son
+     * calcul automatique inchangé : seuls les élèves explicitement soumis
+     * basculent en correction manuelle.
+     *
      * @param  array<int, array{eleve_id:int, heures_justifiees?: ?float, heures_non_justifiees?: ?float}>  $absences
      */
     public function sauvegarderEnLot(Classe $classe, Trimestre $trimestre, array $absences, ?User $user): int

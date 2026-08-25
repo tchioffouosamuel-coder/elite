@@ -95,6 +95,54 @@ class CompteParentService extends BaseService
     }
 
     /**
+     * Identifiants des tuteurs sans accès, dans un ordre stable — calculée
+     * une seule fois puis découpée en petits lots côté client (cf.
+     * `assurerChunk()`). `Hash::make()` est délibérément coûteux (bcrypt) :
+     * plusieurs centaines de tuteurs dans un seul lot dépassent facilement le
+     * délai d'exécution du serveur en une requête, exactement le 408 que
+     * connaissait `assurerLot()` sur un gros établissement.
+     *
+     * Un id de la liste n'est jamais retiré au fil des lots, même s'il
+     * échoue systématiquement (tuteur sans numéro) : contrairement à
+     * `whereNull('user_id')` relu à chaque appel, la liste ne bouge pas
+     * d'un lot à l'autre, ce qui évite qu'un tel tuteur reste indéfiniment
+     * dans le filtre et fasse tourner le rattrapage en boucle côté client.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return list<int>
+     */
+    public function tuteursSansCompte(int|array $schoolId): array
+    {
+        return Tuteur::forSchool($schoolId)->whereNull('user_id')->orderBy('id')->pluck('id')->all();
+    }
+
+    /**
+     * Ouvre l'accès de ce seul lot de tuteurs — cf. `tuteursSansCompte()`
+     * pour obtenir la liste complète à découper avant d'appeler celle-ci.
+     *
+     * @param  list<int>  $ids
+     * @return array{crees: int, ignores: list<array{tuteur: string, motif: string}>}
+     */
+    public function assurerChunk(array $ids): array
+    {
+        $tuteurs = Tuteur::whereIn('id', $ids)->get();
+
+        $crees = 0;
+        $ignores = [];
+
+        foreach ($tuteurs as $tuteur) {
+            try {
+                $this->assurer($tuteur);
+                $crees++;
+            } catch (RuntimeException $e) {
+                $ignores[] = ['tuteur' => $tuteur->nom_complet, 'motif' => $e->getMessage()];
+            }
+        }
+
+        return ['crees' => $crees, 'ignores' => $ignores];
+    }
+
+    /**
      * Comptes parents actifs de l'établissement, pour le document
      * d'identifiants — même limite que {@see CompteAgentService::identifiants()} :
      * le mot de passe n'est communicable que tant qu'il n'a pas été personnalisé.

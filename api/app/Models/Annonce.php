@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Annonce extends Model
 {
-    protected $fillable = ['school_id', 'titre', 'contenu', 'publie_par', 'publiee_le'];
+    protected $fillable = ['school_id', 'titre', 'contenu', 'publie_par', 'publiee_le', 'cible_type', 'cible_data'];
 
     protected function casts(): array
     {
-        return ['publiee_le' => 'datetime'];
+        return ['publiee_le' => 'datetime', 'cible_data' => 'array'];
     }
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder

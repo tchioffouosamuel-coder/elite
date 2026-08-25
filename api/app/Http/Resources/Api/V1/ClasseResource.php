@@ -31,6 +31,7 @@ class ClasseResource extends JsonResource
             'effectif' => $this->when(isset($this->eleves_count), $this->eleves_count),
             'garcons' => $this->when(isset($this->garcons_count), $this->garcons_count),
             'filles' => $this->when(isset($this->filles_count), $this->filles_count),
+            'seances_count' => $this->when(isset($this->seances_count), $this->seances_count),
             'niveau' => $this->whenLoaded('niveau', fn() => [
                 'id' => $this->niveau?->id,
                 'code' => $this->niveau?->code,

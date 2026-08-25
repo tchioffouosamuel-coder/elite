@@ -11,15 +11,34 @@ use Illuminate\Support\Collection;
 
 class Seance extends Model
 {
+    /** Fenêtre de correction de l'appel après son premier enregistrement. */
+    public const MINUTES_VERROUILLAGE_APPEL = 15;
+
     protected $fillable = [
         'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id',
         'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'statut',
-        'observations', 'donnees_personnalisees',
+        'observations', 'donnees_personnalisees', 'appel_verrouille_le',
     ];
 
     protected function casts(): array
     {
-        return ['date_seance' => 'date', 'donnees_personnalisees' => 'array'];
+        return [
+            'date_seance' => 'date',
+            'donnees_personnalisees' => 'array',
+            'appel_verrouille_le' => 'datetime',
+        ];
+    }
+
+    /**
+     * L'appel reste corrigeable 15 minutes après son premier enregistrement
+     * (`appel_verrouille_le`, figé une seule fois) — passé ce délai,
+     * l'enseignant doit passer par le Surveillant Général pour toute
+     * correction plutôt que de pouvoir réécrire l'historique de pointage.
+     */
+    public function appelVerrouille(): bool
+    {
+        return $this->appel_verrouille_le !== null
+            && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
     }
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder

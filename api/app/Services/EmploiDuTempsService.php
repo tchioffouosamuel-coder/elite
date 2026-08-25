@@ -256,7 +256,13 @@ class EmploiDuTempsService extends BaseService
                 }
             }
 
-            $seance->update(['statut' => 'effectuee']);
+            $seance->update([
+                'statut' => 'effectuee',
+                // Figé une seule fois : une correction dans les 15 minutes ne
+                // doit pas repousser la fenêtre, sinon elle ne se referme
+                // jamais tant que l'enseignant continue à corriger.
+                'appel_verrouille_le' => $seance->appel_verrouille_le ?? now(),
+            ]);
 
             return $enregistres;
         });
@@ -309,8 +315,12 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
-     * Heures d'absence cumulées par élève sur un trimestre, déduites des appels.
-     * Sert de contrôle face aux heures saisies manuellement dans AbsenceTrimestre.
+     * Heures d'absence cumulées par élève sur un trimestre, déduites des
+     * appels : chaque séance manquée compte pour sa durée réelle
+     * (`Seance::dureeHeures()`), classée justifiée ou non selon
+     * `Presence::justifie`. C'est le calcul par défaut de la grille
+     * disciplinaire du secondaire — {@see DisciplineService::grille()} — tant
+     * qu'un Surveillant Général n'a pas corrigé l'élève à la main.
      *
      * @return Collection<int, array{eleve_id:int, heures_justifiees:float, heures_non_justifiees:float}>
      */
@@ -339,5 +349,63 @@ class EmploiDuTempsService extends BaseService
             'heures_justifiees' => round($valeurs['heures_justifiees'], 2),
             'heures_non_justifiees' => round($valeurs['heures_non_justifiees'], 2),
         ])->values();
+    }
+
+    /** Nombre de colonnes « période » affichées par jour sur la fiche d'appel hebdomadaire. */
+    public const PERIODES_PAR_JOUR = 8;
+
+    /**
+     * Grille hebdomadaire élève × jour × période, base de la fiche d'appel
+     * papier reconstituée en PDF : une période, c'est une séance de la classe
+     * ce jour-là, dans son ordre chronologique — il n'existe pas de grille
+     * horaire fixe (1ʳᵉ heure = 7h, etc.) dans l'emploi du temps actuel, donc
+     * le rang de la séance dans la journée en tient lieu.
+     *
+     * @return array{jours: list<\Illuminate\Support\Carbon>, lignes: Collection<int, array{eleve: Eleve, jours: array<string, list<bool>>, total_absences: int}>}
+     */
+    public function ficheAppelHebdomadaire(Classe $classe, \Illuminate\Support\Carbon $lundi): array
+    {
+        $lundi = $lundi->copy()->startOfDay();
+        $vendredi = $lundi->copy()->addDays(4)->endOfDay();
+
+        $seancesParJour = Seance::where('classe_id', $classe->id)
+            ->whereBetween('date_seance', [$lundi->toDateString(), $vendredi->toDateString()])
+            ->with('presences')
+            ->orderBy('heure_debut')
+            ->get()
+            ->groupBy(fn (Seance $s) => $s->date_seance->toDateString());
+
+        $jours = [];
+        for ($i = 0; $i < 5; $i++) {
+            $jours[] = $lundi->copy()->addDays($i);
+        }
+
+        $eleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
+
+        $lignes = $eleves->map(function (Eleve $eleve) use ($jours, $seancesParJour) {
+            $joursData = [];
+            $totalAbsences = 0;
+
+            foreach ($jours as $jour) {
+                $seancesDuJour = ($seancesParJour->get($jour->toDateString()) ?? collect())
+                    ->take(self::PERIODES_PAR_JOUR);
+
+                $periodes = $seancesDuJour->map(function (Seance $seance) use ($eleve, &$totalAbsences) {
+                    $presence = $seance->presences->firstWhere('eleve_id', $eleve->id);
+                    $absent = $presence !== null && in_array($presence->statut, ['absent', 'renvoye'], true);
+                    if ($absent) {
+                        $totalAbsences++;
+                    }
+
+                    return $absent;
+                })->values()->all();
+
+                $joursData[$jour->toDateString()] = $periodes;
+            }
+
+            return ['eleve' => $eleve, 'jours' => $joursData, 'total_absences' => $totalAbsences];
+        });
+
+        return ['jours' => $jours, 'lignes' => $lignes];
     }
 }

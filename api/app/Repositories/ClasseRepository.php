@@ -28,6 +28,13 @@ class ClasseRepository extends BaseRepository
                 'eleves',
                 'eleves as garcons_count' => fn ($query) => $query->where('sexe', 'M'),
                 'eleves as filles_count' => fn ($query) => $query->where('sexe', 'F'),
+                // Sert la page « Séances & appel » : le trimestre actif borne
+                // le compte, sinon une classe affiche toujours le cumul de
+                // toute sa scolarité au lieu de « ce qu'il reste à faire ».
+                'seances as seances_count' => fn ($query) => $query->whereHas(
+                    'trimestre',
+                    fn ($t) => $t->where('is_active', true)
+                ),
             ])
             ->with(['niveau', 'niveauScolaire', 'sousSysteme', 'professeurPrincipal', 'titulaire', 'school:id,name,code,type'])
             ->orderBy('nom')

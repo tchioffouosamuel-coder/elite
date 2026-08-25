@@ -1215,7 +1215,14 @@
     "classe_colonne": "Class",
     "tronc_commun_recherche": "Search a class…",
     "tronc_commun_suggere": "{{count}} class(es) pre-ticked: {{enseignant}} already teaches the same subject there. Untick any that do not join this lesson.",
-    "tronc_commun_meme_enseignant": "same teacher"
+    "tronc_commun_meme_enseignant": "same teacher",
+    "seances_col": "Sessions",
+    "telecharger_fiche_hebdo": "Weekly roll sheet",
+    "search_classe_placeholder": "Search a class…",
+    "retour_classes": "Back to classes",
+    "empty_classes": "No class.",
+    "appel_verrouille": "Roll call locked",
+    "appel_verrouille_message": "This roll call is no longer editable since {{heure}} (locked 15 minutes after it was saved). Contact the Supervisor for a correction."
   },
   "identification": {
     "title": "Photos & ID cards",

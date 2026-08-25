@@ -1215,7 +1215,14 @@
     "classe_colonne": "Classe",
     "tronc_commun_recherche": "Rechercher une classe…",
     "tronc_commun_suggere": "{{count}} classe(s) pré-cochée(s) : {{enseignant}} y enseigne déjà la même matière. Décochez celles qui ne suivent pas ce cours.",
-    "tronc_commun_meme_enseignant": "même enseignant"
+    "tronc_commun_meme_enseignant": "même enseignant",
+    "seances_col": "Séances",
+    "telecharger_fiche_hebdo": "Fiche d'appel hebdo.",
+    "search_classe_placeholder": "Rechercher une classe…",
+    "retour_classes": "Retour aux classes",
+    "empty_classes": "Aucune classe.",
+    "appel_verrouille": "Appel verrouillé",
+    "appel_verrouille_message": "Cet appel n'est plus modifiable depuis {{heure}} (verrouillé 15 minutes après son enregistrement). Contactez le Surveillant Général pour une correction."
   },
   "identification": {
     "title": "Photos & cartes scolaires",

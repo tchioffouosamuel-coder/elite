@@ -286,7 +286,7 @@ export async function fetchTuteurs(params: {
   return { items: data.data, pagination: data.meta!.pagination! };
 }
 
-/** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore. */
+/** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore, en un seul appel — réservé aux petits effectifs, cf. `fetchTuteursSansCompte`/`assurerComptesParentChunk`. */
 export async function creerComptesParentLot(): Promise<{
   crees: number;
   ignores: { tuteur: string; motif: string }[];
@@ -294,6 +294,28 @@ export async function creerComptesParentLot(): Promise<{
   const { data } = await http.post<
     ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>
   >("/tuteurs/comptes-parent-lot");
+  return data.data;
+}
+
+/**
+ * Liste stable des tuteurs sans accès, à découper en petits lots avant
+ * d'appeler `assurerComptesParentChunk` — un seul appel dépasserait le délai
+ * d'exécution du serveur pour un gros effectif (`Hash::make` est
+ * délibérément coûteux).
+ */
+export async function fetchTuteursSansCompte(): Promise<number[]> {
+  const { data } = await http.post<ApiResponse<{ ids: number[] }>>(
+    "/tuteurs/comptes-parent-lot/preparer",
+  );
+  return data.data.ids;
+}
+
+export async function assurerComptesParentChunk(
+  ids: number[],
+): Promise<{ crees: number; ignores: { tuteur: string; motif: string }[] }> {
+  const { data } = await http.post<
+    ApiResponse<{ crees: number; ignores: { tuteur: string; motif: string }[] }>
+  >("/tuteurs/comptes-parent-lot/traiter", { ids });
   return data.data;
 }
 
