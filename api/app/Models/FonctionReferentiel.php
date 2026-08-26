@@ -55,6 +55,15 @@ class FonctionReferentiel extends Model
     {
         $retenus = array_values(array_unique(array_filter($codes, CataloguePermissions::existe(...))));
 
+        // Un code valide au catalogue peut ne pas encore exister en base — ex.
+        // un privilège tout juste ajouté au catalogue, avant que le seeder
+        // n'ait tourné sur cet environnement. Sans ce firstOrCreate(), sync()
+        // l'ignorerait silencieusement : la case cochée « prendrait » côté
+        // écran mais ne survivrait pas au rechargement, sans aucune erreur.
+        foreach ($retenus as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+
         $ids = Permission::whereIn('name', $retenus)->where('guard_name', 'web')->pluck('id');
         $this->permissions()->sync($ids);
 

@@ -22,7 +22,11 @@ class CataloguePermissions
      * module => [libellé du module, [code => [libellé fr, libellé en]]].
      *
      * Une entrée ajoutée ici doit l'être en même temps que la route qui
-     * l'exige ; `php artisan permissions:synchroniser` recale la table.
+     * l'exige. Les groupes de privilèges par fonction (cf.
+     * {@see FonctionReferentiel::synchroniserPermissions()}) créent la ligne
+     * manquante à la volée ; les rôles techniques (cf. `RolePermissionSeeder`)
+     * ont eux besoin d'un nouveau `php artisan db:seed --class=RolePermissionSeeder`
+     * pour recevoir un privilège tout juste ajouté ici.
      */
     private const MODULES = [
         'dashboard' => ['Tableau de bord', 'Dashboard', [
