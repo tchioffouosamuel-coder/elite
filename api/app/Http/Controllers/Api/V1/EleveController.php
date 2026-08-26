@@ -38,6 +38,24 @@ class EleveController extends Controller
     }
 
     /**
+     * Recherche transverse d'élèves, tous critères confondus : nom de
+     * l'élève, matricule, ou nom/téléphone d'un de ses tuteurs. Pensée pour
+     * une barre de recherche rapide (ex. un appel entrant dont on n'a que le
+     * numéro), pas pour remplacer la liste filtrée — d'où la réponse en
+     * liste simple, non paginée, plutôt qu'un LengthAwarePaginator.
+     */
+    public function rechercheGlobale(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:100'],
+        ]);
+
+        $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q']);
+
+        return ApiResponse::success(EleveResource::collection($eleves));
+    }
+
+    /**
      * L'école d'un élève découle de sa classe, pas d'un champ dédié : en
      * l'absence de classe (élève non encore affecté), on retombe sur
      * Tenant::resolveWriteSchoolId() qui exige alors un school_id explicite

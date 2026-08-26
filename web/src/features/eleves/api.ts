@@ -77,6 +77,17 @@ export async function fetchEleves(params: {
   return { items: data.data, pagination: data.meta!.pagination! };
 }
 
+/**
+ * Recherche transverse : nom de l'élève, matricule, ou nom/téléphone d'un de
+ * ses tuteurs. Résultats non paginés, bornés côté API — pensée pour une
+ * recherche rapide (ex. un appel entrant dont on n'a que le numéro), pas
+ * pour remplacer la liste filtrée de `fetchEleves`.
+ */
+export async function rechercheGlobaleEleves(q: string): Promise<Eleve[]> {
+  const { data } = await http.get<ApiResponse<Eleve[]>>("/eleves/recherche-globale", { params: { q } });
+  return data.data;
+}
+
 export async function fetchEleve(id: number): Promise<Eleve> {
   const { data } = await http.get<ApiResponse<Eleve>>(`/eleves/${id}`);
   return data.data;

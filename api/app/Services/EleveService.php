@@ -11,6 +11,7 @@ use App\Models\Tuteur;
 use App\Models\User;
 use App\Repositories\EleveRepository;
 use App\Services\ScolariteService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
@@ -29,6 +30,12 @@ class EleveService extends BaseService
     public function list(?User $user, int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         return $this->repository->paginateForSchool($user, $schoolId, $filters, $perPage);
+    }
+
+    /** @param int|array<int> $schoolId */
+    public function rechercheGlobale(?User $user, int|array $schoolId, string $terme): Collection
+    {
+        return $this->repository->rechercheGlobale($schoolId, $user, $terme);
     }
 
     /** @param int|array<int> $schoolId */

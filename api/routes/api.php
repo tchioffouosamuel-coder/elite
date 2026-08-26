@@ -276,6 +276,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('photos-examen/classes/{classeId}', [PhotoExamenController::class, 'candidats'])->name('photos-examen.candidats');
                 Route::get('photos-examen/classes/{classeId}/archive', [PhotoExamenController::class, 'archive'])->name('photos-examen.archive');
                 Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
+                Route::get('eleves/recherche-globale', [EleveController::class, 'rechercheGlobale'])->name('eleves.recherche-globale');
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');
                 Route::get('eleves/pdf', [ListeElevesController::class, 'pdfEcole'])->name('eleves.pdf');
