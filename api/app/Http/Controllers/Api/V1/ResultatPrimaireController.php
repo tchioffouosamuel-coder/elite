@@ -8,6 +8,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Trimestre;
 use App\Services\MoyennePrimaireService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,8 +22,12 @@ class ResultatPrimaireController extends Controller
 
     public function classement(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->trimestre($request);
+        // Classe::forSchool(app('tenant.school_id')) ne couvre qu'UNE école
+        // (celle par défaut du compte, ou la première accessible en mode
+        // agrégé) : une classe d'une autre école du complexe y était
+        // introuvable (404 "No query results for model Classe").
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->trimestre($request, $classe->school_id);
 
         if (! $trimestre) {
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
@@ -49,8 +54,8 @@ class ResultatPrimaireController extends Controller
 
     public function remplissage(Request $request, int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
-        $trimestre = $this->trimestre($request);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
+        $trimestre = $this->trimestre($request, $classe->school_id);
 
         if (! $trimestre) {
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
@@ -76,7 +81,7 @@ class ResultatPrimaireController extends Controller
     /** Décisions de fin d'année : passage ou redoublement selon la moyenne annuelle. */
     public function decisions(int $classeId): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->findOrFail($classeId);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
         $anneeScolaireId = AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('id');
 
         if (! $anneeScolaireId) {
@@ -94,11 +99,13 @@ class ResultatPrimaireController extends Controller
         return ApiResponse::success($rows->values());
     }
 
-    private function trimestre(Request $request): ?Trimestre
+    /** @param int|null $schoolId École de la classe consultée, à défaut celle par défaut du compte. */
+    private function trimestre(Request $request, ?int $schoolId = null): ?Trimestre
     {
+        $schoolId ??= app('tenant.school_id');
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', $schoolId)
         );
 
         return $request->integer('trimestre_id')
