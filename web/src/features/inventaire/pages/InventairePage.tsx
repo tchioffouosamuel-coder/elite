@@ -79,6 +79,14 @@ export function InventairePage() {
     })
   }
 
+  const articles = data?.articles ?? []
+  const toutSelectionne = articles.length > 0 && articles.every((a) => selection.has(a.id))
+  const selectionPartielle = !toutSelectionne && articles.some((a) => selection.has(a.id))
+
+  const basculerToutSelectionner = () => {
+    setSelection(toutSelectionne ? new Set() : new Set(articles.map((a) => a.id)))
+  }
+
   const imprimerEtiquettes = async (ids: number[]) => {
     if (ids.length === 0) return
 
@@ -99,7 +107,17 @@ export function InventairePage() {
       ? [
           {
             cle: 'selection',
-            entete: '',
+            entete: (
+              <input
+                type="checkbox"
+                checked={toutSelectionne}
+                ref={(el) => {
+                  if (el) el.indeterminate = selectionPartielle
+                }}
+                onChange={basculerToutSelectionner}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ),
             cellule: (a: ArticleInventaire) => (
               <input
                 type="checkbox"

@@ -34,10 +34,14 @@ export async function telechargerFichier(
  * le blocage de pop-up, puis on y charge le PDF récupéré en blob une fois
  * la requête authentifiée terminée.
  */
-export async function ouvrirDocument(url: string, params?: Record<string, string | number | undefined>): Promise<void> {
+export async function ouvrirDocument(
+  url: string,
+  params?: Record<string, string | number | undefined>,
+  headers?: Record<string, string>,
+): Promise<void> {
   const fenetre = window.open('', '_blank')
 
-  const response = await http.get(url, { params, responseType: 'blob' })
+  const response = await http.get(url, { params, headers, responseType: 'blob' })
   const blobUrl = URL.createObjectURL(response.data as Blob)
 
   if (fenetre) {

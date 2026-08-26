@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Clock, FileDown, ShieldAlert, Users } from 'lucide-react'
@@ -13,8 +14,10 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { Select } from '@/shared/ui/Field'
 import { erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { useAuthStore } from '@/shared/store/authStore'
 
 /**
  * Code couleur d'assiduité repris de _smapp (`getAbsenceColorClass`) :
@@ -31,7 +34,20 @@ function tonAbsence(valeur: number, enJours: boolean): string {
 
 export function StatsDisciplinairesPage() {
   const { t } = useTranslation()
-  const secondaire = estSecondaire()
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+
+  // Ces statistiques ne se calculent que pour une seule école : même en mode
+  // "toutes les écoles", il en faut une précise. Filtre local, pour ne pas
+  // changer l'école active globale de l'application.
+  const ecolesAccessibles = user?.ecoles_accessibles ?? []
+  const afficherFiltreEcole = !!user?.is_super_admin && ecolesAccessibles.length >= 2
+  const [ecoleFiltreId, setEcoleFiltreId] = useState<number | null>(
+    activeSchoolId ?? user?.school_id ?? ecolesAccessibles[0]?.id ?? null,
+  )
+  const ecoleFiltre = ecolesAccessibles.find((e) => e.id === ecoleFiltreId)
+
+  const secondaire = estSecondaire(ecoleFiltre?.type)
   const enJours = !secondaire
   const suffixe = enJours ? ' j' : ' h'
   // Une journée est un entier : afficher « 1,0 j » laisserait croire à une demi-journée.
@@ -39,8 +55,9 @@ export function StatsDisciplinairesPage() {
   const libelleJust = enJours ? 'Jours justifiés' : 'Heures justifiées'
   const libelleNonJust = enJours ? 'Jours non justifiés' : 'Heures non justifiées'
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['stats-disciplinaires'],
-    queryFn: () => fetchStatsDisciplinaires(),
+    queryKey: ['stats-disciplinaires', ecoleFiltreId],
+    queryFn: () => fetchStatsDisciplinaires(undefined, ecoleFiltreId),
+    enabled: ecoleFiltreId != null,
   })
 
   const colonnes: Colonne<StatsDisciplinairesClasse>[] = [
@@ -106,6 +123,7 @@ export function StatsDisciplinairesPage() {
     },
   ]
 
+  if (!ecoleFiltreId) return <ErrorState message="Aucun établissement accessible." />
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />
 
@@ -122,13 +140,31 @@ export function StatsDisciplinairesPage() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => ouvrirStatsDisciplinairesPdf().catch(() => erreur('Génération du PDF impossible.'))}
+            onClick={() =>
+              ouvrirStatsDisciplinairesPdf(undefined, ecoleFiltreId).catch(() => erreur('Génération du PDF impossible.'))
+            }
           >
             <FileDown className="h-4 w-4" />
             Document PDF
           </Button>
         }
       />
+
+      {afficherFiltreEcole && (
+        <div className="w-64">
+          <Select
+            label="École"
+            value={ecoleFiltreId ?? ''}
+            onChange={(e) => setEcoleFiltreId(e.target.value ? Number(e.target.value) : null)}
+          >
+            {ecolesAccessibles.map((ecole) => (
+              <option key={ecole.id} value={ecole.id}>
+                {ecole.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Effectif" value={c.effectif} icon={Users} accent="navy" />

@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
+use App\Http\Controllers\Api\V1\NoteEleveController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\NotificationInterneController;
 use App\Http\Controllers\Api\V1\PaieController;
@@ -533,6 +534,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/remplissage', [ResultatController::class, 'remplissage'])->name('resultats.remplissage');
                 Route::get('classes/{classeId}/classement', [ResultatController::class, 'classement'])->name('resultats.classement');
                 Route::get('classes/{classeId}/classement/export', [ResultatController::class, 'exportClassement'])->name('resultats.classement.export');
+                Route::get('eleves/{eleveId}/notes', [NoteEleveController::class, 'index'])->name('eleves.notes');
             });
 
             Route::middleware('permission:bulletins.view')->group(function () {

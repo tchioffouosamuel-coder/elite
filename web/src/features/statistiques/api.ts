@@ -73,26 +73,39 @@ export interface StatsDisciplinaires {
   }
 }
 
-export async function fetchStatsPedagogiques(trimestreId?: number): Promise<StatsPedagogiques> {
+/**
+ * `schoolId` cible une école précise du complexe sans changer l'école active.
+ * En mode agrégé (super admin, "Toutes les écoles"), ces statistiques ne
+ * peuvent pas se calculer pour tout le complexe à la fois — matières et
+ * compétences, séquences, ne coïncident pas d'une école à l'autre — donc
+ * l'API exige une école explicite plutôt que d'en deviner une silencieusement.
+ */
+function enTeteEcole(schoolId?: number | null): Record<string, string> | undefined {
+  return schoolId ? { 'X-School-Id': String(schoolId) } : undefined
+}
+
+export async function fetchStatsPedagogiques(trimestreId?: number, schoolId?: number | null): Promise<StatsPedagogiques> {
   const { data } = await http.get<ApiResponse<StatsPedagogiques>>('/statistiques/pedagogiques', {
     params: { trimestre_id: trimestreId },
+    headers: enTeteEcole(schoolId),
   })
   return data.data
 }
 
-export async function fetchStatsDisciplinaires(trimestreId?: number): Promise<StatsDisciplinaires> {
+export async function fetchStatsDisciplinaires(trimestreId?: number, schoolId?: number | null): Promise<StatsDisciplinaires> {
   const { data } = await http.get<ApiResponse<StatsDisciplinaires>>('/statistiques/disciplinaires', {
     params: { trimestre_id: trimestreId },
+    headers: enTeteEcole(schoolId),
   })
   return data.data
 }
 
-export function ouvrirStatsPedagogiquesPdf(trimestreId?: number): Promise<void> {
-  return ouvrirDocument('/statistiques/pedagogiques/pdf', { trimestre_id: trimestreId })
+export function ouvrirStatsPedagogiquesPdf(trimestreId?: number, schoolId?: number | null): Promise<void> {
+  return ouvrirDocument('/statistiques/pedagogiques/pdf', { trimestre_id: trimestreId }, enTeteEcole(schoolId))
 }
 
-export function ouvrirStatsDisciplinairesPdf(trimestreId?: number): Promise<void> {
-  return ouvrirDocument('/statistiques/disciplinaires/pdf', { trimestre_id: trimestreId })
+export function ouvrirStatsDisciplinairesPdf(trimestreId?: number, schoolId?: number | null): Promise<void> {
+  return ouvrirDocument('/statistiques/disciplinaires/pdf', { trimestre_id: trimestreId }, enTeteEcole(schoolId))
 }
 
 export const LIBELLES_CATEGORIE: Record<CleCategorie, string> = {

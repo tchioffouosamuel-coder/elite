@@ -132,6 +132,24 @@ class MoyennePrimaireService extends BaseService
     }
 
     /**
+     * Classement de la classe pour une compétence donnée, équivalent du
+     * `classementMatiere` du secondaire (sert au rang affiché par compétence).
+     *
+     * @return Collection<int, array{eleve_id: int, moyenne: ?float, rang: ?int}>
+     */
+    public function classementCompetence(ClasseCompetence $classeCompetence, Trimestre $trimestre): Collection
+    {
+        $eleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->get();
+
+        $rows = $eleves->map(fn (Eleve $eleve) => [
+            'eleve_id' => $eleve->id,
+            'moyenne' => $this->noteCompetenceEleve($eleve, $classeCompetence, $trimestre)['note'],
+        ]);
+
+        return $this->moyenneService->classer($rows);
+    }
+
+    /**
      * Moyenne annuelle : moyenne des moyennes trimestrielles renseignées
      * (`$av4 = (av1 + av2 + av3) / 3` chez archange, mais sans compter les
      * trimestres encore vides comme des zéros).

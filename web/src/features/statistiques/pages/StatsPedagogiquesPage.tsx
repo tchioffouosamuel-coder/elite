@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, FileDown, GraduationCap, Percent, Trophy, Users } from 'lucide-react'
@@ -16,7 +17,9 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
+import { Select } from '@/shared/ui/Field'
 import { erreur } from '@/shared/lib/alertes'
+import { useAuthStore } from '@/shared/store/authStore'
 
 const CATEGORIES = Object.keys(LIBELLES_CATEGORIE) as CleCategorie[]
 
@@ -39,9 +42,23 @@ function Jauge({ valeur }: { valeur: number }) {
 
 export function StatsPedagogiquesPage() {
   const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+
+  // Ces statistiques ne se calculent que pour une seule école (matières,
+  // compétences et séquences diffèrent d'une école à l'autre du complexe) :
+  // même en mode "toutes les écoles", il en faut une précise. Filtre local,
+  // pour ne pas changer l'école active globale de l'application.
+  const ecolesAccessibles = user?.ecoles_accessibles ?? []
+  const afficherFiltreEcole = !!user?.is_super_admin && ecolesAccessibles.length >= 2
+  const [ecoleFiltreId, setEcoleFiltreId] = useState<number | null>(
+    activeSchoolId ?? user?.school_id ?? ecolesAccessibles[0]?.id ?? null,
+  )
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['stats-pedagogiques'],
-    queryFn: () => fetchStatsPedagogiques(),
+    queryKey: ['stats-pedagogiques', ecoleFiltreId],
+    queryFn: () => fetchStatsPedagogiques(undefined, ecoleFiltreId),
+    enabled: ecoleFiltreId != null,
   })
 
   const colonnes: Colonne<StatsPedagogiquesClasse>[] = [
@@ -87,6 +104,7 @@ export function StatsPedagogiquesPage() {
     },
   ]
 
+  if (!ecoleFiltreId) return <ErrorState message="Aucun établissement accessible." />
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />
 
@@ -101,13 +119,31 @@ export function StatsPedagogiquesPage() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => ouvrirStatsPedagogiquesPdf().catch(() => erreur('Génération du PDF impossible.'))}
+            onClick={() =>
+              ouvrirStatsPedagogiquesPdf(undefined, ecoleFiltreId).catch(() => erreur('Génération du PDF impossible.'))
+            }
           >
             <FileDown className="h-4 w-4" />
             Document PDF
           </Button>
         }
       />
+
+      {afficherFiltreEcole && (
+        <div className="w-64">
+          <Select
+            label="École"
+            value={ecoleFiltreId ?? ''}
+            onChange={(e) => setEcoleFiltreId(e.target.value ? Number(e.target.value) : null)}
+          >
+            {ecolesAccessibles.map((ecole) => (
+              <option key={ecole.id} value={ecole.id}>
+                {ecole.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Effectif" value={total.effectif} icon={Users} accent="navy" />

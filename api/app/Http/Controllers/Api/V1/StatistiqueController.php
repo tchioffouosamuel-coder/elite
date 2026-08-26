@@ -31,54 +31,72 @@ class StatistiqueController extends Controller
 
     public function pedagogiques(Request $request): JsonResponse
     {
-        $trimestre = $this->trimestre($request);
+        $schoolId = $this->schoolId();
+        $trimestre = $this->trimestre($request, $schoolId);
 
         return ApiResponse::success(
-            $this->service->pedagogiquesEtablissement(Tenant::schoolId(), $trimestre)
+            $this->service->pedagogiquesEtablissement($schoolId, $trimestre)
         );
     }
 
     public function disciplinaires(Request $request): JsonResponse
     {
-        $trimestre = $this->trimestre($request);
+        $schoolId = $this->schoolId();
+        $trimestre = $this->trimestre($request, $schoolId);
 
         return ApiResponse::success(
-            $this->service->disciplinairesEtablissement(Tenant::schoolId(), $trimestre, $this->discipline)
+            $this->service->disciplinairesEtablissement($schoolId, $trimestre, $this->discipline)
         );
     }
 
     public function pedagogiquesPdf(Request $request): Response
     {
-        $trimestre = $this->trimestre($request);
-        $donnees = $this->service->pedagogiquesEtablissement(Tenant::schoolId(), $trimestre);
+        $schoolId = $this->schoolId();
+        $trimestre = $this->trimestre($request, $schoolId);
+        $donnees = $this->service->pedagogiquesEtablissement($schoolId, $trimestre);
 
         return $this->pdf(
-            (new StatistiquesGenerator)->pedagogiques($donnees, $this->ecole()),
+            (new StatistiquesGenerator)->pedagogiques($donnees, $this->ecole($schoolId)),
             'stats-pedagogiques-'.Str::slug($trimestre->libelle)
         );
     }
 
     public function disciplinairesPdf(Request $request): Response
     {
-        $trimestre = $this->trimestre($request);
-        $donnees = $this->service->disciplinairesEtablissement(Tenant::schoolId(), $trimestre, $this->discipline);
+        $schoolId = $this->schoolId();
+        $trimestre = $this->trimestre($request, $schoolId);
+        $donnees = $this->service->disciplinairesEtablissement($schoolId, $trimestre, $this->discipline);
 
         return $this->pdf(
-            (new StatistiquesGenerator)->disciplinaires($donnees, $this->ecole()),
+            (new StatistiquesGenerator)->disciplinaires($donnees, $this->ecole($schoolId)),
             'stats-disciplinaires-'.Str::slug($trimestre->libelle)
         );
     }
 
-    private function ecole(): School
+    /**
+     * Ces statistiques ne se calculent que pour une école précise — matières,
+     * compétences et séquences diffèrent d'une école à l'autre du complexe, et
+     * les additionner n'aurait pas de sens. Sans école explicitement ciblée
+     * (super admin en mode "Toutes les écoles"), on refuse plutôt que de
+     * choisir une école au hasard et d'afficher des totaux trompeurs.
+     */
+    private function schoolId(): int
     {
-        return School::findOrFail(Tenant::schoolId());
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement pour consulter ces statistiques.");
+
+        return Tenant::schoolId();
     }
 
-    private function trimestre(Request $request): Trimestre
+    private function ecole(int $schoolId): School
+    {
+        return School::findOrFail($schoolId);
+    }
+
+    private function trimestre(Request $request, int $schoolId): Trimestre
     {
         $query = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', Tenant::schoolId())
+            fn ($q) => $q->where('school_id', $schoolId)
         );
 
         return ($id = $request->integer('trimestre_id'))
