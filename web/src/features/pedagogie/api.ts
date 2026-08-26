@@ -293,8 +293,13 @@ export async function modifierAttributionCompetence(
   await http.put(`/classe-competences/${classeCompetenceId}`, payload);
 }
 
-export async function retirerCompetenceClasse(classeCompetenceId: number): Promise<void> {
-  await http.delete(`/classe-competences/${classeCompetenceId}`);
+/**
+ * Retire une compétence d'une classe. Si des notes existent déjà, l'API
+ * répond 409 tant que `motDePasse` n'est pas fourni — voir
+ * `CompetenceController::retirer()` côté API pour la logique complète.
+ */
+export async function retirerCompetenceClasse(classeCompetenceId: number, motDePasse?: string): Promise<void> {
+  await http.delete(`/classe-competences/${classeCompetenceId}`, motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined);
 }
 
 /**

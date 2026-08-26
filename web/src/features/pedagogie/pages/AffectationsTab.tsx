@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { clsx } from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload, UserCog } from 'lucide-react'
+import { Archive, ArchiveRestore, Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload, UserCog } from 'lucide-react'
 import {
   fetchClasseMatieres,
   affecterMatiere,
@@ -55,6 +56,10 @@ export function AffectationsTab({
   const [enseignantEnMasse, setEnseignantEnMasse] = useState(false)
   const [rechercheMatiere, setRechercheMatiere] = useState('')
   const [competenceEnEdition, setCompetenceEnEdition] = useState<ClasseCompetence | null>(null)
+  // Compétence dont la suppression est bloquée par des notes existantes :
+  // le modal de confirmation par mot de passe prend le relai plutôt que le
+  // toast d'erreur générique.
+  const [competenceASupprimerAvecMotDePasse, setCompetenceASupprimerAvecMotDePasse] = useState<ClasseCompetence | null>(null)
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
@@ -144,6 +149,25 @@ export function AffectationsTab({
       await retirerCompetenceClasse(attribution.classe_competence_id)
       invalidateCompetences()
       succes('Compétence retirée de la classe.')
+    } catch (err) {
+      const apiErr = err as ApiError
+      // 409 : des notes existent déjà — l'API demande une confirmation par
+      // mot de passe plutôt que de bloquer l'opération à sec.
+      if (apiErr.status === 409) {
+        setCompetenceASupprimerAvecMotDePasse(attribution)
+        return
+      }
+      erreur(apiErr.message)
+    }
+  }
+
+  const archiverCompetence = async (attribution: ClasseCompetence) => {
+    const nouveauStatut = attribution.statut === 'actif' ? 'inactif' : 'actif'
+
+    try {
+      await modifierAttributionCompetence(attribution.classe_competence_id, { statut: nouveauStatut })
+      invalidateCompetences()
+      succes(nouveauStatut === 'inactif' ? 'Compétence archivée.' : 'Compétence réactivée.')
     } catch (err) {
       erreur((err as ApiError).message)
     }
@@ -277,7 +301,18 @@ export function AffectationsTab({
       cle: 'competence',
       entete: t('competences.singulier'),
       valeur: (a) => a.competence?.label_fr ?? '',
-      cellule: (a) => <span className="font-medium text-navy-900">{a.competence?.label_fr ?? '—'}</span>,
+      cellule: (a) => (
+        <span className="flex items-center gap-2">
+          <span className={clsx('font-medium', a.statut === 'actif' ? 'text-navy-900' : 'text-navy-400')}>
+            {a.competence?.label_fr ?? '—'}
+          </span>
+          {a.statut !== 'actif' && (
+            <span className="rounded-full bg-navy-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+              Archivée
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       cle: 'matieres',
@@ -318,6 +353,16 @@ export function AffectationsTab({
                 className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
               >
                 <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                title={a.statut === 'actif' ? 'Archiver' : 'Réactiver'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  archiverCompetence(a)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+              >
+                {a.statut === 'actif' ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
               </button>
               <button
                 onClick={(e) => {
@@ -512,6 +557,17 @@ export function AffectationsTab({
         />
       )}
 
+      {competenceASupprimerAvecMotDePasse && (
+        <SupprimerCompetenceNoteesModal
+          attribution={competenceASupprimerAvecMotDePasse}
+          onClose={() => setCompetenceASupprimerAvecMotDePasse(null)}
+          onDeleted={() => {
+            setCompetenceASupprimerAvecMotDePasse(null)
+            invalidateCompetences()
+          }}
+        />
+      )}
+
       {showImport && (
         <ImportModal
           title="Importer les affectations Excel"
@@ -699,6 +755,87 @@ function EditCompetenceModal({
           </Button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+/**
+ * Confirmation par mot de passe avant de supprimer une compétence déjà
+ * notée : l'API a répondu 409 à une première tentative sans mot de passe
+ * (cf. `retirerCompetence`). Cette suppression est destructrice — elle
+ * emporte les affectations de matières et toutes les notes saisies pour
+ * cette compétence dans la classe — d'où l'étape supplémentaire, sur le
+ * même principe qu'un changement de mot de passe ou une action sensible
+ * ailleurs dans l'application.
+ */
+function SupprimerCompetenceNoteesModal({
+  attribution,
+  onClose,
+  onDeleted,
+}: {
+  attribution: ClasseCompetence
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [motDePasse, setMotDePasse] = useState('')
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+
+  const confirmer = async () => {
+    if (!motDePasse) {
+      setServerError('Votre mot de passe est requis.')
+      return
+    }
+
+    setEnvoi(true)
+    setServerError(null)
+
+    try {
+      await retirerCompetenceClasse(attribution.classe_competence_id, motDePasse)
+      succes('Compétence supprimée, avec ses affectations et ses notes.')
+      onDeleted()
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Supprimer — ${attribution.competence?.label_fr ?? ''}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-navy-600">
+          Des notes ont déjà été saisies pour cette compétence dans cette classe. Confirmez votre mot de passe pour la
+          supprimer définitivement, avec ses affectations de matières et toutes ses notes — cette action est
+          irréversible.
+        </p>
+
+        <Input
+          type="password"
+          label="Votre mot de passe"
+          value={motDePasse}
+          onChange={(e) => setMotDePasse(e.target.value)}
+          autoFocus
+          autoComplete="current-password"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void confirmer()
+            }
+          }}
+        />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="button" variant="danger" onClick={confirmer} disabled={envoi}>
+            {envoi ? 'Suppression…' : 'Supprimer définitivement'}
+          </Button>
+        </div>
+      </div>
     </Modal>
   )
 }

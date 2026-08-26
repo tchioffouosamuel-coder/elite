@@ -15,6 +15,7 @@ use App\Services\NotePrimaireService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * Référentiel des compétences évaluées et leur attribution aux classes.
@@ -235,19 +236,41 @@ class CompetenceController extends Controller
         ], 'Attribution mise à jour.');
     }
 
-    /** Retire une compétence d'une classe, et les affectations de ses matières. */
+    /**
+     * Retire une compétence d'une classe, et les affectations de ses matières.
+     *
+     * Si des notes existent déjà, l'opération n'est plus bloquée à sec : elle
+     * exige la confirmation du mot de passe de l'utilisateur, pour la même
+     * raison qu'un virement ou une suppression de compte la demandent
+     * ailleurs — l'action est destructrice (les notes partent avec, en
+     * cascade sur `classe_competences.id`) et irréversible. Sans mot de passe
+     * fourni, on répond 409 plutôt que 422 : ce n'est pas une erreur de
+     * saisie, c'est une étape supplémentaire que le client doit proposer.
+     */
     public function retirer(Request $request, int $classeCompetenceId): JsonResponse
     {
         $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
         $this->autoriserGestionAttribution($request, $attribution);
 
         if ($attribution->notes()->exists()) {
-            return ApiResponse::error(
-                'Des notes ont déjà été saisies pour cette compétence dans cette classe.',
-                422,
-            );
+            $motDePasse = (string) $request->input('mot_de_passe', '');
+
+            if ($motDePasse === '') {
+                return ApiResponse::error(
+                    'Des notes ont déjà été saisies pour cette compétence dans cette classe. '
+                        . 'Confirmez votre mot de passe pour la supprimer quand même, avec ses affectations et ses notes.',
+                    409,
+                );
+            }
+
+            if (! Hash::check($motDePasse, $request->user()->password)) {
+                return ApiResponse::error('Mot de passe incorrect.', 422);
+            }
         }
 
+        // La suppression de l'attribution cascade en base sur ses notes
+        // (`notes.classe_competence_id` → cascadeOnDelete) ; le service
+        // retire en plus les affectations de matières qu'elle avait installées.
         $this->attribution->retirer($attribution);
 
         return ApiResponse::success(null, 'Compétence retirée de la classe.');

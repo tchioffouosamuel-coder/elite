@@ -95,9 +95,11 @@ class BulletinPrimaireGenerator
             . '.titre{color:' . self::VIOLET . ';}'
             . '.titre-en{color:' . self::VIOLET . ';}'
 
-            . 'table.grille td,table.grille th{font-size:2.3mm;}'
+            . 'table.grille td,table.grille th{font-size:2.9mm;border-color:#000;}'
+            . 'table.grille td{color:#000;}'
             . 'table.grille th{background-color:' . self::VERT . ';color:#000;}'
-            . '.matiere{font-weight:bold;font-size:2.5mm;}'
+            . '.matiere-cell{padding:1.5mm;}'
+            . '.matiere{font-weight:bold;font-size:2.9mm;}'
             . '.bareme{font-size:2mm;font-style:italic;color:#666;}'
             . '.volet{background:#f6f8f6;}'
             . '.fusion{background:#eef3ee;font-weight:bold;}'
@@ -236,8 +238,11 @@ class BulletinPrimaireGenerator
             return '<p style="text-align:center;">Aucun niveau d\'appréciation n\'est configuré pour cet établissement.</p>';
         }
 
-        $wComp = 30;
-        $wEval = 22;
+        // Colonne « Activités » élargie (les intitulés du référentiel sont
+        // parfois longs) et colonnes de niveau resserrées : leur contenu
+        // tient en une puce colorée, elles n'ont pas besoin de 16 % chacune.
+        $wComp = 35;
+        $wEval = 20;
         $wNiveau = max((int) round((100 - $wComp - $wEval) / max($appreciations->count(), 1)), 6);
 
         $entete = '<tr>'
@@ -261,7 +266,7 @@ class BulletinPrimaireGenerator
                 $corps .= '<tr>';
 
                 if ($index === 0) {
-                    $corps .= '<td class="left" rowspan="' . $nbVolets . '">'
+                    $corps .= '<td class="left matiere-cell" rowspan="' . $nbVolets . '">'
                         . '<span class="matiere">' . $this->e($ligne['matiere']) . '</span>'
                         . ($ligne['matiere_en']
                             ? '<br><i style="font-size:2mm;color:#777;">' . $this->e($ligne['matiere_en']) . '</i>'
@@ -270,7 +275,7 @@ class BulletinPrimaireGenerator
                 }
 
                 $corps .= '<td class="volet left">' . $this->e($volet['libelle'])
-                    . ' <i style="font-size:2.1mm;color:#777;">/ ' . $this->e($volet['libelle_en']) . '</i></td>';
+                    . ' <i style="font-size:2.4mm;color:#777;">/ ' . $this->e($volet['libelle_en']) . '</i></td>';
 
                 $atteinte = $volet['appreciation']['id'] ?? null;
 
@@ -357,7 +362,7 @@ class BulletinPrimaireGenerator
                 $corps .= '<tr>';
 
                 if ($index === 0) {
-                    $corps .= '<td class="left" rowspan="' . $nbVolets . '">'
+                    $corps .= '<td class="left matiere-cell" rowspan="' . $nbVolets . '">'
                         . '<span class="matiere">' . $this->e($ligne['matiere']) . '</span> '
                         . '<i style="font-size:2mm;color:#777;">/ ' . $this->e($ligne['matiere_en']) . '</i><br>'
                         . '<span class="bareme">Sur / Over ' . $ligne['bareme'] . '</span></td>';

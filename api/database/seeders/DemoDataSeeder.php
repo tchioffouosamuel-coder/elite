@@ -77,8 +77,6 @@ class DemoDataSeeder extends Seeder
 
     public function run(): void
     {
-        $niveauCollege = Niveau::where('code', 'COLLEGE')->firstOrFail();
-
         // ELITES est un complexe : une maternelle, un primaire et un secondaire,
         // chacun avec son propre mode de fonctionnement. Ce seeder crée les trois
         // écoles mais n'alimente que le secondaire ; PrimaireMaternelleSeeder
@@ -102,6 +100,19 @@ class DemoDataSeeder extends Seeder
                 'address' => 'Bertoua-Monou2, Cameroun',
                 'phone' => '698256973',
                 'is_active' => true,
+            ]
+        );
+
+        // Niveau générique du collège général (6ème à 3ème) : n'existe ni dans
+        // NiveauSeeder (qui ne couvre que le technique/commercial) ni dans le
+        // dump smapp, donc créé ici pour les besoins du jeu de démo.
+        $niveauCollege = Niveau::updateOrCreate(
+            ['code' => 'COLLEGE'],
+            [
+                'name_fr' => 'Collège Général',
+                'name_en' => 'General College',
+                'school_id' => $school->id,
+                'ordre' => 0,
             ]
         );
 
@@ -342,7 +353,6 @@ class DemoDataSeeder extends Seeder
                     'name' => 'Direction '.ucfirst($data['type']),
                     'password' => 'password',
                     'school_id' => $ecole->id,
-                    'niveau_id' => $niveau?->id,
                     'is_active' => true,
                 ]
             )->syncRoles(['admin_etablissement']);

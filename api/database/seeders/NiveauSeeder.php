@@ -124,10 +124,9 @@ class NiveauSeeder extends Seeder
             Niveau::updateOrCreate(
                 ['code' => $niveau['code']],
                 [
-                    'label' => $niveau['label'],
                     'name_fr' => $niveau['name_fr'],
                     'name_en' => $niveau['name_en'],
-                    'school_id' => $schoolId,
+                    'school_id' => \App\Models\School::whereKey($schoolId)->exists() ? $schoolId : null,
                     'ordre' => $index + 1,
                 ]
             );

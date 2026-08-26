@@ -200,13 +200,28 @@ function AnnonceFormModal({ onClose, onCreated }: { onClose: () => void; onCreat
       return
     }
 
+    // « Toutes les écoles » ne se combine qu'avec la cible « Tous » : le
+    // ciblage par fonction ou par utilisateurs est propre à un établissement.
+    if (!values.school_id && (schools?.length ?? 0) > 1 && cibleType !== 'tous') {
+      setErreurCible('Choisissez un établissement pour cibler des fonctions ou des utilisateurs.')
+      return
+    }
+
     try {
-      await creerAnnonce({
-        ...values,
-        school_id: values.school_id ? Number(values.school_id) : null,
-        cible_type: cibleType,
-        cible,
-      })
+      if (!values.school_id && (schools?.length ?? 0) > 1) {
+        await Promise.all(
+          (schools ?? []).map((s) =>
+            creerAnnonce({ ...values, school_id: s.id, cible_type: cibleType, cible }),
+          ),
+        )
+      } else {
+        await creerAnnonce({
+          ...values,
+          school_id: values.school_id ? Number(values.school_id) : null,
+          cible_type: cibleType,
+          cible,
+        })
+      }
       succes(t('annonces.created'))
       onCreated()
     } catch (err) {
@@ -217,12 +232,8 @@ function AnnonceFormModal({ onClose, onCreated }: { onClose: () => void; onCreat
   return (
     <Modal title={t('annonces.publier')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Select
-          label={`${t('classes.ecole')}${(schools?.length ?? 0) > 1 ? ' *' : ''}`}
-          error={errors.school_id?.message}
-          {...register('school_id', { required: (schools?.length ?? 0) > 1 ? "L'école est requise." : false })}
-        >
-          <option value="">—</option>
+        <Select label={t('classes.ecole')} error={errors.school_id?.message} {...register('school_id')}>
+          {(schools?.length ?? 0) > 1 && <option value="">Toutes les écoles</option>}
           {schools?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}

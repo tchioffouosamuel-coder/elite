@@ -25,6 +25,9 @@ class UpdateEleveRequest extends FormRequest
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'nationalite' => ['nullable', 'string', 'max:100'],
             'adresse' => ['nullable', 'string', 'max:255'],
+            'numero_acte_naissance' => ['nullable', 'string', 'max:255'],
+            'refugie' => ['nullable', 'in:Oui,Non'],
+            'deplace_interne' => ['nullable', 'in:Oui,Non'],
             'redoublant' => ['nullable', 'boolean'],
             'statut' => ['nullable', 'in:actif,parti,exclu'],
 
@@ -32,6 +35,8 @@ class UpdateEleveRequest extends FormRequest
             'tuteurs.*.nom_complet' => ['required_with:tuteurs', 'string', 'max:200'],
             'tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
             'tuteurs.*.email' => ['nullable', 'email', 'max:150'],
+            'tuteurs.*.profession' => ['nullable', 'string', 'max:255'],
+            'tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
             'tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
             'tuteurs.*.is_principal' => ['nullable', 'boolean'],
         ];

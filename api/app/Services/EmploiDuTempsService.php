@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Classe;
+use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\Presence;
@@ -93,6 +94,49 @@ class EmploiDuTempsService extends BaseService
             ->where('heure_debut', '<', $fin)
             ->where('heure_fin', '>', $debut)
             ->exists();
+    }
+
+    /**
+     * Refuse un créneau qui ferait dépasser le quota horaire hebdomadaire
+     * défini pour la matière sur cette classe ({@see ClasseMatiere::$quota_horaire}).
+     * Un quota non renseigné (null) n'impose aucune limite.
+     *
+     * @return string|null message d'erreur si le quota serait dépassé, sinon null
+     */
+    public function depasseQuota(
+        ClasseMatiere $classeMatiere,
+        string $debut,
+        string $fin,
+        ?int $ignorerId = null,
+    ): ?string {
+        if ($classeMatiere->quota_horaire === null) {
+            return null;
+        }
+
+        $heuresExistantes = EmploiDuTemps::where('classe_matiere_id', $classeMatiere->id)
+            ->when($ignorerId, fn ($q, $id) => $q->where('id', '!=', $id))
+            ->get()
+            ->sum(fn (EmploiDuTemps $c) => $this->dureeHeures((string) $c->heure_debut, (string) $c->heure_fin));
+
+        $total = $heuresExistantes + $this->dureeHeures($debut, $fin);
+
+        if ($total > $classeMatiere->quota_horaire) {
+            $matiere = $classeMatiere->matiere?->nom ?? 'Cette matière';
+
+            return sprintf(
+                '%s dépasse son quota horaire hebdomadaire (%dh) : %sh seraient programmées.',
+                $matiere,
+                $classeMatiere->quota_horaire,
+                rtrim(rtrim(number_format($total, 2, '.', ''), '0'), '.'),
+            );
+        }
+
+        return null;
+    }
+
+    private function dureeHeures(string $debut, string $fin): float
+    {
+        return (strtotime($fin) - strtotime($debut)) / 3600;
     }
 
     /**

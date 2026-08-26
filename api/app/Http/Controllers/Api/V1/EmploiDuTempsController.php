@@ -37,6 +37,12 @@ class EmploiDuTempsController extends Controller
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
         }
 
+        $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
+
+        if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'])) {
+            return ApiResponse::error($erreurQuota, 422);
+        }
+
         $creneau = EmploiDuTemps::create([...$data, 'classe_id' => $classe->id, 'school_id' => $classe->school_id]);
         $creneau->classesAssociees()->sync($associees);
 
@@ -57,6 +63,12 @@ class EmploiDuTempsController extends Controller
 
         if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], $creneau->id, $associees)) {
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
+        }
+
+        $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
+
+        if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'], $creneau->id)) {
+            return ApiResponse::error($erreurQuota, 422);
         }
 
         $creneau->update($data);

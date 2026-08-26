@@ -3,8 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\AnneeScolaire;
+use App\Models\Appreciation;
 use App\Models\Classe;
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
+use App\Models\Competence;
 use App\Models\Eleve;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
@@ -18,6 +21,7 @@ use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Models\Tuteur;
 use App\Models\User;
+use App\Services\AppreciationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 
@@ -26,14 +30,16 @@ use Illuminate\Support\Collection;
  *
  * Reproduit l'organisation d'archange : au primaire des niveaux d'enseignement
  * pilotés par un animateur, une classe par niveau tenue par un unique
- * titulaire, et des matières notées sur un barème propre puis évaluées par
- * volets. La maternelle suit le même mode de notation mais ignore les niveaux :
- * ses trois sections sont directement des classes.
+ * titulaire, et des compétences notées sur un barème propre puis évaluées par
+ * volets (leurs matières ne portent plus que le contenu, cf.
+ * `rattacher_matieres_aux_competences`). La maternelle suit la même
+ * organisation mais évalue par appréciation plutôt que par barème, et ignore
+ * les niveaux : ses trois sections sont directement des classes.
  */
 class PrimaireMaternelleSeeder extends Seeder
 {
     /** Barème et volet pratique repris du curriculum primaire camerounais. */
-    private const MATIERES_PRIMAIRE = [
+    private const COMPETENCES_PRIMAIRE = [
         ['Français', 'French', 'FRA', 50, false],
         ['Mathématiques', 'Mathematics', 'MAT', 50, false],
         ['Anglais', 'English', 'ANG', 30, false],
@@ -44,7 +50,8 @@ class PrimaireMaternelleSeeder extends Seeder
         ['Éducation Physique et Sportive', 'Physical Education', 'EPS', 20, true],
     ];
 
-    private const MATIERES_MATERNELLE = [
+    /** La maternelle évalue par appréciation : le barème ne lui sert pas. */
+    private const COMPETENCES_MATERNELLE = [
         ['Langage et Communication', 'Language and Communication', 'LAN', 30, false],
         ['Graphisme et Écriture', 'Handwriting', 'GRA', 30, true],
         ['Pré-mathématiques', 'Pre-mathematics', 'PMA', 30, false],
@@ -96,16 +103,18 @@ class PrimaireMaternelleSeeder extends Seeder
             $this->seedEcole(
                 $school,
                 $type === 'primaire' ? self::NIVEAUX_PRIMAIRE : self::SECTIONS_MATERNELLE,
-                $type === 'primaire' ? self::MATIERES_PRIMAIRE : self::MATIERES_MATERNELLE,
+                $type === 'primaire' ? self::COMPETENCES_PRIMAIRE : self::COMPETENCES_MATERNELLE,
             );
         }
     }
 
-    private function seedEcole(School $school, array $niveaux, array $matieres): void
+    private function seedEcole(School $school, array $niveaux, array $competences): void
     {
         // Archange évalue sur trois séquences par trimestre.
         Setting::set($school->id, 'num_sequences', 3);
         Setting::set($school->id, 'passage_moyenne_min', 10);
+
+        $maternelle = $school->type === 'maternelle';
 
         $niveauReference = Niveau::where('code', strtoupper($school->type))->first();
         $annee = AnneeScolaire::where('school_id', $school->id)->where('is_active', true)->first()
@@ -113,7 +122,16 @@ class PrimaireMaternelleSeeder extends Seeder
 
         $trimestres = $this->seedTrimestres($annee);
         $personnels = $this->seedPersonnels($school);
-        $matiereModels = $this->seedMatieres($school, $matieres);
+        $competenceModels = $this->seedCompetences($school, $competences);
+
+        // La maternelle évalue par appréciation : son référentiel de visages
+        // doit exister avant qu'on puisse en piocher un pour chaque note.
+        $appreciations = collect();
+
+        if ($maternelle) {
+            app(AppreciationService::class)->assurerDefauts($school->id);
+            $appreciations = Appreciation::forSchool($school->id)->actives()->get();
+        }
 
         // La maternelle ne range pas ses classes par degré : ses trois sections
         // se suffisent à elles-mêmes, sans animateur de niveau au-dessus.
@@ -152,9 +170,9 @@ class PrimaireMaternelleSeeder extends Seeder
                 'titulaire_id' => $personnels[$index % count($personnels)]->id,
             ]);
 
-            $affectations = $this->affecterMatieres($classe, $matiereModels);
+            $attributions = $this->affecterCompetences($classe, $competenceModels);
             $eleves = $this->seedEleves($school, $classe, $index);
-            $this->seedNotes($eleves, $affectations, $trimestres->first());
+            $this->seedNotes($eleves, $attributions, $trimestres->first(), $maternelle, $appreciations);
         }
 
         $this->seedCompteTitulaire($school, $personnels->first(), $niveauReference?->id);
@@ -239,37 +257,78 @@ class PrimaireMaternelleSeeder extends Seeder
         )->id;
     }
 
-    /** @return Collection<int, Matiere> */
-    private function seedMatieres(School $school, array $matieres): Collection
+    /**
+     * Crée le référentiel de compétences de l'école, avec pour chacune la
+     * matière qui en porte le contenu (`competence_id`). Le barème et le
+     * volet pratique vivent désormais sur la compétence ; la maternelle
+     * évalue par appréciation et n'a donc pas de barème.
+     *
+     * @return Collection<int, Competence>
+     */
+    private function seedCompetences(School $school, array $competences): Collection
     {
-        return collect($matieres)->map(function (array $m) use ($school) {
-            [$nom, $nomEn, $abbr, $bareme, $pratique] = $m;
+        $maternelle = $school->type === 'maternelle';
 
-            return Matiere::firstOrCreate(
-                ['school_id' => $school->id, 'nom' => $nom],
+        return collect($competences)->map(function (array $c) use ($school, $maternelle) {
+            [$label, $labelEn, $abbr, $bareme, $pratique] = $c;
+
+            $competence = Competence::firstOrCreate(
+                ['school_id' => $school->id, 'label_fr' => $label],
                 [
-                    'nom_en' => $nomEn,
+                    'label_en' => $labelEn,
                     'abbreviation' => $abbr,
-                    'notation' => $bareme,
+                    'notation' => $maternelle ? null : $bareme,
                     'evalue_pratique' => $pratique,
                     'statut' => 'actif',
                 ],
             );
+
+            Matiere::firstOrCreate(
+                ['school_id' => $school->id, 'nom' => $label],
+                [
+                    'nom_en' => $labelEn,
+                    'abbreviation' => $abbr,
+                    'competence_id' => $competence->id,
+                    'statut' => 'actif',
+                ],
+            );
+
+            return $competence;
         });
     }
 
-    /** @return Collection<int, ClasseMatiere> */
-    private function affecterMatieres(Classe $classe, Collection $matieres): Collection
+    /**
+     * Attribue chaque compétence à la classe et installe l'affectation de sa
+     * matière — le geste que `CompetenceAttributionService` fait à l'écran,
+     * reproduit ici pour garder le contrôle du jeu de données.
+     *
+     * @return Collection<int, ClasseCompetence>
+     */
+    private function affecterCompetences(Classe $classe, Collection $competences): Collection
     {
-        return $matieres->map(fn (Matiere $matiere) => ClasseMatiere::firstOrCreate(
-            ['classe_id' => $classe->id, 'matiere_id' => $matiere->id],
-            [
-                // Au primaire c'est le titulaire de la classe qui enseigne tout.
-                'personnel_id' => $classe->titulaire_id,
-                'coefficient' => 1,
-                'statut' => 'actif',
-            ],
-        ));
+        return $competences->map(function (Competence $competence) use ($classe) {
+            $attribution = ClasseCompetence::firstOrCreate(
+                ['classe_id' => $classe->id, 'competence_id' => $competence->id],
+                [
+                    // Au primaire c'est le titulaire de la classe qui enseigne tout.
+                    'personnel_id' => $classe->titulaire_id,
+                    'statut' => 'actif',
+                ],
+            );
+
+            foreach ($competence->matieres as $matiere) {
+                ClasseMatiere::firstOrCreate(
+                    ['classe_id' => $classe->id, 'matiere_id' => $matiere->id],
+                    [
+                        'personnel_id' => $classe->titulaire_id,
+                        'coefficient' => 1,
+                        'statut' => 'actif',
+                    ],
+                );
+            }
+
+            return $attribution;
+        });
     }
 
     /** @return Collection<int, Eleve> */
@@ -310,30 +369,40 @@ class PrimaireMaternelleSeeder extends Seeder
     }
 
     /**
-     * Notes du premier trimestre : un volet × une séquence = une note, tirée
-     * dans une plage proportionnelle au barème pour rester réaliste.
+     * Notes du premier trimestre : un volet × une séquence = une note. Au
+     * primaire elle est chiffrée, tirée dans une plage proportionnelle à la
+     * part du barème allouée au volet ; en maternelle c'est une appréciation
+     * piochée dans le référentiel de l'école (`valeur` reste vide).
+     *
+     * @param  Collection<int, ClasseCompetence>  $attributions
+     * @param  Collection<int, Appreciation>  $appreciations
      */
-    private function seedNotes(Collection $eleves, Collection $affectations, Trimestre $trimestre): void
+    private function seedNotes(Collection $eleves, Collection $attributions, Trimestre $trimestre, bool $maternelle, Collection $appreciations): void
     {
         $sequences = $trimestre->sequences()->orderBy('ordre')->get();
 
         foreach ($eleves as $eleve) {
-            foreach ($affectations as $classeMatiere) {
-                $matiere = $classeMatiere->matiere;
-                $composantes = $matiere->composantes();
-                // Le barème de la matière se répartit sur ses volets.
-                $maxParVolet = $matiere->notation / count($composantes);
+            foreach ($attributions as $classeCompetence) {
+                $competence = $classeCompetence->competence;
+                $composantes = $competence->volets();
+                $repartition = $competence->repartitionVolets();
 
                 foreach ($composantes as $composante) {
+                    $maxParVolet = $repartition[$composante] ?? 0;
+
                     foreach ($sequences as $sequence) {
+                        $attributs = $maternelle
+                            ? ['appreciation_id' => $appreciations->random()->id, 'valeur' => null]
+                            : ['valeur' => round(random_int((int) ($maxParVolet * 40), (int) ($maxParVolet * 100)) / 100, 2)];
+
                         Note::firstOrCreate(
                             [
                                 'eleve_id' => $eleve->id,
-                                'classe_matiere_id' => $classeMatiere->id,
+                                'classe_competence_id' => $classeCompetence->id,
                                 'sequence_id' => $sequence->id,
                                 'composante' => $composante,
                             ],
-                            ['valeur' => round(random_int((int) ($maxParVolet * 40), (int) ($maxParVolet * 100)) / 100, 2)],
+                            $attributs,
                         );
                     }
                 }

@@ -15,6 +15,7 @@ class TuteurResource extends JsonResource
             'telephone' => $this->telephone,
             'email' => $this->email,
             'profession' => $this->profession,
+            'adresse' => $this->adresse,
             'lien_parente' => $this->whenPivotLoaded('eleve_tuteur', fn () => $this->pivot->lien_parente),
             'is_principal' => $this->whenPivotLoaded('eleve_tuteur', fn () => (bool) $this->pivot->is_principal),
         ];
