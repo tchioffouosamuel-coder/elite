@@ -22,7 +22,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { Select } from '@/shared/ui/Select'
-import { DropdownMenu } from '@/shared/ui/DropdownMenu'
+import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
@@ -244,11 +244,21 @@ export function ClassesListPage() {
             <DropdownMenu
               title={t('common.actions')}
               items={[
-                can('eleves.manage') && { label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') },
-                can('eleves.view') && { label: t('hub.classe.voir_eleves'), icon: Users, onClick: () => navigate(`/eleves?classe=${c.id}`) },
-                can('emploi_du_temps.view') && { label: t('nav.emploiDuTemps'), icon: CalendarClock, onClick: () => navigate(`/emploi-du-temps?classe=${c.id}`) },
-                can('pedagogie.view') && { label: t('nav.progression'), icon: GitBranch, onClick: () => navigate(`/progression/classes/${c.id}`) },
-                can('bulletins.view') && { label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) },
+                ...(can('eleves.manage')
+                  ? ([{ label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') }] satisfies DropdownMenuItem[])
+                  : []),
+                ...(can('eleves.view')
+                  ? ([{ label: t('hub.classe.voir_eleves'), icon: Users, onClick: () => navigate(`/eleves?classe=${c.id}`) }] satisfies DropdownMenuItem[])
+                  : []),
+                ...(can('emploi_du_temps.view')
+                  ? ([{ label: t('nav.emploiDuTemps'), icon: CalendarClock, onClick: () => navigate(`/emploi-du-temps?classe=${c.id}`) }] satisfies DropdownMenuItem[])
+                  : []),
+                ...(can('pedagogie.view')
+                  ? ([{ label: t('nav.progression'), icon: GitBranch, onClick: () => navigate(`/progression/classes/${c.id}`) }] satisfies DropdownMenuItem[])
+                  : []),
+                ...(can('bulletins.view')
+                  ? ([{ label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) }] satisfies DropdownMenuItem[])
+                  : []),
                 { label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true },
               ]}
             />

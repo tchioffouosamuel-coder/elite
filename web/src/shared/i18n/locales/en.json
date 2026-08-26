@@ -1526,7 +1526,14 @@
     "retirer": "Remove the competency",
     "retiree": "Competency removed from the class.",
     "enseignant": "Teacher for the block",
-    "par_appreciation": "By appreciation"
+    "par_appreciation": "By appreciation",
+    "statut": "Status",
+    "actif": "Active",
+    "inactif": "Inactive",
+    "desactiver": "Deactivate",
+    "reactiver": "Reactivate",
+    "desactivee": "Competency deactivated.",
+    "reactivee": "Competency reactivated."
   },
   "appreciations": {
     "title": "Assessment codes",

@@ -33,9 +33,13 @@ export function NiveauxScolairesPage() {
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['niveaux-scolaires'], queryFn: fetchNiveauxScolaires })
+  // Seuls les enseignants sont éligibles à l'animation d'un niveau (cf.
+  // App\Support\Attributions::ANIMATEUR_NIVEAU) : sans ce filtre, la liste
+  // proposait n'importe quel agent de l'établissement, y compris ceux que
+  // l'API refuserait ensuite pour cette responsabilité.
   const { data: personnels } = useQuery({
-    queryKey: ['personnels', { page: 1, per_page: 100 }],
-    queryFn: () => fetchPersonnels({ per_page: 100 }),
+    queryKey: ['personnels', { attribution: 'animateur_niveau', per_page: 100 }],
+    queryFn: () => fetchPersonnels({ attribution: 'animateur_niveau', per_page: 100 }),
   })
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
 
@@ -73,6 +77,7 @@ export function NiveauxScolairesPage() {
           libelle: libelle.trim(),
           ordre: niveau?.ordre,
           animateur_personnel_id: niveau?.animateur_personnel_id ?? null,
+          school_id: niveau?.school_id ?? null,
         })
         succes(t('niveaux.updated'))
       } else {
@@ -103,6 +108,12 @@ export function NiveauxScolairesPage() {
         libelle: niveau.libelle,
         ordre: niveau.ordre,
         animateur_personnel_id: animateurId ? Number(animateurId) : null,
+        // Sans ce school_id explicite, la validation d'existence de l'agent
+        // (StoreNiveauScolaireRequest::scopedExists) retombe sur l'école
+        // ambiante du compte — qui, pour un super admin en mode "toutes les
+        // écoles", peut ne pas être celle du niveau édité, et rejette alors
+        // même un agent parfaitement valide.
+        school_id: niveau.school_id ?? null,
       })
       invalider()
     } catch (err) {

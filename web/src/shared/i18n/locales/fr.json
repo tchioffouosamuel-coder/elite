@@ -1526,7 +1526,14 @@
     "retirer": "Retirer la compétence",
     "retiree": "Compétence retirée de la classe.",
     "enseignant": "Enseignant du bloc",
-    "par_appreciation": "Par appréciation"
+    "par_appreciation": "Par appréciation",
+    "statut": "Statut",
+    "actif": "Active",
+    "inactif": "Inactive",
+    "desactiver": "Désactiver",
+    "reactiver": "Réactiver",
+    "desactivee": "Compétence désactivée.",
+    "reactivee": "Compétence réactivée."
   },
   "appreciations": {
     "title": "Codes d'appréciation",

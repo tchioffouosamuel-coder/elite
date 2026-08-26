@@ -175,6 +175,17 @@ export function CompetencesPage() {
       cellule: (c) => <Badge tone={(c.classes_count ?? 0) > 0 ? 'green' : 'neutral'}>{c.classes_count ?? 0}</Badge>,
       masquerMobile: true,
     },
+    {
+      cle: 'statut',
+      entete: t('competences.statut'),
+      valeur: (c) => c.statut,
+      cellule: (c) => (
+        <Badge tone={c.statut === 'actif' ? 'green' : 'neutral'}>
+          {c.statut === 'actif' ? t('competences.actif') : t('competences.inactif')}
+        </Badge>
+      ),
+      masquerMobile: true,
+    },
     ...(can('pedagogie.manage')
       ? [
         {
@@ -303,8 +314,9 @@ function CompetenceFormModal({
         evalue_pratique: competence.evalue_pratique,
         repartition_volets: competence.repartition_volets,
         ordre: competence.ordre,
+        statut: competence.statut,
       }
-      : { notation: 20, evalue_pratique: false, ordre: 0 },
+      : { notation: 20, evalue_pratique: false, ordre: 0, statut: 'actif' },
   })
 
   // La maternelle évalue par appréciation (un visage coché), pas par barème :
@@ -384,6 +396,13 @@ function CompetenceFormModal({
           <Input label={t('matieres.abbreviation')} {...register('abbreviation')} />
           <Input type="number" min={0} max={999} label={t('competences.ordre')} {...register('ordre')} />
         </div>
+
+        {/* Une compétence déjà notée refuse la suppression (cf. CompetenceController::destroy)
+            — c'est ce sélecteur qui offre l'alternative que le message d'erreur suggère. */}
+        <Select label={t('competences.statut')} {...register('statut')}>
+          <option value="actif">{t('competences.actif')}</option>
+          <option value="inactif">{t('competences.inactif')}</option>
+        </Select>
 
         {!estMaternelle && (
           <Input

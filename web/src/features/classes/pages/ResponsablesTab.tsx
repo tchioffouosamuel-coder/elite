@@ -156,6 +156,12 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
         surveillant_general_id: form.surveillant_general_id || null,
         censeur_id: form.censeur_id || null,
         conseiller_orientation_id: form.conseiller_orientation_id || null,
+        // Sans ce school_id explicite, la validation d'existence des agents
+        // (StoreClasseRequest::scopedExists) retombe sur l'école ambiante du
+        // compte — qui, pour un super admin en mode "toutes les écoles", peut
+        // ne pas être celle de cette classe, et rejette alors même un
+        // responsable parfaitement valide.
+        school_id: courant.school_id ?? null,
       }),
     onSuccess: () => {
       setErreur(null)

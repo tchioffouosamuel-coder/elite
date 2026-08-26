@@ -178,7 +178,7 @@ export function EleveInscriptionPage() {
             : []
     const { data: tarifs } = useQuery({
         queryKey: ['tarifs'],
-        queryFn: fetchTarifs,
+        queryFn: () => fetchTarifs(),
         enabled: can('finance.encaisser'),
     })
     const montantTarif = classeIdSelectionnee
