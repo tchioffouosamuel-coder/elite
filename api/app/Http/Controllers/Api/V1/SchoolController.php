@@ -33,6 +33,7 @@ class SchoolController extends Controller
             'email' => $data['email'] ?? null,
             'header_fr' => EnTeteHtml::nettoyer($data['header_fr'] ?? null),
             'header_en' => EnTeteHtml::nettoyer($data['header_en'] ?? null),
+            'national_school_code' => $data['national_school_code'] ?? null,
         ]);
 
         return ApiResponse::success(new SchoolResource($school->refresh()), 'Profil de l\'établissement mis à jour.');

@@ -29,6 +29,7 @@ export interface EcoleProfile {
   phone: string | null
   email: string | null
   type: 'maternelle' | 'primaire' | 'secondaire'
+  national_school_code: string | null
   header_fr: string | null
   header_en: string | null
   logo_url: string | null
@@ -45,6 +46,7 @@ export interface EcoleProfilePayload {
   email?: string | null
   header_fr?: string | null
   header_en?: string | null
+  national_school_code?: string | null
 }
 
 export async function fetchEcole(): Promise<EcoleProfile> {

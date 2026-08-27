@@ -844,6 +844,7 @@
     "email": "Email",
     "header_fr": "Document header (French)",
     "header_en": "Document header (English)",
+    "national_school_code": "National school code (cartescolaire.cm)",
     "profil_saved": "School profile saved."
   },
   "profile": {

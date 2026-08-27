@@ -12,7 +12,7 @@ class School extends Model
     use HasFactory;
 
     protected $fillable = [
-        'complexe_id', 'name', 'code', 'type', 'logo_path', 'stamp_path', 'signature_path',
+        'complexe_id', 'name', 'code', 'type', 'national_school_code', 'logo_path', 'stamp_path', 'signature_path',
         'address', 'phone', 'email', 'header_fr', 'header_en', 'is_active',
     ];
 

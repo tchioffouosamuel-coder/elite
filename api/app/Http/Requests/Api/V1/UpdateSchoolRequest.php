@@ -22,6 +22,9 @@ class UpdateSchoolRequest extends FormRequest
             // pas seulement le texte visible.
             'header_fr' => ['nullable', 'string', 'max:4000'],
             'header_en' => ['nullable', 'string', 'max:4000'],
+            // Seul le secondaire s'en sert (MatriculeNationalService), mais on
+            // ne bloque pas sa saisie pour un autre type — inoffensif au repos.
+            'national_school_code' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

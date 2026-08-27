@@ -29,6 +29,7 @@ export const EcoleProfileCard = forwardRef<EcoleProfileHandle>(function EcolePro
         email: ecole.email ?? '',
         header_fr: ecole.header_fr ?? '',
         header_en: ecole.header_en ?? '',
+        national_school_code: ecole.national_school_code ?? '',
       })
     }
   }, [ecole])
@@ -75,6 +76,13 @@ export const EcoleProfileCard = forwardRef<EcoleProfileHandle>(function EcolePro
           value={form.email ?? ''}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
         />
+        {ecole.type === 'secondaire' && (
+          <Input
+            label={t('settings.national_school_code')}
+            value={form.national_school_code ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, national_school_code: e.target.value }))}
+          />
+        )}
         <div className="sm:col-span-2">
           <RichTextEditor
             label={t('settings.header_fr')}

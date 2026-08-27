@@ -871,6 +871,7 @@
     "email": "Email",
     "header_fr": "En-tête des documents (Français)",
     "header_en": "En-tête des documents (Anglais)",
+    "national_school_code": "Code national de l'établissement (cartescolaire.cm)",
     "profil_saved": "Profil de l'établissement enregistré."
   },
   "profile": {

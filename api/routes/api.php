@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\PushDiagnosticController;
 use App\Http\Controllers\Api\V1\EleveController;
+use App\Http\Controllers\Api\V1\MatriculeNationalController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EnseignantController;
@@ -288,6 +289,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/tableau-ages/pdf', [EleveRapportsController::class, 'tableauAgesPdf'])->name('eleves.tableau-ages.pdf');
                 Route::get('eleves/{eleveId}/attestation-scolarite', [AttestationController::class, 'scolarite'])->name('eleves.attestation');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
+                Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
             });
 
             Route::middleware('permission:eleves.manage')->group(function () {
