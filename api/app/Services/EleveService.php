@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Closure;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class EleveService extends BaseService
 {
@@ -95,9 +96,15 @@ class EleveService extends BaseService
      */
     public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
     {
-        $source = $file->getMimeType() === 'image/png'
-            ? imagecreatefrompng($file->getRealPath())
-            : imagecreatefromjpeg($file->getRealPath());
+        // imagecreatefromstring() détecte le format à partir du contenu réel
+        // (contrairement à imagecreatefromjpeg/png qui plantent avec une
+        // TypeError non attrapée si le mime détecté ne correspond pas
+        // vraiment aux octets du fichier) et retourne false proprement sur
+        // un fichier illisible plutôt que de faire planter la requête.
+        $source = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+        if ($source === false) {
+            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
+        }
 
         $width = imagesx($source);
         $height = imagesy($source);
