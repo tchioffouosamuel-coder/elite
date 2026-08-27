@@ -374,8 +374,11 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertSame($eleve->id, $donnees['eleves'][0]['eleve']->id);
     }
 
-    /** Une compétence déjà notée ne se supprime pas : le bulletin y perdrait une ligne. */
-    public function test_une_competence_notee_ne_se_supprime_pas(): void
+    /**
+     * Une compétence déjà notée exige la confirmation du mot de passe avant
+     * de se supprimer, plutôt que d'être bloquée à sec.
+     */
+    public function test_une_competence_notee_exige_le_mot_de_passe_pour_se_supprimer(): void
     {
         $competence = $this->competence();
         $eleve = $this->eleve('ELEVE UN');
@@ -394,11 +397,27 @@ class CompetenceEvaluationTest extends TestCase
             ])
             ->assertOk();
 
+        // Sans mot de passe : 409, la compétence survit.
         $this->actingAs($this->admin, 'sanctum')
             ->deleteJson("/api/v1/competences/{$competence->id}")
+            ->assertStatus(409);
+
+        $this->assertDatabaseHas('competences', ['id' => $competence->id]);
+
+        // Mauvais mot de passe : 422, la compétence survit toujours.
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/v1/competences/{$competence->id}", ['mot_de_passe' => 'mauvais'])
             ->assertStatus(422);
 
         $this->assertDatabaseHas('competences', ['id' => $competence->id]);
+
+        // Bon mot de passe : la compétence part, avec ses attributions et ses notes.
+        $this->actingAs($this->admin, 'sanctum')
+            ->deleteJson("/api/v1/competences/{$competence->id}", ['mot_de_passe' => 'password'])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('competences', ['id' => $competence->id]);
+        $this->assertDatabaseMissing('classe_competences', ['id' => $attribution->id]);
     }
 
     /**
@@ -458,15 +477,18 @@ class CompetenceEvaluationTest extends TestCase
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/v1/competences/batch-delete', ['ids' => [$a->id, $b->id]])
             ->assertOk()
-            ->assertJsonPath('data.supprimees', 2)
-            ->assertJsonPath('data.ignorees', []);
+            ->assertJsonPath('data.supprimees', 2);
 
         $this->assertDatabaseMissing('competences', ['id' => $a->id]);
         $this->assertDatabaseMissing('competences', ['id' => $b->id]);
     }
 
-    /** Une compétence déjà notée est ignorée plutôt que de bloquer tout le lot. */
-    public function test_la_suppression_en_masse_ignore_une_competence_notee(): void
+    /**
+     * Une compétence déjà notée dans le lot exige la confirmation du mot de
+     * passe avant de supprimer tout le lot — y compris les compétences libres
+     * qui l'accompagnent.
+     */
+    public function test_la_suppression_en_masse_exige_le_mot_de_passe_si_une_competence_est_notee(): void
     {
         $noteee = $this->competence(['label_fr' => 'Notée']);
         $libre = $this->competence(['label_fr' => 'Libre']);
@@ -484,13 +506,24 @@ class CompetenceEvaluationTest extends TestCase
             ])
             ->assertOk();
 
+        // Sans mot de passe : 409, rien n'est supprimé, même la compétence libre.
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/v1/competences/batch-delete', ['ids' => [$noteee->id, $libre->id]])
-            ->assertOk()
-            ->assertJsonPath('data.supprimees', 1)
-            ->assertJsonPath('data.ignorees', ['Notée']);
+            ->assertStatus(409);
 
         $this->assertDatabaseHas('competences', ['id' => $noteee->id]);
+        $this->assertDatabaseHas('competences', ['id' => $libre->id]);
+
+        // Bon mot de passe : les deux partent, notée et libre.
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/competences/batch-delete', [
+                'ids' => [$noteee->id, $libre->id],
+                'mot_de_passe' => 'password',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.supprimees', 2);
+
+        $this->assertDatabaseMissing('competences', ['id' => $noteee->id]);
         $this->assertDatabaseMissing('competences', ['id' => $libre->id]);
     }
 

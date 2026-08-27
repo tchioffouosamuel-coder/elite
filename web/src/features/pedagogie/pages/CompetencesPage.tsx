@@ -44,6 +44,7 @@ export function CompetencesPage() {
   const [formOuvert, setFormOuvert] = useState(false)
   const [enEdition, setEnEdition] = useState<Competence | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [aSupprimerAvecMotDePasse, setASupprimerAvecMotDePasse] = useState<{ ids: number[]; label: string } | null>(null)
 
   const { data: competences, isLoading } = useQuery({ queryKey: ['competences'], queryFn: fetchCompetences })
 
@@ -77,16 +78,19 @@ export function CompetencesPage() {
     if (!ok) return
 
     try {
-      const { supprimees, ignorees } = await batchDeleteCompetences(ids)
+      const { supprimees } = await batchDeleteCompetences(ids)
       setSelectedIds(new Set())
       invalider()
-      succes(
-        ignorees.length > 0
-          ? `${supprimees} compétence(s) supprimée(s). ${ignorees.length} déjà notée(s) ignorée(s) : ${ignorees.join(', ')}.`
-          : `${supprimees} compétence(s) supprimée(s).`,
-      )
+      succes(`${supprimees} compétence(s) supprimée(s).`)
     } catch (err) {
-      erreur((err as ApiError).message)
+      const apiErr = err as ApiError
+      // 409 : une ou plusieurs compétences portent déjà des notes — l'API
+      // demande une confirmation par mot de passe plutôt que de bloquer.
+      if (apiErr.status === 409) {
+        setASupprimerAvecMotDePasse({ ids, label: `${ids.length} compétence(s)` })
+        return
+      }
+      erreur(apiErr.message)
     }
   }
 
@@ -213,7 +217,15 @@ export function CompetencesPage() {
                     invalider()
                     succes(t('competences.supprimee'))
                   } catch (err) {
-                    erreur((err as ApiError).message)
+                    const apiErr = err as ApiError
+                    // 409 : cette compétence porte déjà des notes — l'API
+                    // demande une confirmation par mot de passe plutôt que de
+                    // bloquer la suppression.
+                    if (apiErr.status === 409) {
+                      setASupprimerAvecMotDePasse({ ids: [c.id], label: c.label_fr })
+                      return
+                    }
+                    erreur(apiErr.message)
                   }
                 }}
                 className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
@@ -283,7 +295,105 @@ export function CompetencesPage() {
           }}
         />
       )}
+
+      {aSupprimerAvecMotDePasse && (
+        <SupprimerCompetenceNoteeModal
+          ids={aSupprimerAvecMotDePasse.ids}
+          label={aSupprimerAvecMotDePasse.label}
+          onClose={() => setASupprimerAvecMotDePasse(null)}
+          onDeleted={() => {
+            setASupprimerAvecMotDePasse(null)
+            setSelectedIds(new Set())
+            invalider()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Confirmation par mot de passe avant de supprimer une compétence (ou un lot)
+ * déjà notée : l'API a répondu 409 à une première tentative sans mot de
+ * passe. La suppression emporte les matières, les attributions aux classes
+ * et toutes les notes déjà saisies — d'où l'étape supplémentaire, sur le
+ * même principe que le retrait d'une compétence d'une classe.
+ */
+function SupprimerCompetenceNoteeModal({
+  ids,
+  label,
+  onClose,
+  onDeleted,
+}: {
+  ids: number[]
+  label: string
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [motDePasse, setMotDePasse] = useState('')
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+
+  const confirmer = async () => {
+    if (!motDePasse) {
+      setServerError('Votre mot de passe est requis.')
+      return
+    }
+
+    setEnvoi(true)
+    setServerError(null)
+
+    try {
+      if (ids.length === 1) {
+        await supprimerCompetence(ids[0], motDePasse)
+      } else {
+        await batchDeleteCompetences(ids, motDePasse)
+      }
+      succes('Compétence supprimée, avec ses matières, ses attributions et ses notes.')
+      onDeleted()
+    } catch (err) {
+      setServerError((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Supprimer — ${label}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-navy-600">
+          Des notes ont déjà été saisies pour {ids.length > 1 ? 'ces compétences' : 'cette compétence'}. Confirmez
+          votre mot de passe pour {ids.length > 1 ? 'les' : 'la'} supprimer définitivement, avec leurs matières, leurs
+          attributions aux classes et toutes leurs notes — cette action est irréversible.
+        </p>
+
+        <Input
+          type="password"
+          label="Votre mot de passe"
+          value={motDePasse}
+          onChange={(e) => setMotDePasse(e.target.value)}
+          autoFocus
+          autoComplete="current-password"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void confirmer()
+            }
+          }}
+        />
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="button" variant="danger" onClick={confirmer} disabled={envoi}>
+            {envoi ? 'Suppression…' : 'Supprimer définitivement'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

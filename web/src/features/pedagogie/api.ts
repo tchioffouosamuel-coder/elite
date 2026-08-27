@@ -250,17 +250,28 @@ export async function modifierCompetence(id: number, payload: CompetencePayload)
   return data.data;
 }
 
-export async function supprimerCompetence(id: number): Promise<void> {
-  await http.delete(`/competences/${id}`);
+/**
+ * Supprime une compétence. Si des notes existent déjà, l'API répond 409 tant
+ * que `motDePasse` n'est pas fourni — voir `CompetenceController::destroy()`
+ * côté API pour la logique complète.
+ */
+export async function supprimerCompetence(id: number, motDePasse?: string): Promise<void> {
+  await http.delete(`/competences/${id}`, motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined);
 }
 
-/** Compétence déjà notée ignorée plutôt que de bloquer tout le lot. */
+/**
+ * Supprime plusieurs compétences d'un coup. Si l'une d'elles porte déjà des
+ * notes, l'API répond 409 tant que `motDePasse` n'est pas fourni — même
+ * logique que `supprimerCompetence`.
+ */
 export async function batchDeleteCompetences(
   ids: number[],
-): Promise<{ supprimees: number; ignorees: string[] }> {
-  const { data } = await http.post<
-    ApiResponse<{ supprimees: number; ignorees: string[] }>
-  >("/competences/batch-delete", { ids });
+  motDePasse?: string,
+): Promise<{ supprimees: number }> {
+  const { data } = await http.post<ApiResponse<{ supprimees: number }>>(
+    "/competences/batch-delete",
+    { ids, mot_de_passe: motDePasse },
+  );
   return data.data;
 }
 

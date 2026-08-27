@@ -103,24 +103,43 @@ class CompetenceController extends Controller
     }
 
     /**
-     * Supprime une compétence, et avec elle ses matières et les attributions
-     * qui en découlent — la cascade est posée en base. L'opération est refusée
-     * dès qu'une note existe : le bulletin d'un trimestre déjà rempli ne doit
-     * pas perdre une de ses lignes.
+     * Supprime une compétence, et avec elle ses matières, ses attributions aux
+     * classes et leurs notes — la cascade est posée en base.
+     *
+     * Si des notes existent déjà, l'opération n'est plus bloquée à sec : elle
+     * exige la confirmation du mot de passe de l'utilisateur, sur le même
+     * principe que `retirer()` ci-dessous — l'action est destructrice et
+     * irréversible. Sans mot de passe fourni, on répond 409 plutôt que 422 :
+     * ce n'est pas une erreur de saisie, c'est une étape supplémentaire que le
+     * client doit proposer.
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $competence = Competence::forSchool(Tenant::schoolIds())->findOrFail($id);
 
         $notes = $this->notesCount($competence);
 
         if ($notes > 0) {
-            return ApiResponse::error(
-                "Cette compétence porte déjà {$notes} note(s) : rendez-la inactive plutôt que de la supprimer.",
-                422,
-            );
+            $motDePasse = (string) $request->input('mot_de_passe', '');
+
+            if ($motDePasse === '') {
+                return ApiResponse::error(
+                    "Cette compétence porte déjà {$notes} note(s). Confirmez votre mot de passe pour la "
+                        . 'supprimer quand même, avec ses matières, ses attributions et ses notes.',
+                    409,
+                );
+            }
+
+            if (! Hash::check($motDePasse, $request->user()->password)) {
+                return ApiResponse::error('Mot de passe incorrect.', 422);
+            }
         }
 
+        // La suppression cascade en base sur les matières, les attributions
+        // aux classes et leurs notes (`matieres.competence_id`,
+        // `classe_competences.competence_id`, `notes.classe_competence_id` →
+        // cascadeOnDelete), les données enfants partent donc avant la ligne
+        // parente dans la même opération.
         $competence->delete();
 
         return ApiResponse::success(null, 'Compétence supprimée.');
@@ -128,9 +147,9 @@ class CompetenceController extends Controller
 
     /**
      * Supprime plusieurs compétences d'un coup. Même garde-fou que la
-     * suppression individuelle, mais appliqué ligne par ligne : une
-     * compétence déjà notée est ignorée plutôt que de bloquer tout le lot —
-     * l'utilisateur perd un clic, pas la sélection entière.
+     * suppression individuelle : si l'une des compétences sélectionnées porte
+     * déjà des notes, tout le lot exige la confirmation du mot de passe avant
+     * de supprimer.
      */
     public function batchDestroy(Request $request): JsonResponse
     {
@@ -142,26 +161,31 @@ class CompetenceController extends Controller
 
         $competences = Competence::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->get();
 
-        $ignorees = [];
-        $supprimees = 0;
+        $competencesNotees = $competences->filter(fn (Competence $c) => $this->notesCount($c) > 0);
 
-        foreach ($competences as $competence) {
-            if ($this->notesCount($competence) > 0) {
-                $ignorees[] = $competence->label_fr;
+        if ($competencesNotees->isNotEmpty()) {
+            $motDePasse = (string) $request->input('mot_de_passe', '');
 
-                continue;
+            if ($motDePasse === '') {
+                return ApiResponse::error(
+                    count($competencesNotees).' compétence(s) portent déjà des notes. Confirmez votre mot '
+                        . 'de passe pour les supprimer quand même, avec leurs matières, attributions et notes.',
+                    409,
+                );
             }
 
+            if (! Hash::check($motDePasse, $request->user()->password)) {
+                return ApiResponse::error('Mot de passe incorrect.', 422);
+            }
+        }
+
+        foreach ($competences as $competence) {
             $competence->delete();
-            $supprimees++;
         }
 
-        $message = "{$supprimees} compétence(s) supprimée(s).";
-        if ($ignorees !== []) {
-            $message .= ' '.count($ignorees)." déjà notée(s), ignorée(s) : ".implode(', ', $ignorees).'.';
-        }
+        $supprimees = $competences->count();
 
-        return ApiResponse::success(['supprimees' => $supprimees, 'ignorees' => $ignorees], $message);
+        return ApiResponse::success(['supprimees' => $supprimees], "{$supprimees} compétence(s) supprimée(s).");
     }
 
     private function notesCount(Competence $competence): int
