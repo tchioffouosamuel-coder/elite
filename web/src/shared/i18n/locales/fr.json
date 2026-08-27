@@ -1325,7 +1325,11 @@
     "code_barre_genere": "Code-barres attribué : {{code}}",
     "imprimer_etiquette": "Imprimer l’étiquette",
     "imprimer_selection": "Étiquettes ({{count}})",
-    "toutes_ecoles": "Toutes les écoles"
+    "toutes_ecoles": "Toutes les écoles",
+    "code_barre_label": "Code-barres existant",
+    "code_barre_placeholder": "Laisser vide pour en générer un plus tard",
+    "code_barre_aide": "Si l’article porte déjà une étiquette EAN-13, saisissez son code au lieu d’en générer un nouveau.",
+    "code_barre_format": "Le code-barres doit comporter 13 chiffres (EAN-13 valide)."
   },
   "hub": {
     "actions": "Actions",

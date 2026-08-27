@@ -25,6 +25,8 @@ export interface ArticleInventaire {
 
 export interface ArticleInventairePayload {
   nom: string
+  /** Code déjà collé sur l'article, à saisir plutôt qu'à générer. EAN-13 uniquement. */
+  code_barre?: string | null
   categorie: CategorieArticle
   quantite: number
   etat: EtatArticle

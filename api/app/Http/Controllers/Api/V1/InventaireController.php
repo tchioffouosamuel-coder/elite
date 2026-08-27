@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\InventaireArticle;
 use App\Services\InventaireService;
+use App\Support\CodeBarreArticle;
 use App\Support\Pdf\EtiquettesArticlesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -56,6 +57,12 @@ class InventaireController extends Controller
         $article = $this->service->trouver(Tenant::schoolIds(), $id);
         $donnees = $this->valider($request);
         unset($donnees['school_id']);
+
+        // Un code déjà attribué reste figé : des étiquettes ont pu être
+        // imprimées et collées, le changer les rendrait muettes.
+        if ($article->code_barre !== null) {
+            unset($donnees['code_barre']);
+        }
 
         $article = $this->service->modifier($article, $donnees);
 
@@ -131,6 +138,17 @@ class InventaireController extends Controller
             // particulier, les trois partagent son stock.
             'toutes_ecoles' => ['nullable', 'boolean'],
             'nom' => ['required', 'string', 'max:150'],
+            // Permet de saisir le code déjà collé sur l'article plutôt que
+            // d'en générer un nouveau : une fois posé, il n'est plus modifiable
+            // (cf. `attribuerCodeBarre`, idempotent pour la même raison).
+            'code_barre' => [
+                'nullable', 'string', 'size:13', 'regex:/^\d{13}$/', 'unique:inventaire_articles,code_barre',
+                function (string $attribut, mixed $valeur, \Closure $fail) {
+                    if ($valeur !== null && ! CodeBarreArticle::estValide($valeur)) {
+                        $fail("Le code-barres n'est pas un EAN-13 valide.");
+                    }
+                },
+            ],
             'categorie' => ['required', 'in:mobilier,informatique,pedagogique,sport,medical,autre'],
             'quantite' => ['required', 'integer', 'min:1'],
             'etat' => ['required', 'in:bon,moyen,mauvais,hors_service'],

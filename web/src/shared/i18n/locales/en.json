@@ -1325,7 +1325,11 @@
     "code_barre_genere": "Barcode assigned: {{code}}",
     "imprimer_etiquette": "Print the label",
     "imprimer_selection": "Labels ({{count}})",
-    "toutes_ecoles": "All schools"
+    "toutes_ecoles": "All schools",
+    "code_barre_label": "Existing barcode",
+    "code_barre_placeholder": "Leave empty to generate one later",
+    "code_barre_aide": "If the item already carries an EAN-13 label, enter its code instead of generating a new one.",
+    "code_barre_format": "The barcode must be 13 digits (a valid EAN-13)."
   },
   "hub": {
     "actions": "Actions",

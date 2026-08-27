@@ -378,6 +378,7 @@ function ArticleFormModal({
     defaultValues: article
       ? {
           nom: article.nom,
+          code_barre: article.code_barre ?? '',
           categorie: article.categorie,
           quantite: article.quantite,
           etat: article.etat,
@@ -395,6 +396,9 @@ function ArticleFormModal({
     setServerError(null)
     const payload: ArticleInventairePayload = {
       ...values,
+      // Un code déjà attribué est figé côté serveur ; ici on évite surtout
+      // d'envoyer une chaîne vide là où l'API attend `null` ou 13 chiffres.
+      code_barre: article?.code_barre ?? (values.code_barre ? values.code_barre.trim() : null),
       quantite: Number(values.quantite),
       valeur_unitaire: values.valeur_unitaire ? Number(values.valeur_unitaire) : null,
       prix_vente: values.prix_vente ? Number(values.prix_vente) : null,
@@ -442,6 +446,22 @@ function ArticleFormModal({
           error={errors.nom?.message}
           {...register('nom', { required: t('bus.field_required') as string })}
         />
+
+        {(!article || article.code_barre === null) && (
+          <div className="flex flex-col gap-1">
+            <Input
+              label={t('inventaire.code_barre_label')}
+              placeholder={t('inventaire.code_barre_placeholder')}
+              icon={Barcode}
+              maxLength={13}
+              error={errors.code_barre?.message}
+              {...register('code_barre', {
+                pattern: { value: /^\d{13}$/, message: t('inventaire.code_barre_format') as string },
+              })}
+            />
+            <p className="text-xs text-navy-400">{t('inventaire.code_barre_aide')}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Select label={t('inventaire.categorie_col')} {...register('categorie', { required: true })}>
