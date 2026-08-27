@@ -56,10 +56,10 @@ const RESPONSABLES: {
  * filtrage local : c'est l'API qui sait quelles fonctions sont éligibles, et
  * la dupliquer ici la ferait diverger le jour où le référentiel change.
  */
-function useCandidats(attribution: CodeAttribution) {
+function useCandidats(attribution: CodeAttribution, schoolId: number | undefined) {
   return useQuery({
-    queryKey: ['personnels', 'attribution', attribution],
-    queryFn: () => fetchPersonnels({ attribution, per_page: 200 }),
+    queryKey: ['personnels', 'attribution', attribution, schoolId],
+    queryFn: () => fetchPersonnels({ attribution, per_page: 200, schoolId }),
   })
 }
 
@@ -68,16 +68,22 @@ function ChampResponsableSelect({
   valeur,
   actuel,
   desactive,
+  schoolId,
   onChange,
 }: {
   responsable: (typeof RESPONSABLES)[number]
   valeur: number | ''
   actuel: Responsable | null
   desactive: boolean
+  schoolId: number | undefined
   onChange: (id: number | '') => void
 }) {
   const { t } = useTranslation()
-  const { data: candidats, isLoading } = useCandidats(responsable.attribution)
+  // Sans école explicite, un super admin en mode agrégé verrait les agents de
+  // tout le complexe : la liste s'afficherait, mais l'enregistrement
+  // échouerait (le responsable choisi n'appartiendrait pas à l'école de cette
+  // classe précise).
+  const { data: candidats, isLoading } = useCandidats(responsable.attribution, schoolId)
 
   /*
    * Le titulaire en poste peut avoir changé de fonction depuis sa
@@ -191,6 +197,7 @@ export function ResponsablesTab({ classeId }: { classeId: number }) {
             valeur={form[responsable.champ]}
             actuel={classe[CHAMP_RELATION[responsable.champ]]}
             desactive={!peutGerer}
+            schoolId={classe.school_id}
             onChange={(id) => {
               setEnregistre(false)
               setForm({ ...form, [responsable.champ]: id })

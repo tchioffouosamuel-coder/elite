@@ -279,9 +279,18 @@ export async function fetchPersonnels(params?: {
   statut?: string;
   page?: number;
   per_page?: number;
+  /**
+   * Force la portée à cette école plutôt qu'à l'école active du compte : un
+   * super admin en mode agrégé (sans X-School-Id) verrait sinon les agents de
+   * tout le complexe, dont certains inéligibles comme responsables d'une
+   * classe d'une école précise.
+   */
+  schoolId?: number;
 }): Promise<Personnel[]> {
+  const { schoolId, ...query } = params ?? {};
   const { data } = await http.get<ApiResponse<Personnel[]>>("/personnels", {
-    params,
+    params: query,
+    headers: schoolId ? { "X-School-Id": String(schoolId) } : undefined,
   });
   return data.data;
 }
