@@ -50,6 +50,14 @@ export interface AuthUser {
    */
   est_enseignant?: boolean
   /**
+   * Vendeur/caissier au comptoir (cf. User::estVendeur côté API) — comme
+   * `est_enseignant`, basé sur la fonction du personnel plutôt que sur un
+   * rôle Spatie : les comptes du personnel n'en portent jamais (seul le
+   * compte parent en reçoit un). Son accueil montre ses ventes et le stock,
+   * jamais les effectifs élèves/personnel.
+   */
+  est_vendeur?: boolean
+  /**
    * Le compte porte-t-il une fiche personnel ? Ouvre « Mes avances », le
    * libre-service de l'agent sur ses propres avances sur salaire — un
    * périmètre « moi-même », que ne traduit aucun privilège de gestion.

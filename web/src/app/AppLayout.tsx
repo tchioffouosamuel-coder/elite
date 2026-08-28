@@ -427,7 +427,7 @@ export function AppLayout() {
   // comptoir (vente à crédit), mais les écrans élèves eux-mêmes (fiche,
   // liste, identification…) restent hors de son périmètre — cf.
   // masquerPourVendeur, pendant de masquerPourTitulaire ci-dessus.
-  const estVendeur = Boolean(user?.roles.includes('vendeur'))
+  const estVendeur = Boolean(user?.est_vendeur)
 
   // Au moins une responsabilité nominative confiée : c'est ce qui ouvre
   // « Mes attributions », et non un privilège — un enseignant et un censeur

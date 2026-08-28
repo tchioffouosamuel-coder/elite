@@ -99,14 +99,17 @@ class User extends Authenticatable
     }
 
     /**
-     * Rôle vendeur/caissier : son accueil (mobile et web) montre ses ventes
-     * et le stock du comptoir, jamais les effectifs élèves/personnel — hors
-     * de son périmètre métier. Basé sur le rôle attribué (pas la fonction du
-     * personnel) : c'est lui qui porte réellement les privilèges `point_de_vente.*`.
+     * Vendeur/caissier : son accueil (mobile et web) montre ses ventes et le
+     * stock du comptoir, jamais les effectifs élèves/personnel — hors de son
+     * périmètre métier. Comme `estEnseignant`, basé sur la fonction du
+     * personnel plutôt que sur un rôle Spatie attribué : les comptes du
+     * personnel ne reçoivent leurs privilèges que via `FonctionPermissionSeeder`
+     * (groupe de privilèges de la fonction), jamais via `assignRole` — seul
+     * le compte parent porte un rôle attribué (cf. CompteParentService).
      */
     public function estVendeur(): bool
     {
-        return $this->hasRole('vendeur');
+        return FonctionRoles::role($this->fonction()?->label_fr) === 'vendeur';
     }
 
     /**

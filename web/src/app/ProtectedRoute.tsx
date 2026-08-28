@@ -131,7 +131,7 @@ export function ProtectedRoute({
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
   if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user)} replace />
-  if (masquerPourVendeur && user?.roles.includes('vendeur')) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (masquerPourVendeur && user?.est_vendeur) return <Navigate to={redirectionParDefaut(user)} replace />
 
   return <>{children}</>
 }

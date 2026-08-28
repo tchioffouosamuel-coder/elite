@@ -139,7 +139,7 @@ export function ComptoirTab() {
   // Le vendeur n'a pas de tableau de bord d'établissement (pas de
   // dashboard.view) : ses stats de ventes/stock s'affichent ici, en haut de
   // son propre écran, plutôt que sur un écran d'accueil qu'il n'atteint jamais.
-  const estVendeur = Boolean(user?.roles.includes('vendeur'))
+  const estVendeur = Boolean(user?.est_vendeur)
 
   const [saisie, setSaisie] = useState('')
   const [recherche, setRecherche] = useState('')
