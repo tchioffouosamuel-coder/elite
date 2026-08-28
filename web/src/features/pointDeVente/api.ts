@@ -96,6 +96,24 @@ export interface EntreeStockPayload {
   comptabiliser?: boolean
 }
 
+export interface StatsVendeur {
+  ventes: {
+    jour: { effectif: number; montant: number }
+    mois: { effectif: number; montant: number }
+  }
+  stock: {
+    effectif_articles: number
+    quantite_totale: number
+    valeur_totale: number
+  }
+}
+
+/** Stats d'accueil du vendeur : ses ventes (jour/mois) et le stock vendable — jamais les effectifs élèves/personnel. */
+export async function fetchStatsVendeur(): Promise<StatsVendeur> {
+  const { data } = await http.get<ApiResponse<StatsVendeur>>('/point-de-vente/stats-vendeur')
+  return data.data
+}
+
 export async function fetchCatalogue(search?: string): Promise<ArticleComptoir[]> {
   const { data } = await http.get<ApiResponse<ArticleComptoir[]>>('/point-de-vente/catalogue', {
     params: search ? { search } : undefined,

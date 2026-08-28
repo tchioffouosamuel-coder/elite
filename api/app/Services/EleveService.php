@@ -91,35 +91,68 @@ class EleveService extends BaseService
         ]);
     }
 
+    /** Décoder une image en tant que bitmap RVBA coûte largeur × hauteur × 4 octets à GD. */
+    private const MAX_PIXELS_PHOTO = 40_000_000;
+
     /**
      * Recadre en carré (centre) et redimensionne en 600x600 JPEG, comme upload_photo.php dans _smapp.
      */
     public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
     {
-        // imagecreatefromstring() détecte le format à partir du contenu réel
-        // (contrairement à imagecreatefromjpeg/png qui plantent avec une
-        // TypeError non attrapée si le mime détecté ne correspond pas
-        // vraiment aux octets du fichier) et retourne false proprement sur
-        // un fichier illisible plutôt que de faire planter la requête.
-        $source = @imagecreatefromstring(file_get_contents($file->getRealPath()));
-        if ($source === false) {
+        $chemin = $file->getRealPath();
+
+        // getimagesize() ne lit que l'en-tête (quelques Ko), sans décoder les
+        // pixels : une photo de téléphone à très haute résolution (ex. 8000x6000,
+        // sous la barre des 5 Mo une fois compressée) ferait dépasser le
+        // memory_limit de PHP dans imagecreatefromstring() ci-dessous — une
+        // erreur fatale non rattrapable par try/catch, contrairement à un
+        // Throwable classique. On la rejette donc proprement avant, plutôt
+        // que de planter la requête.
+        $dimensions = @getimagesize($chemin);
+        if ($dimensions === false) {
             throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
         }
+        [$width, $height] = $dimensions;
+        if ($width * $height > self::MAX_PIXELS_PHOTO) {
+            throw new UnprocessableEntityHttpException('Photo trop grande (résolution excessive) : réduisez sa taille avant de l\'envoyer.');
+        }
 
-        $width = imagesx($source);
-        $height = imagesy($source);
-        $side = min($width, $height);
-        $srcX = intdiv($width - $side, 2);
-        $srcY = intdiv($height - $side, 2);
+        // Marge de sécurité pour les photos de résolution normale mais
+        // néanmoins volumineuses à décoder ; restaurée après coup.
+        $limiteAnterieure = ini_set('memory_limit', '512M');
 
-        $square = imagecreatetruecolor(600, 600);
-        imagecopyresampled($square, $source, 0, 0, $srcX, $srcY, 600, 600, $side, $side);
-        imagedestroy($source);
+        try {
+            // imagecreatefromstring() détecte le format à partir du contenu réel
+            // (contrairement à imagecreatefromjpeg/png qui plantent avec une
+            // TypeError non attrapée si le mime détecté ne correspond pas
+            // vraiment aux octets du fichier) et retourne false proprement sur
+            // un fichier illisible plutôt que de faire planter la requête.
+            $source = @imagecreatefromstring(file_get_contents($chemin));
+            if ($source === false) {
+                throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
+            }
 
-        ob_start();
-        imagejpeg($square, null, 90);
-        $contents = ob_get_clean();
-        imagedestroy($square);
+            $side = min($width, $height);
+            $srcX = intdiv($width - $side, 2);
+            $srcY = intdiv($height - $side, 2);
+
+            $square = imagecreatetruecolor(600, 600);
+            imagecopyresampled($square, $source, 0, 0, $srcX, $srcY, 600, 600, $side, $side);
+            imagedestroy($source);
+
+            ob_start();
+            imagejpeg($square, null, 90);
+            $contents = ob_get_clean();
+            imagedestroy($square);
+        } finally {
+            // @ : ini_set() émet un warning (converti en exception par Laravel)
+            // s'il ne peut pas redescendre sous la mémoire déjà consommée par
+            // le décodage ci-dessus. Sans conséquence : la limite ne compte que
+            // pour la requête en cours, qui se termine juste après.
+            if ($limiteAnterieure !== false) {
+                @ini_set('memory_limit', $limiteAnterieure);
+            }
+        }
 
         $path = 'eleves/photos/' . $eleve->id . '.jpg';
         Storage::disk('public')->put($path, $contents);

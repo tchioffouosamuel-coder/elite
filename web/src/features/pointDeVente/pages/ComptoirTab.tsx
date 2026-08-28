@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Barcode, Camera, Minus, Plus, ScanLine, Search, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Boxes, Camera, Minus, Plus, ReceiptText, ScanLine, Search, Trash2, TrendingUp, Wallet } from 'lucide-react'
 import {
   enregistrerVente,
   fetchArticleParCodeBarre,
   fetchCatalogue,
+  fetchStatsVendeur,
   type ArticleComptoir,
 } from '@/features/pointDeVente/api'
 import { francs, type ModePaiement } from '@/features/finance/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { ouvrirDocument } from '@/shared/lib/download'
-import { jouerBipErreur, jouerBipScan } from '@/shared/lib/son'
+import { jouerBipErreur, jouerBipScan, vibrerErreur, vibrerScan } from '@/shared/lib/son'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -133,7 +134,12 @@ export function ComptoirTab() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
   const peutVendre = can('point_de_vente.vendre')
+  // Le vendeur n'a pas de tableau de bord d'établissement (pas de
+  // dashboard.view) : ses stats de ventes/stock s'affichent ici, en haut de
+  // son propre écran, plutôt que sur un écran d'accueil qu'il n'atteint jamais.
+  const estVendeur = Boolean(user?.roles.includes('vendeur'))
 
   const [saisie, setSaisie] = useState('')
   const [recherche, setRecherche] = useState('')
@@ -155,6 +161,11 @@ export function ComptoirTab() {
     queryKey: ['eleves', 'comptoir'],
     queryFn: () => fetchEleves({ per_page: 1000 }),
   })
+  const { data: statsVendeur } = useQuery({
+    queryKey: ['pdv-stats-vendeur'],
+    queryFn: fetchStatsVendeur,
+    enabled: estVendeur,
+  })
 
   // Le catalogue tient en mémoire (quelques dizaines de références) : filtrer
   // ici évite un aller-retour réseau à chaque frappe du vendeur.
@@ -174,6 +185,18 @@ export function ComptoirTab() {
   }, [])
 
   const redonnerLeFocus = () => champScanRef.current?.focus()
+
+  /** Retour comptoir d'un scan réussi : bip aigu + vibration courte. */
+  const signalerSucces = () => {
+    jouerBipScan()
+    vibrerScan()
+  }
+
+  /** Retour comptoir d'un scan en échec (code inconnu, sans prix, rupture) : bips graves + vibration marquée. */
+  const signalerEchec = () => {
+    jouerBipErreur()
+    vibrerErreur()
+  }
 
   /** Quantité déjà au panier : le stock disponible s'apprécie sur ce qui reste. */
   const dejaAuPanier = (articleId: number) =>
@@ -252,7 +275,7 @@ export function ComptoirTab() {
     const local = forcerApi ? undefined : catalogue.find((article) => article.code_barre === valeur)
 
     if (local) {
-      if (ajouter(local)) jouerBipScan(); else jouerBipErreur()
+      if (ajouter(local)) signalerSucces(); else signalerEchec()
       setSaisie('')
       return
     }
@@ -261,15 +284,15 @@ export function ComptoirTab() {
       const article = await fetchArticleParCodeBarre(valeur)
 
       if (article.prix_vente === null) {
-        jouerBipErreur()
+        signalerEchec()
         setMessageScan(t('pointDeVente.sans_prix', { nom: article.nom }))
         setSaisie('')
         return
       }
 
-      if (ajouter(article)) jouerBipScan(); else jouerBipErreur()
+      if (ajouter(article)) signalerSucces(); else signalerEchec()
     } catch {
-      jouerBipErreur()
+      signalerEchec()
       setMessageScan(t('pointDeVente.code_inconnu', { code: valeur }))
     } finally {
       setSaisie('')
@@ -332,7 +355,52 @@ export function ComptoirTab() {
   }))
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr] lg:items-start">
+    <div className="flex flex-col gap-5">
+      {estVendeur && statsVendeur && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card className="flex flex-col gap-1 !p-4">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+              <ReceiptText className="h-3.5 w-3.5 text-gold-500" />
+              {t('pointDeVente.stats.ventesJour')}
+            </span>
+            <span className="font-display text-xl font-bold tabular-nums text-navy-900">
+              {francs(statsVendeur.ventes.jour.montant)}
+            </span>
+            <span className="text-xs text-navy-400">{t('pointDeVente.stats.count', { count: statsVendeur.ventes.jour.effectif })}</span>
+          </Card>
+          <Card className="flex flex-col gap-1 !p-4">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+              <TrendingUp className="h-3.5 w-3.5 text-gold-500" />
+              {t('pointDeVente.stats.ventesMois')}
+            </span>
+            <span className="font-display text-xl font-bold tabular-nums text-navy-900">
+              {francs(statsVendeur.ventes.mois.montant)}
+            </span>
+            <span className="text-xs text-navy-400">{t('pointDeVente.stats.count', { count: statsVendeur.ventes.mois.effectif })}</span>
+          </Card>
+          <Card className="flex flex-col gap-1 !p-4">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+              <Boxes className="h-3.5 w-3.5 text-gold-500" />
+              {t('pointDeVente.stats.articles')}
+            </span>
+            <span className="font-display text-xl font-bold tabular-nums text-navy-900">
+              {statsVendeur.stock.effectif_articles}
+            </span>
+            <span className="text-xs text-navy-400">{t('pointDeVente.stats.quantiteTotale', { count: statsVendeur.stock.quantite_totale })}</span>
+          </Card>
+          <Card className="flex flex-col gap-1 !p-4">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+              <Wallet className="h-3.5 w-3.5 text-gold-500" />
+              {t('pointDeVente.stats.valeurStock')}
+            </span>
+            <span className="font-display text-xl font-bold tabular-nums text-navy-900">
+              {francs(statsVendeur.stock.valeur_totale)}
+            </span>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr] lg:items-start">
       {/* ------------------------------------------------------- Catalogue */}
       <div className="flex flex-col gap-4">
         <Card>
@@ -545,6 +613,7 @@ export function ComptoirTab() {
           {!peutVendre && <p className="text-xs text-navy-400">{t('pointDeVente.sans_droit_vendre')}</p>}
         </div>
       </Card>
+      </div>
     </div>
   )
 }

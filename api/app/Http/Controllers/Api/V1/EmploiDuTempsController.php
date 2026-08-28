@@ -80,6 +80,35 @@ class EmploiDuTempsController extends Controller
         );
     }
 
+    /** Copie une sélection de créneaux vers une autre classe, sans reprendre l'enseignant. */
+    public function copier(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+
+        $data = $request->validate([
+            'creneau_ids' => ['required', 'array', 'min:1'],
+            'creneau_ids.*' => ['integer'],
+            'classe_id' => ['required', 'integer'],
+        ]);
+
+        abort_if((int) $data['classe_id'] === $classe->id, 422, 'La classe de destination doit être différente de la classe source.');
+
+        $classeCible = Classe::forSchool(Tenant::schoolIds())->findOrFail($data['classe_id']);
+
+        $creneaux = EmploiDuTemps::where('classe_id', $classe->id)
+            ->whereIn('id', $data['creneau_ids'])
+            ->with('classeMatiere')
+            ->get();
+
+        if ($creneaux->isEmpty()) {
+            return ApiResponse::notFound();
+        }
+
+        [$copies, $ignores] = $this->service->copierVers($creneaux, $classeCible);
+
+        return ApiResponse::success(['copies' => $copies, 'ignores' => $ignores], "{$copies} créneau(x) copié(s).");
+    }
+
     public function destroy(int $classeId, int $id): JsonResponse
     {
         $classe = $this->classe($classeId);

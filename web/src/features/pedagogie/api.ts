@@ -86,7 +86,7 @@ export interface ClasseCompetence {
 
 export interface ClasseMatiere {
   id: number;
-  matiere: { id: number; nom: string; abbreviation: string | null };
+  matiere: { id: number; nom: string; nom_en: string | null; abbreviation: string | null };
   enseignant: { id: number; nom_complet: string } | null;
   coefficient: number;
   quota_horaire: number | null;

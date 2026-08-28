@@ -70,6 +70,14 @@ class PointDeVenteController extends Controller
         ]);
     }
 
+    /** Stats de l'écran d'accueil vendeur : ses ventes (jour/mois) et le stock vendable. */
+    public function statsVendeur(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->service->statsVendeur(Tenant::schoolIds(), $request->user()->id)
+        );
+    }
+
     public function vendre(Request $request): JsonResponse
     {
         $donnees = $request->validate([

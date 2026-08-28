@@ -332,6 +332,35 @@ class PointDeVenteService extends BaseService
      * @param  array{du?: ?string, au?: ?string, eleve_id?: ?int, annulees?: bool}  $filtres
      * @return array{ventes: Collection, totaux: array{effectif: int, montant: int, cout: int, marge: int}}
      */
+    /**
+     * Stats du tableau de bord vendeur : ses propres ventes (jour, mois) et
+     * l'état du stock vendable — jamais les effectifs élèves/personnel, hors
+     * de son périmètre métier (cf. écran d'accueil vendeur, mobile et web).
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    public function statsVendeur(int|array $schoolId, int $vendeurId): array
+    {
+        $ventes = VenteFourniture::forSchool($schoolId)->where('vendu_par', $vendeurId)->valides();
+
+        $jourVentes = (clone $ventes)->whereDate('date_vente', today())->get();
+        $moisVentes = (clone $ventes)->whereMonth('date_vente', today()->month)->whereYear('date_vente', today()->year)->get();
+
+        $articles = InventaireArticle::forSchool($schoolId)->enVente()->get();
+
+        return [
+            'ventes' => [
+                'jour' => ['effectif' => $jourVentes->count(), 'montant' => (int) $jourVentes->sum('montant')],
+                'mois' => ['effectif' => $moisVentes->count(), 'montant' => (int) $moisVentes->sum('montant')],
+            ],
+            'stock' => [
+                'effectif_articles' => $articles->count(),
+                'quantite_totale' => (int) $articles->sum('quantite'),
+                'valeur_totale' => (int) $articles->sum(fn (InventaireArticle $a) => $a->valeur_vente),
+            ],
+        ];
+    }
+
     public function journal(int|array $schoolId, array $filtres = []): array
     {
         $ventes = VenteFourniture::forSchool($schoolId)

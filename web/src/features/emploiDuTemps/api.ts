@@ -99,6 +99,17 @@ export async function deleteCreneau(classeId: number, id: number): Promise<void>
   await http.delete(`/classes/${classeId}/emploi-du-temps/${id}`)
 }
 
+export async function copierCreneaux(
+  classeId: number,
+  payload: { creneau_ids: number[]; classe_id: number },
+): Promise<{ copies: number; ignores: number }> {
+  const { data } = await http.post<ApiResponse<{ copies: number; ignores: number }>>(
+    `/classes/${classeId}/emploi-du-temps/copier`,
+    payload,
+  )
+  return data.data
+}
+
 export async function genererSeances(
   classeId: number,
   payload: { date_debut: string; date_fin: string; trimestre_id?: number },

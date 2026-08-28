@@ -66,6 +66,61 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
+     * Copie des créneaux vers une autre classe, sans reprendre l'enseignant :
+     * la classe cible garde ou choisit son propre professeur pour la
+     * matière — recopier celui de la classe source imposerait un enseignant
+     * qui n'y donne peut-être pas cours. La matière doit déjà être affectée
+     * à la classe cible ({@see ClasseMatiere}) ; sinon elle y est créée sans
+     * enseignant plutôt que d'échouer la copie.
+     *
+     * Un créneau qui chevaucherait un cours existant chez la cible, ou ferait
+     * dépasser son quota horaire, est ignoré plutôt que d'interrompre la
+     * copie des autres.
+     *
+     * @param  Collection<int, EmploiDuTemps>  $creneaux
+     * @return array{0: int, 1: int} [copiés, ignorés]
+     */
+    public function copierVers(Collection $creneaux, Classe $classeCible): array
+    {
+        $copies = 0;
+        $ignores = 0;
+
+        foreach ($creneaux as $source) {
+            $matiereId = $source->classeMatiere->matiere_id;
+
+            $classeMatiereCible = ClasseMatiere::firstOrCreate(
+                ['classe_id' => $classeCible->id, 'matiere_id' => $matiereId],
+                ['coefficient' => $source->classeMatiere->coefficient],
+            );
+
+            if ($this->chevauche($classeCible, $source->jour, (string) $source->heure_debut, (string) $source->heure_fin)) {
+                $ignores++;
+
+                continue;
+            }
+
+            if ($this->depasseQuota($classeMatiereCible, (string) $source->heure_debut, (string) $source->heure_fin)) {
+                $ignores++;
+
+                continue;
+            }
+
+            EmploiDuTemps::create([
+                'school_id' => $classeCible->school_id,
+                'classe_id' => $classeCible->id,
+                'classe_matiere_id' => $classeMatiereCible->id,
+                'jour' => $source->jour,
+                'heure_debut' => $source->heure_debut,
+                'heure_fin' => $source->heure_fin,
+                'salle' => $source->salle,
+            ]);
+            $copies++;
+        }
+
+        return [$copies, $ignores];
+    }
+
+    /**
      * Refuse un créneau qui empiète sur un autre créneau du même jour pour
      * l'une des classes concernées : deux cours simultanés rendraient l'appel
      * ambigu.

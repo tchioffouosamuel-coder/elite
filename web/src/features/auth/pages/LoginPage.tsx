@@ -70,8 +70,8 @@ export function LoginPage() {
         <div className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-navy-500/30 blur-3xl" aria-hidden />
 
         <div className="relative flex items-center gap-2.5">
-          <span className="flex h-14 items-center justify-center rounded-2xl bg-white px-3.5 py-2 shadow-lifted">
-            <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
+          <span className="flex h-20 items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lifted">
+            <img src={logoWordmark} alt={t('app.name')} className="h-16 w-auto object-contain" />
           </span>
         </div>
 

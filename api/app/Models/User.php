@@ -99,6 +99,17 @@ class User extends Authenticatable
     }
 
     /**
+     * Rôle vendeur/caissier : son accueil (mobile et web) montre ses ventes
+     * et le stock du comptoir, jamais les effectifs élèves/personnel — hors
+     * de son périmètre métier. Basé sur le rôle attribué (pas la fonction du
+     * personnel) : c'est lui qui porte réellement les privilèges `point_de_vente.*`.
+     */
+    public function estVendeur(): bool
+    {
+        return $this->hasRole('vendeur');
+    }
+
+    /**
      * Privilèges détenus « en propre » : attribution directe, rôle, et groupe
      * de privilèges de la fonction.
      *

@@ -1250,7 +1250,26 @@
     "retour_classes": "Retour aux classes",
     "empty_classes": "Aucune classe.",
     "appel_verrouille": "Appel verrouillé",
-    "appel_verrouille_message": "Cet appel n'est plus modifiable depuis {{heure}} (verrouillé 15 minutes après son enregistrement). Contactez le Surveillant Général pour une correction."
+    "appel_verrouille_message": "Cet appel n'est plus modifiable depuis {{heure}} (verrouillé 15 minutes après son enregistrement). Contactez le Surveillant Général pour une correction.",
+    "modifier_creneau_title": "Modifier le créneau",
+    "modifier_creneau": "Modifier le créneau",
+    "creneau_modifie": "Créneau mis à jour.",
+    "selectionner": "Sélectionner",
+    "annuler_selection": "Annuler la sélection",
+    "copier_vers_classe": "Copier vers une classe ({{count}})",
+    "assigner_enseignant": "Assigner un enseignant ({{count}})",
+    "copier_creneaux_titre": "Copier {{count}} créneau(x) vers une classe",
+    "copier_creneaux_aide": "L'enseignant n'est pas repris : la classe de destination garde ou choisit son propre professeur pour la matière.",
+    "copier_creneaux_resultat_avec_ignores": "{{copies}} créneau(x) copié(s), {{ignores}} ignoré(s) (chevauchement ou quota dépassé).",
+    "copier_creneaux_resultat": "{{copies}} créneau(x) copié(s).",
+    "copier_impossible": "Copie impossible.",
+    "copier_bouton": "Copier",
+    "choisir_classe_destination": "Choisissez une classe de destination.",
+    "assigner_enseignant_titre": "Assigner un enseignant ({{count}} créneau(x))",
+    "assigner_enseignant_aide": "Les créneaux sélectionnés portent sur {{count}} matière(s) affectée(s) à la classe : l'enseignant choisi leur sera appliqué à toutes.",
+    "assigner_enseignant_resultat": "{{count}} affectation(s) mise(s) à jour.",
+    "assigner_enseignant_impossible": "Affectation impossible.",
+    "aucun_enseignant_option": "Aucun enseignant (détacher)"
   },
   "identification": {
     "title": "Photos & cartes scolaires",
@@ -1520,7 +1539,16 @@
     "stat_quantite": "Quantité entrée",
     "stat_cout_entrees": "Coût du réassort",
     "comptabiliser": "Enregistrer aussi la dépense en comptabilité",
-    "comptabiliser_aide": "À cocher seulement si cet achat n’est pas déjà saisi dans le module Dépenses — sinon la charge serait comptée deux fois."
+    "comptabiliser_aide": "À cocher seulement si cet achat n’est pas déjà saisi dans le module Dépenses — sinon la charge serait comptée deux fois.",
+    "stats": {
+      "ventesJour": "Ventes du jour",
+      "ventesMois": "Ventes du mois",
+      "count": "{{count}} vente",
+      "count_other": "{{count}} ventes",
+      "articles": "Articles en vente",
+      "quantiteTotale": "{{count}} en stock",
+      "valeurStock": "Valeur du stock"
+    }
   },
   "competences": {
     "title": "Compétences évaluées",

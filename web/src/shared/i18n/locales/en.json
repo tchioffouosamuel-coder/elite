@@ -1250,7 +1250,26 @@
     "retour_classes": "Back to classes",
     "empty_classes": "No class.",
     "appel_verrouille": "Roll call locked",
-    "appel_verrouille_message": "This roll call is no longer editable since {{heure}} (locked 15 minutes after it was saved). Contact the Supervisor for a correction."
+    "appel_verrouille_message": "This roll call is no longer editable since {{heure}} (locked 15 minutes after it was saved). Contact the Supervisor for a correction.",
+    "modifier_creneau_title": "Edit the timeslot",
+    "modifier_creneau": "Edit timeslot",
+    "creneau_modifie": "Timeslot updated.",
+    "selectionner": "Select",
+    "annuler_selection": "Cancel selection",
+    "copier_vers_classe": "Copy to a class ({{count}})",
+    "assigner_enseignant": "Assign a teacher ({{count}})",
+    "copier_creneaux_titre": "Copy {{count}} timeslot(s) to a class",
+    "copier_creneaux_aide": "The teacher is not copied over: the destination class keeps or picks its own teacher for the subject.",
+    "copier_creneaux_resultat_avec_ignores": "{{copies}} timeslot(s) copied, {{ignores}} skipped (overlap or quota exceeded).",
+    "copier_creneaux_resultat": "{{copies}} timeslot(s) copied.",
+    "copier_impossible": "Could not copy.",
+    "copier_bouton": "Copy",
+    "choisir_classe_destination": "Choose a destination class.",
+    "assigner_enseignant_titre": "Assign a teacher ({{count}} timeslot(s))",
+    "assigner_enseignant_aide": "The selected timeslots cover {{count}} subject(s) assigned to the class: the chosen teacher will be applied to all of them.",
+    "assigner_enseignant_resultat": "{{count}} assignment(s) updated.",
+    "assigner_enseignant_impossible": "Could not assign.",
+    "aucun_enseignant_option": "No teacher (unassign)"
   },
   "identification": {
     "title": "Photos & ID cards",
@@ -1520,7 +1539,16 @@
     "stat_quantite": "Quantity received",
     "stat_cout_entrees": "Restocking cost",
     "comptabiliser": "Also record the expense in the accounts",
-    "comptabiliser_aide": "Tick only if this purchase is not already entered in the Expenses module — otherwise the charge would be counted twice."
+    "comptabiliser_aide": "Tick only if this purchase is not already entered in the Expenses module — otherwise the charge would be counted twice.",
+    "stats": {
+      "ventesJour": "Today's sales",
+      "ventesMois": "This month's sales",
+      "count": "{{count}} sale",
+      "count_other": "{{count}} sales",
+      "articles": "Items for sale",
+      "quantiteTotale": "{{count}} in stock",
+      "valeurStock": "Stock value"
+    }
   },
   "competences": {
     "title": "Assessed competencies",

@@ -3,6 +3,7 @@
 namespace App\Support\Pdf\Concerns;
 
 use App\Models\School;
+use App\Services\VisaComposeService;
 use App\Support\Pdf\EnTeteHtml;
 
 /**
@@ -84,17 +85,21 @@ trait RenduDocument
         return $rendu !== '' ? $rendu : nl2br($this->e($repli));
     }
 
-    /** Bloc de signature du chef d'établissement : lieu (déduit de l'adresse), date du jour, et un espace de signature/cachet. */
+    /** Bloc de signature du chef d'établissement : lieu (déduit de l'adresse), date du jour, et cachet/signature scannés ou un espace à signer à la main. */
     protected function signatureChef(School $school): string
     {
         $ville = trim(explode(',', (string) $school->address)[0] ?? '');
+        $visa = (new VisaComposeService)->chemin($school);
+        $celluleVisa = $visa !== null
+            ? '<br><img src="' . $this->e($visa) . '" style="height:46px;">'
+            : '<br><br><br><br>';
 
         return '<table class="no-border" style="margin-top:8mm;"><tr>'
             .'<td class="no-border left" style="width:50%;font-size:2.8mm;vertical-align:top;">'
             .'Fait à '.$this->e($ville !== '' ? $ville : '…………').', le '.date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i><br><br><br><br>'
+            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'.$celluleVisa
             .'<span style="border-top:0.4px solid #000;">Signature et cachet</span>'
             .'</td></tr></table>';
     }

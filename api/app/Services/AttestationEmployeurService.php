@@ -206,7 +206,22 @@ class AttestationEmployeurService extends BaseService
         $titre->addTextBreak();
         $titre->addText($school->type === 'secondaire' ? 'The Principal' : 'The Headmaster', ['size' => 10, 'italic' => true]);
 
-        $section->addTextBreak(3);
-        $section->addText('Signature et cachet', ['size' => 9], ['alignment' => 'right', 'spaceAfter' => 0]);
+        $this->ajouterVisa($section, $school);
+    }
+
+    /** Cachet et signature composés en une image (la signature traverse le cachet), s'ils ont été chargés. */
+    private function ajouterVisa(Section $section, School $school): void
+    {
+        $visa = (new VisaComposeService)->chemin($school);
+
+        if ($visa === null) {
+            // Sans visa scanné, il faut laisser la place de signer à la main.
+            $section->addTextBreak(3);
+            $section->addText('Signature et cachet', ['size' => 9], ['alignment' => 'right', 'spaceAfter' => 0]);
+
+            return;
+        }
+
+        $section->addImage($visa, ['height' => 50, 'alignment' => 'right']);
     }
 }

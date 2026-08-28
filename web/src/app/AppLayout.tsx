@@ -179,7 +179,7 @@ const navGroups = [
         avecAttribution: true,
       },
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
-      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true },
+      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true },
@@ -317,7 +317,7 @@ const navGroups = [
   {
     label: 'nav.group.identification',
     items: [
-      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true },
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true },
       {
         to: '/photos-examen',
         label: 'nav.photosExamen',
@@ -326,6 +326,7 @@ const navGroups = [
         // BEPC/Probatoire/BAC (OBC) sont des examens du secondaire ; le
         // primaire ne prépare que le CEP (DECC), la maternelle aucun examen.
         types: ['secondaire'] as TypeEcole[],
+        masquerPourVendeur: true,
       },
       {
         to: '/photos-examen',
@@ -334,6 +335,7 @@ const navGroups = [
         permission: 'eleves.view',
         types: ['primaire'] as TypeEcole[],
         masquerPourTitulaire: true,
+        masquerPourVendeur: true,
       },
     ],
   },
@@ -421,6 +423,12 @@ export function AppLayout() {
   // limite à « Ma classe » et aux écrans qui la concernent directement.
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
 
+  // Le vendeur garde `eleves.view` pour peupler le sélecteur d'élève au
+  // comptoir (vente à crédit), mais les écrans élèves eux-mêmes (fiche,
+  // liste, identification…) restent hors de son périmètre — cf.
+  // masquerPourVendeur, pendant de masquerPourTitulaire ci-dessus.
+  const estVendeur = Boolean(user?.roles.includes('vendeur'))
+
   // Au moins une responsabilité nominative confiée : c'est ce qui ouvre
   // « Mes attributions », et non un privilège — un enseignant et un censeur
   // partagent `classes.view` sans porter les mêmes responsabilités.
@@ -459,7 +467,8 @@ export function AppLayout() {
               (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
               (!('professeurPrincipal' in item) || !item.professeurPrincipal || estProfesseurPrincipal) &&
               (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
-              (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse),
+              (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse) &&
+              (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur),
           )
           const items = requeteMenu
             ? itemsAutorises.filter((item) => groupeCorrespond || normaliserRecherche(t(item.label)).includes(requeteMenu))
@@ -474,7 +483,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, aUneAttribution, estPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
   )
 
   /**

@@ -207,6 +207,33 @@ class PointDeVenteTest extends TestCase
             ->assertJsonPath('data.montant', 1000);
     }
 
+    /**
+     * Stats d'accueil vendeur : ses ventes du jour/mois et le stock vendable
+     * — jamais les effectifs élèves/personnel (cf. DashboardService).
+     */
+    public function test_les_stats_vendeur_totalisent_ses_ventes_et_le_stock_vendable(): void
+    {
+        $article = $this->article();
+        $this->article(['nom' => 'Sans prix', 'prix_vente' => null]);
+
+        $this->actingAs($this->vendeur, 'sanctum')
+            ->postJson('/api/v1/point-de-vente/ventes', [
+                'lignes' => [['article_id' => $article->id, 'quantite' => 3]],
+            ])->assertCreated();
+
+        $this->actingAs($this->vendeur, 'sanctum')
+            ->getJson('/api/v1/point-de-vente/stats-vendeur')
+            ->assertOk()
+            ->assertJsonPath('data.ventes.jour.effectif', 1)
+            ->assertJsonPath('data.ventes.jour.montant', 1800)
+            ->assertJsonPath('data.ventes.mois.effectif', 1)
+            ->assertJsonPath('data.ventes.mois.montant', 1800)
+            // L'article sans prix de vente n'entre pas au comptoir : seul le
+            // premier compte dans le stock vendable.
+            ->assertJsonPath('data.stock.effectif_articles', 1)
+            ->assertJsonPath('data.stock.quantite_totale', 47);
+    }
+
     public function test_annuler_une_vente_remet_le_stock_et_contrepasse_les_ecritures(): void
     {
         $article = $this->article();

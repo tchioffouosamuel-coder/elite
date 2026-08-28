@@ -14,6 +14,7 @@ class ClasseMatiereResource extends JsonResource
             'matiere' => [
                 'id' => $this->matiere->id,
                 'nom' => $this->matiere->nom,
+                'nom_en' => $this->matiere->nom_en,
                 'abbreviation' => $this->matiere->abbreviation,
             ],
             'enseignant' => $this->enseignant ? [

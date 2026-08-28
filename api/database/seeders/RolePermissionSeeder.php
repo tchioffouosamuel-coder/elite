@@ -141,6 +141,12 @@ class RolePermissionSeeder extends Seeder
          * d'établissement (effectifs élèves, personnel…) ne le concerne pas,
          * son accueil est directement le point de vente (cf.
          * redirectionParDefaut côté web).
+         *
+         * `eleves.view` reste nécessaire pour l'API — chercher un élève au
+         * comptoir (vente à crédit) — mais l'écran Élèves et l'onglet
+         * Documents lui restent fermés : le frontend masque ces accès pour
+         * ce rôle spécifiquement (cf. estVendeur côté web/mobile), la
+         * permission ne fait qu'ouvrir la donnée nécessaire au sélecteur.
          */
         'vendeur' => [
             'inventaire.view',
@@ -148,6 +154,7 @@ class RolePermissionSeeder extends Seeder
             'point_de_vente.view',
             'point_de_vente.vendre',
             'point_de_vente.manage',
+            'eleves.view',
         ],
         'parent' => [
             'eleves.view',

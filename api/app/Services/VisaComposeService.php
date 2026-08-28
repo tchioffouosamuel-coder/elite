@@ -138,11 +138,13 @@ class VisaComposeService
     {
         $type = @exif_imagetype($chemin);
 
-        return match ($type) {
-            IMAGETYPE_PNG => imagecreatefrompng($chemin),
-            IMAGETYPE_JPEG => imagecreatefromjpeg($chemin),
-            IMAGETYPE_GIF => imagecreatefromgif($chemin),
+        $image = match ($type) {
+            IMAGETYPE_PNG => @imagecreatefrompng($chemin),
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($chemin),
+            IMAGETYPE_GIF => @imagecreatefromgif($chemin),
             default => null,
         };
+
+        return $image !== false ? $image : null;
     }
 }

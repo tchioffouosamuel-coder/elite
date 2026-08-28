@@ -584,6 +584,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
                 Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
+                Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier');
                 Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
                 Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update');
                 Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy');
@@ -823,6 +824,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('point-de-vente/catalogue', [PointDeVenteController::class, 'catalogue'])->name('point-de-vente.catalogue');
                 Route::get('point-de-vente/articles/{code}', [PointDeVenteController::class, 'parCodeBarre'])->name('point-de-vente.article-code-barre');
                 Route::get('point-de-vente/ventes', [PointDeVenteController::class, 'ventes'])->name('point-de-vente.ventes');
+                Route::get('point-de-vente/stats-vendeur', [PointDeVenteController::class, 'statsVendeur'])->name('point-de-vente.stats-vendeur');
                 Route::get('point-de-vente/ventes/{id}/facture', [PointDeVenteController::class, 'facture'])->name('point-de-vente.facture');
                 Route::get('point-de-vente/entrees', [PointDeVenteController::class, 'entrees'])->name('point-de-vente.entrees');
             });

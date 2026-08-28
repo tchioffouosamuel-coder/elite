@@ -81,3 +81,27 @@ export function jouerBipScan(): void {
 export function jouerBipErreur(): void {
   bips(320, 110, 2)
 }
+
+/**
+ * Vibration de retour comptoir — n'existe que sur les navigateurs mobiles
+ * (Chrome Android notamment) ; absente sur desktop et Safari/iOS, d'où le
+ * garde `navigator.vibrate` avant tout appel. Jamais bloquant : une
+ * exception ici ne doit pas empêcher le bip sonore qui l'accompagne.
+ */
+function vibrer(pattern: number | number[]): void {
+  try {
+    navigator.vibrate?.(pattern)
+  } catch {
+    // Le retour haptique n'est qu'un agrément.
+  }
+}
+
+/** Scan réussi au comptoir : vibration courte unique. */
+export function vibrerScan(): void {
+  vibrer(40)
+}
+
+/** Scan en échec au comptoir : deux vibrations plus marquées. */
+export function vibrerErreur(): void {
+  vibrer([60, 60, 60])
+}

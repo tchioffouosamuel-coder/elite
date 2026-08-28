@@ -30,6 +30,7 @@ export function ProtectedRoute({
   enseignantOnly = false,
   superAdminOnly = false,
   masquerPourTitulaire = false,
+  masquerPourVendeur = false,
   parentOnly = false,
   personnelOnly = false,
   chefDepartementOnly = false,
@@ -52,6 +53,13 @@ export function ProtectedRoute({
    * par une URL directe.
    */
   masquerPourTitulaire?: boolean
+  /**
+   * Ferme cette route au rôle vendeur : il garde `eleves.view` pour peupler
+   * le sélecteur d'élève au comptoir (vente à crédit), mais l'écran complet
+   * (fiche, liste, identification…) est hors de son périmètre — masquer le
+   * lien du menu n'empêcherait pas d'y entrer par une URL directe.
+   */
+  masquerPourVendeur?: boolean
   /** Réservé au portail parent — un compte du personnel n'y a rien à faire. */
   parentOnly?: boolean
   /**
@@ -123,6 +131,7 @@ export function ProtectedRoute({
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
   if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (masquerPourVendeur && user?.roles.includes('vendeur')) return <Navigate to={redirectionParDefaut(user)} replace />
 
   return <>{children}</>
 }
