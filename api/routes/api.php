@@ -177,6 +177,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/identifiants', [PersonnelController::class, 'identifiants'])
                     ->name('personnels.identifiants')->middleware('permission:personnel.manage');
                 Route::get('personnels/{id}', [PersonnelController::class, 'show'])->name('personnels.show');
+                Route::get('personnels/{id}/fiche-identification/pdf', [PersonnelController::class, 'fichePdf'])->name('personnels.fiche-pdf');
+                Route::get('personnels/{id}/fiche-identification/word', [PersonnelController::class, 'ficheWord'])->name('personnels.fiche-word');
             });
 
             Route::middleware('permission:personnel.manage')->group(function () {
@@ -203,6 +205,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+                Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
             });
 
             // Notifications internes : chacun ne voit que les siennes, aucun

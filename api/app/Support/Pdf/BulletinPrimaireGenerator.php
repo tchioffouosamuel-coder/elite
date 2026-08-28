@@ -251,7 +251,7 @@ class BulletinPrimaireGenerator
 
         foreach ($appreciations as $appreciation) {
             $entete .= '<th style="width:' . $wNiveau . '%;">'
-                . ($appreciation->emoji ? '<span style="font-size:5mm;">' . $this->e($appreciation->emoji) . '</span><br>' : '')
+                . ($appreciation->emoji ? '<span style="font-family:symbola;font-size:5mm;">' . $this->e($appreciation->emoji) . '</span><br>' : '')
                 . '<span style="font-size:2.1mm;">' . $this->e($appreciation->label_fr) . '</span></th>';
         }
 
@@ -281,7 +281,7 @@ class BulletinPrimaireGenerator
 
                 foreach ($appreciations as $appreciation) {
                     $corps .= $appreciation->id === $atteinte
-                        ? '<td style="background-color:' . $this->e($appreciation->couleur) . ';color:#fff;font-size:4mm;">'
+                        ? '<td style="background-color:' . $this->e($appreciation->couleur) . ';color:#fff;font-family:symbola;font-size:4mm;">'
                             . $this->e($appreciation->emoji ?? '') . '</td>'
                         : '<td>&nbsp;</td>';
                 }
@@ -301,7 +301,7 @@ class BulletinPrimaireGenerator
         foreach (collect($donnees['appreciations'] ?? []) as $appreciation) {
             $legende .= '<div class="codes-l">'
                 . '<span style="color:' . $this->e($appreciation->couleur) . ';">■</span> '
-                . ($appreciation->emoji ? $this->e($appreciation->emoji) . ' ' : '')
+                . ($appreciation->emoji ? '<span style="font-family:symbola;">' . $this->e($appreciation->emoji) . '</span> ' : '')
                 . '<b>' . $this->e($appreciation->label_fr) . '</b>'
                 . ($appreciation->label_en ? ' <i>/ ' . $this->e($appreciation->label_en) . '</i>' : '')
                 . '</div>';

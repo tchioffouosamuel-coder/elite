@@ -216,7 +216,8 @@ class FlowFinancierTest extends TestCase
         return app(AvanceSalaireService::class)->accorder($this->school->id, [
             'personnel_id' => $agent->id,
             'montant' => $montant,
-            'nombre_mois' => $mois,
+            'mensualite' => (int) ceil($montant / $mois),
+            'mois_debut_remboursement' => '2025-10-01',
             'date_avance' => '2025-10-01',
         ], null);
     }

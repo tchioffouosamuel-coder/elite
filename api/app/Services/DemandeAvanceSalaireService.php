@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DemandeAvanceSalaire;
 use App\Models\Personnel;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 
 /**
@@ -31,7 +32,7 @@ class DemandeAvanceSalaireService extends BaseService
         return DemandeAvanceSalaire::where('personnel_id', $personnelId)->where('statut', 'en_attente')->latest()->first();
     }
 
-    /** @param array{montant: int, nombre_mois: int, motif?: ?string} $donnees */
+    /** @param array{montant: int, mensualite: int, mois_debut_remboursement?: ?string, motif?: ?string} $donnees */
     public function soumettre(Personnel $personnel, array $donnees): DemandeAvanceSalaire
     {
         if ($this->enAttentePour($personnel->id)) {
@@ -39,18 +40,21 @@ class DemandeAvanceSalaireService extends BaseService
         }
 
         $montant = (int) $donnees['montant'];
-        $nombreMois = (int) $donnees['nombre_mois'];
+        $mensualite = (int) $donnees['mensualite'];
+        $moisDebut = $donnees['mois_debut_remboursement'] ?? now()->startOfMonth()->toDateString();
 
         // Valide déjà le plafond à la soumission : autant prévenir l'employé
         // tout de suite plutôt que de laisser l'admin rejeter une demande
         // vouée à l'échec.
-        $this->avances->verifierPlafond($personnel, $montant, $nombreMois);
+        $this->avances->verifierPlafond($personnel, $montant, $mensualite);
 
         $demande = DemandeAvanceSalaire::create([
             'school_id' => $personnel->school_id,
             'personnel_id' => $personnel->id,
             'montant' => $montant,
-            'nombre_mois' => $nombreMois,
+            'mensualite' => $mensualite,
+            'nombre_mois' => $this->avances->calculerNombreMois($montant, $mensualite),
+            'mois_debut_remboursement' => $moisDebut,
             'motif' => $donnees['motif'] ?? null,
             'statut' => 'en_attente',
         ]);
@@ -60,7 +64,7 @@ class DemandeAvanceSalaireService extends BaseService
             'finance.paie',
             'demande_avance',
             'Demande d\'avance sur salaire',
-            "{$personnel->nom_complet} demande une avance de {$montant} F CFA, remboursable sur {$nombreMois} mois.",
+            "{$personnel->nom_complet} demande une avance de {$montant} F CFA, remboursable à {$mensualite} F CFA/mois à partir de ".Carbon::parse($moisDebut)->translatedFormat('F Y').'.',
         );
 
         return $demande;
@@ -76,7 +80,8 @@ class DemandeAvanceSalaireService extends BaseService
             $avance = $this->avances->accorder($demande->school_id, [
                 'personnel_id' => $demande->personnel_id,
                 'montant' => $demande->montant,
-                'nombre_mois' => $demande->nombre_mois,
+                'mensualite' => $demande->mensualite,
+                'mois_debut_remboursement' => $demande->mois_debut_remboursement?->toDateString(),
                 'date_avance' => now()->toDateString(),
                 'motif' => $demande->motif,
             ], $adminUserId);

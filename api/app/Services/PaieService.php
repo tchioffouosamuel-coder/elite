@@ -184,7 +184,7 @@ class PaieService extends BaseService
                  * mais elle part de ce que le dossier prévoit, et non d'un
                  * montant recopié de mois en mois.
                  */
-                'deduction_pret' => (int) ($saisie['deduction_pret'] ?? $this->avances->mensualiteDue($personnel->id)),
+                'deduction_pret' => (int) ($saisie['deduction_pret'] ?? $this->avances->mensualiteDue($personnel->id, $debut->toDateString())),
                 'deduction_autre' => (int) ($saisie['deduction_autre'] ?? 0),
             ];
 

@@ -71,9 +71,10 @@ class DemandeAvanceSalaireAdminController extends Controller
             ] : null,
             'montant' => $d->montant,
             'nombre_mois' => $d->nombre_mois,
-            // Échéancier tel qu'il sera appliqué à la validation, avec la
-            // borne des 50% : de quoi trancher sans ouvrir la fiche de paie.
-            'mensualite' => $this->avances->calculerMensualite($d->montant, max(1, $d->nombre_mois)),
+            'mensualite' => $d->mensualite,
+            'mois_debut_remboursement' => $d->mois_debut_remboursement?->format('Y-m-d'),
+            // Borne des 50% telle qu'appliquée à la validation : de quoi
+            // trancher sans ouvrir la fiche de paie.
             'plafond_mensualite' => $d->personnel ? ($this->avances->plafond($d->personnel)['plafond_mensualite'] ?? null) : null,
             'motif' => $d->motif,
             'motif_rejet' => $d->motif_rejet,

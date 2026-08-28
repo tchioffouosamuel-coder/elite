@@ -34,3 +34,40 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   const { data } = await http.get<ApiResponse<DashboardStats>>('/dashboard')
   return data.data
 }
+
+export interface CreneauPilotage {
+  emploi_du_temps_id: number
+  classe: string
+  ecole: string | null
+  matiere: string | null
+  salle: string | null
+  enseignant: string | null
+  heure_debut: string
+  heure_fin: string
+  appel_fait: boolean
+}
+
+export interface ClasseSansEnseignant {
+  classe: string
+  matiere: string | null
+  ecole: string
+}
+
+export interface Pilotage {
+  genere_le: string
+  cours_en_cours: CreneauPilotage[]
+  cours_a_venir: CreneauPilotage[]
+  appels_en_retard: CreneauPilotage[]
+  classes_sans_enseignant: ClasseSansEnseignant[]
+  couverture: {
+    lecons: number
+    traitees: number
+    taux: number
+    classes_en_retard: { classe: string; niveau: string | null; taux: number }[]
+  }
+}
+
+export async function fetchPilotage(): Promise<Pilotage> {
+  const { data } = await http.get<ApiResponse<Pilotage>>('/dashboard/pilotage')
+  return data.data
+}

@@ -414,6 +414,7 @@ export interface AvanceSalaire {
   montant: number;
   nombre_mois: number | null;
   mensualite: number | null;
+  mois_debut_remboursement: string | null;
   date_avance: string;
   motif: string | null;
   montant_rembourse: number;
@@ -465,7 +466,8 @@ export async function fetchPlafondAvance(
 export async function accorderAvance(payload: {
   personnel_id: number;
   montant: number;
-  nombre_mois: number;
+  mensualite: number;
+  mois_debut_remboursement?: string | null;
   date_avance: string;
   motif?: string | null;
 }): Promise<AvanceSalaire> {
@@ -518,8 +520,9 @@ export interface DemandeAvanceSalaire {
   } | null;
   montant: number;
   nombre_mois: number;
-  /** Échéancier qui sera appliqué à la validation, et la borne des 50% du brut. */
   mensualite: number;
+  mois_debut_remboursement: string | null;
+  /** Borne des 50% du brut telle qu'appliquée à la validation. */
   plafond_mensualite: number | null;
   motif: string | null;
   motif_rejet: string | null;

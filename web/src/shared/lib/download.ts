@@ -1,4 +1,5 @@
 import { http } from '@/shared/lib/http'
+import { useDocumentPreviewStore } from '@/shared/store/documentPreviewStore'
 
 /**
  * Téléchargement de fichier authentifié (Excel/Word/PDF) : l'API exige un
@@ -29,24 +30,19 @@ export async function telechargerFichier(
 }
 
 /**
- * Ouvre un PDF dans un nouvel onglet (plutôt que de le télécharger) : on
- * ouvre l'onglet vide tout de suite, dans le geste utilisateur, pour éviter
- * le blocage de pop-up, puis on y charge le PDF récupéré en blob une fois
- * la requête authentifiée terminée.
+ * Affiche un PDF en aperçu plein écran dans l'application (plutôt que de
+ * l'ouvrir dans un nouvel onglet) : l'utilisateur reste dans son contexte de
+ * travail et valide l'impression depuis la boîte de dialogue du navigateur
+ * plutôt que d'être redirigé vers une autre page.
  */
 export async function ouvrirDocument(
   url: string,
   params?: Record<string, string | number | undefined>,
   headers?: Record<string, string>,
+  titre?: string,
 ): Promise<void> {
-  const fenetre = window.open('', '_blank')
-
   const response = await http.get(url, { params, headers, responseType: 'blob' })
   const blobUrl = URL.createObjectURL(response.data as Blob)
 
-  if (fenetre) {
-    fenetre.location.href = blobUrl
-  } else {
-    window.open(blobUrl, '_blank')
-  }
+  useDocumentPreviewStore.getState().open(blobUrl, titre)
 }

@@ -18,14 +18,15 @@ class AvanceSalaire extends Model
     protected $table = 'avances_salaire';
 
     protected $fillable = [
-        'school_id', 'personnel_id', 'montant', 'nombre_mois', 'mensualite', 'date_avance', 'motif', 'accordee_par',
-        'annule_le', 'annule_par', 'motif_annulation',
+        'school_id', 'personnel_id', 'montant', 'nombre_mois', 'mensualite', 'mois_debut_remboursement',
+        'date_avance', 'motif', 'accordee_par', 'annule_le', 'annule_par', 'motif_annulation',
     ];
 
     protected function casts(): array
     {
         return [
             'date_avance' => 'date',
+            'mois_debut_remboursement' => 'date',
             'montant' => 'integer',
             'nombre_mois' => 'integer',
             'mensualite' => 'integer',

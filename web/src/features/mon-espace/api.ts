@@ -7,6 +7,7 @@ export interface MonAvance {
   montant: number
   nombre_mois: number | null
   mensualite: number | null
+  mois_debut_remboursement: string | null
   date_avance: string
   motif: string | null
   montant_rembourse: number
@@ -18,6 +19,8 @@ export interface MaDemandeAvance {
   id: number
   montant: number
   nombre_mois: number
+  mensualite: number
+  mois_debut_remboursement: string | null
   motif: string | null
   statut: StatutDemandeAvance
   motif_rejet: string | null
@@ -38,7 +41,8 @@ export async function fetchMesAvances(): Promise<MonEspaceAvances> {
 
 export async function soumettreDemandeAvance(payload: {
   montant: number
-  nombre_mois: number
+  mensualite: number
+  mois_debut_remboursement?: string | null
   motif?: string | null
 }): Promise<MaDemandeAvance> {
   const { data } = await http.post<ApiResponse<MaDemandeAvance>>('/mon-espace/avances/demandes', payload)

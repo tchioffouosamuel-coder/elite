@@ -6,6 +6,7 @@ use App\Models\AvanceSalaire;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 
 class AvanceSalaireService extends BaseService
@@ -43,6 +44,16 @@ class AvanceSalaireService extends BaseService
     }
 
     /**
+     * Nombre de mois qu'un remboursement à mensualité fixe prend pour
+     * s'éteindre — la dernière mensualité peut être plus faible que les
+     * autres, l'échéancier n'a pas à être uniforme.
+     */
+    public function calculerNombreMois(int $montant, int $mensualite): int
+    {
+        return (int) ceil($montant / $mensualite);
+    }
+
+    /**
      * Salaire brut en cours et mensualité maximale qu'il autorise. `null`
      * quand l'employé n'a aucune rémunération enregistrée : l'interface le
      * signale plutôt que d'afficher un plafond de zéro, qui se lirait comme
@@ -68,12 +79,14 @@ class AvanceSalaireService extends BaseService
     }
 
     /**
-     * Vérifie que la mensualité issue de (montant, nombre de mois) ne dépasse
-     * pas 50% du salaire brut en cours de l'employé, et renvoie cette
-     * mensualité — utilisé à la fois à l'octroi direct et à la soumission
-     * d'une demande, pour ne jamais laisser passer un échéancier intenable.
+     * Vérifie qu'une mensualité choisie par l'employé ne dépasse pas 50% du
+     * salaire brut en cours — utilisé à la fois à l'octroi direct et à la
+     * soumission d'une demande, pour ne jamais laisser passer un échéancier
+     * intenable. L'échéancier n'est plus supposé uniforme : c'est la
+     * mensualité elle-même qui est saisie, pas un nombre de mois dont elle se
+     * déduirait.
      */
-    public function verifierPlafond(Personnel $personnel, int $montant, int $nombreMois): int
+    public function verifierPlafond(Personnel $personnel, int $montant, int $mensualite): int
     {
         $bornes = $this->plafond($personnel);
 
@@ -81,28 +94,37 @@ class AvanceSalaireService extends BaseService
             throw new RuntimeException("Aucune rémunération n'est renseignée pour {$personnel->nom_complet} : impossible de calculer le plafond de remboursement.");
         }
 
-        $mensualite = $this->calculerMensualite($montant, $nombreMois);
         $plafond = $bornes['plafond_mensualite'];
 
         if ($mensualite > $plafond) {
             throw new RuntimeException(
-                "La mensualité de remboursement ({$mensualite} F CFA) dépasse 50% du salaire brut ({$plafond} F CFA). Augmentez le nombre de mois ou réduisez le montant.",
+                "La mensualité de remboursement ({$mensualite} F CFA) dépasse 50% du salaire brut ({$plafond} F CFA). Réduisez la mensualité ou le montant.",
             );
         }
 
         return $mensualite;
     }
 
-    /** @param array{personnel_id: int, montant: int, nombre_mois: int, date_avance: string, motif?: ?string} $donnees */
+    /**
+     * @param  array{personnel_id: int, montant: int, mensualite: int, date_avance: string, motif?: ?string, mois_debut_remboursement?: ?string}  $donnees
+     */
     public function accorder(int $schoolId, array $donnees, ?int $accordeePar): AvanceSalaire
     {
         $personnel = Personnel::findOrFail($donnees['personnel_id']);
-        $mensualite = $this->verifierPlafond($personnel, (int) $donnees['montant'], (int) $donnees['nombre_mois']);
+        $montant = (int) $donnees['montant'];
+        $mensualite = $this->verifierPlafond($personnel, $montant, (int) $donnees['mensualite']);
 
         return AvanceSalaire::create([
-            ...$donnees,
-            'mensualite' => $mensualite,
             'school_id' => $schoolId,
+            'personnel_id' => $donnees['personnel_id'],
+            'montant' => $montant,
+            'mensualite' => $mensualite,
+            'nombre_mois' => $this->calculerNombreMois($montant, $mensualite),
+            // Par défaut, la retenue commence dès le mois en cours — mais
+            // l'employé (ou l'admin à l'octroi direct) peut la décaler.
+            'mois_debut_remboursement' => $donnees['mois_debut_remboursement'] ?? now()->startOfMonth()->toDateString(),
+            'date_avance' => $donnees['date_avance'],
+            'motif' => $donnees['motif'] ?? null,
             'accordee_par' => $accordeePar,
         ]);
     }
@@ -140,9 +162,13 @@ class AvanceSalaireService extends BaseService
      * Avances en cours de remboursement pour un agent, la plus ancienne
      * d'abord — c'est l'ordre dans lequel une retenue s'impute.
      *
+     * `$auTitreDe`, quand fourni, exclut les avances dont le mois de début
+     * de remboursement est postérieur à cette période : une avance accordée
+     * pour démarrer en mars n'entame pas la paie de janvier ou février.
+     *
      * @return \Illuminate\Database\Eloquent\Collection<int, AvanceSalaire>
      */
-    public function enCoursPour(int $personnelId): Collection
+    public function enCoursPour(int $personnelId, ?string $auTitreDe = null): Collection
     {
         return AvanceSalaire::where('personnel_id', $personnelId)
             ->valides()
@@ -150,20 +176,24 @@ class AvanceSalaireService extends BaseService
             ->orderBy('date_avance')
             ->get()
             ->filter(fn (AvanceSalaire $a) => $a->solde > 0)
+            ->filter(fn (AvanceSalaire $a) => $auTitreDe === null
+                || $a->mois_debut_remboursement === null
+                || $a->mois_debut_remboursement->format('Y-m') <= Carbon::parse($auTitreDe)->format('Y-m'))
             ->values();
     }
 
     /**
      * Retenue du mois au titre des avances : la somme des mensualités de
-     * l'échéancier, chacune bornée par ce qui reste dû.
+     * l'échéancier, chacune bornée par ce qui reste dû — pour les seules
+     * avances déjà entrées dans leur période de remboursement.
      *
      * C'est ce montant que la paie propose en déduction — sans quoi
      * l'échéancier resterait une intention, recopiée à la main d'un mois sur
      * l'autre comme dans les registres.
      */
-    public function mensualiteDue(int $personnelId): int
+    public function mensualiteDue(int $personnelId, string $periode): int
     {
-        return (int) $this->enCoursPour($personnelId)
+        return (int) $this->enCoursPour($personnelId, $periode)
             ->sum(fn (AvanceSalaire $a) => min((int) ($a->mensualite ?? 0), $a->solde));
     }
 
@@ -184,7 +214,7 @@ class AvanceSalaireService extends BaseService
         return $this->transaction(function () use ($personnelId, $montant, $date, $note) {
             $restant = $montant;
 
-            foreach ($this->enCoursPour($personnelId) as $avance) {
+            foreach ($this->enCoursPour($personnelId, $date) as $avance) {
                 if ($restant <= 0) {
                     break;
                 }

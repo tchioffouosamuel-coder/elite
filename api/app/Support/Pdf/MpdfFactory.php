@@ -39,13 +39,25 @@ class MpdfFactory
             'mode' => 'utf-8',
             'format' => 'A4',
             'default_font' => 'montserrat',
-            'fontDir' => array_merge($fontDir, [resource_path('fonts/montserrat')]),
+            'fontDir' => array_merge($fontDir, [
+                resource_path('fonts/montserrat'),
+                resource_path('fonts/symbola'),
+            ]),
             'fontdata' => array_merge($fontData, [
                 'montserrat' => [
                     'R' => 'Montserrat-Regular.ttf',
                     'B' => 'Montserrat-Bold.ttf',
                     'I' => 'Montserrat-Italic.ttf',
                     'BI' => 'Montserrat-BoldItalic.ttf',
+                ],
+                // Montserrat n'a pas de glyphes d'émojis : ils ressortaient en
+                // rectangles vides (tofu) sur les bulletins de la maternelle.
+                // Symbola (domaine public, George Douros) couvre le bloc
+                // Emoticons/Dingbats en contour noir et blanc — pas en couleur,
+                // mPDF ne sait pas composer les fontes d'émojis couleur — mais
+                // lisible et imprimable, y compris en photocopie.
+                'symbola' => [
+                    'R' => 'Symbola.ttf',
                 ],
             ]),
             'margin_left' => 10,

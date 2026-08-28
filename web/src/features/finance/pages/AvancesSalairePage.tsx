@@ -367,7 +367,7 @@ function DemandesAvanceSection({ onTraitee }: { onTraitee: () => void }) {
                 <Badge tone={TONE_DEMANDE[d.statut]}>{LIBELLES_DEMANDE[d.statut]}</Badge>
               </div>
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Montant demandé</p>
                   <p className="tabular-nums font-semibold text-navy-900">{francs(d.montant)}</p>
@@ -376,6 +376,14 @@ function DemandesAvanceSection({ onTraitee }: { onTraitee: () => void }) {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Échéancier</p>
                   <p className="tabular-nums font-semibold text-navy-900">
                     {d.nombre_mois} mois · {francs(d.mensualite)}/mois
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Début souhaité</p>
+                  <p className="tabular-nums font-semibold text-navy-900">
+                    {d.mois_debut_remboursement
+                      ? new Date(d.mois_debut_remboursement).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+                      : '—'}
                   </p>
                 </div>
                 <div>

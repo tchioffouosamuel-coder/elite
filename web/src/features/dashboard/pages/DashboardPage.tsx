@@ -1,8 +1,29 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { UserRound, Users, GraduationCap, School, UserPlus, BriefcaseBusiness, BookOpen, LogIn, ListChecks, GitBranch } from 'lucide-react'
-import { fetchDashboardStats } from '@/features/dashboard/api'
+import {
+  UserRound,
+  Users,
+  GraduationCap,
+  School,
+  UserPlus,
+  BriefcaseBusiness,
+  BookOpen,
+  LogIn,
+  ListChecks,
+  GitBranch,
+  RadioTower,
+  RefreshCw,
+  Clock,
+  CalendarClock,
+  AlarmClockOff,
+  UserX,
+  TrendingUp,
+} from 'lucide-react'
+import { fetchDashboardStats, fetchPilotage, type CreneauPilotage } from '@/features/dashboard/api'
 import { StatCard, Card } from '@/shared/ui/Card'
+import { Button } from '@/shared/ui/Button'
+import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { useAuthStore } from '@/shared/store/authStore'
 
@@ -129,6 +150,200 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
   )
 }
 
+/** Une ligne « HH:MM–HH:MM · Classe · Matière · Enseignant », commune aux trois listes de créneaux. */
+function LigneCreneau({ creneau, accentAppel }: { creneau: CreneauPilotage; accentAppel?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <li className="flex items-center gap-3 py-2.5 text-sm">
+      <span className="w-24 flex-none tabular-nums text-navy-500">
+        {creneau.heure_debut}–{creneau.heure_fin}
+      </span>
+      <span className="flex-1 truncate">
+        <span className="font-semibold text-navy-800">{creneau.classe}</span>
+        {creneau.matiere && <span className="text-navy-400"> · {creneau.matiere}</span>}
+        {creneau.enseignant && <span className="text-navy-400"> · {creneau.enseignant}</span>}
+      </span>
+      {accentAppel && (
+        <Badge tone={creneau.appel_fait ? 'green' : 'gold'}>
+          {creneau.appel_fait ? t('dashboard.call_done') : t('dashboard.call_pending')}
+        </Badge>
+      )}
+    </li>
+  )
+}
+
+function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel }: {
+  titre: string
+  icon: typeof Clock
+  creneaux: CreneauPilotage[]
+  vide: string
+  accentAppel?: boolean
+}) {
+  return (
+    <Card>
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <Icon className="h-4 w-4" />
+        {titre}
+        <span className="ml-auto rounded-full bg-cream-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-navy-500">
+          {creneaux.length}
+        </span>
+      </h3>
+      {creneaux.length === 0 ? (
+        <p className="py-4 text-sm text-navy-300">{vide}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-navy-50">
+          {creneaux.map((c) => (
+            <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} />
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * Pilotage en temps réel : chargé à la demande (pas au premier rendu, l'appel
+ * parcourt tout le programme de l'établissement) puis rafraîchi toutes les
+ * 60 s tant que le panneau reste ouvert, avec un bouton pour forcer une
+ * actualisation immédiate.
+ */
+function PilotagePanel() {
+  const { t } = useTranslation()
+  const [ouvert, setOuvert] = useState(false)
+
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
+    queryKey: ['dashboard', 'pilotage'],
+    queryFn: fetchPilotage,
+    enabled: ouvert,
+    refetchInterval: ouvert ? 60_000 : false,
+  })
+
+  if (!ouvert) {
+    return (
+      <Card className="flex flex-col items-center gap-3 py-8 text-center">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-navy-50 text-navy-500">
+          <RadioTower className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 className="font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.pilotage_title')}</h2>
+          <p className="mt-1 text-sm text-navy-400">{t('dashboard.pilotage_subtitle')}</p>
+        </div>
+        <Button variant="secondary" onClick={() => setOuvert(true)}>
+          <RadioTower className="h-4 w-4" />
+          {t('dashboard.pilotage_show')}
+        </Button>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.pilotage_title')}</h2>
+          {data && (
+            <p className="mt-0.5 text-xs text-navy-400">
+              {t('dashboard.pilotage_generated_at', { heure: new Date(data.genere_le).toLocaleTimeString() })}
+            </p>
+          )}
+        </div>
+        <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          {t('dashboard.pilotage_refresh')}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <Spinner />
+      ) : isError || !data ? (
+        <ErrorState message={t('dashboard.pilotage_error')} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ListeCreneaux
+              titre={t('dashboard.ongoing_lessons')}
+              icon={Clock}
+              creneaux={data.cours_en_cours}
+              vide={t('dashboard.no_ongoing_lessons')}
+            />
+            <ListeCreneaux
+              titre={t('dashboard.upcoming_lessons')}
+              icon={CalendarClock}
+              creneaux={data.cours_a_venir}
+              vide={t('dashboard.no_upcoming_lessons')}
+            />
+            <ListeCreneaux
+              titre={t('dashboard.overdue_calls')}
+              icon={AlarmClockOff}
+              creneaux={data.appels_en_retard}
+              vide={t('dashboard.no_overdue_calls')}
+              accentAppel
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+                <UserX className="h-4 w-4" />
+                {t('dashboard.classes_without_teacher')}
+                <span className="ml-auto rounded-full bg-cream-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-navy-500">
+                  {data.classes_sans_enseignant.length}
+                </span>
+              </h3>
+              {data.classes_sans_enseignant.length === 0 ? (
+                <p className="py-4 text-sm text-navy-300">{t('dashboard.no_classes_without_teacher')}</p>
+              ) : (
+                <ul className="flex flex-col divide-y divide-navy-50">
+                  {data.classes_sans_enseignant.map((c, i) => (
+                    <li key={i} className="flex items-center gap-2 py-2.5 text-sm">
+                      <span className="font-semibold text-navy-800">{c.classe}</span>
+                      {c.matiere && <span className="text-navy-400">· {c.matiere}</span>}
+                      <span className="ml-auto text-xs text-navy-400">{c.ecole}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+                <TrendingUp className="h-4 w-4" />
+                {t('dashboard.global_coverage')}
+              </h3>
+              <div className="flex items-end gap-3">
+                <span className="font-display text-3xl font-bold tabular-nums text-navy-800">{data.couverture.taux}%</span>
+                <span className="mb-1 text-xs text-navy-400">
+                  {t('dashboard.lessons_covered', { traitees: data.couverture.traitees, lecons: data.couverture.lecons })}
+                </span>
+              </div>
+              <div className="mt-3 h-2.5 rounded-full bg-cream-100">
+                <div
+                  className="h-2.5 rounded-full bg-gradient-to-r from-green-500 to-green-300 transition-all"
+                  style={{ width: `${Math.min(data.couverture.taux, 100)}%` }}
+                />
+              </div>
+
+              {data.couverture.classes_en_retard.length > 0 && (
+                <div className="mt-4 border-t border-navy-50 pt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-400">{t('dashboard.lagging_classes')}</p>
+                  <ul className="flex flex-col gap-1.5">
+                    {data.couverture.classes_en_retard.map((c, i) => (
+                      <li key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-navy-700">{c.classe}</span>
+                        <span className="font-semibold tabular-nums text-navy-500">{c.taux}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Card>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'ecole' }> }) {
   const { t } = useTranslation()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
@@ -207,6 +422,8 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
           </dl>
         </Card>
       </div>
+
+      <PilotagePanel />
 
       {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
     </div>

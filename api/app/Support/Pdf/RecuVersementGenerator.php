@@ -129,7 +129,7 @@ class RecuVersementGenerator
         $montantPaye = $busSeul ? (int) $lignes->sum('montant') : $versement->montant;
         $libelleDu = $busSeul ? 'Frais de bus / School transport fees' : 'Frais de scolarité / Tuition fees';
 
-        $html = '</table><div class="sep"></div><table>'
+        $html .= '</table><div class="sep"></div><table>'
             . $this->ligneMontant($libelleDu, $montantDu)
             . $this->ligneMontant('Montant perçu / Amount paid', $montantPaye, true)
             . $this->ligneMontant('Reste à payer / Balance due', max(0, $montantDu - $montantPaye), true)

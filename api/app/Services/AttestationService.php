@@ -45,7 +45,7 @@ class AttestationService extends BaseService
         $feminin = $eleve->sexe === 'F';
 
         $phpWord = new PhpWord;
-        $phpWord->setDefaultFontName('Montserrat');
+        $phpWord->setDefaultFontName('Times New Roman');
         $section = $phpWord->addSection([
             'marginTop' => 720, 'marginBottom' => 720, 'marginLeft' => 900, 'marginRight' => 900,
         ]);

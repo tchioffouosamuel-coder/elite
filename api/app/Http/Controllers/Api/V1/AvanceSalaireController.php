@@ -57,7 +57,8 @@ class AvanceSalaireController extends Controller
         $donnees = $request->validate([
             'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', Tenant::schoolIds())],
             'montant' => ['required', 'integer', 'min:1'],
-            'nombre_mois' => ['required', 'integer', 'min:1', 'max:36'],
+            'mensualite' => ['required', 'integer', 'min:1'],
+            'mois_debut_remboursement' => ['nullable', 'date'],
             'date_avance' => ['required', 'date'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
@@ -126,6 +127,7 @@ class AvanceSalaireController extends Controller
             'montant' => $avance->montant,
             'nombre_mois' => $avance->nombre_mois,
             'mensualite' => $avance->mensualite,
+            'mois_debut_remboursement' => $avance->mois_debut_remboursement?->format('Y-m-d'),
             'date_avance' => $avance->date_avance->format('Y-m-d'),
             'motif' => $avance->motif,
             'montant_rembourse' => $avance->montant_rembourse,

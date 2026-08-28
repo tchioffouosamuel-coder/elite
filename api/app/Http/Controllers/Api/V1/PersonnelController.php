@@ -16,7 +16,9 @@ use App\Models\Personnel;
 use App\Models\School;
 use App\Services\AttestationEmployeurService;
 use App\Services\CompteAgentService;
+use App\Services\FicheIdentitePersonnelService;
 use App\Services\PersonnelService;
+use App\Support\Pdf\FicheIdentitePersonnelGenerator;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Pdf\PersonnelFichierGenerator;
 use App\Support\Tenant;
@@ -267,6 +269,37 @@ class PersonnelController extends Controller
 
         return response()
             ->download($path, 'attestation-employeur-' . Str::slug($personnel->nom_complet) . '.docx')
+            ->deleteFileAfterSend();
+    }
+
+    /**
+     * Fiche d'identification du personnel, version PDF (ouverte dans un
+     * nouvel onglet côté front, comme le fichier du personnel).
+     */
+    public function fichePdf(int $id): Response
+    {
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
+
+        $pdf = (new FicheIdentitePersonnelGenerator)->build($personnel);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="fiche-identification-' . Str::slug($personnel->nom_complet) . '.pdf"',
+        ]);
+    }
+
+    /**
+     * Fiche d'identification du personnel, version .docx (téléchargée,
+     * comme l'attestation de l'employeur).
+     */
+    public function ficheWord(int $id): BinaryFileResponse
+    {
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
+
+        $path = app(FicheIdentitePersonnelService::class)->generer($personnel);
+
+        return response()
+            ->download($path, 'fiche-identification-' . Str::slug($personnel->nom_complet) . '.docx')
             ->deleteFileAfterSend();
     }
 }

@@ -22,6 +22,8 @@ class DemandeAvanceSalaire extends Model
         'personnel_id',
         'montant',
         'nombre_mois',
+        'mensualite',
+        'mois_debut_remboursement',
         'motif',
         'statut',
         'motif_rejet',
@@ -35,6 +37,8 @@ class DemandeAvanceSalaire extends Model
         return [
             'montant' => 'integer',
             'nombre_mois' => 'integer',
+            'mensualite' => 'integer',
+            'mois_debut_remboursement' => 'date',
             'traite_le' => 'datetime',
         ];
     }

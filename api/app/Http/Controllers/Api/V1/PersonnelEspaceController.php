@@ -48,6 +48,7 @@ class PersonnelEspaceController extends Controller
                 'montant' => $a->montant,
                 'nombre_mois' => $a->nombre_mois,
                 'mensualite' => $a->mensualite,
+                'mois_debut_remboursement' => $a->mois_debut_remboursement?->format('Y-m-d'),
                 'date_avance' => $a->date_avance->format('Y-m-d'),
                 'motif' => $a->motif,
                 'montant_rembourse' => $a->montant_rembourse,
@@ -58,6 +59,8 @@ class PersonnelEspaceController extends Controller
                 'id' => $d->id,
                 'montant' => $d->montant,
                 'nombre_mois' => $d->nombre_mois,
+                'mensualite' => $d->mensualite,
+                'mois_debut_remboursement' => $d->mois_debut_remboursement?->format('Y-m-d'),
                 'motif' => $d->motif,
                 'statut' => $d->statut,
                 'motif_rejet' => $d->motif_rejet,
@@ -72,7 +75,8 @@ class PersonnelEspaceController extends Controller
 
         $data = $request->validate([
             'montant' => ['required', 'integer', 'min:1'],
-            'nombre_mois' => ['required', 'integer', 'min:1', 'max:36'],
+            'mensualite' => ['required', 'integer', 'min:1'],
+            'mois_debut_remboursement' => ['nullable', 'date'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
 

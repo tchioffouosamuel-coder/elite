@@ -83,8 +83,8 @@ export function MesAvancesPage() {
 
           {demandeEnAttente && (
             <p className="rounded-xl bg-gold-50 px-3.5 py-2.5 text-sm text-gold-800">
-              Votre demande de {francs(demandeEnAttente.montant)} sur {demandeEnAttente.nombre_mois} mois est en attente de
-              validation par l'établissement.
+              Votre demande de {francs(demandeEnAttente.montant)}, remboursable à {francs(demandeEnAttente.mensualite)}/mois,
+              est en attente de validation par l'établissement.
             </p>
           )}
 
@@ -102,6 +102,9 @@ export function MesAvancesPage() {
                       </p>
                       <p className="text-xs text-navy-400">
                         {a.nombre_mois ? `${a.nombre_mois} mois · ${francs(a.mensualite ?? 0)}/mois` : 'Échéancier non défini'}
+                        {a.mois_debut_remboursement
+                          ? ` · à partir de ${new Date(a.mois_debut_remboursement).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
+                          : ''}
                         {a.motif ? ` · ${a.motif}` : ''}
                       </p>
                     </div>
@@ -127,10 +130,15 @@ export function MesAvancesPage() {
                   <div key={d.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-navy-800">
-                        {francs(d.montant)} sur {d.nombre_mois} mois — {new Date(d.created_at).toLocaleDateString('fr-FR')}
+                        {francs(d.montant)} à {francs(d.mensualite)}/mois ({d.nombre_mois} mois) — {new Date(d.created_at).toLocaleDateString('fr-FR')}
                       </p>
                       <Badge tone={TONE_DEMANDE[d.statut]}>{LIBELLE_DEMANDE[d.statut]}</Badge>
                     </div>
+                    {d.mois_debut_remboursement && (
+                      <p className="text-xs text-navy-400">
+                        Début souhaité : {new Date(d.mois_debut_remboursement).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
                     {d.statut === 'rejetee' && d.motif_rejet && (
                       <p className="text-xs text-red-600">Motif du rejet : {d.motif_rejet}</p>
                     )}
@@ -158,7 +166,8 @@ export function MesAvancesPage() {
 
 interface FormDemande {
   montant: number
-  nombre_mois: number
+  mensualite: number
+  mois_debut_remboursement: string
   motif: string
 }
 
@@ -178,11 +187,11 @@ function DemanderAvanceModal({
     handleSubmit,
     watch,
     formState: { isSubmitting, errors },
-  } = useForm<FormDemande>({ defaultValues: { nombre_mois: 1 } })
+  } = useForm<FormDemande>({ defaultValues: { mois_debut_remboursement: new Date().toISOString().slice(0, 10) } })
 
   const montant = Number(watch('montant')) || 0
-  const nombreMois = Number(watch('nombre_mois')) || 1
-  const mensualite = nombreMois > 0 ? Math.ceil(montant / nombreMois) : 0
+  const mensualite = Number(watch('mensualite')) || 0
+  const nombreMois = mensualite > 0 ? Math.ceil(montant / mensualite) : 0
   const horsPlafond = plafond.plafond_mensualite !== null && mensualite > plafond.plafond_mensualite
 
   const onSubmit = async (values: FormDemande) => {
@@ -190,7 +199,8 @@ function DemanderAvanceModal({
     try {
       await soumettreDemandeAvance({
         montant: Number(values.montant),
-        nombre_mois: Number(values.nombre_mois),
+        mensualite: Number(values.mensualite),
+        mois_debut_remboursement: values.mois_debut_remboursement || null,
         motif: values.motif || null,
       })
       succes("Demande transmise, en attente de validation par l'établissement.")
@@ -214,21 +224,27 @@ function DemanderAvanceModal({
         />
 
         <Input
-          label="Nombre de mois de remboursement"
+          label="Mensualité souhaitée (F CFA)"
           type="number"
           min={1}
-          max={36}
-          error={errors.nombre_mois?.message}
-          {...register('nombre_mois', {
-            required: 'Requis.',
-            min: { value: 1, message: 'Au moins 1 mois.' },
-            max: { value: 36, message: '36 mois maximum.' },
+          error={errors.mensualite?.message}
+          {...register('mensualite', {
+            required: 'Saisissez combien vous rembourserez chaque mois.',
+            min: { value: 1, message: 'La mensualité doit être supérieure à zéro.' },
           })}
         />
 
-        {/* Calendrier de remboursement : ce qui sera retenu chaque mois, et la
-            borne des 50% du brut que la retenue ne peut franchir. */}
-        {montant > 0 && nombreMois > 0 && (
+        <Input
+          label="Mois de début de remboursement"
+          type="date"
+          error={errors.mois_debut_remboursement?.message}
+          {...register('mois_debut_remboursement', { required: 'Requis.' })}
+        />
+
+        {/* Échéancier tel que vous le proposez : ce n'est pas l'établissement
+            qui divise également, c'est vous qui choisissez la mensualité — la
+            durée s'en déduit et la dernière échéance solde le reste. */}
+        {montant > 0 && mensualite > 0 && (
           <div
             className={
               horsPlafond
@@ -248,9 +264,7 @@ function DemanderAvanceModal({
               </p>
             )}
             {horsPlafond && (
-              <p className="mt-0.5 font-semibold">
-                Au-delà du plafond : allongez la durée ou réduisez le montant demandé.
-              </p>
+              <p className="mt-0.5 font-semibold">Au-delà du plafond : réduisez la mensualité demandée.</p>
             )}
           </div>
         )}

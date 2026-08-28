@@ -6,6 +6,7 @@ import {
   Pencil,
   KeyRound,
   FileText,
+  IdCard,
   Archive,
   RotateCcw,
   Trash2,
@@ -32,7 +33,7 @@ import {
 import { AccorderAvanceModal } from '@/features/finance/AccorderAvanceModal'
 import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
-import { telechargerFichier } from '@/shared/lib/download'
+import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { Card } from '@/shared/ui/Card'
@@ -193,6 +194,26 @@ export function PersonnelDetailPage() {
               undefined,
               'attestation-employeur.docx',
             ).catch((err) => erreur((err as ApiError).message ?? t('hub.personnel.attestation_error')))
+          },
+        },
+        {
+          label: t('hub.personnel.fiche_pdf'),
+          icon: IdCard,
+          onClick: () => {
+            void ouvrirDocument(`/personnels/${personnel.id}/fiche-identification/pdf`).catch(
+              (err) => erreur((err as ApiError).message ?? t('hub.personnel.fiche_error')),
+            )
+          },
+        },
+        {
+          label: t('hub.personnel.fiche_word'),
+          icon: IdCard,
+          onClick: () => {
+            void telechargerFichier(
+              `/personnels/${personnel.id}/fiche-identification/word`,
+              undefined,
+              'fiche-identification.docx',
+            ).catch((err) => erreur((err as ApiError).message ?? t('hub.personnel.fiche_error')))
           },
         },
       ],

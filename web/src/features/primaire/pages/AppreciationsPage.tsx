@@ -18,6 +18,7 @@ import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
+import { EmojiPickerButton } from '@/shared/ui/EmojiPicker'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
@@ -338,6 +339,9 @@ function AppreciationFormModal({
             label={t('appreciations.emoji')}
             placeholder="🙂"
             maxLength={4}
+            endAdornment={
+              <EmojiPickerButton onSelect={(emoji) => setValue('emoji', emoji, { shouldValidate: true, shouldDirty: true })} />
+            }
             {...register('emoji')}
           />
           <Input

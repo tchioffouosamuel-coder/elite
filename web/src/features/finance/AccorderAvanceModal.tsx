@@ -12,7 +12,8 @@ import type { ApiError } from '@/shared/types/api'
 interface FormAccorder {
   personnel_id: number
   montant: number
-  nombre_mois: number
+  mensualite: number
+  mois_debut_remboursement: string
   date_avance: string
   motif: string
 }
@@ -46,15 +47,15 @@ export function AccorderAvanceModal({
   } = useForm<FormAccorder>({
     defaultValues: {
       date_avance: new Date().toISOString().slice(0, 10),
-      nombre_mois: 1,
+      mois_debut_remboursement: new Date().toISOString().slice(0, 10),
       ...(personnel ? { personnel_id: personnel.id } : {}),
     },
   })
 
   const personnelId = personnel ? personnel.id : Number(watch('personnel_id')) || 0
   const montant = Number(watch('montant')) || 0
-  const nombreMois = Number(watch('nombre_mois')) || 1
-  const mensualite = nombreMois > 0 ? Math.ceil(montant / nombreMois) : 0
+  const mensualite = Number(watch('mensualite')) || 0
+  const nombreMois = mensualite > 0 ? Math.ceil(montant / mensualite) : 0
 
   // Le plafond dépend de l'agent choisi : on le charge dès la sélection pour
   // que l'échéancier se corrige dans le formulaire, pas après un refus 422.
@@ -72,7 +73,8 @@ export function AccorderAvanceModal({
       await accorderAvance({
         personnel_id: personnel ? personnel.id : Number(values.personnel_id),
         montant: Number(values.montant),
-        nombre_mois: Number(values.nombre_mois),
+        mensualite: Number(values.mensualite),
+        mois_debut_remboursement: values.mois_debut_remboursement || null,
         date_avance: values.date_avance,
         motif: values.motif || null,
       })
@@ -119,21 +121,20 @@ export function AccorderAvanceModal({
             })}
           />
           <Input
-            label="Nombre de mois"
+            label="Mensualité (F CFA)"
             type="number"
             min={1}
-            max={36}
-            error={errors.nombre_mois?.message}
-            {...register('nombre_mois', {
-              required: 'Requis.',
-              min: { value: 1, message: 'Au moins 1 mois.' },
-              max: { value: 36, message: '36 mois maximum.' },
+            error={errors.mensualite?.message}
+            {...register('mensualite', {
+              required: 'Saisissez la mensualité.',
+              min: { value: 1, message: 'La mensualité doit être supérieure à zéro.' },
             })}
           />
         </div>
 
-        {/* Calendrier de remboursement : ce qui sera retenu chaque mois, et la
-            borne des 50% du brut que la retenue ne peut franchir. */}
+        {/* L'échéancier n'est pas forcé uniforme : c'est l'employé qui choisit
+            la mensualité, la durée s'en déduit et la dernière échéance solde
+            simplement ce qui reste. */}
         {personnelId > 0 && plafond?.plafond_mensualite == null && (
           <p className="rounded-lg bg-gold-50 px-3 py-2 text-xs text-gold-800">
             Aucune rémunération n'est enregistrée pour cet employé : le plafond de remboursement ne peut pas être calculé
@@ -141,7 +142,7 @@ export function AccorderAvanceModal({
           </p>
         )}
 
-        {montant > 0 && nombreMois > 0 && (
+        {montant > 0 && mensualite > 0 && (
           <div
             className={
               horsPlafond
@@ -161,12 +162,20 @@ export function AccorderAvanceModal({
               </p>
             )}
             {horsPlafond && (
-              <p className="mt-0.5 font-semibold">Au-delà du plafond : allongez la durée ou réduisez le montant.</p>
+              <p className="mt-0.5 font-semibold">Au-delà du plafond : réduisez la mensualité.</p>
             )}
           </div>
         )}
 
-        <Input label="Date" type="date" {...register('date_avance', { required: true })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Date de l'avance" type="date" {...register('date_avance', { required: true })} />
+          <Input
+            label="Début du remboursement"
+            type="date"
+            {...register('mois_debut_remboursement', { required: 'Requis.' })}
+            error={errors.mois_debut_remboursement?.message}
+          />
+        </div>
         <Input label="Motif" placeholder="Facultatif" {...register('motif')} />
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
