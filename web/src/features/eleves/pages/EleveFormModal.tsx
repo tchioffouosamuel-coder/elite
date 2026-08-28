@@ -100,7 +100,18 @@ export function EleveFormModal({
             <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('eleves.tuteur')}</span>
             <button
               type="button"
-              onClick={() => append({ nom_complet: '', telephone: '', lien_parente: '', is_principal: fields.length === 0 })}
+              onClick={() =>
+                append({
+                  nom_complet: '',
+                  telephones: [
+                    { numero: '', is_principal: true },
+                    { numero: '', is_principal: false },
+                    { numero: '', is_principal: false },
+                  ],
+                  lien_parente: '',
+                  is_principal: fields.length === 0,
+                })
+              }
               className="flex items-center gap-1 text-xs font-semibold text-navy-600 hover:text-navy-800"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -117,7 +128,7 @@ export function EleveFormModal({
           {fields.map((field, index) => (
             <div key={field.id} className="mb-2 grid grid-cols-[2fr_1fr_auto] items-end gap-2 last:mb-0">
               <Input placeholder={t('eleves.tuteur_nom')} {...register(`tuteurs.${index}.nom_complet` as const, { required: true })} />
-              <Input placeholder={t('eleves.tuteur_telephone')} {...register(`tuteurs.${index}.telephone` as const)} />
+              <Input placeholder={t('eleves.tuteur_telephone')} {...register(`tuteurs.${index}.telephones.0.numero` as const)} />
               <button
                 type="button"
                 onClick={() => remove(index)}

@@ -31,13 +31,39 @@ class StoreEleveRequest extends FormRequest
             'redoublant' => ['nullable', 'boolean'],
 
             'tuteurs' => ['nullable', 'array'],
+            'tuteurs.*.tuteur_id' => ['nullable', 'integer'],
             'tuteurs.*.nom_complet' => ['required_with:tuteurs', 'string', 'max:200'],
             'tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
+            'tuteurs.*.telephones' => ['nullable', 'array'],
+            'tuteurs.*.telephones.*.numero' => ['required', 'string', 'max:30'],
+            'tuteurs.*.telephones.*.is_principal' => ['nullable', 'boolean'],
             'tuteurs.*.email' => ['nullable', 'email', 'max:150'],
             'tuteurs.*.profession' => ['nullable', 'string', 'max:255'],
             'tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
             'tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
             'tuteurs.*.is_principal' => ['nullable', 'boolean'],
         ];
+    }
+
+    /**
+     * Un tuteur saisi via le tableau `telephones` (le nouveau formulaire
+     * d'inscription) doit en fournir au moins 3 — règle qu'une simple
+     * `min:3` sur `tuteurs.*.telephones` ne peut pas exprimer telle quelle
+     * car elle s'appliquerait aussi aux anciens flux qui n'envoient encore
+     * que le champ `telephone` unique.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            foreach ($this->input('tuteurs', []) as $index => $tuteur) {
+                if (! array_key_exists('telephones', $tuteur ?? [])) {
+                    continue;
+                }
+
+                if (count($tuteur['telephones'] ?? []) < 3) {
+                    $validator->errors()->add("tuteurs.{$index}.telephones", 'Chaque tuteur doit avoir au moins 3 numéros de téléphone.');
+                }
+            }
+        });
     }
 }

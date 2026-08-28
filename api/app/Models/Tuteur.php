@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tuteur extends Model
 {
@@ -31,5 +32,10 @@ class Tuteur extends Model
         return $this->belongsToMany(Eleve::class, 'eleve_tuteur')
             ->withPivot(['lien_parente', 'is_principal'])
             ->withTimestamps();
+    }
+
+    public function telephones(): HasMany
+    {
+        return $this->hasMany(TuteurTelephone::class)->orderByDesc('is_principal')->orderBy('id');
     }
 }

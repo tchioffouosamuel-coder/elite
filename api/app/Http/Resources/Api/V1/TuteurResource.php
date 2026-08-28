@@ -13,6 +13,11 @@ class TuteurResource extends JsonResource
             'id' => $this->id,
             'nom_complet' => $this->nom_complet,
             'telephone' => $this->telephone,
+            'telephones' => $this->whenLoaded('telephones', fn () => $this->telephones->map(fn (\App\Models\TuteurTelephone $tel) => [
+                'id' => $tel->id,
+                'numero' => $tel->numero,
+                'is_principal' => $tel->is_principal,
+            ])->values()),
             'email' => $this->email,
             'profession' => $this->profession,
             'adresse' => $this->adresse,

@@ -8,6 +8,7 @@ use App\Models\Eleve;
 use App\Models\School;
 use App\Models\SousSysteme;
 use App\Models\Tuteur;
+use App\Models\TuteurTelephone;
 use App\Models\User;
 use App\Repositories\EleveRepository;
 use App\Services\ScolariteService;
@@ -42,7 +43,7 @@ class EleveService extends BaseService
     /** @param int|array<int> $schoolId */
     public function find(int|array $schoolId, int $id): Eleve
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])->findOrFail($id);
     }
 
     public function create(int $schoolId, array $attributes): Eleve
@@ -56,7 +57,7 @@ class EleveService extends BaseService
             $eleve = $this->repository->create([...$attributes, 'school_id' => $schoolId]);
             $this->syncTuteurs($eleve, $schoolId, $tuteurs);
 
-            return $eleve->load('tuteurs');
+            return $eleve->load('tuteurs.telephones');
         });
     }
 
@@ -72,7 +73,7 @@ class EleveService extends BaseService
                 $this->syncTuteurs($eleve, $eleve->school_id, $tuteurs);
             }
 
-            return $eleve->load('tuteurs');
+            return $eleve->load('tuteurs.telephones');
         });
     }
 
@@ -644,21 +645,92 @@ class EleveService extends BaseService
         $eleve->tuteurs()->detach();
 
         foreach ($tuteurs as $data) {
-            $baseAttributes = [
-                'nom_complet' => $data['nom_complet'],
-                'email' => $data['email'] ?? null,
-                'profession' => $data['profession'] ?? null,
-                'adresse' => $data['adresse'] ?? null,
-            ];
-
-            $tuteur = ! empty($data['telephone'])
-                ? Tuteur::firstOrCreate(['school_id' => $schoolId, 'telephone' => $data['telephone']], $baseAttributes)
-                : Tuteur::create([...$baseAttributes, 'school_id' => $schoolId]);
+            $tuteur = $this->resolveTuteur($schoolId, $data);
+            $this->syncTelephonesTuteur($tuteur, $data);
 
             $eleve->tuteurs()->attach($tuteur->id, [
                 'lien_parente' => $data['lien_parente'] ?? null,
                 'is_principal' => $data['is_principal'] ?? false,
             ]);
         }
+    }
+
+    /**
+     * Retrouve le tuteur choisi via l'autocomplétion (`tuteur_id`, envoyé
+     * uniquement quand l'utilisateur a cliqué une suggestion) et met à jour
+     * sa fiche avec la saisie du formulaire ; à défaut, retombe sur l'ancien
+     * comportement — dédoublonnage par numéro de téléphone, ou création
+     * d'une fiche neuve — pour les saisies au clavier sans sélection.
+     */
+    private function resolveTuteur(int $schoolId, array $data): Tuteur
+    {
+        $baseAttributes = [
+            'nom_complet' => $data['nom_complet'],
+            'email' => $data['email'] ?? null,
+            'profession' => $data['profession'] ?? null,
+            'adresse' => $data['adresse'] ?? null,
+        ];
+
+        if (! empty($data['tuteur_id'])) {
+            $tuteur = Tuteur::forSchool($schoolId)->find($data['tuteur_id']);
+            if ($tuteur) {
+                $tuteur->fill($baseAttributes)->save();
+
+                return $tuteur;
+            }
+        }
+
+        $telephonePrincipal = $this->extrairePrincipal($data);
+
+        return $telephonePrincipal
+            ? Tuteur::firstOrCreate(['school_id' => $schoolId, 'telephone' => $telephonePrincipal], $baseAttributes)
+            : Tuteur::create([...$baseAttributes, 'school_id' => $schoolId]);
+    }
+
+    /** Le numéro flaggé `is_principal` dans `telephones`, sinon le premier, sinon l'ancien champ `telephone` unique. */
+    private function extrairePrincipal(array $data): ?string
+    {
+        $telephones = $data['telephones'] ?? [];
+
+        if ($telephones !== []) {
+            $principal = collect($telephones)->first(fn ($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
+
+            return $principal['numero'] ?? null;
+        }
+
+        return $data['telephone'] ?? null;
+    }
+
+    /**
+     * Remplace intégralement les numéros du tuteur par ceux du formulaire
+     * (au moins 3, un seul principal) et recopie le principal dans l'ancien
+     * champ `tuteurs.telephone` — encore lu par la recherche rapide, les SMS
+     * et la connexion au portail parent.
+     */
+    private function syncTelephonesTuteur(Tuteur $tuteur, array $data): void
+    {
+        $telephones = $data['telephones'] ?? [];
+
+        if ($telephones === []) {
+            if (! empty($data['telephone']) && $tuteur->telephones()->doesntExist()) {
+                TuteurTelephone::create(['tuteur_id' => $tuteur->id, 'numero' => $data['telephone'], 'is_principal' => true]);
+            }
+
+            return;
+        }
+
+        $tuteur->telephones()->delete();
+
+        $aUnPrincipal = collect($telephones)->contains(fn ($tel) => ! empty($tel['is_principal']));
+
+        foreach ($telephones as $index => $tel) {
+            TuteurTelephone::create([
+                'tuteur_id' => $tuteur->id,
+                'numero' => $tel['numero'],
+                'is_principal' => $aUnPrincipal ? ! empty($tel['is_principal']) : $index === 0,
+            ]);
+        }
+
+        $tuteur->forceFill(['telephone' => $this->extrairePrincipal($data)])->save();
     }
 }

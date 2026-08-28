@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\TuteurResource;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\Tuteur;
@@ -44,6 +45,35 @@ class TuteurController extends Controller
         ]);
 
         return ApiResponse::paginated($tuteurs);
+    }
+
+    /**
+     * Typeahead utilisé à l'inscription d'un élève : dès que le secrétariat
+     * saisit un nom de tuteur, propose les fiches déjà connues de l'école
+     * pour éviter les doublons (même parent ressaisi pour un frère/une sœur).
+     * Non paginée et bornée à quelques résultats — une recherche d'appoint
+     * pendant la frappe, pas un annuaire complet.
+     */
+    public function recherche(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:100'],
+        ]);
+
+        $mots = preg_split('/\s+/', trim($data['q']), -1, PREG_SPLIT_NO_EMPTY);
+
+        $tuteurs = Tuteur::forSchool(Tenant::schoolIds())
+            ->with('telephones')
+            ->where(function ($query) use ($mots) {
+                foreach ($mots as $mot) {
+                    $query->where('nom_complet', 'like', "%{$mot}%");
+                }
+            })
+            ->orderBy('nom_complet')
+            ->limit(8)
+            ->get();
+
+        return ApiResponse::success(TuteurResource::collection($tuteurs));
     }
 
     /**

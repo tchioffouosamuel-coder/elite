@@ -25,7 +25,7 @@ class EleveRepository extends BaseRepository
         return $this->query()
             ->forSchool($schoolId)
             ->dansPerimetre($user)
-            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])
+            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom_complet', 'like', "%{$search}%")
@@ -55,7 +55,7 @@ class EleveRepository extends BaseRepository
         return $this->query()
             ->forSchool($schoolId)
             ->dansPerimetre($user)
-            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs'])
+            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])
             ->where(function ($query) use ($terme) {
                 $query->where('nom_complet', 'like', "%{$terme}%")
                     ->orWhere('matricule', 'like', "%{$terme}%")

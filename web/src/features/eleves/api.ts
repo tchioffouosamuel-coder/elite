@@ -1,14 +1,32 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse, Pagination } from "@/shared/types/api";
 
+export interface TuteurTelephone {
+  id?: number;
+  numero: string;
+  is_principal: boolean;
+}
+
 export interface Tuteur {
   id: number;
   nom_complet: string;
   telephone: string | null;
+  telephones: TuteurTelephone[];
   email: string | null;
   profession: string | null;
   lien_parente: string | null;
   is_principal: boolean;
+}
+
+/** Résultat de la recherche par similarité de nom, pour l'autocomplétion à l'inscription. */
+export interface TuteurSuggestion {
+  id: number;
+  nom_complet: string;
+  telephone: string | null;
+  telephones: TuteurTelephone[];
+  email: string | null;
+  profession: string | null;
+  adresse: string | null;
 }
 
 export interface Eleve {
@@ -43,8 +61,10 @@ export interface Eleve {
 }
 
 export interface EleveTuteurInput {
+  /** Renseigné uniquement quand une suggestion de l'autocomplétion a été choisie — sinon, saisie considérée comme un nouveau tuteur. */
+  tuteur_id?: number;
   nom_complet: string;
-  telephone?: string;
+  telephones: { numero: string; is_principal: boolean }[];
   profession?: string;
   lien_parente?: string;
   is_principal?: boolean;
@@ -85,6 +105,16 @@ export async function fetchEleves(params: {
  */
 export async function rechercheGlobaleEleves(q: string): Promise<Eleve[]> {
   const { data } = await http.get<ApiResponse<Eleve[]>>("/eleves/recherche-globale", { params: { q } });
+  return data.data;
+}
+
+/**
+ * Autocomplétion utilisée à l'inscription : propose les tuteurs déjà connus
+ * de l'école dont le nom ressemble à la saisie en cours, pour éviter de
+ * ressaisir un parent qui a déjà un autre enfant inscrit.
+ */
+export async function rechercheTuteurs(q: string): Promise<TuteurSuggestion[]> {
+  const { data } = await http.get<ApiResponse<TuteurSuggestion[]>>("/tuteurs/recherche", { params: { q } });
   return data.data;
 }
 

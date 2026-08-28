@@ -544,10 +544,10 @@ export function AppLayout() {
         <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-green-500/20 blur-3xl" aria-hidden />
 
         <div className={clsx('relative z-10 flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
-          <span className={clsx('flex h-10 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft', !sidebarOpen && 'lg:hidden')}>
-            <img src={logoWordmark} alt={t('app.name')} className="h-7 w-auto object-contain" />
+          <span className={clsx('flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft', !sidebarOpen && 'lg:hidden')}>
+            <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
           </span>
-          <span className={clsx('hidden h-10 w-10 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}>
+          <span className={clsx('hidden h-14 w-14 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}>
             <img src={logoMark} alt={t('app.name')} className="h-full w-full object-contain" />
           </span>
           <button

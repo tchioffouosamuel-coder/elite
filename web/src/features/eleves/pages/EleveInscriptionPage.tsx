@@ -1,16 +1,18 @@
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type UseFormWatch, type FieldErrors } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Plus, Receipt, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Receipt, Star, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { clsx } from 'clsx'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Input, Select } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses } from '@/features/classes/api'
-import { createEleve, updateEleve, fetchEleves, type ElevePayload } from '@/features/eleves/api'
+import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, type ElevePayload, type TuteurSuggestion } from '@/features/eleves/api'
 import {
     fetchTarifs,
     fetchDossier,
@@ -37,9 +39,32 @@ function useLienParenteOptions() {
     ]
 }
 
+interface TuteurTelephoneFormData {
+    numero: string
+    is_principal: boolean
+}
+
+/** Nombre minimal de numéros exigé par tuteur — cf. demande d'avoir toujours au moins 3 contacts pour le joindre. */
+const NB_TELEPHONES_MIN = 3
+
+function telephonesParDefaut(): TuteurTelephoneFormData[] {
+    return Array.from({ length: NB_TELEPHONES_MIN }, (_, i) => ({ numero: '', is_principal: i === 0 }))
+}
+
+/** Complète jusqu'à `NB_TELEPHONES_MIN` entrées (fiche existante avec moins de 3 numéros) sans jamais en retirer. */
+function completerTelephones(telephones: TuteurTelephoneFormData[]): TuteurTelephoneFormData[] {
+    const liste = telephones.length > 0 ? [...telephones] : []
+    while (liste.length < NB_TELEPHONES_MIN) liste.push({ numero: '', is_principal: false })
+    if (!liste.some((t) => t.is_principal)) liste[0].is_principal = true
+    return liste
+}
+
 interface TuteurFormData {
+    // Renseigné uniquement quand une suggestion de l'autocomplétion a été
+    // choisie — sinon la saisie est traitée comme un nouveau tuteur.
+    tuteur_id?: number
     nom_complet: string
-    telephone?: string
+    telephones: TuteurTelephoneFormData[]
     profession?: string
     lien_parente?: string
     // Précision libre saisie quand `lien_parente` vaut "autre" — combinée avec
@@ -71,6 +96,190 @@ interface EleveFormValues {
     paiement_date?: string
     paiement_reference?: string
     paiement_note?: string
+}
+
+/**
+ * Champ nom du tuteur avec autocomplétion : recherche les tuteurs déjà
+ * connus de l'école dès 2 caractères saisis (debounce 300ms). Choisir une
+ * suggestion renseigne `tuteur_id` et recopie ses informations (profession,
+ * numéros) ; toute frappe ultérieure dans le champ efface `tuteur_id` — la
+ * saisie redevient alors celle d'un nouveau tuteur, comme demandé.
+ */
+function TuteurNomAutocomplete({
+    index,
+    register,
+    setValue,
+    watch,
+    error,
+    t,
+}: {
+    index: number
+    register: UseFormRegister<EleveFormValues>
+    setValue: UseFormSetValue<EleveFormValues>
+    watch: UseFormWatch<EleveFormValues>
+    error?: string
+    t: TFunction
+}) {
+    const [terme, setTerme] = useState('')
+    const [termeDebounce, setTermeDebounce] = useState('')
+    const [ouvert, setOuvert] = useState(false)
+    const tuteurId = watch(`tuteurs.${index}.tuteur_id`)
+
+    useEffect(() => {
+        const minuteur = setTimeout(() => setTermeDebounce(terme.trim()), 300)
+        return () => clearTimeout(minuteur)
+    }, [terme])
+
+    const { data: suggestions, isFetching } = useQuery({
+        queryKey: ['tuteurs-recherche', termeDebounce],
+        queryFn: () => rechercheTuteurs(termeDebounce),
+        enabled: ouvert && !tuteurId && termeDebounce.length >= 2,
+    })
+
+    const champ = register(`tuteurs.${index}.nom_complet` as const, { required: t('eleves.inscription.tuteur_nom_complet_required') })
+
+    const choisir = (suggestion: TuteurSuggestion) => {
+        setValue(`tuteurs.${index}.tuteur_id`, suggestion.id, { shouldDirty: true })
+        setValue(`tuteurs.${index}.nom_complet`, suggestion.nom_complet, { shouldDirty: true })
+        setValue(`tuteurs.${index}.profession`, suggestion.profession ?? '', { shouldDirty: true })
+        const telephones = suggestion.telephones.length > 0
+            ? suggestion.telephones.map((tel) => ({ numero: tel.numero, is_principal: tel.is_principal }))
+            : suggestion.telephone
+                ? [{ numero: suggestion.telephone, is_principal: true }]
+                : []
+        setValue(`tuteurs.${index}.telephones`, completerTelephones(telephones), { shouldDirty: true })
+        setOuvert(false)
+    }
+
+    const afficherSuggestions = ouvert && !tuteurId && termeDebounce.length >= 2 && (suggestions?.length ?? 0) > 0
+
+    return (
+        <div className="relative">
+            <Input
+                label={t('eleves.inscription.champ_nom_complet')}
+                placeholder={t('eleves.inscription.champ_nom_complet')}
+                autoComplete="off"
+                error={error}
+                {...champ}
+                onChange={(e) => {
+                    champ.onChange(e)
+                    setValue(`tuteurs.${index}.tuteur_id`, undefined)
+                    setTerme(e.target.value)
+                    setOuvert(true)
+                }}
+                onFocus={() => setOuvert(true)}
+                onBlur={(e) => {
+                    champ.onBlur(e)
+                    // Laisse le `onClick` d'une suggestion s'exécuter avant de fermer la liste.
+                    setTimeout(() => setOuvert(false), 150)
+                }}
+            />
+            {tuteurId && (
+                <p className="mt-1 text-xs font-medium text-green-600">{t('eleves.inscription.tuteur_existant_selectionne')}</p>
+            )}
+            {afficherSuggestions && (
+                <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
+                    {suggestions!.map((suggestion) => (
+                        <li key={suggestion.id}>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => choisir(suggestion)}
+                                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-cream-100"
+                            >
+                                <span className="font-medium text-navy-900">{suggestion.nom_complet}</span>
+                                {(suggestion.telephones[0]?.numero || suggestion.telephone) && (
+                                    <span className="text-xs text-navy-400">
+                                        {suggestion.telephones.find((tel) => tel.is_principal)?.numero ?? suggestion.telephones[0]?.numero ?? suggestion.telephone}
+                                    </span>
+                                )}
+                            </button>
+                        </li>
+                    ))}
+                    {isFetching && <li className="px-3 py-2 text-xs text-navy-300">{t('common.loading')}</li>}
+                </ul>
+            )}
+        </div>
+    )
+}
+
+/**
+ * Liste des numéros de téléphone d'un tuteur : au moins 3 champs, extensibles,
+ * avec une seule case "principal" cochable à la fois (comportement de radio
+ * bouton implémenté à la main pour rester un simple tableau `boolean`).
+ */
+function TuteurTelephonesFields({
+    control,
+    index,
+    register,
+    setValue,
+    errors,
+    t,
+}: {
+    control: Control<EleveFormValues>
+    index: number
+    register: UseFormRegister<EleveFormValues>
+    setValue: UseFormSetValue<EleveFormValues>
+    errors: FieldErrors<EleveFormValues>
+    t: TFunction
+}) {
+    const { fields, append, remove } = useFieldArray({ control, name: `tuteurs.${index}.telephones` })
+
+    const marquerPrincipal = (i: number) => {
+        fields.forEach((_, j) => setValue(`tuteurs.${index}.telephones.${j}.is_principal`, j === i, { shouldDirty: true }))
+    }
+
+    const supprimer = (i: number) => {
+        const etaitPrincipal = fields[i] && (fields[i] as unknown as TuteurTelephoneFormData).is_principal
+        remove(i)
+        if (etaitPrincipal) setValue(`tuteurs.${index}.telephones.0.is_principal`, true, { shouldDirty: true })
+    }
+
+    return (
+        <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('eleves.inscription.telephones_label')}</span>
+            {fields.map((field, i) => (
+                <div key={field.id} className="flex items-center gap-2">
+                    <input
+                        type="tel"
+                        placeholder={t('eleves.inscription.telephone_placeholder')}
+                        {...register(`tuteurs.${index}.telephones.${i}.numero` as const, {
+                            required: i < NB_TELEPHONES_MIN ? t('eleves.inscription.telephone_required') : false,
+                        })}
+                        className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm text-navy-900 shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => marquerPrincipal(i)}
+                        title={t('eleves.inscription.telephone_principal')}
+                        className="flex-none rounded-lg p-2 text-navy-300 hover:bg-gold-50 hover:text-gold-500"
+                    >
+                        <Star className={clsx('h-4 w-4', (field as unknown as TuteurTelephoneFormData).is_principal && 'fill-gold-400 text-gold-500')} />
+                    </button>
+                    {fields.length > NB_TELEPHONES_MIN && (
+                        <button
+                            type="button"
+                            onClick={() => supprimer(i)}
+                            className="flex-none rounded-lg p-2 text-navy-300 hover:bg-red-100 hover:text-red-500"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+            ))}
+            {errors.tuteurs?.[index]?.telephones?.[0]?.numero && (
+                <span className="text-xs font-medium text-red-500">{t('eleves.inscription.telephones_min', { min: NB_TELEPHONES_MIN })}</span>
+            )}
+            <button
+                type="button"
+                onClick={() => append({ numero: '', is_principal: false })}
+                className="inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-500 hover:bg-navy-50 hover:text-navy-700"
+            >
+                <Plus className="h-3.5 w-3.5" />
+                {t('eleves.inscription.ajouter_telephone')}
+            </button>
+        </div>
+    )
 }
 
 export function EleveInscriptionPage() {
@@ -119,12 +328,19 @@ export function EleveInscriptionPage() {
                 refugie: eleve.refugie ?? '',
                 deplace_interne: eleve.deplace_interne ?? '',
                 classe_id: eleve.classe?.id,
-                tuteurs: eleve.tuteurs.map((t) => ({
-                    nom_complet: t.nom_complet,
-                    telephone: t.telephone ?? '',
-                    profession: t.profession ?? '',
-                    lien_parente: t.lien_parente ?? '',
-                    is_principal: t.is_principal,
+                tuteurs: eleve.tuteurs.map((tut) => ({
+                    tuteur_id: tut.id,
+                    nom_complet: tut.nom_complet,
+                    telephones: completerTelephones(
+                        tut.telephones.length > 0
+                            ? tut.telephones.map((tel) => ({ numero: tel.numero, is_principal: tel.is_principal }))
+                            : tut.telephone
+                                ? [{ numero: tut.telephone, is_principal: true }]
+                                : [],
+                    ),
+                    profession: tut.profession ?? '',
+                    lien_parente: tut.lien_parente ?? '',
+                    is_principal: tut.is_principal,
                 })),
                 ...paiementDefaults,
             }
@@ -145,12 +361,19 @@ export function EleveInscriptionPage() {
             refugie: eleve.refugie ?? '',
             deplace_interne: eleve.deplace_interne ?? '',
             classe_id: eleve.classe?.id,
-            tuteurs: eleve.tuteurs.map((t) => ({
-                nom_complet: t.nom_complet,
-                telephone: t.telephone ?? '',
-                profession: t.profession ?? '',
-                lien_parente: t.lien_parente ?? '',
-                is_principal: t.is_principal,
+            tuteurs: eleve.tuteurs.map((tut) => ({
+                tuteur_id: tut.id,
+                nom_complet: tut.nom_complet,
+                telephones: completerTelephones(
+                    tut.telephones.length > 0
+                        ? tut.telephones.map((tel) => ({ numero: tel.numero, is_principal: tel.is_principal }))
+                        : tut.telephone
+                            ? [{ numero: tut.telephone, is_principal: true }]
+                            : [],
+                ),
+                profession: tut.profession ?? '',
+                lien_parente: tut.lien_parente ?? '',
+                is_principal: tut.is_principal,
             })),
             ...paiementDefaults,
         })
@@ -221,7 +444,7 @@ export function EleveInscriptionPage() {
                 lien_parente = `autre: ${lien_parente_autre}`
             }
 
-            return { ...rest, lien_parente }
+            return { ...rest, lien_parente, telephones: rest.telephones.filter((tel) => tel.numero.trim() !== '') }
         })
 
         return {
@@ -648,7 +871,7 @@ export function EleveInscriptionPage() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                append({ nom_complet: '', telephone: '', lien_parente: '', is_principal: fields.length === 0 })
+                                                append({ nom_complet: '', telephones: telephonesParDefaut(), lien_parente: '', is_principal: fields.length === 0 })
                                             }
                                             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-navy-600 hover:text-navy-800 hover:bg-navy-50 rounded-lg transition-colors"
                                         >
@@ -675,11 +898,13 @@ export function EleveInscriptionPage() {
                                             {fields.map((field, index) => (
                                                 <Card key={field.id} className="p-4 bg-cream-50">
                                                     <div className="grid grid-cols-1 gap-3">
-                                                        <Input
-                                                            label={t('eleves.inscription.champ_nom_complet')}
-                                                            placeholder={t('eleves.inscription.champ_nom_complet')}
-                                                            {...register(`tuteurs.${index}.nom_complet` as const, { required: t('eleves.inscription.tuteur_nom_complet_required') })}
+                                                        <TuteurNomAutocomplete
+                                                            index={index}
+                                                            register={register}
+                                                            setValue={setValue}
+                                                            watch={watch}
                                                             error={errors.tuteurs?.[index]?.nom_complet?.message}
+                                                            t={t}
                                                         />
 
                                                         <Select
@@ -703,12 +928,13 @@ export function EleveInscriptionPage() {
                                                             />
                                                         )}
 
-                                                        <Input
-                                                            label={t('eleves.tuteur_telephone')}
-                                                            type="tel"
-                                                            placeholder={t('eleves.inscription.telephone_placeholder')}
-                                                            {...register(`tuteurs.${index}.telephone` as const)}
-                                                            error={errors.tuteurs?.[index]?.telephone?.message}
+                                                        <TuteurTelephonesFields
+                                                            control={control}
+                                                            index={index}
+                                                            register={register}
+                                                            setValue={setValue}
+                                                            errors={errors}
+                                                            t={t}
                                                         />
 
                                                         <Input
@@ -846,9 +1072,16 @@ export function EleveInscriptionPage() {
                                                                 {watch(`tuteurs.${index}.profession`)}
                                                             </div>
                                                         )}
-                                                        {watch(`tuteurs.${index}.telephone`) && (
-                                                            <div className="text-navy-600 text-xs">
-                                                                {watch(`tuteurs.${index}.telephone`)}
+                                                        {(watch(`tuteurs.${index}.telephones`) ?? []).filter((tel) => tel.numero.trim() !== '').length > 0 && (
+                                                            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-navy-600 text-xs">
+                                                                {(watch(`tuteurs.${index}.telephones`) ?? [])
+                                                                    .filter((tel) => tel.numero.trim() !== '')
+                                                                    .map((tel, i) => (
+                                                                        <span key={i}>
+                                                                            {tel.numero}
+                                                                            {tel.is_principal && <span className="text-gold-500"> ★</span>}
+                                                                        </span>
+                                                                    ))}
                                                             </div>
                                                         )}
                                                     </div>

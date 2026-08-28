@@ -310,6 +310,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
 
                 Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index');
+                Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');
                 Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
                 Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
                 Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces');
