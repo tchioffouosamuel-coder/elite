@@ -19,6 +19,7 @@ class PersonnelService extends BaseService
     public function __construct(
         private readonly PersonnelRepository $repository,
         private readonly CompteAgentService $comptes,
+        private readonly AuthService $auth,
     ) {}
 
     /** @param int|array<int> $schoolId */
@@ -53,14 +54,34 @@ class PersonnelService extends BaseService
         return $this->repository->update($personnel, $attributes);
     }
 
+    /**
+     * L'agent sort des effectifs : son compte de connexion est désactivé et
+     * ses sessions ouvertes révoquées dans la foulée — sans ça, un agent
+     * archivé garderait un accès complet jusqu'à l'expiration naturelle de
+     * son jeton (30 jours pour le rafraîchissement), y compris hors ligne.
+     */
     public function archive(Personnel $personnel): Personnel
     {
-        return $this->repository->update($personnel, ['statut' => 'ex_employe']);
+        return $this->transaction(function () use ($personnel) {
+            $personnel = $this->repository->update($personnel, ['statut' => 'ex_employe']);
+
+            if ($personnel->user) {
+                $personnel->user->update(['is_active' => false]);
+                $this->auth->revoquerTousLesJetons($personnel->user);
+            }
+
+            return $personnel;
+        });
     }
 
     public function reactivate(Personnel $personnel): Personnel
     {
-        return $this->repository->update($personnel, ['statut' => 'actif']);
+        return $this->transaction(function () use ($personnel) {
+            $personnel = $this->repository->update($personnel, ['statut' => 'actif']);
+            $personnel->user?->update(['is_active' => true]);
+
+            return $personnel;
+        });
     }
 
     /**

@@ -31,6 +31,7 @@ class AuthController extends Controller
         return ApiResponse::success([
             'user' => new UserResource($result['user']),
             'token' => $result['token'],
+            'refresh_token' => $result['refresh_token'],
         ], 'Connexion réussie.');
     }
 
@@ -46,9 +47,14 @@ class AuthController extends Controller
             $request->string('device_name', 'web')->toString(),
         );
 
+        if (! $result) {
+            return ApiResponse::error("Ce jeton ne permet pas de renouveler la session.", 401);
+        }
+
         return ApiResponse::success([
             'user' => new UserResource($result['user']),
             'token' => $result['token'],
+            'refresh_token' => $result['refresh_token'],
         ], 'Jeton renouvelé.');
     }
 

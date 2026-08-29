@@ -10,6 +10,17 @@ use Illuminate\Support\Facades\Hash;
 class AuthService extends BaseService
 {
     /**
+     * Durée de vie du jeton d'accès : volontairement courte, puisque
+     * {@see refresh()} permet de le renouveler sans ressaisie tant que le
+     * jeton de rafraîchissement (lui-même valable {@see REFRESH_TOKEN_TTL_MINUTES})
+     * n'a pas expiré.
+     */
+    private const ACCESS_TOKEN_TTL_MINUTES = 60 * 24;
+
+    /** Aligné sur l'ancienne durée de session unique, pour ne pas raccourcir l'expérience actuelle. */
+    private const REFRESH_TOKEN_TTL_MINUTES = 60 * 24 * 30;
+
+    /**
      * Le personnel se connecte par e-mail, les parents par téléphone (cf.
      * CompteParentService, qui n'ouvre pas d'adresse) : `$identifiant` peut
      * être l'un ou l'autre, distingués par la présence d'un « @ ». Un numéro
@@ -17,7 +28,7 @@ class AuthService extends BaseService
      * quoi la moindre variante de saisie (espaces, préfixe 0…) le rendrait
      * introuvable.
      *
-     * @return array{user: User, token: string}|null null when the credentials are invalid or the account is disabled.
+     * @return array{user: User, token: string, refresh_token: string}|null null when the credentials are invalid or the account is disabled.
      */
     public function login(string $identifiant, string $password, string $deviceName = 'web'): ?array
     {
@@ -31,16 +42,34 @@ class AuthService extends BaseService
             return null;
         }
 
-        $token = $user->createToken($deviceName)->plainTextToken;
-
         ActivityLog::enregistrer($user, 'connexion', 'Connexion à l’application.');
 
-        return ['user' => $user, 'token' => $token];
+        return ['user' => $user, ...$this->emettreJetons($user, $deviceName)];
     }
 
+    /**
+     * Révoque le jeton d'accès courant ainsi que son jeton de rafraîchissement
+     * associé (même paire de session) : sans quoi une déconnexion laisserait
+     * le jeton de rafraîchissement valide, capable de rouvrir la session.
+     */
     public function logout(User $user): void
     {
-        $user->currentAccessToken()->delete();
+        $current = $user->currentAccessToken();
+
+        $user->tokens()->whereIn('name', $this->nomsPaire($current?->name))->delete();
+    }
+
+    /**
+     * Révoque toutes les sessions ouvertes d'un compte — à appeler partout où
+     * un accès est bloqué (personnel archivé, accès parent débloqué→bloqué).
+     * Sans ça, un compte désactivé resterait utilisable jusqu'à l'expiration
+     * naturelle de son jeton d'accès (24 h) et surtout de son jeton de
+     * rafraîchissement (30 jours) : un mode hors-ligne côté mobile qui se
+     * fierait à un 401 pour détecter la désactivation ne le verrait jamais.
+     */
+    public function revoquerTousLesJetons(User $user): void
+    {
+        $user->tokens()->delete();
     }
 
     /** Identité du compte (nom, e-mail, téléphone) — distincte de la fiche personnel, gérée séparément par un administrateur. */
@@ -68,13 +97,17 @@ class AuthService extends BaseService
         }
 
         $courant = $user->currentAccessToken();
+        // Le jeton de rafraîchissement de la même session doit survivre : sinon
+        // la prochaine tentative de renouvellement échouerait juste après un
+        // changement de mot de passe pourtant réussi.
+        $paire = $this->nomsPaire($courant?->name);
 
         $user->forceFill([
             'password' => Hash::make($nouveau),
             'doit_changer_mot_de_passe' => false,
         ])->save();
 
-        $user->tokens()->whereKeyNot($courant?->getKey())->delete();
+        $user->tokens()->whereNotIn('name', $paire)->delete();
 
         return true;
     }
@@ -100,13 +133,64 @@ class AuthService extends BaseService
     }
 
     /**
-     * @return array{user: User, token: string}
+     * Renouvellement de session à partir du jeton de rafraîchissement.
+     *
+     * Refusé si le jeton présenté est le jeton d'accès (ou tout jeton sans
+     * l'aptitude `refresh`) : un jeton d'accès qui fuit ne doit pas suffire à
+     * prolonger indéfiniment la session, seul le jeton de rafraîchissement
+     * — distinct, jamais envoyé aux endpoints métier — le peut.
+     *
+     * L'ancien jeton de rafraîchissement est révoqué (rotation) : le
+     * réutiliser après ce point échouera, ce qui permet de détecter un vol.
+     *
+     * @return array{user: User, token: string, refresh_token: string}|null null when the presented token cannot refresh a session.
      */
-    public function refresh(User $user, string $deviceName = 'web'): array
+    public function refresh(User $user, string $deviceName = 'web'): ?array
     {
-        $user->currentAccessToken()->delete();
-        $token = $user->createToken($deviceName)->plainTextToken;
+        $current = $user->currentAccessToken();
 
-        return ['user' => $user, 'token' => $token];
+        if (! $current instanceof \Laravel\Sanctum\PersonalAccessToken || ! $current->can('refresh')) {
+            return null;
+        }
+
+        $current->delete();
+
+        return ['user' => $user, ...$this->emettreJetons($user, $deviceName)];
+    }
+
+    /**
+     * @return array{token: string, refresh_token: string}
+     *
+     * L'identifiant aléatoire distingue deux sessions qui partageraient le
+     * même `$deviceName` (le mobile n'en envoie aucun et retombe toujours sur
+     * le défaut `web`, tout comme le client web) : sans lui, {@see logout()}
+     * et {@see changerMotDePasse()} ne pourraient pas savoir quel jeton de
+     * rafraîchissement appartient à quelle paire.
+     */
+    private function emettreJetons(User $user, string $deviceName): array
+    {
+        $sessionId = bin2hex(random_bytes(4));
+
+        $access = $user->createToken(
+            "{$deviceName}-{$sessionId}-access",
+            ['access'],
+            now()->addMinutes(self::ACCESS_TOKEN_TTL_MINUTES),
+        );
+
+        $refresh = $user->createToken(
+            "{$deviceName}-{$sessionId}-refresh",
+            ['refresh'],
+            now()->addMinutes(self::REFRESH_TOKEN_TTL_MINUTES),
+        );
+
+        return ['token' => $access->plainTextToken, 'refresh_token' => $refresh->plainTextToken];
+    }
+
+    /** Les deux noms de jeton (accès + rafraîchissement) d'une même session, à partir du nom de l'un d'eux. */
+    private function nomsPaire(?string $nomJeton): array
+    {
+        $base = preg_replace('/-(access|refresh)$/', '', $nomJeton ?? '');
+
+        return ["{$base}-access", "{$base}-refresh"];
     }
 }

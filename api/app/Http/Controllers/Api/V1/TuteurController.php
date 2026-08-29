@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\TuteurResource;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\Tuteur;
+use App\Services\AuthService;
 use App\Services\CompteParentService;
 use App\Services\SettingsCatalog;
 use App\Support\Pdf\IdentifiantsGenerator;
@@ -20,7 +21,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TuteurController extends Controller
 {
-    public function __construct(private readonly CompteParentService $service) {}
+    public function __construct(
+        private readonly CompteParentService $service,
+        private readonly AuthService $auth,
+    ) {}
 
     /** Tuteurs de l'école, avec leurs enfants et l'état de leur accès parent — la vue qui remplace de chercher fiche élève par fiche élève. */
     public function index(Request $request): JsonResponse
@@ -173,6 +177,13 @@ class TuteurController extends Controller
         }
 
         $tuteur->user->update(['is_active' => ! $tuteur->user->is_active]);
+
+        // Bloquer l'accès doit fermer les sessions déjà ouvertes, pas
+        // seulement empêcher un futur login : sans quoi un parent bloqué
+        // resterait connecté jusqu'à l'expiration naturelle de son jeton.
+        if (! $tuteur->user->is_active) {
+            $this->auth->revoquerTousLesJetons($tuteur->user);
+        }
 
         return ApiResponse::success(null, $tuteur->user->is_active ? 'Accès parent débloqué.' : 'Accès parent bloqué.');
     }
