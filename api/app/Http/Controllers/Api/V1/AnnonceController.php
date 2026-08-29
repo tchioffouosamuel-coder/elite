@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\AnnonceResource;
 use App\Models\Annonce;
 use App\Models\FonctionReferentiel;
 use App\Models\User;
@@ -28,7 +29,7 @@ class AnnonceController extends Controller
             ->orderByDesc('publiee_le')
             ->paginate(20);
 
-        return ApiResponse::paginated($annonces);
+        return ApiResponse::paginated($annonces, AnnonceResource::class);
     }
 
     public function store(Request $request): JsonResponse
@@ -83,7 +84,7 @@ class AnnonceController extends Controller
             $annonce->contenu,
         );
 
-        return ApiResponse::created($annonce->load(['publiePar', 'school:id,name,code,type']), 'Annonce publiée.');
+        return ApiResponse::created(new AnnonceResource($annonce->load(['publiePar', 'school:id,name,code,type'])), 'Annonce publiée.');
     }
 
     /**
