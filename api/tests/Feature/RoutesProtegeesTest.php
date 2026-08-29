@@ -71,6 +71,44 @@ class RoutesProtegeesTest extends TestCase
         // `finance.paie`, l'écran serait fermé à l'employé qu'il concerne.
         'api.v1.mon-espace.avances.index',
         'api.v1.mon-espace.avances.demandes.store',
+
+        // Portail parent : gardé par le rôle `role:parent` (pas un privilège
+        // `X.view`) et borné aux seuls enfants du compte par ParentAccess.
+        'api.v1.parent.enfants.index',
+        'api.v1.parent.enfants.show',
+        'api.v1.parent.enfants.finance',
+        'api.v1.parent.enfants.bulletin',
+        'api.v1.parent.enfants.progression',
+        'api.v1.parent.enfants.progression.show',
+        'api.v1.parent.enfants.absences',
+        'api.v1.parent.enfants.emploi-du-temps',
+        'api.v1.parent.enfants.visites-infirmerie',
+        'api.v1.parent.enfants.sanctions',
+        'api.v1.parent.enfants.justifications.index',
+        'api.v1.parent.enfants.justifications.store',
+        'api.v1.parent.enfants.observations.index',
+        'api.v1.parent.enfants.observations.store',
+        'api.v1.parent.enfants.modification.show',
+        'api.v1.parent.enfants.modification.store',
+        'api.v1.parent.enfants.modifications.index',
+        'api.v1.parent.preinscriptions.index',
+        'api.v1.parent.preinscriptions.store',
+        'api.v1.parent.preinscriptions.show',
+        'api.v1.parent.preinscriptions.update',
+        'api.v1.parent.ecoles-disponibles',
+        'api.v1.parent.ecoles.classes',
+
+        // Espace enseignant : même principe que « mon-espace » ci-dessus (cf.
+        // EnseignantController), sans middleware `permission`/`role` — le
+        // périmètre (fiche personnel, département/niveau/classe dirigés) est
+        // vérifié dans le contrôleur, avec un 403 explicite hors attribution.
+        'api.v1.enseignant.mes-informations.show',
+        'api.v1.enseignant.mes-informations.update',
+        'api.v1.enseignant.remuneration.show',
+        'api.v1.enseignant.mon-departement.show',
+        'api.v1.enseignant.ma-classe-prof-principal.show',
+        'api.v1.enseignant.mon-niveau.show',
+        'api.v1.enseignant.evaluations.store',
     ];
 
     /**
