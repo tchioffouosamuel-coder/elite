@@ -79,6 +79,25 @@ class CataloguePermissions
             'inventaire.manage' => ['Gérer les articles de l\'inventaire', 'Manage inventory items'],
         ]],
         /*
+         * Distinct de `inventaire` (matériel consommable/vendable) : ce
+         * module couvre le bâti et le mobilier fixe recensés au rapport de
+         * rentrée MINEDUB — salles de classe, points d'eau, tables-bancs…
+         */
+        'infrastructures' => ['Infrastructures et mobilier', 'Infrastructure and furniture', [
+            'infrastructures.view' => ['Consulter les infrastructures et le mobilier', 'View infrastructure and furniture'],
+            'infrastructures.manage' => ['Gérer les infrastructures et le mobilier', 'Manage infrastructure and furniture'],
+        ]],
+        /*
+         * Rubriques du rapport de rentrée MINEDUB qui ne rentrent dans aucun
+         * autre module : visites d'autorités, activités pédagogiques/EPS/
+         * FENASSCO, vente de denrées et blocs de texte libre (sécurité,
+         * gouvernements d'enfants, doléances…).
+         */
+        'rapport_rentree' => ['Rapport de rentrée', 'Back-to-school report', [
+            'rapport_rentree.view' => ['Consulter le rapport de rentrée', 'View the back-to-school report'],
+            'rapport_rentree.manage' => ['Renseigner le rapport de rentrée', 'Fill in the back-to-school report'],
+        ]],
+        /*
          * Le comptoir se sépare de l'inventaire : le vendeur écoule le stock
          * sans avoir à modifier la fiche des articles, et l'économe tient
          * l'inventaire sans forcément tenir la caisse de la boutique. Vendre
@@ -111,6 +130,7 @@ class CataloguePermissions
             'finance.encaisser' => ['Encaisser les frais de scolarité et délivrer les reçus', 'Collect fees and issue receipts'],
             'finance.annuler' => ['Annuler un encaissement', 'Cancel a payment'],
             'finance.depenses' => ['Enregistrer et suivre les dépenses', 'Record and track expenses'],
+            'finance.budget' => ['Allouer et suivre les budgets du personnel', 'Allocate and track staff budgets'],
             'finance.paie' => ['Préparer et arrêter la paie du personnel', 'Prepare and close payroll'],
             'finance.rapports' => ['Consulter les rapports et le bilan financier', 'View financial reports'],
         ]],

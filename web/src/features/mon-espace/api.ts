@@ -1,6 +1,6 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
-import type { PlafondAvance, StatutAvance, StatutDemandeAvance } from '@/features/finance/api'
+import type { PlafondAvance, StatutAvance, StatutBudget, StatutDemandeAvance } from '@/features/finance/api'
 
 export interface MonAvance {
   id: number
@@ -46,5 +46,30 @@ export async function soumettreDemandeAvance(payload: {
   motif?: string | null
 }): Promise<MaDemandeAvance> {
   const { data } = await http.post<ApiResponse<MaDemandeAvance>>('/mon-espace/avances/demandes', payload)
+  return data.data
+}
+
+// ---------------------------------------------------------------- Budgets
+
+export interface MonBudget {
+  id: number
+  libelle: string
+  montant_alloue: number
+  montant_depense: number
+  solde: number
+  statut: StatutBudget
+  date_allocation: string
+  note_gestion: string | null
+}
+
+export async function fetchMesBudgets(): Promise<{ budgets: MonBudget[] }> {
+  const { data } = await http.get<ApiResponse<{ budgets: MonBudget[] }>>('/mon-espace/budgets')
+  return data.data
+}
+
+export async function modifierNoteGestionMonBudget(id: number, note_gestion: string): Promise<{ note_gestion: string }> {
+  const { data } = await http.put<ApiResponse<{ note_gestion: string }>>(`/mon-espace/budgets/${id}/note-gestion`, {
+    note_gestion,
+  })
   return data.data
 }

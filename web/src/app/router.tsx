@@ -73,7 +73,11 @@ import { EtatSynthesePage } from '@/features/finance/pages/EtatSynthesePage'
 import { TarifsPage } from '@/features/finance/pages/TarifsPage'
 import { RemunerationsPage } from '@/features/finance/pages/RemunerationsPage'
 import { AvancesSalairePage } from '@/features/finance/pages/AvancesSalairePage'
+import { BudgetsPersonnelPage } from '@/features/finance/pages/BudgetsPersonnelPage'
+import { RentreeScolairePage } from '@/features/finance/pages/RentreeScolairePage'
+import { RapportRentreePage } from '@/features/rapportRentree/pages/RapportRentreePage'
 import { MesAvancesPage } from '@/features/mon-espace/pages/MesAvancesPage'
+import { MonBudgetPage } from '@/features/mon-espace/pages/MonBudgetPage'
 import { MesInformationsPage } from '@/features/enseignant/pages/MesInformationsPage'
 import { MesMatieresPage } from '@/features/enseignant/pages/MesMatieresPage'
 import { RemplirNotesPage } from '@/features/enseignant/pages/RemplirNotesPage'
@@ -83,6 +87,7 @@ import { MesCompetencesPage } from '@/features/enseignant/pages/MesCompetencesPa
 import { RemplirCompetencesPage } from '@/features/enseignant/pages/RemplirCompetencesPage'
 import { MonNiveauPage } from '@/features/enseignant/pages/MonNiveauPage'
 import { InventairePage } from '@/features/inventaire/pages/InventairePage'
+import { InfrastructuresPage } from '@/features/infrastructures/pages/InfrastructuresPage'
 import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 import { PreinscriptionsAdminPage } from '@/features/eleves/pages/PreinscriptionsAdminPage'
@@ -199,11 +204,15 @@ export const router = createHashRouter([
       { path: 'salaires', element: <ProtectedRoute permission="finance.paie"><RemunerationsPage /></ProtectedRoute> },
       { path: 'paie', element: <ProtectedRoute permission="finance.paie"><PaiePage /></ProtectedRoute> },
       { path: 'avances-salaire', element: <ProtectedRoute permission="finance.paie"><AvancesSalairePage /></ProtectedRoute> },
+      { path: 'budgets-personnel', element: <ProtectedRoute permission="finance.budget"><BudgetsPersonnelPage /></ProtectedRoute> },
       { path: 'rapports-financiers', element: <ProtectedRoute permission="finance.rapports"><RapportsFinanciersPage /></ProtectedRoute> },
       { path: 'etat-synthese', element: <ProtectedRoute permission="finance.rapports"><EtatSynthesePage /></ProtectedRoute> },
+      { path: 'rentree-scolaire', element: <ProtectedRoute permission="finance.rapports"><RentreeScolairePage /></ProtectedRoute> },
+      { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },
       // Libre-service de l'agent sur ses propres avances : aucun privilège de
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
+      { path: 'mon-budget', element: <ProtectedRoute personnelOnly><MonBudgetPage /></ProtectedRoute> },
       // Espace enseignant : fiche personnelle, rémunération et matières
       // enseignées, en libre-service — cf. EnseignantController.
       { path: 'enseignant/mes-informations', element: <ProtectedRoute enseignantOnly><MesInformationsPage /></ProtectedRoute> },
@@ -230,6 +239,7 @@ export const router = createHashRouter([
         element: <ProtectedRoute enseignantOnly animateurNiveauOnly><MonNiveauPage /></ProtectedRoute>,
       },
       { path: 'inventaire', element: <ProtectedRoute permission="inventaire.view"><InventairePage /></ProtectedRoute> },
+      { path: 'infrastructures', element: <ProtectedRoute permission="infrastructures.view"><InfrastructuresPage /></ProtectedRoute> },
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'comptes', element: <ProtectedRoute superAdminOnly><ComptesPage /></ProtectedRoute> },

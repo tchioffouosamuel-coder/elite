@@ -7,15 +7,33 @@ import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes } from '@/shared/lib/alertes'
-import { creerDepense, fetchComptes, MODES, type ModePaiement } from '@/features/finance/api'
+import {
+  creerDepense,
+  fetchBudgetsActifs,
+  fetchComptes,
+  francs,
+  MODES,
+  type ModePaiement,
+  type RubriqueBudgetFonctionnement,
+} from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
+
+const RUBRIQUES_BUDGET: { value: RubriqueBudgetFonctionnement; label: string }[] = [
+  { value: 'primes_rendement', label: 'Primes de rendement' },
+  { value: 'projet_ecole', label: "Projet d'école" },
+  { value: 'fenassco', label: 'FENASSCO' },
+  { value: 'fonctionnement', label: 'Fonctionnement' },
+  { value: 'evaluation', label: 'Évaluation' },
+]
 
 interface FormValues {
   libelle: string
   montant: number
   date_depense: string
   compte_comptable_id: number | ''
-  source: 'caisse' | 'revenu_personnel'
+  rubrique_budget_fonctionnement: RubriqueBudgetFonctionnement | ''
+  source: 'caisse' | 'revenu_personnel' | 'budget_personnel'
+  budget_personnel_id: number | ''
   mode: ModePaiement
   beneficiaire: string
   reference_facture: string
@@ -56,6 +74,7 @@ export function DepenseFormModal({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -63,8 +82,19 @@ export function DepenseFormModal({
       mode: 'especes',
       statut: 'payee',
       compte_comptable_id: '',
+      rubrique_budget_fonctionnement: '',
       source: 'caisse',
+      budget_personnel_id: '',
     },
+  })
+
+  const source = watch('source')
+  // Chargés seulement quand la source « Budget alloué » est choisie : pas
+  // besoin d'interroger les budgets pour une dépense de caisse ordinaire.
+  const { data: budgets } = useQuery({
+    queryKey: ['budgets-personnel', 'actifs'],
+    queryFn: fetchBudgetsActifs,
+    enabled: source === 'budget_personnel',
   })
 
   const onSubmit = async (valeurs: FormValues) => {
@@ -76,7 +106,9 @@ export function DepenseFormModal({
         montant: Number(valeurs.montant),
         date_depense: valeurs.date_depense,
         compte_comptable_id: valeurs.compte_comptable_id || undefined,
+        rubrique_budget_fonctionnement: valeurs.rubrique_budget_fonctionnement || undefined,
         source: valeurs.source,
+        budget_personnel_id: valeurs.source === 'budget_personnel' ? valeurs.budget_personnel_id || undefined : undefined,
         mode: valeurs.mode,
         beneficiaire: valeurs.beneficiaire,
         reference_facture: valeurs.reference_facture,
@@ -108,10 +140,35 @@ export function DepenseFormModal({
           ))}
         </Select>
 
+        <Select label="Rubrique du budget de fonctionnement" {...register('rubrique_budget_fonctionnement')}>
+          <option value="">— Aucune —</option>
+          {RUBRIQUES_BUDGET.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </Select>
+
         <Select label="Source" {...register('source')}>
           <option value="caisse">Caisse</option>
           <option value="revenu_personnel">Revenu personnel</option>
+          <option value="budget_personnel">Budget alloué</option>
         </Select>
+
+        {source === 'budget_personnel' && (
+          <Select
+            label="Budget alloué"
+            error={errors.budget_personnel_id?.message}
+            {...register('budget_personnel_id', { required: 'Choisissez le budget à imputer.' })}
+          >
+            <option value="">—</option>
+            {budgets?.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.personnel?.nom_complet ?? '—'} — {b.libelle} (solde : {francs(b.solde)})
+              </option>
+            ))}
+          </Select>
+        )}
 
         <Input
           label="Libellé"

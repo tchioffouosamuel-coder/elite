@@ -50,6 +50,14 @@ trait ReglesDossierPersonnel
             'enfants.*.sexe' => ['nullable', 'in:M,F'],
             'enfants.*.date_naissance' => ['nullable', 'date', 'before:today'],
             'statut' => ['nullable', 'in:actif,ex_employe'],
+            'type_contrat' => ['nullable', 'in:CDI,CDD'],
+            'statut_contrat' => ['nullable', 'in:essai,permanent,vacataire'],
+            'categorie_echelon' => ['nullable', 'string', 'max:20'],
+            'grade_minedub' => ['nullable', 'string', 'max:50'],
+            'absent_depuis' => ['nullable', 'date'],
+            'motif_absence' => ['nullable', 'string', 'max:255'],
+            'dossier_disciplinaire' => ['nullable', 'boolean'],
+            'date_deces' => ['nullable', 'date'],
         ];
     }
 

@@ -16,6 +16,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  Landmark,
 } from 'lucide-react'
 import {
   fetchPersonnel,
@@ -26,11 +27,15 @@ import {
 } from '@/features/personnel/api'
 import {
   fetchAvancesSalaire,
+  fetchBudgetsPersonnel,
   fetchHistoriqueRemunerations,
   francs,
   GAINS,
+  type BudgetPersonnel,
+  type StatutBudget,
 } from '@/features/finance/api'
 import { AccorderAvanceModal } from '@/features/finance/AccorderAvanceModal'
+import { AllouerBudgetModal } from '@/features/finance/AllouerBudgetModal'
 import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -76,6 +81,7 @@ export function PersonnelDetailPage() {
 
   const [compteOuvert, setCompteOuvert] = useState(false)
   const [avanceOuverte, setAvanceOuverte] = useState(false)
+  const [budgetOuvert, setBudgetOuvert] = useState(false)
   const [remunerationOuverte, setRemunerationOuverte] = useState(false)
 
   const { data: personnel, isLoading, isError } = useQuery({
@@ -97,6 +103,7 @@ export function PersonnelDetailPage() {
     { key: 'profil', label: t('hub.tab.profil') },
     can('finance.paie') && { key: 'remuneration', label: t('hub.tab.remuneration') },
     can('finance.paie') && { key: 'avances', label: t('hub.tab.avances') },
+    can('finance.budget') && { key: 'budget', label: t('hub.tab.budget') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   const ongletDemande = searchParams.get('onglet')
@@ -322,6 +329,21 @@ export function PersonnelDetailPage() {
 
           <Card>
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">
+              {t('hub.personnel.situation_administrative')}
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Champ label={t('hub.personnel.type_contrat')} valeur={personnel.type_contrat} />
+              <Champ label={t('hub.personnel.statut_contrat')} valeur={personnel.statut_contrat} />
+              <Champ label={t('hub.personnel.categorie_echelon')} valeur={personnel.categorie_echelon} />
+              <Champ label={t('hub.personnel.grade_minedub')} valeur={personnel.grade_minedub} />
+              <Champ label={t('hub.personnel.absent_depuis')} valeur={personnel.absent_depuis} />
+              <Champ label={t('hub.personnel.motif_absence')} valeur={personnel.motif_absence} />
+              <Champ label={t('hub.personnel.date_deces')} valeur={personnel.date_deces} />
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">
               {t('hub.personnel.famille')}
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -353,6 +375,10 @@ export function PersonnelDetailPage() {
         <AvancesTab personnelId={personnel.id} onAccorder={() => setAvanceOuverte(true)} />
       )}
 
+      {onglet === 'budget' && (
+        <BudgetTab personnelId={personnel.id} onAllouer={() => setBudgetOuvert(true)} />
+      )}
+
       {compteOuvert && (
         <CreateAccountModal
           personnelId={personnel.id}
@@ -371,6 +397,17 @@ export function PersonnelDetailPage() {
           onSaved={() => {
             setAvanceOuverte(false)
             queryClient.invalidateQueries({ queryKey: ['avances-salaire'] })
+          }}
+        />
+      )}
+
+      {budgetOuvert && (
+        <AllouerBudgetModal
+          personnel={personnel}
+          onClose={() => setBudgetOuvert(false)}
+          onSaved={() => {
+            setBudgetOuvert(false)
+            queryClient.invalidateQueries({ queryKey: ['budgets-personnel'] })
           }}
         />
       )}
@@ -521,6 +558,71 @@ function AvancesTab({ personnelId, onAccorder }: { personnelId: number; onAccord
             </Card>
           ))}
         </>
+      )}
+    </div>
+  )
+}
+
+const TONE_STATUT_BUDGET: Record<StatutBudget, 'green' | 'gold' | 'neutral'> = {
+  actif: 'green',
+  epuise: 'gold',
+  annule: 'neutral',
+}
+const LIBELLE_STATUT_BUDGET: Record<StatutBudget, string> = {
+  actif: 'Actif',
+  epuise: 'Épuisé',
+  annule: 'Clôturé',
+}
+
+/** Budgets alloués à l'agent, leur solde, et le bilan à télécharger. */
+function BudgetTab({ personnelId, onAllouer }: { personnelId: number; onAllouer: () => void }) {
+  const can = useAuthStore((s) => s.can)
+  const { data, isLoading } = useQuery({
+    queryKey: ['budgets-personnel', { personnel_id: personnelId }],
+    queryFn: () => fetchBudgetsPersonnel({ personnel_id: personnelId }),
+  })
+
+  return (
+    <div className="flex flex-col gap-4">
+      {can('finance.budget') && (
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onAllouer}>
+            <Landmark className="h-4 w-4" />
+            Allouer un budget
+          </Button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <Spinner />
+      ) : !data || data.budgets.length === 0 ? (
+        <EmptyState label="Aucun budget alloué pour l'instant." />
+      ) : (
+        data.budgets.map((budget: BudgetPersonnel) => (
+          <Card key={budget.id}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-navy-800">{budget.libelle}</p>
+                <p className="text-xs text-navy-400">
+                  Alloué le {new Date(budget.date_allocation).toLocaleDateString('fr-FR')} — {francs(budget.montant_alloue)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm tabular-nums text-navy-600">
+                  Solde : <span className="font-bold">{francs(budget.solde)}</span>
+                </span>
+                <Badge tone={TONE_STATUT_BUDGET[budget.statut]}>{LIBELLE_STATUT_BUDGET[budget.statut]}</Badge>
+                <button
+                  title="Bilan PDF"
+                  onClick={() => ouvrirDocument(`/budgets-personnel/${budget.id}/bilan/pdf`)}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <FileText className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </Card>
+        ))
       )}
     </div>
   )

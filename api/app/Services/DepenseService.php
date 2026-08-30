@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BudgetPersonnel;
 use App\Models\CompteComptable;
 use App\Models\Depense;
 use App\Models\EcritureComptable;
@@ -25,7 +26,10 @@ use RuntimeException;
  */
 class DepenseService extends BaseService
 {
-    public function __construct(private readonly AmortissementService $amortissements) {}
+    public function __construct(
+        private readonly AmortissementService $amortissements,
+        private readonly BudgetPersonnelService $budgets,
+    ) {}
 
     private const COMPTES_TRESORERIE = [
         'especes' => '571',
@@ -43,16 +47,29 @@ class DepenseService extends BaseService
      */
     public function enregistrer(int $schoolId, array $donnees, ?int $saisiPar = null, ?UploadedFile $justificatif = null): Depense
     {
-        return $this->transaction(function () use ($schoolId, $donnees, $saisiPar, $justificatif) {
+        $source = $donnees['source'] ?? 'caisse';
+        $montant = (int) $donnees['montant'];
+
+        // Le solde du budget doit tenir avant d'écrire quoi que ce soit : une
+        // fois la dépense créée, la contrepasser proprement serait plus lourd
+        // que de refuser en amont.
+        $budget = null;
+        if ($source === 'budget_personnel') {
+            $budget = BudgetPersonnel::forSchool($schoolId)->findOrFail($donnees['budget_personnel_id']);
+            $this->budgets->verifierDisponibilite($budget, $montant);
+        }
+
+        return $this->transaction(function () use ($schoolId, $donnees, $saisiPar, $justificatif, $source, $montant, $budget) {
             $depense = Depense::create([
                 'school_id' => $schoolId,
                 'annee_scolaire_id' => $donnees['annee_scolaire_id'] ?? null,
                 'compte_comptable_id' => $donnees['compte_comptable_id'] ?? $this->compte(self::COMPTE_PAR_DEFAUT),
                 'vehicule_id' => $donnees['vehicule_id'] ?? null,
+                'budget_personnel_id' => $budget?->id,
                 'date_depense' => $donnees['date_depense'] ?? Carbon::today()->toDateString(),
                 'libelle' => $donnees['libelle'],
-                'montant' => (int) $donnees['montant'],
-                'source' => $donnees['source'] ?? 'caisse',
+                'montant' => $montant,
+                'source' => $source,
                 'mode' => $donnees['mode'] ?? 'especes',
                 'beneficiaire' => $donnees['beneficiaire'] ?? null,
                 'reference_facture' => $donnees['reference_facture'] ?? null,

@@ -51,9 +51,11 @@ class DepenseController extends Controller
             'montant' => ['required', 'integer', 'min:1'],
             'date_depense' => ['nullable', 'date'],
             'compte_comptable_id' => ['nullable', 'integer', 'exists:comptes_comptables,id'],
+            'rubrique_budget_fonctionnement' => ['nullable', 'in:primes_rendement,projet_ecole,fenassco,fonctionnement,evaluation'],
             'vehicule_id' => ['nullable', 'integer', $this->scopedExists('bus_vehicules')],
+            'budget_personnel_id' => ['required_if:source,budget_personnel', 'integer', $this->scopedExists('budgets_personnel')],
             'annee_scolaire_id' => ['nullable', 'integer'],
-            'source' => ['nullable', 'in:caisse,revenu_personnel'],
+            'source' => ['nullable', 'in:caisse,revenu_personnel,budget_personnel'],
             'mode' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'beneficiaire' => ['nullable', 'string', 'max:150'],
             'reference_facture' => ['nullable', 'string', 'max:100'],
@@ -108,7 +110,7 @@ class DepenseController extends Controller
     /** @return array<string, mixed> */
     private function resumer(Depense $depense): array
     {
-        $depense->loadMissing(['compte', 'saisisseur']);
+        $depense->loadMissing(['compte', 'saisisseur', 'budgetPersonnel.personnel']);
 
         return [
             'id' => $depense->id,
@@ -126,12 +128,18 @@ class DepenseController extends Controller
                 'code' => $depense->compte->code,
                 'libelle' => $depense->compte->libelle,
             ] : null,
+            'rubrique_budget_fonctionnement' => $depense->rubrique_budget_fonctionnement,
             'justificatif_url' => $depense->justificatif_path
                 ? asset('storage/' . $depense->justificatif_path)
                 : null,
             'saisi_par' => $depense->saisisseur?->name,
             'motif_annulation' => $depense->motif_annulation,
             'vehicule_id' => $depense->vehicule_id,
+            'budget' => $depense->budgetPersonnel ? [
+                'id' => $depense->budgetPersonnel->id,
+                'libelle' => $depense->budgetPersonnel->libelle,
+                'personnel' => $depense->budgetPersonnel->personnel?->nom_complet,
+            ] : null,
         ];
     }
 

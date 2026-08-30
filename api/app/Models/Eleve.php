@@ -27,6 +27,8 @@ class Eleve extends Model
         'officier_etat_civil',
         'refugie',
         'deplace_interne',
+        'bororo',
+        'baka',
         'adresse',
         'photo_path',
         'photo_tenue_path',
@@ -45,6 +47,8 @@ class Eleve extends Model
             'redoublant' => 'boolean',
             'refugie' => 'string',
             'deplace_interne' => 'string',
+            'bororo' => 'string',
+            'baka' => 'string',
         ];
     }
 

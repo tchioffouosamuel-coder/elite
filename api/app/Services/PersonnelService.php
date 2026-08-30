@@ -178,6 +178,45 @@ class PersonnelService extends BaseService
     }
 
     /**
+     * Rapport de rentrée MINEDUB — tableaux 10 à 17 : personnel par grade et
+     * par sexe, par type de contrat/statut, agents absents au poste,
+     * décédés, admis à la retraite. Le personnel sorti (`ex_employe`) est
+     * inclus pour les décès mais pas pour les autres tableaux — un agent
+     * décédé n'a pas nécessairement été basculé « ex_employe » entre-temps.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{
+     *     par_grade: array<string, int>,
+     *     par_contrat: array<string, int>,
+     *     par_statut_contrat: array<string, int>,
+     *     absents_au_poste: \Illuminate\Database\Eloquent\Collection<int, Personnel>,
+     *     decedes: \Illuminate\Database\Eloquent\Collection<int, Personnel>,
+     *     a_la_retraite: \Illuminate\Database\Eloquent\Collection<int, Personnel>,
+     * }
+     */
+    public function rapportMiseEnPlace(int|array $schoolId): array
+    {
+        $actifs = Personnel::forSchool($schoolId)->where('statut', 'actif')->get();
+
+        $ventilation = static function (Collection $valeurs): array {
+            $comptes = $valeurs->countBy()->all();
+            arsort($comptes);
+
+            return $comptes;
+        };
+
+        return [
+            'par_grade' => $ventilation($actifs->map(fn (Personnel $p) => $p->grade_minedub ?: 'Non précisé')),
+            'par_contrat' => $ventilation($actifs->map(fn (Personnel $p) => $p->type_contrat ?: 'Non précisé')),
+            'par_statut_contrat' => $ventilation($actifs->map(fn (Personnel $p) => $p->statut_contrat ?: 'Non précisé')),
+            'absents_au_poste' => $actifs->whereNotNull('absent_depuis')->values(),
+            'decedes' => Personnel::forSchool($schoolId)->whereNotNull('date_deces')->get(),
+            'a_la_retraite' => $actifs->filter(fn (Personnel $p) => $p->date_retraite_calculee !== null
+                && $p->date_retraite_calculee <= now()->endOfYear()->format('Y-m-d'))->values(),
+        ];
+    }
+
+    /**
      * @return array{imported: int, updated: int, comptes_ouverts: int, failed: int, errors: array, affectations_non_rattachees: array<string, int>}
      */
     public function importFromExcel(int $schoolId, UploadedFile $file): array

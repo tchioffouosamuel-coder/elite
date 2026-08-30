@@ -222,6 +222,17 @@ class PersonnelController extends Controller
     }
 
     /**
+     * Rapport « mise en place du personnel » de rentrée MINEDUB : ventilation
+     * par grade, par type de contrat et par statut, et listes des agents
+     * absents au poste, décédés ou admis à faire valoir leur droit à la
+     * retraite dans l'année (tableaux 10 à 17 du canevas).
+     */
+    public function rapportMiseEnPlace(): JsonResponse
+    {
+        return ApiResponse::success($this->service->rapportMiseEnPlace(Tenant::schoolIds()));
+    }
+
+    /**
      * Identifiants de connexion de tous les comptes actifs de l'établissement
      * — le mot de passe n'y figure que pour les comptes qui portent encore
      * celui distribué à l'ouverture de l'accès (cf. CompteAgentService::identifiants).

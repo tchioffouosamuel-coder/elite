@@ -42,7 +42,7 @@ type Champ = keyof PersonnelPayload
 
 const ETAPES: { id: string; label: string; description: string; champs: Champ[] }[] = [
   { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
-  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'] },
+  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
   { id: 'famille', label: 'Famille', description: 'Parents et enfants', champs: ['pere_nom_complet', 'pere_statut', 'pere_telephone', 'mere_nom_complet', 'mere_statut', 'mere_telephone'] },
   { id: 'recap', label: 'Récapitulatif', description: 'Vérification', champs: [] },
@@ -124,7 +124,7 @@ function etapePourErreurs(erreurs?: Record<string, unknown> | null): number {
   if (cles.some((cle) => ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'].includes(cle))) {
     return 2
   }
-  if (cles.some((cle) => ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin'].includes(cle))) {
+  if (cles.some((cle) => ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub'].includes(cle))) {
     return 1
   }
   return 0
@@ -208,6 +208,10 @@ export function PersonnelFormPage() {
       email: personnel.email ?? '',
       date_embauche: personnel.date_embauche ?? '',
       date_fin: personnel.date_fin ?? '',
+      type_contrat: personnel.type_contrat ?? undefined,
+      statut_contrat: personnel.statut_contrat ?? undefined,
+      categorie_echelon: personnel.categorie_echelon ?? '',
+      grade_minedub: personnel.grade_minedub ?? '',
       pere_nom_complet: personnel.pere_nom_complet ?? '',
       pere_statut: personnel.pere_statut ?? '',
       pere_telephone: personnel.pere_telephone ?? '',
@@ -295,6 +299,10 @@ export function PersonnelFormPage() {
     ['Diplôme académique', valeurs.diplome_academique],
     ["Date d'embauche", valeurs.date_embauche],
     ['Fin de contrat', valeurs.date_fin],
+    ['Type de contrat', valeurs.type_contrat],
+    ['Statut', valeurs.statut_contrat],
+    ['Catégorie / échelon', valeurs.categorie_echelon],
+    ['Grade MINEDUB', valeurs.grade_minedub],
   ]
 
   if (personnelId !== null && isLoading) return <Spinner />
@@ -438,6 +446,23 @@ export function PersonnelFormPage() {
                   Une date de fin marque l'agent comme sorti des effectifs.
                 </p>
               )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Select label="Type de contrat" {...register('type_contrat')}>
+                  <option value="">—</option>
+                  <option value="CDI">CDI</option>
+                  <option value="CDD">CDD</option>
+                </Select>
+                <Select label="Statut" {...register('statut_contrat')}>
+                  <option value="">—</option>
+                  <option value="essai">Essai</option>
+                  <option value="permanent">Permanent</option>
+                  <option value="vacataire">Vacataire</option>
+                </Select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input label="Catégorie / échelon" placeholder="5C…" {...register('categorie_echelon')} />
+                <Input label="Grade MINEDUB" placeholder="CAPIEMP, Licence, IEG…" {...register('grade_minedub')} />
+              </div>
             </div>
           )}
 

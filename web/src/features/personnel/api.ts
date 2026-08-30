@@ -29,6 +29,8 @@ export type SituationMatrimoniale =
 
 export type StatutParent = "vivant" | "decede" | "";
 export type SexeEnfant = "M" | "F" | "";
+export type TypeContrat = "CDI" | "CDD";
+export type StatutContrat = "essai" | "permanent" | "vacataire";
 
 export interface PersonnelEnfant {
   nom_complet: string | null;
@@ -64,6 +66,16 @@ export interface DossierPersonnel {
   mere_statut: StatutParent | null;
   mere_telephone: string | null;
   enfants: PersonnelEnfant[];
+  type_contrat: TypeContrat | null;
+  statut_contrat: StatutContrat | null;
+  /** Catégorie/échelon de la grille salariale, ex. "5C". */
+  categorie_echelon: string | null;
+  /** Grade MINEDUB : IPEG/IEG/IEMP/IAEG/IC/MP/MC (public) ou CAPIEMP/Licence/BAC/Probatoire/BEPC-CAP/CEPC/Maitre des Parents/Maitre Communautaire (privé). */
+  grade_minedub: string | null;
+  absent_depuis: string | null;
+  motif_absence: string | null;
+  dossier_disciplinaire: boolean;
+  date_deces: string | null;
 }
 
 export interface Personnel extends DossierPersonnel {

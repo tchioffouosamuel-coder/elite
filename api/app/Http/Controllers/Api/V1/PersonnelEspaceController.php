@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AvanceSalaire;
+use App\Models\BudgetPersonnel;
 use App\Models\DemandeAvanceSalaire;
 use App\Models\Personnel;
 use App\Services\AvanceSalaireService;
+use App\Services\BudgetPersonnelService;
 use App\Services\DemandeAvanceSalaireService;
+use App\Support\Pdf\BudgetPersonnelBilanGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -26,6 +30,7 @@ class PersonnelEspaceController extends Controller
     public function __construct(
         private readonly AvanceSalaireService $avances,
         private readonly DemandeAvanceSalaireService $demandes,
+        private readonly BudgetPersonnelService $budgets,
     ) {}
 
     /** Mes avances déjà accordées, et mes demandes en cours ou passées. */
@@ -87,6 +92,65 @@ class PersonnelEspaceController extends Controller
         }
 
         return ApiResponse::created($demande, "Demande transmise, en attente de validation par l'établissement.");
+    }
+
+    /** Mes budgets alloués, avec ce qui reste disponible sur chacun. */
+    public function mesBudgets(Request $request): JsonResponse
+    {
+        $personnel = $this->moi($request);
+
+        $budgets = $this->budgets->lister($personnel->school_id, $personnel->id);
+
+        return ApiResponse::success([
+            'budgets' => $budgets->map(fn (BudgetPersonnel $b) => [
+                'id' => $b->id,
+                'libelle' => $b->libelle,
+                'montant_alloue' => $b->montant_alloue,
+                'montant_depense' => $b->montant_depense,
+                'solde' => $b->solde,
+                'statut' => $b->statut,
+                'date_allocation' => $b->date_allocation?->format('Y-m-d'),
+                'note_gestion' => $b->note_gestion,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * L'intéressé précise ici comment il compte gérer son enveloppe — un
+     * budget qui n'est pas le sien reste invisible : `mesBudgets()` ne remonte
+     * déjà que les siens, ici on revérifie avant d'écrire quoi que ce soit.
+     */
+    public function modifierNoteGestionBudget(Request $request, int $id): JsonResponse
+    {
+        $budget = $this->monBudget($request, $id);
+
+        $donnees = $request->validate(['note_gestion' => ['required', 'string', 'max:2000']]);
+
+        $budget = $this->budgets->modifierNoteGestion($budget, $donnees['note_gestion']);
+
+        return ApiResponse::success(['note_gestion' => $budget->note_gestion], 'Note de gestion mise à jour.');
+    }
+
+    public function bilanBudgetPdf(Request $request, int $id): Response
+    {
+        $budget = $this->monBudget($request, $id);
+        $du = $request->string('du')->toString() ?: null;
+        $au = $request->string('au')->toString() ?: null;
+
+        $bilan = $this->budgets->bilan($budget, $du, $au);
+        $pdf = (new BudgetPersonnelBilanGenerator)->build($budget, $bilan, $du, $au);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="bilan-budget-' . $budget->id . '.pdf"',
+        ]);
+    }
+
+    private function monBudget(Request $request, int $id): BudgetPersonnel
+    {
+        $personnel = $this->moi($request);
+
+        return BudgetPersonnel::where('personnel_id', $personnel->id)->with('personnel', 'school')->findOrFail($id);
     }
 
     private function moi(Request $request): Personnel

@@ -22,6 +22,7 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   examens: { fr: 'Examens officiels', en: 'Official examinations' },
   finance: { fr: 'Finance', en: 'Finance' },
   personnel: { fr: 'Comptes du personnel', en: 'Staff accounts' },
+  identite_etablissement: { fr: "Identité de l'établissement", en: 'School identity' },
 }
 
 export function SettingsPage() {

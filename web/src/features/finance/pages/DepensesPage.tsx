@@ -18,7 +18,7 @@ import type { ApiError } from '@/shared/types/api'
 
 const TONS = { payee: 'green', engagee: 'gold', annulee: 'red' } as const
 const LIBELLES = { payee: 'Payée', engagee: 'Engagée', annulee: 'Annulée' } as const
-const SOURCES = { caisse: 'Caisse', revenu_personnel: 'Revenu personnel' } as const
+const SOURCES = { caisse: 'Caisse', revenu_personnel: 'Revenu personnel', budget_personnel: 'Budget alloué' } as const
 
 /**
  * Suivi des dépenses.
@@ -104,7 +104,16 @@ export function DepensesPage() {
       cle: 'source',
       entete: 'Source',
       valeur: (d) => d.source,
-      cellule: (d) => <span className="text-xs">{SOURCES[d.source]}</span>,
+      cellule: (d) => (
+        <span className="text-xs">
+          {SOURCES[d.source]}
+          {d.budget && (
+            <span className="block text-navy-400">
+              {d.budget.personnel ?? '—'} · {d.budget.libelle}
+            </span>
+          )}
+        </span>
+      ),
       masquerMobile: true,
     },
     {

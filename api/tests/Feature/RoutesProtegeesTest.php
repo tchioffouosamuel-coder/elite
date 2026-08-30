@@ -71,6 +71,11 @@ class RoutesProtegeesTest extends TestCase
         // `finance.paie`, l'écran serait fermé à l'employé qu'il concerne.
         'api.v1.mon-espace.avances.index',
         'api.v1.mon-espace.avances.demandes.store',
+        // Même principe pour le budget alloué : le contrôleur borne tout au
+        // budget du personnel connecté (cf. PersonnelEspaceController::monBudget).
+        'api.v1.mon-espace.budgets.index',
+        'api.v1.mon-espace.budgets.note-gestion',
+        'api.v1.mon-espace.budgets.bilan-pdf',
 
         // Portail parent : gardé par le rôle `role:parent` (pas un privilège
         // `X.view`) et borné aux seuls enfants du compte par ParentAccess.

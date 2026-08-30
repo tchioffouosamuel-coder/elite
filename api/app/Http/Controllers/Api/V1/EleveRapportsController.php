@@ -95,6 +95,11 @@ class EleveRapportsController extends Controller
         ));
     }
 
+    public function rapportMinorites(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->rapportMinorites($this->schoolIds($request)));
+    }
+
     public function tableauAgesPdf(Request $request): Response
     {
         $schoolIds = $this->schoolIds($request);

@@ -11,7 +11,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, type ElevePayload, type TuteurSuggestion } from '@/features/eleves/api'
 import {
     fetchTarifs,
@@ -88,6 +88,8 @@ interface EleveFormValues {
     adresse?: string
     refugie?: 'Oui' | 'Non' | ''
     deplace_interne?: 'Oui' | 'Non' | ''
+    bororo?: 'Oui' | 'Non' | ''
+    baka?: 'Oui' | 'Non' | ''
     classe_id?: number
     tuteurs: TuteurFormData[]
     // Étape facultative : ne déclenche un encaissement que si un montant est saisi.
@@ -290,6 +292,7 @@ export function EleveInscriptionPage() {
     const eleveId = id ? Number(id) : undefined
     const queryClient = useQueryClient()
     const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+    const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
     // Récupérer l'élève si on est en édition
     const { data: elevesData, isLoading } = useQuery({
@@ -327,6 +330,8 @@ export function EleveInscriptionPage() {
                 adresse: eleve.adresse ?? '',
                 refugie: eleve.refugie ?? '',
                 deplace_interne: eleve.deplace_interne ?? '',
+                bororo: eleve.bororo ?? '',
+                baka: eleve.baka ?? '',
                 classe_id: eleve.classe?.id,
                 tuteurs: eleve.tuteurs.map((tut) => ({
                     tuteur_id: tut.id,
@@ -360,6 +365,8 @@ export function EleveInscriptionPage() {
             adresse: eleve.adresse ?? '',
             refugie: eleve.refugie ?? '',
             deplace_interne: eleve.deplace_interne ?? '',
+            bororo: eleve.bororo ?? '',
+            baka: eleve.baka ?? '',
             classe_id: eleve.classe?.id,
             tuteurs: eleve.tuteurs.map((tut) => ({
                 tuteur_id: tut.id,
@@ -387,18 +394,33 @@ export function EleveInscriptionPage() {
     // Un tarif existe déjà pour la classe choisie : proposer l'encaissement
     // immédiat plutôt que de renvoyer l'utilisateur vers la caisse ensuite.
     const classeIdSelectionnee = watch('classe_id') ? Number(watch('classe_id')) : undefined
-    const classeSelectionnee = classes?.find((c) => c.id === classeIdSelectionnee)
-    // Primaire et maternelle seulement : `niveau_scolaire` (SIL, CP, CE1…) ne se
-    // renseigne que pour ces classes-là — le secondaire n'a pas de niveau
-    // scolaire unique par classe, donc rien à comparer.
-    const classesMemeNiveau =
-        classeSelectionnee?.niveau_scolaire_id != null
-            ? classes?.filter(
-                  (c) =>
-                      c.niveau_scolaire_id === classeSelectionnee.niveau_scolaire_id &&
-                      c.sous_systeme_id === classeSelectionnee.sous_systeme_id,
-              ) ?? []
-            : []
+
+    // Sélection en deux temps : le niveau (6ème, CP…) d'abord, puis la classe
+    // au sein de ce niveau — cf. demande d'afficher les effectifs par classe
+    // avant de choisir. `niveauId` est un état transitoire, non envoyé à
+    // l'API (seul `classe_id` l'est).
+    const [niveauId, setNiveauId] = useState<number | undefined>(undefined)
+    const classesDuNiveau = useMemo(
+        () => (niveauId ? classes?.filter((c) => c.niveau_id === niveauId) ?? [] : []),
+        [classes, niveauId],
+    )
+
+    // Édition d'un élève déjà inscrit : déduire son niveau à partir de sa
+    // classe actuelle pour préremplir l'étape scolarité correctement.
+    useEffect(() => {
+        if (niveauId !== undefined || !eleve?.classe || !classes) return
+        const classeActuelle = classes.find((c) => c.id === eleve.classe!.id)
+        if (classeActuelle?.niveau_id) setNiveauId(classeActuelle.niveau_id)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [eleve, classes])
+
+    // Une seule classe pour ce niveau : on ne fait pas choisir l'utilisateur.
+    useEffect(() => {
+        if (classesDuNiveau.length === 1) {
+            setValue('classe_id', classesDuNiveau[0].id, { shouldDirty: true })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [classesDuNiveau])
     const { data: tarifs } = useQuery({
         queryKey: ['tarifs'],
         queryFn: () => fetchTarifs(),
@@ -452,7 +474,12 @@ export function EleveInscriptionPage() {
             sexe: values.sexe as 'M' | 'F',
             date_naissance: values.date_naissance,
             lieu_naissance: values.lieu_naissance,
+            numero_acte_naissance: values.numero_acte_naissance,
             adresse: values.adresse,
+            refugie: values.refugie || null,
+            deplace_interne: values.deplace_interne || null,
+            bororo: values.bororo || null,
+            baka: values.baka || null,
             classe_id: values.classe_id ? Number(values.classe_id) : null,
             tuteurs: tuteursPayload,
         }
@@ -648,6 +675,24 @@ export function EleveInscriptionPage() {
                                             <option value="Oui">{t('eleves.inscription.oui')}</option>
                                             <option value="Non">{t('eleves.inscription.non')}</option>
                                         </Select>
+                                        <Select
+                                            label={t('eleves.inscription.bororo')}
+                                            {...register('bororo')}
+                                            error={errors.bororo?.message}
+                                        >
+                                            <option value="">{t('eleves.inscription.non_applicable_placeholder')}</option>
+                                            <option value="Oui">{t('eleves.inscription.oui')}</option>
+                                            <option value="Non">{t('eleves.inscription.non')}</option>
+                                        </Select>
+                                        <Select
+                                            label={t('eleves.inscription.baka')}
+                                            {...register('baka')}
+                                            error={errors.baka?.message}
+                                        >
+                                            <option value="">{t('eleves.inscription.non_applicable_placeholder')}</option>
+                                            <option value="Oui">{t('eleves.inscription.oui')}</option>
+                                            <option value="Non">{t('eleves.inscription.non')}</option>
+                                        </Select>
                                     </div>
                                 </div>
                             )}
@@ -657,22 +702,39 @@ export function EleveInscriptionPage() {
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.scolarite_title')}</h3>
                                     <Select
-                                        label={t('eleves.classe')}
-                                        {...register('classe_id')}
-                                        error={errors.classe_id?.message}
+                                        label={t('eleves.inscription.niveau_label')}
+                                        value={niveauId ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value ? Number(e.target.value) : undefined
+                                            setNiveauId(val)
+                                            setValue('classe_id', undefined, { shouldDirty: true })
+                                        }}
                                     >
-                                        <option value="">{t('eleves.inscription.select_classe_placeholder')}</option>
-                                        {classes?.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.nom}
+                                        <option value="">{t('eleves.inscription.select_niveau_placeholder')}</option>
+                                        {niveaux?.map((n) => (
+                                            <option key={n.id} value={n.id}>
+                                                {n.name_fr}
                                             </option>
                                         ))}
                                     </Select>
-                                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div className="mt-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                         <p className="text-sm text-blue-800">{t('eleves.inscription.classe_hint')}</p>
                                     </div>
 
-                                    {classesMemeNiveau.length > 1 && (
+                                    {niveauId && classesDuNiveau.length === 0 && (
+                                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                            {t('eleves.inscription.niveau_aucune_classe')}
+                                        </p>
+                                    )}
+
+                                    {niveauId && classesDuNiveau.length === 1 && (
+                                        <p className="rounded-xl border border-navy-100 bg-navy-50 px-3 py-2 text-sm text-navy-700">
+                                            {t('eleves.inscription.niveau_classe_unique')}{' '}
+                                            <span className="font-semibold">{classesDuNiveau[0].nom}</span>
+                                        </p>
+                                    )}
+
+                                    {niveauId && classesDuNiveau.length > 1 && (
                                         <div className="flex flex-col gap-2 pt-2">
                                             <div>
                                                 <span className="text-sm font-semibold text-navy-800">
@@ -681,48 +743,46 @@ export function EleveInscriptionPage() {
                                                 <p className="text-xs text-navy-400">{t('eleves.inscription.effectifs_niveau_hint')}</p>
                                             </div>
 
-                                            <div className="overflow-x-auto rounded-xl border border-navy-100">
-                                                <table className="w-full min-w-[420px] text-xs">
-                                                    <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
-                                                        <tr>
-                                                            <th className="px-2.5 py-2 text-left">{t('eleves.inscription.effectifs_niveau_classe')}</th>
-                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_garcons')}</th>
-                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_filles')}</th>
-                                                            <th className="px-2.5 py-2 text-right">{t('eleves.inscription.effectifs_niveau_total')}</th>
-                                                            <th className="px-2.5 py-2 text-right" />
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-navy-50">
-                                                        {classesMemeNiveau.map((c) => {
-                                                            const estSelectionnee = c.id === classeIdSelectionnee
-                                                            return (
-                                                                <tr key={c.id} className={estSelectionnee ? 'bg-navy-50/60' : undefined}>
-                                                                    <td className="px-2.5 py-1.5 font-medium text-navy-800">{c.nom}</td>
-                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums text-navy-600">{c.garcons ?? 0}</td>
-                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums text-navy-600">{c.filles ?? 0}</td>
-                                                                    <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold text-navy-800">{c.effectif ?? 0}</td>
-                                                                    <td className="px-2.5 py-1.5 text-right">
-                                                                        {estSelectionnee ? (
-                                                                            <span className="text-[11px] font-semibold text-navy-500">
-                                                                                {t('eleves.inscription.effectifs_niveau_selectionnee')}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    setValue('classe_id', c.id, { shouldDirty: true })
-                                                                                }
-                                                                                className="rounded-lg px-2 py-1 text-[11px] font-semibold text-navy-600 hover:bg-navy-100"
-                                                                            >
-                                                                                {t('eleves.inscription.effectifs_niveau_choisir')}
-                                                                            </button>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            )
-                                                        })}
-                                                    </tbody>
-                                                </table>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {classesDuNiveau.map((c) => {
+                                                    const estSelectionnee = c.id === classeIdSelectionnee
+                                                    return (
+                                                        <label
+                                                            key={c.id}
+                                                            className={clsx(
+                                                                'flex cursor-pointer flex-col gap-3 rounded-2xl border p-4 shadow-soft transition-colors',
+                                                                estSelectionnee
+                                                                    ? 'border-navy-500 bg-navy-50'
+                                                                    : 'border-navy-100 bg-white hover:border-navy-300',
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="font-semibold text-navy-900">{c.nom}</span>
+                                                                <input
+                                                                    type="radio"
+                                                                    name="classe_id_niveau"
+                                                                    checked={estSelectionnee}
+                                                                    onChange={() => setValue('classe_id', c.id, { shouldDirty: true })}
+                                                                    className="h-4 w-4 flex-none text-navy-600 focus:ring-navy-300"
+                                                                />
+                                                            </div>
+                                                            <dl className="grid grid-cols-3 gap-2 text-center text-xs">
+                                                                <div>
+                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_filles')}</dt>
+                                                                    <dd className="font-semibold tabular-nums text-navy-700">{c.filles ?? 0}</dd>
+                                                                </div>
+                                                                <div>
+                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_garcons')}</dt>
+                                                                    <dd className="font-semibold tabular-nums text-navy-700">{c.garcons ?? 0}</dd>
+                                                                </div>
+                                                                <div>
+                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_total')}</dt>
+                                                                    <dd className="font-semibold tabular-nums text-navy-900">{c.effectif ?? 0}</dd>
+                                                                </div>
+                                                            </dl>
+                                                        </label>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
                                     )}
@@ -1018,6 +1078,14 @@ export function EleveInscriptionPage() {
                                                 <div>
                                                     <span className="text-navy-400">{t('eleves.inscription.champ_deplace_interne')}: </span>
                                                     <span className="font-medium text-navy-900">{watch('deplace_interne') || '—'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_bororo')}: </span>
+                                                    <span className="font-medium text-navy-900">{watch('bororo') || '—'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-navy-400">{t('eleves.inscription.champ_baka')}: </span>
+                                                    <span className="font-medium text-navy-900">{watch('baka') || '—'}</span>
                                                 </div>
                                             </div>
                                         </Card>

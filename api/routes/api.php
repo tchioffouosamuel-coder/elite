@@ -1,12 +1,16 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AbsenceController;
+use App\Http\Controllers\Api\V1\ActiviteRentreeController;
 use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AnnonceController;
+use App\Http\Controllers\Api\V1\ApeeController;
 use App\Http\Controllers\Api\V1\AppreciationController;
+use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
+use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
 use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\BusAffectationController;
@@ -17,8 +21,10 @@ use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\CompteController;
+use App\Http\Controllers\Api\V1\ConseilEcoleController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepartementController;
+use App\Http\Controllers\Api\V1\BudgetPersonnelController;
 use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
@@ -32,6 +38,7 @@ use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
+use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
@@ -58,6 +65,8 @@ use App\Http\Controllers\Api\V1\PointDeVenteController;
 use App\Http\Controllers\Api\V1\PreinscriptionAdminController;
 use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
+use App\Http\Controllers\Api\V1\RapportRentreeExportController;
+use App\Http\Controllers\Api\V1\RapportRentreeTexteController;
 use App\Http\Controllers\Api\V1\RemiseController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
@@ -75,8 +84,10 @@ use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrancheScolariteController;
 use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\TuteurController;
+use App\Http\Controllers\Api\V1\VenteDenreeController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
 use App\Http\Controllers\Api\V1\VerificationVersementController;
+use App\Http\Controllers\Api\V1\VisiteAutoriteController;
 use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
 use Illuminate\Support\Facades\Route;
 
@@ -171,6 +182,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
+                Route::get('personnels/rapport-mise-en-place', [PersonnelController::class, 'rapportMiseEnPlace'])->name('personnels.rapport-mise-en-place');
                 // Route littérale avant le paramètre générique {id} ci-dessous, sinon
                 // « identifiants » s'y ferait happer. Document sensible (mots de passe) :
                 // exige `.manage` en plus du `.view` du groupe.
@@ -290,6 +302,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/recapitulatif-sous-systemes/pdf', [EleveRapportsController::class, 'recapitulatifSousSystemesPdf'])->name('eleves.recapitulatif-ss.pdf');
                 Route::get('eleves/tableau-ages', [EleveRapportsController::class, 'tableauAges'])->name('eleves.tableau-ages');
                 Route::get('eleves/tableau-ages/pdf', [EleveRapportsController::class, 'tableauAgesPdf'])->name('eleves.tableau-ages.pdf');
+                Route::get('eleves/rapport-minorites', [EleveRapportsController::class, 'rapportMinorites'])->name('eleves.rapport-minorites');
                 Route::get('eleves/{eleveId}/attestation-scolarite', [AttestationController::class, 'scolarite'])->name('eleves.attestation');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
@@ -378,6 +391,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('mon-espace')->name('mon-espace.')->group(function () {
                 Route::get('avances', [PersonnelEspaceController::class, 'mesAvances'])->name('avances.index');
                 Route::post('avances/demandes', [PersonnelEspaceController::class, 'soumettreDemandeAvance'])->name('avances.demandes.store');
+                Route::get('budgets', [PersonnelEspaceController::class, 'mesBudgets'])->name('budgets.index');
+                Route::put('budgets/{id}/note-gestion', [PersonnelEspaceController::class, 'modifierNoteGestionBudget'])->name('budgets.note-gestion');
+                Route::get('budgets/{id}/bilan/pdf', [PersonnelEspaceController::class, 'bilanBudgetPdf'])->name('budgets.bilan-pdf');
             });
 
             /*
@@ -661,6 +677,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('depenses', [DepenseController::class, 'store'])->name('depenses.store');
                 Route::post('depenses/{id}/payer', [DepenseController::class, 'payer'])->name('depenses.payer');
                 Route::post('depenses/{id}/annuler', [DepenseController::class, 'annuler'])->name('depenses.annuler');
+                // Le sélecteur « Source = Budget alloué » du formulaire de dépense
+                // a besoin de la liste des budgets actifs, sans pour autant
+                // donner le droit d'en allouer un (finance.budget).
+                Route::get('budgets-personnel/actifs', [BudgetPersonnelController::class, 'actifs'])->name('budgets-personnel.actifs');
+            });
+
+            Route::middleware('permission:finance.budget')->group(function () {
+                Route::get('budgets-personnel', [BudgetPersonnelController::class, 'index'])->name('budgets-personnel.index');
+                Route::post('budgets-personnel', [BudgetPersonnelController::class, 'store'])->name('budgets-personnel.store');
+                Route::get('budgets-personnel/{id}', [BudgetPersonnelController::class, 'show'])->name('budgets-personnel.show');
+                Route::put('budgets-personnel/{id}/note-gestion', [BudgetPersonnelController::class, 'modifierNoteGestion'])->name('budgets-personnel.note-gestion');
+                Route::post('budgets-personnel/{id}/annuler', [BudgetPersonnelController::class, 'annuler'])->name('budgets-personnel.annuler');
+                Route::get('budgets-personnel/{id}/bilan/pdf', [BudgetPersonnelController::class, 'bilanPdf'])->name('budgets-personnel.bilan-pdf');
             });
 
             Route::middleware('permission:finance.rapports')->group(function () {
@@ -715,6 +744,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('rapports/resultat', [RapportFinancierController::class, 'resultat'])->name('rapports.resultat');
                 Route::get('rapports/tresorerie', [RapportFinancierController::class, 'tresorerie'])->name('rapports.tresorerie');
                 Route::get('rapports/balance', [RapportFinancierController::class, 'balance'])->name('rapports.balance');
+                Route::get('budget-fonctionnement', [BudgetFonctionnementController::class, 'index'])->name('budget-fonctionnement.index');
+                Route::get('assurances-scolaires', [AssuranceScolaireController::class, 'index'])->name('assurances-scolaires.index');
+                Route::get('conseil-ecole', [ConseilEcoleController::class, 'index'])->name('conseil-ecole.index');
+                Route::get('apee', [ApeeController::class, 'index'])->name('apee.index');
+            });
+
+            Route::middleware('permission:finance.manage')->group(function () {
+                Route::put('budget-fonctionnement/{rubrique}', [BudgetFonctionnementController::class, 'update'])->name('budget-fonctionnement.update');
+                Route::post('assurances-scolaires', [AssuranceScolaireController::class, 'store'])->name('assurances-scolaires.store');
+                Route::put('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'update'])->name('assurances-scolaires.update');
+                Route::delete('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'destroy'])->name('assurances-scolaires.destroy');
+                Route::put('conseil-ecole', [ConseilEcoleController::class, 'update'])->name('conseil-ecole.update');
+                Route::put('apee', [ApeeController::class, 'update'])->name('apee.update');
             });
 
             /*
@@ -817,6 +859,41 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('inventaire/{id}/code-barre', [InventaireController::class, 'codeBarre'])->name('inventaire.code-barre');
                 Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update');
                 Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy');
+            });
+
+            Route::middleware('permission:infrastructures.view')->group(function () {
+                Route::get('infrastructures', [InfrastructureController::class, 'index'])->name('infrastructures.index');
+                Route::get('infrastructures/rapport', [InfrastructureController::class, 'rapport'])->name('infrastructures.rapport');
+                Route::get('infrastructures/equipements', [InfrastructureController::class, 'equipements'])->name('infrastructures.equipements.index');
+            });
+            Route::middleware('permission:infrastructures.manage')->group(function () {
+                Route::post('infrastructures', [InfrastructureController::class, 'store'])->name('infrastructures.store');
+                Route::put('infrastructures/{id}', [InfrastructureController::class, 'update'])->name('infrastructures.update');
+                Route::delete('infrastructures/{id}', [InfrastructureController::class, 'destroy'])->name('infrastructures.destroy');
+                Route::post('infrastructures/equipements', [InfrastructureController::class, 'storeEquipement'])->name('infrastructures.equipements.store');
+                Route::put('infrastructures/equipements/{id}', [InfrastructureController::class, 'updateEquipement'])->name('infrastructures.equipements.update');
+                Route::delete('infrastructures/equipements/{id}', [InfrastructureController::class, 'destroyEquipement'])->name('infrastructures.equipements.destroy');
+            });
+
+            Route::middleware('permission:rapport_rentree.view')->group(function () {
+                Route::get('visites-autorites', [VisiteAutoriteController::class, 'index'])->name('visites-autorites.index');
+                Route::get('activites-rentree', [ActiviteRentreeController::class, 'index'])->name('activites-rentree.index');
+                Route::get('ventes-denrees', [VenteDenreeController::class, 'index'])->name('ventes-denrees.index');
+                Route::get('rapport-rentree-textes', [RapportRentreeTexteController::class, 'index'])->name('rapport-rentree-textes.index');
+                Route::get('rapport-rentree/complet', [RapportRentreeExportController::class, 'donnees'])->name('rapport-rentree.complet');
+                Route::get('rapport-rentree/complet/pdf', [RapportRentreeExportController::class, 'pdf'])->name('rapport-rentree.complet.pdf');
+            });
+            Route::middleware('permission:rapport_rentree.manage')->group(function () {
+                Route::post('visites-autorites', [VisiteAutoriteController::class, 'store'])->name('visites-autorites.store');
+                Route::put('visites-autorites/{id}', [VisiteAutoriteController::class, 'update'])->name('visites-autorites.update');
+                Route::delete('visites-autorites/{id}', [VisiteAutoriteController::class, 'destroy'])->name('visites-autorites.destroy');
+                Route::post('activites-rentree', [ActiviteRentreeController::class, 'store'])->name('activites-rentree.store');
+                Route::put('activites-rentree/{id}', [ActiviteRentreeController::class, 'update'])->name('activites-rentree.update');
+                Route::delete('activites-rentree/{id}', [ActiviteRentreeController::class, 'destroy'])->name('activites-rentree.destroy');
+                Route::post('ventes-denrees', [VenteDenreeController::class, 'store'])->name('ventes-denrees.store');
+                Route::put('ventes-denrees/{id}', [VenteDenreeController::class, 'update'])->name('ventes-denrees.update');
+                Route::delete('ventes-denrees/{id}', [VenteDenreeController::class, 'destroy'])->name('ventes-denrees.destroy');
+                Route::put('rapport-rentree-textes/{rubrique}', [RapportRentreeTexteController::class, 'update'])->name('rapport-rentree-textes.update');
             });
 
             /*

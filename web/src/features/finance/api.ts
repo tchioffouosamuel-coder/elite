@@ -170,22 +170,32 @@ export async function fetchVerificationVersement(
 
 // ---------------------------------------------------------------- Dépenses
 
+export type RubriqueBudgetFonctionnement =
+  | "primes_rendement"
+  | "projet_ecole"
+  | "fenassco"
+  | "fonctionnement"
+  | "evaluation";
+
 export interface Depense {
   id: number;
   date_depense: string;
   libelle: string;
   montant: number;
-  source: "caisse" | "revenu_personnel";
+  source: "caisse" | "revenu_personnel" | "budget_personnel";
   mode: ModePaiement;
   statut: "engagee" | "payee" | "annulee";
   beneficiaire: string | null;
   reference_facture: string | null;
   responsable: string | null;
   compte: { id: number; code: string; libelle: string } | null;
+  /** Rubrique du budget de fonctionnement MINEDUB (tableau 21) — indépendante du compte comptable. */
+  rubrique_budget_fonctionnement: RubriqueBudgetFonctionnement | null;
   justificatif_url: string | null;
   saisi_par: string | null;
   motif_annulation: string | null;
   vehicule_id: number | null;
+  budget: { id: number; libelle: string; personnel: string | null } | null;
 }
 
 export interface CompteComptable {
@@ -500,6 +510,110 @@ export async function annulerAvance(
 ): Promise<AvanceSalaire> {
   const { data } = await http.post<ApiResponse<AvanceSalaire>>(
     `/avances-salaire/${id}/annuler`,
+    { motif },
+  );
+  return data.data;
+}
+
+// -------------------------------------------------- Budgets alloués au personnel
+
+export type StatutBudget = "actif" | "epuise" | "annule";
+
+export interface BudgetPersonnel {
+  id: number;
+  personnel: {
+    id: number;
+    nom_complet: string;
+    matricule: string | null;
+  } | null;
+  school?: { id: number; name: string; code: string; type: string } | null;
+  libelle: string;
+  montant_alloue: number;
+  montant_depense: number;
+  solde: number;
+  statut: StatutBudget;
+  date_allocation: string;
+  note_gestion: string | null;
+  motif_annulation: string | null;
+}
+
+export interface TotauxBudgets {
+  effectif: number;
+  total_alloue: number;
+  total_depense: number;
+  total_restant: number;
+}
+
+export async function fetchBudgetsPersonnel(params?: {
+  personnel_id?: number;
+}): Promise<{ budgets: BudgetPersonnel[]; totaux: TotauxBudgets }> {
+  const { data } = await http.get<
+    ApiResponse<{ budgets: BudgetPersonnel[]; totaux: TotauxBudgets }>
+  >("/budgets-personnel", { params });
+  return data.data;
+}
+
+/** Budgets actifs, pour le sélecteur « Source = Budget alloué » du formulaire de dépense. */
+export async function fetchBudgetsActifs(): Promise<BudgetPersonnel[]> {
+  const { data } = await http.get<ApiResponse<BudgetPersonnel[]>>(
+    "/budgets-personnel/actifs",
+  );
+  return data.data;
+}
+
+export interface DepenseImputeeBudget {
+  id: number;
+  date_depense: string;
+  libelle: string;
+  montant: number;
+  statut: string;
+  compte: string | null;
+}
+
+export interface BudgetPersonnelDetail extends BudgetPersonnel {
+  depenses: DepenseImputeeBudget[];
+}
+
+export async function fetchBudgetPersonnel(
+  id: number,
+): Promise<BudgetPersonnelDetail> {
+  const { data } = await http.get<ApiResponse<BudgetPersonnelDetail>>(
+    `/budgets-personnel/${id}`,
+  );
+  return data.data;
+}
+
+export async function allouerBudget(payload: {
+  personnel_id: number;
+  libelle: string;
+  montant_alloue: number;
+  date_allocation?: string;
+  note_gestion?: string | null;
+}): Promise<BudgetPersonnel> {
+  const { data } = await http.post<ApiResponse<BudgetPersonnel>>(
+    "/budgets-personnel",
+    payload,
+  );
+  return data.data;
+}
+
+export async function modifierNoteGestionBudget(
+  id: number,
+  note_gestion: string,
+): Promise<BudgetPersonnel> {
+  const { data } = await http.put<ApiResponse<BudgetPersonnel>>(
+    `/budgets-personnel/${id}/note-gestion`,
+    { note_gestion },
+  );
+  return data.data;
+}
+
+export async function annulerBudget(
+  id: number,
+  motif: string,
+): Promise<BudgetPersonnel> {
+  const { data } = await http.post<ApiResponse<BudgetPersonnel>>(
+    `/budgets-personnel/${id}/annuler`,
     { motif },
   );
   return data.data;

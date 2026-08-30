@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Repositories\EleveRepository;
 use App\Services\ScolariteService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
@@ -573,7 +574,7 @@ class EleveService extends BaseService
         // (calculé depuis `date_naissance`, absente de ce `selectRaw`)
         // intercepterait sinon l'accès à `->age` et renverrait toujours `null`.
         $lignes = $query
-            ->selectRaw('TIMESTAMPDIFF(MONTH, eleves.date_naissance, CURDATE()) as age_mois_total, eleves.sexe as sexe, COUNT(*) as total')
+            ->selectRaw($this->expressionAgeMois().' as age_mois_total, eleves.sexe as sexe, COUNT(*) as total')
             ->groupBy('age_mois_total', 'eleves.sexe')
             ->get();
 
@@ -614,7 +615,7 @@ class EleveService extends BaseService
         // doit pas réapparaître dans le détail.
         $eleves = $requeteNominative
             ->with('classe:id,nom')
-            ->selectRaw('eleves.*, TIMESTAMPDIFF(MONTH, eleves.date_naissance, CURDATE()) as age_mois_total')
+            ->selectRaw('eleves.*, '.$this->expressionAgeMois().' as age_mois_total')
             ->orderBy('eleves.nom_complet')
             ->get();
 
@@ -638,6 +639,124 @@ class EleveService extends BaseService
         ksort($parAge);
 
         return array_values($parAge);
+    }
+
+    /**
+     * Effectifs par minorité (Bororo, Baka, Déplacés internes), façon
+     * tableau N°5 du rapport de rentrée MINEDUB — une ligne Garçons/Filles/
+     * Total par catégorie, une école du périmètre à la fois.
+     *
+     * @param  list<int>  $schoolIds
+     * @return array{bororo: array, baka: array, deplaces_internes: array, total: array}
+     */
+    public function rapportMinorites(array $schoolIds): array
+    {
+        $vide = fn () => ['garcons' => 0, 'filles' => 0, 'total' => 0];
+        $resultat = ['bororo' => $vide(), 'baka' => $vide(), 'deplaces_internes' => $vide(), 'total' => $vide()];
+
+        $lignes = Eleve::query()
+            ->whereIn('eleves.school_id', $schoolIds)
+            ->where('eleves.statut', 'actif')
+            ->where(function ($q) {
+                $q->where('bororo', 'Oui')->orWhere('baka', 'Oui')->orWhere('deplace_interne', 'Oui');
+            })
+            ->get(['sexe', 'bororo', 'baka', 'deplace_interne']);
+
+        foreach ($lignes as $eleve) {
+            $cle = $eleve->sexe === 'F' ? 'filles' : 'garcons';
+
+            foreach (['bororo' => 'bororo', 'baka' => 'baka', 'deplaces_internes' => 'deplace_interne'] as $categorie => $champ) {
+                if ($eleve->{$champ} === 'Oui') {
+                    $resultat[$categorie][$cle]++;
+                    $resultat[$categorie]['total']++;
+                    $resultat['total'][$cle]++;
+                    $resultat['total']['total']++;
+                }
+            }
+        }
+
+        return $resultat;
+    }
+
+    /**
+     * Effectifs désagrégés par classe et par sexe (tableaux 1, 3, 4, 6 et 8
+     * du rapport de rentrée MINEDUB) : le canevas les groupe par « cours »
+     * (SIL, CP, CE1…) quand plusieurs classes parallèles couvrent le même
+     * niveau, mais une ligne par classe reste la donnée exacte — c'est elle
+     * qui garantit que la somme retombe toujours juste, groupement ou pas.
+     *
+     * @param  list<int>  $schoolIds
+     * @return list<array{classe: array, garcons: array, filles: array, total: array}>
+     */
+    public function effectifsDesagregesParClasse(array $schoolIds): array
+    {
+        $classes = Classe::forSchool($schoolIds)->orderBy('nom')->get()->keyBy('id');
+
+        $lignes = Eleve::query()
+            ->whereIn('eleves.school_id', $schoolIds)
+            ->where('eleves.statut', 'actif')
+            ->whereNotNull('eleves.classe_id')
+            ->selectRaw("
+                eleves.classe_id as classe_id, eleves.sexe as sexe,
+                COUNT(*) as total,
+                SUM(CASE WHEN LOWER(eleves.nationalite) LIKE '%camerounais%' THEN 1 ELSE 0 END) as camerounais,
+                SUM(CASE WHEN eleves.refugie = 'Oui' THEN 1 ELSE 0 END) as refugies,
+                SUM(CASE WHEN eleves.redoublant = 1 THEN 1 ELSE 0 END) as redoublants,
+                SUM(CASE WHEN eleves.numero_acte_naissance IS NULL OR eleves.numero_acte_naissance = '' THEN 1 ELSE 0 END) as sans_acte_naissance
+            ")
+            ->groupBy('eleves.classe_id', 'eleves.sexe')
+            ->get();
+
+        $vide = fn () => ['total' => 0, 'camerounais' => 0, 'non_camerounais' => 0, 'refugies' => 0, 'redoublants' => 0, 'sans_acte_naissance' => 0];
+
+        $parClasse = [];
+        foreach ($classes as $classe) {
+            $parClasse[$classe->id] = [
+                'classe' => ['id' => $classe->id, 'nom' => $classe->nom],
+                'garcons' => $vide(),
+                'filles' => $vide(),
+                'total' => $vide(),
+            ];
+        }
+
+        foreach ($lignes as $ligne) {
+            if (! isset($parClasse[$ligne->classe_id])) {
+                continue;
+            }
+
+            $valeurs = [
+                'total' => (int) $ligne->total,
+                'camerounais' => (int) $ligne->camerounais,
+                'non_camerounais' => (int) $ligne->total - (int) $ligne->camerounais,
+                'refugies' => (int) $ligne->refugies,
+                'redoublants' => (int) $ligne->redoublants,
+                'sans_acte_naissance' => (int) $ligne->sans_acte_naissance,
+            ];
+
+            $cle = $ligne->sexe === 'F' ? 'filles' : 'garcons';
+            $parClasse[$ligne->classe_id][$cle] = $valeurs;
+            foreach ($valeurs as $champ => $v) {
+                $parClasse[$ligne->classe_id]['total'][$champ] += $v;
+            }
+        }
+
+        return array_values($parClasse);
+    }
+
+    /**
+     * Âge en mois complets à ce jour, exprimé dans le dialecte SQL de la
+     * connexion active. `TIMESTAMPDIFF`/`CURDATE()` n'existent qu'en MySQL
+     * (la production) ; l'équivalent SQLite ne sert qu'aux tests, qui n'ont
+     * pas besoin de la même précision au jour près.
+     */
+    private function expressionAgeMois(): string
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return "((CAST(strftime('%Y','now') AS INTEGER) - CAST(strftime('%Y', eleves.date_naissance) AS INTEGER)) * 12"
+                ." + (CAST(strftime('%m','now') AS INTEGER) - CAST(strftime('%m', eleves.date_naissance) AS INTEGER)))";
+        }
+
+        return 'TIMESTAMPDIFF(MONTH, eleves.date_naissance, CURDATE())';
     }
 
     private function syncTuteurs(Eleve $eleve, int $schoolId, array $tuteurs): void

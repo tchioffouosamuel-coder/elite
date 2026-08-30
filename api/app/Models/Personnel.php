@@ -45,6 +45,14 @@ class Personnel extends Model
         'mere_telephone',
         'enfants',
         'statut',
+        'type_contrat',
+        'statut_contrat',
+        'categorie_echelon',
+        'grade_minedub',
+        'absent_depuis',
+        'motif_absence',
+        'dossier_disciplinaire',
+        'date_deces',
         'photo_path',
     ];
 
@@ -57,6 +65,9 @@ class Personnel extends Model
             'date_retraite' => 'date',
             'nombre_enfants' => 'integer',
             'enfants' => 'array',
+            'absent_depuis' => 'date',
+            'dossier_disciplinaire' => 'boolean',
+            'date_deces' => 'date',
         ];
     }
 

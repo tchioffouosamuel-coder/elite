@@ -12,7 +12,9 @@ class Depense extends Model
         'school_id',
         'annee_scolaire_id',
         'compte_comptable_id',
+        'rubrique_budget_fonctionnement',
         'vehicule_id',
+        'budget_personnel_id',
         'date_depense',
         'libelle',
         'montant',
@@ -63,5 +65,10 @@ class Depense extends Model
     public function vehicule(): BelongsTo
     {
         return $this->belongsTo(BusVehicule::class, 'vehicule_id');
+    }
+
+    public function budgetPersonnel(): BelongsTo
+    {
+        return $this->belongsTo(BudgetPersonnel::class, 'budget_personnel_id');
     }
 }

@@ -16,6 +16,7 @@ import {
   CalendarRange,
   CalendarClock,
   ClipboardCheck,
+  ClipboardList,
   FileText,
   ListChecks,
   IdCard,
@@ -54,6 +55,7 @@ import {
   UserCog,
   KeyRound,
   TrendingUp,
+  Landmark,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -101,6 +103,14 @@ const navGroups = [
         // Aucun privilège : l'écran ne montre que les avances du compte
         // connecté. `estPersonnel` le réserve aux agents — un compte
         // purement administratif n'a pas de salaire à avancer.
+        estPersonnel: true,
+      },
+      {
+        to: '/mon-budget',
+        label: 'nav.monBudget',
+        icon: Landmark,
+        // Même principe que « Mes avances » : borné au compte connecté,
+        // sans privilège dédié — cf. PersonnelEspaceController::mesBudgets().
         estPersonnel: true,
       },
     ],
@@ -302,6 +312,7 @@ const navGroups = [
       // Le comptoir vit à côté de l'inventaire : c'est le même stock, vu
       // depuis la caisse plutôt que depuis le registre du matériel.
       { to: '/point-de-vente', label: 'nav.pointDeVente', icon: Store, permission: 'point_de_vente.view', masquerPourTitulaire: true },
+      { to: '/infrastructures', label: 'nav.infrastructures', icon: Building2, permission: 'infrastructures.view', masquerPourTitulaire: true },
     ],
   },
   {
@@ -348,8 +359,11 @@ const navGroups = [
       { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie' },
       { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
       { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie' },
+      { to: '/budgets-personnel', label: 'nav.budgetsPersonnel', icon: Landmark, permission: 'finance.budget' },
       { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
       { to: '/etat-synthese', label: 'nav.etatSynthese', icon: Calculator, permission: 'finance.rapports' },
+      { to: '/rentree-scolaire', label: 'nav.rentreeScolaire', icon: ClipboardCheck, permission: 'finance.rapports' },
+      { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view' },
     ],
   },
   {

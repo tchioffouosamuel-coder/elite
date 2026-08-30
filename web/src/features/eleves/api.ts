@@ -42,6 +42,8 @@ export interface Eleve {
   nationalite: string | null;
   refugie: "Oui" | "Non" | null;
   deplace_interne: "Oui" | "Non" | null;
+  bororo: "Oui" | "Non" | null;
+  baka: "Oui" | "Non" | null;
   photo_url: string | null;
   groupe_sanguin: string | null;
   situation_sanitaire: string | null;
@@ -80,6 +82,8 @@ export interface ElevePayload {
   adresse?: string | null;
   refugie?: "Oui" | "Non" | null;
   deplace_interne?: "Oui" | "Non" | null;
+  bororo?: "Oui" | "Non" | null;
+  baka?: "Oui" | "Non" | null;
   statut?: Eleve["statut"];
   tuteurs?: EleveTuteurInput[];
 }

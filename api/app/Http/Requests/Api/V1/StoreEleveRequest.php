@@ -28,6 +28,8 @@ class StoreEleveRequest extends FormRequest
             'numero_acte_naissance' => ['nullable', 'string', 'max:255'],
             'refugie' => ['nullable', 'in:Oui,Non'],
             'deplace_interne' => ['nullable', 'in:Oui,Non'],
+            'bororo' => ['nullable', 'in:Oui,Non'],
+            'baka' => ['nullable', 'in:Oui,Non'],
             'redoublant' => ['nullable', 'boolean'],
 
             'tuteurs' => ['nullable', 'array'],
