@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, Pencil, Users, AlertTriangle, TrendingUp, History, Copy } from 'lucide-react'
+import { Banknote, Download, FileSpreadsheet, Pencil, Users, AlertTriangle, TrendingUp, History, Copy } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchRemunerations, francs, type LigneRemuneration } from '@/features/finance/api'
 import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { HistoriqueRemunerationModal } from '@/features/finance/pages/HistoriqueRemunerationModal'
 import { CopierRemunerationModal } from '@/features/finance/pages/CopierRemunerationModal'
+import { telechargerFichier } from '@/shared/lib/download'
+import { erreur } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 
 /**
  * Salaires du personnel.
@@ -32,6 +36,8 @@ export function RemunerationsPage() {
   const [historiquePour, setHistoriquePour] = useState<LigneRemuneration | null>(null)
   const [copieOuverte, setCopieOuverte] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showImport, setShowImport] = useState(false)
+  const [telechargementModele, setTelechargementModele] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['remunerations', activeSchoolId],
@@ -39,6 +45,17 @@ export function RemunerationsPage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['remunerations'] })
+
+  const telechargerModele = async () => {
+    setTelechargementModele(true)
+    try {
+      await telechargerFichier('/remunerations/modele', undefined, 'modele-remunerations.xlsx')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setTelechargementModele(false)
+    }
+  }
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds)
@@ -209,6 +226,20 @@ export function RemunerationsPage() {
         titre="Salaires du personnel"
         sousTitre="Rémunération contractuelle de chaque agent — la paie mensuelle s'appuie dessus."
         icon={Banknote}
+        actions={
+          can('finance.paie') && (
+            <>
+              <Button variant="secondary" disabled={telechargementModele} onClick={telechargerModele}>
+                <Download className="h-4 w-4" />
+                Télécharger le modèle
+              </Button>
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <FileSpreadsheet className="h-4 w-4" />
+                Importer
+              </Button>
+            </>
+          )
+        }
       />
 
       {selectedIds.size > 0 && can('finance.paie') && (
@@ -308,6 +339,29 @@ export function RemunerationsPage() {
             setSelectedIds(new Set())
             rafraichir()
           }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title="Importer des rémunérations"
+          url="/remunerations/import"
+          columns={[
+            'Nom complet',
+            'Date effet',
+            'Mode',
+            'Salaire de base',
+            'Taux horaire',
+            'Prime anciennete',
+            'Prime communication',
+            'Prime transport',
+            'Prime recherche',
+            'Prime performance',
+            'Categorie',
+          ]}
+          note="Téléchargez d'abord le modèle : la feuille « Import » propose le nom de chaque agent en liste déroulante, pour éviter toute erreur de rapprochement."
+          onClose={() => setShowImport(false)}
+          onImported={rafraichir}
         />
       )}
     </div>

@@ -21,7 +21,7 @@ class Remuneration extends Model
     protected function casts(): array
     {
         return [
-            'date_effet' => 'date',
+            'date_effet' => 'date:Y-m-d',
             'taux_horaire' => 'integer',
             'salaire_base' => 'integer',
             'prime_anciennete' => 'integer',

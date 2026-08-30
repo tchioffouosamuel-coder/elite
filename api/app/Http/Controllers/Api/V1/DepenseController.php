@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
+use App\Imports\DepenseImport;
 use App\Models\CompteComptable;
 use App\Models\Depense;
 use App\Models\School;
@@ -13,6 +14,7 @@ use App\Support\Pdf\BilanDepensesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -42,6 +44,30 @@ class DepenseController extends Controller
             ->get(['id', 'code', 'libelle', 'classe', 'sens']);
 
         return ApiResponse::success($comptes);
+    }
+
+    /**
+     * Import en masse de dépenses courantes (caisse/revenu personnel) —
+     * chaque ligne crée une dépense, sans rapprochement avec un éventuel
+     * import précédent (cf. DepenseImport).
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $import = new DepenseImport(Tenant::schoolId(), $request->user()?->id);
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success(
+            [
+                'imported' => $import->importedCount,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+                'erreurs_metier' => $import->erreurs,
+                'comptes_non_rattaches' => $import->comptesNonRattaches,
+            ],
+            $import->importedCount.' dépense(s) importée(s).',
+        );
     }
 
     public function store(Request $request): JsonResponse

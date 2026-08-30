@@ -174,4 +174,69 @@ class PersonnelImportTest extends TestCase
         $this->assertSame(2, $rejeu->updatedCount);
         $this->assertSame(2, Personnel::where('school_id', $this->school->id)->count());
     }
+
+    /** @return UploadedFile fichier au format « en-têtes ligne 3 » minimal, avec les colonnes administratives ajoutées. */
+    private function fichierAvecChampsAdministratifs(): UploadedFile
+    {
+        $feuille = (new Spreadsheet)->getActiveSheet();
+
+        $feuille->fromArray([
+            [],
+            [],
+            [
+                'Nom complet', 'Département', 'N° Permis', 'Type contrat', 'Statut contrat',
+                'Catégorie/Échelon', 'Grade MINEDUB', 'Absent depuis', 'Motif absence', 'Dossier disciplinaire',
+                'Date décès', 'Banque', 'N° Compte', 'Nom du père', 'Statut père', 'Téléphone père',
+                'Nom de la mère', 'Statut mère', 'Téléphone mère',
+            ],
+            [
+                'FOMESSO ELVICE', 'Pédagogie', 'PC123456', 'CDI', 'Permanent',
+                '5C', 'IEG', '2026-01-15', 'Congé maladie', 'Non',
+                null, 'Afriland', '00123456789', 'FOMESSO PAUL', 'Vivant', '699000000',
+                'FOMESSO MARIE', 'Décédée', null,
+            ],
+        ], null, 'A1');
+
+        $chemin = tempnam(sys_get_temp_dir(), 'pers').'.xlsx';
+        (new Xlsx($feuille->getParent()))->save($chemin);
+
+        return new UploadedFile($chemin, 'personnel-admin.xlsx', null, null, true);
+    }
+
+    public function test_les_champs_administratifs_absents_de_lancien_import_sont_desormais_repris(): void
+    {
+        $import = new PersonnelImport($this->school->id);
+        Excel::import($import, $this->fichierAvecChampsAdministratifs());
+
+        $this->assertCount(0, $import->failures());
+
+        $agent = Personnel::where('nom_complet', 'FOMESSO ELVICE')->firstOrFail();
+
+        $this->assertSame('Pédagogie', $agent->departement->nom);
+        $this->assertSame('PC123456', $agent->numero_permis);
+        $this->assertSame('CDI', $agent->type_contrat);
+        $this->assertSame('permanent', $agent->statut_contrat);
+        $this->assertSame('5C', $agent->categorie_echelon);
+        $this->assertSame('IEG', $agent->grade_minedub);
+        $this->assertSame('2026-01-15', $agent->absent_depuis->toDateString());
+        $this->assertSame('Congé maladie', $agent->motif_absence);
+        $this->assertFalse($agent->dossier_disciplinaire);
+        $this->assertNull($agent->date_deces);
+        $this->assertSame('Afriland', $agent->banque);
+        $this->assertSame('00123456789', $agent->numero_compte);
+        $this->assertSame('FOMESSO PAUL', $agent->pere_nom_complet);
+        $this->assertSame('vivant', $agent->pere_statut);
+        $this->assertSame('699000000', $agent->pere_telephone);
+        $this->assertSame('FOMESSO MARIE', $agent->mere_nom_complet);
+        $this->assertSame('decede', $agent->mere_statut);
+    }
+
+    public function test_un_departement_inconnu_est_cree_automatiquement(): void
+    {
+        $this->assertSame(0, \App\Models\Departement::where('school_id', $this->school->id)->count());
+
+        Excel::import(new PersonnelImport($this->school->id), $this->fichierAvecChampsAdministratifs());
+
+        $this->assertSame(1, \App\Models\Departement::where('school_id', $this->school->id)->where('nom', 'Pédagogie')->count());
+    }
 }

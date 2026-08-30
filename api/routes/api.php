@@ -675,6 +675,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:finance.depenses')->group(function () {
                 Route::post('depenses', [DepenseController::class, 'store'])->name('depenses.store');
+                Route::post('depenses/import', [DepenseController::class, 'import'])->name('depenses.import');
                 Route::post('depenses/{id}/payer', [DepenseController::class, 'payer'])->name('depenses.payer');
                 Route::post('depenses/{id}/annuler', [DepenseController::class, 'annuler'])->name('depenses.annuler');
                 // Le sélecteur « Source = Budget alloué » du formulaire de dépense
@@ -766,10 +767,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::middleware('permission:finance.paie')->group(function () {
                 Route::get('remunerations', [RemunerationController::class, 'index'])->name('remunerations.index');
+                Route::get('remunerations/modele', [RemunerationController::class, 'modele'])->name('remunerations.modele');
                 Route::get('remunerations/{personnelId}/historique', [RemunerationController::class, 'historique'])->name('remunerations.historique');
                 Route::get('remunerations/{personnelId}/anciennete', [RemunerationController::class, 'anciennete'])->name('remunerations.anciennete');
                 Route::post('remunerations/appliquer', [RemunerationController::class, 'appliquer'])->name('remunerations.appliquer');
                 Route::post('remunerations/simuler', [RemunerationController::class, 'simuler'])->name('remunerations.simuler');
+                // Déclarée avant « remunerations/{personnelId} » : sinon « import »
+                // s'y ferait happer comme un identifiant d'agent.
+                Route::post('remunerations/import', [RemunerationController::class, 'import'])->name('remunerations.import');
                 Route::post('remunerations/{personnelId}', [RemunerationController::class, 'store'])->name('remunerations.store');
 
                 Route::get('paie', [PaieController::class, 'index'])->name('paie.index');

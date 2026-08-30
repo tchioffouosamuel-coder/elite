@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\RemunerationTemplateExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\RemunerationImport;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Services\Paie\BaremePaie;
@@ -11,6 +13,8 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Rémunération contractuelle du personnel.
@@ -270,6 +274,45 @@ class RemunerationController extends Controller
             'cout_employeur' => (int) $couts->sum(fn ($r) => $r->coutEmployeur()),
             'net_mensuel' => (int) $couts->sum(fn ($r) => $r->netAvantDeductions()),
         ];
+    }
+
+    /**
+     * Modèle Excel d'import des rémunérations : une feuille « Liste » (les
+     * noms du personnel en poste) et une feuille « Import » dont la colonne
+     * Nom est une liste déroulante alimentée par la première.
+     */
+    public function modele(): BinaryFileResponse
+    {
+        $noms = Personnel::forSchool(Tenant::schoolIds())
+            ->where('statut', 'actif')
+            ->orderBy('nom_complet')
+            ->pluck('nom_complet');
+
+        return Excel::download(new RemunerationTemplateExport($noms), 'modele-remunerations.xlsx');
+    }
+
+    /**
+     * Import en lot depuis la feuille « Import » du modèle : un agent
+     * introuvable ne bloque pas les autres lignes, il est simplement compté
+     * à part pour être signalé.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $import = new RemunerationImport(app('tenant.school_id'));
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success(
+            [
+                'imported' => $import->importedCount,
+                'updated' => $import->updatedCount,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+                'noms_non_rattaches' => $import->nomsNonRattaches,
+            ],
+            ($import->importedCount + $import->updatedCount).' rémunération(s) importée(s).',
+        );
     }
 
     /** Ancienneté indicative, pour aider à fixer la prime correspondante. */

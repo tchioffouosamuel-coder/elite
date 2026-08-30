@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Classe;
+use App\Models\Departement;
 use App\Models\FonctionReferentiel;
 use App\Models\Personnel;
 use App\Services\CompteAgentService;
@@ -79,6 +80,31 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         'affectation' => 'affectation',
         'fonction' => 'fonction',
         'email' => 'email',
+        'departement' => 'departement',
+        'npermis' => 'numero_permis',
+        'numeropermis' => 'numero_permis',
+        'typecontrat' => 'type_contrat',
+        'statutcontrat' => 'statut_contrat',
+        'categorieechelon' => 'categorie_echelon',
+        'categorie' => 'categorie_echelon',
+        'echelon' => 'categorie_echelon',
+        'grademinedub' => 'grade_minedub',
+        'grade' => 'grade_minedub',
+        'absentdepuis' => 'absent_depuis',
+        'motifabsence' => 'motif_absence',
+        'dossierdisciplinaire' => 'dossier_disciplinaire',
+        'datedeces' => 'date_deces',
+        'banque' => 'banque',
+        'ncompte' => 'numero_compte',
+        'numerocompte' => 'numero_compte',
+        'nomdupere' => 'pere_nom_complet',
+        'perenomcomplet' => 'pere_nom_complet',
+        'statutpere' => 'pere_statut',
+        'telephonepere' => 'pere_telephone',
+        'nomdelamere' => 'mere_nom_complet',
+        'merenomcomplet' => 'mere_nom_complet',
+        'statutmere' => 'mere_statut',
+        'telephonemere' => 'mere_telephone',
     ];
 
     public int $importedCount = 0;
@@ -186,6 +212,24 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             'email' => isset($ligne['email']) ? self::texte($ligne['email']) : null,
             'fonction' => isset($ligne['fonction']) ? self::texte($ligne['fonction']) : null,
             'affectation' => isset($ligne['affectation']) ? self::texte($ligne['affectation']) : null,
+            'departement' => isset($ligne['departement']) ? self::texte($ligne['departement']) : null,
+            'numero_permis' => isset($ligne['numero_permis']) ? self::texte($ligne['numero_permis']) : null,
+            'type_contrat' => self::typeContrat($ligne['type_contrat'] ?? null),
+            'statut_contrat' => self::statutContrat($ligne['statut_contrat'] ?? null),
+            'categorie_echelon' => isset($ligne['categorie_echelon']) ? self::texte($ligne['categorie_echelon']) : null,
+            'grade_minedub' => isset($ligne['grade_minedub']) ? self::texte($ligne['grade_minedub']) : null,
+            'absent_depuis' => self::date($ligne['absent_depuis'] ?? null),
+            'motif_absence' => isset($ligne['motif_absence']) ? self::texte($ligne['motif_absence']) : null,
+            'dossier_disciplinaire' => self::booleen($ligne['dossier_disciplinaire'] ?? null),
+            'date_deces' => self::date($ligne['date_deces'] ?? null),
+            'banque' => isset($ligne['banque']) ? self::texte($ligne['banque']) : null,
+            'numero_compte' => isset($ligne['numero_compte']) ? self::texte($ligne['numero_compte']) : null,
+            'pere_nom_complet' => isset($ligne['pere_nom_complet']) ? self::texte($ligne['pere_nom_complet']) : null,
+            'pere_statut' => self::statutParent($ligne['pere_statut'] ?? null),
+            'pere_telephone' => self::telephone($ligne['pere_telephone'] ?? null),
+            'mere_nom_complet' => isset($ligne['mere_nom_complet']) ? self::texte($ligne['mere_nom_complet']) : null,
+            'mere_statut' => self::statutParent($ligne['mere_statut'] ?? null),
+            'mere_telephone' => self::telephone($ligne['mere_telephone'] ?? null),
         ];
     }
 
@@ -246,7 +290,25 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             'date_fin' => $ligne['date_fin'],
             'date_retraite' => $ligne['date_retraite'],
             'fonction_id' => $this->fonctionId($ligne),
+            'departement_id' => $this->departementId($ligne),
             'affectation' => $ligne['affectation'],
+            'numero_permis' => $ligne['numero_permis'],
+            'type_contrat' => $ligne['type_contrat'],
+            'statut_contrat' => $ligne['statut_contrat'],
+            'categorie_echelon' => $ligne['categorie_echelon'],
+            'grade_minedub' => $ligne['grade_minedub'],
+            'absent_depuis' => $ligne['absent_depuis'],
+            'motif_absence' => $ligne['motif_absence'],
+            'dossier_disciplinaire' => $ligne['dossier_disciplinaire'],
+            'date_deces' => $ligne['date_deces'],
+            'banque' => $ligne['banque'],
+            'numero_compte' => $ligne['numero_compte'],
+            'pere_nom_complet' => $ligne['pere_nom_complet'],
+            'pere_statut' => $ligne['pere_statut'],
+            'pere_telephone' => $ligne['pere_telephone'],
+            'mere_nom_complet' => $ligne['mere_nom_complet'],
+            'mere_statut' => $ligne['mere_statut'],
+            'mere_telephone' => $ligne['mere_telephone'],
         ], fn ($valeur) => $valeur !== null);
 
         // Un agent dont le contrat a une date de fin n'est plus en poste.
@@ -289,6 +351,30 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         return ($fonction ?: FonctionReferentiel::create([
             'school_id' => $this->schoolId,
             'label_fr' => $libelle,
+        ]))->id;
+    }
+
+    /**
+     * Même logique que {@see fonctionId()} : un département inconnu est créé
+     * plutôt que de faire échouer la ligne ou de laisser l'agent orphelin.
+     *
+     * @param  array<string, mixed>  $ligne
+     */
+    private function departementId(array $ligne): ?int
+    {
+        $libelle = $ligne['departement'];
+
+        if ($libelle === null) {
+            return null;
+        }
+
+        $departement = Departement::forSchool($this->schoolId)
+            ->whereRaw('LOWER(nom) = ?', [Str::lower($libelle)])
+            ->first();
+
+        return ($departement ?: Departement::create([
+            'school_id' => $this->schoolId,
+            'nom' => $libelle,
         ]))->id;
     }
 
@@ -401,6 +487,57 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             str_starts_with($cle, 'mari'), str_starts_with($cle, 'marr') => 'marie',
             str_starts_with($cle, 'divorc') => 'divorce',
             str_starts_with($cle, 'veu'), str_starts_with($cle, 'widow') => 'veuf',
+            default => null,
+        };
+    }
+
+    private static function typeContrat(mixed $valeur): ?string
+    {
+        $cle = self::cle(self::texte($valeur));
+
+        return match (true) {
+            $cle === '' => null,
+            str_starts_with($cle, 'cdi') => 'CDI',
+            str_starts_with($cle, 'cdd') => 'CDD',
+            default => null,
+        };
+    }
+
+    private static function statutContrat(mixed $valeur): ?string
+    {
+        $cle = self::cle(self::texte($valeur));
+
+        return match (true) {
+            $cle === '' => null,
+            str_starts_with($cle, 'essai') => 'essai',
+            str_starts_with($cle, 'perman') => 'permanent',
+            str_starts_with($cle, 'vacat') => 'vacataire',
+            default => null,
+        };
+    }
+
+    /** Vivant/décédé, dans les deux langues : même tolérance que `situationMatrimoniale()`. */
+    private static function statutParent(mixed $valeur): ?string
+    {
+        $cle = self::cle(self::texte($valeur));
+
+        return match (true) {
+            $cle === '' => null,
+            str_starts_with($cle, 'vivant'), str_starts_with($cle, 'alive'), str_starts_with($cle, 'living') => 'vivant',
+            str_starts_with($cle, 'dece'), str_starts_with($cle, 'dead') => 'decede',
+            default => null,
+        };
+    }
+
+    /** Oui/Non, Yes/No, 1/0 : les variantes usuelles d'une case à cocher retranscrite en Excel. */
+    private static function booleen(mixed $valeur): ?bool
+    {
+        $cle = self::cle(self::texte($valeur));
+
+        return match (true) {
+            $cle === '' => null,
+            in_array($cle, ['oui', 'yes', '1', 'vrai', 'true'], true) => true,
+            in_array($cle, ['non', 'no', '0', 'faux', 'false'], true) => false,
             default => null,
         };
     }

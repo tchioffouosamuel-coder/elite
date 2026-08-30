@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown, FileText } from 'lucide-react'
+import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -9,6 +9,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -37,6 +38,7 @@ export function DepensesPage() {
   const [au, setAu] = useState('')
   const [statut, setStatut] = useState('')
   const [formOuvert, setFormOuvert] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['depenses', activeSchoolId, du, au, statut],
@@ -180,6 +182,12 @@ export function DepensesPage() {
               </Button>
             )}
             {can('finance.depenses') && (
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <FileSpreadsheet className="h-4 w-4" />
+                Importer
+              </Button>
+            )}
+            {can('finance.depenses') && (
               <Button onClick={() => setFormOuvert(true)}>
                 <Plus className="h-4 w-4" />
                 Nouvelle dépense
@@ -268,6 +276,28 @@ export function DepensesPage() {
             setFormOuvert(false)
             rafraichir()
           }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title="Importer des dépenses"
+          url="/depenses/import"
+          columns={[
+            'Date',
+            'Libelle',
+            'Montant',
+            'Mode',
+            'Beneficiaire',
+            'N Facture',
+            'Responsable',
+            'Compte comptable',
+            'Source',
+            'Statut',
+          ]}
+          note="Chaque ligne crée une dépense — réimporter le même fichier la comptera deux fois. Un compte comptable non reconnu retombe automatiquement sur le compte par défaut. Limité aux dépenses de caisse ou sur revenu personnel : les dépenses véhicule ou imputées sur un budget agent se saisissent depuis leurs écrans dédiés."
+          onClose={() => setShowImport(false)}
+          onImported={rafraichir}
         />
       )}
     </div>
