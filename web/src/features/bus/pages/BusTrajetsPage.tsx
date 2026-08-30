@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
-import { MapPin, Pencil, Plus, Route as RouteIcon, Trash2, Users } from 'lucide-react'
+import { MapPin, Pencil, Plus, Route as RouteIcon, Trash2, Upload, Users } from 'lucide-react'
 import {
   creerTrajet,
   fetchTrajets,
@@ -21,6 +21,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -29,6 +30,7 @@ export function BusTrajetsPage() {
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [trajetEnEdition, setTrajetEnEdition] = useState<BusTrajet | null>(null)
 
   const { data: trajets, isLoading } = useQuery({ queryKey: ['bus-trajets'], queryFn: fetchTrajets })
@@ -144,15 +146,21 @@ export function BusTrajetsPage() {
         icon={RouteIcon}
         actions={
           can('bus.manage') && (
-            <Button
-              onClick={() => {
-                setTrajetEnEdition(null)
-                setShowForm(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('bus.trajet_add')}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.title')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setTrajetEnEdition(null)
+                  setShowForm(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('bus.trajet_add')}
+              </Button>
+            </>
           )
         }
       />
@@ -179,6 +187,16 @@ export function BusTrajetsPage() {
             setTrajetEnEdition(null)
             invalidate()
           }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title={t('import.title')}
+          url="/bus/trajets/import"
+          columns={['nom', 'description', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour']}
+          onClose={() => setShowImport(false)}
+          onImported={invalidate}
         />
       )}
     </div>

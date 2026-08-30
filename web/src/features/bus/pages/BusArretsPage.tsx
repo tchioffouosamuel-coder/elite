@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
-import { Clock, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Clock, MapPin, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import {
   ajouterArret,
   fetchTrajets,
@@ -20,6 +20,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -33,6 +34,7 @@ export function BusArretsPage() {
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [arretEnEdition, setArretEnEdition] = useState<LigneArret | null>(null)
 
   const { data: trajets, isLoading } = useQuery({ queryKey: ['bus-trajets'], queryFn: fetchTrajets })
@@ -139,16 +141,22 @@ export function BusArretsPage() {
         icon={MapPin}
         actions={
           can('bus.manage') && (
-            <Button
-              onClick={() => {
-                setArretEnEdition(null)
-                setShowForm(true)
-              }}
-              disabled={!trajets || trajets.length === 0}
-            >
-              <Plus className="h-4 w-4" />
-              {t('bus.arret_add')}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.title')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setArretEnEdition(null)
+                  setShowForm(true)
+                }}
+                disabled={!trajets || trajets.length === 0}
+              >
+                <Plus className="h-4 w-4" />
+                {t('bus.arret_add')}
+              </Button>
+            </>
           )
         }
       />
@@ -176,6 +184,16 @@ export function BusArretsPage() {
             setArretEnEdition(null)
             invalidate()
           }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          title={t('import.title')}
+          url="/bus/arrets/import"
+          columns={['trajet', 'nom', 'lieu_dit', 'ordre', 'heure_passage']}
+          onClose={() => setShowImport(false)}
+          onImported={invalidate}
         />
       )}
     </div>

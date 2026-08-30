@@ -140,7 +140,7 @@ class RegistreSync
             // --- Écritures du quotidien : le cœur du hors-ligne.
             'seances' => [
                 'modele' => Seance::class,
-                'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id', 'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'observations', 'donnees_personnalisees', 'statut'],
+                'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id', 'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'observations', 'donnees_personnalisees', 'statut', 'appel_verrouille_le'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'emploi_du_temps.view',
             ],
@@ -166,7 +166,7 @@ class RegistreSync
             // --- Communication.
             'annonces' => [
                 'modele' => Annonce::class,
-                'colonnes' => ['id', 'school_id', 'titre', 'contenu', 'publie_par', 'publiee_le'],
+                'colonnes' => ['id', 'school_id', 'titre', 'contenu', 'publie_par', 'publiee_le', 'cible_type'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'annonces.view',
             ],

@@ -791,6 +791,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('bus/vehicules/{id}', [BusVehiculeController::class, 'destroy'])->name('bus.vehicules.destroy');
 
                 Route::post('bus/trajets', [BusTrajetController::class, 'store'])->name('bus.trajets.store');
+                Route::post('bus/trajets/import', [BusTrajetController::class, 'importTrajets'])->name('bus.trajets.import');
+                Route::post('bus/arrets/import', [BusTrajetController::class, 'importArrets'])->name('bus.arrets.import');
                 Route::put('bus/trajets/{id}', [BusTrajetController::class, 'update'])->name('bus.trajets.update');
                 Route::delete('bus/trajets/{id}', [BusTrajetController::class, 'destroy'])->name('bus.trajets.destroy');
                 Route::post('bus/trajets/{id}/notifier', [BusTrajetController::class, 'notifier'])->name('bus.trajets.notifier');

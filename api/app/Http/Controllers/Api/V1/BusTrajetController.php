@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\BusArretImport;
+use App\Imports\BusTrajetImport;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Services\BusService;
@@ -11,6 +13,7 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 
 class BusTrajetController extends Controller
 {
@@ -89,6 +92,53 @@ class BusTrajetController extends Controller
             ['envoyes' => $envoyes],
             $envoyes > 0 ? "{$envoyes} parent(s) notifié(s)." : "Aucun parent n'a pu être notifié (numéro manquant).",
         );
+    }
+
+    public function importTrajets(Request $request): JsonResponse
+    {
+        $donnees = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+        ]);
+
+        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
+        $import = new BusTrajetImport($schoolId);
+        Excel::import($import, $request->file('file'));
+
+        $resultat = [
+            'imported' => $import->importedCount,
+            'failed' => count($import->failures()),
+            'errors' => $import->failures(),
+        ];
+
+        return ApiResponse::success($resultat, "{$resultat['imported']} trajet(s) importé(s).");
+    }
+
+    /** Colonne « trajet » requise : les arrêts se rattachent par nom au trajet déjà créé. */
+    public function importArrets(Request $request): JsonResponse
+    {
+        $donnees = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+        ]);
+
+        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
+        $import = new BusArretImport($schoolId);
+        Excel::import($import, $request->file('file'));
+
+        $resultat = [
+            'imported' => $import->importedCount,
+            'failed' => count($import->failures()),
+            'errors' => $import->failures(),
+            'trajets_introuvables' => $import->trajetsIntrouvables,
+        ];
+
+        $message = "{$resultat['imported']} arrêt(s) importé(s).";
+        if ($resultat['trajets_introuvables'] !== []) {
+            $message .= ' ' . count($resultat['trajets_introuvables']) . ' trajet(s) introuvable(s).';
+        }
+
+        return ApiResponse::success($resultat, $message);
     }
 
     // ---- Arrêts ---------------------------------------------------------
