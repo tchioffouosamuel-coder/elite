@@ -121,7 +121,15 @@ class SyncPull extends Command
                 // `timeout` : un aléa sur la connexion elle-même (DNS/TLS) ne
                 // doit pas se cacher derrière un délai pensé pour la réponse.
                 ->connectTimeout(30)
-                ->timeout(120)
+                ->timeout(180)
+                // Une page qui échoue (réseau instable, coupure momentanée)
+                // se retente seule, 3 fois avec un délai croissant, avant de
+                // remonter l'échec au niveau de l'école : beaucoup moins
+                // coûteux qu'un ré-essai de la commande entière, qui reprend
+                // certes désormais à la bonne page (curseur persisté après
+                // chaque page ci-dessous) mais reperd quand même la page en
+                // cours d'échec.
+                ->retry(3, 3000)
                 ->get('sync', array_filter(['depuis' => $curseur]));
 
             if ($reponse->failed()) {
