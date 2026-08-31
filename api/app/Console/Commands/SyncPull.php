@@ -113,6 +113,15 @@ class SyncPull extends Command
                 ->withHeaders(['X-School-Id' => $ecoleProvisioning->school_id])
                 ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
                 ->acceptJson()
+                // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
+                // parfois trop court pour une page pleine (jusqu'à 500 lignes
+                // par entité du registre) : observé en conditions réelles à
+                // 17s de réponse normale, et jusqu'à un échec à 30s sous une
+                // latence réseau moins favorable. `connectTimeout` séparé de
+                // `timeout` : un aléa sur la connexion elle-même (DNS/TLS) ne
+                // doit pas se cacher derrière un délai pensé pour la réponse.
+                ->connectTimeout(30)
+                ->timeout(120)
                 ->get('sync', array_filter(['depuis' => $curseur]));
 
             if ($reponse->failed()) {
