@@ -39,7 +39,7 @@ class BulletinPrimaireService extends BaseService
     {
         // `statut` qualifié : la jointure sur `competences` en apporte un second.
         $affectations = $classe->classeCompetences()->where('classe_competences.statut', 'actif')
-            ->with(['competence', 'enseignant'])
+            ->with('competence')
             ->join('competences', 'competences.id', '=', 'classe_competences.competence_id')
             ->orderBy('competences.ordre')
             ->orderBy('competences.label_fr')
@@ -60,6 +60,13 @@ class BulletinPrimaireService extends BaseService
         // calculées ici en un bloc pour toute la classe, plutôt qu'une requête
         // par élève comme le faisait la lecture d'AbsenceTrimestre.
         $jours = $this->discipline->joursAbsence($classe, $trimestre);
+
+        // Une compétence peut regrouper plusieurs matières, chacune pouvant
+        // avoir son propre enseignant ({@see ClasseMatiere::enseignant()}) :
+        // le bulletin, qui note par compétence, affiche donc le titulaire —
+        // seul responsable de l'évaluation du bloc — plutôt qu'un enseignant
+        // de matière qui n'aurait plus de sens à cette granularité.
+        $titulaireNom = $classe->titulaire?->nom_complet ?? '—';
 
         $elevesDuDocument = $eleveIds === null
             ? $tousEleves
@@ -108,8 +115,8 @@ class BulletinPrimaireService extends BaseService
             ],
             'eleves' => $elevesDuDocument
                 ->map(fn(Eleve $eleve) => $parAppreciation
-                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours)
-                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours))
+                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours, $titulaireNom)
+                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours, $titulaireNom))
                 ->all(),
         ];
     }
@@ -131,6 +138,7 @@ class BulletinPrimaireService extends BaseService
         Collection $affectations,
         Collection $sequences,
         Collection $jours,
+        string $titulaireNom,
     ): array {
         $notes = Note::where('eleve_id', $eleve->id)
             ->whereIn('classe_competence_id', $affectations->pluck('id'))
@@ -144,14 +152,14 @@ class BulletinPrimaireService extends BaseService
         // rien d'exploitable — il faut passer par les identifiants.
         $rangSequence = $sequences->values()->pluck('id')->flip();
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($notes, $rangSequence) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($notes, $rangSequence, $titulaireNom) {
             $competence = $cc->competence;
 
             return [
                 'matiere' => $competence->label_fr,
                 'matiere_en' => $competence->label_en,
                 'abreviation' => $competence->abbreviation,
-                'enseignant' => $cc->enseignant?->nom_complet ?? '—',
+                'enseignant' => $titulaireNom,
                 'volets' => collect($competence->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
                     $retenue = $notes
                         ->where('classe_competence_id', $cc->id)
@@ -193,10 +201,11 @@ class BulletinPrimaireService extends BaseService
         Collection $sequences,
         Collection $classement,
         Collection $jours,
+        string $titulaireNom,
     ): array {
         $totauxParSequence = array_fill_keys($sequences->pluck('id')->all(), 0.0);
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom) {
             $resultat = $this->moyennes->noteCompetenceEleve($eleve, $cc, $trimestre);
             $competence = $cc->competence;
             $repartition = $competence->repartitionVolets();
@@ -213,7 +222,7 @@ class BulletinPrimaireService extends BaseService
                 'matiere_en' => $competence->label_en,
                 'abreviation' => $competence->abbreviation,
                 'bareme' => $resultat['bareme'],
-                'enseignant' => $cc->enseignant?->nom_complet ?? '—',
+                'enseignant' => $titulaireNom,
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
                 // Un volet à 0 point n'a rien à afficher — {@see Competence::voletsNotes()}.
                 'volets' => collect($competence->voletsNotes())->map(fn(string $composante) => [

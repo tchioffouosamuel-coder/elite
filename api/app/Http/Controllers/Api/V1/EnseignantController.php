@@ -168,7 +168,7 @@ class EnseignantController extends Controller
 
         $attributions = ClasseCompetence::whereIn('classe_id', $classeIds)
             ->where('statut', 'actif')
-            ->with(['classe', 'competence', 'enseignant'])
+            ->with(['classe.titulaire', 'competence'])
             ->get();
 
         $sequenceActive = Sequence::whereHas(
@@ -181,8 +181,8 @@ class EnseignantController extends Controller
             'classe' => $cc->classe->nom,
             'competence' => $cc->competence->label_fr,
             'competence_id' => $cc->competence_id,
-            'enseignant' => $cc->enseignant?->nom_complet,
-            'personnel_id' => $cc->personnel_id,
+            'enseignant' => $cc->classe->titulaire?->nom_complet,
+            'personnel_id' => $cc->classe->titulaire_id,
             'taux_remplissage' => $sequenceActive ? $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive) : null,
         ])->values();
 

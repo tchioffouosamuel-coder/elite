@@ -18,39 +18,41 @@ use Illuminate\Support\Collection;
  * l'emploi du temps, les séances et la progression s'y accrochent — mais elles
  * découlent de la compétence au lieu d'être saisies à la main.
  *
- * L'enseignant est porté par la compétence et redescend sur ses matières : au
- * primaire, le titulaire tient l'ensemble du bloc.
+ * L'enseignant est porté par chaque matière, pas par la compétence : un
+ * enseignant par matière, y compris au primaire (cf. {@see ClasseMatiere}).
+ * Sans enseignant désigné, une matière nouvellement installée prend par
+ * défaut le titulaire de la classe — qui reste de toute façon seul habilité à
+ * saisir les notes de toutes les compétences ({@see \App\Services\NotePrimaireService::peutSaisir()}).
  */
 class CompetenceAttributionService extends BaseService
 {
     /**
      * Attribue des compétences à une classe et installe leurs matières.
      *
-     * Idempotent : une compétence déjà attribuée voit seulement son enseignant
-     * mis à jour, et ses matières manquantes complétées — réattribuer après
-     * avoir ajouté une matière au référentiel est le geste normal.
+     * Idempotent : une compétence déjà attribuée voit seulement ses matières
+     * manquantes complétées — réattribuer après avoir ajouté une matière au
+     * référentiel est le geste normal.
      *
      * @param  list<int>  $competenceIds
      * @return array{attribuees: int, matieres: int}
      */
-    public function attribuer(Classe $classe, array $competenceIds, ?int $personnelId = null): array
+    public function attribuer(Classe $classe, array $competenceIds): array
     {
         $competences = Competence::where('school_id', $classe->school_id)
             ->whereIn('id', $competenceIds)
             ->with('matieres')
             ->get();
 
-        return $this->transaction(function () use ($classe, $competences, $personnelId) {
+        return $this->transaction(function () use ($classe, $competences) {
             $attribuees = 0;
             $matieres = 0;
 
             foreach ($competences as $competence) {
-                $attribution = ClasseCompetence::updateOrCreate(
+                // `firstOrCreate` : une compétence déjà attribuée n'a plus rien
+                // à mettre à jour (l'enseignant vit désormais sur la matière) —
+                // seules ses matières manquantes sont complétées.
+                $attribution = ClasseCompetence::firstOrCreate(
                     ['classe_id' => $classe->id, 'competence_id' => $competence->id],
-                    // Sans enseignant explicite, le titulaire de la classe prend
-                    // le bloc : c'est lui qui l'enseigne au primaire, et la même
-                    // règle qu'à la copie d'affectations.
-                    ['personnel_id' => $personnelId ?? $classe->titulaire_id],
                 );
 
                 // `refresh()` charge les valeurs par défaut posées en base
@@ -116,6 +118,12 @@ class CompetenceAttributionService extends BaseService
      * affectation déjà en place — un enseignant remplacé sur une matière
      * précise doit survivre à une réattribution du bloc.
      *
+     * Sans enseignant désigné, une matière nouvellement installée prend par
+     * défaut le titulaire de la classe : c'est lui qui l'enseigne tant que
+     * personne d'autre n'a été affecté explicitement (via
+     * `ClasseMatiereController`), et c'est de toute façon lui seul qui est
+     * habilité à saisir les notes de la compétence.
+     *
      * @param  Collection<int, Matiere>  $matieres
      */
     private function installerMatieres(ClasseCompetence $attribution, Collection $matieres): int
@@ -134,7 +142,7 @@ class CompetenceAttributionService extends BaseService
             ClasseMatiere::create([
                 'classe_id' => $attribution->classe_id,
                 'matiere_id' => $matiere->id,
-                'personnel_id' => $attribution->personnel_id,
+                'personnel_id' => $attribution->classe->titulaire_id,
                 'groupe' => $attribution->groupe ?? 1,
             ]);
 

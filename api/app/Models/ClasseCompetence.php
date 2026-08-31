@@ -8,17 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Attribution d'une compétence à une classe : c'est ici que vivent
- * l'enseignant et le bloc d'affichage du bulletin, comme
- * {@see ClasseMatiere} le fait au secondaire pour la matière.
+ * Attribution d'une compétence à une classe : c'est ici que vit le bloc
+ * d'affichage du bulletin.
  *
  * Attribuer une compétence crée d'office l'affectation de chacune de ses
  * matières à la classe (cf. `CompetenceAttributionService`) : l'utilisateur
- * choisit un bloc, pas une liste de matières une à une.
+ * choisit un bloc, pas une liste de matières une à une. L'enseignant, lui,
+ * est porté par chaque matière ({@see ClasseMatiere::enseignant()}), pas par
+ * la compétence — un enseignant par matière, y compris au primaire.
  */
 class ClasseCompetence extends Model
 {
-    protected $fillable = ['classe_id', 'competence_id', 'personnel_id', 'groupe', 'statut'];
+    protected $fillable = ['classe_id', 'competence_id', 'groupe', 'statut'];
 
     protected function casts(): array
     {
@@ -42,11 +43,6 @@ class ClasseCompetence extends Model
     public function competence(): BelongsTo
     {
         return $this->belongsTo(Competence::class);
-    }
-
-    public function enseignant(): BelongsTo
-    {
-        return $this->belongsTo(Personnel::class, 'personnel_id');
     }
 
     public function notes(): HasMany

@@ -171,28 +171,8 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertSame(1, ClasseCompetence::where('classe_id', $this->classe->id)->count());
     }
 
-    /** Les matières installées héritent de l'enseignant du bloc. */
-    public function test_les_matieres_installees_heritent_de_l_enseignant_de_la_competence(): void
-    {
-        $competence = $this->competence();
-        $this->matiere($competence, 'Lecture');
-        $enseignant = $this->agent('TITULAIRE PAUL');
-
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", [
-                'competence_ids' => [$competence->id],
-                'personnel_id' => $enseignant->id,
-            ])
-            ->assertOk();
-
-        $this->assertSame(
-            $enseignant->id,
-            ClasseMatiere::where('classe_id', $this->classe->id)->firstOrFail()->personnel_id,
-        );
-    }
-
-    /** Sans enseignant explicite, le titulaire de la classe prend le bloc. */
-    public function test_sans_enseignant_designe_le_titulaire_prend_la_competence(): void
+    /** Sans enseignant désigné, une matière nouvellement installée prend le titulaire de la classe. */
+    public function test_les_matieres_installees_prennent_le_titulaire_par_defaut(): void
     {
         $titulaire = $this->agent('TITULAIRE ANNE');
         $this->classe->update(['titulaire_id' => $titulaire->id]);
@@ -208,8 +188,36 @@ class CompetenceEvaluationTest extends TestCase
 
         $this->assertSame(
             $titulaire->id,
-            ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail()->personnel_id,
+            ClasseMatiere::where('classe_id', $this->classe->id)->firstOrFail()->personnel_id,
         );
+    }
+
+    /**
+     * L'enseignant s'affecte par matière, pas par compétence : deux matières
+     * d'un même bloc peuvent être tenues par des enseignants différents.
+     */
+    public function test_chaque_matiere_du_bloc_peut_avoir_un_enseignant_different(): void
+    {
+        $competence = $this->competence();
+        $this->matiere($competence, 'Lecture');
+        $this->matiere($competence, 'Écriture');
+        $specialiste = $this->agent('SPECIALISTE LECTURE');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]])
+            ->assertOk();
+
+        $lecture = ClasseMatiere::whereHas('matiere', fn ($q) => $q->where('nom', 'Lecture'))
+            ->where('classe_id', $this->classe->id)->firstOrFail();
+        $ecriture = ClasseMatiere::whereHas('matiere', fn ($q) => $q->where('nom', 'Écriture'))
+            ->where('classe_id', $this->classe->id)->firstOrFail();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/v1/classe-matieres/{$lecture->id}", ['personnel_id' => $specialiste->id])
+            ->assertOk();
+
+        $this->assertSame($specialiste->id, $lecture->fresh()->personnel_id);
+        $this->assertNotSame($specialiste->id, $ecriture->fresh()->personnel_id);
     }
 
     /**

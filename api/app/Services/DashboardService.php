@@ -198,11 +198,12 @@ class DashboardService extends BaseService
         $primaireOuMaternelle = ! (Classe::find($classeIds[0])?->school?->estSecondaire() ?? true);
 
         if ($primaireOuMaternelle) {
+            // Seul le titulaire saisit les notes de compétence : plus besoin de
+            // vérifier un `personnel_id` propre à `classe_competences`, qui
+            // n'existe plus (l'enseignant vit désormais sur `classe_matieres`).
             $mesCompetences = ClasseCompetence::whereIn('classe_id', $classeIds)
                 ->where('statut', 'actif')
-                ->where(fn ($q) => $q
-                    ->where('personnel_id', $personnelId)
-                    ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+                ->whereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId))
                 ->get();
 
             $tauxRemplissageNotes = $mesCompetences->isEmpty()

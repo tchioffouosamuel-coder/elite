@@ -46,9 +46,7 @@ class CompetenceController extends Controller
 
         $attributions = ClasseCompetence::whereHas('classe', fn ($q) => $q->forSchool(Tenant::schoolIds()))
             ->where('statut', 'actif')
-            ->where(fn ($q) => $q
-                ->where('personnel_id', $personnelId)
-                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+            ->whereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId))
             ->with(['classe', 'competence'])
             ->get();
 
@@ -194,13 +192,17 @@ class CompetenceController extends Controller
             ->withCount('notes')->get()->sum('notes_count');
     }
 
-    /** Compétences attribuées à une classe, avec leur enseignant et leurs matières. */
+    /**
+     * Compétences attribuées à une classe, avec leurs matières. L'enseignant
+     * ne vit plus à ce niveau : il s'affecte par matière, via
+     * `ClasseMatiereController` (`GET classes/{id}/matieres`).
+     */
     public function parClasse(int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
         $attributions = $classe->classeCompetences()
-            ->with(['competence.matieres', 'enseignant'])
+            ->with('competence.matieres')
             ->get()
             ->sortBy(fn (ClasseCompetence $cc) => [$cc->competence?->ordre, $cc->competence?->label_fr])
             ->values();
@@ -208,9 +210,6 @@ class CompetenceController extends Controller
         return ApiResponse::success($attributions->map(fn (ClasseCompetence $cc) => [
             'classe_competence_id' => $cc->id,
             'competence' => $cc->competence ? new CompetenceResource($cc->competence) : null,
-            'enseignant' => $cc->enseignant
-                ? ['id' => $cc->enseignant->id, 'nom_complet' => $cc->enseignant->nom_complet]
-                : null,
             'groupe' => $cc->groupe,
             'statut' => $cc->statut,
         ])->values());
@@ -224,10 +223,9 @@ class CompetenceController extends Controller
         $data = $request->validate([
             'competence_ids' => ['required', 'array', 'min:1'],
             'competence_ids.*' => ['integer', 'exists:competences,id'],
-            'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
         ]);
 
-        $resultat = $this->attribution->attribuer($classe, $data['competence_ids'], $data['personnel_id'] ?? null);
+        $resultat = $this->attribution->attribuer($classe, $data['competence_ids']);
 
         return ApiResponse::success(
             $resultat,
@@ -235,26 +233,27 @@ class CompetenceController extends Controller
         );
     }
 
-    /** Change l'enseignant qui tient une compétence dans une classe. */
+    /**
+     * Change le groupe ou le statut d'une attribution de compétence.
+     *
+     * L'enseignant ne se change plus ici : il s'affecte par matière, via
+     * `ClasseMatiereController::update()`/`batchEnseignant()`.
+     */
     public function modifierAttribution(Request $request, int $classeCompetenceId): JsonResponse
     {
         $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
         $this->autoriserGestionAttribution($request, $attribution);
 
         $data = $request->validate([
-            'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
             'groupe' => ['nullable', 'integer', 'min:1', 'max:9'],
             'statut' => ['nullable', 'in:actif,inactif'],
         ]);
 
-        $attribution->update(array_filter($data, fn ($v) => $v !== null || array_key_exists('personnel_id', $data)));
-        $attribution->load(['competence', 'enseignant']);
+        $attribution->update(array_filter($data, fn ($v) => $v !== null));
+        $attribution->load('competence');
 
         return ApiResponse::success([
             'classe_competence_id' => $attribution->id,
-            'enseignant' => $attribution->enseignant
-                ? ['id' => $attribution->enseignant->id, 'nom_complet' => $attribution->enseignant->nom_complet]
-                : null,
             'groupe' => $attribution->groupe,
             'statut' => $attribution->statut,
         ], 'Attribution mise à jour.');

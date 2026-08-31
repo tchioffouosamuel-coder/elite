@@ -61,14 +61,14 @@ class ResultatPrimaireController extends Controller
             return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
         }
 
-        $rows = $classe->classeCompetences()->where('statut', 'actif')->with(['competence', 'enseignant'])->get()
+        $rows = $classe->classeCompetences()->where('statut', 'actif')->with('competence')->get()
             ->map(fn ($cc) => [
                 'classe_competence_id' => $cc->id,
                 'competence' => $cc->competence->label_fr,
                 'competence_en' => $cc->competence->label_en,
                 'bareme' => (int) ($cc->competence->notation ?? 20),
                 'volets' => $cc->competence->voletsNotes(),
-                'enseignant' => $cc->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
+                'enseignant' => $classe->titulaire?->nom_complet,
                 'taux' => $this->service->tauxRemplissage($cc, $trimestre),
             ]);
 

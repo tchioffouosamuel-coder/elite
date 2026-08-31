@@ -236,7 +236,6 @@ class NotePrimaireService extends BaseService
             return false;
         }
 
-        return $classeCompetence->classe->titulaire_id === $personnelId
-            || $classeCompetence->personnel_id === $personnelId;
+        return $classeCompetence->classe->titulaire_id === $personnelId;
     }
 }

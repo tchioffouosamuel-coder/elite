@@ -309,11 +309,7 @@ class PrimaireMaternelleSeeder extends Seeder
         return $competences->map(function (Competence $competence) use ($classe) {
             $attribution = ClasseCompetence::firstOrCreate(
                 ['classe_id' => $classe->id, 'competence_id' => $competence->id],
-                [
-                    // Au primaire c'est le titulaire de la classe qui enseigne tout.
-                    'personnel_id' => $classe->titulaire_id,
-                    'statut' => 'actif',
-                ],
+                ['statut' => 'actif'],
             );
 
             foreach ($competence->matieres as $matiere) {
