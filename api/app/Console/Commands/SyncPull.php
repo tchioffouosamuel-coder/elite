@@ -163,9 +163,18 @@ class SyncPull extends Command
 
             $curseur = $payload['curseur'] ?? $curseur;
             $complet = (bool) ($payload['complet'] ?? true);
-        }
 
-        $ecoleProvisioning->update(['curseur_sync' => $curseur, 'dernier_pull_le' => now()]);
+            // Persisté après CHAQUE page, pas seulement à la fin : un
+            // établissement volumineux peut demander des dizaines de pages
+            // (chacune plafonnée à 500 lignes par entité), donc autant
+            // d'allers-retours réseau successifs — un aléa isolé sur l'un
+            // d'eux ne doit pas effacer la progression déjà appliquée en
+            // local et forcer à tout retélécharger depuis le début au
+            // prochain essai. Observé en conditions réelles : un timeout au
+            // bout d'1h30 de pagination faisait systématiquement repartir de
+            // zéro l'école la plus volumineuse.
+            $ecoleProvisioning->update(['curseur_sync' => $curseur, 'dernier_pull_le' => now()]);
+        }
 
         $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
 
