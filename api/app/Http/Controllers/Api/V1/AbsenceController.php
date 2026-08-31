@@ -59,6 +59,24 @@ class AbsenceController extends Controller
         return ApiResponse::success($this->service->bilanClasse($classe, $trimestre));
     }
 
+    /**
+     * Taux de fréquentation trimestriel (par sexe) et taux de fréquentation
+     * des minorités — rubriques du rapport de fin de trimestre MINEDUB.
+     */
+    public function frequentation(Request $request, int $classeId): JsonResponse
+    {
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+        $trimestre = Trimestre::whereHas(
+            'anneeScolaire',
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+        )->findOrFail($request->integer('trimestre_id'));
+
+        return ApiResponse::success([
+            'par_sexe' => $this->service->tauxFrequentation($classe, $trimestre),
+            'par_minorite' => $this->service->tauxFrequentationMinorites($classe, $trimestre),
+        ]);
+    }
+
     public function bilanPdf(Request $request, int $classeId): Response
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);

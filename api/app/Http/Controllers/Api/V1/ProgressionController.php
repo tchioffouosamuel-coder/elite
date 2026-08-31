@@ -11,6 +11,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
+use App\Models\Trimestre;
 use App\Imports\ProgressionImport;
 use App\Services\ProgressionService;
 use App\Support\Pdf\ProgressionFicheGenerator;
@@ -176,6 +177,15 @@ class ProgressionController extends Controller
         $perimetre = $request->user()->perimetre();
 
         $personnelId = $perimetre->matieresRestreintesDans($classeId) ? $perimetre->personnelId() : null;
+
+        if ($trimestreId = $request->integer('trimestre_id') ?: null) {
+            $trimestre = Trimestre::whereHas(
+                'anneeScolaire',
+                fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+            )->findOrFail($trimestreId);
+
+            return ApiResponse::success($this->service->tauxClasseTrimestre($classe, $trimestre, $personnelId));
+        }
 
         return ApiResponse::success($this->service->tauxClasse($classe, $personnelId));
     }

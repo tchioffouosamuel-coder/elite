@@ -54,7 +54,7 @@ class NotePrimaireService extends BaseService
     public function grille(ClasseCompetence $classeCompetence, Trimestre $trimestre): array
     {
         $competence = $classeCompetence->competence;
-        $composantes = $competence->volets();
+        $composantes = $competence->voletsNotes();
         $sequences = $trimestre->sequencesRetenues();
         $maternelle = $this->parAppreciation($classeCompetence);
 
@@ -141,7 +141,7 @@ class NotePrimaireService extends BaseService
             ? Appreciation::forSchool((int) $classeCompetence->classe->school_id)->pluck('id')->flip()
             : collect();
         $eleveIdsValides = $classeCompetence->classe->eleves()->pluck('id')->flip();
-        $composantesValides = array_flip($classeCompetence->competence->volets());
+        $composantesValides = array_flip($classeCompetence->competence->voletsNotes());
         $anneeActive = AnneeScolaire::where('school_id', $classeCompetence->classe->school_id)->where('is_active', true)->first();
         $sequenceIdsValides = $anneeActive
             ? Sequence::whereHas(
@@ -200,7 +200,7 @@ class NotePrimaireService extends BaseService
     /** Part des cellules (élève × volet) déjà renseignées pour cette compétence, sur une séquence. */
     public function tauxRemplissage(ClasseCompetence $classeCompetence, Sequence $sequence): int
     {
-        $composantes = $classeCompetence->competence->volets();
+        $composantes = $classeCompetence->competence->voletsNotes();
         $effectif = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
         $total = $effectif * count($composantes);
 

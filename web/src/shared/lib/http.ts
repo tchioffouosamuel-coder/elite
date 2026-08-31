@@ -1,5 +1,12 @@
 import axios from "axios";
 import type { AxiosError } from "axios";
+
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    /** N'affiche pas la modale « Permission manquante » sur un 403 — pour un appel dont l'échec ne doit pas interrompre l'utilisateur (ex. remplir un sélecteur optionnel). */
+    silent403?: boolean;
+  }
+}
 import { useAuthStore } from "@/shared/store/authStore";
 import { useUiStore } from "@/shared/store/uiStore";
 import { permissionManquante } from "@/shared/lib/alertes";
@@ -150,7 +157,7 @@ http.interceptors.response.use(
     // l'API nomme le privilège manquant (cf. VerifierPermission), il n'y a donc
     // rien à reformuler page par page. La promesse est tout de même rejetée,
     // sans quoi l'appelant croirait son action réussie.
-    if (apiError.status === 403) {
+    if (apiError.status === 403 && !config?.silent403) {
       permissionManquante(apiError.message);
     }
 

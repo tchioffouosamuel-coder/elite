@@ -338,6 +338,101 @@ export async function retirerAffectation(id: number): Promise<void> {
   await http.delete(`/bus/affectations/${id}`);
 }
 
+// ---- Paiement mensuel -----------------------------------------------------
+
+export type ModePaiementBus = "especes" | "mobile_money" | "virement" | "cheque" | "depot_bancaire";
+
+export const MODES_PAIEMENT_BUS: { valeur: ModePaiementBus; libelle: string }[] = [
+  { valeur: "especes", libelle: "Espèces" },
+  { valeur: "mobile_money", libelle: "Mobile Money" },
+  { valeur: "virement", libelle: "Virement" },
+  { valeur: "cheque", libelle: "Chèque" },
+  { valeur: "depot_bancaire", libelle: "Dépôt bancaire" },
+];
+
+/** Un mois de la souscription — dû, réglé et statut, indépendamment de la scolarité. */
+export interface MoisPaiementBus {
+  mois: string;
+  du: number;
+  paye: number;
+  reste: number;
+  statut: StatutPaiementBus;
+}
+
+export interface VersementBus {
+  id: number;
+  numero_recu: string;
+  mois: string;
+  date_versement: string;
+  montant: number;
+  mode: ModePaiementBus;
+  annule: boolean;
+}
+
+export interface SituationPaiementBus {
+  affectation: {
+    id: number;
+    tarif_mensuel: number | null;
+    eleve: { id: number; nom_complet: string; matricule: string | null; classe: string | null };
+    trajet: string;
+  };
+  situation_mensuelle: MoisPaiementBus[];
+  total_du: number;
+  total_paye: number;
+  reste_a_payer: number;
+  statut_paiement: StatutPaiementBus;
+  versements: VersementBus[];
+}
+
+export async function fetchSituationPaiementBus(affectationId: number): Promise<SituationPaiementBus> {
+  const { data } = await http.get<ApiResponse<SituationPaiementBus>>(`/bus/affectations/${affectationId}/versements`);
+  return data.data;
+}
+
+export interface EncaissementBusPayload {
+  mois: string;
+  montant: number;
+  date_versement?: string;
+  mode?: ModePaiementBus;
+  reference_externe?: string;
+  note?: string;
+}
+
+export async function encaisserBus(
+  affectationId: number,
+  payload: EncaissementBusPayload,
+): Promise<{ versement_id: number; numero_recu: string }> {
+  const { data } = await http.post<ApiResponse<{ versement_id: number; numero_recu: string }>>(
+    `/bus/affectations/${affectationId}/versements`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function annulerVersementBus(versementId: number, motif: string): Promise<void> {
+  await http.post(`/bus/versements/${versementId}/annuler`, { motif });
+}
+
+export interface VerificationVersementBus {
+  numero_recu: string;
+  eleve: { nom_complet: string; matricule: string | null };
+  classe: string | null;
+  ecole: string | null;
+  trajet: string;
+  mois: string;
+  montant: number;
+  date_versement: string;
+  mode: ModePaiementBus;
+  annule: boolean;
+}
+
+export async function fetchVerificationVersementBus(versementId: number, signature: string): Promise<VerificationVersementBus> {
+  const { data } = await http.get<ApiResponse<VerificationVersementBus>>(
+    `/verification-versement-bus/${versementId}/${signature}`,
+  );
+  return data.data;
+}
+
 // ---- Notifications ------------------------------------------------------
 
 export type TypeNotificationBus =

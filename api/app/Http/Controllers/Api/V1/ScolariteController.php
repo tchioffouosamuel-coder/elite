@@ -76,7 +76,7 @@ class ScolariteController extends Controller
             'reference_externe' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
             'lignes' => ['nullable', 'array', 'min:1'],
-            'lignes.*.affectation' => ['required_with:lignes', 'in:scolarite,frais_annexe,report_dette,bus'],
+            'lignes.*.affectation' => ['required_with:lignes', 'in:scolarite,frais_annexe,report_dette'],
             'lignes.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
             'lignes.*.libelle' => ['nullable', 'string', 'max:150'],
             'lignes.*.montant' => ['required_with:lignes', 'integer', 'min:1'],

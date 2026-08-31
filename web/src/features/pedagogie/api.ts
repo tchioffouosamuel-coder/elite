@@ -155,6 +155,18 @@ export async function batchDeleteMatieres(ids: number[]): Promise<void> {
   await http.post("/matieres/batch-delete", { ids });
 }
 
+/** Rattache (ou détache, avec `competenceId` à `null`) une même compétence à plusieurs matières en un appel. */
+export async function batchCompetenceMatieres(
+  ids: number[],
+  competenceId: number | null,
+): Promise<{ modifiees: number; installees: number }> {
+  const { data } = await http.post<ApiResponse<{ modifiees: number; installees: number }>>(
+    "/matieres/batch-competence",
+    { ids, competence_id: competenceId },
+  );
+  return data.data;
+}
+
 export async function fetchClasseMatieres(
   classeId: number,
 ): Promise<ClasseMatiere[]> {

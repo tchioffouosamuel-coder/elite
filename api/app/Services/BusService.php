@@ -7,9 +7,9 @@ use App\Models\BusAffectation;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\BusVehicule;
+use App\Models\BusVersement;
 use App\Models\Depense;
 use App\Models\Eleve;
-use App\Models\VersementLigne;
 use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
@@ -70,18 +70,16 @@ class BusService extends BaseService
 
     /**
      * Bilan financier d'un véhicule sur une période : ce qu'il rapporte
-     * (souscriptions effectivement réglées) contre ce qu'il coûte (dépenses
-     * de flotte imputées à lui) — pas ce qu'il devrait rapporter, qui
-     * inclurait des impayés que le complexe n'a jamais vus.
+     * (mensualités effectivement réglées, cf. `bus_versements`) contre ce
+     * qu'il coûte (dépenses de flotte imputées à lui) — pas ce qu'il devrait
+     * rapporter, qui inclurait des impayés que le complexe n'a jamais vus.
      *
-     * L'approximation assumée : une souscription au bus lie l'élève au
-     * trajet du moment (`BusService::affecterEleve` refuse une seconde
-     * souscription active), donc un versement marqué « bus » pour cet élève
-     * est imputé au véhicule de son affectation *actuelle* — un élève qui
-     * aurait changé de trajet en cours d'année verrait ses anciens
-     * versements comptés sur le nouveau véhicule plutôt que l'ancien.
-     * Négligeable en pratique (les changements de trajet en cours d'année
-     * sont rares), mais volontairement documenté ici plutôt que caché.
+     * Ne retient que les affectations *actuellement actives* du véhicule
+     * (`elevesDuVehicule`) : une souscription suspendue ou retirée après
+     * avoir payé quelques mois ne compte plus dans ce bilan, même si ses
+     * versements passés existent toujours au registre — cas rare, laissé de
+     * côté plutôt que d'alourdir le calcul pour un historique qui n'affecte
+     * plus le véhicule en service.
      *
      * @return array{
      *   recettes: int, depenses_total: int, benefice: int, deficitaire: bool,
@@ -91,16 +89,12 @@ class BusService extends BaseService
     public function bilanVehicule(BusVehicule $vehicule, ?string $du = null, ?string $au = null): array
     {
         $affectations = $this->elevesDuVehicule($vehicule);
-        $eleveIds = $affectations->pluck('eleve_id')->unique()->values();
-        $anneeIds = $affectations->pluck('annee_scolaire_id')->filter()->unique()->values();
+        $affectationIds = $affectations->pluck('id')->values();
 
-        $recettes = $eleveIds->isEmpty() ? 0 : (int) VersementLigne::where('affectation', 'bus')
-            ->whereHas('versement', function ($q) use ($eleveIds, $anneeIds, $du, $au) {
-                $q->valides()
-                    ->when($du, fn($qq, $d) => $qq->whereDate('date_versement', '>=', $d))
-                    ->when($au, fn($qq, $a) => $qq->whereDate('date_versement', '<=', $a))
-                    ->whereHas('dossier', fn($q2) => $q2->whereIn('eleve_id', $eleveIds)->whereIn('annee_scolaire_id', $anneeIds));
-            })
+        $recettes = $affectationIds->isEmpty() ? 0 : (int) BusVersement::whereIn('bus_affectation_id', $affectationIds)
+            ->valides()
+            ->when($du, fn($q, $d) => $q->whereDate('date_versement', '>=', $d))
+            ->when($au, fn($q, $a) => $q->whereDate('date_versement', '<=', $a))
             ->sum('montant');
 
         $depenses = Depense::where('vehicule_id', $vehicule->id)
@@ -296,8 +290,22 @@ class BusService extends BaseService
         return $affectation->fresh(['eleve.classe', 'trajet', 'arret']);
     }
 
+    /**
+     * Une affectation sans mensualité payée se supprime purement et
+     * simplement. Dès qu'un mois a été réglé, en revanche, elle se suspend au
+     * lieu de disparaître : `bus_versements` est en cascade sur elle, et un
+     * reçu déjà remis à une famille ne doit jamais perdre son rattachement en
+     * base — même principe que pour la scolarité, où un versement ne
+     * s'efface jamais.
+     */
     public function retirerAffectation(BusAffectation $affectation): void
     {
+        if ($affectation->versements()->exists()) {
+            $affectation->update(['statut' => 'suspendu']);
+
+            return;
+        }
+
         $affectation->delete();
     }
 

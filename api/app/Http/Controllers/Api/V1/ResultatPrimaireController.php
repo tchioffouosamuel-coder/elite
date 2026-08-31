@@ -67,7 +67,7 @@ class ResultatPrimaireController extends Controller
                 'competence' => $cc->competence->label_fr,
                 'competence_en' => $cc->competence->label_en,
                 'bareme' => (int) ($cc->competence->notation ?? 20),
-                'volets' => $cc->competence->volets(),
+                'volets' => $cc->competence->voletsNotes(),
                 'enseignant' => $cc->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
                 'taux' => $this->service->tauxRemplissage($cc, $trimestre),
             ]);

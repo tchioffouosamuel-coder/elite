@@ -67,15 +67,19 @@ class BulletinGenerator
     }
 
     /**
-     * Le logo commun aux documents (`RenduDocument::LOGO_WIDTH`) domine trop la
-     * page sur un bulletin, dense en tableaux : on le réduit ici sans toucher
-     * au réglage partagé, qui reste adapté aux autres documents (PV, bilans…).
+     * La boîte par défaut du logo (`RenduDocument::logoBoiteMax()`) domine trop
+     * la page sur un bulletin, dense en tableaux : on la réduit ici sans
+     * toucher au réglage partagé, qui reste adapté aux autres documents (PV,
+     * bilans…).
      */
-    private const LOGO_WIDTH_BULLETIN = '85px';
+    protected function logoBoiteMax(): array
+    {
+        return ['largeur' => 22.0, 'hauteur' => 13.0];
+    }
 
     private function styles(): string
     {
-        return '<style>'.$this->stylesBase().'.logo{width:'.self::LOGO_WIDTH_BULLETIN.';}</style>';
+        return '<style>'.$this->stylesBase().'</style>';
     }
 
     /** En-tête bilingue à trois colonnes : mentions FR, logo, mentions EN. */

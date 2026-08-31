@@ -21,7 +21,8 @@ use Illuminate\Validation\Rule;
  * Un tarif modifié ici se répercute aussitôt sur les dossiers déjà ouverts
  * (cf. `ScolariteService::synchroniserTarifs`) : leur montant de scolarité —
  * et donc leur reste à payer — suit la grille en continu, pas seulement les
- * dossiers ouverts après coup.
+ * dossiers ouverts après coup. Chaque famille concernée reçoit alors un SMS
+ * l'informant du nouveau montant.
  */
 class TarifsController extends Controller
 {

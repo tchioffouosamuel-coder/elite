@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
 use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\BusAffectationController;
+use App\Http\Controllers\Api\V1\BusPaiementController;
 use App\Http\Controllers\Api\V1\BusTrajetController;
 use App\Http\Controllers\Api\V1\BusVehiculeController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
@@ -67,6 +68,8 @@ use App\Http\Controllers\Api\V1\ProgressionController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
 use App\Http\Controllers\Api\V1\RapportRentreeExportController;
 use App\Http\Controllers\Api\V1\RapportRentreeTexteController;
+use App\Http\Controllers\Api\V1\RapportTrimestreExportController;
+use App\Http\Controllers\Api\V1\RapportTrimestreTexteController;
 use App\Http\Controllers\Api\V1\RemiseController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
@@ -86,6 +89,7 @@ use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\TuteurController;
 use App\Http\Controllers\Api\V1\VenteDenreeController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
+use App\Http\Controllers\Api\V1\VerificationVersementBusController;
 use App\Http\Controllers\Api\V1\VerificationVersementController;
 use App\Http\Controllers\Api\V1\VisiteAutoriteController;
 use App\Http\Controllers\Api\V1\VisiteInfirmerieController;
@@ -104,6 +108,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // même principe que ci-dessus, appliqué au reçu de paiement.
     Route::get('verification-versement/{versementId}/{signature}', [VerificationVersementController::class, 'show'])
         ->name('verification-versement.show');
+
+    // Même principe pour un reçu de transport scolaire — registre séparé, donc route séparée.
+    Route::get('verification-versement-bus/{versementId}/{signature}', [VerificationVersementBusController::class, 'show'])
+        ->name('verification-versement-bus.show');
 
     // `mot_de_passe` barre tout l'espace authentifié tant que le mot de passe
     // provisoire n'a pas été remplacé, à l'exception des routes qui permettent
@@ -449,6 +457,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update');
                 Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy');
                 Route::post('matieres/batch-delete', [MatiereController::class, 'batchDestroy'])->name('matieres.batch-destroy');
+                Route::post('matieres/batch-competence', [MatiereController::class, 'batchCompetence'])->name('matieres.batch-competence');
                 Route::post('matieres/import', [MatiereController::class, 'import'])->name('matieres.import');
 
                 Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');
@@ -592,6 +601,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
                 Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
+                Route::get('classes/{classeId}/emploi-du-temps/export', [EmploiDuTempsController::class, 'export'])->name('edt.export');
                 Route::get('classes/{classeId}/seances', [SeanceController::class, 'index'])->name('seances.index');
                 Route::get('seances/{id}/appel', [SeanceController::class, 'appel'])->name('seances.appel');
             });
@@ -602,6 +612,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
                 Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
                 Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier');
+                Route::post('classes/{classeId}/emploi-du-temps/import', [EmploiDuTempsController::class, 'import'])->name('edt.import');
                 Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
                 Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update');
                 Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy');
@@ -614,6 +625,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:discipline.view')->group(function () {
                 Route::get('classes/{classeId}/absences', [AbsenceController::class, 'index'])->name('absences.index');
                 Route::get('classes/{classeId}/bilan-disciplinaire', [AbsenceController::class, 'bilan'])->name('absences.bilan');
+                Route::get('classes/{classeId}/frequentation', [AbsenceController::class, 'frequentation'])->name('absences.frequentation');
                 Route::get('classes/{classeId}/bilan-disciplinaire/pdf', [AbsenceController::class, 'bilanPdf'])->name('absences.bilan.pdf');
                 Route::get('classes/{classeId}/fiche-appel/pdf', [AbsenceController::class, 'ficheHebdomadairePdf'])->name('absences.fiche-appel.pdf');
                 Route::get('sanctions', [SanctionController::class, 'index'])->name('sanctions.index');
@@ -770,6 +782,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('remunerations/modele', [RemunerationController::class, 'modele'])->name('remunerations.modele');
                 Route::get('remunerations/{personnelId}/historique', [RemunerationController::class, 'historique'])->name('remunerations.historique');
                 Route::get('remunerations/{personnelId}/anciennete', [RemunerationController::class, 'anciennete'])->name('remunerations.anciennete');
+                Route::delete('remunerations/{id}', [RemunerationController::class, 'supprimer'])->name('remunerations.supprimer');
                 Route::post('remunerations/appliquer', [RemunerationController::class, 'appliquer'])->name('remunerations.appliquer');
                 Route::post('remunerations/simuler', [RemunerationController::class, 'simuler'])->name('remunerations.simuler');
                 // Déclarée avant « remunerations/{personnelId} » : sinon « import »
@@ -830,6 +843,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
                 Route::get('bus/eleves', [BusAffectationController::class, 'eleves'])->name('bus.eleves');
+                Route::get('bus/affectations/{id}/versements', [BusPaiementController::class, 'situation'])->name('bus.paiements.situation');
+                Route::get('bus/versements/{id}/recu', [BusPaiementController::class, 'recu'])->name('bus.paiements.recu');
             });
 
             Route::middleware('permission:bus.manage')->group(function () {
@@ -851,6 +866,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('bus/souscriptions-lot', [BusAffectationController::class, 'souscrireLot'])->name('bus.affectations.souscrire-lot');
                 Route::put('bus/affectations/{id}', [BusAffectationController::class, 'update'])->name('bus.affectations.update');
                 Route::delete('bus/affectations/{id}', [BusAffectationController::class, 'destroy'])->name('bus.affectations.destroy');
+
+                Route::post('bus/affectations/{id}/versements', [BusPaiementController::class, 'encaisser'])->name('bus.paiements.encaisser');
+                Route::post('bus/versements/{id}/annuler', [BusPaiementController::class, 'annuler'])->name('bus.paiements.annuler');
             });
 
             Route::middleware('permission:inventaire.view')->group(function () {
@@ -887,6 +905,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('rapport-rentree-textes', [RapportRentreeTexteController::class, 'index'])->name('rapport-rentree-textes.index');
                 Route::get('rapport-rentree/complet', [RapportRentreeExportController::class, 'donnees'])->name('rapport-rentree.complet');
                 Route::get('rapport-rentree/complet/pdf', [RapportRentreeExportController::class, 'pdf'])->name('rapport-rentree.complet.pdf');
+                Route::get('rapport-rentree/complet/docx', [RapportRentreeExportController::class, 'docx'])->name('rapport-rentree.complet.docx');
             });
             Route::middleware('permission:rapport_rentree.manage')->group(function () {
                 Route::post('visites-autorites', [VisiteAutoriteController::class, 'store'])->name('visites-autorites.store');
@@ -899,6 +918,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('ventes-denrees/{id}', [VenteDenreeController::class, 'update'])->name('ventes-denrees.update');
                 Route::delete('ventes-denrees/{id}', [VenteDenreeController::class, 'destroy'])->name('ventes-denrees.destroy');
                 Route::put('rapport-rentree-textes/{rubrique}', [RapportRentreeTexteController::class, 'update'])->name('rapport-rentree-textes.update');
+            });
+
+            Route::middleware('permission:rapport_trimestre.view')->group(function () {
+                Route::get('rapport-trimestre-textes', [RapportTrimestreTexteController::class, 'index'])->name('rapport-trimestre-textes.index');
+                Route::get('rapport-trimestre/complet', [RapportTrimestreExportController::class, 'donnees'])->name('rapport-trimestre.complet');
+                Route::get('rapport-trimestre/complet/docx', [RapportTrimestreExportController::class, 'docx'])->name('rapport-trimestre.complet.docx');
+            });
+            Route::middleware('permission:rapport_trimestre.manage')->group(function () {
+                Route::put('rapport-trimestre-textes/{rubrique}', [RapportTrimestreTexteController::class, 'update'])->name('rapport-trimestre-textes.update');
             });
 
             /*

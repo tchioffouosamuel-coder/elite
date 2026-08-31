@@ -215,7 +215,8 @@ class BulletinPrimaireService extends BaseService
                 'bareme' => $resultat['bareme'],
                 'enseignant' => $cc->enseignant?->nom_complet ?? '—',
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
-                'volets' => collect($competence->volets())->map(fn(string $composante) => [
+                // Un volet à 0 point n'a rien à afficher — {@see Competence::voletsNotes()}.
+                'volets' => collect($competence->voletsNotes())->map(fn(string $composante) => [
                     'code' => $composante,
                     'libelle' => self::LIBELLES_VOLETS[$composante]['fr'],
                     'libelle_en' => self::LIBELLES_VOLETS[$composante]['en'],

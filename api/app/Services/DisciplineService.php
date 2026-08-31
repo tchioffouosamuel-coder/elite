@@ -236,4 +236,111 @@ class DisciplineService extends BaseService
             ] : null,
         ];
     }
+
+    /**
+     * Taux de fréquentation trimestriel par sexe — rubrique « Taux de
+     * fréquentation trimestriel par cours et par sexe » du rapport de fin de
+     * trimestre MINEDUB.
+     *
+     * Réutilise `grille()` (déjà normalisée jours/heures selon le cycle, et
+     * déjà consciente des corrections manuelles du Surveillant Général) plutôt
+     * que de refaire l'agrégation : le numérateur d'absence est donc
+     * exactement celui affiché à l'écran de discipline.
+     *
+     * @return array{unite: string, garcons: array, filles: array, total: array}
+     */
+    public function tauxFrequentation(Classe $classe, Trimestre $trimestre): array
+    {
+        $lignes = $this->grille($classe, $trimestre);
+        $eleves = $classe->eleves()->where('statut', 'actif')->get()->keyBy('id');
+        $prevu = $this->joursOuHeuresPrevus($classe, $trimestre);
+
+        return [
+            'unite' => $classe->school->estSecondaire() ? 'heures' : 'jours',
+            'garcons' => $this->tauxSousEnsemble($lignes->filter(fn (array $l) => $eleves->get($l['eleve_id'])?->sexe === 'M'), $prevu),
+            'filles' => $this->tauxSousEnsemble($lignes->filter(fn (array $l) => $eleves->get($l['eleve_id'])?->sexe === 'F'), $prevu),
+            'total' => $this->tauxSousEnsemble($lignes, $prevu),
+        ];
+    }
+
+    /**
+     * Même taux, ventilé par catégorie de nationalité/minorité — rubrique
+     * « Taux de fréquentation des minorités » du canevas. Mêmes champs que
+     * `EleveService::rapportMinorites()`/`effectifsDesagregesParClasse()`
+     * pour identifier chaque catégorie (nationalite, refugie, deplace_interne,
+     * bororo, baka).
+     *
+     * @return array<string, array{garcons: array, filles: array, total: array}>
+     */
+    public function tauxFrequentationMinorites(Classe $classe, Trimestre $trimestre): array
+    {
+        $lignes = $this->grille($classe, $trimestre)->keyBy('eleve_id');
+        $eleves = $classe->eleves()->where('statut', 'actif')->get();
+        $prevu = $this->joursOuHeuresPrevus($classe, $trimestre);
+
+        $categories = [
+            'camerounais' => fn (Eleve $e) => str_contains(mb_strtolower((string) $e->nationalite), 'camerounais'),
+            'deplaces_internes' => fn (Eleve $e) => $e->deplace_interne === 'Oui',
+            'refugies' => fn (Eleve $e) => $e->refugie === 'Oui',
+            'bororo' => fn (Eleve $e) => $e->bororo === 'Oui',
+            'baka' => fn (Eleve $e) => $e->baka === 'Oui',
+        ];
+
+        $lignesDe = fn (Collection $sousEnsemble) => $sousEnsemble
+            ->map(fn (Eleve $e) => $lignes->get($e->id) ?? ['eleve_id' => $e->id, 'justifiees' => 0.0, 'non_justifiees' => 0.0]);
+
+        $resultat = [];
+        foreach ($categories as $cle => $filtre) {
+            $sousEnsemble = $eleves->filter($filtre);
+
+            $resultat[$cle] = [
+                'garcons' => $this->tauxSousEnsemble($lignesDe($sousEnsemble->where('sexe', 'M')), $prevu),
+                'filles' => $this->tauxSousEnsemble($lignesDe($sousEnsemble->where('sexe', 'F')), $prevu),
+                'total' => $this->tauxSousEnsemble($lignesDe($sousEnsemble), $prevu),
+            ];
+        }
+
+        return $resultat;
+    }
+
+    /**
+     * Nombre de jours (primaire/maternelle) ou d'heures (secondaire) prévus
+     * sur le trimestre pour la classe — même filtre de séances que
+     * `joursAbsence()`/`cumulAbsences()` (`statut = 'effectuee'`), pour que le
+     * dénominateur compte exactement ce que compte le numérateur d'absence.
+     */
+    private function joursOuHeuresPrevus(Classe $classe, Trimestre $trimestre): float
+    {
+        $seances = Seance::where('classe_id', $classe->id)
+            ->where('trimestre_id', $trimestre->id)
+            ->where('statut', 'effectuee')
+            ->get();
+
+        if (! $classe->school->estSecondaire()) {
+            return $seances->pluck('date_seance')->map(fn ($d) => $d->toDateString())->unique()->count();
+        }
+
+        return round($seances->sum(fn (Seance $s) => $s->dureeHeures()), 2);
+    }
+
+    /**
+     * Effectif, absences cumulées et taux de fréquentation d'un sous-ensemble
+     * de lignes `grille()` (déjà filtrées par sexe et/ou catégorie).
+     *
+     * @param  Collection<int, array{justifiees: float, non_justifiees: float}>  $lignes
+     */
+    private function tauxSousEnsemble(Collection $lignes, float $prevu): array
+    {
+        $effectif = $lignes->count();
+        $absences = (float) $lignes->sum(fn (array $l) => $l['justifiees'] + $l['non_justifiees']);
+        $presencesMax = $effectif * $prevu;
+        $presents = max($presencesMax - $absences, 0.0);
+
+        return [
+            'effectif' => $effectif,
+            'prevu' => $prevu,
+            'absences' => round($absences, 1),
+            'taux' => $presencesMax > 0 ? round($presents / $presencesMax * 100, 1) : 0.0,
+        ];
+    }
 }

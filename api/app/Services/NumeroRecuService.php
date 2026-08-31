@@ -18,6 +18,11 @@ class NumeroRecuService
 {
     private const TYPE = 'recu_scolarite';
 
+    /** Série distincte du transport : un reçu de bus ne doit jamais partager son rang avec un reçu de scolarité. */
+    private const TYPE_BUS = 'recu_bus';
+
+    private const PREFIXE_BUS = 'RB';
+
     public function __construct(private readonly DocumentReferenceService $references) {}
 
     /**
@@ -31,12 +36,20 @@ class NumeroRecuService
         return $this->formater($school, $reference->numero);
     }
 
+    /** Même série de numérotation, mais dédiée au transport — reçu « RB-EBT-0007 ». */
+    public function attribuerBus(School $school, ?int $anneeScolaireId, ?int $generePar = null): string
+    {
+        $reference = $this->references->attribuer($school->id, self::TYPE_BUS, $anneeScolaireId, null, $generePar);
+
+        return $this->formater($school, $reference->numero, self::PREFIXE_BUS);
+    }
+
     /** `schools.code` est obligatoire en base : il y a toujours un segment central. */
-    public function formater(School $school, int $numero): string
+    public function formater(School $school, int $numero, ?string $prefixe = null): string
     {
         return sprintf(
             '%s-%s-%s',
-            config('recu.prefixe'),
+            $prefixe ?? config('recu.prefixe'),
             $school->code,
             str_pad((string) $numero, (int) config('recu.longueur_numero'), '0', STR_PAD_LEFT),
         );

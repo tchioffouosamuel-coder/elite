@@ -315,6 +315,19 @@ class RemunerationController extends Controller
         );
     }
 
+    /**
+     * Supprime une rémunération de l'historique d'un agent. Si c'était la
+     * plus récente, l'agent redevient « Non défini » — comme s'il n'avait
+     * jamais été fixé à cette date d'effet.
+     */
+    public function supprimer(int $id): JsonResponse
+    {
+        $remuneration = Remuneration::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $remuneration->delete();
+
+        return ApiResponse::success(null, 'Rémunération supprimée.');
+    }
+
     /** Ancienneté indicative, pour aider à fixer la prime correspondante. */
     public function anciennete(int $personnelId): JsonResponse
     {

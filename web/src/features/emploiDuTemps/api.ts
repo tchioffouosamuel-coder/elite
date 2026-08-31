@@ -121,6 +121,10 @@ export async function genererSeances(
   return data.data
 }
 
+/** Excel produit par l'export — `telechargerFichier` s'en sert directement, cf. EmploiDuTempsPage. */
+export const EXPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/export`
+export const IMPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/import`
+
 export async function fetchSeances(
   classeId: number,
   params?: { date_debut?: string; date_fin?: string; trimestre_id?: number },

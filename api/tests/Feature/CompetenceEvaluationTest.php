@@ -533,4 +533,172 @@ class CompetenceEvaluationTest extends TestCase
             ->postJson('/api/v1/competences/batch-delete', ['ids' => []])
             ->assertStatus(400);
     }
+
+    // -------------------------------------------------- Attribution en masse
+
+    /** Rattache une même compétence à plusieurs matières en un seul appel. */
+    public function test_l_attribution_en_masse_rattache_plusieurs_matieres_a_une_competence(): void
+    {
+        $competence = $this->competence();
+        $lecture = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Lecture']);
+        $ecriture = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Écriture']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/matieres/batch-competence', [
+                'ids' => [$lecture->id, $ecriture->id],
+                'competence_id' => $competence->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.modifiees', 2);
+
+        $this->assertSame($competence->id, $lecture->fresh()->competence_id);
+        $this->assertSame($competence->id, $ecriture->fresh()->competence_id);
+    }
+
+    /** Une matière rattachée en masse à une compétence déjà attribuée rejoint aussitôt les classes concernées. */
+    public function test_l_attribution_en_masse_propage_vers_les_classes_deja_attribuees(): void
+    {
+        $competence = $this->competence();
+        $this->matiere($competence, 'Lecture');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]])
+            ->assertOk();
+
+        $this->assertSame(1, ClasseMatiere::where('classe_id', $this->classe->id)->count());
+
+        $ecriture = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Écriture']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/matieres/batch-competence', [
+                'ids' => [$ecriture->id],
+                'competence_id' => $competence->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.installees', 1);
+
+        $this->assertSame(2, ClasseMatiere::where('classe_id', $this->classe->id)->count());
+    }
+
+    /** `competence_id` à `null` détache les matières sélectionnées. */
+    public function test_l_attribution_en_masse_avec_competence_nulle_detache(): void
+    {
+        $competence = $this->competence();
+        $lecture = $this->matiere($competence, 'Lecture');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/v1/matieres/batch-competence', [
+                'ids' => [$lecture->id],
+                'competence_id' => null,
+            ])
+            ->assertOk();
+
+        $this->assertNull($lecture->fresh()->competence_id);
+    }
+
+    /** Une compétence d'une autre école ne peut pas être attribuée, même en masse. */
+    public function test_l_attribution_en_masse_refuse_une_competence_hors_perimetre(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre école', 'code' => 'AE', 'type' => 'primaire', 'is_active' => true]);
+        $competenceEtrangere = Competence::create([
+            'school_id' => $autreEcole->id, 'label_fr' => 'Étrangère', 'notation' => 20,
+            'evalue_pratique' => false, 'repartition_volets' => ['oral' => 10, 'ecrit' => 5, 'savoir_etre' => 5],
+        ]);
+        $lecture = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Lecture']);
+
+        // Un compte super admin fixé sur l'école (X-School-Id) : sans ça, le
+        // mode agrégé verrait toutes les écoles et rendrait le test sans objet.
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->postJson('/api/v1/matieres/batch-competence', [
+                'ids' => [$lecture->id],
+                'competence_id' => $competenceEtrangere->id,
+            ])
+            ->assertStatus(422);
+
+        $this->assertNull($lecture->fresh()->competence_id);
+    }
+
+    // --------------------------------------------------- Volets à 0 point
+
+    /** Un volet sans point alloué n'a rien à faire dans la grille de saisie. */
+    public function test_un_volet_a_zero_point_est_absent_de_la_grille_de_saisie(): void
+    {
+        $competence = $this->competence([
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
+        $this->matiere($competence, 'Lecture');
+        $this->eleve('ELEVE UN');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
+
+        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire?trimestre_id={$this->trimestre->id}")
+            ->assertOk()
+            ->assertJsonPath('data.composantes', ['oral', 'ecrit']);
+    }
+
+    /** Un volet dont la répartition ne le mentionne pas du tout compte pour 0, comme un volet à 0 explicite. */
+    public function test_un_volet_absent_de_la_repartition_est_traite_comme_zero(): void
+    {
+        $competence = $this->competence(['repartition_volets' => ['oral' => 20]]);
+        $this->matiere($competence, 'Lecture');
+
+        $this->assertSame(['oral'], $competence->voletsNotes());
+    }
+
+    /** Une note soumise pour un volet à 0 point n'est pas enregistrée. */
+    public function test_une_note_sur_un_volet_a_zero_point_est_ignoree_a_l_enregistrement(): void
+    {
+        $competence = $this->competence([
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
+        $eleve = $this->eleve('ELEVE UN');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
+        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
+                'notes' => [[
+                    'eleve_id' => $eleve->id, 'sequence_id' => $this->sequence->id,
+                    'composante' => 'savoir_etre', 'valeur' => 0,
+                ]],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('notes', ['classe_competence_id' => $attribution->id, 'composante' => 'savoir_etre']);
+    }
+
+    /** Le bulletin n'affiche pas non plus un volet à 0 point. */
+    public function test_le_bulletin_n_affiche_pas_un_volet_a_zero_point(): void
+    {
+        $competence = $this->competence([
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
+        $this->matiere($competence, 'Lecture');
+        $eleve = $this->eleve('ELEVE UN');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
+
+        $donnees = app(\App\Services\BulletinPrimaireService::class)
+            ->donneesClasse($this->classe->fresh(), $this->trimestre);
+
+        $voletsAffiches = collect($donnees['eleves'][0]['lignes'][0]['volets'])->pluck('code')->all();
+
+        $this->assertSame(['oral', 'ecrit'], $voletsAffiches);
+    }
+
+    /** Une compétence sans répartition explicite (barème par défaut, ou maternelle) garde tous ses volets. */
+    public function test_une_competence_sans_repartition_explicite_garde_tous_ses_volets(): void
+    {
+        $competence = $this->competence(['repartition_volets' => null]);
+
+        $this->assertSame(['oral', 'ecrit', 'savoir_etre'], $competence->voletsNotes());
+    }
 }

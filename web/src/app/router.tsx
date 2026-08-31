@@ -40,6 +40,7 @@ import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
 import { BusArretsPage } from '@/features/bus/pages/BusArretsPage'
 import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
 import { BusSouscriptionPage } from '@/features/bus/pages/BusSouscriptionPage'
+import { BusPaiementPage } from '@/features/bus/pages/BusPaiementPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { IdentificationClassePage } from '@/features/identification/pages/IdentificationClassePage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
@@ -48,6 +49,7 @@ import { PalmaresPage } from '@/features/resultats/pages/PalmaresPage'
 import { BulletinsPage } from '@/features/resultats/pages/BulletinsPage'
 import { VerificationBulletinPage } from '@/features/resultats/pages/VerificationBulletinPage'
 import { VerificationVersementPage } from '@/features/finance/pages/VerificationVersementPage'
+import { VerificationVersementBusPage } from '@/features/bus/pages/VerificationVersementBusPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
@@ -76,6 +78,7 @@ import { AvancesSalairePage } from '@/features/finance/pages/AvancesSalairePage'
 import { BudgetsPersonnelPage } from '@/features/finance/pages/BudgetsPersonnelPage'
 import { RentreeScolairePage } from '@/features/finance/pages/RentreeScolairePage'
 import { RapportRentreePage } from '@/features/rapportRentree/pages/RapportRentreePage'
+import { RapportTrimestrePage } from '@/features/rapportTrimestre/pages/RapportTrimestrePage'
 import { MesAvancesPage } from '@/features/mon-espace/pages/MesAvancesPage'
 import { MonBudgetPage } from '@/features/mon-espace/pages/MonBudgetPage'
 import { MesInformationsPage } from '@/features/enseignant/pages/MesInformationsPage'
@@ -116,6 +119,11 @@ export const router = createHashRouter([
   {
     path: '/verification-versement/:versementId/:signature',
     element: <VerificationVersementPage />,
+  },
+  // Registre séparé pour le transport scolaire, qui a ses propres reçus.
+  {
+    path: '/verification-versement-bus/:versementId/:signature',
+    element: <VerificationVersementBusPage />,
   },
   {
     path: '/',
@@ -170,6 +178,7 @@ export const router = createHashRouter([
       { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
       { path: 'bus/souscription', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
+      { path: 'bus/affectations/:affectationId/paiements', element: <ProtectedRoute permission="bus.view"><BusPaiementPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
@@ -208,7 +217,6 @@ export const router = createHashRouter([
       { path: 'rapports-financiers', element: <ProtectedRoute permission="finance.rapports"><RapportsFinanciersPage /></ProtectedRoute> },
       { path: 'etat-synthese', element: <ProtectedRoute permission="finance.rapports"><EtatSynthesePage /></ProtectedRoute> },
       { path: 'rentree-scolaire', element: <ProtectedRoute permission="finance.rapports"><RentreeScolairePage /></ProtectedRoute> },
-      { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },
       // Libre-service de l'agent sur ses propres avances : aucun privilège de
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
@@ -244,6 +252,8 @@ export const router = createHashRouter([
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'comptes', element: <ProtectedRoute superAdminOnly><ComptesPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
+      { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },
+      { path: 'rapport-trimestre', element: <ProtectedRoute permission="rapport_trimestre.view"><RapportTrimestrePage /></ProtectedRoute> },
       { path: 'preinscriptions', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionsAdminPage /></ProtectedRoute> },
       { path: 'modifications-eleves', element: <ProtectedRoute permission="eleves.manage"><ModificationsElevesAdminPage /></ProtectedRoute> },
       { path: 'comptes-parents', element: <ProtectedRoute permission="eleves.manage"><ComptesParentsPage /></ProtectedRoute> },

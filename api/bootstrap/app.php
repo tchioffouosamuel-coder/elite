@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\AlerteAbsenceNonEnregistreeCommand;
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
@@ -37,6 +38,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Chaque matin, avant l'ouverture du guichet : le personnel finance a
         // la journée pour relancer les familles dont l'échéance approche.
         $schedule->command(RappelEcheancesCommand::class)->dailyAt('07:00');
+
+        // En fin de journée, une fois l'appel de tous les cours du jour
+        // enregistré : un élève sans le moindre pointage depuis plusieurs
+        // jours doit être signalé avant le lendemain, pas après.
+        $schedule->command(AlerteAbsenceNonEnregistreeCommand::class)->dailyAt('17:30');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Render (comme tout hébergeur derrière un load balancer) termine le

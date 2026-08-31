@@ -49,7 +49,7 @@ class MoyennePrimaireService extends BaseService
     public function noteCompetenceEleve(Eleve $eleve, ClasseCompetence $classeCompetence, Trimestre $trimestre): array
     {
         $competence = $classeCompetence->competence;
-        $composantes = $competence->volets();
+        $composantes = $competence->voletsNotes();
         $sequences = $trimestre->sequencesRetenues();
 
         $notes = Note::where('eleve_id', $eleve->id)
@@ -238,7 +238,7 @@ class MoyennePrimaireService extends BaseService
     {
         $nbEleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
         $sequences = $trimestre->sequencesRetenues();
-        $nbComposantes = count($classeCompetence->competence->volets());
+        $nbComposantes = count($classeCompetence->competence->voletsNotes());
 
         $attendu = $nbEleves * $sequences->count() * $nbComposantes;
 

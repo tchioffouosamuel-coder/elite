@@ -19,7 +19,10 @@ trait RenduDocument
 
     protected const ARDOISE = '#292F36';
 
-    protected const LOGO_WIDTH = '140px';
+    /** Boîte maximale du logo, en mm — un logo carré/large atteint la largeur, un logo tout en hauteur (fréquent : bannières empilées) plafonne sur la hauteur avant. */
+    protected const LOGO_MAX_LARGEUR_MM = 30.0;
+
+    protected const LOGO_MAX_HAUTEUR_MM = 18.0;
 
     protected function e(?string $valeur): string
     {
@@ -47,6 +50,49 @@ trait RenduDocument
         return is_file($complet) ? $complet : null;
     }
 
+    /**
+     * Boîte maximale du logo pour ce document, en mm — les documents denses en
+     * tableaux (bulletins) la réduisent en la redéfinissant ; les autres
+     * gardent ce plafond par défaut.
+     *
+     * @return array{largeur: float, hauteur: float}
+     */
+    protected function logoBoiteMax(): array
+    {
+        return ['largeur' => self::LOGO_MAX_LARGEUR_MM, 'hauteur' => self::LOGO_MAX_HAUTEUR_MM];
+    }
+
+    /**
+     * Dimensions d'affichage du logo, calculées depuis ses pixels réels plutôt
+     * que fixées : un emblème carré/large est borné par la largeur, un logo
+     * tout en hauteur (bannières empilées, cas fréquent des cachets d'école)
+     * par la hauteur — sans ce second plafond, un tel logo étirait l'en-tête
+     * de plusieurs centimètres et poussait un bulletin déjà serré sur une
+     * deuxième page.
+     *
+     * @return array{largeur: float, hauteur: float} en mm
+     */
+    protected function tailleLogo(string $chemin): array
+    {
+        $boite = $this->logoBoiteMax();
+
+        $dimensions = @getimagesize($chemin);
+        if ($dimensions === false || $dimensions[0] <= 0 || $dimensions[1] <= 0) {
+            return ['largeur' => $boite['largeur'], 'hauteur' => $boite['hauteur']];
+        }
+
+        $ratio = $dimensions[0] / $dimensions[1];
+        $largeur = $boite['largeur'];
+        $hauteur = $largeur / $ratio;
+
+        if ($hauteur > $boite['hauteur']) {
+            $hauteur = $boite['hauteur'];
+            $largeur = $hauteur * $ratio;
+        }
+
+        return ['largeur' => round($largeur, 1), 'hauteur' => round($hauteur, 1)];
+    }
+
     /** Repli quand l'établissement n'a pas encore chargé son logo. */
     protected function monogramme(School $school): string
     {
@@ -66,7 +112,6 @@ trait RenduDocument
             . '.header-table{width:100%;table-layout:fixed;margin-bottom:6px}'
             . '.header-table td{text-align:center;vertical-align:top;border:none;font-size:2.5mm}'
             . '.lh-1{line-height:1.25}'
-            . '.logo{width:' . self::LOGO_WIDTH . ';height:auto}'
             . '.no-border,.no-border td,.no-border tr{border:none!important}'
             . '.titre{color:' . self::ACCENT . ';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
             . '.titre-en{color:' . self::ACCENT . ';text-transform:uppercase;font-style:italic;font-size:3.2mm}'
@@ -109,7 +154,11 @@ trait RenduDocument
     {
         $logo = $this->cheminImage($school->logo_path);
         $celluleLogo = $logo !== null
-            ? '<img src="' . $this->e($logo) . '" class="logo">'
+            ? (function () use ($logo) {
+                $taille = $this->tailleLogo($logo);
+
+                return '<img src="' . $this->e($logo) . '" style="width:' . $taille['largeur'] . 'mm;height:' . $taille['hauteur'] . 'mm;">';
+            })()
             : '<div class="value" style="font-size:5mm;color:' . self::ACCENT . ';">' . $this->e($this->monogramme($school)) . '</div>';
 
         return '<table class="header-table"><tr>'

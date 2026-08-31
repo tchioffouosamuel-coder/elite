@@ -98,6 +98,16 @@ class CataloguePermissions
             'rapport_rentree.manage' => ['Renseigner le rapport de rentrée', 'Fill in the back-to-school report'],
         ]],
         /*
+         * Rapport de fin de trimestre MINEDUB : blocs de texte libre
+         * (introduction, observations, difficultés rencontrées, conclusion)
+         * — le reste du contenu (effectifs, fréquentation, pédagogie) vient
+         * déjà des modules Élèves/Discipline/Progression/Résultats.
+         */
+        'rapport_trimestre' => ['Rapport de fin de trimestre', 'End-of-term report', [
+            'rapport_trimestre.view' => ['Consulter le rapport de fin de trimestre', 'View the end-of-term report'],
+            'rapport_trimestre.manage' => ['Renseigner le rapport de fin de trimestre', 'Fill in the end-of-term report'],
+        ]],
+        /*
          * Le comptoir se sépare de l'inventaire : le vendeur écoule le stock
          * sans avoir à modifier la fiche des articles, et l'économe tient
          * l'inventaire sans forcément tenir la caisse de la boutique. Vendre

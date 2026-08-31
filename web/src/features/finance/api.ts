@@ -798,6 +798,11 @@ export async function appliquerRemuneration(
   return data.data;
 }
 
+/** Retire une rémunération de l'historique — si c'était la plus récente, l'agent redevient « Non défini ». */
+export async function supprimerRemuneration(id: number): Promise<void> {
+  await http.delete(`/remunerations/${id}`);
+}
+
 /** Applique le barème sans rien enregistrer, pour l'aperçu du net. */
 export async function simulerRemuneration(
   gains: Partial<Record<ChampGain, number>>,

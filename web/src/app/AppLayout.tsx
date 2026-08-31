@@ -363,7 +363,6 @@ const navGroups = [
       { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
       { to: '/etat-synthese', label: 'nav.etatSynthese', icon: Calculator, permission: 'finance.rapports' },
       { to: '/rentree-scolaire', label: 'nav.rentreeScolaire', icon: ClipboardCheck, permission: 'finance.rapports' },
-      { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view' },
     ],
   },
   {
@@ -374,6 +373,8 @@ const navGroups = [
       { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true },
       { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage' },
       { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage' },
+      { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view' },
+      { to: '/rapport-trimestre', label: 'nav.rapportTrimestre', icon: ClipboardList, permission: 'rapport_trimestre.view' },
     ],
   },
 ] as const

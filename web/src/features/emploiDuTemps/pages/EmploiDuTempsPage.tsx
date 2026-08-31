@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Copy, ListChecks, Pencil, Plus, Search, Trash2, UserCog, Wand2, X } from 'lucide-react'
+import { CalendarClock, Copy, Download, ListChecks, Pencil, Plus, Search, Trash2, Upload, UserCog, Wand2, X } from 'lucide-react'
 import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
 import {
   fetchClasseMatieres,
@@ -20,6 +20,8 @@ import {
   copierCreneaux,
   fetchEmploiDuTemps,
   genererSeances,
+  EXPORT_EMPLOI_DU_TEMPS_URL,
+  IMPORT_EMPLOI_DU_TEMPS_URL,
   type Creneau,
 } from '@/features/emploiDuTemps/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -28,8 +30,10 @@ import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
 
 /** Bornes de la grille : la journée scolaire va de 7 h à 18 h. */
@@ -64,6 +68,8 @@ export function EmploiDuTempsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [copieOuverte, setCopieOuverte] = useState(false)
   const [assignationOuverte, setAssignationOuverte] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [exportEnCours, setExportEnCours] = useState(false)
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !restreintATitulaire })
   const { data: maClasse, isLoading: maClasseEnChargement } = useQuery({
@@ -147,6 +153,18 @@ export function EmploiDuTempsPage() {
     return Array.from({ length: Math.max(fin - debut, 1) }, (_, i) => debut + i)
   }, [creneaux])
 
+  const exporter = async () => {
+    if (!classeActive) return
+    setExportEnCours(true)
+    try {
+      await telechargerFichier(EXPORT_EMPLOI_DU_TEMPS_URL(classeActive))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -154,22 +172,34 @@ export function EmploiDuTempsPage() {
           <CalendarClock className="h-6 w-6 text-gold-500" />
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('emploiDuTemps.title')}</h1>
         </div>
-        {peutGerer && classeActive && (
+        {classeActive && (
           <div className="flex flex-wrap gap-2">
-            {creneaux?.length ? (
+            {peutGerer && creneaux?.length ? (
               <Button variant="secondary" onClick={() => (modeSelection ? quitterSelection() : setModeSelection(true))}>
                 {modeSelection ? <X className="h-4 w-4" /> : <ListChecks className="h-4 w-4" />}
                 {t(modeSelection ? 'emploiDuTemps.annuler_selection' : 'emploiDuTemps.selectionner')}
               </Button>
             ) : null}
-            <Button variant="secondary" onClick={() => setGenerationOuverte(true)}>
-              <Wand2 className="h-4 w-4" />
-              {t('emploiDuTemps.generer_seances')}
+            <Button variant="secondary" onClick={exporter} disabled={exportEnCours}>
+              <Download className="h-4 w-4" />
+              {t('export.excel')}
             </Button>
-            <Button onClick={() => setFormOuvert(true)}>
-              <Plus className="h-4 w-4" />
-              {t('emploiDuTemps.ajouter_creneau')}
-            </Button>
+            {peutGerer && (
+              <>
+                <Button variant="secondary" onClick={() => setShowImport(true)}>
+                  <Upload className="h-4 w-4" />
+                  {t('import.title')}
+                </Button>
+                <Button variant="secondary" onClick={() => setGenerationOuverte(true)}>
+                  <Wand2 className="h-4 w-4" />
+                  {t('emploiDuTemps.generer_seances')}
+                </Button>
+                <Button onClick={() => setFormOuvert(true)}>
+                  <Plus className="h-4 w-4" />
+                  {t('emploiDuTemps.ajouter_creneau')}
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -328,6 +358,19 @@ export function EmploiDuTempsPage() {
             quitterSelection()
             queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
           }}
+        />
+      )}
+
+      {showImport && classeActive && (
+        <ImportModal
+          title={t('import.title')}
+          url={IMPORT_EMPLOI_DU_TEMPS_URL(classeActive)}
+          columns={['Jour', 'Heure debut', 'Heure fin', 'Matiere', 'Enseignant', 'Salle', 'Classes associees']}
+          note={
+            <p className="text-xs text-navy-500">{t('emploiDuTemps.import_note')}</p>
+          }
+          onClose={() => setShowImport(false)}
+          onImported={() => queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })}
         />
       )}
     </div>

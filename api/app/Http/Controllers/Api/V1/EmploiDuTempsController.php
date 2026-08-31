@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\EmploiDuTempsExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\EmploiDuTempsImport;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
@@ -13,6 +15,9 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EmploiDuTempsController extends Controller
 {
@@ -141,6 +146,42 @@ class EmploiDuTempsController extends Controller
         );
 
         return ApiResponse::success(['creees' => $creees], "{$creees} séance(s) générée(s).");
+    }
+
+    /**
+     * Import de l'emploi du temps de cette classe, dans la forme produite par
+     * {@see export()} : les créneaux déjà en place restent (aucune purge
+     * préalable), une ligne qui en chevauche un est simplement ignorée.
+     */
+    public function import(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $import = new EmploiDuTempsImport($classe, $this->service);
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success([
+            'imported' => $import->importedCount,
+            'ignored' => $import->ignoredCount,
+            'failed' => count($import->erreurs),
+            'errors' => $import->erreurs,
+            'matieres_introuvables' => $import->matieresIntrouvables,
+            'enseignants_introuvables' => $import->enseignantsIntrouvables,
+            'classes_introuvables' => $import->classesIntrouvables,
+        ], $import->importedCount.' créneau(x) importé(s).');
+    }
+
+    /** Export au format relu par import() : même fichier pour sauvegarder, corriger en masse et réimporter. */
+    public function export(int $classeId): BinaryFileResponse
+    {
+        $classe = $this->classe($classeId);
+
+        return Excel::download(
+            new EmploiDuTempsExport($classe),
+            'emploi-du-temps-'.Str::slug($classe->nom).'.xlsx',
+        );
     }
 
     private function valider(Request $request, Classe $classe): array

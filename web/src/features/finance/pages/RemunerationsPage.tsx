@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, Download, FileSpreadsheet, Pencil, Users, AlertTriangle, TrendingUp, History, Copy } from 'lucide-react'
+import { Banknote, Download, FileSpreadsheet, Pencil, Trash2, Users, AlertTriangle, TrendingUp, History, Copy } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -10,12 +10,12 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { useAuthStore } from '@/shared/store/authStore'
-import { fetchRemunerations, francs, type LigneRemuneration } from '@/features/finance/api'
+import { fetchRemunerations, francs, supprimerRemuneration, type LigneRemuneration } from '@/features/finance/api'
 import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { HistoriqueRemunerationModal } from '@/features/finance/pages/HistoriqueRemunerationModal'
 import { CopierRemunerationModal } from '@/features/finance/pages/CopierRemunerationModal'
 import { telechargerFichier } from '@/shared/lib/download'
-import { erreur } from '@/shared/lib/alertes'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -45,6 +45,24 @@ export function RemunerationsPage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['remunerations'] })
+
+  const supprimer = async (p: LigneRemuneration) => {
+    if (!p.remuneration) return
+    const ok = await confirmer({
+      titre: 'Supprimer cette rémunération ?',
+      message: `${p.nom_complet} redeviendra « Non défini » si aucune rémunération antérieure n'existe. Cette action est irréversible.`,
+      action: 'Supprimer',
+    })
+    if (!ok) return
+    try {
+      await supprimerRemuneration(p.remuneration.id)
+      succes('Rémunération supprimée.')
+      rafraichir()
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    }
+  }
 
   const telechargerModele = async () => {
     setTelechargementModele(true)
@@ -196,7 +214,7 @@ export function RemunerationsPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: '160px',
+      largeur: '210px',
       cellule: (p) => (
         <div className="flex justify-end gap-1.5">
           {p.remuneration && (
@@ -213,6 +231,11 @@ export function RemunerationsPage() {
             <Button size="sm" onClick={() => setEnEdition(p)}>
               <Pencil className="h-3.5 w-3.5" />
               {p.remuneration ? 'Réviser' : 'Définir'}
+            </Button>
+          )}
+          {p.remuneration && can('finance.paie') && (
+            <Button size="sm" variant="danger" title="Supprimer la rémunération" onClick={() => supprimer(p)}>
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>

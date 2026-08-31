@@ -12,8 +12,6 @@ use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\School;
 use App\Models\User;
-use App\Models\Versement;
-use App\Support\Pdf\RecuVersementGenerator;
 use App\Services\ScolariteService;
 use Database\Seeders\PlanComptableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -179,7 +177,12 @@ class ScolariteTest extends TestCase
         ]);
     }
 
-    public function test_un_recu_bus_seul_ne_presente_que_le_transport(): void
+    /**
+     * Le bus ne fait plus partie du dû de scolarité (cf. BusPaiementTest) :
+     * une souscription active n'ajoute plus rien à `total_du`, et le
+     * versement de scolarité ne peut plus lui être imputé.
+     */
+    public function test_le_bus_ne_compte_plus_dans_le_du_de_scolarite(): void
     {
         $eleve = $this->eleve();
         $dossier = $this->service()->dossier($eleve, $this->annee);
@@ -196,28 +199,11 @@ class ScolariteTest extends TestCase
             'option_trajet' => 'aller_retour',
             'statut' => 'actif',
         ]);
-        $versement = Versement::create([
-            'school_id' => $this->school->id,
-            'dossier_scolarite_id' => $dossier->id,
-            'numero_recu' => 'RC-EBT-BUS',
-            'date_versement' => '2026-09-01',
-            'montant' => 30000,
-            'mode' => 'especes',
-        ]);
-        $versement->lignes()->create([
-            'affectation' => 'bus',
-            'montant' => 30000,
-            'libelle' => 'Transport scolaire',
-        ]);
 
-        $mentions = new \ReflectionMethod(RecuVersementGenerator::class, 'mentions');
-        $mentions->setAccessible(true);
-        $html = $mentions->invoke(new RecuVersementGenerator, $versement->fresh('lignes'), $dossier->fresh());
+        $dossier = $dossier->fresh()->load(['fraisAnnexes', 'versements', 'busAffectations.trajet']);
 
-        $this->assertStringContainsString('Frais de bus', $html);
-        $this->assertStringNotContainsString('Frais de scolarité', $html);
-        $this->assertStringContainsString('30 000 F', $html);
-        $this->assertStringContainsString('20 000 F', $html);
+        $this->assertSame(359000, $dossier->total_du);
+        $this->assertFalse(collect($dossier->rubriques)->contains('cle', 'bus'));
     }
 
     public function test_l_encaissement_mouvemente_le_journal(): void

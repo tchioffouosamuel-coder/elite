@@ -1,14 +1,22 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Download, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
+import { BookOpen, Download, ListChecks, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { fetchMatieres, fetchMatiereClasses, deleteMatiere, batchDeleteMatieres } from '@/features/pedagogie/api'
+import {
+  fetchMatieres,
+  fetchMatiereClasses,
+  fetchCompetences,
+  deleteMatiere,
+  batchDeleteMatieres,
+  batchCompetenceMatieres,
+} from '@/features/pedagogie/api'
 import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Select } from '@/shared/ui/Select'
+import { Select as FieldSelect } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
@@ -41,6 +49,7 @@ export function MatieresPage() {
   const [exportEnCours, setExportEnCours] = useState(false)
   const [matiereClasses, setMatiereClasses] = useState<Matiere | null>(null)
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
+  const [showCompetenceEnMasse, setShowCompetenceEnMasse] = useState(false)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
@@ -256,6 +265,12 @@ export function MatieresPage() {
         icon={BookOpen}
         actions={
           <>
+            {selectedIds.size > 0 && can('pedagogie.manage') && !secondaire && (
+              <Button variant="secondary" onClick={() => setShowCompetenceEnMasse(true)}>
+                <ListChecks className="h-4 w-4" />
+                {t('competences.attribuer_en_masse', { count: selectedIds.size })}
+              </Button>
+            )}
             {selectedIds.size > 0 && can('pedagogie.manage') && (
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
@@ -369,7 +384,101 @@ export function MatieresPage() {
       {matiereClasses && (
         <ClassesMatiereModal matiere={matiereClasses} onClose={() => setMatiereClasses(null)} />
       )}
+
+      {showCompetenceEnMasse && (
+        <CompetenceEnMasseModal
+          ids={Array.from(selectedIds)}
+          onClose={() => setShowCompetenceEnMasse(false)}
+          onDone={() => {
+            setShowCompetenceEnMasse(false)
+            setSelectedIds(new Set())
+            queryClient.invalidateQueries({ queryKey: ['matieres'] })
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Rattache (ou détache) une même compétence à toutes les matières
+ * sélectionnées — la saisie matière par matière devient vite fastidieuse dès
+ * qu'un même bloc de compétence en couvre plusieurs.
+ */
+function CompetenceEnMasseModal({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: number[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { t } = useTranslation()
+  const [competenceId, setCompetenceId] = useState<number | '' | 'aucune'>('')
+  const [envoi, setEnvoi] = useState(false)
+
+  const { data: competences, isLoading } = useQuery({
+    queryKey: ['competences', 'attribution-en-masse'],
+    queryFn: fetchCompetences,
+  })
+
+  const valider = async () => {
+    if (competenceId === '') return
+
+    setEnvoi(true)
+    try {
+      const { modifiees, installees } = await batchCompetenceMatieres(
+        ids,
+        competenceId === 'aucune' ? null : Number(competenceId),
+      )
+      succes(
+        installees > 0
+          ? `${modifiees} matière(s) mise(s) à jour, installée(s) dans ${installees} classe(s).`
+          : `${modifiees} matière(s) mise(s) à jour.`,
+      )
+      onDone()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={t('competences.attribuer_en_masse', { count: ids.length })} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        {isLoading ? (
+          <Spinner />
+        ) : (
+          <FieldSelect
+            label={t('competences.singulier')}
+            value={competenceId}
+            onChange={(e) => {
+              const brut = e.target.value
+              setCompetenceId(brut === '' ? '' : brut === 'aucune' ? 'aucune' : Number(brut))
+            }}
+          >
+            <option value="">—</option>
+            <option value="aucune">{t('competences.non_rattachee')} (détacher)</option>
+            {competences?.map((competence) => (
+              <option key={competence.id} value={competence.id}>
+                {competence.label_fr}
+              </option>
+            ))}
+          </FieldSelect>
+        )}
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button disabled={competenceId === '' || envoi} onClick={valider}>
+            {t('common.save')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -7,6 +7,7 @@ use App\Models\ClasseMatiere;
 use App\Models\ProgressionItem;
 use App\Models\Sequence;
 use App\Models\Setting;
+use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
 /**
@@ -194,6 +195,61 @@ class ProgressionService extends BaseService
                 'matiere' => $cm->matiere->nom,
                 'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
                 ...$this->tauxAffectation($cm),
+            ])
+            ->values();
+    }
+
+    /**
+     * Taux d'avancement d'une affectation, scopé à un trimestre — distingue
+     * ce qui est prévu/couvert sur l'année entière de ce qui l'est pour CE
+     * trimestre seulement (rubrique « Couverture des programmes » du rapport
+     * de fin de trimestre MINEDUB).
+     *
+     * On se limite aux séquences retenues du trimestre
+     * (`Trimestre::sequencesRetenues()`) plutôt qu'à toutes les séquences en
+     * base : des séquences excédentaires non supprimées (cf. son docblock)
+     * fausseraient sinon le « prévu ce trimestre ».
+     *
+     * @return array{lecons_annee: int, taux_annee: float, lecons_trimestre: int, traitees_trimestre: int, taux_trimestre: float}
+     */
+    public function tauxAffectationTrimestre(ClasseMatiere $classeMatiere, Trimestre $trimestre): array
+    {
+        $annuel = $this->tauxAffectation($classeMatiere);
+
+        $sequenceIds = $trimestre->sequencesRetenues()->pluck('id');
+
+        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+            ->lecons()
+            ->whereIn('sequence_id', $sequenceIds);
+
+        $totalTrimestre = (clone $lecons)->count();
+        $traiteesTrimestre = (clone $lecons)->has('seances')->count();
+
+        return [
+            'lecons_annee' => $annuel['lecons'],
+            'taux_annee' => $annuel['taux'],
+            'lecons_trimestre' => $totalTrimestre,
+            'traitees_trimestre' => $traiteesTrimestre,
+            'taux_trimestre' => $totalTrimestre > 0 ? round($traiteesTrimestre / $totalTrimestre * 100, 1) : 0.0,
+        ];
+    }
+
+    /**
+     * Avancement matière par matière pour une classe, scopé à un trimestre —
+     * même filtre de périmètre (`$personnelId`) que `tauxClasse()`.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function tauxClasseTrimestre(Classe $classe, Trimestre $trimestre, ?int $personnelId = null): Collection
+    {
+        return $classe->classeMatieres()->where('statut', 'actif')
+            ->when($personnelId !== null, fn ($q) => $q->where('personnel_id', $personnelId))
+            ->with(['matiere', 'enseignant'])->get()
+            ->map(fn (ClasseMatiere $cm) => [
+                'classe_matiere_id' => $cm->id,
+                'matiere' => $cm->matiere->nom,
+                'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
+                ...$this->tauxAffectationTrimestre($cm, $trimestre),
             ])
             ->values();
     }

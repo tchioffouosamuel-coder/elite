@@ -157,8 +157,10 @@ export async function fetchSousSystemes(): Promise<
   return data.data;
 }
 
-export async function fetchSchools(): Promise<School[]> {
-  const { data } = await http.get<ApiResponse<School[]>>("/schools");
+export async function fetchSchools(options?: { silent403?: boolean }): Promise<School[]> {
+  const { data } = await http.get<ApiResponse<School[]>>("/schools", {
+    silent403: options?.silent403,
+  });
   return data.data;
 }
 

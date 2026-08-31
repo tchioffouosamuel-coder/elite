@@ -38,6 +38,7 @@ class Eleve extends Model
         'allergies',
         'redoublant',
         'statut',
+        'alerte_absence_declenchee_le',
     ];
 
     protected function casts(): array
@@ -49,6 +50,7 @@ class Eleve extends Model
             'deplace_interne' => 'string',
             'bororo' => 'string',
             'baka' => 'string',
+            'alerte_absence_declenchee_le' => 'date:Y-m-d',
         ];
     }
 

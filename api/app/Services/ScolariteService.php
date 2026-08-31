@@ -17,6 +17,7 @@ use App\Models\Remise;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\Versement;
+use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -54,6 +55,7 @@ class ScolariteService extends BaseService
     public function __construct(
         private readonly NumeroRecuService $numeros,
         private readonly EcheancierService $echeancier,
+        private readonly SmsService $sms,
     ) {}
 
     /**
@@ -114,13 +116,17 @@ class ScolariteService extends BaseService
      * un dossier dont la classe n'a pas de ligne propre dépend du tarif par
      * défaut, donc une modification de celui-ci le concerne aussi.
      *
+     * Chaque famille dont le montant change en est avertie par SMS : la
+     * révision est rétroactive sur un montant déjà annoncé, elle ne doit donc
+     * jamais rester silencieuse.
+     *
      * @return int nombre de dossiers dont le montant a changé
      */
     public function synchroniserTarifs(int $schoolId, AnneeScolaire $annee): int
     {
         $dossiers = DossierScolarite::where('school_id', $schoolId)
             ->where('annee_scolaire_id', $annee->id)
-            ->with('eleve')
+            ->with('eleve.tuteurs')
             ->get();
 
         $misAJour = 0;
@@ -130,15 +136,40 @@ class ScolariteService extends BaseService
                 continue;
             }
 
+            $ancienMontant = $dossier->montant_scolarite;
             $nouveauMontant = $this->tarif($dossier->eleve, $annee);
 
-            if ($nouveauMontant !== $dossier->montant_scolarite) {
+            if ($nouveauMontant !== $ancienMontant) {
                 $dossier->update(['montant_scolarite' => $nouveauMontant]);
                 $misAJour++;
+
+                $this->notifierRevisionTarif($dossier->eleve, $annee, $ancienMontant, $nouveauMontant);
             }
         }
 
         return $misAJour;
+    }
+
+    /** Avertit le tuteur principal (ou à défaut le premier) qu'un montant déjà annoncé vient de changer. */
+    private function notifierRevisionTarif(Eleve $eleve, AnneeScolaire $annee, int $ancienMontant, int $nouveauMontant): void
+    {
+        $tuteur = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+        if (! $tuteur?->telephone) {
+            return;
+        }
+
+        $sens = $nouveauMontant > $ancienMontant ? 'révisé à la hausse' : 'révisé à la baisse';
+        $message = sprintf(
+            'Le tarif de scolarité de %s pour %s a été %s : %s F CFA au lieu de %s F CFA.',
+            $eleve->nom_complet,
+            $annee->libelle,
+            $sens,
+            number_format($nouveauMontant, 0, ',', ' '),
+            number_format($ancienMontant, 0, ',', ' '),
+        );
+
+        $this->sms->envoyer($tuteur->telephone, $message);
     }
 
     /** Somme des remises individuelles accordées à l'élève pour cette année — ce que `dossiers_scolarite.remise` reflète. */
@@ -408,7 +439,6 @@ class ScolariteService extends BaseService
         return match ($affectation) {
             'report_dette' => 'Reliquat année précédente',
             'frais_annexe' => 'Frais annexe',
-            'bus' => 'Transport scolaire',
             default => 'Frais de scolarité',
         };
     }
@@ -441,7 +471,7 @@ class ScolariteService extends BaseService
                 'montant' => $ligne->montant,
                 'sens' => 'credit',
                 'compte_comptable_id' => $this->compte(
-                    in_array($ligne->affectation, ['frais_annexe', 'bus'], true)
+                    $ligne->affectation === 'frais_annexe'
                         ? self::COMPTE_FRAIS_ANNEXES
                         : self::COMPTE_SCOLARITE,
                 ),

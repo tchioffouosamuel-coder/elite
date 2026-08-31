@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\StoreMatiereRequest;
 use App\Http\Resources\Api\V1\MatiereResource;
 use App\Imports\MatiereImport;
 use App\Models\Classe;
+use App\Models\Competence;
 use App\Models\Matiere;
 use App\Services\CompetenceAttributionService;
 use App\Support\Tenant;
@@ -110,6 +111,51 @@ class MatiereController extends Controller
         Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->delete();
 
         return ApiResponse::success(message: count($ids) . ' matière(s) supprimée(s).');
+    }
+
+    /**
+     * Rattache (ou détache, avec `competence_id` à `null`) une même
+     * compétence à plusieurs matières en un seul appel — la saisie classe par
+     * classe devient vite fastidieuse dès qu'un même bloc de compétence sert
+     * plusieurs matières du primaire ou de la maternelle. Chaque matière
+     * touchée est propagée exactement comme à la création/modification
+     * unitaire ({@see store()}), pour qu'elle rejoigne aussitôt les classes
+     * qui portent déjà cette compétence.
+     */
+    public function batchCompetence(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'competence_id' => ['nullable', 'integer', 'exists:competences,id'],
+        ]);
+
+        $matieres = Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->get();
+
+        if ($matieres->isEmpty()) {
+            return ApiResponse::notFound();
+        }
+
+        $competence = $data['competence_id'] === null
+            ? null
+            : Competence::forSchool(Tenant::schoolIds())->find($data['competence_id']);
+
+        if ($data['competence_id'] !== null && $competence === null) {
+            return ApiResponse::error("Cette compétence n'appartient pas à votre établissement.", 422);
+        }
+
+        $installees = 0;
+        foreach ($matieres as $matiere) {
+            $matiere->update(['competence_id' => $competence?->id]);
+            $installees += $this->attribution->propagerMatiere($matiere->refresh());
+        }
+
+        return ApiResponse::success(
+            ['modifiees' => $matieres->count(), 'installees' => $installees],
+            $installees > 0
+                ? "{$matieres->count()} matière(s) mise(s) à jour, installée(s) dans {$installees} classe(s)."
+                : "{$matieres->count()} matière(s) mise(s) à jour.",
+        );
     }
 
     /**

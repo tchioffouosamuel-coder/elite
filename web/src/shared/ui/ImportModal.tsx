@@ -27,6 +27,8 @@ interface ImportResult {
   affectations_non_rattachees?: Record<string, number>
   /** Noms de trajet qu'un import d'arrêts n'a pas su résoudre. */
   trajets_introuvables?: Record<string, number>
+  /** Noms de matière hors catalogue (import d'emploi du temps). */
+  matieres_introuvables?: Record<string, number>
 }
 
 interface ImportProgress {
@@ -268,6 +270,7 @@ export function ImportModal({
                 ['import.enseignants_introuvables', result.enseignants_introuvables],
                 ['import.affectations_non_rattachees', result.affectations_non_rattachees],
                 ['import.trajets_introuvables', result.trajets_introuvables],
+                ['import.matieres_introuvables', result.matieres_introuvables],
               ] as const
             ).map(([cle, libelles]) =>
               libelles && Object.keys(libelles).length > 0 ? (

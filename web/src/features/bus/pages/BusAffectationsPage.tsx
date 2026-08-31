@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, MapPin, Trash2, UserPlus } from 'lucide-react'
+import { Bus, MapPin, Trash2, UserPlus, Wallet } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
   fetchElevesTransport,
@@ -200,33 +200,41 @@ export function BusAffectationsPage() {
           '—'
         ),
     },
-    ...(can('bus.manage')
-      ? [
-        {
-          cle: 'actions',
-          entete: '',
-          sticky: 'right',
-          largeur: '150px',
-          cellule: (e: EleveTransport) => (
-            <div className="flex justify-end gap-1.5">
-              <Button size="sm" variant="secondary" onClick={() => souscrireUnEleve(e)}>
-                <UserPlus className="h-3.5 w-3.5" />
-                {e.bus ? t('common.edit') : t('bus.souscrire')}
-              </Button>
-              {e.bus && (
-                <button
-                  title={t('bus.affectation_remove')}
-                  onClick={() => retirerUnEleve(e)}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ),
-        } satisfies Colonne<EleveTransport>,
-      ]
-      : []),
+    {
+      cle: 'actions',
+      entete: '',
+      sticky: 'right',
+      largeur: can('bus.manage') ? '220px' : '110px',
+      cellule: (e: EleveTransport) => (
+        <div className="flex justify-end gap-1.5">
+          {e.bus && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(`/bus/affectations/${e.bus!.affectation_id}/paiements`)}
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              {t('bus.paiements')}
+            </Button>
+          )}
+          {can('bus.manage') && (
+            <Button size="sm" variant="secondary" onClick={() => souscrireUnEleve(e)}>
+              <UserPlus className="h-3.5 w-3.5" />
+              {e.bus ? t('common.edit') : t('bus.souscrire')}
+            </Button>
+          )}
+          {can('bus.manage') && e.bus && (
+            <button
+              title={t('bus.affectation_remove')}
+              onClick={() => retirerUnEleve(e)}
+              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
+    } satisfies Colonne<EleveTransport>,
   ]
 
   return (

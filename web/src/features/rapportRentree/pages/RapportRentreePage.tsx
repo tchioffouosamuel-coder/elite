@@ -38,7 +38,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import { useAuthStore } from '@/shared/store/authStore'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
-import { ouvrirDocument } from '@/shared/lib/download'
+import { ouvrirDocument, telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
 
 const CATEGORIES: { value: CategorieActivite; label: string }[] = [
@@ -116,6 +116,21 @@ export function RapportRentreePage() {
         anneeActive ? { annee_scolaire_id: anneeActive.id } : undefined,
         undefined,
         t('rapportRentree.title'),
+      )
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
+
+  const exporterDocx = async () => {
+    setExportEnCours(true)
+    try {
+      await telechargerFichier(
+        '/rapport-rentree/complet/docx',
+        anneeActive ? { annee_scolaire_id: anneeActive.id } : undefined,
+        'rapport-rentree-scolaire.docx',
       )
     } catch (err) {
       erreur((err as ApiError).message)
@@ -246,10 +261,16 @@ export function RapportRentreePage() {
         sousTitre={t('rapportRentree.subtitle')}
         icon={ClipboardList}
         actions={
-          <Button variant="secondary" disabled={exportEnCours || !anneeActive} onClick={exporterPdf}>
-            <Download className="h-4 w-4" />
-            {t('rapportRentree.export_pdf')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" disabled={exportEnCours || !anneeActive} onClick={exporterPdf}>
+              <Download className="h-4 w-4" />
+              {t('rapportRentree.export_pdf')}
+            </Button>
+            <Button variant="secondary" disabled={exportEnCours || !anneeActive} onClick={exporterDocx}>
+              <Download className="h-4 w-4" />
+              {t('rapportRentree.export_docx')}
+            </Button>
+          </div>
         }
       />
 

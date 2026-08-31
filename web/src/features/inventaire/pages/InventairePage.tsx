@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Barcode, Boxes, Package, Pencil, Plus, Printer, Tags, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Boxes, Camera, Package, Pencil, Plus, Printer, Tags, Trash2, Wallet } from 'lucide-react'
 import {
   creerArticle,
   fetchInventaire,
@@ -26,6 +26,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
+import { BarcodeScannerModal } from '@/shared/ui/BarcodeScannerModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -368,11 +369,21 @@ function ArticleFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const [showScanner, setShowScanner] = useState(false)
+  // Optionnel : ce sélecteur ne sert qu'à cocher « toutes les écoles ». Un
+  // vendeur sans le privilège de consultation des classes doit pouvoir
+  // ajouter un article sans essuyer une alerte de permission — le champ
+  // disparaît simplement.
+  const { data: schools } = useQuery({
+    queryKey: ['schools'],
+    queryFn: () => fetchSchools({ silent403: true }),
+    retry: false,
+  })
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { isSubmitting, errors },
   } = useForm<ArticleInventairePayload>({
     defaultValues: article
@@ -455,12 +466,32 @@ function ArticleFormModal({
               icon={Barcode}
               maxLength={13}
               error={errors.code_barre?.message}
+              endAdornment={
+                <button
+                  type="button"
+                  title="Scanner le code-barres avec la caméra"
+                  onClick={() => setShowScanner(true)}
+                  className="rounded-lg p-1 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+              }
               {...register('code_barre', {
                 pattern: { value: /^\d{13}$/, message: t('inventaire.code_barre_format') as string },
               })}
             />
             <p className="text-xs text-navy-400">{t('inventaire.code_barre_aide')}</p>
           </div>
+        )}
+
+        {showScanner && (
+          <BarcodeScannerModal
+            onDetected={(code) => {
+              setValue('code_barre', code, { shouldValidate: true, shouldDirty: true })
+              setShowScanner(false)
+            }}
+            onClose={() => setShowScanner(false)}
+          />
         )}
 
         <div className="grid grid-cols-2 gap-3">

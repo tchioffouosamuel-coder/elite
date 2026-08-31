@@ -59,6 +59,32 @@ class Competence extends Model
     }
 
     /**
+     * Volets réellement notés : {@see volets()} amputé de ceux auxquels aucun
+     * point n'a été explicitement alloué (0, ou laissé de côté — cf.
+     * `repartitionVolets()`). Un volet à 0 point n'a rien à faire dans la
+     * grille de saisie ni sur le bulletin : personne ne remplit ni ne lit une
+     * colonne qui ne peut porter aucune note.
+     *
+     * Une compétence sans répartition explicite (barème par défaut réparti à
+     * parts égales, ou une compétence de maternelle qui n'évalue par nature
+     * aucun volet en points) garde tous ses volets structurels : l'absence de
+     * réglage n'est pas un volet volontairement désactivé.
+     *
+     * @return list<string>
+     */
+    public function voletsNotes(): array
+    {
+        if (! $this->repartition_volets) {
+            return $this->volets();
+        }
+
+        return array_values(array_filter(
+            $this->volets(),
+            fn (string $volet) => (float) ($this->repartition_volets[$volet] ?? 0) > 0,
+        ));
+    }
+
+    /**
      * Points attribués à chaque volet. À défaut de répartition explicite, le
      * barème se partage à parts égales — une compétence tout juste créée reste
      * ainsi notable sans réglage préalable.

@@ -112,16 +112,21 @@ class DossierScolarite extends Model
         return (int) $this->fraisAnnexes->sum('montant');
     }
 
-    /** Souscription au bus, si active — vient du trajet et se fige à l'entrée. */
+    /**
+     * Tarif mensuel de la souscription bus active, à titre indicatif
+     * seulement : le transport se paie au mois, dans son propre registre
+     * (cf. `BusAffectation::versements`), et ne fait plus partie de ce qui est
+     * dû sur le dossier de scolarité.
+     */
     public function getMontantBusAttribute(): int
     {
         return (int) ($this->bus_actif?->tarif_mensuel ?? 0);
     }
 
-    /** Tout ce que la famille doit sur l'année, reliquat de l'an dernier et bus compris. */
+    /** Tout ce que la famille doit sur l'année pour la scolarité, reliquat de l'an dernier compris — le bus se règle à part, au mois. */
     public function getTotalDuAttribute(): int
     {
-        return $this->scolarite_nette + $this->total_frais_annexes + $this->report_dette + $this->montant_bus;
+        return $this->scolarite_nette + $this->total_frais_annexes + $this->report_dette;
     }
 
     public function getTotalPayeAttribute(): int
@@ -169,7 +174,8 @@ class DossierScolarite extends Model
 
     /**
      * Décompose ce qui est dû en postes distincts — reliquat, scolarité,
-     * chaque frais annexe, bus — avec ce qui est déjà réglé sur chacun.
+     * chaque frais annexe — avec ce qui est déjà réglé sur chacun. Le bus n'y
+     * figure pas : il se paie au mois, dans son propre registre.
      * Sert à la fois à ventiler automatiquement un encaissement
      * (`ScolariteService::ventilationAutomatique`) et à l'afficher au
      * comptoir avant de l'enregistrer, pour que la famille sache sur quoi
@@ -191,11 +197,6 @@ class DossierScolarite extends Model
 
         foreach ($this->fraisAnnexes as $frais) {
             $postes[] = ['frais_annexe', $frais->id, $frais->libelle, $frais->montant];
-        }
-
-        if ($this->montant_bus > 0) {
-            $nomTrajet = $this->bus_actif?->trajet?->nom;
-            $postes[] = ['bus', null, 'Transport scolaire'.($nomTrajet ? " — {$nomTrajet}" : ''), $this->montant_bus];
         }
 
         $regle = [];

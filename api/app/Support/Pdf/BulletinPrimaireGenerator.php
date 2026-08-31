@@ -43,6 +43,18 @@ class BulletinPrimaireGenerator
         'NA' => '#dc2626',
     ];
 
+    /**
+     * Grille déjà dense (jusqu'à 4 lignes par matière) : la boîte par défaut du
+     * logo (`RenduDocument::logoBoiteMax()`) suffisait à pousser un bulletin
+     * sur une deuxième page à elle seule quand le logo chargé est un emblème
+     * tout en hauteur (bannières empilées) — même réduction que le bulletin du
+     * secondaire.
+     */
+    protected function logoBoiteMax(): array
+    {
+        return ['largeur' => 22.0, 'hauteur' => 13.0];
+    }
+
     public function build(array $donnees): string
     {
         $mpdf = MpdfFactory::make([
@@ -330,22 +342,28 @@ class BulletinPrimaireGenerator
         $sequences = $donnees['sequences']->values();
         $nb = max($sequences->count(), 1);
 
-        $wComp = 17;
-        $wEval = 13;
-        $wSeqNote = 7;
-        $wSeqTotal = 7;
-        $wTrim = 9;
-        $wAppr = 9;
-        $wObs = max(100 - $wComp - $wEval - ($wSeqNote + $wSeqTotal) * $nb - $wTrim - $wAppr, 8);
+        // Matières et Évaluation reçoivent le maximum : ce sont les deux
+        // colonnes dont le contenu (intitulé de matière, libellé de volet) ne
+        // doit jamais retourner à la ligne. Le reste — notes chiffrées, codes
+        // courts (A+/A/ECA/NA) — n'a besoin que d'une fraction de cette largeur,
+        // d'où des libellés d'en-tête eux-mêmes abrégés (Seq., Appr.) pour ne
+        // pas forcer une colonne plus large que son contenu.
+        $wComp = 21;
+        $wEval = 14;
+        $wSeqNote = 6;
+        $wSeqTotal = 6;
+        $wTrim = 8;
+        $wAppr = 7;
+        $wObs = max(100 - $wComp - $wEval - ($wSeqNote + $wSeqTotal) * $nb - $wTrim - $wAppr, 15);
 
         $entete = '<tr>'
             . '<th class="left" rowspan="2" style="width:' . $wComp . '%;">Matières<br><i>Subjects</i></th>'
             . '<th rowspan="2" style="width:' . $wEval . '%;">Évaluation<br><i>Assessment</i></th>';
         foreach ($sequences as $sequence) {
-            $entete .= '<th colspan="2">' . $this->e($sequence->libelle) . '</th>';
+            $entete .= '<th colspan="2">' . $this->e($this->abregerSequence($sequence->libelle)) . '</th>';
         }
         $entete .= '<th rowspan="2" style="width:' . $wTrim . '%;">Note trim.<br><i>Term mark</i></th>'
-            . '<th rowspan="2" style="width:' . $wAppr . '%;">Appréciation<br><i>Remark</i></th>'
+            . '<th rowspan="2" style="width:' . $wAppr . '%;">Appr.<br><i>Rem.</i></th>'
             . '<th rowspan="2" style="width:' . $wObs . '%;">Observations<br><i>Remarks</i></th>'
             . '</tr><tr>';
         foreach ($sequences as $sequence) {
@@ -408,6 +426,12 @@ class BulletinPrimaireGenerator
         return '<table class="grille"><thead>' . $entete . '</thead><tbody>' . $corps . $pied . '</tbody></table>';
     }
 
+    /** « Séquence 1 » → « Seq. 1 » : le libellé complet vient de la base (Sequence::libelle) et ferait déborder l'en-tête à chaque séquence supplémentaire. */
+    private function abregerSequence(string $libelle): string
+    {
+        return preg_replace('/S[ée]quences?/iu', 'Seq.', $libelle) ?? $libelle;
+    }
+
     /** Barème d'un volet, sans décimales inutiles (10 plutôt que 10,00 ; 7,5 pour un demi-point). */
     private function baremeVolet(float $bareme): string
     {
@@ -446,7 +470,7 @@ class BulletinPrimaireGenerator
 
         $entete = '<tr><th class="left">&nbsp;</th>';
         foreach ($sequences as $sequence) {
-            $entete .= '<th>' . $this->e($sequence->libelle) . '</th>';
+            $entete .= '<th>' . $this->e($this->abregerSequence($sequence->libelle)) . '</th>';
         }
         $entete .= '<th>Trim.</th></tr>';
 

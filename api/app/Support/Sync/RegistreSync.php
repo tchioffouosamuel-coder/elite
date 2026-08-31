@@ -111,9 +111,16 @@ class RegistreSync
             ],
             'progression_items' => [
                 'modele' => ProgressionItem::class,
+                // Gabarits établissement (cf. migration
+                // `refaire_fiche_progression_gabarits`) : les colonnes MINESEC
+                // (objectifs, materiel, activites, devoirs, lesson, mode,
+                // references, research_questions, introduction, presentation,
+                // conclusion...) n'existent plus depuis ce changement de forme.
                 'colonnes' => [
-                    'id', 'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'objectifs', 'materiel', 'activites', 'devoirs', 'ordre', 'sequence_id', 'duree_prevue',
-                    'topic', 'lesson', 'competence', 'mode', 'entry_behaviour', 'teaching_aids', 'teaching_learning_strategies', 'references', 'research_questions', 'introduction', 'presentation', 'conclusion',
+                    'id', 'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'ordre', 'sequence_id', 'duree_prevue',
+                    'topic', 'sous_topic', 'competence', 'expected_learning_outcomes', 'entry_behaviour', 'teaching_aids', 'teaching_learning_strategies',
+                    'learners_activities', 'facilitators_activities', 'assessment', 'assignment', 'remarks',
+                    'semaine', 'date_prevue', 'date_realisee', 'duree', 'colonnes_libres',
                 ],
                 'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
                 'permission' => 'pedagogie.view',
