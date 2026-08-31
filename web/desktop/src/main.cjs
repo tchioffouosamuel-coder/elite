@@ -1,165 +1,184 @@
-const { app, BrowserWindow, ipcMain, session } = require("electron");
+const { app, BrowserWindow, dialog, session } = require("electron");
 const path = require("node:path");
-const Database = require("better-sqlite3");
+const fs = require("node:fs");
+const crypto = require("node:crypto");
+const { spawn, execFileSync } = require("node:child_process");
 const { autoUpdater } = require("electron-updater");
 
-const database = new Database(
-  path.join(app.getPath("userData"), "elites-school.sqlite"),
-);
-database.pragma("journal_mode = WAL");
-database.exec(`
-  CREATE TABLE IF NOT EXISTS response_cache (
-    cache_key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS sync_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    method TEXT NOT NULL,
-    url TEXT NOT NULL,
-    data TEXT,
-    headers TEXT,
-    created_at TEXT NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE TABLE IF NOT EXISTS sync_state (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-  CREATE TABLE IF NOT EXISTS sync_entities (
-    entity TEXT NOT NULL,
-    entity_id TEXT NOT NULL,
-    value TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY (entity, entity_id)
-  );
-`);
+/**
+ * Port fixe plutôt qu'un port libre choisi dynamiquement : le renderer (SPA
+ * statique chargée en `file://`) doit connaître l'URL de l'API avant même
+ * qu'Electron ait fini de démarrer le serveur PHP, sans aller-retour IPC
+ * asynchrone au tout premier rendu. Un conflit avec un autre processus déjà
+ * sur ce port est jugé improbable sur un poste desktop mono-utilisateur ;
+ * à revoir si ça devient un problème réel en usage.
+ */
+const API_PORT = 8973;
 
-function registerIpc() {
-  ipcMain.handle("desktop:cache-get", (_event, key) => {
-    const row = database
-      .prepare("SELECT value FROM response_cache WHERE cache_key = ?")
-      .get(key);
-    return row ? JSON.parse(row.value) : null;
-  });
-  ipcMain.handle("desktop:cache-put", (_event, key, value) => {
-    database
-      .prepare(
-        "INSERT OR REPLACE INTO response_cache (cache_key, value, updated_at) VALUES (?, ?, ?)",
-      )
-      .run(key, JSON.stringify(value), new Date().toISOString());
-  });
-  ipcMain.handle("desktop:enqueue", (_event, request) => {
-    database
-      .prepare(
-        "INSERT INTO sync_queue (method, url, data, headers, created_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(
-        request.method,
-        request.url,
-        JSON.stringify(request.data ?? null),
-        JSON.stringify(request.headers ?? {}),
-        new Date().toISOString(),
-      );
-  });
-  ipcMain.handle("desktop:sync", async (_event, options) => {
-    const pending = database
-      .prepare("SELECT * FROM sync_queue ORDER BY id")
-      .all();
-    let synced = 0;
-    for (const item of pending) {
-      try {
-        const response = await fetch(new URL(item.url, options.baseUrl), {
-          method: item.method.toUpperCase(),
-          headers: {
-            Accept: "application/json",
-            "X-Locale": options.locale,
-            ...(options.schoolId
-              ? { "X-School-Id": String(options.schoolId) }
-              : {}),
-            ...JSON.parse(item.headers || "{}"),
-            Authorization: `Bearer ${options.token}`,
-            ...(item.data ? { "Content-Type": "application/json" } : {}),
-          },
-          body: item.data ? item.data : undefined,
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        database.prepare("DELETE FROM sync_queue WHERE id = ?").run(item.id);
-        synced += 1;
-      } catch {
-        database
-          .prepare("UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?")
-          .run(item.id);
-        break;
-      }
-    }
-    return synced;
-  });
-  ipcMain.handle("desktop:bootstrap", async (_event, options) => {
-    let cursor =
-      database
-        .prepare("SELECT value FROM sync_state WHERE key = 'cursor'")
-        .get()?.value ?? null;
-    let complete = false;
-    let passes = 0;
-    let entities = 0;
+/**
+ * Emplacement du binaire PHP et du dossier de l'application Laravel.
+ *
+ * `resources/php` est un PHP portable généré par `scripts/bundle-php.cjs`
+ * (jamais committé, cf. `.gitignore` — trop volumineux pour git, régénéré à
+ * chaque build) : quand il est présent, même en développement, on l'utilise
+ * de préférence pour tester exactement ce qui sera embarqué. `ELITES_PHP_BINARY`
+ * permet de forcer un autre binaire (ex. déboguer avec le PHP système), et à
+ * défaut de tout ça on retombe sur `php` du PATH.
+ */
+function resolveApiDir() {
+  if (process.env.ELITES_API_DIR) return process.env.ELITES_API_DIR;
 
-    while (!complete && passes < 100) {
-      const baseUrl = options.baseUrl.endsWith("/")
-        ? options.baseUrl
-        : `${options.baseUrl}/`;
-      const url = new URL("sync", baseUrl);
-      if (cursor) url.searchParams.set("depuis", cursor);
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${options.token}`,
-          "X-Locale": options.locale,
-          ...(options.schoolId
-            ? { "X-School-Id": String(options.schoolId) }
-            : {}),
-        },
-      });
-      if (!response.ok) throw new Error(`Bootstrap HTTP ${response.status}`);
-      const payload = await response.json();
-      const data = payload.data ?? {};
-      const transaction = database.transaction(() => {
-        for (const [entity, rows] of Object.entries(data.donnees ?? {})) {
-          for (const row of rows) {
-            if (!row || row.id === undefined || row.id === null) continue;
-            database
-              .prepare(
-                "INSERT OR REPLACE INTO sync_entities (entity, entity_id, value, updated_at) VALUES (?, ?, ?, ?)",
-              )
-              .run(
-                entity,
-                String(row.id),
-                JSON.stringify(row),
-                new Date().toISOString(),
-              );
-            entities += 1;
-          }
-        }
-        for (const deletion of data.suppressions ?? []) {
-          database
-            .prepare(
-              "DELETE FROM sync_entities WHERE entity = ? AND entity_id = ?",
-            )
-            .run(deletion.entite, String(deletion.id));
-        }
-        cursor = data.curseur ?? cursor;
-        database
-          .prepare(
-            "INSERT OR REPLACE INTO sync_state (key, value) VALUES ('cursor', ?)",
-          )
-          .run(cursor);
-      });
-      transaction();
-      complete = data.complet !== false;
-      passes += 1;
-    }
-    return { passes, entities };
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "api")
+    : path.join(__dirname, "../../../api");
+}
+
+function resolvePhpBundleDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "php")
+    : path.join(__dirname, "../resources/php");
+}
+
+function resolvePhpBinary() {
+  if (process.env.ELITES_PHP_BINARY) return process.env.ELITES_PHP_BINARY;
+
+  const bundle = path.join(resolvePhpBundleDir(), "php.exe");
+  return fs.existsSync(bundle) ? bundle : "php";
+}
+
+/** `-c`/`-d` explicites : ne jamais dépendre d'un php.ini système que le poste utilisateur peut ne pas avoir. */
+function resolvePhpArgsCommuns() {
+  const bundle = resolvePhpBundleDir();
+  const ini = path.join(bundle, "php.ini");
+
+  if (!fs.existsSync(ini)) return [];
+
+  const args = ["-c", ini, "-d", `extension_dir=${path.join(bundle, "ext")}`];
+
+  // Sans bundle de certificats explicite, `curl`/`openssl` sous Windows ne
+  // valident aucune connexion HTTPS sortante (erreur cURL 60) — c'est le
+  // seul appel HTTPS que fait ce PHP embarqué (sync:pull/sync:push vers le
+  // serveur distant), donc son absence rend la synchronisation
+  // silencieusement inopérante sans jamais faire échouer le démarrage.
+  const cacert = path.join(bundle, "cacert.pem");
+  if (fs.existsSync(cacert)) {
+    args.push("-d", `curl.cainfo=${cacert}`, "-d", `openssl.cafile=${cacert}`);
+  }
+
+  return args;
+}
+
+/** Fichiers propres à cette installation : base SQLite locale et clé d'application, persistés hors du dossier `api/` (partagé, potentiellement réinstallé). */
+function instancePaths() {
+  const dir = app.getPath("userData");
+
+  return {
+    dir,
+    database: path.join(dir, "elites-school.sqlite"),
+    appKeyFile: path.join(dir, "app.key"),
+  };
+}
+
+function lireOuCreerAppKey(appKeyFile) {
+  if (fs.existsSync(appKeyFile)) {
+    return fs.readFileSync(appKeyFile, "utf8").trim();
+  }
+
+  // Même format que `php artisan key:generate` (AES-256-CBC, 32 octets encodés base64).
+  const cle = `base64:${crypto.randomBytes(32).toString("base64")}`;
+  fs.writeFileSync(appKeyFile, cle, "utf8");
+
+  return cle;
+}
+
+function envInstanceLocale() {
+  const { database, appKeyFile } = instancePaths();
+
+  if (!fs.existsSync(database)) fs.writeFileSync(database, "");
+
+  return {
+    env: {
+      ...process.env,
+      APP_ENV: "production",
+      APP_DEBUG: "false",
+      APP_KEY: lireOuCreerAppKey(appKeyFile),
+      DB_CONNECTION: "sqlite",
+      DB_DATABASE: database,
+      CACHE_STORE: "file",
+      SESSION_DRIVER: "file",
+      QUEUE_CONNECTION: "sync",
+      MAIL_MAILER: "log",
+      // Active l'outbox locale (cf. EnregistrerDansOutboxLocale côté API) :
+      // sans effet sur le serveur distant, qui ne positionne jamais cette
+      // variable.
+      SYNC_LOCAL_REPLICA: "true",
+    },
+  };
+}
+
+let phpProcess = null;
+
+function demarrerServeurPhp() {
+  const apiDir = resolveApiDir();
+  const phpBinary = resolvePhpBinary();
+  const phpArgs = resolvePhpArgsCommuns();
+  const { env } = envInstanceLocale();
+
+  // Toujours migrer, jamais seulement « si le fichier vient d'être créé » :
+  // `artisan migrate` est idempotent (rien à faire si tout est déjà en
+  // place) et détecter un « premier lancement » par la seule existence du
+  // fichier est fragile — un fichier sqlite d'une version antérieure de
+  // l'app (autre schéma, ou resté d'une install précédente) existerait déjà
+  // sans être migré pour autant, et la vérification passerait à côté.
+  // Synchrone à dessein — la fenêtre n'a rien d'utile à montrer avant que
+  // le schéma soit à jour.
+  execFileSync(phpBinary, [...phpArgs, "artisan", "migrate", "--force"], { cwd: apiDir, env });
+
+  phpProcess = spawn(
+    phpBinary,
+    [...phpArgs, "-S", `127.0.0.1:${API_PORT}`, "-t", "public"],
+    { cwd: apiDir, env, stdio: "pipe" },
+  );
+
+  phpProcess.stderr.on("data", (chunk) => {
+    // Le serveur de développement PHP écrit son journal d'accès sur stderr :
+    // utile pour diagnostiquer un poste utilisateur, jamais fatal en soi.
+    console.error(`[php] ${chunk}`);
   });
+
+  phpProcess.on("exit", (code) => {
+    if (code !== null && code !== 0) console.error(`[php] serveur arrêté (code ${code})`);
+  });
+}
+
+/**
+ * Attend que le serveur PHP réponde, avant de charger le renderer dessus.
+ *
+ * Délai généreux (2 minutes) plutôt qu'un simple démarrage rapide : au tout
+ * premier lancement sur un poste, l'antivirus scanne `php.exe` — binaire
+ * inconnu, jamais vu — avant de l'autoriser à s'exécuter, ce qui peut
+ * prendre plus d'une minute. Une fois ce binaire « connu » de l'antivirus,
+ * les lancements suivants démarrent en quelques secondes ; observé
+ * directement lors des tests (15s de délai insuffisant au premier
+ * lancement, 5s au second).
+ */
+async function attendreServeurPret(tentativesMax = 240) {
+  for (let tentative = 0; tentative < tentativesMax; tentative++) {
+    try {
+      const reponse = await fetch(`http://127.0.0.1:${API_PORT}/up`);
+      if (reponse.ok) return;
+    } catch {
+      // Pas encore prêt : nouvelle tentative après une courte pause.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error("Le serveur local n'a pas démarré à temps.");
+}
+
+function arreterServeurPhp() {
+  phpProcess?.kill();
+  phpProcess = null;
 }
 
 function createWindow() {
@@ -180,7 +199,7 @@ function createWindow() {
   window.loadFile(path.join(dist, "index.html"));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -191,7 +210,25 @@ app.whenReady().then(() => {
       },
     });
   });
-  registerIpc();
+
+  try {
+    demarrerServeurPhp();
+    await attendreServeurPret();
+  } catch (erreur) {
+    console.error(erreur);
+    // Sans ce message, l'utilisateur ne voit qu'un écran de connexion cassé
+    // (erreurs réseau silencieuses dans les DevTools, jamais ouvertes en
+    // usage normal) sans aucun indice sur ce qui a échoué.
+    dialog.showErrorBox(
+      "Elites School — démarrage impossible",
+      "Le serveur local n'a pas pu démarrer.\n\n"
+        + "Cause fréquente : un antivirus qui analyse encore les fichiers de l'application "
+        + "lors de sa toute première exécution. Fermez cette fenêtre et relancez Elites School — "
+        + "les lancements suivants sont nettement plus rapides.\n\n"
+        + `Détail technique : ${erreur.message}`,
+    );
+  }
+
   createWindow();
   if (app.isPackaged && process.env.NODE_ENV === "production") {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {});
@@ -202,5 +239,10 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  arreterServeurPhp();
   if (process.platform !== "darwin") app.quit();
 });
+
+app.on("before-quit", arreterServeurPhp);
+
+exports.API_PORT = API_PORT;

@@ -127,6 +127,7 @@
     "login_subtitle": "Accédez à votre espace de gestion scolaire",
     "identifiant": "E-mail ou téléphone",
     "password": "Mot de passe",
+    "serveur_url": "Adresse de votre établissement",
     "submit": "Se connecter",
     "error_invalid": "Identifiants incorrects ou compte désactivé.",
     "signed_in_as": "Connecté en tant que",

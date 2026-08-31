@@ -52,6 +52,16 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.appareils.store',
         'api.v1.appareils.destroy',
 
+        // Provisioning d'une instance locale (client desktop offline) :
+        // `provisionner` n'a par définition aucun utilisateur local avant de
+        // créer le sien, et `session`/`statut-sync`/`synchroniser` n'agissent
+        // que sur l'unique compte lié à ce poste — un privilège n'y protégerait
+        // rien de plus (cf. DesktopProvisioningController).
+        'api.v1.desktop.provisionner',
+        'api.v1.desktop.session',
+        'api.v1.desktop.statut-sync',
+        'api.v1.desktop.synchroniser',
+
         // Vérification publique d'authenticité d'un bulletin : destinée à un
         // tiers extérieur à l'établissement, elle est protégée par la
         // signature HMAC portée dans l'URL, pas par un compte.
@@ -127,6 +137,12 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.auth.login',
         'api.v1.verification-bulletin.show',
         'api.v1.verification-versement.show',
+
+        // Bootstrap d'une instance locale desktop : aucun jeton n'existe
+        // encore avant `provisionner`, et `session` EST le mécanisme qui en
+        // délivre un (mono-utilisateur, sans mot de passe — cf. plus haut).
+        'api.v1.desktop.provisionner',
+        'api.v1.desktop.session',
     ];
 
     public function test_toute_route_api_controle_les_privileges(): void

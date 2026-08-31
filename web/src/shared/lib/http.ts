@@ -12,48 +12,22 @@ import { useUiStore } from "@/shared/store/uiStore";
 import { permissionManquante } from "@/shared/lib/alertes";
 import type { ApiError } from "@/shared/types/api";
 
+/**
+ * En desktop, l'API n'est plus distante : `window.desktop.apiBaseUrl` pointe
+ * vers l'instance Laravel locale (PHP + SQLite) que `main.cjs` démarre au
+ * lancement de l'application — cf. le plan de synchronisation offline. Le
+ * navigateur web classique garde `VITE_API_URL`.
+ */
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api/v1";
+  window.desktop?.apiBaseUrl ??
+  import.meta.env.VITE_API_URL ??
+  "http://127.0.0.1:8000/api/v1";
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30 * 60 * 1000,
   headers: { Accept: "application/json" },
 });
-
-type DesktopRequest = {
-  method: string;
-  url: string;
-  data?: unknown;
-  headers?: Record<string, string>;
-};
-
-type DesktopBridge = {
-  cacheGet: (key: string) => Promise<unknown | null>;
-  cachePut: (key: string, value: unknown) => Promise<void>;
-  enqueue: (request: DesktopRequest) => Promise<void>;
-  sync: (options: {
-    baseUrl: string;
-    token: string;
-    schoolId?: number | null;
-    locale: string;
-  }) => Promise<number>;
-  bootstrap: (options: {
-    baseUrl: string;
-    token: string;
-    schoolId?: number | null;
-    locale: string;
-  }) => Promise<{ passes: number; entities: number }>;
-};
-
-function desktopBridge(): DesktopBridge | null {
-  return window.desktop ?? null;
-}
-
-function cacheKey(config: { url?: string; params?: unknown }): string {
-  const params = config.params ? JSON.stringify(config.params) : "";
-  return `${config.url ?? ""}?${params}`;
-}
 
 http.interceptors.request.use((config) => {
   const { token, user, activeSchoolId } = useAuthStore.getState();
@@ -76,57 +50,13 @@ http.interceptors.request.use((config) => {
     config.headers["X-School-Id"] = String(schoolId);
   config.headers["X-Locale"] = locale;
 
-  if (token) {
-    void desktopBridge()?.sync({
-      baseUrl: API_BASE_URL,
-      token,
-      schoolId: activeSchoolId,
-      locale,
-    });
-  }
-
   return config;
 });
 
 http.interceptors.response.use(
-  async (response) => {
-    const bridge = desktopBridge();
-    if (bridge && response.config.method?.toLowerCase() === "get") {
-      await bridge.cachePut(cacheKey(response.config), response.data);
-    }
-    return response;
-  },
-  async (
-    error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>,
-  ) => {
-    const bridge = desktopBridge();
+  (response) => response,
+  (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
     const config = error.config;
-    const method = config?.method?.toLowerCase() ?? "get";
-    const url = config?.url ?? "";
-
-    if (bridge && config && !error.response) {
-      if (method === "get") {
-        const cached = await bridge.cacheGet(cacheKey(config));
-        if (cached !== null) {
-          return {
-            ...error,
-            config,
-            data: cached,
-            status: 200,
-            statusText: "OK",
-            headers: {},
-            request: undefined,
-          };
-        }
-      } else if (config.data) {
-        await bridge.enqueue({
-          method,
-          url,
-          data: config.data as unknown,
-          headers: config.headers as Record<string, string>,
-        });
-      }
-    }
 
     // Un jeton Sanctum expiré ne peut pas être "rafraîchi" silencieusement
     // (il n'y a pas de refresh-token séparé) : on ferme simplement la session.

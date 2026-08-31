@@ -127,6 +127,7 @@
     "login_subtitle": "Access your school management workspace",
     "identifiant": "Email or phone number",
     "password": "Password",
+    "serveur_url": "Your school's address",
     "submit": "Sign in",
     "error_invalid": "Incorrect credentials or disabled account.",
     "signed_in_as": "Signed in as",

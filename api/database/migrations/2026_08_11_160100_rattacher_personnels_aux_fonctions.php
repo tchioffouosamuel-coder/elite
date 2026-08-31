@@ -105,9 +105,16 @@ return new class extends Migration
             $table->string('fonction')->nullable()->after('departement_id');
         });
 
+        // Pas de `UPDATE ... JOIN` : cette syntaxe MySQL n'existe pas sous
+        // SQLite (client desktop offline). Une sous-requête corrélée reste
+        // portable sur les deux moteurs.
         DB::table('personnels')
-            ->join('fonctions', 'fonctions.id', '=', 'personnels.fonction_id')
-            ->update(['personnels.fonction' => DB::raw('fonctions.libelle')]);
+            ->whereNotNull('fonction_id')
+            ->update([
+                'fonction' => DB::table('fonctions')
+                    ->whereColumn('fonctions.id', 'personnels.fonction_id')
+                    ->select('libelle'),
+            ]);
 
         Schema::table('personnels', function (Blueprint $table) {
             $table->dropForeign(['fonction_id']);

@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
 use App\Http\Controllers\Api\V1\DetteAnterieureController;
+use App\Http\Controllers\Api\V1\DesktopProvisioningController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\PushDiagnosticController;
 use App\Http\Controllers\Api\V1\EleveController;
@@ -99,6 +100,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
     Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
 
+    // Provisioning d'une instance locale (client desktop offline) : aucun
+    // utilisateur local n'existe encore avant `provisionner`, et `session`
+    // EST le mécanisme de connexion de cette instance (mono-utilisateur,
+    // sans mot de passe — cf. DesktopProvisioningController).
+    Route::post('desktop/provisionner', [DesktopProvisioningController::class, 'provisionner'])->name('desktop.provisionner');
+    Route::get('desktop/session', [DesktopProvisioningController::class, 'session'])->name('desktop.session');
+
     // Vérification publique d'authenticité d'un bulletin (QR code) : accessible
     // sans authentification, un tiers externe scanne depuis son téléphone.
     Route::get('verification-bulletin/{eleveId}/{trimestreId}/{signature}', [VerificationBulletinController::class, 'show'])
@@ -137,7 +145,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // `idempotence` couvre d'un coup les 84 écritures métier : le mobile
         // peut rejouer n'importe laquelle sans risque de doublon, sans avoir
         // à déclarer route par route lesquelles sont rejouables.
-        Route::middleware(['tenant', 'idempotence'])->group(function () {
+        Route::middleware(['tenant', 'idempotence', 'outbox-local'])->group(function () {
 
             /*
              * Synchronisation de l'application mobile. Aucun privilège propre :
@@ -148,6 +156,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::get('sync', [SyncController::class, 'pull'])->name('sync.pull');
             Route::post('sync', [SyncController::class, 'push'])->name('sync.push');
+
+            // Pilotage de la synchronisation d'une instance locale (client
+            // desktop). Sans objet sur le serveur distant lui-même.
+            Route::get('desktop/statut-sync', [DesktopProvisioningController::class, 'statutSync'])->name('desktop.statut-sync');
+            Route::post('desktop/synchroniser', [DesktopProvisioningController::class, 'synchroniser'])->name('desktop.synchroniser');
 
             // Enregistrement de l'appareil pour les notifications push. Aucun
             // privilège : tout utilisateur authentifié a le droit d'être

@@ -1,34 +1,37 @@
 {
   "name": "elites-school-desktop",
   "version": "1.0.0",
+  "description": "Elites School — client desktop offline",
+  "author": "Artiscode Agency",
   "private": true,
   "main": "src/main.cjs",
   "scripts": {
     "dev": "npm --prefix .. run build && electron .",
-    "build": "npm --prefix .. run build && node scripts/build-installer.cjs",
+    "bundle:php": "node scripts/bundle-php.cjs",
+    "build": "npm --prefix .. run build && node scripts/bundle-php.cjs && node scripts/build-installer.cjs",
     "start": "electron ."
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1",
     "electron-updater": "^6.7.1"
   },
   "devDependencies": {
     "electron": "^39.1.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "resedit": "^1.7.2"
   },
   "build": {
     "appId": "com.elites.school",
     "productName": "Elites School",
     "executableName": "Elites School",
+    "icon": "build/icon.ico",
     "files": [
       "src/**/*",
       "package.json"
     ],
     "extraResources": [
-      {
-        "from": "../dist",
-        "to": "web-dist"
-      }
+      { "from": "../dist", "to": "web-dist" },
+      { "from": "../../api", "to": "api", "filter": ["**/*", "!tests/**", "!.git/**", "!vendor/**", "!node_modules/**", "!storage/**", "!database/*.sqlite"] },
+      { "from": "resources/php", "to": "php" }
     ],
     "win": {
       "target": "nsis"

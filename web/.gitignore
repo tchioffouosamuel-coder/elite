@@ -20,6 +20,13 @@ desktop/dist-test
 desktop/dist-release
 desktop/prepackaged-final
 
+# PHP portable + copie buildée de l'API, régénérées par
+# `scripts/bundle-php.cjs` / `build-installer.cjs` avant chaque build — des
+# binaires et du vendor Composer n'ont rien à faire dans git.
+desktop/resources/php
+desktop/resources/api
+desktop/.test-instance
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

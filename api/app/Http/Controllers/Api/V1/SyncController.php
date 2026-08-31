@@ -55,8 +55,14 @@ class SyncController extends Controller
         $donnees = [];
         $bornes = [];
 
+        // Calculé une fois pour tout l'appel : chaque `portee` du registre
+        // compose déjà le filtre d'école avec le périmètre de $user (classes
+        // enseignées/attribuées), sans quoi un compte borné (enseignant,
+        // censeur, surveillant général) redescendrait l'école entière.
+        $definitions = RegistreSync::entites($user);
+
         foreach ($entitesDemandees as $cle) {
-            $definition = RegistreSync::entites()[$cle];
+            $definition = $definitions[$cle];
 
             // Le périmètre suit les privilèges : un enseignant qui n'a pas
             // `personnel.view` ne télécharge pas le fichier du personnel.
@@ -71,7 +77,11 @@ class SyncController extends Controller
             }
 
             if ($lignes->isNotEmpty()) {
-                $donnees[$cle] = $lignes->map->only($definition['colonnes'])->all();
+                // `updated_at` toujours inclus, même hors de `colonnes` : c'est
+                // sur lui que le client desktop (SyncPull) arbitre un conflit
+                // avec une ligne locale pas encore poussée (le plus récent
+                // gagne). Le mobile, qui l'ignorait déjà, n'est pas affecté.
+                $donnees[$cle] = $lignes->map->only([...$definition['colonnes'], 'updated_at'])->all();
             }
         }
 

@@ -4,6 +4,7 @@ use App\Console\Commands\AlerteAbsenceNonEnregistreeCommand;
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
+use App\Http\Middleware\EnregistrerDansOutboxLocale;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
 use App\Http\Middleware\Idempotence;
 use App\Http\Middleware\ScopeEtablissement;
@@ -72,6 +73,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // Sans en-tête `Idempotency-Key` il se retire de lui-même : il ne
             // coûte donc rien aux requêtes du web, qui n'en envoient pas.
             'idempotence' => Idempotence::class,
+            // Sans effet tant que `SYNC_LOCAL_REPLICA` n'est pas activé (client
+            // desktop offline) : ne coûte rien au serveur distant.
+            'outbox-local' => EnregistrerDansOutboxLocale::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

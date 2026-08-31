@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, ShieldCheck, Eye, EyeOff, Server } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
+import { authentifierSessionDesktop, provisionnerPoste } from '@/features/auth/desktopProvisioning'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { Input } from '@/shared/ui/Field'
@@ -15,7 +16,11 @@ import type { ApiError } from '@/shared/types/api'
 interface LoginForm {
   identifiant: string
   password: string
+  serveur_url?: string
 }
+
+/** Présent uniquement dans le client desktop (cf. web/desktop/src/preload.cjs). */
+const estDesktop = Boolean(window.desktop)
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -25,6 +30,10 @@ export function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // `null` = vérification en cours, `true`/`false` une fois tranché. Seul le
+  // desktop a cette question à se poser : le web n'a pas de notion de poste
+  // « déjà lié à un compte ».
+  const [posteProvisionne, setPosteProvisionne] = useState<boolean | null>(estDesktop ? null : true)
 
   const {
     register,
@@ -32,10 +41,39 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>()
 
+  // Un poste desktop déjà lié à un compte s'authentifie tout seul, sans
+  // repasser par un formulaire — un seul utilisateur par poste, pas de
+  // changement de compte (cf. le plan de synchronisation offline).
+  useEffect(() => {
+    if (!estDesktop) return
+
+    authentifierSessionDesktop()
+      .then((session) => {
+        if (!session) {
+          setPosteProvisionne(false)
+          return
+        }
+        setSession(session.token, session.user)
+        navigate(session.user.roles.includes('parent') ? '/parent' : '/', { replace: true })
+      })
+      .catch(() => setPosteProvisionne(false))
+  }, [navigate, setSession])
+
   const onSubmit = async (form: LoginForm) => {
     setServerError(null)
     setSubmitting(true)
     try {
+      if (estDesktop && !posteProvisionne) {
+        const session = await provisionnerPoste({
+          serveurUrl: form.serveur_url ?? '',
+          identifiant: form.identifiant,
+          password: form.password,
+        })
+        setSession(session.token, session.user)
+        navigate(session.user.roles.includes('parent') ? '/parent' : '/', { replace: true })
+        return
+      }
+
       const { token } = await login(form)
       useAuthStore.setState({ token })
       const user = await fetchMe()
@@ -43,21 +81,17 @@ export function LoginPage() {
       // Un compte parent n'a pas `dashboard.view` : le tableau de bord du
       // personnel le renverrait dans une boucle de redirection.
       navigate(user.roles.includes('parent') ? '/parent' : '/', { replace: true })
-
-      void window.desktop?.bootstrap({
-        baseUrl: import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api/v1',
-        token,
-        schoolId: useAuthStore.getState().activeSchoolId,
-        locale,
-      }).catch(() => {
-        // Le premier remplissage reprend au prochain appel réseau.
-      })
     } catch (err) {
       setServerError((err as ApiError).message || t('auth.error_invalid'))
     } finally {
       setSubmitting(false)
     }
   }
+
+  // Le temps de savoir si ce poste desktop est déjà lié à un compte, il n'y
+  // a rien d'utile à afficher — surtout pas un formulaire qui disparaîtrait
+  // aussitôt la session automatique établie.
+  if (posteProvisionne === null) return null
 
   return (
     <div className="flex min-h-svh bg-cream-50">
@@ -117,6 +151,17 @@ export function LoginPage() {
             <p className="mb-7 mt-1.5 text-sm text-navy-400">{t('auth.login_subtitle')}</p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+              {estDesktop && !posteProvisionne && (
+                <Input
+                  label={t('auth.serveur_url')}
+                  type="url"
+                  icon={Server}
+                  placeholder="https://ecole.exemple.com"
+                  autoComplete="url"
+                  error={errors.serveur_url?.message}
+                  {...register('serveur_url', { required: true })}
+                />
+              )}
               <Input
                 label={t('auth.identifiant')}
                 type="text"

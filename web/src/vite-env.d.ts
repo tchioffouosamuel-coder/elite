@@ -1,26 +1,12 @@
 /// <reference types="vite/client" />
 
 interface Window {
+  /**
+   * Présent uniquement dans le client desktop (cf. `web/desktop/src/preload.cjs`) :
+   * l'application Laravel tourne alors en local (PHP + SQLite), et
+   * `apiBaseUrl` pointe vers cette instance plutôt que vers `VITE_API_URL`.
+   */
   desktop?: {
-    cacheGet: (key: string) => Promise<unknown | null>;
-    cachePut: (key: string, value: unknown) => Promise<void>;
-    enqueue: (request: {
-      method: string;
-      url: string;
-      data?: unknown;
-      headers?: Record<string, string>;
-    }) => Promise<void>;
-    sync: (options: {
-      baseUrl: string;
-      token: string;
-      schoolId?: number | null;
-      locale: string;
-    }) => Promise<number>;
-    bootstrap: (options: {
-      baseUrl: string;
-      token: string;
-      schoolId?: number | null;
-      locale: string;
-    }) => Promise<{ passes: number; entities: number }>;
+    apiBaseUrl: string;
   };
 }
