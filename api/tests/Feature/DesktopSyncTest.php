@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DesktopProvisioning;
+use App\Models\DesktopProvisioningEcole;
 use App\Models\Eleve;
 use App\Models\School;
 use App\Models\SyncOutbox;
@@ -66,7 +67,7 @@ class DesktopSyncTest extends TestCase
             'serveur_url' => 'https://distant.test',
             'token' => 'jeton-acces',
             'refresh_token' => 'jeton-refresh',
-            'school' => ['name' => 'École distante', 'code' => 'ED', 'type' => 'secondaire'],
+            'schools' => [['id' => 9, 'name' => 'École distante', 'code' => 'ED', 'type' => 'secondaire']],
             'user' => [
                 'id' => 42,
                 'name' => 'Titulaire Poste',
@@ -84,11 +85,46 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseHas('eleves', ['id' => 501, 'nom_complet' => 'ELEVE DISTANT']);
 
         $provisioning = DesktopProvisioning::actuelle();
-        $this->assertNotNull($provisioning->dernier_pull_le);
-        $this->assertSame('2026-01-01T00:00:00Z', $provisioning->curseur_sync);
+        $ecole = $provisioning->ecoles()->where('school_id', 9)->firstOrFail();
+        $this->assertNotNull($ecole->dernier_pull_le);
+        $this->assertSame('2026-01-01T00:00:00Z', $ecole->curseur_sync);
 
         $this->assertTrue(User::find(42)->hasRole('admin_etablissement'));
         $this->assertTrue(User::find(42)->can('eleves.view'));
+    }
+
+    /** Un compte non borné à une seule école (super admin) réplique chacune de ses écoles, avec un curseur propre à chacune. */
+    public function test_provisionne_plusieurs_ecoles_avec_un_curseur_chacune(): void
+    {
+        Http::fake([
+            '*/api/v1/sync*' => Http::sequence()
+                ->push($this->reponseSyncAvecUnEleve(id: 701, nom: 'ELEVE ECOLE 1', updatedAt: now(), schoolId: 11), 200)
+                ->push($this->reponseSyncAvecUnEleve(id: 702, nom: 'ELEVE ECOLE 2', updatedAt: now(), schoolId: 12), 200),
+        ]);
+
+        $this->postJson('/api/v1/desktop/provisionner', [
+            'serveur_url' => 'https://distant.test',
+            'token' => 'jeton-acces',
+            'refresh_token' => 'jeton-refresh',
+            'schools' => [
+                ['id' => 11, 'name' => 'École Un', 'code' => 'E1', 'type' => 'secondaire'],
+                ['id' => 12, 'name' => 'École Deux', 'code' => 'E2', 'type' => 'secondaire'],
+            ],
+            'user' => [
+                'id' => 77, 'name' => 'Super Admin Poste',
+                'roles' => ['super_admin'], 'permissions' => [],
+            ],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('schools', ['id' => 11, 'name' => 'École Un']);
+        $this->assertDatabaseHas('schools', ['id' => 12, 'name' => 'École Deux']);
+        $this->assertDatabaseHas('eleves', ['id' => 701, 'nom_complet' => 'ELEVE ECOLE 1']);
+        $this->assertDatabaseHas('eleves', ['id' => 702, 'nom_complet' => 'ELEVE ECOLE 2']);
+
+        $provisioning = DesktopProvisioning::actuelle();
+        $this->assertSame(2, $provisioning->ecoles()->count());
+        $this->assertNotNull($provisioning->ecoles()->where('school_id', 11)->first()->curseur_sync);
+        $this->assertNotNull($provisioning->ecoles()->where('school_id', 12)->first()->curseur_sync);
     }
 
     public function test_refuse_un_second_provisioning(): void
@@ -128,8 +164,8 @@ class DesktopSyncTest extends TestCase
 
     public function test_sync_pull_cree_une_ligne_absente_localement(): void
     {
-        $this->provisionnerSansHttp();
         $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $this->provisionnerSansHttp($ecole);
 
         Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
             id: 601, nom: 'NOUVEL ELEVE', updatedAt: now(), schoolId: $ecole->id,
@@ -143,9 +179,8 @@ class DesktopSyncTest extends TestCase
     /** Une ligne locale plus récente que celle reçue n'est pas écrasée : elle n'a pas encore été poussée. */
     public function test_sync_pull_garde_la_ligne_locale_si_elle_est_plus_recente(): void
     {
-        $this->provisionnerSansHttp();
-
         $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $this->provisionnerSansHttp($ecole);
         $this->creerEleveAvecId(602, $ecole->id, 'VERSION LOCALE');
 
         Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
@@ -160,9 +195,8 @@ class DesktopSyncTest extends TestCase
     /** À l'inverse, une ligne distante plus récente écrase la version locale obsolète. */
     public function test_sync_pull_ecrase_la_ligne_locale_si_elle_est_plus_ancienne(): void
     {
-        $this->provisionnerSansHttp();
-
         $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $this->provisionnerSansHttp($ecole);
         $this->creerEleveAvecId(603, $ecole->id, 'VERSION PERIMEE');
         \DB::table('eleves')->where('id', 603)->update(['updated_at' => now()->subDays(5)]);
 
@@ -277,17 +311,23 @@ class DesktopSyncTest extends TestCase
         return $eleve;
     }
 
-    private function provisionnerSansHttp(): DesktopProvisioning
+    private function provisionnerSansHttp(?School $ecole = null): DesktopProvisioning
     {
         $user = User::factory()->create();
 
-        return DesktopProvisioning::create([
+        $provisioning = DesktopProvisioning::create([
             'user_id' => $user->id,
             'serveur_url' => 'https://distant.test',
             'token' => 'jeton-acces',
             'refresh_token' => 'jeton-refresh',
             'provisionne_le' => now(),
         ]);
+
+        if ($ecole !== null) {
+            DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+        }
+
+        return $provisioning;
     }
 
     /** @return array<string, mixed> */

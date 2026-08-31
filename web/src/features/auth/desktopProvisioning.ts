@@ -53,7 +53,11 @@ export async function provisionnerPoste(params: {
   >('/auth/login', { identifiant: params.identifiant, password: params.password })
 
   const { user, token, refresh_token: refreshToken } = data.data
-  const ecole = user.ecoles_accessibles?.find((e) => e.id === user.school_id) ?? null
+
+  // Toutes les écoles accessibles au compte, pas la seule `school_id` du
+  // profil : un compte non borné à une seule école (super admin d'un
+  // complexe) doit pouvoir répliquer chacune d'elles sur ce poste.
+  const ecoles = user.ecoles_accessibles ?? []
 
   await http.post('/desktop/provisionner', {
     serveur_url: params.serveurUrl,
@@ -68,7 +72,7 @@ export async function provisionnerPoste(params: {
       roles: user.roles,
       permissions: user.permissions,
     },
-    school: ecole ? { name: ecole.name, code: ecole.code, type: ecole.type } : undefined,
+    schools: ecoles.map((e) => ({ id: e.id, name: e.name, code: e.code, type: e.type })),
   })
 
   const session = await authentifierSessionDesktop()

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\DesktopProvisioning;
+use App\Models\DesktopProvisioningEcole;
 use App\Models\School;
 use App\Models\SyncOutbox;
 use App\Models\User;
@@ -58,13 +59,16 @@ class DesktopProvisioningController extends Controller
             'user.roles.*' => ['string'],
             'user.permissions' => ['array'],
             'user.permissions.*' => ['string'],
-            'school' => ['nullable', 'array'],
-            'school.name' => ['required_with:school', 'string', 'max:255'],
-            'school.code' => ['required_with:school', 'string', 'max:50'],
-            'school.type' => ['required_with:school', 'string', 'max:50'],
+            // Toutes les écoles accessibles au compte (cf. `User::ecolesAccessibles()`
+            // côté serveur distant) — un compte non borné à une seule école
+            // (super admin d'un complexe) en réplique plusieurs sur ce poste.
+            // Un compte normal n'en envoie jamais qu'une.
+            'schools' => ['required', 'array', 'min:1'],
+            'schools.*.id' => ['required', 'integer'],
+            'schools.*.name' => ['required', 'string', 'max:255'],
+            'schools.*.code' => ['required', 'string', 'max:50'],
+            'schools.*.type' => ['required', 'string', 'max:50'],
         ]);
-
-        $schoolId = null;
 
         // `id` n'est fillable ni sur `School` ni sur `User` : `updateOrCreate`
         // laisserait silencieusement l'auto-incrément attribuer un autre
@@ -72,13 +76,28 @@ class DesktopProvisioningController extends Controller
         // correspondance avec les lignes reçues ensuite par `sync:pull`.
         // L'affectation directe (`->id =`) contourne le mass-assignment pour
         // cette seule colonne.
-        if (isset($data['school']) && isset($data['user']['school_id'])) {
-            $ecole = School::find($data['user']['school_id']) ?? new School();
-            $ecole->id = $data['user']['school_id'];
-            $ecole->fill(['name' => $data['school']['name'], 'code' => $data['school']['code'], 'type' => $data['school']['type'], 'is_active' => true]);
+        $ecoles = collect($data['schools'])->map(function (array $donneesEcole) {
+            $ecole = School::find($donneesEcole['id']) ?? new School();
+            $ecole->id = $donneesEcole['id'];
+            $ecole->fill([
+                'name' => $donneesEcole['name'],
+                'code' => $donneesEcole['code'],
+                'type' => $donneesEcole['type'],
+                'is_active' => true,
+            ]);
             $ecole->save();
-            $schoolId = $data['user']['school_id'];
-        }
+
+            return $ecole;
+        });
+
+        // École "principale" du compte, quand il en a une (un compte non
+        // borné comme le super admin peut n'en avoir aucune en propre) :
+        // uniquement parmi celles qu'on vient de répliquer, jamais une
+        // valeur du serveur distant qui pointerait vers une école absente
+        // du lot fourni.
+        $schoolId = isset($data['user']['school_id']) && $ecoles->contains('id', $data['user']['school_id'])
+            ? $data['user']['school_id']
+            : null;
 
         $utilisateur = User::find($data['user']['id']) ?? new User();
         $utilisateur->id = $data['user']['id'];
@@ -117,12 +136,18 @@ class DesktopProvisioningController extends Controller
 
         $provisioning = DesktopProvisioning::create([
             'user_id' => $utilisateur->id,
-            'school_id' => $schoolId,
             'serveur_url' => $data['serveur_url'],
             'token' => $data['token'],
             'refresh_token' => $data['refresh_token'],
             'provisionne_le' => now(),
         ]);
+
+        foreach ($ecoles as $ecole) {
+            DesktopProvisioningEcole::create([
+                'desktop_provisioning_id' => $provisioning->id,
+                'school_id' => $ecole->id,
+            ]);
+        }
 
         Artisan::call('sync:pull');
 
@@ -163,10 +188,21 @@ class DesktopProvisioningController extends Controller
             return ApiResponse::notFound('Ce poste n’est lié à aucun compte.');
         }
 
+        $ecoles = $provisioning->ecoles()->with('school:id,name')->get();
+
         return ApiResponse::success([
-            'dernier_pull_le' => $provisioning->dernier_pull_le?->toIso8601String(),
+            // Le plus ancien pull parmi les écoles du poste : celle qui
+            // traîne le plus est celle qui dirait à l'utilisateur « ça n'a
+            // pas encore tourné », pas la plus fraîche qui masquerait le
+            // retard des autres.
+            'dernier_pull_le' => $ecoles->pluck('dernier_pull_le')->filter()->min()?->toIso8601String(),
             'dernier_push_le' => $provisioning->dernier_push_le?->toIso8601String(),
             'en_attente_push' => SyncOutbox::query()->enAttente()->count(),
+            'ecoles' => $ecoles->map(fn (DesktopProvisioningEcole $e) => [
+                'school_id' => $e->school_id,
+                'nom' => $e->school?->name,
+                'dernier_pull_le' => $e->dernier_pull_le?->toIso8601String(),
+            ])->values(),
         ]);
     }
 
