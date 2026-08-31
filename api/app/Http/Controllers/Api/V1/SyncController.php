@@ -93,17 +93,26 @@ class SyncController extends Controller
          * renverront quelques lignes en double au tour suivant, ce qu'un
          * upsert côté client absorbe sans effet.
          */
+        // `min()` sur des `Carbon` compare nativement à la microseconde
+        // (elles implémentent `DateTimeInterface`) — passer par
+        // `getTimestamp()` (entier, secondes) puis `createFromTimestamp()`
+        // reconstruisait une borne arrondie au début de la seconde, perdant
+        // exactement la précision qui permet de départager des lignes
+        // partageant la même seconde.
         $tronque = $bornes !== [];
-        $curseurRendu = $tronque
-            ? Carbon::createFromTimestamp(min(array_map(fn (Carbon $b) => $b->getTimestamp(), $bornes)))
-            : $curseur;
+        $curseurRendu = $tronque ? min($bornes) : $curseur;
 
         return ApiResponse::success([
             // Format Zulu (`...Z`) et non `+00:00` : le `+` d'un décalage se
             // décode en espace dans une chaîne de requête, rendant le curseur
             // illisible au retour et provoquant une resynchronisation complète
-            // silencieuse à chaque appel.
-            'curseur' => $curseurRendu->utc()->toIso8601ZuluString(),
+            // silencieuse à chaque appel. Précision à la microseconde
+            // (au lieu du défaut `second`) : indispensable pour départager
+            // plusieurs lignes partageant la même seconde (cf. `lot()`),
+            // sans quoi la pagination peut boucler indéfiniment sur un
+            // import en masse qui dépasse `LOT_MAX` lignes dans la même
+            // seconde.
+            'curseur' => $curseurRendu->utc()->toIso8601ZuluString('microsecond'),
             // Tant que `complet` est faux, le client rappelle immédiatement
             // avec le curseur renvoyé au lieu d'attendre le prochain cycle.
             'complet' => ! $tronque,
@@ -227,7 +236,18 @@ class SyncController extends Controller
             ($definition['portee'])($requete, $schoolId);
 
             if ($depuis !== null) {
-                $requete->where('updated_at', '>', $depuis);
+                // Un `Carbon` lié tel quel est tronqué à la seconde par
+                // `Connection::prepareBindings()` (format `Y-m-d H:i:s`,
+                // sans fraction) AVANT même d'atteindre la base — quelle que
+                // soit la précision réellement stockée en colonne. Passer une
+                // chaîne déjà formatée à la microseconde contourne cette
+                // troncature. Sans ce détour : dès qu'une entité compte plus
+                // de `LOT_MAX` lignes partageant la même seconde (un import
+                // en masse, typiquement), le curseur rendu retombe toujours
+                // sur cette même seconde et la pagination boucle
+                // indéfiniment sans jamais avancer — observé en conditions
+                // réelles sur l'établissement le plus volumineux.
+                $requete->where('updated_at', '>', $depuis->format('Y-m-d H:i:s.u'));
             }
 
             return $requete;
