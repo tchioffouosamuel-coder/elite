@@ -54,6 +54,7 @@ class SyncController extends Controller
 
         $donnees = [];
         $bornes = [];
+        $debug = null;
 
         // Calculé une fois pour tout l'appel : chaque `portee` du registre
         // compose déjà le filtre d'école avec le périmètre de $user (classes
@@ -71,6 +72,23 @@ class SyncController extends Controller
             }
 
             [$lignes, $borne] = $this->lot($definition, $schoolId, $depuis);
+
+            if ($request->boolean('debug_sync')) {
+                $debug[$cle] = [
+                    'depuis_recu' => $request->query('depuis'),
+                    'depuis_parse' => $depuis?->format('Y-m-d H:i:s.u'),
+                    'nb_lignes' => $lignes->count(),
+                    'premiere_ligne_updated_at' => optional($lignes->first())->updated_at?->format('Y-m-d H:i:s.u'),
+                    'derniere_ligne_updated_at' => optional($lignes->last())->updated_at?->format('Y-m-d H:i:s.u'),
+                    'borne' => $borne?->format('Y-m-d H:i:s.u'),
+                    'sql' => $definition['modele']::query()
+                        ->select(['updated_at'])
+                        ->orderBy('updated_at')->orderBy('id')
+                        ->tap(fn ($q) => ($definition['portee'])($q, $schoolId))
+                        ->when($depuis !== null, fn ($q) => $q->where('updated_at', '>', $depuis->format('Y-m-d H:i:s.u')))
+                        ->toSql(),
+                ];
+            }
 
             if ($borne !== null) {
                 $bornes[] = $borne;
@@ -121,6 +139,10 @@ class SyncController extends Controller
             // dès qu'un delta ne rapporte rien — le cas le plus fréquent.
             'donnees' => (object) $donnees,
             'suppressions' => $this->suppressions($schoolId, $depuis, $entitesDemandees),
+            // TEMPORAIRE — diagnostic d'un curseur bloqué, à retirer une fois
+            // la cause confirmée. N'apparaît que si `?debug_sync=1` est
+            // explicitement demandé, jamais en usage normal.
+            'debug' => $debug,
         ]);
     }
 
