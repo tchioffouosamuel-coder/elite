@@ -54,7 +54,6 @@ class SyncController extends Controller
 
         $donnees = [];
         $bornes = [];
-        $debug = null;
 
         // Calculé une fois pour tout l'appel : chaque `portee` du registre
         // compose déjà le filtre d'école avec le périmètre de $user (classes
@@ -72,23 +71,6 @@ class SyncController extends Controller
             }
 
             [$lignes, $borne] = $this->lot($definition, $schoolId, $depuis);
-
-            if ($request->boolean('debug_sync')) {
-                $debug[$cle] = [
-                    'depuis_recu' => $request->query('depuis'),
-                    'depuis_parse' => $depuis?->format('Y-m-d H:i:s.u'),
-                    'nb_lignes' => $lignes->count(),
-                    'premiere_ligne_updated_at' => optional($lignes->first())->updated_at?->format('Y-m-d H:i:s.u'),
-                    'derniere_ligne_updated_at' => optional($lignes->last())->updated_at?->format('Y-m-d H:i:s.u'),
-                    'borne' => $borne?->format('Y-m-d H:i:s.u'),
-                    'sql' => $definition['modele']::query()
-                        ->select(['updated_at'])
-                        ->orderBy('updated_at')->orderBy('id')
-                        ->tap(fn ($q) => ($definition['portee'])($q, $schoolId))
-                        ->when($depuis !== null, fn ($q) => $q->where('updated_at', '>', $depuis->format('Y-m-d H:i:s.u')))
-                        ->toSql(),
-                ];
-            }
 
             if ($borne !== null) {
                 $bornes[] = $borne;
@@ -139,10 +121,6 @@ class SyncController extends Controller
             // dès qu'un delta ne rapporte rien — le cas le plus fréquent.
             'donnees' => (object) $donnees,
             'suppressions' => $this->suppressions($schoolId, $depuis, $entitesDemandees),
-            // TEMPORAIRE — diagnostic d'un curseur bloqué, à retirer une fois
-            // la cause confirmée. N'apparaît que si `?debug_sync=1` est
-            // explicitement demandé, jamais en usage normal.
-            'debug' => $debug,
         ]);
     }
 
@@ -269,7 +247,22 @@ class SyncController extends Controller
                 // sur cette même seconde et la pagination boucle
                 // indéfiniment sans jamais avancer — observé en conditions
                 // réelles sur l'établissement le plus volumineux.
-                $requete->where('updated_at', '>', $depuis->format('Y-m-d H:i:s.u'));
+                //
+                // `config('app.timezone')` n'est PAS UTC ici (Africa/Douala,
+                // UTC+1) : les colonnes DATETIME stockent l'heure locale sans
+                // information de fuseau. `$depuis` arrive taggué UTC (parsé
+                // depuis un curseur `...Z`) — le formater tel quel produit une
+                // chaîne UTC comparée naïvement à des valeurs locales, décalée
+                // d'une heure entière. Toute ligne locale antérieure à
+                // `$depuis` mais dont l'heure d'horloge (sans le fuseau) reste
+                // numériquement supérieure au filtre repassait injustement le
+                // test — observé en conditions réelles : des lignes vieilles
+                // de plusieurs jours réapparaissant indéfiniment quel que soit
+                // le curseur envoyé.
+                $requete->where(
+                    'updated_at', '>',
+                    $depuis->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s.u'),
+                );
             }
 
             return $requete;
@@ -320,7 +313,12 @@ class SyncController extends Controller
 
         return SyncTombstone::query()
             ->whereIn('entite', $entites)
-            ->where('supprime_le', '>', $depuis)
+            // Même décalage que dans `lot()` : `supprime_le` est une colonne
+            // DATETIME naïve (heure locale, `config('app.timezone')` n'étant
+            // pas UTC), tandis que `$depuis` arrive taggué UTC depuis le
+            // curseur client — sans reconversion, la comparaison se ferait
+            // entre deux fuseaux différents.
+            ->where('supprime_le', '>', $depuis->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s.u'))
             ->where(fn ($q) => $q->where('school_id', $schoolId)->orWhereNull('school_id'))
             ->orderBy('supprime_le')
             ->limit(self::LOT_MAX)
