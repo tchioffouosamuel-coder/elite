@@ -53,7 +53,18 @@ function resolvePhpArgsCommuns() {
 
   if (!fs.existsSync(ini)) return [];
 
-  const args = ["-c", ini, "-d", `extension_dir=${path.join(bundle, "ext")}`];
+  const args = [
+    "-c", ini,
+    "-d", `extension_dir=${path.join(bundle, "ext")}`,
+    // Sans limite : c'est un serveur local de confiance, pas un hôte web
+    // partagé. La limite par défaut (30s) coupait en plein milieu la toute
+    // première synchronisation d'un compte accédant à plusieurs écoles
+    // (chacune tirée intégralement l'une après l'autre dans la même requête
+    // HTTP de provisioning) — observé en conditions réelles : deuxième école
+    // interrompue à la moitié, troisième jamais atteinte.
+    "-d", "max_execution_time=0",
+    "-d", "max_input_time=-1",
+  ];
 
   // Sans bundle de certificats explicite, `curl`/`openssl` sous Windows ne
   // valident aucune connexion HTTPS sortante (erreur cURL 60) — c'est le

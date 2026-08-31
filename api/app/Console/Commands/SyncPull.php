@@ -69,7 +69,22 @@ class SyncPull extends Command
 
         try {
             foreach ($ecoles as $ecoleProvisioning) {
-                if (! $this->tirerEcole($provisioning, $ecoleProvisioning)) {
+                try {
+                    if (! $this->tirerEcole($provisioning, $ecoleProvisioning)) {
+                        $echec = true;
+                    }
+                } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                    // Un aléa réseau (coupure, DNS, timeout) sur UNE école ne
+                    // doit pas priver les écoles suivantes de la boucle de
+                    // leur propre tentative — observé en conditions réelles :
+                    // un timeout sur la 2e école d'un compte en écoutant 3
+                    // laissait la 3e totalement non synchronisée, sans que
+                    // rien ne le signale au-delà d'un curseur resté `null`.
+                    Log::warning('sync:pull erreur réseau', [
+                        'school_id' => $ecoleProvisioning->school_id,
+                        'erreur' => $e->getMessage(),
+                    ]);
+                    $this->error("École #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
                     $echec = true;
                 }
             }

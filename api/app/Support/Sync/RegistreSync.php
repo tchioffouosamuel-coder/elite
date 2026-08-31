@@ -24,6 +24,7 @@ use App\Models\EcritureComptable;
 use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\EquipementMobilier;
+use App\Models\FonctionReferentiel;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\Infrastructure;
@@ -184,6 +185,21 @@ class RegistreSync
                 // CNPS, salaire, situation matrimoniale) n'a rien à faire
                 // répliqué sur le téléphone de chaque enseignant.
                 'colonnes' => ['id', 'school_id', 'departement_id', 'fonction_id', 'matricule', 'nom_complet', 'civilite', 'sexe', 'telephone', 'email', 'statut', 'photo_path'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'personnel.view',
+            ],
+            // Référentiel dont dépend `personnels.fonction_id` — sans lui, la
+            // relation `Personnel::fonctionReference()` ne résout jamais rien
+            // en local : `estEnseignant()` retombe systématiquement à faux,
+            // et le tableau de bord affiche zéro enseignant quel que soit
+            // l'effectif réel. Créé par école (cf. migration
+            // `create_fonction_referentiel_table`), qui ne peut pas l'avoir
+            // fait localement : elle tourne avant que la première école ne
+            // soit provisionnée sur ce poste, la table y reste donc vide sans
+            // cette synchronisation.
+            'fonction_referentiel' => [
+                'modele' => FonctionReferentiel::class,
+                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
             ],
@@ -462,7 +478,7 @@ class RegistreSync
     {
         return match ($entite) {
             'annee_scolaires', 'niveaux', 'matieres', 'classes',
-            'emplois_du_temps', 'eleves', 'personnels', 'seances',
+            'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'seances',
             'annonces', 'notifications_internes',
             'grilles_frais', 'frais_annexes', 'dossiers_scolarite',
             'versements', 'moratoires', 'remises', 'dettes_anterieures',
