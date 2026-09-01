@@ -23,7 +23,7 @@ interface FormValues {
 
 export function FonctionReferentielFormModal({ fonction, onClose, onSaved }: FonctionReferentielFormModalProps) {
   const { t } = useTranslation()
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const {
     register,
     handleSubmit,

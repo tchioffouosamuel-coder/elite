@@ -17,7 +17,7 @@ interface SousSystemeFormModalProps {
 
 export function SousSystemeFormModal({ sousSysteme, onClose, onCreated }: SousSystemeFormModalProps) {
     const { t } = useTranslation()
-    const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+    const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
     const {
         register,
         handleSubmit,

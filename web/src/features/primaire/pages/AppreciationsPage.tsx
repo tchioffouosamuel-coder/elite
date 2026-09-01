@@ -272,7 +272,7 @@ function AppreciationFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const { register, handleSubmit, watch, setValue, formState: { isSubmitting, errors } } = useForm<AppreciationPayload>({
     defaultValues: appreciation

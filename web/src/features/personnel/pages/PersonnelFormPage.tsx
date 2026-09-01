@@ -152,7 +152,7 @@ export function PersonnelFormPage() {
     queryKey: ['fonctions-referentiel', activeSchoolId],
     queryFn: fetchFonctionsReferentiel,
   })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const [etape, setEtape] = useState(0)
   const [submitting, setSubmitting] = useState(false)

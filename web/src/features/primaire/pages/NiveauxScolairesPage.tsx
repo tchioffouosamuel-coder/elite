@@ -41,7 +41,7 @@ export function NiveauxScolairesPage() {
     queryKey: ['personnels', { attribution: 'animateur_niveau', per_page: 100 }],
     queryFn: () => fetchPersonnels({ attribution: 'animateur_niveau', per_page: 100 }),
   })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const [code, setCode] = useState('')
   const [libelle, setLibelle] = useState('')

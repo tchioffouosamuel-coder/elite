@@ -408,7 +408,7 @@ function CompetenceFormModal({
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: toutesLesEcoles } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: toutesLesEcoles } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   // Les compétences n'existent qu'au primaire et en maternelle : le secondaire
   // note ses matières directement, avec un coefficient (cf. l'en-tête de ce
   // fichier).

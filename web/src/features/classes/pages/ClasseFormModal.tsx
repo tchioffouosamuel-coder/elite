@@ -25,7 +25,7 @@ export function ClasseFormModal({
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: fetchNiveaux })
   const { data: ecole } = useQuery({ queryKey: ['ecole'], queryFn: fetchEcole })
   const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 

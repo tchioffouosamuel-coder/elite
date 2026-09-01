@@ -24,7 +24,7 @@ export function InsolvablesPage() {
   const [detailOuvert, setDetailOuvert] = useState<number | null>(null)
   const [gestionEleve, setGestionEleve] = useState<Insolvable['eleve'] | null>(null)
 
-  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const classesDisponibles = schoolId === '' ? classes : classes.filter((c) => (c.school_id ?? c.school?.id) === schoolId)
 

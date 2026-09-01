@@ -121,7 +121,7 @@ export function ElevesListPage() {
     queryKey: ['eleves'],
     queryFn: () => fetchEleves({ per_page: 1000 }),
   })
-  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
 
   const classesDisponibles = schoolFilter === null

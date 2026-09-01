@@ -87,7 +87,7 @@ function OngletParEcole() {
   const [schoolId, setSchoolId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
 
-  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   // Le filtre par classe est un confort : s'il échoue (pas de permission
   // classes.view), l'onglet reste utilisable sans lui plutôt que de planter.
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), retry: false, throwOnError: false })
@@ -207,7 +207,7 @@ function OngletAges() {
   const [sousSystemeId, setSousSystemeId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
 
-  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   // Ces deux filtres sont un confort, pas un pré-requis : s'ils échouent
   // (permission classes.manage/classes.view absente), l'écran reste

@@ -53,7 +53,7 @@ export function ClassesListPage() {
   })
   const { data: schools = [] } = useQuery({
     queryKey: ['schools'],
-    queryFn: fetchSchools,
+    queryFn: () => fetchSchools(),
   })
   // Uniquement utilisé par la barre d'actions groupées, réservée aux comptes
   // qui gèrent les classes : l'appeler pour tout le monde expose un privilège

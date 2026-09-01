@@ -215,7 +215,7 @@ function TrajetFormModal({
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
   const { data: vehicules } = useQuery({ queryKey: ['bus-vehicules', 'select'], queryFn: fetchVehicules })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const {
     register,

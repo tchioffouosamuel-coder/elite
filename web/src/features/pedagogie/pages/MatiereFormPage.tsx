@@ -37,7 +37,7 @@ export function MatiereFormPage() {
 
   const { data: matieres, isLoading } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
   const { data: departements } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: competences } = useQuery({ queryKey: ['competences'], queryFn: fetchCompetences })
   const matiere = matiereId ? matieres?.find((m) => m.id === matiereId) : undefined
 

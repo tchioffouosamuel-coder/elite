@@ -232,7 +232,7 @@ export function RapportRentreePage() {
   const colonnesVentes: Colonne<VenteDenree>[] = [
     { cle: 'nature', entete: t('rapportRentree.nature_denree_col'), valeur: (v) => v.nature, cellule: (v) => <span className="font-semibold text-navy-900">{v.nature}</span> },
     { cle: 'vendeur', entete: t('rapportRentree.vendeur_col'), valeur: (v) => v.vendeur_nom, cellule: (v) => v.vendeur_nom ?? '—' },
-    { cle: 'dossier', entete: t('rapportRentree.dossier_medical_col'), valeur: (v) => v.dossier_medical_ok, cellule: (v) => (v.dossier_medical_ok === null ? '—' : v.dossier_medical_ok ? t('common.yes') : t('common.no')) },
+    { cle: 'dossier', entete: t('rapportRentree.dossier_medical_col'), valeur: (v) => (v.dossier_medical_ok === null ? null : v.dossier_medical_ok ? 1 : 0), cellule: (v) => (v.dossier_medical_ok === null ? '—' : v.dossier_medical_ok ? t('common.yes') : t('common.no')) },
     { cle: 'frais', entete: t('rapportRentree.frais_verses_col'), valeur: (v) => v.frais_verses, cellule: (v) => <span className="tabular-nums">{v.frais_verses}</span> },
     ...(peutModifier
       ? [

@@ -238,7 +238,7 @@ function VehiculeFormModal({
     queryKey: ['personnels', 'bus', 'chauffeurs'],
     queryFn: () => fetchPersonnels({ fonction_label: 'Chauffeur', per_page: 500 }),
   })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const {
     register,

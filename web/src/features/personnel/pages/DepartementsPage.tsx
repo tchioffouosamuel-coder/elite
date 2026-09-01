@@ -19,7 +19,7 @@ export function DepartementsPage() {
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery({ queryKey: ['departements'], queryFn: fetchDepartements })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const [nom, setNom] = useState('')
   const [schoolId, setSchoolId] = useState('')
   const [submitting, setSubmitting] = useState(false)

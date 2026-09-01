@@ -52,7 +52,7 @@ export function MatieresPage() {
   const [showCompetenceEnMasse, setShowCompetenceEnMasse] = useState(false)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
-  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const matieresFiltrees = schoolFilter === null
     ? data ?? []
     : (data ?? []).filter((matiere) => (matiere.school_id ?? matiere.school?.id) === schoolFilter)

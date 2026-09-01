@@ -103,7 +103,7 @@ export function SessionPage() {
     setBusyId(id)
     try {
       const resultat = await genererSeancesAnnee(id)
-      succes(t('session.seances_generees', resultat))
+      succes(t('session.seances_generees', { ...resultat }))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {
@@ -123,7 +123,7 @@ export function SessionPage() {
     setBusyId(id)
     try {
       const resultat = await genererSeancesTrimestre(id)
-      succes(t('session.seances_generees', resultat))
+      succes(t('session.seances_generees', { ...resultat }))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {

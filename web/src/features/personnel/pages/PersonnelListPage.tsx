@@ -49,7 +49,7 @@ export function PersonnelListPage() {
     queryKey: ['personnels'],
     queryFn: () => fetchPersonnels({ per_page: 500 }),
   })
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['personnels'] })
 

@@ -163,7 +163,7 @@ function SelecteurDestinataires({
 
 function AnnonceFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { t } = useTranslation()
-  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const {
     register,
     handleSubmit,
