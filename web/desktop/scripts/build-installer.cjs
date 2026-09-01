@@ -175,14 +175,21 @@ function runBuilder(args) {
   console.log("[desktop] creation d'une copie stable pour NSIS");
   cpSync(unpacked, stableOutput, { recursive: true });
 
-  console.log("[desktop] creation du setup NSIS");
+  const shouldPublish = process.argv.includes("--publish");
+  if (shouldPublish && !process.env.GH_TOKEN) {
+    throw new Error(
+      "--publish demande la variable d'environnement GH_TOKEN (jeton GitHub avec accès aux releases du dépôt tchioffouosamuel-coder/elite).",
+    );
+  }
+
+  console.log(`[desktop] creation du setup NSIS${shouldPublish ? " (avec publication GitHub)" : ""}`);
   const status = runBuilder([
     "--win",
     "nsis",
     "--prepackaged",
     stableOutput,
     "--publish",
-    "never",
+    shouldPublish ? "always" : "never",
     `--config.directories.output=${installerOutput}`,
   ]);
 

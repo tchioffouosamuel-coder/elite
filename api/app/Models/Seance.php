@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class Seance extends Model
@@ -17,7 +18,7 @@ class Seance extends Model
     protected $fillable = [
         'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id',
         'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'statut',
-        'observations', 'donnees_personnalisees', 'appel_verrouille_le',
+        'observations', 'donnees_personnalisees', 'appel_verrouille_le', 'qr_verifie_le',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class Seance extends Model
             'date_seance' => 'date',
             'donnees_personnalisees' => 'array',
             'appel_verrouille_le' => 'datetime',
+            'qr_verifie_le' => 'datetime',
         ];
     }
 
@@ -41,9 +43,9 @@ class Seance extends Model
             && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
     }
 
-    public function debutPrevu(): \Illuminate\Support\Carbon
+    public function debutPrevu(): Carbon
     {
-        return \Illuminate\Support\Carbon::parse($this->date_seance->toDateString().' '.$this->heure_debut);
+        return Carbon::parse($this->date_seance->toDateString().' '.$this->heure_debut);
     }
 
     /** Un appel pris avant l'heure de la séance pointerait des élèves pas encore en cours. */

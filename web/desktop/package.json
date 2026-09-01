@@ -9,6 +9,7 @@
     "dev": "npm --prefix .. run build && electron .",
     "bundle:php": "node scripts/bundle-php.cjs",
     "build": "npm --prefix .. run build && node scripts/bundle-php.cjs && node scripts/build-installer.cjs",
+    "release": "npm --prefix .. run build && node scripts/bundle-php.cjs && node scripts/build-installer.cjs --publish",
     "start": "electron ."
   },
   "dependencies": {
@@ -40,6 +41,11 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "tchioffouosamuel-coder",
+      "repo": "elite"
     }
   }
 }

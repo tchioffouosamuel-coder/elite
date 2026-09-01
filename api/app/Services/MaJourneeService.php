@@ -207,6 +207,7 @@ class MaJourneeService extends BaseService
         array $appel,
         ?string $observations = null,
         array $donneesPersonnalisees = [],
+        bool $qrVerifie = false,
     ): array {
         // L'appel et les leçons cochées se soumettent depuis le même écran :
         // un seul verrou couvre les deux, sans quoi un enseignant pourrait
@@ -215,10 +216,10 @@ class MaJourneeService extends BaseService
         abort_if(
             $seance->appelVerrouille(),
             403,
-            "La déclaration de cette séance est verrouillée depuis plus de ".Seance::MINUTES_VERROUILLAGE_APPEL." minutes. Contactez le Surveillant Général pour une correction."
+            'La déclaration de cette séance est verrouillée depuis plus de '.Seance::MINUTES_VERROUILLAGE_APPEL.' minutes. Contactez le Surveillant Général pour une correction.'
         );
 
-        return $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $observations, $donneesPersonnalisees) {
+        return $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $observations, $donneesPersonnalisees, $qrVerifie) {
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
             $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
                 ->lecons()
@@ -243,6 +244,9 @@ class MaJourneeService extends BaseService
                 // Figé une seule fois, que l'appel ait été rempli ou non : une
                 // déclaration de leçons seule doit tout autant se verrouiller.
                 'appel_verrouille_le' => $seance->appel_verrouille_le ?? now(),
+                // Preuve de présence : figée au premier scan validé, jamais
+                // effacée par une correction ultérieure sans scan (direction).
+                'qr_verifie_le' => $qrVerifie ? ($seance->qr_verifie_le ?? now()) : $seance->qr_verifie_le,
             ]);
 
             return ['lecons' => $valides->count(), 'eleves' => $eleves];

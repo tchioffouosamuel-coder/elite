@@ -73,7 +73,23 @@ class MaJourneeController extends Controller
             'appel.*.motif' => ['nullable', 'required_if:appel.*.statut,absent', Rule::in(Presence::MOTIFS)],
             'observations' => ['nullable', 'string', 'max:2000'],
             'donnees_personnalisees' => ['nullable', 'array'],
+            // Requis pour un enseignant (cf. User::doitScannerQrPourValiderAppel()) :
+            // c'est le token affiché dans la salle, qui prouve qu'il y était au
+            // moment de la validation — comparé tel quel à `Classe::qr_token`,
+            // sans passer par `resoudreQr()` pour rester rejouable hors ligne.
+            'qr_token' => ['nullable', 'string'],
         ]);
+
+        $qrValide = $data['qr_token'] ?? null;
+        $qrValide = $qrValide !== null
+            && $classeMatiere->classe->qr_token !== null
+            && hash_equals($classeMatiere->classe->qr_token, $qrValide);
+
+        if ($request->user()->doitScannerQrPourValiderAppel() && ! $qrValide) {
+            return ApiResponse::forbidden(
+                "Scannez le QR code de la salle avant de valider — c'est ce qui prouve que vous y étiez."
+            );
+        }
 
         $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
 
@@ -90,6 +106,7 @@ class MaJourneeController extends Controller
             $data['appel'],
             $data['observations'] ?? null,
             $data['donnees_personnalisees'] ?? [],
+            $qrValide,
         );
 
         return ApiResponse::success(

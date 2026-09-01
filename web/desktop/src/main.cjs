@@ -112,6 +112,11 @@ function envInstanceLocale() {
       ...process.env,
       APP_ENV: "production",
       APP_DEBUG: "false",
+      // `.env` fixe une valeur de dev (`http://127.0.0.1:8000`) qui ne
+      // correspond à rien ici : sans cette surcharge, `asset()` (photos,
+      // logos d'établissement) génère des URLs vers un port mort plutôt que
+      // le vrai port du serveur PHP embarqué (`API_PORT`).
+      APP_URL: `http://127.0.0.1:${API_PORT}`,
       APP_KEY: lireOuCreerAppKey(appKeyFile),
       DB_CONNECTION: "sqlite",
       DB_DATABASE: database,
@@ -127,6 +132,39 @@ function envInstanceLocale() {
   };
 }
 
+/**
+ * `public/storage` doit pointer vers `storage/app/public` (photos élèves,
+ * logos d'établissement…) — c'est de là que le serveur PHP embarqué
+ * (`-t public`) sert tout ce qu'`asset('storage/...')` génère côté API.
+ *
+ * `php artisan storage:link` crée normalement ce lien, mais un vrai lien
+ * symbolique exige des droits admin sous Windows ; et à l'installation,
+ * l'outil de packaging qui copie `api/` déréférence le symlink du dépôt
+ * source en un dossier réel figé au contenu du moment — les uploads
+ * suivants atterrissent dans `storage/app/public` sans jamais y apparaître.
+ * Une jonction de répertoire (`fs.symlinkSync(..., "junction")`), elle, ne
+ * demande aucune élévation sous Windows : recréée à chaque démarrage, elle
+ * garantit que `public/storage` reflète toujours `storage/app/public`
+ * plutôt qu'un instantané pris au packaging.
+ */
+function assurerLienStorage(apiDir) {
+  const cible = path.join(apiDir, "storage", "app", "public");
+  const lien = path.join(apiDir, "public", "storage");
+
+  fs.mkdirSync(cible, { recursive: true });
+
+  if (fs.existsSync(lien)) {
+    if (fs.lstatSync(lien).isSymbolicLink()) return;
+
+    // Dossier réel laissé par le packaging (symlink déréférencé) : à
+    // remplacer par la jonction, pas à fusionner — son contenu est un
+    // instantané périmé, déjà dupliqué dans `storage/app/public` d'origine.
+    fs.rmSync(lien, { recursive: true, force: true });
+  }
+
+  fs.symlinkSync(cible, lien, "junction");
+}
+
 let phpProcess = null;
 
 function demarrerServeurPhp() {
@@ -134,6 +172,14 @@ function demarrerServeurPhp() {
   const phpBinary = resolvePhpBinary();
   const phpArgs = resolvePhpArgsCommuns();
   const { env } = envInstanceLocale();
+
+  try {
+    assurerLienStorage(apiDir);
+  } catch (erreur) {
+    // Non bloquant : mieux vaut démarrer avec des images cassées qu'un
+    // écran d'erreur au tout premier lancement pour un souci de stockage.
+    console.error(`[storage] jonction public/storage impossible : ${erreur.message}`);
+  }
 
   // Toujours migrer, jamais seulement « si le fichier vient d'être créé » :
   // `artisan migrate` est idempotent (rien à faire si tout est déjà en
@@ -160,6 +206,75 @@ function demarrerServeurPhp() {
   phpProcess.on("exit", (code) => {
     if (code !== null && code !== 0) console.error(`[php] serveur arrêté (code ${code})`);
   });
+}
+
+const INTERVALLE_SYNC_MS = 5 * 60 * 1000;
+
+let intervalleSyncId = null;
+let syncEnCours = false;
+
+/** Une commande artisan, résolue une fois le processus terminé (jamais rejetée : un échec de sync ne doit pas remonter plus haut que son propre log). */
+function executerArtisan(commande) {
+  const apiDir = resolveApiDir();
+  const phpBinary = resolvePhpBinary();
+  const phpArgs = resolvePhpArgsCommuns();
+  const { env } = envInstanceLocale();
+
+  return new Promise((resolve) => {
+    const proc = spawn(phpBinary, [...phpArgs, "artisan", commande], { cwd: apiDir, env, stdio: "pipe" });
+
+    proc.stderr.on("data", (chunk) => console.error(`[${commande}] ${chunk}`));
+    proc.on("exit", (code) => {
+      if (code !== 0) console.error(`[${commande}] terminé avec le code ${code}`);
+      resolve();
+    });
+    proc.on("error", (erreur) => {
+      console.error(`[${commande}] impossible de démarrer : ${erreur.message}`);
+      resolve();
+    });
+  });
+}
+
+/**
+ * Seul déclencheur de synchronisation après le provisioning initial (qui ne
+ * tire qu'une fois, au moment de la connexion — cf.
+ * `DesktopProvisioningController::provisionner()`) : sans cette boucle,
+ * rien ne pousse jamais les écritures faites hors-ligne vers le serveur
+ * distant, ni ne tire ses propres mises à jour — le frontend n'appelle
+ * nulle part `/desktop/synchroniser`, il n'existe ni bouton « Synchroniser »
+ * ni tâche planifiée côté serveur (le scheduler Laravel exigerait de toute
+ * façon un cron que ce poste desktop ne fait pas tourner).
+ *
+ * Inconditionnel dès le démarrage plutôt que conditionné à un provisioning
+ * déjà en place : `sync:pull`/`sync:push` sont des no-op silencieux
+ * (`DesktopProvisioning::actuelle() === null`) tant qu'aucun poste n'est
+ * lié à un compte, donc sans risque à lancer avant que l'utilisateur se
+ * soit connecté.
+ */
+async function lancerSyncPeriodique() {
+  const executer = async () => {
+    if (syncEnCours) return;
+    syncEnCours = true;
+
+    try {
+      // Toujours dans cet ordre : un push après un pull rejoue sur une base
+      // déjà à jour, l'inverse risquerait de pousser une écriture locale
+      // qu'un pull imminent aurait de toute façon dû arbitrer en premier
+      // (le plus récent gagne, cf. `SyncPull::appliquerLigne()`).
+      await executerArtisan("sync:pull");
+      await executerArtisan("sync:push");
+    } finally {
+      syncEnCours = false;
+    }
+  };
+
+  await executer();
+  intervalleSyncId = setInterval(executer, INTERVALLE_SYNC_MS);
+}
+
+function arreterSyncPeriodique() {
+  if (intervalleSyncId) clearInterval(intervalleSyncId);
+  intervalleSyncId = null;
 }
 
 /**
@@ -202,6 +317,10 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Sans ceci, le lecteur PDF intégré de Chromium reste désactivé et
+      // tout <iframe src="blob:..."> pointant vers un PDF (l'aperçu de
+      // document) s'affiche vide, sans aucune erreur dans les DevTools.
+      plugins: true,
     },
   });
 
@@ -220,13 +339,64 @@ function createWindow() {
   window.loadFile(path.join(dist, "index.html"));
 }
 
+/**
+ * Vérifie les mises à jour publiées sur les releases GitHub du dépôt
+ * (config `build.publish` de package.json, lue depuis `app-update.yml`
+ * embarqué au build — aucune configuration ici). Ignoré hors installation
+ * packagée : en dev, il n'y a ni `app-update.yml` ni installeur NSIS à
+ * remplacer, `checkForUpdates` échouerait pour rien à chaque lancement.
+ */
+function configurerAutoUpdate() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("error", (erreur) => {
+    console.error("[update] échec de la vérification/du téléchargement", erreur);
+  });
+
+  // Téléchargée en tâche de fond, l'installation ne se fait qu'après accord
+  // explicite : forcer un redémarrage sans prévenir couperait l'utilisateur
+  // en pleine saisie (bulletins, absences...) sans sauvegarde préalable côté
+  // SPA.
+  autoUpdater.on("update-downloaded", (info) => {
+    dialog.showMessageBox({
+      type: "info",
+      title: "Mise à jour disponible",
+      message: `Une nouvelle version d'Elites School (${info.version}) a été téléchargée.`,
+      detail: "Elle sera installée au prochain redémarrage de l'application.",
+      buttons: ["Redémarrer maintenant", "Plus tard"],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  });
+
+  const verifier = () => autoUpdater.checkForUpdates().catch((erreur) => {
+    console.error("[update] vérification impossible", erreur);
+  });
+
+  verifier();
+  // Poste desktop d'école : l'appli reste souvent ouverte toute la journée
+  // sans jamais redémarrer, donc une seule vérification au lancement ne
+  // suffit pas à faire arriver une mise à jour publiée en cours de journée.
+  setInterval(verifier, 4 * 60 * 60 * 1000);
+}
+
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
+        // `frame-src` distinct de `default-src` : l'aperçu de document (PDF
+        // généré, converti en blob puis affiché dans un <iframe>) ne
+        // s'affichait pas sans ce `blob:` explicite — `default-src` ne le
+        // couvre pas pour le framing, seulement pour les autres types de
+        // ressources.
         "Content-Security-Policy": [
-          "default-src 'self' 'unsafe-inline' data: http: https:",
+          "default-src 'self' 'unsafe-inline' data: blob: http: https:; frame-src 'self' blob:",
         ],
       },
     });
@@ -251,19 +421,25 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
-  if (app.isPackaged && process.env.NODE_ENV === "production") {
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-  }
+  configurerAutoUpdate();
+  // Ni attendu ni dans le bloc try/catch ci-dessus : un aléa réseau au tout
+  // premier cycle ne doit pas empêcher la fenêtre de s'ouvrir, et chaque
+  // commande gère déjà elle-même son propre échec (voir `executerArtisan`).
+  lancerSyncPeriodique();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on("window-all-closed", () => {
+  arreterSyncPeriodique();
   arreterServeurPhp();
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", arreterServeurPhp);
+app.on("before-quit", () => {
+  arreterSyncPeriodique();
+  arreterServeurPhp();
+});
 
 exports.API_PORT = API_PORT;

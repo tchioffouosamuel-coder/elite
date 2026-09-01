@@ -113,6 +113,39 @@ class User extends Authenticatable
     }
 
     /**
+     * Compte de direction : super administrateur, chef d'établissement ou
+     * censeur/surveillant général. Dispensé des contrôles qui ne visent que
+     * la saisie quotidienne d'un enseignant — cf. les deux méthodes
+     * ci-dessous, qui en dérivent.
+     */
+    public function estPersonnelDirection(): bool
+    {
+        return $this->hasAnyRole(['super_admin', 'admin_etablissement', 'censeur_sg']);
+    }
+
+    /**
+     * La direction peut corriger des notes d'un trimestre déjà clos
+     * (rattrapage, erreur de saisie découverte après coup) ; un enseignant
+     * ne saisit, lui, que dans le trimestre actif — cf. `NoteController`/
+     * `NotePrimaireController::bulkStore()`, seuls appelants pour l'instant.
+     */
+    public function peutSaisirHorsTrimestreActif(): bool
+    {
+        return $this->estPersonnelDirection();
+    }
+
+    /**
+     * Un enseignant doit avoir scanné le QR de la salle avant que son appel
+     * ne soit accepté — preuve qu'il était bien en classe au moment de la
+     * validation. La direction, qui peut remplir l'appel à distance (suivi,
+     * correction), en est dispensée — cf. `MaJourneeController::enregistrer()`.
+     */
+    public function doitScannerQrPourValiderAppel(): bool
+    {
+        return ! $this->estPersonnelDirection();
+    }
+
+    /**
      * Privilèges détenus « en propre » : attribution directe, rôle, et groupe
      * de privilèges de la fonction.
      *

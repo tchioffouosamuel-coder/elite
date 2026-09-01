@@ -36,6 +36,16 @@ class NoteController extends Controller
             return ApiResponse::forbidden("Vous n'êtes pas l'enseignant assigné à cette matière pour cette classe.");
         }
 
+        // Un enseignant ne note que le trimestre actif ; la direction peut
+        // encore corriger un trimestre clos (cf. User::peutSaisirHorsTrimestreActif()).
+        if (! $request->user()->peutSaisirHorsTrimestreActif()) {
+            $sequence = Sequence::with('trimestre')->find($request->integer('sequence_id'));
+
+            if (! $sequence?->trimestre?->is_active) {
+                return ApiResponse::forbidden("Ce trimestre n'est plus actif : seule la direction peut encore y modifier des notes.");
+            }
+        }
+
         $count = $this->service->sauvegarderEnLot(
             $classeMatiere,
             $request->integer('sequence_id'),

@@ -183,6 +183,12 @@ export function DataTable<T>({
                     className={clsx(
                       'px-4 py-3.5 font-semibold',
                       colonne.largeur ? 'break-words' : 'whitespace-nowrap',
+                      // Sous layout figé (dès qu'une colonne pose une largeur), les
+                      // colonnes restées sans largeur explicite se voient attribuer une
+                      // largeur automatique parfois trop étroite pour leur contenu — sans
+                      // ceci son texte déborde par-dessus les colonnes voisines au lieu
+                      // d'être simplement tronqué.
+                      layoutFixe && 'overflow-hidden',
                       colonne.masquerMobile && 'hidden sm:table-cell',
                       colonne.sticky && 'sticky z-20 bg-cream-100',
                       colonne.sticky === 'left' && 'left-0',
@@ -232,8 +238,10 @@ export function DataTable<T>({
                       // `overflow:hidden` sur la cellule court-circuite le
                       // minimum automatique du navigateur (calé sur le
                       // contenu) : sans lui, une colonne figée ne rétrécit
-                      // jamais sous la largeur naturelle de son texte.
-                      colonne.largeur && 'overflow-hidden',
+                      // jamais sous la largeur naturelle de son texte. Idem pour
+                      // une colonne restée sans largeur explicite dès que la
+                      // moindre autre colonne a basculé le tableau en layout figé.
+                      layoutFixe && 'overflow-hidden',
                       colonne.masquerMobile && 'hidden sm:table-cell',
                       colonne.sticky && 'sticky z-10 bg-white',
                       colonne.sticky === 'left' && 'left-0',

@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkSaveNotesPrimaireRequest;
 use App\Models\ClasseCompetence;
+use App\Models\Sequence;
 use App\Models\Trimestre;
 use App\Services\NotePrimaireService;
 use App\Support\Tenant;
@@ -48,6 +49,20 @@ class NotePrimaireController extends Controller
 
         if (! $this->service->peutSaisir($request->user(), $classeCompetence)) {
             return ApiResponse::forbidden("Vous n'êtes pas le titulaire de cette classe.");
+        }
+
+        // Un enseignant ne note que le trimestre actif ; la direction peut
+        // encore corriger un trimestre clos (cf. User::peutSaisirHorsTrimestreActif()).
+        // La grille couvre tout un trimestre d'un coup : toutes les séquences
+        // visées par le lot doivent en faire partie, pas seulement la première.
+        if (! $request->user()->peutSaisirHorsTrimestreActif()) {
+            $sequenceIds = collect($request->input('notes'))->pluck('sequence_id')->unique();
+            $toutesActives = Sequence::whereIn('id', $sequenceIds)->with('trimestre')->get()
+                ->every(fn (Sequence $s) => (bool) $s->trimestre?->is_active);
+
+            if (! $toutesActives) {
+                return ApiResponse::forbidden("Ce trimestre n'est plus actif : seule la direction peut encore y modifier des notes.");
+            }
         }
 
         // Le plafond par volet ne concerne que la notation chiffrée : en

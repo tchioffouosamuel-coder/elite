@@ -67,20 +67,23 @@ export function ComptesPage() {
     {
       cle: 'role',
       entete: 'Rôle',
+      largeur: '130px',
       valeur: (c) => c.role ?? '',
-      cellule: (c) => <span className="text-navy-600">{c.role ?? '—'}</span>,
+      cellule: (c) => <span className="block truncate text-navy-600">{c.role ?? '—'}</span>,
       masquerMobile: true,
     },
     {
       cle: 'school',
       entete: 'École',
+      largeur: '170px',
       valeur: (c) => c.school?.name ?? '',
-      cellule: (c) => <span className="text-navy-600">{c.school?.name ?? '—'}</span>,
+      cellule: (c) => <span className="block truncate text-navy-600">{c.school?.name ?? '—'}</span>,
       masquerMobile: true,
     },
     {
       cle: 'statut',
       entete: 'Statut',
+      largeur: '190px',
       cellule: (c) => (
         <div className="flex flex-wrap gap-1">
           <Badge tone={c.est_actif ? 'green' : 'red'}>{c.est_actif ? 'Actif' : 'Désactivé'}</Badge>
@@ -154,7 +157,7 @@ export function ComptesPage() {
             cleLigne={(c) => c.id}
             placeholderRecherche="Rechercher un compte…"
             messageVide="Aucun compte utilisateur."
-            largeurMin={700}
+            largeurMin={1080}
           />
         </>
       )}

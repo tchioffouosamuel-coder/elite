@@ -29,11 +29,26 @@ export async function telechargerFichier(
   URL.revokeObjectURL(blobUrl)
 }
 
+function blobEnDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
 /**
  * Affiche un PDF en aperçu plein écran dans l'application (plutôt que de
  * l'ouvrir dans un nouvel onglet) : l'utilisateur reste dans son contexte de
  * travail et valide l'impression depuis la boîte de dialogue du navigateur
  * plutôt que d'être redirigé vers une autre page.
+ *
+ * `data:` plutôt qu'un blob URL : dans l'app desktop (fenêtre chargée en
+ * `file://`), Electron/Chromium refuse de charger un `<iframe src="blob:...">`
+ * — restriction au niveau du navigateur, indépendante de la CSP — alors
+ * qu'une URI `data:` s'affiche sans problème dans ce contexte comme dans un
+ * navigateur classique.
  */
 export async function ouvrirDocument(
   url: string,
@@ -42,7 +57,7 @@ export async function ouvrirDocument(
   titre?: string,
 ): Promise<void> {
   const response = await http.get(url, { params, headers, responseType: 'blob' })
-  const blobUrl = URL.createObjectURL(response.data as Blob)
+  const dataUrl = await blobEnDataUrl(response.data as Blob)
 
-  useDocumentPreviewStore.getState().open(blobUrl, titre)
+  useDocumentPreviewStore.getState().open(dataUrl, titre)
 }
