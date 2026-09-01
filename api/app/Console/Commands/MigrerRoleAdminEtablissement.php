@@ -10,6 +10,11 @@ use Illuminate\Console\Command;
  * profit de deux rôles distincts) vers `admin_ecole` ou `admin_college`,
  * selon le type de l'établissement auquel ils sont rattachés.
  *
+ * La migration 2026_09_01_150000 exécute déjà ce même geste automatiquement
+ * lors du déploiement (`php artisan migrate --force`) : cette commande ne
+ * sert plus qu'à un rejeu manuel ponctuel (ex. un compte recréé après coup
+ * avec l'ancien rôle par un import).
+ *
  * Idempotente : un utilisateur déjà migré n'a plus `admin_etablissement`,
  * donc une seconde exécution ne trouve plus rien à faire. Rejoue le
  * `hasAnyRole` de `User::estPersonnelDirection()` pour ne perdre aucun

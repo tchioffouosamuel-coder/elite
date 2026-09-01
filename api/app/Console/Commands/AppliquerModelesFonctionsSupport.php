@@ -16,6 +16,11 @@ use Spatie\Permission\PermissionRegistrar;
  * l'époque où `FonctionRoles::CORRESPONDANCES` renvoyait `null` pour ces
  * libellés.
  *
+ * La migration 2026_09_01_150000 exécute déjà ce même geste automatiquement
+ * lors du déploiement (`php artisan migrate --force`) : cette commande ne
+ * sert plus qu'à un rejeu manuel ponctuel (ex. une fonction réinitialisée
+ * par erreur).
+ *
  * Même règle de prudence que `FonctionPermissionSeeder` : ne touche jamais
  * une fonction déjà personnalisée (permissions_count > 0), pour ne jamais
  * écraser un réglage fait à la main par un super admin.
