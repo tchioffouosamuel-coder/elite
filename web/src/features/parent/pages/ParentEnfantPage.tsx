@@ -54,7 +54,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { erreur, succes } from '@/shared/lib/alertes'
+import { erreur, info, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 const MOTIFS_JUSTIFICATION: { valeur: MotifJustification; libelle: string }[] = [
@@ -100,6 +100,19 @@ export function ParentEnfantPage() {
   })
   const modificationEnAttente = historiqueModifications?.find((m) => m.statut === 'en_attente')
 
+  // Bulletin non encore publié par l'école (cf. BulletinController::publier) :
+  // l'API renvoie un 422 explicite plutôt qu'un document — état attendu, pas
+  // une panne, donc un toast d'info plutôt qu'une alerte d'erreur.
+  const voirBulletin = async () => {
+    try {
+      await ouvrirDocument(`/parent/enfants/${eleveId}/bulletin`)
+    } catch (err) {
+      const apiErr = err as ApiError
+      if (apiErr.status === 422) info(apiErr.message)
+      else erreur(apiErr.message)
+    }
+  }
+
   if (isLoading) return <Spinner />
   if (isError || !e) return <ErrorState />
 
@@ -124,7 +137,7 @@ export function ParentEnfantPage() {
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
             {e.sante.aptitude === 'inapte' && <Badge tone="red">Inapte au sport / Unfit for sports</Badge>}
-            <Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => ouvrirDocument(`/parent/enfants/${eleveId}/bulletin`)}>
+            <Button className="flex-1 sm:flex-none" variant="secondary" onClick={voirBulletin}>
               <FileDown className="h-4 w-4" />
               Bulletin / Report card
             </Button>
