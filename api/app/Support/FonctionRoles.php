@@ -24,22 +24,31 @@ class FonctionRoles
      */
     public const CORRESPONDANCES = [
         'enseignant' => 'enseignant',
-        'principal' => 'admin_etablissement',
-        'directeur' => 'admin_etablissement',
+        // Le collège Elites-tech est dirigé par un « Principal », l'école
+        // maternelle/primaire par une « Directrice » : deux gouvernances
+        // distinctes, donc deux rôles distincts (cf. School::estSecondaire).
+        'principal' => 'admin_college',
+        'directeur' => 'admin_ecole',
         'censeur' => 'censeur_sg',
+        'vice principal' => 'censeur_sg',
         'surveillant general' => 'surveillant_general',
         'conseiller d orientation' => 'surveillant_general',
         'econome' => 'econome',
+        'comptable' => 'econome',
         'secretaire' => 'econome',
+        'secretaire comptable' => 'econome',
         'vendeur' => 'vendeur',
         'vendeuse' => 'vendeur',
         'caissier' => 'vendeur',
         'caissiere' => 'vendeur',
         'documentaliste' => null,
-        'infirmier' => null,
-        'gardien' => null,
-        'agent d entretien' => null,
-        'chauffeur' => null,
+        'infirmier' => 'infirmier',
+        'infirmiere' => 'infirmier',
+        'gardien' => 'agent_securite',
+        'agent de securite' => 'agent_securite',
+        'agent d entretien' => 'agent_entretien',
+        'agent de proprete' => 'agent_entretien',
+        'chauffeur' => 'chauffeur',
     ];
 
     public static function role(?string $labelFr): ?string

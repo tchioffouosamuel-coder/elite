@@ -136,8 +136,8 @@ class DemoDataSeeder extends Seeder
         // `directeur@` est conservé : des notes de reprise et des scénarios de
         // test le référencent. `principal@` est le même rôle sous le nom que
         // l'établissement emploie dans ses propres documents (« The Principal »).
-        $directeur = $this->compte($school, $niveauCollege->id, 'directeur@elites-school.test', 'TCHIOFFOUO Josué', 'admin_etablissement');
-        $principal = $this->compte($school, $niveauCollege->id, 'principal@elites-school.test', 'USENI Venyteh', 'admin_etablissement');
+        $directeur = $this->compte($school, $niveauCollege->id, 'directeur@elites-school.test', 'TCHIOFFOUO Josué', 'admin_college');
+        $principal = $this->compte($school, $niveauCollege->id, 'principal@elites-school.test', 'USENI Venyteh', 'admin_college');
         $censeur = $this->compte($school, $niveauCollege->id, 'censeur@elites-school.test', 'NGUEMA Alice', 'censeur_sg');
         $surveillant = $this->compte($school, $niveauCollege->id, 'surveillant@elites-school.test', 'AKONO EVANG Nathan', 'surveillant_general');
 
@@ -355,7 +355,7 @@ class DemoDataSeeder extends Seeder
                     'school_id' => $ecole->id,
                     'is_active' => true,
                 ]
-            )->syncRoles(['admin_etablissement']);
+            )->syncRoles(['admin_ecole']);
         }
     }
 

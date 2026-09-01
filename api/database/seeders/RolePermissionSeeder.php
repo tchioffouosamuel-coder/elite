@@ -20,7 +20,61 @@ class RolePermissionSeeder extends Seeder
      * visibilité publique.
      */
     public const ROLE_PERMISSIONS = [
-        'admin_etablissement' => [
+        /*
+         * `admin_etablissement` a été scindé en deux rôles distincts pour
+         * refléter les deux organigrammes : `admin_ecole` dirige l'école
+         * maternelle/primaire, `admin_college` dirige le collège technique
+         * secondaire. Les deux démarrent avec le même socle de permissions ;
+         * un futur ajustement fin (ex. retirer `bus.*` de l'un des deux)
+         * pourra être fait séparément une fois le rollout stabilisé.
+         */
+        'admin_ecole' => [
+            'ecoles.manage',
+            'personnel.view',
+            'personnel.manage',
+            'classes.view',
+            'classes.manage',
+            'niveaux.view',
+            'niveaux.manage',
+            'eleves.view',
+            'eleves.manage',
+            'pedagogie.view',
+            'pedagogie.manage',
+            'notes.view',
+            'notes.create',
+            'discipline.view',
+            'discipline.manage',
+            'infirmerie.view',
+            'infirmerie.manage',
+            'bus.view',
+            'bus.manage',
+            'inventaire.view',
+            'inventaire.manage',
+            'infrastructures.view',
+            'infrastructures.manage',
+            'point_de_vente.view',
+            'point_de_vente.vendre',
+            'point_de_vente.manage',
+            'finance.view',
+            'finance.manage',
+            'finance.encaisser',
+            'finance.paie',
+            'finance.budget',
+            'finance.rapports',
+            'rapport_rentree.view',
+            'rapport_rentree.manage',
+            'bulletins.view',
+            'bulletins.publish',
+            'annonces.view',
+            'annonces.publish',
+            'dashboard.view',
+            'emploi_du_temps.view',
+            'emploi_du_temps.manage',
+            'appel.manage',
+            'revendications.view',
+            'revendications.manage',
+        ],
+        'admin_college' => [
             'ecoles.manage',
             'personnel.view',
             'personnel.manage',
@@ -174,7 +228,35 @@ class RolePermissionSeeder extends Seeder
             'notes.view',
             'annonces.view',
         ],
+        /*
+         * Gabarits de fonctions de soutien (infirmier, chauffeur, agents de
+         * sécurité/entretien) : jamais assignés directement à un utilisateur
+         * via assignRole, uniquement copiés sur une FonctionReferentiel par
+         * FonctionPermissionSeeder — cf. FonctionRoles::CORRESPONDANCES.
+         */
+        'infirmier' => [
+            'infirmerie.view',
+            'infirmerie.manage',
+            'eleves.view',
+            'dashboard.view',
+        ],
+        'chauffeur' => [
+            'bus.view',
+        ],
+        // Intentionnellement quasi vide : accès authentifié sans donnée
+        // élève/personnel par défaut, même logique que `vendeur` pour
+        // `dashboard.view`. Un super admin peut étendre depuis /permissions.
+        'agent_securite' => [],
+        'agent_entretien' => [],
     ];
+
+    /**
+     * Clés de ROLE_PERMISSIONS qui ne sont que des gabarits de fonctions
+     * (jamais assignées à un utilisateur via assignRole) : `run()` ne doit
+     * pas leur créer de ligne `Role` Spatie, seule FonctionPermissionSeeder
+     * les lit directement dans ROLE_PERMISSIONS.
+     */
+    public const FONCTIONS_SANS_ROLE = ['infirmier', 'chauffeur', 'agent_securite', 'agent_entretien'];
 
     public function run(): void
     {
@@ -195,6 +277,10 @@ class RolePermissionSeeder extends Seeder
         $superAdminRole->syncPermissions($catalogue);
 
         foreach (self::ROLE_PERMISSIONS as $roleName => $permissions) {
+            if (in_array($roleName, self::FONCTIONS_SANS_ROLE, true)) {
+                continue;
+            }
+
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
             $role->syncPermissions($permissions);
         }

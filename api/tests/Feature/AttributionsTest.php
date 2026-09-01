@@ -394,7 +394,7 @@ class AttributionsTest extends TestCase
         $this->classe('6e G');
         $this->classe('6e H');
 
-        $directeur = $this->agent('Principal', 'admin_etablissement', 'principal@test.local');
+        $directeur = $this->agent('Principal', 'admin_college', 'principal@test.local');
 
         $this->assertFalse($directeur->perimetre()->estBorne());
         $this->assertNull($directeur->perimetre()->classes());
@@ -440,7 +440,7 @@ class AttributionsTest extends TestCase
         $this->agent('Enseignant', 'enseignant', 'e1@test.local');
         $this->agent('Surveillant Général', 'surveillant_general', 'sg1@test.local');
         $this->agent('Économe', 'econome', 'ec1@test.local');
-        $principal = $this->agent('Principal', 'admin_etablissement', 'p1@test.local');
+        $principal = $this->agent('Principal', 'admin_college', 'p1@test.local');
 
         $reponse = $this->actingAs($principal, 'sanctum')
             ->getJson('/api/v1/personnels?attribution='.Attributions::SURVEILLANT_GENERAL)
@@ -455,7 +455,7 @@ class AttributionsTest extends TestCase
     {
         $this->agent('Enseignant', 'enseignant', 'e2@test.local');
         $this->agent('Censeur', 'censeur_sg', 'c2@test.local');
-        $principal = $this->agent('Principal', 'admin_etablissement', 'p2@test.local');
+        $principal = $this->agent('Principal', 'admin_college', 'p2@test.local');
 
         $reponse = $this->actingAs($principal, 'sanctum')
             ->getJson('/api/v1/personnels?attribution='.Attributions::PROFESSEUR_PRINCIPAL)

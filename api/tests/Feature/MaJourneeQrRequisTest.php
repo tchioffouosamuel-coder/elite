@@ -24,7 +24,7 @@ use Tests\TestCase;
 /**
  * Un enseignant doit avoir scanné le QR code de la salle pour que sa
  * validation d'appel/leçons passe — la preuve qu'il était en classe. La
- * direction (super_admin, admin_etablissement, censeur_sg) en est dispensée,
+ * direction (super_admin, admin_ecole, admin_college, censeur_sg) en est dispensée,
  * cf. `User::doitScannerQrPourValiderAppel()`.
  */
 class MaJourneeQrRequisTest extends TestCase

@@ -75,7 +75,7 @@ class DesktopSyncTest extends TestCase
                 'name' => 'Titulaire Poste',
                 'email' => 'titulaire@test.local',
                 'school_id' => 9,
-                'roles' => ['admin_etablissement'],
+                'roles' => ['admin_college'],
                 'permissions' => ['eleves.view'],
             ],
         ]);
@@ -91,7 +91,7 @@ class DesktopSyncTest extends TestCase
         $this->assertNotNull($ecole->dernier_pull_le);
         $this->assertSame('2026-01-01T00:00:00Z', $ecole->curseur_sync);
 
-        $this->assertTrue(User::find(42)->hasRole('admin_etablissement'));
+        $this->assertTrue(User::find(42)->hasRole('admin_college'));
         $this->assertTrue(User::find(42)->can('eleves.view'));
     }
 

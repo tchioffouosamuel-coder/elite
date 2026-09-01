@@ -320,7 +320,7 @@ class MaJourneeService extends BaseService
     /** L'enseignant ne peut déclarer que sur ses propres affectations. */
     public function peutIntervenir(User $user, ClasseMatiere $classeMatiere): bool
     {
-        if ($user->hasAnyRole(['super_admin', 'admin_etablissement', 'censeur_sg'])) {
+        if ($user->hasAnyRole(['super_admin', 'admin_ecole', 'admin_college', 'censeur_sg'])) {
             return true;
         }
 

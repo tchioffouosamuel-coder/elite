@@ -120,7 +120,7 @@ class User extends Authenticatable
      */
     public function estPersonnelDirection(): bool
     {
-        return $this->hasAnyRole(['super_admin', 'admin_etablissement', 'censeur_sg']);
+        return $this->hasAnyRole(['super_admin', 'admin_ecole', 'admin_college', 'censeur_sg']);
     }
 
     /**
