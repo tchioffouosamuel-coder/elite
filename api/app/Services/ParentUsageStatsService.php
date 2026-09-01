@@ -40,7 +40,7 @@ class ParentUsageStatsService extends BaseService
                 'modifications' => $this->volumeAvecStatut(ModificationEleve::forSchool($schoolIds), $debut, $fin),
                 'justifications' => $this->volume(JustificationAbsence::forSchool($schoolIds), $debut, $fin),
                 'observations' => $this->volume(
-                    Observation::forSchool($schoolIds)->whereHas('user', fn ($q) => $q->role('parent')),
+                    Observation::forSchool($schoolIds)->whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'parent'))),
                     $debut,
                     $fin,
                 ),
@@ -58,7 +58,14 @@ class ParentUsageStatsService extends BaseService
         $total = (clone $tuteurs)->count();
         $avecCompte = (clone $tuteurs)->whereNotNull('user_id')->count();
 
-        $comptesParent = User::whereIn('school_id', $schoolIds)->role('parent');
+        // `->role('parent')` (le scope Spatie) lève une exception si aucune
+        // ligne `roles` nommée « parent » n'existe — vrai sur un poste
+        // desktop qui n'a jamais eu à créer ce rôle localement (mono-
+        // utilisateur, jamais de compte parent provisionné). `whereHas`
+        // sur la relation donne le même filtre sans jamais planter :
+        // simplement aucune ligne à trouver dans ce cas.
+        $comptesParent = User::whereIn('school_id', $schoolIds)
+            ->whereHas('roles', fn (Builder $q) => $q->where('name', 'parent'));
 
         return [
             'tuteurs_total' => $total,

@@ -17,11 +17,13 @@ use App\Models\ClasseMatiere;
 use App\Models\Competence;
 use App\Models\CompteComptable;
 use App\Models\DemandeAvanceSalaire;
+use App\Models\Departement;
 use App\Models\DetteAnterieure;
 use App\Models\DossierFraisAnnexe;
 use App\Models\DossierScolarite;
 use App\Models\EcritureComptable;
 use App\Models\Eleve;
+use App\Models\EleveTuteur;
 use App\Models\EmploiDuTemps;
 use App\Models\EquipementMobilier;
 use App\Models\FonctionReferentiel;
@@ -41,8 +43,11 @@ use App\Models\Remise;
 use App\Models\Sanction;
 use App\Models\Seance;
 use App\Models\Sequence;
+use App\Models\SousSysteme;
 use App\Models\TrancheScolarite;
 use App\Models\Trimestre;
+use App\Models\Tuteur;
+use App\Models\TuteurTelephone;
 use App\Models\User;
 use App\Models\Versement;
 use App\Models\VersementLigne;
@@ -114,6 +119,24 @@ class RegistreSync
                 // d'école (cf. NiveauController, hors du groupe `tenant`).
                 'portee' => fn (Builder $q, int $s) => $q->where(fn ($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => null,
+            ],
+            // FK obligatoire de `niveaux.sous_system_id`/`classes.sous_systeme_id` :
+            // sans lui, ces lignes arrivent avec une clé étrangère qui ne
+            // résout jamais rien en local (aucun crash grâce à `PRAGMA
+            // foreign_keys = OFF` côté desktop, mais l'écran affiche un champ
+            // vide au lieu du sous-système réel).
+            'sous_systemes' => [
+                'modele' => SousSysteme::class,
+                'colonnes' => ['id', 'school_id', 'code', 'nom', 'description'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
+            ],
+            // FK de `matieres.departement_id` — même raison que ci-dessus.
+            'departements' => [
+                'modele' => Departement::class,
+                'colonnes' => ['id', 'school_id', 'nom', 'head_personnel_id'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'personnel.view',
             ],
             'matieres' => [
                 'modele' => Matiere::class,
@@ -202,6 +225,29 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
+            ],
+
+            // --- Tuteurs (comptes parents). Le compte `User` du portail
+            // parent lui-même n'entre pas dans le registre : un poste
+            // desktop mono-utilisateur n'a aucune raison de répliquer les
+            // identifiants de connexion de chaque tuteur.
+            'tuteurs' => [
+                'modele' => Tuteur::class,
+                'colonnes' => ['id', 'school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'lieu_service', 'adresse'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'eleves.manage',
+            ],
+            'eleve_tuteurs' => [
+                'modele' => EleveTuteur::class,
+                'colonnes' => ['id', 'eleve_id', 'tuteur_id', 'lien_parente', 'is_principal'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'permission' => 'eleves.manage',
+            ],
+            'tuteur_telephones' => [
+                'modele' => TuteurTelephone::class,
+                'colonnes' => ['id', 'tuteur_id', 'numero', 'is_principal'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('tuteur', fn ($t) => $t->where('school_id', $s)),
+                'permission' => 'eleves.manage',
             ],
 
             // --- Écritures du quotidien : le cœur du hors-ligne.
@@ -477,8 +523,8 @@ class RegistreSync
     public static function ecoleDe(string $entite, object $m): ?int
     {
         return match ($entite) {
-            'annee_scolaires', 'niveaux', 'matieres', 'classes',
-            'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'seances',
+            'annee_scolaires', 'niveaux', 'sous_systemes', 'departements', 'matieres', 'classes',
+            'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'tuteurs', 'seances',
             'annonces', 'notifications_internes',
             'grilles_frais', 'frais_annexes', 'dossiers_scolarite',
             'versements', 'moratoires', 'remises', 'dettes_anterieures',
@@ -492,11 +538,12 @@ class RegistreSync
             'classe_matieres' => $m->classe?->school_id,
             'progression_items' => $m->classeMatiere?->classe?->school_id,
             'presences' => $m->seance?->school_id,
-            'notes', 'sanctions', 'bus_affectations', 'visites_infirmerie' => $m->eleve?->school_id,
+            'notes', 'sanctions', 'bus_affectations', 'visites_infirmerie', 'eleve_tuteurs' => $m->eleve?->school_id,
             'dossier_frais_annexes' => $m->dossier?->school_id,
             'versement_lignes' => $m->versement?->school_id,
             'bus_arrets' => $m->trajet?->school_id,
             'visite_infirmerie_materiels' => $m->visite?->eleve?->school_id,
+            'tuteur_telephones' => $m->tuteur?->school_id,
             // Référentiel commun au complexe : aucune pierre tombale scopée
             // par école n'a de sens pour lui (même statut que `niveaux`
             // partagés, mais sans repli possible ici).
