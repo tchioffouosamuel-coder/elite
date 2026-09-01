@@ -53,6 +53,7 @@ class SyncPush extends Command
                     'id' => $o->id,
                     'methode' => $o->methode,
                     'chemin' => $o->chemin,
+                    'school_id' => $o->school_id,
                     'corps' => $o->corps,
                 ])->all(),
             ]);

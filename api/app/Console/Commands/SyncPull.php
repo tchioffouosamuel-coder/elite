@@ -156,7 +156,9 @@ class SyncPull extends Command
                     // milliers de lignes saines à côté d'une poignée déjà en
                     // défaut ailleurs.
                     try {
-                        $this->appliquerLigne($modele, $ligne);
+                        if ($this->appliquerLigne($modele, $ligne)) {
+                            $this->telechargerFichiers($provisioning, $ligne);
+                        }
                         $totalLignes++;
                     } catch (QueryException $e) {
                         Log::warning('sync:pull ligne ignorée', [
@@ -202,11 +204,14 @@ class SyncPull extends Command
      * Upsert d'une ligne reçue, avec la règle du plus récent qui gagne.
      *
      * @param  class-string  $modele
+     * @return bool Vrai si la ligne a été appliquée (créée ou mise à jour) —
+     *              faux si elle a été ignorée (conflit : la version locale
+     *              est plus récente, pas encore poussée).
      */
-    private function appliquerLigne(string $modele, array $ligne): void
+    private function appliquerLigne(string $modele, array $ligne): bool
     {
         if (! isset($ligne['id'])) {
-            return;
+            return false;
         }
 
         $existante = $modele::query()->find($ligne['id']);
@@ -216,7 +221,7 @@ class SyncPull extends Command
         // applique — c'est le cas d'une création locale jamais vue avant.
         if ($existante !== null && isset($ligne['updated_at'], $existante->updated_at)
             && $existante->updated_at->gt($ligne['updated_at'])) {
-            return;
+            return false;
         }
 
         // `updateOrCreate(['id' => ...], ...)` ne suffirait pas : `id` n'est
@@ -232,5 +237,60 @@ class SyncPull extends Command
         // `fillable` de le repasser en attribut.
         $instance->fill(collect($ligne)->except(['id', 'updated_at'])->all());
         $instance->save();
+
+        return true;
+    }
+
+    /**
+     * Télécharge, pour une ligne tout juste appliquée, chaque fichier
+     * référencé par une colonne `*_path` (photo d'élève ou de membre du
+     * personnel, justificatif de dépense…).
+     *
+     * Aucun endpoint dédié : le disque `public` du serveur distant est déjà
+     * servi tel quel (`{serveur}/storage/{chemin}`, la même URL que
+     * `asset('storage/...')` construit côté API) — un simple GET suffit.
+     * Retélécharge à chaque fois que la ligne change plutôt que de ne
+     * combler que les fichiers manquants : un chemin peut rester identique
+     * alors que son contenu a changé (remplacement d'une photo), et cette
+     * méthode n'est appelée que pour des lignes réellement appliquées —
+     * déjà rares en régime de croisière, une fois le pull initial passé.
+     */
+    private function telechargerFichiers(DesktopProvisioning $provisioning, array $ligne): void
+    {
+        foreach ($ligne as $colonne => $valeur) {
+            if (! str_ends_with($colonne, '_path') || ! is_string($valeur) || $valeur === '' || str_contains($valeur, '..')) {
+                continue;
+            }
+
+            $destination = storage_path('app/public/'.$valeur);
+
+            try {
+                $reponse = Http::baseUrl(rtrim($provisioning->serveur_url, '/'))
+                    ->connectTimeout(10)
+                    ->timeout(30)
+                    ->get('storage/'.$valeur);
+
+                if (! $reponse->successful()) {
+                    Log::warning('sync:pull fichier introuvable', [
+                        'chemin' => $valeur, 'statut' => $reponse->status(),
+                    ]);
+
+                    continue;
+                }
+
+                if (! is_dir(dirname($destination))) {
+                    mkdir(dirname($destination), 0755, true);
+                }
+
+                file_put_contents($destination, $reponse->body());
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                // Même logique que l'aléa réseau plus haut : un fichier raté
+                // ne doit pas interrompre le reste du lot, il manquera juste
+                // à l'affichage jusqu'au prochain sync.
+                Log::warning('sync:pull erreur réseau (fichier)', [
+                    'chemin' => $valeur, 'erreur' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 }

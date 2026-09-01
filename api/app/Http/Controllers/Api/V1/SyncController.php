@@ -9,6 +9,7 @@ use App\Support\Sync\RegistreSync;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
@@ -144,6 +145,7 @@ class SyncController extends Controller
             'operations.*.id' => ['required', 'string', 'max:100'],
             'operations.*.methode' => ['required', Rule::in(['POST', 'PUT', 'PATCH', 'DELETE'])],
             'operations.*.chemin' => ['required', 'string', 'max:255'],
+            'operations.*.school_id' => ['nullable', 'integer'],
             'operations.*.corps' => ['nullable', 'array'],
         ]);
 
@@ -166,17 +168,22 @@ class SyncController extends Controller
         // l'API plutôt que de le prendre tel quel, sinon une opération forgée
         // pourrait viser n'importe quelle route de l'application.
         $chemin = '/api/v1/'.ltrim(str_replace('..', '', $operation['chemin']), '/');
+        $corps = $operation['corps'] ?? [];
+        $fichiersTemporaires = [];
+        $fichiers = $this->extraireFichiers($corps, $fichiersTemporaires);
 
         $sousRequete = Request::create(
             $chemin,
             $operation['methode'],
             [],
             [],
-            [],
-            // En-têtes à propager : l'établissement courant, et surtout la clé
-            // d'idempotence — c'est elle qui rend le rejeu d'un lot inoffensif.
-            $this->enTetesServeur($request, $operation['id']),
-            json_encode($operation['corps'] ?? [])
+            $fichiers,
+            // En-têtes à propager : l'établissement DE L'OPÉRATION (pas celui,
+            // sans rapport, de l'appel `/api/v1/sync` englobant), et surtout
+            // la clé d'idempotence — c'est elle qui rend le rejeu d'un lot
+            // inoffensif.
+            $this->enTetesServeur($request, $operation['id'], $operation['school_id'] ?? null),
+            json_encode($corps)
         );
 
         $sousRequete->setUserResolver(fn () => $request->user());
@@ -199,17 +206,82 @@ class SyncController extends Controller
                 'statut' => 500,
                 'reponse' => ['message' => "L'opération n'a pas pu être traitée."],
             ];
+        } finally {
+            foreach ($fichiersTemporaires as $cheminTemporaire) {
+                @unlink($cheminTemporaire);
+            }
         }
     }
 
+    /**
+     * Reconstitue en `UploadedFile` réels les fichiers que
+     * `EnregistrerDansOutboxLocale::encoderFichier()` a encodés en base64
+     * côté client — sans quoi le contrôleur métier rejoué ici ne les
+     * retrouverait jamais via `$request->file(...)`.
+     *
+     * Retire chaque marqueur de `$corps` au passage : son base64 (jusqu'à
+     * plusieurs Mo) n'a rien à faire dans le corps JSON une fois le vrai
+     * fichier extrait à côté.
+     *
+     * @param  array<string, mixed>  $corps
+     * @param  list<string>  $fichiersTemporaires  Rempli avec les chemins des
+     *                                              fichiers temporaires créés, à
+     *                                              nettoyer après le rejeu.
+     * @return array<string, mixed>
+     */
+    private function extraireFichiers(array &$corps, array &$fichiersTemporaires): array
+    {
+        $fichiers = [];
+
+        foreach ($corps as $champ => $valeur) {
+            if (! is_array($valeur)) {
+                continue;
+            }
+
+            if (($valeur['__sync_fichier__'] ?? false) === true) {
+                $fichiers[$champ] = $this->decoderFichier($valeur, $fichiersTemporaires);
+                unset($corps[$champ]);
+
+                continue;
+            }
+
+            foreach ($valeur as $sousChamp => $sousValeur) {
+                if (is_array($sousValeur) && ($sousValeur['__sync_fichier__'] ?? false) === true) {
+                    $fichiers[$champ][$sousChamp] = $this->decoderFichier($sousValeur, $fichiersTemporaires);
+                    unset($corps[$champ][$sousChamp]);
+                }
+            }
+        }
+
+        return $fichiers;
+    }
+
+    /** @param  list<string>  $fichiersTemporaires */
+    private function decoderFichier(array $marqueur, array &$fichiersTemporaires): UploadedFile
+    {
+        $chemin = tempnam(sys_get_temp_dir(), 'sync_fichier_');
+        file_put_contents($chemin, base64_decode($marqueur['contenu_base64']));
+        $fichiersTemporaires[] = $chemin;
+
+        // `$test = true` : ce fichier n'est pas passé par un vrai upload
+        // multipart (`is_uploaded_file()` échouerait sinon), c'est le mode
+        // prévu par Laravel pour construire un `UploadedFile` programmatique.
+        return new UploadedFile($chemin, $marqueur['nom'], $marqueur['mime'], null, true);
+    }
+
     /** @return array<string, string> */
-    private function enTetesServeur(Request $request, string $idOperation): array
+    private function enTetesServeur(Request $request, string $idOperation, ?int $schoolId): array
     {
         return [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_AUTHORIZATION' => (string) $request->header('Authorization'),
-            'HTTP_X_SCHOOL_ID' => (string) app('tenant.school_id'),
+            // L'école de L'OPÉRATION quand l'outbox locale l'a fournie (poste
+            // desktop) ; à défaut (outbox mobile, plus ancienne, sans cette
+            // colonne), on retombe sur le contexte de l'appel englobant —
+            // correct pour un compte borné à une seule école, seul cas que
+            // le mobile connaît.
+            'HTTP_X_SCHOOL_ID' => (string) ($schoolId ?? app('tenant.school_id')),
             // L'identifiant d'opération de l'outbox fait office de clé
             // d'idempotence : rejouer le lot entier ne recrée rien.
             'HTTP_IDEMPOTENCY_KEY' => $idOperation,

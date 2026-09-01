@@ -10,8 +10,10 @@ use App\Models\SyncOutbox;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -247,6 +249,45 @@ class DesktopSyncTest extends TestCase
         $this->assertSame(1, $frais->tentatives);
     }
 
+    /**
+     * Bout en bout côté serveur distant (receveur du push) : une opération
+     * dont le corps porte un marqueur `__sync_fichier__` (photo prise
+     * offline sur le desktop, encodée par `EnregistrerDansOutboxLocale`)
+     * doit ressortir comme un vrai upload multipart pour le contrôleur
+     * métier rejoué — pas comme du JSON inerte.
+     */
+    public function test_sync_push_rejoue_un_upload_de_fichier(): void
+    {
+        Storage::fake('public');
+
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+        $eleve = $this->creerEleveAvecId(9002, $ecole->id, 'ELEVE PHOTO');
+
+        $fichier = UploadedFile::fake()->image('photo.jpg', 50, 50);
+        $base64 = base64_encode(file_get_contents($fichier->getRealPath()));
+
+        $reponse = $this->actingAs($user, 'sanctum')->postJson('/api/v1/sync', [
+            'operations' => [[
+                'id' => 'op-photo-1',
+                'methode' => 'POST',
+                'chemin' => "eleves/{$eleve->id}/photo",
+                'corps' => [
+                    'photo' => [
+                        '__sync_fichier__' => true,
+                        'nom' => 'photo.jpg',
+                        'mime' => 'image/jpeg',
+                        'contenu_base64' => $base64,
+                    ],
+                ],
+            ]],
+        ]);
+
+        $reponse->assertOk()->assertJsonPath('data.resultats.0.statut', 200);
+        $this->assertNotNull($eleve->fresh()->photo_path);
+    }
+
     // ----------------------------------------------------------- Middleware
 
     public function test_le_middleware_outbox_enregistre_une_ecriture_reussie_en_mode_local(): void
@@ -279,6 +320,37 @@ class DesktopSyncTest extends TestCase
         ]])->assertOk();
 
         $this->assertDatabaseCount('sync_outbox', 0);
+    }
+
+    /**
+     * Le point de départ du problème inverse : sans cet encodage, un
+     * `UploadedFile` fusionné dans `$request->all()` se serialise en objet
+     * JSON vide une fois casté par `SyncOutbox::corps` — la photo prise
+     * offline disparaîtrait avant même d'atteindre `sync:push`.
+     */
+    public function test_le_middleware_outbox_encode_un_fichier_uploade_en_base64(): void
+    {
+        config(['sync.local_replica' => true]);
+        Storage::fake('public');
+
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+        $eleve = $this->creerEleveAvecId(9001, $ecole->id, 'PHOTO TEST');
+
+        $fichier = UploadedFile::fake()->image('photo.jpg', 20, 20);
+        $contenuOriginal = file_get_contents($fichier->getRealPath());
+
+        $this->actingAs($user, 'sanctum')
+            ->post("/api/v1/eleves/{$eleve->id}/photo", ['photo' => $fichier])
+            ->assertOk();
+
+        $outbox = SyncOutbox::query()->enAttente()->first();
+
+        $this->assertNotNull($outbox);
+        $this->assertTrue($outbox->corps['photo']['__sync_fichier__']);
+        $this->assertSame('photo.jpg', $outbox->corps['photo']['nom']);
+        $this->assertSame($contenuOriginal, base64_decode($outbox->corps['photo']['contenu_base64']));
     }
 
     public function test_le_middleware_outbox_est_inactif_sans_le_mode_local(): void
