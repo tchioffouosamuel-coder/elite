@@ -38,10 +38,6 @@ class NoteEleveController extends Controller
 
         $school = $eleve->classe->school;
 
-        if ($school->estMaternelle()) {
-            return ApiResponse::error("La maternelle évalue par appréciation, pas par note chiffrée.", 422);
-        }
-
         $trimestre = $this->trimestre($request, $school->id);
         $sequences = $trimestre->sequencesRetenues();
 
@@ -114,6 +110,18 @@ class NoteEleveController extends Controller
         );
 
         $competences = $affectations->map(function ($cc) use ($eleve, $trimestre, $sequences, $classementsCompetence) {
+            // `notation` nul signale une compétence de maternelle, évaluée
+            // par appréciation (émoji/couleur/libellé) plutôt que par une
+            // note chiffrée sur barème — cf. NotePrimaireService::
+            // parAppreciation(), même distinction côté saisie. Le moteur de
+            // moyennes (MoyennePrimaireService::noteCompetenceEleve) ne lit
+            // que la colonne `valeur` : il renvoie `note: null` pour ces
+            // compétences-là sans jamais planter, mais l'écran a besoin de
+            // l'appréciation elle-même, pas juste de son absence de note.
+            if ($cc->competence->notation === null) {
+                return $this->competenceAppreciation($eleve, $cc, $sequences);
+            }
+
             $resultat = $this->moyennesPrimaire->noteCompetenceEleve($eleve, $cc, $trimestre);
             $rang = $classementsCompetence->get($cc->id)?->firstWhere('eleve_id', $eleve->id)['rang'] ?? null;
 
@@ -121,6 +129,7 @@ class NoteEleveController extends Controller
                 'competence_id' => $cc->competence_id,
                 'competence' => $cc->competence->label_fr,
                 'abreviation' => $cc->competence->abbreviation,
+                'mode' => 'note',
                 'bareme' => $resultat['bareme'],
                 'notes' => $sequences->map(fn ($s) => [
                     'sequence_id' => $s->id,
@@ -140,6 +149,49 @@ class NoteEleveController extends Controller
             'competences' => $competences,
             'moyenne_generale' => $general['moyenne'],
             'rang_general' => $rangGeneral,
+        ];
+    }
+
+    /**
+     * Ligne d'une compétence de maternelle : l'appréciation choisie par
+     * séquence, pas de moyenne ni de rang (ces notions supposent un barème
+     * numérique — cf. `MoyennePrimaireService::moyenneGeneraleEleve`, qui
+     * exclut déjà ces compétences du calcul de la moyenne générale).
+     *
+     * @return array{competence_id: int, competence: string, abreviation: ?string, mode: string, bareme: null, notes: Collection, moyenne: null, rang: null}
+     */
+    private function competenceAppreciation(Eleve $eleve, $classeCompetence, Collection $sequences): array
+    {
+        $notesParSequence = Note::where('eleve_id', $eleve->id)
+            ->where('classe_competence_id', $classeCompetence->id)
+            ->whereIn('sequence_id', $sequences->pluck('id'))
+            ->whereNotNull('appreciation_id')
+            ->with('appreciation')
+            ->get()
+            ->keyBy('sequence_id');
+
+        return [
+            'competence_id' => $classeCompetence->competence_id,
+            'competence' => $classeCompetence->competence->label_fr,
+            'abreviation' => $classeCompetence->competence->abbreviation,
+            'mode' => 'appreciation',
+            'bareme' => null,
+            'notes' => $sequences->map(function ($s) use ($notesParSequence) {
+                $appreciation = $notesParSequence->get($s->id)?->appreciation;
+
+                return [
+                    'sequence_id' => $s->id,
+                    'libelle' => $s->libelle,
+                    'appreciation' => $appreciation ? [
+                        'id' => $appreciation->id,
+                        'label_fr' => $appreciation->label_fr,
+                        'emoji' => $appreciation->emoji,
+                        'couleur' => $appreciation->couleur,
+                    ] : null,
+                ];
+            })->values(),
+            'moyenne' => null,
+            'rang' => null,
         ];
     }
 
