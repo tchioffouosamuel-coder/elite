@@ -43,7 +43,7 @@ class BusAffectationController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
+        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
         $donnees = $this->validerSouscription($request);
 
         try {
@@ -58,7 +58,7 @@ class BusAffectationController extends Controller
     /** Souscrit plusieurs élèves d'un coup au même trajet (fratrie, classe entière…). */
     public function souscrireLot(Request $request): JsonResponse
     {
-        $schoolId = app('tenant.school_id');
+        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
 
         $data = $request->validate([
             'eleve_ids' => ['required', 'array', 'min:1'],

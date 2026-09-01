@@ -12,17 +12,37 @@ use App\Models\Classe;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Services\EmploiDuTempsService;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TrimestreController extends Controller
 {
-    public function index(): JsonResponse
+    /**
+     * `classe_id` (optionnel) borne à l'établissement de CETTE classe plutôt
+     * qu'à l'école "de rattachement" par défaut de `app('tenant.school_id')`
+     * — sans lui, un super administrateur en mode agrégé (plusieurs écoles,
+     * pas de X-School-Id) reçoit toujours les trimestres de l'école par
+     * défaut, même en travaillant sur une classe d'une autre école du
+     * complexe : le `trimestre_id` renvoyé ne correspond alors à rien pour
+     * cette classe côté `NotePrimaireController`/`NoteController`, qui eux
+     * résolvent correctement par `classe->school_id`.
+     */
+    public function index(Request $request): JsonResponse
     {
+        $schoolId = app('tenant.school_id');
+
+        if ($request->integer('classe_id')) {
+            $classe = Classe::forSchool(Tenant::schoolIds())->find($request->integer('classe_id'));
+            if ($classe) {
+                $schoolId = $classe->school_id;
+            }
+        }
+
         $trimestres = Trimestre::whereHas(
             'anneeScolaire',
-            fn ($q) => $q->where('school_id', app('tenant.school_id'))
+            fn ($q) => $q->where('school_id', $schoolId)
         )->with('anneeScolaire')->orderBy('ordre')->get();
 
         // Les séquences excédentaires (réglage `num_sequences` baissé après

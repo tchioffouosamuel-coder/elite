@@ -3,7 +3,6 @@ import { Users, FilePlus2, ClipboardList, LogOut, Megaphone } from 'lucide-react
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
-import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 
 const liens = [
@@ -28,7 +27,6 @@ function initiales(nom?: string) {
 export function ParentLayout() {
   const navigate = useNavigate()
   const { user, clearSession } = useAuthStore()
-  const { locale, setLocale } = useUiStore()
 
   const handleLogout = async () => {
     try {
@@ -42,16 +40,16 @@ export function ParentLayout() {
   return (
     <div className="flex h-svh min-w-0 flex-col overflow-hidden bg-cream-50 sm:min-h-svh sm:h-auto sm:overflow-x-clip sm:overflow-y-visible">
       <header className="flex-none border-b border-navy-100 bg-navy-800 text-cream-50">
-        <div className="mx-auto flex min-w-0 max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:px-6">
-          <div className="flex items-center gap-2.5">
+        <div className="mx-auto flex min-w-0 max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft">
               <img src={logoWordmark} alt="Elites" className="h-5 w-auto object-contain" />
             </span>
-            <span className="font-display text-base font-bold tracking-tight">Espace parent / Parent portal</span>
+            <span className="truncate font-display text-base font-bold tracking-tight">Espace parent / Parent portal</span>
           </div>
 
           <nav
-            className="fixed inset-x-0 bottom-0 z-40 grid h-16 border-t border-navy-600 bg-navy-800/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(8,21,43,0.16)] backdrop-blur sm:static sm:flex sm:h-auto sm:w-auto sm:flex-1 sm:flex-wrap sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none"
+            className="fixed inset-x-0 bottom-0 z-40 grid h-16 border-t border-navy-600 bg-navy-800/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(8,21,43,0.16)] backdrop-blur sm:static sm:flex sm:h-auto sm:w-auto sm:flex-1 sm:flex-wrap sm:justify-center sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none"
             style={{ gridTemplateColumns: `repeat(${liens.length}, minmax(0, 1fr))` }}
           >
             {liens.map((lien) => (
@@ -78,21 +76,7 @@ export function ParentLayout() {
             ))}
           </nav>
 
-          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-            <div className="flex gap-1 rounded-full bg-white/10 p-1 text-[11px] font-bold">
-              {(['fr', 'en'] as const).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLocale(l)}
-                  className={clsx(
-                    'rounded-full px-2 py-0.5 transition-colors',
-                    locale === l ? 'bg-gold-500 text-navy-900' : 'text-navy-200 hover:text-white',
-                  )}
-                >
-                  {l.toUpperCase()}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-none items-center gap-2">
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
               {initiales(user?.name)}
             </span>

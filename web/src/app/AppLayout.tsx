@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -401,6 +402,8 @@ export function AppLayout() {
   const { locale, setLocale, sidebarOpen, toggleSidebar } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
   const [groupeTopbarOuvert, setGroupeTopbarOuvert] = useState<string | null>(null)
+  const [positionGroupeTopbar, setPositionGroupeTopbar] = useState<{ left: number; top: number } | null>(null)
+  const boutonsGroupeTopbarRef = useRef<Record<string, HTMLButtonElement | null>>({})
   const [rechercheMenu, setRechercheMenu] = useState('')
   const [groupesOuverts, setGroupesOuverts] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map((group) => [group.label, true])),
@@ -724,8 +727,19 @@ export function AppLayout() {
                   <div key={group.label} className="relative flex-none">
                     <button
                       type="button"
+                      ref={(el) => {
+                        boutonsGroupeTopbarRef.current[group.label] = el
+                      }}
                       aria-expanded={ouvert}
-                      onClick={() => setGroupeTopbarOuvert((actuel) => (actuel === group.label ? null : group.label))}
+                      onClick={() => {
+                        setGroupeTopbarOuvert((actuel) => {
+                          if (actuel === group.label) return null
+
+                          const rect = boutonsGroupeTopbarRef.current[group.label]?.getBoundingClientRect()
+                          if (rect) setPositionGroupeTopbar({ left: rect.left, top: rect.bottom })
+                          return group.label
+                        })
+                      }}
                       className={clsx(
                         'flex h-8 flex-none items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-semibold transition-colors',
                         groupeActif
@@ -737,33 +751,40 @@ export function AppLayout() {
                       <ChevronDown className={clsx('h-3 w-3 transition-transform', ouvert && 'rotate-180')} />
                     </button>
 
-                    {ouvert && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setGroupeTopbarOuvert(null)} />
-                        <div className="absolute left-0 top-full z-40 mt-2 min-w-52 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
-                          {group.items.map((item) => {
-                            const estActif = item.to === cheminActif
+                    {ouvert &&
+                      positionGroupeTopbar &&
+                      createPortal(
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setGroupeTopbarOuvert(null)} />
+                          <div
+                            className="fixed z-40 mt-2 min-w-52 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted"
+                            style={{ left: positionGroupeTopbar.left, top: positionGroupeTopbar.top }}
+                          >
+                            {group.items.map((item) => {
+                              const estActif = item.to === cheminActif
 
-                            return (
-                              <NavLink
-                                key={item.to}
-                                to={item.to}
-                                end
-                                className={clsx(
-                                  'flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors',
-                                  estActif
-                                    ? 'bg-gold-50 font-semibold text-navy-900'
-                                    : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
-                                )}
-                              >
-                                <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
-                                <span className="truncate">{t(item.label)}</span>
-                              </NavLink>
-                            )
-                          })}
-                        </div>
-                      </>
-                    )}
+                              return (
+                                <NavLink
+                                  key={item.to}
+                                  to={item.to}
+                                  end
+                                  onClick={() => setGroupeTopbarOuvert(null)}
+                                  className={clsx(
+                                    'flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors',
+                                    estActif
+                                      ? 'bg-gold-50 font-semibold text-navy-900'
+                                      : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
+                                  )}
+                                >
+                                  <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
+                                  <span className="truncate">{t(item.label)}</span>
+                                </NavLink>
+                              )
+                            })}
+                          </div>
+                        </>,
+                        document.body,
+                      )}
                   </div>
                 )
               })}

@@ -55,7 +55,7 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
+  async (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
     const config = error.config;
 
     // Un jeton Sanctum expiré ne peut pas être "rafraîchi" silencieusement
@@ -67,10 +67,24 @@ http.interceptors.response.use(
       }
     }
 
+    // Un appel en `responseType: 'blob'` (aperçu PDF, export…) reçoit son
+    // erreur elle aussi en Blob plutôt qu'en JSON déjà parsé par axios : sans
+    // ce détour, `data?.message` serait toujours vide et l'appelant ne
+    // verrait jamais que le texte générique d'axios ("Request failed…").
+    let data = error.response?.data;
+    if (data instanceof Blob && data.type.includes("json")) {
+      try {
+        data = JSON.parse(await data.text());
+      } catch {
+        // Corps illisible (HTML d'erreur serveur, etc.) : on garde le blob,
+        // le message générique prendra le relais plus bas.
+      }
+    }
+
     const apiError: ApiError = {
-      message: error.response?.data?.message ?? error.message,
+      message: data?.message ?? error.message,
       status: error.response?.status ?? 0,
-      errors: error.response?.data?.errors ?? null,
+      errors: data?.errors ?? null,
     };
 
     // 423 : mot de passe provisoire encore en place. L'API ferme tout le reste,

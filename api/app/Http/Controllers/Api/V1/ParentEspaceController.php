@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\BulletinPublication;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\ModificationEleve;
@@ -18,6 +19,7 @@ use App\Models\Tuteur;
 use App\Models\VisiteInfirmerie;
 use App\Http\Resources\Api\V1\SanctionResource;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
+use App\Services\BulletinPrimaireService;
 use App\Services\BulletinService;
 use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
@@ -27,6 +29,7 @@ use App\Services\EcheancierService;
 use App\Services\ScolariteService;
 use App\Support\ParentAccess;
 use App\Support\Pdf\BulletinGenerator;
+use App\Support\Pdf\BulletinPrimaireGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -44,6 +47,7 @@ class ParentEspaceController extends Controller
     public function __construct(
         private readonly ScolariteService $scolarite,
         private readonly BulletinService $bulletins,
+        private readonly BulletinPrimaireService $bulletinsPrimaire,
         private readonly ProgressionService $progression,
         private readonly JustificationAbsenceService $justifications,
         private readonly ModificationEleveService $modifications,
@@ -233,9 +237,30 @@ class ParentEspaceController extends Controller
             ? Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $e->school_id))->findOrFail($request->integer('trimestre_id'))
             : Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $e->school_id))->where('is_active', true)->firstOrFail();
 
-        $donnees = $this->bulletins->donneesClasse($e->classe, $trimestre, [$e->id]);
+        // Un parent ne voit un bulletin qu'une fois le conseil de classe tenu
+        // et la classe publiée par le personnel (cf. BulletinController::publier) —
+        // avant ça, la moyenne d'un élève peut encore bouger.
+        $publie = BulletinPublication::where('classe_id', $e->classe->id)
+            ->where('trimestre_id', $trimestre->id)
+            ->exists();
 
-        return response((new BulletinGenerator)->build($donnees), 200, [
+        if (! $publie) {
+            return ApiResponse::error('Les bulletins de ce trimestre ne sont pas encore publiés.', 422);
+        }
+
+        // Le secondaire note par séquence (BulletinService) ; le primaire et
+        // la maternelle par volets (BulletinPrimaireService) — même aiguillage
+        // que côté enseignant/admin (cf. BulletinController / BulletinPrimaireController),
+        // sans quoi un enfant hors secondaire fait planter la génération.
+        if ($e->school?->type === 'secondaire') {
+            $donnees = $this->bulletins->donneesClasse($e->classe, $trimestre, [$e->id]);
+            $pdf = (new BulletinGenerator)->build($donnees);
+        } else {
+            $donnees = $this->bulletinsPrimaire->donneesClasse($e->classe, $trimestre, [$e->id]);
+            $pdf = (new BulletinPrimaireGenerator)->build($donnees);
+        }
+
+        return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="bulletin-'.Str::slug($e->nom_complet).'.pdf"',
         ]);
