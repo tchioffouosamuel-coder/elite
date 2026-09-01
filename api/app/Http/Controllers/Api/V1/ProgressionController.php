@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ProgressionModeleClasseExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveProgressionRequest;
@@ -13,13 +14,16 @@ use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
 use App\Models\Trimestre;
 use App\Imports\ProgressionImport;
+use App\Imports\ProgressionImportClasseAdapter;
 use App\Services\ProgressionService;
 use App\Support\Pdf\ProgressionFicheGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Programme d'enseignement annuel — modules, chapitres et leçons — et taux
@@ -122,6 +126,112 @@ class ProgressionController extends Controller
             'ignorees' => $import->ignorees,
             'items' => $this->service->arbre($classeMatiere),
             ...$this->service->tauxAffectation($classeMatiere),
+        ], $message);
+    }
+
+    /**
+     * Modèle Excel vide de la fiche de progression d'une classe entière — une
+     * feuille par matière affectée, à remplir puis renvoyer en un seul fichier
+     * via `importClasse()` plutôt que matière par matière.
+     */
+    public function modeleClasse(int $classeId): BinaryFileResponse
+    {
+        $classe = $this->classeAutorisee($classeId);
+        $cycle = ProgressionItem::cyclePour($classe->school->type);
+
+        $affectations = ClasseMatiere::where('classe_id', $classe->id)
+            ->with(['matiere.departement', 'enseignant', 'classe.school', 'classe.titulaire'])
+            ->when(
+                request()->user()?->perimetre()->matieresRestreintesDans($classe->id),
+                fn ($q) => $q->where('personnel_id', request()->user()->perimetre()->personnelId())
+            )
+            ->get()
+            ->sortBy(fn (ClasseMatiere $cm) => $cm->matiere->nom)
+            ->values();
+
+        abort_if($affectations->isEmpty(), 404, "Aucune matière n'est affectée à cette classe.");
+
+        $nomFichier = 'modele-progression-'.Str::slug($classe->nom).'.xlsx';
+
+        return Excel::download(
+            new ProgressionModeleClasseExport($affectations, $cycle, $this->anneeScolaireActive($classe->school_id)),
+            $nomFichier
+        );
+    }
+
+    /**
+     * Import groupé de la fiche de progression d'une classe entière : un seul
+     * classeur, une feuille par matière — chacune reconnue par l'id
+     * d'affectation en préfixe de son titre (`"{id} Matière"`, posé par
+     * `ProgressionModeleMatiereSheet::title()`), qu'elle ait été ou non
+     * renommée, réordonnée ou amputée d'une partie de ses feuilles entre le
+     * téléchargement du modèle et son renvoi.
+     */
+    public function importClasse(Request $request, int $classeId): JsonResponse
+    {
+        $request->validate([
+            'fichier' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+        ]);
+
+        $classe = $this->classeAutorisee($classeId);
+        $cycle = ProgressionItem::cyclePour($classe->school->type);
+        $fichier = $request->file('fichier');
+
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $lecteur->setReadDataOnly(true);
+        $feuilles = $lecteur->listWorksheetInfo($fichier->getRealPath());
+
+        $imports = [];
+        $ignorees = [];
+
+        foreach ($feuilles as $index => $info) {
+            $titre = $info['worksheetName'];
+
+            if (! preg_match('/^(\d+)\b/', $titre, $m)) {
+                $ignorees[] = $titre;
+
+                continue;
+            }
+
+            try {
+                $classeMatiere = $this->affectation((int) $m[1]);
+            } catch (\Throwable) {
+                $ignorees[] = $titre;
+
+                continue;
+            }
+
+            if ($classeMatiere->classe_id !== $classe->id) {
+                $ignorees[] = $titre;
+
+                continue;
+            }
+
+            $imports[$index] = new ProgressionImport($classeMatiere, $cycle);
+        }
+
+        if ($imports === []) {
+            return ApiResponse::error(
+                "Aucune feuille de ce fichier ne correspond à une matière de cette classe : téléchargez d'abord le modèle vide de la classe et remplissez-le sans modifier les titres des feuilles.",
+                422
+            );
+        }
+
+        Excel::import(new ProgressionImportClasseAdapter($imports), $fichier);
+
+        $creees = array_sum(array_map(fn (ProgressionImport $i) => $i->creees, $imports));
+        $completees = array_sum(array_map(fn (ProgressionImport $i) => $i->completees, $imports));
+
+        $message = "{$creees} leçon(s) créée(s), {$completees} complétée(s) sur ".count($imports).' matière(s).';
+        if ($ignorees !== []) {
+            $message .= ' '.count($ignorees).' feuille(s) ignorée(s) : '.implode(', ', $ignorees).'.';
+        }
+
+        return ApiResponse::success([
+            'creees' => $creees,
+            'completees' => $completees,
+            'matieres_importees' => count($imports),
+            'feuilles_ignorees' => $ignorees,
         ], $message);
     }
 
@@ -333,6 +443,20 @@ class ProgressionController extends Controller
     private function anneeScolaireActive(int $schoolId): ?string
     {
         return AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->value('libelle');
+    }
+
+    /** Classe bornée au tenant et au périmètre — pour les deux actions d'import/modèle groupés. */
+    private function classeAutorisee(int $classeId): Classe
+    {
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+
+        $perimetre = request()->user()?->perimetre();
+
+        if ($perimetre) {
+            abort_unless($perimetre->couvre($classe->id), 403, "Cette classe n'entre pas dans votre périmètre.");
+        }
+
+        return $classe;
     }
 
     /**

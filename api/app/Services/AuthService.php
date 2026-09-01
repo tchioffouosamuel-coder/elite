@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Mail\OtpMotDePasseMail;
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Support\Telephone;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthService extends BaseService
 {
@@ -19,6 +22,12 @@ class AuthService extends BaseService
 
     /** Aligné sur l'ancienne durée de session unique, pour ne pas raccourcir l'expérience actuelle. */
     private const REFRESH_TOKEN_TTL_MINUTES = 60 * 24 * 30;
+
+    /** Le temps de retrouver le courriel et de le lire — court, comme tout code à usage unique. */
+    private const OTP_TTL_MINUTES = 10;
+
+    /** Au-delà, le code est brûlé : une nouvelle demande est nécessaire plutôt que de laisser deviner indéfiniment. */
+    private const OTP_MAX_TENTATIVES = 5;
 
     /**
      * Le personnel se connecte par e-mail, les parents par téléphone (cf.
@@ -133,6 +142,75 @@ class AuthService extends BaseService
     }
 
     /**
+     * Déclenche l'envoi d'un OTP par e-mail pour la réinitialisation « mot de
+     * passe oublié ». Réservée aux comptes qui ont un e-mail — un parent se
+     * connecte par téléphone (cf. {@see CompteParentService})
+     * et n'a donc pas d'adresse à qui envoyer un code ; il passe par la
+     * réinitialisation d'un administrateur.
+     *
+     * Silencieuse même quand l'adresse n'existe pas ou n'a pas de compte :
+     * révéler la différence permettrait à quiconque d'énumérer les comptes
+     * existants à partir d'une simple adresse e-mail.
+     */
+    public function demanderOtp(string $email): void
+    {
+        $user = User::whereNotNull('email')->where('email', $email)->first();
+
+        if (! $user || ! $user->is_active) {
+            return;
+        }
+
+        $otp = (string) random_int(100000, 999999);
+
+        $user->forceFill([
+            'otp_code' => Hash::make($otp),
+            'otp_expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
+            'otp_attempts' => 0,
+        ])->save();
+
+        Mail::to($user->email)->queue(new OtpMotDePasseMail($user, $otp, self::OTP_TTL_MINUTES));
+    }
+
+    /**
+     * Vérifie l'OTP et, s'il est valide, remplace le mot de passe.
+     *
+     * Chaque tentative erronée est comptée : au-delà de
+     * {@see OTP_MAX_TENTATIVES}, le code est invalidé même s'il est encore
+     * dans les temps, pour empêcher un essai exhaustif des 10⁶ combinaisons.
+     * Toutes les sessions ouvertes tombent, comme pour {@see reinitialiserMotDePasse()} :
+     * un accès repris par ce biais ne doit profiter qu'à qui vient de le
+     * démontrer via le code reçu par e-mail.
+     */
+    public function reinitialiserAvecOtp(string $email, string $otp, string $nouveauMotDePasse): bool
+    {
+        $user = User::whereNotNull('email')->where('email', $email)->first();
+
+        if (! $user || ! $user->otp_code || ! $user->otp_expires_at || $user->otp_expires_at->isPast() || $user->otp_attempts >= self::OTP_MAX_TENTATIVES) {
+            return false;
+        }
+
+        if (! Hash::check($otp, $user->otp_code)) {
+            $user->increment('otp_attempts');
+
+            return false;
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($nouveauMotDePasse),
+            'doit_changer_mot_de_passe' => false,
+            'otp_code' => null,
+            'otp_expires_at' => null,
+            'otp_attempts' => 0,
+        ])->save();
+
+        $user->tokens()->delete();
+
+        ActivityLog::enregistrer($user, 'mot_de_passe_oublie', 'Mot de passe réinitialisé via code de vérification.');
+
+        return true;
+    }
+
+    /**
      * Renouvellement de session à partir du jeton de rafraîchissement.
      *
      * Refusé si le jeton présenté est le jeton d'accès (ou tout jeton sans
@@ -149,7 +227,7 @@ class AuthService extends BaseService
     {
         $current = $user->currentAccessToken();
 
-        if (! $current instanceof \Laravel\Sanctum\PersonalAccessToken || ! $current->can('refresh')) {
+        if (! $current instanceof PersonalAccessToken || ! $current->can('refresh')) {
             return null;
         }
 

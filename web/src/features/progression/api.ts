@@ -1,4 +1,5 @@
 import { http } from '@/shared/lib/http'
+import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiResponse } from '@/shared/types/api'
 
 export type TypeItem = 'module' | 'chapitre' | 'lecon'
@@ -194,6 +195,30 @@ export async function fetchProgressionEtablissement(): Promise<TauxClasse[]> {
 
 export async function fetchProgressionClasse(classeId: number): Promise<TauxMatiere[]> {
   const { data } = await http.get<ApiResponse<TauxMatiere[]>>(`/classes/${classeId}/progression`)
+  return data.data
+}
+
+/* ------------------------------------------------------------------ */
+/* Import groupé de la classe (une feuille par matière)                */
+/* ------------------------------------------------------------------ */
+
+/** Ce que l'import groupé a fait du classeur, feuille par feuille. */
+export interface ResultatImportClasse {
+  creees: number
+  completees: number
+  matieres_importees: number
+  feuilles_ignorees: string[]
+}
+
+export async function telechargerModeleProgressionClasse(classeId: number, nomClasse: string): Promise<void> {
+  await telechargerFichier(`/classes/${classeId}/progression/modele`, undefined, `modele-progression-${nomClasse}.xlsx`)
+}
+
+export async function importerProgressionClasse(classeId: number, fichier: File): Promise<ResultatImportClasse> {
+  const corps = new FormData()
+  corps.append('fichier', fichier)
+
+  const { data } = await http.post<ApiResponse<ResultatImportClasse>>(`/classes/${classeId}/progression/import`, corps)
   return data.data
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -182,6 +182,10 @@ export function LoginPage() {
                 )}
                 {...register('password', { required: true })}
               />
+
+              <Link to="/mot-de-passe-oublie" className="-mt-2 self-end text-xs font-semibold text-navy-500 hover:text-navy-700">
+                {t('auth.forgot_password_link')}
+              </Link>
 
               {serverError && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{serverError}</p>

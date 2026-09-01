@@ -148,7 +148,19 @@
     "error_lettres_chiffres": "Mix letters and numbers.",
     "error_mot_de_passe_different": "Choose a password different from the previous one.",
     "error_confirmation_mismatch": "The confirmation does not match.",
-    "submit_save_continue": "Save and continue"
+    "submit_save_continue": "Save and continue",
+    "forgot_password_link": "Forgot password?",
+    "forgot_password_title": "Forgot password",
+    "forgot_password_subtitle": "Enter your email: if an account exists, a verification code will be sent to it.",
+    "label_email": "Email",
+    "error_email_requis": "Enter your email.",
+    "submit_send_otp": "Send code",
+    "back_to_login": "Back to sign in",
+    "reset_password_title": "Reset password",
+    "reset_password_subtitle": "Enter the code you received by email and choose a new password.",
+    "label_otp": "Verification code",
+    "error_otp_requis": "Enter the code you received by email.",
+    "submit_reset_password": "Reset password"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1094,7 +1106,18 @@
     "colonnes_libres": "Custom columns",
     "colonnes_libres_hint": "Up to ten columns of your own for this subject, on top of the template's — handy for vocabulary, a digital resource, a free note…",
     "colonne_placeholder": "Column title",
-    "colonnes_enregistrees": "Columns saved."
+    "colonnes_enregistrees": "Columns saved.",
+    "import_groupe": {
+      "colonne_actions": "Template",
+      "telecharger_modele": "Download the class's blank template",
+      "importer": "Import the filled workbook",
+      "titre": "Import progress — {{classe}}",
+      "etape_1": "1. Download the class's blank template: a workbook with one sheet per assigned subject.",
+      "etape_2": "2. Fill in each sheet (one row per lesson), without renaming the sheets.",
+      "etape_3": "3. Re-import the same completed file here. Lessons already entered are completed, never overwritten.",
+      "resultat": "{{creees}} lesson(s) created, {{completees}} completed across {{matieres}} subject(s).",
+      "feuilles_ignorees": "{{count}} sheet(s) skipped."
+    }
   },
   "journee": {
     "title": "My day",

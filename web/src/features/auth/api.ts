@@ -35,6 +35,19 @@ export async function changerMotDePasse(payload: {
   return data.data
 }
 
+export async function demanderOtpMotDePasse(email: string): Promise<void> {
+  await http.post('/auth/mot-de-passe-oublie', { email })
+}
+
+export async function reinitialiserMotDePasseAvecOtp(payload: {
+  email: string
+  otp: string
+  nouveau_mot_de_passe: string
+  nouveau_mot_de_passe_confirmation: string
+}): Promise<void> {
+  await http.post('/auth/reinitialiser-mot-de-passe', payload)
+}
+
 export interface ProfilPayload {
   name: string
   email: string

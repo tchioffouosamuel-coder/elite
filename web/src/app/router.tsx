@@ -3,6 +3,8 @@ import { AppLayout } from '@/app/AppLayout'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ChangerMotDePassePage } from '@/features/auth/pages/ChangerMotDePassePage'
+import { MotDePasseOubliePage } from '@/features/auth/pages/MotDePasseOubliePage'
+import { ReinitialiserMotDePassePage } from '@/features/auth/pages/ReinitialiserMotDePassePage'
 import { UserProfilePage } from '@/features/auth/pages/UserProfilePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
@@ -107,6 +109,11 @@ import { ParentPreinscriptionsListPage } from '@/features/parent/pages/ParentPre
 
 export const router = createHashRouter([
   { path: '/connexion', element: <LoginPage /> },
+  // Mot de passe oublié, réservé au personnel (compte avec e-mail) : demande
+  // du code puis saisie du code + nouveau mot de passe. Publiques comme
+  // /connexion, aucune session n'existe encore à ce stade.
+  { path: '/mot-de-passe-oublie', element: <MotDePasseOubliePage /> },
+  { path: '/reinitialiser-mot-de-passe', element: <ReinitialiserMotDePassePage /> },
   // Hors du gabarit applicatif : tant que le mot de passe est provisoire, il
   // n'y a ni menu ni tableau de bord à afficher autour.
   { path: '/mot-de-passe', element: <ChangerMotDePassePage /> },

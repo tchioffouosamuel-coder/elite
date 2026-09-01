@@ -148,7 +148,19 @@
     "error_lettres_chiffres": "Mélangez lettres et chiffres.",
     "error_mot_de_passe_different": "Choisissez un mot de passe différent du précédent.",
     "error_confirmation_mismatch": "La confirmation ne correspond pas.",
-    "submit_save_continue": "Enregistrer et continuer"
+    "submit_save_continue": "Enregistrer et continuer",
+    "forgot_password_link": "Mot de passe oublié ?",
+    "forgot_password_title": "Mot de passe oublié",
+    "forgot_password_subtitle": "Indiquez votre e-mail : si un compte existe, un code de vérification vous sera envoyé.",
+    "label_email": "E-mail",
+    "error_email_requis": "Saisissez votre e-mail.",
+    "submit_send_otp": "Recevoir le code",
+    "back_to_login": "Retour à la connexion",
+    "reset_password_title": "Réinitialiser le mot de passe",
+    "reset_password_subtitle": "Saisissez le code reçu par e-mail et choisissez un nouveau mot de passe.",
+    "label_otp": "Code de vérification",
+    "error_otp_requis": "Saisissez le code reçu par e-mail.",
+    "submit_reset_password": "Réinitialiser le mot de passe"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -1056,7 +1068,18 @@
     "colonnes_libres": "Colonnes libres",
     "colonnes_libres_hint": "Jusqu'à dix colonnes propres à cette matière, en plus de celles du gabarit — utile pour du vocabulaire, un support numérique, une note libre…",
     "colonne_placeholder": "Intitulé de la colonne",
-    "colonnes_enregistrees": "Colonnes enregistrées."
+    "colonnes_enregistrees": "Colonnes enregistrées.",
+    "import_groupe": {
+      "colonne_actions": "Modèle",
+      "telecharger_modele": "Télécharger le modèle vide de la classe",
+      "importer": "Importer le classeur rempli",
+      "titre": "Importer la progression — {{classe}}",
+      "etape_1": "1. Téléchargez le modèle vide de la classe : un classeur avec une feuille par matière affectée.",
+      "etape_2": "2. Remplissez chaque feuille (une ligne par leçon), sans renommer les feuilles.",
+      "etape_3": "3. Réimportez ici le même fichier complété. Les leçons déjà saisies sont complétées, jamais écrasées.",
+      "resultat": "{{creees}} leçon(s) créée(s), {{completees}} complétée(s) sur {{matieres}} matière(s).",
+      "feuilles_ignorees": "{{count}} feuille(s) ignorée(s)."
+    }
   },
   "journee": {
     "title": "Ma journée",

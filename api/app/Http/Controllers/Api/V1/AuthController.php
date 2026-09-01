@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ChangerMotDePasseRequest;
+use App\Http\Requests\Api\V1\DemanderOtpRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\ReinitialiserMotDePasseOtpRequest;
 use App\Http\Requests\Api\V1\UpdateProfilRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\AuthService;
@@ -48,7 +50,7 @@ class AuthController extends Controller
         );
 
         if (! $result) {
-            return ApiResponse::error("Ce jeton ne permet pas de renouveler la session.", 401);
+            return ApiResponse::error('Ce jeton ne permet pas de renouveler la session.', 401);
         }
 
         return ApiResponse::success([
@@ -90,5 +92,34 @@ class AuthController extends Controller
         $this->authService->logout($request->user());
 
         return ApiResponse::success(message: 'Déconnexion réussie.');
+    }
+
+    /**
+     * Toujours un succès, que l'adresse corresponde à un compte ou non — cf.
+     * {@see AuthService::demanderOtp()} pour la raison (pas d'énumération de
+     * comptes via cette route publique).
+     */
+    public function demanderOtp(DemanderOtpRequest $request): JsonResponse
+    {
+        $this->authService->demanderOtp($request->string('email')->toString());
+
+        return ApiResponse::success(message: 'Si un compte existe pour cette adresse, un code de vérification vient de lui être envoyé.');
+    }
+
+    public function reinitialiserMotDePasseOtp(ReinitialiserMotDePasseOtpRequest $request): JsonResponse
+    {
+        $reinitialise = $this->authService->reinitialiserAvecOtp(
+            $request->string('email')->toString(),
+            $request->string('otp')->toString(),
+            $request->string('nouveau_mot_de_passe')->toString(),
+        );
+
+        if (! $reinitialise) {
+            return ApiResponse::validationError(
+                ['otp' => ['Ce code est invalide ou a expiré.']],
+            );
+        }
+
+        return ApiResponse::success(message: 'Mot de passe réinitialisé. Vous pouvez vous connecter.');
     }
 }

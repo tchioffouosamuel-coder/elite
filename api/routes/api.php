@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
 use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
+use App\Http\Controllers\Api\V1\BudgetPersonnelController;
 use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\BusAffectationController;
@@ -24,30 +25,29 @@ use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\CompteController;
 use App\Http\Controllers\Api\V1\ConseilEcoleController;
 use App\Http\Controllers\Api\V1\DashboardController;
-use App\Http\Controllers\Api\V1\DepartementController;
-use App\Http\Controllers\Api\V1\BudgetPersonnelController;
-use App\Http\Controllers\Api\V1\DepenseController;
-use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
-use App\Http\Controllers\Api\V1\DetteAnterieureController;
+use App\Http\Controllers\Api\V1\DepartementController;
+use App\Http\Controllers\Api\V1\DepenseController;
 use App\Http\Controllers\Api\V1\DesktopProvisioningController;
+use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
-use App\Http\Controllers\Api\V1\PushDiagnosticController;
 use App\Http\Controllers\Api\V1\EleveController;
-use App\Http\Controllers\Api\V1\MatriculeNationalController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EnseignantController;
+use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
-use App\Http\Controllers\Api\V1\MalaiseReferentielController;
-use App\Http\Controllers\Api\V1\MoratoireController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
+use App\Http\Controllers\Api\V1\MalaiseReferentielController;
 use App\Http\Controllers\Api\V1\MatiereController;
+use App\Http\Controllers\Api\V1\MatriculeNationalController;
+use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
+use App\Http\Controllers\Api\V1\MoratoireController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
@@ -55,7 +55,6 @@ use App\Http\Controllers\Api\V1\NoteEleveController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\NotificationInterneController;
 use App\Http\Controllers\Api\V1\PaieController;
-use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
 use App\Http\Controllers\Api\V1\ParentEspaceController;
 use App\Http\Controllers\Api\V1\ParentPreinscriptionController;
 use App\Http\Controllers\Api\V1\ParentUsageStatsController;
@@ -66,6 +65,7 @@ use App\Http\Controllers\Api\V1\PhotoExamenController;
 use App\Http\Controllers\Api\V1\PointDeVenteController;
 use App\Http\Controllers\Api\V1\PreinscriptionAdminController;
 use App\Http\Controllers\Api\V1\ProgressionController;
+use App\Http\Controllers\Api\V1\PushDiagnosticController;
 use App\Http\Controllers\Api\V1\RapportFinancierController;
 use App\Http\Controllers\Api\V1\RapportRentreeExportController;
 use App\Http\Controllers\Api\V1\RapportRentreeTexteController;
@@ -100,6 +100,16 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->name('api.v1.')->group(function () {
 
     Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
+
+    // Mot de passe oublié : ces deux routes sont volontairement publiques
+    // (pas de session à ce stade) et limitées en fréquence pour empêcher
+    // l'envoi massif de courriels ou l'essai exhaustif d'un code à 6 chiffres.
+    Route::post('auth/mot-de-passe-oublie', [AuthController::class, 'demanderOtp'])
+        ->middleware('throttle:3,1')
+        ->name('auth.mot-de-passe-oublie');
+    Route::post('auth/reinitialiser-mot-de-passe', [AuthController::class, 'reinitialiserMotDePasseOtp'])
+        ->middleware('throttle:10,1')
+        ->name('auth.reinitialiser-mot-de-passe');
 
     // Provisioning d'une instance locale (client desktop offline) : aucun
     // utilisateur local n'existe encore avant `provisionner`, et `session`
@@ -491,6 +501,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:pedagogie.view')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
+                Route::get('classes/{classeId}/progression/modele', [ProgressionController::class, 'modeleClasse'])->name('progression.modele-classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
                 Route::get('classe-matieres/{classeMatiereId}/progression/pdf', [ProgressionController::class, 'pdf'])->name('progression.pdf');
                 Route::get('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'colonnes'])->name('progression-colonnes.index');
@@ -501,6 +512,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
                 Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
+                Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe');
                 Route::put('classe-matieres/{classeMatiereId}/progression/cartouche', [ProgressionController::class, 'enregistrerCartouche'])->name('progression.cartouche');
                 Route::put('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'enregistrerColonnes'])->name('progression-colonnes.save');
                 Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');

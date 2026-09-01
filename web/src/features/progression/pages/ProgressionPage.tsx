@@ -1,15 +1,25 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, ChevronRight, GitBranch, Search } from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronRight, Download, FileSpreadsheet, GitBranch, Search, Upload } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
-import { fetchProgressionClasse, fetchProgressionEtablissement, fetchProgramme } from '@/features/progression/api'
+import {
+  fetchProgressionClasse,
+  fetchProgressionEtablissement,
+  fetchProgramme,
+  telechargerModeleProgressionClasse,
+  importerProgressionClasse,
+  type TauxClasse,
+} from '@/features/progression/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { Button } from '@/shared/ui/Button'
+import { Modal } from '@/shared/ui/Modal'
+import { succes, erreur as alerteErreur } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 import { ProgrammeEditor } from '@/features/progression/pages/ProgrammeEditor'
 import { EvaluationsEditor } from '@/features/progression/pages/EvaluationsEditor'
 import { ChampsPersonnalisesEditor } from '@/features/progression/pages/ChampsPersonnalisesEditor'
@@ -45,7 +55,10 @@ export function ProgressionPage() {
 function ClassesProgressionView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [recherche, setRecherche] = useState('')
+  const [classeImport, setClasseImport] = useState<TauxClasse | null>(null)
+  const [telechargementId, setTelechargementId] = useState<number | null>(null)
   const { data: etablissement, isLoading } = useQuery({
     queryKey: ['progression-etablissement'],
     queryFn: fetchProgressionEtablissement,
@@ -56,6 +69,17 @@ function ClassesProgressionView() {
 
     return [ligne.classe, ligne.niveau].filter(Boolean).some((valeur) => valeur!.toLocaleLowerCase().includes(terme))
   })
+
+  const telecharger = async (ligne: TauxClasse) => {
+    setTelechargementId(ligne.classe_id)
+    try {
+      await telechargerModeleProgressionClasse(ligne.classe_id, ligne.classe)
+    } catch (err) {
+      alerteErreur((err as ApiError).message)
+    } finally {
+      setTelechargementId(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -85,6 +109,7 @@ function ClassesProgressionView() {
               <Th>{t('progression.lecons')}</Th>
               <Th>{t('progression.avancement_court')}</Th>
               <Th>{t('progression.par_matiere')}</Th>
+              <Th>{t('progression.import_groupe.colonne_actions')}</Th>
             </tr>
           </Thead>
           <tbody>
@@ -129,12 +154,119 @@ function ClassesProgressionView() {
                     )}
                   </div>
                 </Td>
+                <Td>
+                  <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      title={t('progression.import_groupe.telecharger_modele')}
+                      disabled={telechargementId === ligne.classe_id}
+                      onClick={() => telecharger(ligne)}
+                      className="rounded-lg border border-navy-200 p-1.5 text-navy-500 shadow-soft transition-colors hover:bg-navy-50 disabled:opacity-50"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      title={t('progression.import_groupe.importer')}
+                      onClick={() => setClasseImport(ligne)}
+                      className="rounded-lg border border-navy-200 p-1.5 text-navy-500 shadow-soft transition-colors hover:bg-navy-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                  </div>
+                </Td>
               </Tr>
             ))}
           </tbody>
         </Table>
       )}
+
+      {classeImport && (
+        <ImportModeleClasseModal
+          classe={classeImport}
+          onClose={() => setClasseImport(null)}
+          onImporte={() => queryClient.invalidateQueries({ queryKey: ['progression-etablissement'] })}
+        />
+      )}
     </div>
+  )
+}
+
+/** Import groupé de la fiche de progression d'une classe : un classeur, une feuille par matière. */
+function ImportModeleClasseModal({
+  classe,
+  onClose,
+  onImporte,
+}: {
+  classe: TauxClasse
+  onClose: () => void
+  onImporte: () => void
+}) {
+  const { t } = useTranslation()
+  const [fichier, setFichier] = useState<File | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  const envoyer = async () => {
+    if (!fichier) return
+    setEnvoi(true)
+    setErreur(null)
+    try {
+      const resultat = await importerProgressionClasse(classe.classe_id, fichier)
+      onImporte()
+      onClose()
+      succes(
+        t('progression.import_groupe.resultat', {
+          creees: resultat.creees,
+          completees: resultat.completees,
+          matieres: resultat.matieres_importees,
+        }) +
+          (resultat.feuilles_ignorees.length > 0
+            ? ` ${t('progression.import_groupe.feuilles_ignorees', { count: resultat.feuilles_ignorees.length })}`
+            : ''),
+      )
+    } catch (err) {
+      setErreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={t('progression.import_groupe.titre', { classe: classe.classe })} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-2 rounded-lg bg-cream-100 p-3 text-xs text-navy-600">
+          <FileSpreadsheet className="h-4 w-4 flex-none text-navy-400" />
+          <div className="flex flex-col gap-1">
+            <p>{t('progression.import_groupe.etape_1')}</p>
+            <p>{t('progression.import_groupe.etape_2')}</p>
+            <p className="text-navy-500">{t('progression.import_groupe.etape_3')}</p>
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('import.file')}</span>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => setFichier(e.target.files?.[0] ?? null)}
+            className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-navy-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cream-50"
+          />
+        </label>
+
+        {erreur && <p className="text-sm text-red-500">{erreur}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="button" onClick={envoyer} disabled={!fichier || envoi}>
+            <Upload className="h-4 w-4" />
+            {t('import.submit')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
