@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Users, FilePlus2, ClipboardList, LogOut, Megaphone } from 'lucide-react'
+import { Users, FilePlus2, ClipboardList, LogOut, Megaphone, UserCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -10,6 +10,7 @@ const liens = [
   { to: '/parent/annonces', fr: 'Annonces', en: 'Announcements', icon: Megaphone, end: true },
   { to: '/parent/preinscription/nouveau', fr: 'Inscrire un enfant', en: 'Register a child', icon: FilePlus2, end: true },
   { to: '/parent/preinscriptions', fr: 'Mes démarches', en: 'My requests', icon: ClipboardList, end: true },
+  { to: '/parent/profil', fr: 'Mon compte', en: 'My account', icon: UserCircle, end: true },
 ]
 
 function initiales(nom?: string) {

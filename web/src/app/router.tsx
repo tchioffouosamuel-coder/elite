@@ -279,6 +279,7 @@ export const router = createHashRouter([
       { path: 'preinscription/nouveau', element: <ParentPreinscriptionNouveauPage /> },
       { path: 'preinscription/existant/:eleveId', element: <ParentPreinscriptionExistantPage /> },
       { path: 'preinscriptions', element: <ParentPreinscriptionsListPage /> },
+      { path: 'profil', element: <UserProfilePage /> },
     ],
   },
 ])
