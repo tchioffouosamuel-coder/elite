@@ -67,4 +67,9 @@ class Preinscription extends Model
     {
         return $this->belongsTo(User::class, 'traite_par');
     }
+
+    public function versement(): BelongsTo
+    {
+        return $this->belongsTo(Versement::class);
+    }
 }

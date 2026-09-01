@@ -371,6 +371,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
 
                 Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
+                Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store');
                 Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
                 Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');

@@ -167,6 +167,54 @@ class PreinscriptionService extends BaseService
     }
 
     /**
+     * Préinscription créée et validée d'un même geste par l'admin, pour un
+     * élève déjà connu du système — la réinscription de fin d'année, saisie
+     * directement au guichet plutôt que déposée puis examinée. Contrairement
+     * à {@see soumettre()}, elle ne passe jamais par `en_attente` : la ligne
+     * de la file d'attente n'existe que pour l'historique, déjà `validee` à
+     * la création.
+     *
+     * `tuteur_id` est une colonne obligatoire de la table (l'auteur de la
+     * demande, côté parent) : ici, il n'y a pas de demandeur, donc on y met
+     * le tuteur principal de l'élève — celui qu'un dossier existant porte
+     * forcément, sans quoi il n'aurait pas pu être inscrit la première fois.
+     *
+     * @param  array{
+     *   donnees_eleve: array, donnees_tuteurs: array,
+     *   montant_verser?: ?int, mode_versement?: ?string, reference_externe?: ?string, rubriques_versement?: ?array,
+     * }  $donnees
+     */
+    public function creerEtValiderParAdmin(Eleve $eleve, array $donnees, int $adminUserId): Preinscription
+    {
+        $tuteurId = $eleve->tuteurs()->wherePivot('is_principal', true)->value('tuteurs.id')
+            ?? $eleve->tuteurs()->value('tuteurs.id');
+
+        if ($tuteurId === null) {
+            throw new RuntimeException(
+                "Cet élève n'a aucun tuteur enregistré : ajoutez-en un depuis sa fiche avant de le réinscrire."
+            );
+        }
+
+        return $this->transaction(function () use ($eleve, $tuteurId, $donnees, $adminUserId) {
+            $preinscription = Preinscription::create([
+                'school_id' => $eleve->school_id,
+                'tuteur_id' => $tuteurId,
+                'eleve_id' => $eleve->id,
+                'type' => 'existant',
+                'statut' => 'en_attente',
+                'donnees_eleve' => $donnees['donnees_eleve'],
+                'donnees_tuteurs' => $donnees['donnees_tuteurs'],
+                'montant_verser' => $donnees['montant_verser'] ?? null,
+                'mode_versement' => $donnees['mode_versement'] ?? null,
+                'reference_externe' => $donnees['reference_externe'] ?? null,
+                'rubriques_versement' => $donnees['rubriques_versement'] ?? null,
+            ]);
+
+            return $this->valider($preinscription, $adminUserId);
+        });
+    }
+
+    /**
      * Corrige les informations d'une préinscription avant validation — une
      * coquille ou un champ mal orthographié ne doit pas obliger à rejeter puis
      * à faire redéposer toute la démarche. Fermé dès que la préinscription est

@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnneeScolaire;
 use App\Models\Eleve;
 use App\Models\NotificationInterne;
 use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\User;
+use App\Models\Versement;
 use App\Services\PreinscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -210,5 +212,86 @@ class PreinscriptionAdminTest extends TestCase
         ]);
 
         $reponse->assertStatus(404);
+    }
+
+    // --------------------------------------------------- Création par l'admin
+
+    /** Réinscription au guichet : l'admin choisit un élève déjà connu, saisie et validation en un seul appel. */
+    public function test_admin_cree_et_valide_une_preinscription_pour_un_eleve_existant(): void
+    {
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SEC2', 'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $reponse = $this->actingAs($this->admin(), 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->postJson('/api/v1/preinscriptions', [
+                'eleve_id' => $eleve->id,
+                'donnees_eleve' => [
+                    'nom_complet' => 'Mballa Aline', 'sexe' => 'F', 'date_naissance' => '2016-01-01',
+                    'adresse' => 'Nouvelle adresse',
+                ],
+                'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000', 'is_principal' => true]],
+            ]);
+
+        $reponse->assertCreated()->assertJsonPath('data.statut', 'validee');
+
+        $preinscription = Preinscription::where('eleve_id', $eleve->id)->firstOrFail();
+        $this->assertSame('validee', $preinscription->statut);
+        $this->assertNotNull($preinscription->traite_le);
+        $this->assertSame('Nouvelle adresse', $eleve->fresh()->adresse);
+    }
+
+    /** Un versement annoncé à la réinscription est encaissé immédiatement et le reçu est référencé dans la réponse. */
+    public function test_admin_encaisse_immediatement_si_un_montant_est_indique(): void
+    {
+        AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+        ]);
+
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SEC3', 'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $reponse = $this->actingAs($this->admin(), 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->postJson('/api/v1/preinscriptions', [
+                'eleve_id' => $eleve->id,
+                'donnees_eleve' => ['nom_complet' => 'Mballa Aline', 'sexe' => 'F', 'date_naissance' => '2016-01-01'],
+                'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000']],
+                'montant_verser' => 25000,
+                'mode_versement' => 'especes',
+            ]);
+
+        $reponse->assertCreated();
+        $versementId = $reponse->json('data.versement_id');
+
+        $this->assertNotNull($versementId);
+        $this->assertSame(25000, Versement::findOrFail($versementId)->montant);
+    }
+
+    /** Sans tuteur au dossier, il n'y a personne à qui rattacher la demande : refusé plutôt que planté sur une contrainte de base. */
+    public function test_admin_ne_peut_pas_reinscrire_un_eleve_sans_tuteur(): void
+    {
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SEC4', 'nom_complet' => 'Sans Tuteur',
+            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+
+        $reponse = $this->actingAs($this->admin(), 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->postJson('/api/v1/preinscriptions', [
+                'eleve_id' => $eleve->id,
+                'donnees_eleve' => ['nom_complet' => 'Sans Tuteur', 'sexe' => 'M', 'date_naissance' => '2016-01-01'],
+                'donnees_tuteurs' => [['nom_complet' => 'Un parent']],
+            ]);
+
+        $reponse->assertStatus(422);
+        $this->assertSame(0, Preinscription::where('eleve_id', $eleve->id)->count());
     }
 }

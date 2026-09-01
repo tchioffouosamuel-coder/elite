@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Services\PreinscriptionService;
 use App\Support\Tenant;
@@ -43,6 +44,64 @@ class PreinscriptionAdminController extends Controller
             'rubriques_versement' => $p->rubriques_versement,
             'classe_actuelle' => $p->eleve?->classe?->nom,
         ]);
+    }
+
+    /**
+     * Préinscription créée par l'admin lui-même, pour un élève déjà connu du
+     * système (réinscription au guichet) — saisie et validée du même geste,
+     * sans passer par la file d'attente « en attente ». Cf.
+     * `PreinscriptionService::creerEtValiderParAdmin()`.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'eleve_id' => ['required', 'integer'],
+
+            'donnees_eleve.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_eleve.sexe' => ['required', 'in:M,F'],
+            'donnees_eleve.date_naissance' => ['required', 'date'],
+            'donnees_eleve.lieu_naissance' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_eleve.numero_acte_naissance' => ['nullable', 'string', 'max:100'],
+            'donnees_eleve.lieu_delivrance_acte' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.officier_etat_civil' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.groupe_sanguin' => ['nullable', 'string', 'max:10'],
+            'donnees_eleve.situation_sanitaire' => ['nullable', 'string', 'max:1000'],
+            'donnees_eleve.aptitude' => ['nullable', 'in:apte,inapte'],
+            'donnees_eleve.allergies' => ['nullable', 'string', 'max:1000'],
+
+            'donnees_tuteurs' => ['required', 'array', 'min:1'],
+            'donnees_tuteurs.*.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
+            'donnees_tuteurs.*.email' => ['nullable', 'email', 'max:150'],
+            'donnees_tuteurs.*.profession' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.lieu_service' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
+            'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+
+            'montant_verser' => ['nullable', 'integer', 'min:1'],
+            'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
+            'reference_externe' => ['nullable', 'string', 'max:100'],
+            'rubriques_versement' => ['nullable', 'array', 'min:1'],
+            'rubriques_versement.*.affectation' => ['required_with:rubriques_versement', 'in:scolarite,frais_annexe,report_dette'],
+            'rubriques_versement.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
+            'rubriques_versement.*.libelle' => ['nullable', 'string', 'max:150'],
+            'rubriques_versement.*.montant' => ['required_with:rubriques_versement', 'integer', 'min:1'],
+        ]);
+
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($data['eleve_id']);
+
+        try {
+            $p = $this->service->creerEtValiderParAdmin($eleve, $data, $request->user()->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::created(
+            $this->resume($p->load('eleve:id,nom_complet,matricule')),
+            'Préinscription enregistrée et validée.'
+        );
     }
 
     /** Corrige les informations proposées par le parent avant validation (coquille, champ oublié…). */
@@ -125,6 +184,7 @@ class PreinscriptionAdminController extends Controller
             'eleve' => $p->eleve ? ['id' => $p->eleve->id, 'nom_complet' => $p->eleve->nom_complet, 'matricule' => $p->eleve->matricule] : null,
             'nom_propose' => $p->donnees_eleve['nom_complet'] ?? null,
             'montant_verser' => $p->montant_verser,
+            'versement_id' => $p->versement_id,
             'motif_rejet' => $p->motif_rejet,
             'created_at' => $p->created_at->format('Y-m-d H:i'),
             'traite_le' => $p->traite_le?->format('Y-m-d H:i'),
