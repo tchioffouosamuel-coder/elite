@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Mail, Lock, ShieldCheck, Eye, EyeOff, Server } from 'lucide-react'
+import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
@@ -16,11 +16,16 @@ import type { ApiError } from '@/shared/types/api'
 interface LoginForm {
   identifiant: string
   password: string
-  serveur_url?: string
 }
 
 /** Présent uniquement dans le client desktop (cf. web/desktop/src/preload.cjs). */
 const estDesktop = Boolean(window.desktop)
+
+/**
+ * Un seul établissement distribue ce client desktop : l'utilisateur n'a pas
+ * à connaître ni à saisir l'adresse du serveur au premier lancement.
+ */
+const SERVEUR_URL_DESKTOP = 'https://elite.artiscodeagency.tech'
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -65,7 +70,7 @@ export function LoginPage() {
     try {
       if (estDesktop && !posteProvisionne) {
         const session = await provisionnerPoste({
-          serveurUrl: form.serveur_url ?? '',
+          serveurUrl: SERVEUR_URL_DESKTOP,
           identifiant: form.identifiant,
           password: form.password,
         })
@@ -151,17 +156,6 @@ export function LoginPage() {
             <p className="mb-7 mt-1.5 text-sm text-navy-400">{t('auth.login_subtitle')}</p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-              {estDesktop && !posteProvisionne && (
-                <Input
-                  label={t('auth.serveur_url')}
-                  type="url"
-                  icon={Server}
-                  placeholder="https://ecole.exemple.com"
-                  autoComplete="url"
-                  error={errors.serveur_url?.message}
-                  {...register('serveur_url', { required: true })}
-                />
-              )}
               <Input
                 label={t('auth.identifiant')}
                 type="text"

@@ -11,6 +11,16 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Un poste desktop migre cette même base à chaque lancement, avant
+        // même que l'utilisateur ne se connecte : y créer ce compte par
+        // défaut (identifiants publics, connus de quiconque lit ce fichier)
+        // laisserait une fenêtre où l'installation dispose d'un accès
+        // super-admin non voulu, tant que le provisioning n'a pas encore
+        // écrasé cette ligne avec le vrai compte distant.
+        if (config('sync.local_replica')) {
+            return;
+        }
+
         $role = Role::firstOrCreate([
             'name' => 'super_admin',
             'guard_name' => 'web',
