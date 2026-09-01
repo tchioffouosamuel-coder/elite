@@ -79,7 +79,7 @@ class ParentUsageStatsService extends BaseService
     {
         $connexions = ActivityLog::forSchool($schoolIds)
             ->where('action', 'connexion')
-            ->whereHas('user', fn ($q) => $q->role('parent'))
+            ->whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'parent')))
             ->whereBetween('created_at', [$debut, $fin]);
 
         return [
