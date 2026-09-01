@@ -8,6 +8,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Presence;
 use App\Models\Seance;
+use App\Models\User;
 use App\Services\EmploiDuTempsService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +32,7 @@ class SeanceController extends Controller
             ->orderByDesc('date_seance')->orderBy('heure_debut')
             ->get();
 
-        return ApiResponse::success($seances->map($this->presenter(...)));
+        return ApiResponse::success($seances->map(fn (Seance $s) => $this->presenter($s, $request->user())));
     }
 
     public function store(Request $request, int $classeId): JsonResponse
@@ -57,7 +58,7 @@ class SeanceController extends Controller
         $seance = Seance::create([...$data, 'classe_id' => $classe->id, 'school_id' => $classe->school_id]);
 
         return ApiResponse::created(
-            $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant')),
+            $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant'), $request->user()),
             'Séance créée.'
         );
     }
@@ -75,7 +76,7 @@ class SeanceController extends Controller
         $seance->update($data);
 
         return ApiResponse::success(
-            $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant')),
+            $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant'), $request->user()),
             'Séance mise à jour.'
         );
     }
@@ -88,14 +89,14 @@ class SeanceController extends Controller
     }
 
     /** Feuille d'appel de la séance. */
-    public function appel(int $id): JsonResponse
+    public function appel(Request $request, int $id): JsonResponse
     {
         $seance = $this->seance($id);
 
         $classes = $seance->classesConcernees();
 
         return ApiResponse::success([
-            'seance' => $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant')),
+            'seance' => $this->presenter($seance->load('classeMatiere.matiere', 'classeMatiere.enseignant'), $request->user()),
             /*
              * Un cours en tronc commun réunit plusieurs classes : l'écran doit
              * l'annoncer, sinon un enseignant qui voit trois fois plus d'élèves
@@ -103,7 +104,7 @@ class SeanceController extends Controller
              */
             'tronc_commun' => $classes->count() > 1,
             'classes' => $classes->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
-            'verrouille' => $seance->appelVerrouille(),
+            'verrouille' => $seance->appelVerrouillePour($request->user()),
             'modifiable_jusqua' => $seance->appel_verrouille_le
                 ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
                 ?->toIso8601String(),
@@ -132,7 +133,7 @@ class SeanceController extends Controller
         );
 
         abort_if(
-            $seance->appelVerrouille(),
+            $seance->appelVerrouillePour($request->user()),
             403,
             "L'appel de cette séance est verrouillé depuis plus de ".Seance::MINUTES_VERROUILLAGE_APPEL." minutes. Contactez le Surveillant Général pour une correction."
         );
@@ -162,7 +163,7 @@ class SeanceController extends Controller
         return Seance::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
-    private function presenter(Seance $seance): array
+    private function presenter(Seance $seance, User $user): array
     {
         return [
             'id' => $seance->id,
@@ -177,7 +178,7 @@ class SeanceController extends Controller
             'contenu' => $seance->contenu,
             'statut' => $seance->statut,
             'absents' => $seance->absents_count,
-            'verrouille' => $seance->appelVerrouille(),
+            'verrouille' => $seance->appelVerrouillePour($user),
             'demarree' => $seance->aCommence(),
         ];
     }

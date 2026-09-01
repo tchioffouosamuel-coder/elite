@@ -135,7 +135,7 @@ class MaJourneeService extends BaseService
     /**
      * Feuille du jour : leçons du programme à cocher et appel de la classe.
      */
-    public function feuilleDuJour(ClasseMatiere $classeMatiere, Seance $seance): array
+    public function feuilleDuJour(ClasseMatiere $classeMatiere, Seance $seance, User $user): array
     {
         $faites = $seance->lecons()->pluck('progression_items.id')->flip();
 
@@ -169,7 +169,7 @@ class MaJourneeService extends BaseService
                 // L'appel ET les leçons cochées se soumettent ensemble ici : le
                 // même verrou couvre les deux, 15 minutes après la première
                 // déclaration de cette séance (cf. `enregistrer()`).
-                'verrouille' => $seance->appelVerrouille(),
+                'verrouille' => $seance->appelVerrouillePour($user),
                 'aujourdhui' => $seance->estAujourdhui(),
                 'modifiable_jusqua' => $seance->appel_verrouille_le
                     ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
@@ -206,6 +206,7 @@ class MaJourneeService extends BaseService
         Seance $seance,
         array $leconIds,
         array $appel,
+        User $user,
         ?string $observations = null,
         array $donneesPersonnalisees = [],
         bool $qrVerifie = false,
@@ -213,9 +214,10 @@ class MaJourneeService extends BaseService
         // L'appel et les leçons cochées se soumettent depuis le même écran :
         // un seul verrou couvre les deux, sans quoi un enseignant pourrait
         // continuer à ajouter des leçons « traitées » bien après la fenêtre de
-        // correction de l'appel — ou l'inverse.
+        // correction de l'appel — ou l'inverse. Le super admin peut outrepasser
+        // ce verrou (cf. Seance::appelVerrouillePour()).
         abort_if(
-            $seance->appelVerrouille(),
+            $seance->appelVerrouillePour($user),
             403,
             'La déclaration de cette séance est verrouillée depuis plus de '.Seance::MINUTES_VERROUILLAGE_APPEL.' minutes. Contactez le Surveillant Général pour une correction.'
         );

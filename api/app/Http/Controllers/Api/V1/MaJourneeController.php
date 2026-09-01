@@ -51,7 +51,7 @@ class MaJourneeController extends Controller
             return ApiResponse::error($e->getMessage(), 422);
         }
 
-        return ApiResponse::success($this->service->feuilleDuJour($classeMatiere, $seance));
+        return ApiResponse::success($this->service->feuilleDuJour($classeMatiere, $seance, $request->user()));
     }
 
     public function enregistrer(Request $request, int $classeMatiereId): JsonResponse
@@ -116,13 +116,14 @@ class MaJourneeController extends Controller
             $seance,
             $data['lecons'],
             $data['appel'],
+            $request->user(),
             $data['observations'] ?? null,
             $data['donnees_personnalisees'] ?? [],
             $qrValide,
         );
 
         return ApiResponse::success(
-            [...$resultat, ...$this->service->feuilleDuJour($classeMatiere, $seance->refresh())],
+            [...$resultat, ...$this->service->feuilleDuJour($classeMatiere, $seance->refresh(), $request->user())],
             "Journée enregistrée : {$resultat['lecons']} leçon(s), {$resultat['eleves']} élève(s) pointé(s)."
         );
     }

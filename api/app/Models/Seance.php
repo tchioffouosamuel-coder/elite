@@ -43,6 +43,18 @@ class Seance extends Model
             && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
     }
 
+    /**
+     * Le super admin peut corriger un appel même verrouillé — c'est la
+     * correction que le message d'erreur promet sans qu'aucun autre chemin
+     * ne l'implémente ; le Surveillant Général, lui, n'a pas cette
+     * dérogation (cf. estPersonnelDirection(), plus large, réservée au jour
+     * courant et au QR).
+     */
+    public function appelVerrouillePour(User $user): bool
+    {
+        return $this->appelVerrouille() && ! $user->estSuperAdmin();
+    }
+
     /** Seule date sur laquelle un enseignant peut déclarer leçons et appel. */
     public function estAujourdhui(): bool
     {
