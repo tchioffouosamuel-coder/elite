@@ -2,46 +2,70 @@
 
 namespace App\Support\Sync;
 
+use App\Models\AbsenceTrimestre;
+use App\Models\ActiviteRentree;
+use App\Models\Amortissement;
 use App\Models\AnneeScolaire;
 use App\Models\Annonce;
+use App\Models\Apee;
+use App\Models\AssuranceScolaire;
 use App\Models\AvanceSalaire;
 use App\Models\BudgetFonctionnement;
 use App\Models\BudgetPersonnel;
+use App\Models\BulletinPublication;
 use App\Models\BusAffectation;
 use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\BusVehicule;
 use App\Models\BusVersement;
 use App\Models\Appreciation;
+use App\Models\ChampPersonnalise;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Competence;
 use App\Models\CompteComptable;
+use App\Models\ConseilEcole;
 use App\Models\DemandeAvanceSalaire;
 use App\Models\Departement;
+use App\Models\Depense;
 use App\Models\DetteAnterieure;
+use App\Models\DocumentReference;
 use App\Models\DossierFraisAnnexe;
 use App\Models\DossierScolarite;
 use App\Models\EcritureComptable;
 use App\Models\Eleve;
 use App\Models\EleveTuteur;
 use App\Models\EmploiDuTemps;
+use App\Models\EntreeStock;
 use App\Models\EquipementMobilier;
+use App\Models\Evaluation;
+use App\Models\EvaluationQuestion;
 use App\Models\FonctionReferentiel;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
+use App\Models\Immobilisation;
 use App\Models\Infrastructure;
 use App\Models\InventaireArticle;
+use App\Models\JustificationAbsence;
+use App\Models\MalaiseReferentiel;
 use App\Models\Matiere;
+use App\Models\ModificationEleve;
 use App\Models\Moratoire;
 use App\Models\Niveau;
+use App\Models\NiveauScolaire;
 use App\Models\NotificationInterne;
 use App\Models\Note;
+use App\Models\Observation;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\Presence;
+use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
+use App\Models\RapportRentreeTexte;
+use App\Models\RapportTrimestreTexte;
 use App\Models\Remise;
+use App\Models\Revendication;
 use App\Models\Sanction;
 use App\Models\Seance;
 use App\Models\Sequence;
@@ -51,8 +75,12 @@ use App\Models\Trimestre;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
 use App\Models\User;
+use App\Models\VenteDenree;
+use App\Models\VenteFourniture;
+use App\Models\VenteFournitureLigne;
 use App\Models\Versement;
 use App\Models\VersementLigne;
+use App\Models\VisiteAutorite;
 use App\Models\VisiteInfirmerie;
 use App\Models\VisiteInfirmerieMateriel;
 use Illuminate\Database\Eloquent\Builder;
@@ -226,6 +254,39 @@ class RegistreSync
                         ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classes.id', $classesPerimetre))),
                 'permission' => 'pedagogie.view',
             ],
+            // Niveau interne au primaire/maternelle (SIL, CP, CE1… — page
+            // « Niveaux d'enseignement »), un modèle distinct de `Niveau`
+            // (référentiel MINESEC partagé) malgré le nom proche.
+            'niveaux_scolaires' => [
+                'modele' => NiveauScolaire::class,
+                'colonnes' => ['id', 'school_id', 'code', 'libelle', 'ordre', 'animateur_personnel_id'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'pedagogie.view',
+            ],
+            'champs_personnalises' => [
+                'modele' => ChampPersonnalise::class,
+                'colonnes' => ['id', 'classe_matiere_id', 'libelle', 'type', 'ordre'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
+                'permission' => 'pedagogie.view',
+            ],
+            'progression_colonnes' => [
+                'modele' => ProgressionColonne::class,
+                'colonnes' => ['id', 'classe_matiere_id', 'libelle', 'ordre'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
+                'permission' => 'pedagogie.view',
+            ],
+            'evaluations' => [
+                'modele' => Evaluation::class,
+                'colonnes' => ['id', 'school_id', 'classe_matiere_id', 'progression_item_id', 'titre', 'type', 'date_prevue', 'bareme', 'competences', 'cree_par'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'pedagogie.view',
+            ],
+            'evaluation_questions' => [
+                'modele' => EvaluationQuestion::class,
+                'colonnes' => ['id', 'evaluation_id', 'enonce', 'bareme_question', 'ordre'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('evaluation', fn ($e) => $e->where('school_id', $s)),
+                'permission' => 'pedagogie.view',
+            ],
 
             // --- Personnes.
             'eleves' => [
@@ -284,6 +345,38 @@ class RegistreSync
                 'permission' => 'eleves.manage',
             ],
 
+            // --- Dossier élève : dépôts et échanges avec la famille.
+            'preinscriptions' => [
+                'modele' => Preinscription::class,
+                'colonnes' => ['id', 'school_id', 'tuteur_id', 'eleve_id', 'type', 'statut', 'donnees_eleve', 'donnees_tuteurs', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement', 'versement_id', 'motif_rejet', 'traite_par', 'traite_le'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'eleves.manage',
+            ],
+            'modifications_eleves' => [
+                'modele' => ModificationEleve::class,
+                'colonnes' => ['id', 'school_id', 'eleve_id', 'tuteur_id', 'donnees', 'statut', 'motif_rejet', 'traite_par', 'traite_le'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'eleves.manage',
+            ],
+            'observations' => [
+                'modele' => Observation::class,
+                'colonnes' => ['id', 'school_id', 'eleve_id', 'user_id', 'contenu'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'eleves.view',
+            ],
+            'justifications_absences' => [
+                'modele' => JustificationAbsence::class,
+                'colonnes' => ['id', 'school_id', 'eleve_id', 'tuteur_id', 'date_debut', 'date_fin', 'motif', 'description', 'statut', 'presence_id'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'emploi_du_temps.view',
+            ],
+            'absences_trimestre' => [
+                'modele' => AbsenceTrimestre::class,
+                'colonnes' => ['id', 'eleve_id', 'trimestre_id', 'heures_justifiees', 'heures_non_justifiees', 'mis_a_jour_par'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'permission' => 'notes.view',
+            ],
+
             // --- Écritures du quotidien : le cœur du hors-ligne.
             'seances' => [
                 'modele' => Seance::class,
@@ -317,6 +410,18 @@ class RegistreSync
                 'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)
                     ->when($classesPerimetre !== null, fn (Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
                 'permission' => 'discipline.view',
+            ],
+            'revendications' => [
+                'modele' => Revendication::class,
+                'colonnes' => ['id', 'eleve_id', 'classe_matiere_id', 'trimestre_id', 'type', 'objet', 'motif', 'statut', 'decision', 'date_reception', 'date_traitement', 'enregistre_par', 'traite_par'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'permission' => 'revendications.view',
+            ],
+            'bulletin_publications' => [
+                'modele' => BulletinPublication::class,
+                'colonnes' => ['id', 'school_id', 'trimestre_id', 'classe_id', 'publie_par', 'publie_le'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'bulletins.view',
             ],
 
             // --- Communication.
@@ -424,6 +529,112 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'rubrique', 'montant_percu', 'observations'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
+            ],
+            'depenses' => [
+                'modele' => Depense::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'compte_comptable_id', 'rubrique_budget_fonctionnement', 'vehicule_id', 'budget_personnel_id', 'date_depense', 'libelle', 'montant', 'source', 'mode', 'beneficiaire', 'reference_facture', 'responsable', 'saisi_par', 'justificatif_path', 'statut', 'annule_le', 'annule_par', 'motif_annulation'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'finance.depenses',
+            ],
+            'immobilisations' => [
+                'modele' => Immobilisation::class,
+                'colonnes' => ['id', 'school_id', 'depense_id', 'compte_comptable_id', 'libelle', 'montant', 'date_mise_en_service', 'duree_annees', 'cede_le'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'finance.rapports',
+            ],
+            'amortissements' => [
+                'modele' => Amortissement::class,
+                'colonnes' => ['id', 'immobilisation_id', 'annee_scolaire_id', 'montant', 'date_dotation'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('immobilisation', fn ($i) => $i->where('school_id', $s)),
+                'permission' => 'finance.rapports',
+            ],
+
+            // --- Rapport de rentrée / vie scolaire annuelle.
+            'conseils_ecole' => [
+                'modele' => ConseilEcole::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'existe', 'date_ag_elective', 'duree_mandat', 'fin_mandat', 'president_nom', 'president_fonction', 'president_telephone', 'statut_projet_ecole', 'observations'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'finance.rapports',
+            ],
+            'apee' => [
+                'modele' => Apee::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'legalisee', 'date_legalisation', 'numero_recepisse', 'banque', 'numero_compte', 'president_nom', 'president_fonction', 'president_telephone', 'date_ag_elective', 'fin_mandat', 'taux_par_eleve', 'montant_percu', 'montant_depense', 'realisations'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'finance.rapports',
+            ],
+            'assurances_scolaires' => [
+                'modele' => AssuranceScolaire::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'libelle', 'effectif', 'nom_assureur', 'numero_police'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'finance.rapports',
+            ],
+            'visites_autorites' => [
+                'modele' => VisiteAutorite::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'date_visite', 'qualite_autorite', 'nature_visite', 'objectifs', 'observations'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'rapport_rentree.view',
+            ],
+            'activites_rentree' => [
+                'modele' => ActiviteRentree::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'categorie', 'activite', 'periode', 'objectifs_vises', 'prevues', 'faites', 'taux_realisation', 'observations'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'rapport_rentree.view',
+            ],
+            'ventes_denrees' => [
+                'modele' => VenteDenree::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'nature', 'vendeur_nom', 'dossier_medical_ok', 'frais_verses', 'gestion_frais'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'rapport_rentree.view',
+            ],
+            'rapport_rentree_textes' => [
+                'modele' => RapportRentreeTexte::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'rubrique', 'contenu'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'rapport_rentree.view',
+            ],
+            'rapport_trimestre_textes' => [
+                'modele' => RapportTrimestreTexte::class,
+                'colonnes' => ['id', 'school_id', 'trimestre_id', 'rubrique', 'contenu'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'rapport_trimestre.view',
+            ],
+
+            // --- Point de vente (fournitures/denrées).
+            'ventes_fournitures' => [
+                'modele' => VenteFourniture::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'numero_facture', 'date_vente', 'montant', 'mode', 'eleve_id', 'client', 'vendu_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'point_de_vente.view',
+            ],
+            'vente_fourniture_lignes' => [
+                'modele' => VenteFournitureLigne::class,
+                'colonnes' => ['id', 'vente_fourniture_id', 'inventaire_article_id', 'libelle', 'quantite', 'prix_unitaire', 'cout_unitaire'],
+                'portee' => fn (Builder $q, int $s) => $q->whereHas('vente', fn ($v) => $v->where('school_id', $s)),
+                'permission' => 'point_de_vente.view',
+            ],
+            'entrees_stock' => [
+                'modele' => EntreeStock::class,
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'inventaire_article_id', 'date_entree', 'quantite', 'cout_unitaire', 'fournisseur', 'reference', 'enregistre_par', 'note'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'point_de_vente.view',
+            ],
+
+            // --- Référentiel infirmerie, sur le même modèle que fonction_referentiel.
+            'malaises_referentiel' => [
+                'modele' => MalaiseReferentiel::class,
+                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'infirmerie.view',
+            ],
+
+            // --- Registre des numéros de documents officiels (attestations,
+            // reçus...) : aucune permission de lecture dédiée, comme
+            // `comptes_comptables` — usage interne à la génération de documents.
+            'document_references' => [
+                'modele' => DocumentReference::class,
+                'colonnes' => ['id', 'school_id', 'type', 'annee_scolaire_id', 'numero', 'genere_par'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
             ],
 
             // --- Paie / RH. Volontairement restreint : `Remuneration` (montants
@@ -570,19 +781,29 @@ class RegistreSync
             'tranches_scolarite', 'ecritures_comptables', 'budgets_fonctionnement',
             'avances_salaire', 'demandes_avance_salaire', 'budgets_personnel',
             'bus_vehicules', 'bus_trajets', 'bus_versements',
-            'inventaire_articles', 'infrastructures', 'equipements_mobiliers' => $m->school_id,
+            'inventaire_articles', 'infrastructures', 'equipements_mobiliers',
+            'niveaux_scolaires', 'evaluations', 'preinscriptions', 'modifications_eleves',
+            'observations', 'justifications_absences', 'depenses', 'immobilisations',
+            'conseils_ecole', 'apee', 'assurances_scolaires', 'visites_autorites',
+            'activites_rentree', 'ventes_denrees', 'rapport_rentree_textes', 'rapport_trimestre_textes',
+            'ventes_fournitures', 'entrees_stock', 'malaises_referentiel',
+            'document_references' => $m->school_id,
 
             'trimestres' => $m->anneeScolaire?->school_id,
             'sequences' => $m->trimestre?->anneeScolaire?->school_id,
             'classe_matieres', 'classe_competences' => $m->classe?->school_id,
-            'progression_items' => $m->classeMatiere?->classe?->school_id,
+            'progression_items', 'champs_personnalises', 'progression_colonnes' => $m->classeMatiere?->classe?->school_id,
             'presences' => $m->seance?->school_id,
-            'notes', 'sanctions', 'bus_affectations', 'visites_infirmerie', 'eleve_tuteurs' => $m->eleve?->school_id,
+            'notes', 'sanctions', 'bus_affectations', 'visites_infirmerie',
+            'eleve_tuteurs', 'revendications', 'absences_trimestre' => $m->eleve?->school_id,
             'dossier_frais_annexes' => $m->dossier?->school_id,
             'versement_lignes' => $m->versement?->school_id,
             'bus_arrets' => $m->trajet?->school_id,
             'visite_infirmerie_materiels' => $m->visite?->eleve?->school_id,
             'tuteur_telephones' => $m->tuteur?->school_id,
+            'evaluation_questions' => $m->evaluation?->school_id,
+            'amortissements' => $m->immobilisation?->school_id,
+            'vente_fourniture_lignes' => $m->vente?->school_id,
             // Référentiel commun au complexe : aucune pierre tombale scopée
             // par école n'a de sens pour lui (même statut que `niveaux`
             // partagés, mais sans repli possible ici).

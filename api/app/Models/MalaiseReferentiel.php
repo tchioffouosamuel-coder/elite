@@ -11,8 +11,6 @@ class MalaiseReferentiel extends Model
 {
     protected $table = 'malaises_referentiel';
 
-    public $timestamps = false;
-
     protected $fillable = ['school_id', 'label_fr', 'label_en'];
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
