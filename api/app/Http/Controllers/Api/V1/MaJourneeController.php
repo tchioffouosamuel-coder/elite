@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Presence;
+use App\Models\ProgressionItem;
 use App\Services\MaJourneeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -99,6 +100,17 @@ class MaJourneeController extends Controller
             return ApiResponse::error($e->getMessage(), 422);
         }
 
+        // Un enseignant ne déclare que la journée en cours ; la direction, déjà
+        // dispensée du QR (cf. doitScannerQrPourValiderAppel()), l'est aussi de
+        // cette contrainte pour pouvoir corriger une date antérieure.
+        if (! $seance->estAujourdhui() && ! $request->user()->estPersonnelDirection()) {
+            return ApiResponse::error(
+                "Vous ne pouvez déclarer que la journée en cours. Contactez la direction pour une correction sur une autre date.",
+                403,
+                ['code' => 'seance_hors_jour']
+            );
+        }
+
         $resultat = $this->service->enregistrer(
             $classeMatiere,
             $seance,
@@ -113,6 +125,41 @@ class MaJourneeController extends Controller
             [...$resultat, ...$this->service->feuilleDuJour($classeMatiere, $seance->refresh())],
             "Journée enregistrée : {$resultat['lecons']} leçon(s), {$resultat['eleves']} élève(s) pointé(s)."
         );
+    }
+
+    /**
+     * Détails prévus d'une leçon (fiche de préparation), pour l'afficher avant
+     * de la marquer comme faite — mêmes champs que l'écran de progression
+     * pédagogique, en lecture seule ici.
+     */
+    public function lecon(Request $request, int $classeMatiereId, int $leconId): JsonResponse
+    {
+        $classeMatiere = $this->affectation($request, $classeMatiereId);
+
+        if ($classeMatiere instanceof JsonResponse) {
+            return $classeMatiere;
+        }
+
+        $lecon = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+            ->lecons()
+            ->with('parent.parent', 'sequence')
+            ->find($leconId);
+
+        if (! $lecon) {
+            return ApiResponse::notFound("Cette leçon n'existe pas dans cette affectation.");
+        }
+
+        return ApiResponse::success([
+            'id' => $lecon->id,
+            'titre' => $lecon->titre,
+            'chemin' => collect([$lecon->parent?->parent?->titre, $lecon->parent?->titre])
+                ->filter()->implode(' › '),
+            'sequence' => $lecon->sequence?->libelle,
+            'description' => $lecon->description,
+            ...collect(ProgressionItem::CHAMPS_FICHE)->mapWithKeys(fn ($champ) => [$champ => $lecon->$champ])->all(),
+            'duree_prevue' => $lecon->duree_prevue,
+            'colonnes_libres' => $lecon->colonnes_libres ?? [],
+        ]);
     }
 
     /** Heures de cours prévues vs réalisées de l'enseignant connecté, depuis le début de l'année. */

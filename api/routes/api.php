@@ -521,6 +521,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('ma-journee/qr/{token}', [MaJourneeController::class, 'resoudreQr'])->name('ma-journee.qr');
                 Route::get('ma-journee', [MaJourneeController::class, 'affectations'])->name('ma-journee.affectations');
                 Route::get('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'feuille'])->name('ma-journee.feuille');
+                Route::get('ma-journee/{classeMatiereId}/lecons/{leconId}', [MaJourneeController::class, 'lecon'])->name('ma-journee.lecon');
                 Route::post('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'enregistrer'])->name('ma-journee.enregistrer');
             });
 

@@ -43,6 +43,12 @@ class Seance extends Model
             && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
     }
 
+    /** Seule date sur laquelle un enseignant peut déclarer leçons et appel. */
+    public function estAujourdhui(): bool
+    {
+        return $this->date_seance->isToday();
+    }
+
     public function debutPrevu(): Carbon
     {
         return Carbon::parse($this->date_seance->toDateString().' '.$this->heure_debut);

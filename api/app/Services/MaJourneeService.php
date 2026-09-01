@@ -170,6 +170,7 @@ class MaJourneeService extends BaseService
                 // même verrou couvre les deux, 15 minutes après la première
                 // déclaration de cette séance (cf. `enregistrer()`).
                 'verrouille' => $seance->appelVerrouille(),
+                'aujourdhui' => $seance->estAujourdhui(),
                 'modifiable_jusqua' => $seance->appel_verrouille_le
                     ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
                     ?->toIso8601String(),
