@@ -229,7 +229,8 @@
       "hours_done_over_planned": "{{realisees}} h / {{prevues}} h",
       "rate": "{{taux}} %",
       "sessions_late": "{{count}} séance(s) en retard",
-      "empty": "Aucune séance sur cette période."
+      "empty": "Aucune séance sur cette période.",
+      "select_school": "Veuillez sélectionner un établissement pour consulter ce suivi."
     }
   },
   "fonctionsReferentiel": {

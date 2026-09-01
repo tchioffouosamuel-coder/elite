@@ -715,19 +715,19 @@ export function AppLayout() {
           </button>
 
           {groupesTopbar.length > 0 && (
-            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label={t('nav.topbarMenu')}>
+            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto lg:flex" aria-label={t('nav.topbarMenu')}>
               {groupesTopbar.map((group) => {
                 const groupeActif = group.items.some((item) => item.to === cheminActif)
                 const ouvert = groupeTopbarOuvert === group.label
 
                 return (
-                  <div key={group.label} className="relative">
+                  <div key={group.label} className="relative flex-none">
                     <button
                       type="button"
                       aria-expanded={ouvert}
                       onClick={() => setGroupeTopbarOuvert((actuel) => (actuel === group.label ? null : group.label))}
                       className={clsx(
-                        'flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition-colors',
+                        'flex h-8 flex-none items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-semibold transition-colors',
                         groupeActif
                           ? 'bg-navy-50 text-navy-900'
                           : 'text-navy-500 hover:bg-cream-100 hover:text-navy-800',

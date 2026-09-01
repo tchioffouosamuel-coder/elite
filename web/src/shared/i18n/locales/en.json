@@ -229,7 +229,8 @@
       "hours_done_over_planned": "{{realisees}} h / {{prevues}} h",
       "rate": "{{taux}} %",
       "sessions_late": "{{count}} session(s) overdue",
-      "empty": "No sessions over this period."
+      "empty": "No sessions over this period.",
+      "select_school": "Please select a school to view this tracking."
     }
   },
   "fonctionsReferentiel": {

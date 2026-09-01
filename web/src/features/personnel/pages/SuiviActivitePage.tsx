@@ -48,6 +48,7 @@ export function SuiviActivitePage() {
         granularite,
         personnel_id: personnelId ? Number(personnelId) : null,
       }),
+    enabled: activeSchoolId !== null,
   })
 
   const periodes = Array.from(new Set(data?.flatMap((ligne) => ligne.periodes.map((p) => p.periode)) ?? [])).sort()
@@ -84,7 +85,11 @@ export function SuiviActivitePage() {
         onChange={(cle) => setGranularite(cle as GranulariteSuivi)}
       />
 
-      {isLoading ? (
+      {activeSchoolId === null ? (
+        <Card>
+          <p className="text-sm text-navy-400">{t('personnel.suivi_activite.select_school')}</p>
+        </Card>
+      ) : isLoading ? (
         <Spinner />
       ) : isError ? (
         <ErrorState />
