@@ -204,6 +204,16 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // Sans ceci, Electron REFUSE silencieusement tout `window.open()` par
+  // défaut (aucune erreur JS, aucun log) — exactement le pattern utilisé
+  // pour prévisualiser chaque PDF généré ailleurs dans l'app (fetch
+  // authentifié → blob → `window.open(blobUrl, '_blank')`, l'appel direct
+  // à l'URL de l'API étant impossible sans pouvoir y joindre l'en-tête
+  // d'autorisation). `allow` ouvre une vraie fenêtre Electron sur ce blob
+  // ou cette URL, exactement comme le ferait un nouvel onglet de navigateur.
+  window.webContents.setWindowOpenHandler(() => ({ action: "allow" }));
+
   const dist = app.isPackaged
     ? path.join(process.resourcesPath, "web-dist")
     : path.join(__dirname, "../../dist");
