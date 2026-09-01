@@ -19,12 +19,14 @@ import {
   AlarmClockOff,
   UserX,
   TrendingUp,
+  Eye,
 } from 'lucide-react'
 import { fetchDashboardStats, fetchPilotage, type CreneauPilotage } from '@/features/dashboard/api'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
 
 export function DashboardPage() {
@@ -151,7 +153,7 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
 }
 
 /** Une ligne « HH:MM–HH:MM · Classe · Matière · Enseignant », commune aux trois listes de créneaux. */
-function LigneCreneau({ creneau, accentAppel }: { creneau: CreneauPilotage; accentAppel?: boolean }) {
+function LigneCreneau({ creneau, accentAppel, onDetail }: { creneau: CreneauPilotage; accentAppel?: boolean; onDetail: (c: CreneauPilotage) => void }) {
   const { t } = useTranslation()
   return (
     <li className="flex items-center gap-3 py-2.5 text-sm">
@@ -168,16 +170,26 @@ function LigneCreneau({ creneau, accentAppel }: { creneau: CreneauPilotage; acce
           {creneau.appel_fait ? t('dashboard.call_done') : t('dashboard.call_pending')}
         </Badge>
       )}
+      <button
+        type="button"
+        onClick={() => onDetail(creneau)}
+        aria-label={t('dashboard.creneau_view_details') ?? undefined}
+        title={t('dashboard.creneau_view_details') ?? undefined}
+        className="flex-none rounded-full p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+      >
+        <Eye className="h-4 w-4" />
+      </button>
     </li>
   )
 }
 
-function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel }: {
+function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel, onDetail }: {
   titre: string
   icon: typeof Clock
   creneaux: CreneauPilotage[]
   vide: string
   accentAppel?: boolean
+  onDetail: (c: CreneauPilotage) => void
 }) {
   return (
     <Card>
@@ -193,11 +205,45 @@ function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel }: {
       ) : (
         <ul className="flex flex-col divide-y divide-navy-50">
           {creneaux.map((c) => (
-            <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} />
+            <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} onDetail={onDetail} />
           ))}
         </ul>
       )}
     </Card>
+  )
+}
+
+/** Détail non tronqué d'un créneau du pilotage, affiché en modale au clic sur l'œil de la ligne. */
+function CreneauDetailModal({ creneau, onClose }: { creneau: CreneauPilotage; onClose: () => void }) {
+  const { t } = useTranslation()
+  const champs: { label: string; valeur: string | null }[] = [
+    { label: t('dashboard.creneau_horaire'), valeur: `${creneau.heure_debut}–${creneau.heure_fin}` },
+    { label: t('dashboard.creneau_classe'), valeur: creneau.classe },
+    { label: t('dashboard.creneau_ecole'), valeur: creneau.ecole },
+    { label: t('dashboard.creneau_matiere'), valeur: creneau.matiere },
+    { label: t('dashboard.creneau_enseignant'), valeur: creneau.enseignant },
+    { label: t('dashboard.creneau_salle'), valeur: creneau.salle },
+  ]
+
+  return (
+    <Modal title={t('dashboard.creneau_details')} onClose={onClose}>
+      <dl className="flex flex-col gap-3 text-sm">
+        {champs.map(({ label, valeur }) => (
+          <div key={label} className="flex justify-between gap-4">
+            <dt className="text-navy-400">{label}</dt>
+            <dd className="text-right font-semibold text-navy-800">{valeur ?? '—'}</dd>
+          </div>
+        ))}
+        <div className="flex justify-between gap-4">
+          <dt className="text-navy-400">{t('dashboard.creneau_statut_appel')}</dt>
+          <dd>
+            <Badge tone={creneau.appel_fait ? 'green' : 'gold'}>
+              {creneau.appel_fait ? t('dashboard.call_done') : t('dashboard.call_pending')}
+            </Badge>
+          </dd>
+        </div>
+      </dl>
+    </Modal>
   )
 }
 
@@ -210,6 +256,7 @@ function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel }: {
 function PilotagePanel() {
   const { t } = useTranslation()
   const [ouvert, setOuvert] = useState(false)
+  const [creneauDetail, setCreneauDetail] = useState<CreneauPilotage | null>(null)
 
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['dashboard', 'pilotage'],
@@ -265,12 +312,14 @@ function PilotagePanel() {
               icon={Clock}
               creneaux={data.cours_en_cours}
               vide={t('dashboard.no_ongoing_lessons')}
+              onDetail={setCreneauDetail}
             />
             <ListeCreneaux
               titre={t('dashboard.upcoming_lessons')}
               icon={CalendarClock}
               creneaux={data.cours_a_venir}
               vide={t('dashboard.no_upcoming_lessons')}
+              onDetail={setCreneauDetail}
             />
             <ListeCreneaux
               titre={t('dashboard.overdue_calls')}
@@ -278,6 +327,7 @@ function PilotagePanel() {
               creneaux={data.appels_en_retard}
               vide={t('dashboard.no_overdue_calls')}
               accentAppel
+              onDetail={setCreneauDetail}
             />
           </div>
 
@@ -340,6 +390,8 @@ function PilotagePanel() {
           </div>
         </>
       )}
+
+      {creneauDetail && <CreneauDetailModal creneau={creneauDetail} onClose={() => setCreneauDetail(null)} />}
     </div>
   )
 }

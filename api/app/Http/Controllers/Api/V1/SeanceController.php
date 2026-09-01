@@ -146,7 +146,24 @@ class SeanceController extends Controller
             // ne saurait pas s'il faut relancer la famille ou classer l'affaire.
             'lignes.*.motif' => ['nullable', 'required_if:lignes.*.statut,absent', Rule::in(Presence::MOTIFS)],
             'lignes.*.remarque' => ['nullable', 'string', 'max:255'],
+            // Requis pour un enseignant (cf. User::doitScannerQrPourValiderAppel()),
+            // même règle que MaJourneeController::enregistrer() : le token affiché
+            // dans la salle, comparé tel quel à Classe::qr_token — pas de passage
+            // par resoudreQr() pour rester rejouable hors ligne (l'appel de cet
+            // écran passe par l'outbox de synchronisation).
+            'qr_token' => ['nullable', 'string'],
         ]);
+
+        $qrValide = $data['qr_token'] ?? null;
+        $qrValide = $qrValide !== null
+            && $seance->classe->qr_token !== null
+            && hash_equals($seance->classe->qr_token, $qrValide);
+
+        abort_if(
+            $request->user()->doitScannerQrPourValiderAppel() && ! $qrValide,
+            403,
+            "Scannez le QR code de la salle avant de valider — c'est ce qui prouve que vous y étiez."
+        );
 
         $total = $this->service->enregistrerAppel($seance, $data['lignes']);
 

@@ -186,7 +186,16 @@
     "no_classes_without_teacher": "Toutes les classes ont un enseignant.",
     "call_done": "Appel fait",
     "call_pending": "Appel en attente",
-    "lessons_covered": "{{traitees}} / {{lecons}} leçons traitées"
+    "lessons_covered": "{{traitees}} / {{lecons}} leçons traitées",
+    "creneau_details": "Détail du créneau",
+    "creneau_view_details": "Voir le détail",
+    "creneau_classe": "Classe",
+    "creneau_ecole": "École",
+    "creneau_matiere": "Matière",
+    "creneau_enseignant": "Enseignant",
+    "creneau_salle": "Salle",
+    "creneau_horaire": "Horaire",
+    "creneau_statut_appel": "Statut de l'appel"
   },
   "personnel": {
     "title": "Personnel",

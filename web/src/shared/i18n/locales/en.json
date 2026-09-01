@@ -186,7 +186,16 @@
     "no_classes_without_teacher": "Every class has a teacher.",
     "call_done": "Attendance taken",
     "call_pending": "Attendance pending",
-    "lessons_covered": "{{traitees}} / {{lecons}} lessons covered"
+    "lessons_covered": "{{traitees}} / {{lecons}} lessons covered",
+    "creneau_details": "Lesson details",
+    "creneau_view_details": "View details",
+    "creneau_classe": "Class",
+    "creneau_ecole": "School",
+    "creneau_matiere": "Subject",
+    "creneau_enseignant": "Teacher",
+    "creneau_salle": "Room",
+    "creneau_horaire": "Time",
+    "creneau_statut_appel": "Attendance status"
   },
   "personnel": {
     "title": "Staff",
