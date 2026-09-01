@@ -60,7 +60,7 @@ class ParentAccess
      */
     public static function assertEnfant(User $user, int $eleveId): Eleve
     {
-        $eleve = Eleve::with('classe.sousSysteme', 'school', 'tuteurs')
+        $eleve = Eleve::with('classe.sousSysteme', 'school', 'tuteurs.telephones')
             ->whereHas('tuteurs', fn ($q) => $q->whereIn('tuteurs.id', self::tuteurs($user)->pluck('id')))
             ->where('eleves.id', $eleveId)
             ->first();

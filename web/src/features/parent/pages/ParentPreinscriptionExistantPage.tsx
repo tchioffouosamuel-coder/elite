@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type FieldErrors } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Star, Trash2 } from 'lucide-react'
+import { clsx } from 'clsx'
 import { StepForm } from '@/shared/ui/StepForm'
-import { Input, Select, Textarea } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, Textarea } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
@@ -16,10 +17,26 @@ import {
   soumettrePreinscription,
   modifierPreinscription,
   type TuteurPayload,
+  type TuteurTelephonePayload,
 } from '@/features/parent/api'
 import { francs, MODES, ventilerAutomatiquement, type ModePaiement } from '@/features/finance/api'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+/** Nombre minimal de numéros exigé par tuteur — parité avec le formulaire d'inscription côté admin. */
+const NB_TELEPHONES_MIN = 3
+
+export function telephonesParDefaut(): TuteurTelephonePayload[] {
+  return Array.from({ length: NB_TELEPHONES_MIN }, (_, i) => ({ numero: '', is_principal: i === 0 }))
+}
+
+/** Complète jusqu'à `NB_TELEPHONES_MIN` entrées (fiche existante avec moins de 3 numéros, ou l'ancien champ `telephone` unique) sans jamais en retirer. */
+export function completerTelephones(telephones: TuteurTelephonePayload[] | undefined, telephoneLegacy?: string): TuteurTelephonePayload[] {
+  const liste = telephones && telephones.length > 0 ? [...telephones] : telephoneLegacy ? [{ numero: telephoneLegacy, is_principal: true }] : []
+  while (liste.length < NB_TELEPHONES_MIN) liste.push({ numero: '', is_principal: false })
+  if (!liste.some((t) => t.is_principal)) liste[0].is_principal = true
+  return liste
+}
 
 interface FormValues {
   nom_complet: string
@@ -74,6 +91,7 @@ export function ParentPreinscriptionExistantPage() {
     reset,
     trigger,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({ defaultValues: { tuteurs: [], mode_versement: 'especes', aptitude: 'apte' } })
 
@@ -100,7 +118,7 @@ export function ParentPreinscriptionExistantPage() {
         aptitude: d.aptitude ?? 'apte',
         allergies: d.allergies ?? '',
         note_admin: preinscriptionDetail.note_admin ?? '',
-        tuteurs: preinscriptionDetail.donnees_tuteurs,
+        tuteurs: preinscriptionDetail.donnees_tuteurs.map((t) => ({ ...t, telephones: completerTelephones(t.telephones, t.telephone) })),
         montant_verser: preinscriptionDetail.montant_verser ?? undefined,
         mode_versement: preinscriptionDetail.mode_versement ?? 'especes',
         reference_externe: preinscriptionDetail.reference_externe ?? '',
@@ -124,7 +142,7 @@ export function ParentPreinscriptionExistantPage() {
       note_admin: '',
       tuteurs: enfant.tuteurs.map((t) => ({
         nom_complet: t.nom_complet,
-        telephone: t.telephone ?? '',
+        telephones: completerTelephones(t.telephones, t.telephone ?? undefined),
         email: t.email ?? '',
         profession: t.profession ?? '',
         lieu_service: t.lieu_service ?? '',
@@ -178,10 +196,15 @@ export function ParentPreinscriptionExistantPage() {
         allergies: values.allergies || undefined,
       }
 
+      const donneesTuteurs = values.tuteurs.map(({ telephone: _telephone, ...t }) => ({
+        ...t,
+        telephones: (t.telephones ?? []).filter((tel) => tel.numero.trim() !== ''),
+      }))
+
       if (preinscriptionEnAttente) {
         await modifierPreinscription(preinscriptionEnAttente.id, {
           donnees_eleve: donneesEleve,
-          donnees_tuteurs: values.tuteurs,
+          donnees_tuteurs: donneesTuteurs,
           note_admin: values.note_admin || undefined,
           montant_verser: montant > 0 ? montant : undefined,
           mode_versement: montant > 0 ? values.mode_versement : undefined,
@@ -193,7 +216,7 @@ export function ParentPreinscriptionExistantPage() {
           type: 'existant',
           eleve_id: eleveId,
           donnees_eleve: donneesEleve,
-          donnees_tuteurs: values.tuteurs,
+          donnees_tuteurs: donneesTuteurs,
           note_admin: values.note_admin || undefined,
           montant_verser: montant > 0 ? montant : undefined,
           mode_versement: montant > 0 ? values.mode_versement : undefined,
@@ -303,7 +326,7 @@ export function ParentPreinscriptionExistantPage() {
             )}
 
             {steps[currentStep]?.id === 'tuteurs' && (
-              <TuteursFieldArray fields={fields} append={append} remove={remove} register={register} errors={errors} />
+              <TuteursFieldArray fields={fields} append={append} remove={remove} register={register} control={control} setValue={setValue} errors={errors} />
             )}
 
             {steps[currentStep]?.id === 'paiement' && (
@@ -326,7 +349,11 @@ export function ParentPreinscriptionExistantPage() {
                     ))}
                   </dl>
                 )}
-                <Input label="Montant à verser (F CFA) / Amount to pay (F CFA)" type="number" min={0} {...register('montant_verser')} />
+                <MontantInput
+                  label="Montant à verser (F CFA) / Amount to pay (F CFA)"
+                  value={watch('montant_verser')}
+                  onChange={(v) => setValue('montant_verser', v)}
+                />
 
                 {rubriquesApercu.length > 0 && (
                   <div className="overflow-x-auto rounded-xl border border-navy-100">
@@ -386,12 +413,95 @@ export function ParentPreinscriptionExistantPage() {
   )
 }
 
+/**
+ * Jusqu'à 3 numéros par tuteur (comme côté admin), avec une seule case
+ * « principal » cochable à la fois — comportement de radio bouton implémenté
+ * à la main pour rester un simple tableau `boolean`.
+ */
+function TuteurTelephonesFields({
+  control,
+  index,
+  register,
+  setValue,
+  errors,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: Control<any>
+  index: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register: UseFormRegister<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setValue: UseFormSetValue<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  errors: FieldErrors<any>
+}) {
+  const { fields, append, remove } = useFieldArray({ control, name: `tuteurs.${index}.telephones` })
+
+  const marquerPrincipal = (i: number) => {
+    fields.forEach((_, j) => setValue(`tuteurs.${index}.telephones.${j}.is_principal`, j === i, { shouldDirty: true }))
+  }
+
+  const supprimer = (i: number) => {
+    const etaitPrincipal = fields[i] && (fields[i] as unknown as TuteurTelephonePayload).is_principal
+    remove(i)
+    if (etaitPrincipal) setValue(`tuteurs.${index}.telephones.0.is_principal`, true, { shouldDirty: true })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Téléphones / Phone numbers</span>
+      {fields.map((field, i) => (
+        <div key={field.id} className="flex items-center gap-2">
+          <Input
+            type="tel"
+            placeholder="Numéro / Number"
+            className="w-full"
+            {...register(`tuteurs.${index}.telephones.${i}.numero` as const, {
+              required: i < NB_TELEPHONES_MIN ? 'Requis. / Required.' : false,
+            })}
+          />
+          <button
+            type="button"
+            onClick={() => marquerPrincipal(i)}
+            title="Principal / Primary"
+            className="flex-none rounded-lg p-2 text-navy-300 hover:bg-gold-50 hover:text-gold-500"
+          >
+            <Star className={clsx('h-4 w-4', (field as unknown as TuteurTelephonePayload).is_principal && 'fill-gold-400 text-gold-500')} />
+          </button>
+          {fields.length > NB_TELEPHONES_MIN && (
+            <button
+              type="button"
+              onClick={() => supprimer(i)}
+              className="flex-none rounded-lg p-2 text-navy-300 hover:bg-red-100 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ))}
+      {(errors as { tuteurs?: { telephones?: { numero?: { message?: string } }[] }[] }).tuteurs?.[index]?.telephones?.[0]?.numero && (
+        <span className="text-xs font-medium text-red-500">Au moins {NB_TELEPHONES_MIN} numéros. / At least {NB_TELEPHONES_MIN} numbers.</span>
+      )}
+      <button
+        type="button"
+        onClick={() => append({ numero: '', is_principal: false })}
+        className="inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-500 hover:bg-navy-50 hover:text-navy-700"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Ajouter un numéro / Add a number
+      </button>
+    </div>
+  )
+}
+
 /** Éditeur de tuteurs partagé entre les deux formulaires de préinscription. */
 export function TuteursFieldArray({
   fields,
   append,
   remove,
   register,
+  control,
+  setValue,
   errors,
 }: {
   fields: { id: string }[]
@@ -399,6 +509,10 @@ export function TuteursFieldArray({
   remove: (i: number) => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   register: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setValue: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: any
 }) {
@@ -408,7 +522,7 @@ export function TuteursFieldArray({
         <h3 className="text-sm font-bold uppercase tracking-wide text-navy-500">Parents / tuteurs — Parents / guardians</h3>
         <button
           type="button"
-          onClick={() => append({ nom_complet: '', is_principal: fields.length === 0 })}
+          onClick={() => append({ nom_complet: '', telephones: telephonesParDefaut(), is_principal: fields.length === 0 })}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-navy-600 transition-colors hover:bg-cream-100"
         >
           <Plus className="h-4 w-4" />
@@ -434,10 +548,8 @@ export function TuteursFieldArray({
                 placeholder="Père, mère, tuteur… / Father, mother, guardian…"
                 {...register(`tuteurs.${index}.lien_parente` as const)}
               />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input label="Téléphone / Phone" type="tel" {...register(`tuteurs.${index}.telephone` as const)} />
-                <Input label="E-mail / Email" type="email" {...register(`tuteurs.${index}.email` as const)} />
-              </div>
+              <TuteurTelephonesFields control={control} index={index} register={register} setValue={setValue} errors={errors} />
+              <Input label="E-mail / Email" type="email" {...register(`tuteurs.${index}.email` as const)} />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input label="Profession / Occupation" {...register(`tuteurs.${index}.profession` as const)} />
                 <Input label="Lieu de service / Workplace" {...register(`tuteurs.${index}.lieu_service` as const)} />

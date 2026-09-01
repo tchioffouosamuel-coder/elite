@@ -7,6 +7,7 @@ use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Tuteur;
+use App\Models\TuteurTelephone;
 use RuntimeException;
 
 /**
@@ -303,15 +304,64 @@ class PreinscriptionService extends BaseService
                 'adresse' => $data['adresse'] ?? null,
             ];
 
-            $tuteur = ! empty($data['telephone'])
-                ? Tuteur::updateOrCreate(['school_id' => $schoolId, 'telephone' => $data['telephone']], $attributs)
+            $telephonePrincipal = $this->extrairePrincipal($data);
+
+            $tuteur = $telephonePrincipal
+                ? Tuteur::updateOrCreate(['school_id' => $schoolId, 'telephone' => $telephonePrincipal], $attributs)
                 : Tuteur::create([...$attributs, 'school_id' => $schoolId]);
+
+            $this->syncTelephonesTuteur($tuteur, $data);
 
             $eleve->tuteurs()->syncWithoutDetaching([
                 $tuteur->id => [
                     'lien_parente' => $data['lien_parente'] ?? null,
                     'is_principal' => $data['is_principal'] ?? false,
                 ],
+            ]);
+        }
+    }
+
+    /** Le numéro flaggé `is_principal` dans `telephones`, sinon le premier, sinon l'ancien champ `telephone` unique. */
+    private function extrairePrincipal(array $data): ?string
+    {
+        $telephones = $data['telephones'] ?? [];
+
+        if ($telephones !== []) {
+            $principal = collect($telephones)->first(fn ($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
+
+            return $principal['numero'] ?? null;
+        }
+
+        return $data['telephone'] ?? null;
+    }
+
+    /**
+     * Remplace les numéros du tuteur par ceux soumis (au moins un principal)
+     * et recopie le principal dans l'ancien champ `tuteurs.telephone` —
+     * encore lu par la recherche rapide, les SMS et la connexion au portail
+     * parent.
+     */
+    private function syncTelephonesTuteur(Tuteur $tuteur, array $data): void
+    {
+        $telephones = $data['telephones'] ?? [];
+
+        if ($telephones === []) {
+            if (! empty($data['telephone']) && $tuteur->telephones()->doesntExist()) {
+                TuteurTelephone::create(['tuteur_id' => $tuteur->id, 'numero' => $data['telephone'], 'is_principal' => true]);
+            }
+
+            return;
+        }
+
+        $tuteur->telephones()->delete();
+
+        $aUnPrincipal = collect($telephones)->contains(fn ($tel) => ! empty($tel['is_principal']));
+
+        foreach ($telephones as $index => $tel) {
+            TuteurTelephone::create([
+                'tuteur_id' => $tuteur->id,
+                'numero' => $tel['numero'],
+                'is_principal' => $aUnPrincipal ? ! empty($tel['is_principal']) : $index === 0,
             ]);
         }
     }

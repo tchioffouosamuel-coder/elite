@@ -19,10 +19,16 @@ export async function fetchMesEnfants(): Promise<EnfantResume[]> {
   return data.data
 }
 
+export interface TuteurTelephonePayload {
+  numero: string
+  is_principal?: boolean
+}
+
 export interface TuteurEnfant {
   id: number
   nom_complet: string
   telephone: string | null
+  telephones: TuteurTelephonePayload[]
   email: string | null
   profession: string | null
   lieu_service: string | null
@@ -286,7 +292,9 @@ export type StatutPreinscription = 'en_attente' | 'validee' | 'rejetee'
 
 export interface TuteurPayload {
   nom_complet: string
+  /** @deprecated legacy shape — kept for reading old requêtes déjà soumises ; utiliser `telephones`. */
   telephone?: string
+  telephones?: TuteurTelephonePayload[]
   email?: string
   profession?: string
   lieu_service?: string

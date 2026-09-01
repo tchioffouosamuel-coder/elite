@@ -17,7 +17,7 @@ import {
 } from '@/features/parent/api'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
-import { TuteursFieldArray } from './ParentPreinscriptionExistantPage'
+import { TuteursFieldArray, telephonesParDefaut, completerTelephones } from './ParentPreinscriptionExistantPage'
 
 interface FormValues {
   school_id: number | ''
@@ -62,8 +62,9 @@ export function ParentPreinscriptionNouveauPage() {
     reset,
     trigger,
     watch,
+    setValue,
     formState: { errors },
-  } = useForm<FormValues>({ defaultValues: { tuteurs: [{ nom_complet: '', is_principal: true }], aptitude: 'apte' } })
+  } = useForm<FormValues>({ defaultValues: { tuteurs: [{ nom_complet: '', telephones: telephonesParDefaut(), is_principal: true }], aptitude: 'apte' } })
 
   useEffect(() => {
     if (!preinscriptionDetail) return
@@ -83,7 +84,7 @@ export function ParentPreinscriptionNouveauPage() {
       situation_sanitaire: d.situation_sanitaire ?? '',
       aptitude: d.aptitude ?? 'apte',
       allergies: d.allergies ?? '',
-      tuteurs: preinscriptionDetail.donnees_tuteurs,
+      tuteurs: preinscriptionDetail.donnees_tuteurs.map((t) => ({ ...t, telephones: completerTelephones(t.telephones, t.telephone) })),
     })
   }, [preinscriptionDetail, reset])
 
@@ -130,15 +131,20 @@ export function ParentPreinscriptionNouveauPage() {
         allergies: values.allergies || undefined,
       }
 
+      const donneesTuteurs = values.tuteurs.map(({ telephone: _telephone, ...t }) => ({
+        ...t,
+        telephones: (t.telephones ?? []).filter((tel) => tel.numero.trim() !== ''),
+      }))
+
       if (modeEdition && preinscriptionId) {
-        await modifierPreinscription(preinscriptionId, { donnees_eleve: donneesEleve, donnees_tuteurs: values.tuteurs })
+        await modifierPreinscription(preinscriptionId, { donnees_eleve: donneesEleve, donnees_tuteurs: donneesTuteurs })
         succes('Préinscription mise à jour. / Pre-registration updated.')
       } else {
         await soumettrePreinscription({
           type: 'nouveau',
           school_id: Number(values.school_id),
           donnees_eleve: donneesEleve,
-          donnees_tuteurs: values.tuteurs,
+          donnees_tuteurs: donneesTuteurs,
         })
         succes("Préinscription transmise, en attente de validation par l'établissement. / Pre-registration submitted, awaiting school approval.")
       }
@@ -245,7 +251,7 @@ export function ParentPreinscriptionNouveauPage() {
                   />
                 </div>
                 <Input label="Lieu de naissance / Place of birth" {...register('lieu_naissance')} />
-                <Input label="Adresse / Address" {...register('adresse')} />
+                <Input label="Adresse / Address" placeholder='Quartier / Quarter' {...register('adresse')} />
               </div>
             )}
 
@@ -270,7 +276,7 @@ export function ParentPreinscriptionNouveauPage() {
             )}
 
             {steps[currentStep]?.id === 'tuteurs' && (
-              <TuteursFieldArray fields={fields} append={append} remove={remove} register={register} errors={errors} />
+              <TuteursFieldArray fields={fields} append={append} remove={remove} register={register} control={control} setValue={setValue} errors={errors} />
             )}
 
             {steps[currentStep]?.id === 'confirmation' && (

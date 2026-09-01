@@ -10,7 +10,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Input, Select, Textarea } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
@@ -516,7 +516,7 @@ function CreerPreinscriptionModal({ onClose, onCreee }: { onClose: () => void; o
   const [eleve, setEleve] = useState<Eleve | null>(null)
   const [champs, setChamps] = useState<Record<string, string>>({})
   const [tuteurs, setTuteurs] = useState<TuteurForm[]>([])
-  const [montant, setMontant] = useState('')
+  const [montant, setMontant] = useState(0)
   const [mode, setMode] = useState<ModePaiement>('especes')
   const [reference, setReference] = useState('')
   const [envoi, setEnvoi] = useState(false)
@@ -537,7 +537,7 @@ function CreerPreinscriptionModal({ onClose, onCreee }: { onClose: () => void; o
     queryFn: () => fetchDossier(eleve!.id),
     enabled: !!eleve,
   })
-  const montantNombre = Number(montant) || 0
+  const montantNombre = montant || 0
   const resteApresPaiement = dossier ? dossier.reste_a_payer - montantNombre : null
 
   const majTuteur = (index: number, patch: Partial<TuteurForm>) => {
@@ -678,7 +678,7 @@ function CreerPreinscriptionModal({ onClose, onCreee }: { onClose: () => void; o
               ) : null}
 
               <div className="grid grid-cols-3 gap-2.5">
-                <Input label="Montant à encaisser" type="number" min={0} value={montant} onChange={(e) => setMontant(e.target.value)} />
+                <MontantInput label="Montant à encaisser" value={montant} onChange={setMontant} />
                 <Select label="Mode" value={mode} onChange={(e) => setMode(e.target.value as ModePaiement)}>
                   {MODES.map((m) => (
                     <option key={m.valeur} value={m.valeur}>

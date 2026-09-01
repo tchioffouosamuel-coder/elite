@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { accorderAvance, fetchPlafondAvance, francs } from '@/features/finance/api'
 import { fetchPersonnels } from '@/features/personnel/api'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
-import { Input, Select, FieldWrapper } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, FieldWrapper } from '@/shared/ui/Field'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -43,6 +43,7 @@ export function AccorderAvanceModal({
     register,
     handleSubmit,
     watch,
+    control,
     formState: { isSubmitting, errors },
   } = useForm<FormAccorder>({
     defaultValues: {
@@ -110,25 +111,39 @@ export function AccorderAvanceModal({
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Montant (F CFA)"
-            type="number"
-            min={1}
-            error={errors.montant?.message}
-            {...register('montant', {
+          <Controller
+            name="montant"
+            control={control}
+            rules={{
               required: 'Saisissez le montant.',
               min: { value: 1, message: 'Le montant doit être supérieur à zéro.' },
-            })}
+            }}
+            render={({ field }) => (
+              <MontantInput
+                label="Montant (F CFA)"
+                error={errors.montant?.message}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              />
+            )}
           />
-          <Input
-            label="Mensualité (F CFA)"
-            type="number"
-            min={1}
-            error={errors.mensualite?.message}
-            {...register('mensualite', {
+          <Controller
+            name="mensualite"
+            control={control}
+            rules={{
               required: 'Saisissez la mensualité.',
               min: { value: 1, message: 'La mensualité doit être supérieure à zéro.' },
-            })}
+            }}
+            render={({ field }) => (
+              <MontantInput
+                label="Mensualité (F CFA)"
+                error={errors.mensualite?.message}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              />
+            )}
           />
         </div>
 

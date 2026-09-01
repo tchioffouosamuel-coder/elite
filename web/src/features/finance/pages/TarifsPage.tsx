@@ -7,7 +7,7 @@ import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -84,10 +84,10 @@ export function TarifsPage() {
   )
   const [recherche, setRecherche] = useState('')
 
-  const [brouillons, setBrouillons] = useState<Record<string, string>>({})
-  const [nouveauFrais, setNouveauFrais] = useState<{ libelle: string; montant: string; obligatoire: boolean; classe_ids: number[] }>({
+  const [brouillons, setBrouillons] = useState<Record<string, number>>({})
+  const [nouveauFrais, setNouveauFrais] = useState<{ libelle: string; montant: number; obligatoire: boolean; classe_ids: number[] }>({
     libelle: '',
-    montant: '',
+    montant: 0,
     obligatoire: false,
     classe_ids: [],
   })
@@ -135,11 +135,11 @@ export function TarifsPage() {
   const enregistrerTarif = (classeId: number | null) => {
     const cle = String(classeId ?? 'defaut')
     const valeur = brouillons[cle]
-    if (valeur === undefined || valeur === '') return
+    if (valeur === undefined) return
 
     mutation.mutate(
       async () => {
-        const { dossiers_mis_a_jour } = await definirTarif(classeId, Number(valeur), ecoleFiltreId)
+        const { dossiers_mis_a_jour } = await definirTarif(classeId, valeur, ecoleFiltreId)
         succes(messageMiseAJour(t('finance.tariff_recorded'), dossiers_mis_a_jour))
       },
       { onError: (e: ApiError) => e.status !== 403 && erreur(e.message) },
@@ -176,7 +176,7 @@ export function TarifsPage() {
         creerFraisAnnexe(
           {
             libelle: nouveauFrais.libelle,
-            montant: Number(nouveauFrais.montant),
+            montant: nouveauFrais.montant,
             obligatoire: nouveauFrais.obligatoire,
             classe_ids: nouveauFrais.classe_ids,
           },
@@ -184,7 +184,7 @@ export function TarifsPage() {
         ),
       t('finance.additional_fee_added'),
     )
-    setNouveauFrais({ libelle: '', montant: '', obligatoire: false, classe_ids: [] })
+    setNouveauFrais({ libelle: '', montant: 0, obligatoire: false, classe_ids: [] })
   }
 
   const ouvrirEditionClasses = (fraisId: number, classeIds: number[]) => {
@@ -205,7 +205,7 @@ export function TarifsPage() {
   if (isError || !data) return <ErrorState />
 
   const valeurChamp = (cle: string, defaut: number | null | undefined) =>
-    brouillons[cle] ?? (defaut != null ? String(defaut) : '')
+    brouillons[cle] ?? (defaut != null ? defaut : undefined)
 
   return (
     <div className="flex flex-col gap-5">
@@ -268,13 +268,11 @@ export function TarifsPage() {
           </div>
 
           <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl bg-cream-100 p-3">
-            <Input
+            <MontantInput
               label="Tarif par défaut de l'établissement"
-              type="number"
-              min={0}
               disabled={!modifiable}
               value={valeurChamp('defaut', data.tarif_par_defaut)}
-              onChange={(e) => setBrouillons((b) => ({ ...b, defaut: e.target.value }))}
+              onChange={(v) => setBrouillons((b) => ({ ...b, defaut: v }))}
             />
             {modifiable && (
               <Button onClick={() => enregistrerTarif(null)} disabled={brouillons.defaut === undefined}>
@@ -320,14 +318,11 @@ export function TarifsPage() {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min={0}
+                    <MontantTarifClasseInput
                       disabled={!modifiable}
                       placeholder={data.tarif_par_defaut != null ? String(data.tarif_par_defaut) : '—'}
-                      value={valeurChamp(cle, classe.montant)}
-                      onChange={(e) => setBrouillons((b) => ({ ...b, [cle]: e.target.value }))}
-                      className="w-32 rounded-xl border border-navy-200 bg-white px-3 py-1.5 text-right text-sm tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100 disabled:bg-cream-100"
+                      valeur={valeurChamp(cle, classe.montant)}
+                      onChange={(v) => setBrouillons((b) => ({ ...b, [cle]: v }))}
                     />
                     {modifiable && modifie && (
                       <Button size="sm" onClick={() => enregistrerTarif(classe.id)}>
@@ -473,12 +468,10 @@ export function TarifsPage() {
                 value={nouveauFrais.libelle}
                 onChange={(e) => setNouveauFrais((f) => ({ ...f, libelle: e.target.value }))}
               />
-              <Input
+              <MontantInput
                 label="Montant (F CFA)"
-                type="number"
-                min={0}
                 value={nouveauFrais.montant}
-                onChange={(e) => setNouveauFrais((f) => ({ ...f, montant: e.target.value }))}
+                onChange={(v) => setNouveauFrais((f) => ({ ...f, montant: v }))}
               />
               {/*
                 Le même mot qu'en liste — « obligatoire » — suivi de ce qu'il
@@ -522,5 +515,28 @@ export function TarifsPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/** Tarif propre à une classe, dans la grille : milliers groupés, en composant à part pour que chaque ligne porte son propre état de saisie. */
+function MontantTarifClasseInput({
+  valeur,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  valeur: number | null | undefined
+  onChange: (valeur: number) => void
+  disabled?: boolean
+  placeholder?: string
+}) {
+  const champ = useMontantSaisie(valeur, onChange)
+  return (
+    <input
+      {...champ}
+      disabled={disabled}
+      placeholder={placeholder}
+      className="w-32 rounded-xl border border-navy-200 bg-white px-3 py-1.5 text-right text-sm tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100 disabled:bg-cream-100"
+    />
   )
 }

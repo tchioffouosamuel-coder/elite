@@ -23,7 +23,7 @@ import { Button } from '@/shared/ui/Button'
 import { StatCard } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { BarcodeScannerModal } from '@/shared/ui/BarcodeScannerModal'
@@ -384,6 +384,8 @@ function ArticleFormModal({
     register,
     handleSubmit,
     setValue,
+    watch,
+    control,
     formState: { isSubmitting, errors },
   } = useForm<ArticleInventairePayload>({
     defaultValues: article
@@ -519,18 +521,21 @@ function ArticleFormModal({
             error={errors.quantite?.message}
             {...register('quantite', { required: true, min: { value: 1, message: t('inventaire.quantite_min') } })}
           />
-          <Input label={t('inventaire.valeur_unitaire_label')} type="number" min={0} {...register('valeur_unitaire')} />
+          <MontantInput
+            label={t('inventaire.valeur_unitaire_label')}
+            value={watch('valeur_unitaire')}
+            onChange={(v) => setValue('valeur_unitaire', v)}
+          />
         </div>
 
         {/* Renseigner ce prix suffit a faire apparaitre l'article au comptoir :
-            c'est ce qui distingue une fourniture vendue du mobilier de l'ecole. */}
-        <Input
+            c'est ce qui distingue une fourniture vendue du mobilier de l'ecole.
+            (Pas d'icône ici : MontantInput ne supporte pas `icon`, contrairement à Input.) */}
+        <MontantInput
           label={t('inventaire.prix_vente_label')}
-          type="number"
-          min={0}
-          icon={Tags}
           placeholder={t('inventaire.prix_vente_placeholder')}
-          {...register('prix_vente')}
+          value={watch('prix_vente')}
+          onChange={(v) => setValue('prix_vente', v)}
         />
 
         <Input label={t('inventaire.localisation_col')} placeholder={t('inventaire.localisation_placeholder')} {...register('localisation')} />

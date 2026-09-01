@@ -8,7 +8,7 @@ import { francs } from '@/features/finance/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
@@ -158,7 +158,7 @@ function EntreeFormModal({ onClose, onEnregistree }: { onClose: () => void; onEn
   const { t } = useTranslation()
   const [articleId, setArticleId] = useState<number | ''>('')
   const [quantite, setQuantite] = useState('')
-  const [coutUnitaire, setCoutUnitaire] = useState('')
+  const [coutUnitaire, setCoutUnitaire] = useState<number | null>(null)
   const [fournisseur, setFournisseur] = useState('')
   const [reference, setReference] = useState('')
   const [dateEntree, setDateEntree] = useState(new Date().toISOString().slice(0, 10))
@@ -170,8 +170,8 @@ function EntreeFormModal({ onClose, onEnregistree }: { onClose: () => void; onEn
   const { data } = useQuery({ queryKey: ['inventaire'], queryFn: () => fetchInventaire() })
   const articles = data?.articles ?? []
 
-  const coutTotal = (Number(quantite) || 0) * (Number(coutUnitaire) || 0)
-  const valide = articleId !== '' && Number(quantite) > 0 && coutUnitaire !== ''
+  const coutTotal = (Number(quantite) || 0) * (coutUnitaire ?? 0)
+  const valide = articleId !== '' && Number(quantite) > 0 && coutUnitaire !== null
 
   const soumettre = async () => {
     if (!valide) return
@@ -181,7 +181,7 @@ function EntreeFormModal({ onClose, onEnregistree }: { onClose: () => void; onEn
       await enregistrerEntree({
         article_id: Number(articleId),
         quantite: Number(quantite),
-        cout_unitaire: Number(coutUnitaire),
+        cout_unitaire: coutUnitaire ?? 0,
         fournisseur: fournisseur.trim() || null,
         reference: reference.trim() || null,
         date_entree: dateEntree,
@@ -220,12 +220,10 @@ function EntreeFormModal({ onClose, onEnregistree }: { onClose: () => void; onEn
             value={quantite}
             onChange={(e) => setQuantite(e.target.value)}
           />
-          <Input
+          <MontantInput
             label={t('pointDeVente.cout_unitaire')}
-            type="number"
-            min={0}
             value={coutUnitaire}
-            onChange={(e) => setCoutUnitaire(e.target.value)}
+            onChange={setCoutUnitaire}
           />
         </div>
 

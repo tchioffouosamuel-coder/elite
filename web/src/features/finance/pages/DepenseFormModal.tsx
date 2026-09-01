@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { Modal } from '@/shared/ui/Modal'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes } from '@/shared/lib/alertes'
 import {
@@ -75,6 +75,7 @@ export function DepenseFormModal({
     register,
     handleSubmit,
     watch,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -178,15 +179,22 @@ export function DepenseFormModal({
         />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            label="Montant (F CFA)"
-            type="number"
-            min={1}
-            error={errors.montant?.message}
-            {...register('montant', {
+          <Controller
+            name="montant"
+            control={control}
+            rules={{
               required: 'Saisissez le montant.',
               min: { value: 1, message: 'Le montant doit être supérieur à zéro.' },
-            })}
+            }}
+            render={({ field }) => (
+              <MontantInput
+                label="Montant (F CFA)"
+                error={errors.montant?.message}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              />
+            )}
           />
           <Input label="Date" type="date" {...register('date_depense')} />
         </div>

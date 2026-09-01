@@ -18,7 +18,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { ImportModal } from '@/shared/ui/ImportModal'
@@ -221,6 +221,7 @@ function TrajetFormModal({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { isSubmitting, errors },
   } = useForm<BusTrajetPayload>({
     defaultValues: trajet
@@ -299,9 +300,21 @@ function TrajetFormModal({
         <div className="rounded-xl border border-navy-100 p-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">{t('bus.tarifs_title')}</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Input label={t('bus.aller_simple')} type="number" min={0} {...register('tarif_aller_simple')} />
-            <Input label={t('bus.retour_simple')} type="number" min={0} {...register('tarif_retour_simple')} />
-            <Input label={t('bus.aller_retour')} type="number" min={0} {...register('tarif_aller_retour')} />
+            <MontantInput
+              label={t('bus.aller_simple')}
+              value={watch('tarif_aller_simple')}
+              onChange={(v) => setValue('tarif_aller_simple', v)}
+            />
+            <MontantInput
+              label={t('bus.retour_simple')}
+              value={watch('tarif_retour_simple')}
+              onChange={(v) => setValue('tarif_retour_simple', v)}
+            />
+            <MontantInput
+              label={t('bus.aller_retour')}
+              value={watch('tarif_aller_retour')}
+              onChange={(v) => setValue('tarif_aller_retour', v)}
+            />
           </div>
         </div>
 

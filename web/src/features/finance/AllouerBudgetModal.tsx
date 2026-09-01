@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { allouerBudget } from '@/features/finance/api'
 import { fetchPersonnels } from '@/features/personnel/api'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
-import { Input, Select, Textarea, FieldWrapper } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, Textarea, FieldWrapper } from '@/shared/ui/Field'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -42,6 +42,7 @@ export function AllouerBudgetModal({
   const {
     register,
     handleSubmit,
+    control,
     formState: { isSubmitting, errors },
   } = useForm<FormAllouer>({
     defaultValues: {
@@ -99,15 +100,22 @@ export function AllouerBudgetModal({
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="Montant alloué (F CFA)"
-            type="number"
-            min={1}
-            error={errors.montant_alloue?.message}
-            {...register('montant_alloue', {
+          <Controller
+            name="montant_alloue"
+            control={control}
+            rules={{
               required: 'Saisissez le montant.',
               min: { value: 1, message: 'Le montant doit être supérieur à zéro.' },
-            })}
+            }}
+            render={({ field }) => (
+              <MontantInput
+                label="Montant alloué (F CFA)"
+                error={errors.montant_alloue?.message}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+              />
+            )}
           />
           <Input label="Date d'allocation" type="date" {...register('date_allocation', { required: true })} />
         </div>

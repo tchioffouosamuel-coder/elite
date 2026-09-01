@@ -17,7 +17,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Input, Select, Textarea } from '@/shared/ui/Field'
+import { Input, Select, Textarea, useMontantSaisie } from '@/shared/ui/Field'
 import { Select as SelectRecherche } from '@/shared/ui/Select'
 import { Modal } from '@/shared/ui/Modal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
@@ -537,13 +537,10 @@ export function ComptoirTab() {
 
                   <span className="text-xs text-navy-400">×</span>
 
-                  <input
-                    type="number"
-                    min={0}
-                    value={ligne.prixUnitaire}
-                    onChange={(e) => changerPrix(ligne.article.id, Number(e.target.value) || 0)}
-                    title={t('pointDeVente.prix_unitaire')}
-                    className="w-24 rounded-lg border border-navy-200 px-2 py-1 text-right text-sm tabular-nums focus:border-navy-400 focus:outline-none"
+                  <PrixUnitaireInput
+                    valeur={ligne.prixUnitaire}
+                    onChange={(v) => changerPrix(ligne.article.id, v)}
+                    titre={t('pointDeVente.prix_unitaire')}
                   />
 
                   <span className="ml-auto text-sm font-bold tabular-nums text-navy-900">
@@ -615,5 +612,17 @@ export function ComptoirTab() {
       </Card>
       </div>
     </div>
+  )
+}
+
+/** Prix unitaire d'une ligne du panier : milliers groupés, en composant à part pour que chaque ligne porte son propre état de saisie. */
+function PrixUnitaireInput({ valeur, onChange, titre }: { valeur: number; onChange: (valeur: number) => void; titre?: string }) {
+  const champ = useMontantSaisie(valeur, onChange)
+  return (
+    <input
+      {...champ}
+      title={titre}
+      className="w-24 rounded-lg border border-navy-200 px-2 py-1 text-right text-sm tabular-nums focus:border-navy-400 focus:outline-none"
+    />
   )
 }

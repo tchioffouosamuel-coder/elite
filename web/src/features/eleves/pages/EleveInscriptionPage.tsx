@@ -1,4 +1,4 @@
-import { useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type UseFormWatch, type FieldErrors } from 'react-hook-form'
+import { Controller, useForm, useFieldArray, type Control, type UseFormRegister, type UseFormSetValue, type UseFormWatch, type FieldErrors } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Receipt, Star, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { StepForm } from '@/shared/ui/StepForm'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -807,13 +807,19 @@ export function EleveInscriptionPage() {
                                         ))}
                                     </dl>
 
-                                    <Input
-                                        label={t('eleves.inscription.paiement_montant_label')}
-                                        type="number"
-                                        min={0}
-                                        placeholder={t('eleves.inscription.paiement_montant_placeholder')}
-                                        error={errors.paiement_montant?.message}
-                                        {...register('paiement_montant')}
+                                    <Controller
+                                        name="paiement_montant"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <MontantInput
+                                                label={t('eleves.inscription.paiement_montant_label')}
+                                                placeholder={t('eleves.inscription.paiement_montant_placeholder')}
+                                                error={errors.paiement_montant?.message}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                onBlur={field.onBlur}
+                                            />
+                                        )}
                                     />
 
                                     {montantPaiement > 0 && (
@@ -853,19 +859,16 @@ export function EleveInscriptionPage() {
                                                                 <td className="px-2.5 py-1.5 text-right tabular-nums text-green-600">{francs(r.montant_paye)}</td>
                                                                 <td className="px-2.5 py-1.5 text-right tabular-nums text-red-500">{francs(r.reste)}</td>
                                                                 <td className="px-2.5 py-1.5 text-right">
-                                                                    <input
-                                                                        type="number"
-                                                                        min={0}
-                                                                        value={allocations[i] ?? 0}
-                                                                        onChange={(e) => {
+                                                                    <MontantAlloueInput
+                                                                        valeur={allocations[i] ?? 0}
+                                                                        onChange={(v) => {
                                                                             setAllocationsModifiees(true)
                                                                             setAllocations((a) => {
                                                                                 const suivant = [...a]
-                                                                                suivant[i] = Number(e.target.value) || 0
+                                                                                suivant[i] = v
                                                                                 return suivant
                                                                             })
                                                                         }}
-                                                                        className="w-24 rounded-lg border border-navy-200 px-1.5 py-1 text-right text-xs tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
                                                                     />
                                                                 </td>
                                                             </tr>
@@ -1168,5 +1171,16 @@ export function EleveInscriptionPage() {
                 </div>
             )}
         </div>
+    )
+}
+
+/** Montant alloué à une rubrique dans le tableau de répartition : milliers groupés, en composant à part pour que chaque ligne porte son propre état de saisie. */
+function MontantAlloueInput({ valeur, onChange }: { valeur: number; onChange: (valeur: number) => void }) {
+    const champ = useMontantSaisie(valeur, onChange)
+    return (
+        <input
+            {...champ}
+            className="w-24 rounded-lg border border-navy-200 px-1.5 py-1 text-right text-xs tabular-nums shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+        />
     )
 }

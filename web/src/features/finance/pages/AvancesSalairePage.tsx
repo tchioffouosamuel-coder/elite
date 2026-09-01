@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { Banknote, Check, HandCoins, Plus, Undo2, Users, Wallet, X } from 'lucide-react'
 import {
   annulerAvance,
@@ -23,7 +23,7 @@ import { Button } from '@/shared/ui/Button'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, Select, Textarea } from '@/shared/ui/Field'
+import { Input, MontantInput, Select, Textarea } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { Tabs } from '@/shared/ui/Tabs'
 import { Modal } from '@/shared/ui/Modal'
@@ -509,6 +509,7 @@ function RembourserAvanceModal({
   const {
     register,
     handleSubmit,
+    control,
     formState: { isSubmitting, errors },
   } = useForm<FormRembourser>({
     defaultValues: { montant: avance.solde, date_remboursement: new Date().toISOString().slice(0, 10), mode: 'retenue_salaire' },
@@ -537,17 +538,23 @@ function RembourserAvanceModal({
           Solde restant : <span className="font-semibold text-navy-800">{francs(avance.solde)}</span>
         </p>
 
-        <Input
-          label="Montant remboursé (F CFA)"
-          type="number"
-          min={1}
-          max={avance.solde}
-          error={errors.montant?.message}
-          {...register('montant', {
+        <Controller
+          name="montant"
+          control={control}
+          rules={{
             required: 'Saisissez le montant.',
             min: { value: 1, message: 'Le montant doit être supérieur à zéro.' },
             max: { value: avance.solde, message: 'Ce montant dépasse le solde restant.' },
-          })}
+          }}
+          render={({ field }) => (
+            <MontantInput
+              label="Montant remboursé (F CFA)"
+              error={errors.montant?.message}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+            />
+          )}
         />
 
         <Select label="Mode" {...register('mode')}>

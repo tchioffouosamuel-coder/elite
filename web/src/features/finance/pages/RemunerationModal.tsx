@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Save, Info } from 'lucide-react'
 import { Modal } from '@/shared/ui/Modal'
-import { Input } from '@/shared/ui/Field'
+import { Input, MontantInput } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes } from '@/shared/lib/alertes'
 import {
@@ -16,15 +16,15 @@ import {
 } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
 
-type Montants = Record<ChampGain, string>
+type Montants = Record<ChampGain, number>
 
 const VIDE: Montants = {
-  salaire_base: '',
-  prime_anciennete: '',
-  prime_communication: '',
-  prime_transport: '',
-  prime_recherche: '',
-  prime_performance: '',
+  salaire_base: 0,
+  prime_anciennete: 0,
+  prime_communication: 0,
+  prime_transport: 0,
+  prime_recherche: 0,
+  prime_performance: 0,
 }
 
 /**
@@ -50,21 +50,21 @@ export function RemunerationModal({
     if (!personnel.remuneration) return VIDE
 
     return Object.fromEntries(
-      GAINS.map(({ champ }) => [champ, String(personnel.remuneration![champ] || '')]),
+      GAINS.map(({ champ }) => [champ, personnel.remuneration![champ] || 0]),
     ) as Montants
   })
 
   const [dateEffet, setDateEffet] = useState(new Date().toISOString().slice(0, 10))
   // Vacataire du technique : ni base ni primes, un taux et des heures.
   const [horaire, setHoraire] = useState(personnel.remuneration?.mode === 'horaire')
-  const [tauxHoraire, setTauxHoraire] = useState(String(personnel.remuneration?.taux_horaire ?? ''))
+  const [tauxHoraire, setTauxHoraire] = useState(personnel.remuneration?.taux_horaire ?? 0)
   const [categorie, setCategorie] = useState(personnel.remuneration?.categorie ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const nombres = useMemo(
     () =>
-      Object.fromEntries(GAINS.map(({ champ }) => [champ, Number(montants[champ] || 0)])) as Record<ChampGain, number>,
+      Object.fromEntries(GAINS.map(({ champ }) => [champ, montants[champ] || 0])) as Record<ChampGain, number>,
     [montants],
   )
 
@@ -91,7 +91,7 @@ export function RemunerationModal({
       await enregistrerRemuneration(personnel.id, {
         ...(horaire ? {} : nombres),
         mode: horaire ? 'horaire' : 'mensuel',
-        taux_horaire: horaire ? Number(tauxHoraire) : undefined,
+        taux_horaire: horaire ? tauxHoraire : undefined,
         date_effet: dateEffet,
         categorie: categorie || undefined,
       })
@@ -137,12 +137,10 @@ export function RemunerationModal({
 
         {horaire ? (
           <div className="flex flex-col gap-2">
-            <Input
+            <MontantInput
               label="Taux horaire (F CFA)"
-              type="number"
-              min={1}
               value={tauxHoraire}
-              onChange={(e) => setTauxHoraire(e.target.value)}
+              onChange={setTauxHoraire}
               placeholder="1 100"
             />
             <p className="text-xs text-navy-400">
@@ -153,13 +151,11 @@ export function RemunerationModal({
         ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {GAINS.map(({ champ, exonere }) => (
-            <Input
+            <MontantInput
               key={champ}
               label={t(`finance.remuneration.gains.${champ}`)}
-              type="number"
-              min={0}
               value={montants[champ]}
-              onChange={(e) => setMontants((m) => ({ ...m, [champ]: e.target.value }))}
+              onChange={(v) => setMontants((m) => ({ ...m, [champ]: v }))}
               placeholder={exonere ? t('finance.remuneration.exempt_until', { amount: '2 500' }) : '0'}
             />
           ))}
@@ -253,7 +249,7 @@ export function RemunerationModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={enregistrer} disabled={submitting || (horaire ? Number(tauxHoraire) <= 0 : brut <= 0)}>
+          <Button onClick={enregistrer} disabled={submitting || (horaire ? tauxHoraire <= 0 : brut <= 0)}>
             <Save className="h-4 w-4" />
             {submitting ? t('finance.remuneration.saving') : t('common.save')}
           </Button>

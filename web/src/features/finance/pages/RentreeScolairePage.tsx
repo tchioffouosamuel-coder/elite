@@ -27,7 +27,7 @@ import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input } from '@/shared/ui/Field'
+import { Input, MontantInput } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -284,12 +284,10 @@ function MontantPercuModal({
   return (
     <Modal title={LIBELLES_RUBRIQUE[rubrique]} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <Input
+        <MontantInput
           label={t('rentree.montant_percu_col')}
-          type="number"
-          min={0}
           value={montant}
-          onChange={(e) => setMontant(Number(e.target.value))}
+          onChange={setMontant}
         />
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
         <div className="mt-2 flex justify-end gap-2">
@@ -432,7 +430,7 @@ function ApeeForm({ apee, anneeScolaireId, peutModifier }: { apee: Apee; anneeSc
   const queryClient = useQueryClient()
   const [submitting, setSubmitting] = useState(false)
 
-  const { register, handleSubmit, reset } = useForm<Apee>({ defaultValues: apee })
+  const { register, handleSubmit, reset, watch, setValue } = useForm<Apee>({ defaultValues: apee })
 
   useEffect(() => reset(apee), [apee, reset])
 
@@ -462,8 +460,18 @@ function ApeeForm({ apee, anneeScolaireId, peutModifier }: { apee: Apee; anneeSc
       </label>
       <Input label={t('rentree.president_label')} disabled={!peutModifier} {...register('president_nom')} />
       <div className="grid grid-cols-2 gap-3">
-        <Input label={t('rentree.montant_percu_col')} type="number" min={0} disabled={!peutModifier} {...register('montant_percu')} />
-        <Input label={t('rentree.montant_depense_col')} type="number" min={0} disabled={!peutModifier} {...register('montant_depense')} />
+        <MontantInput
+          label={t('rentree.montant_percu_col')}
+          disabled={!peutModifier}
+          value={watch('montant_percu')}
+          onChange={(v) => setValue('montant_percu', v)}
+        />
+        <MontantInput
+          label={t('rentree.montant_depense_col')}
+          disabled={!peutModifier}
+          value={watch('montant_depense')}
+          onChange={(v) => setValue('montant_depense', v)}
+        />
       </div>
       {apee.id && (
         <Badge tone={apee.montant_restant >= 0 ? 'green' : 'red'}>

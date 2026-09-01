@@ -106,6 +106,7 @@ class ParentEspaceController extends Controller
                 'id' => $t->id,
                 'nom_complet' => $t->nom_complet,
                 'telephone' => $t->telephone,
+                'telephones' => $t->telephones->map(fn ($tel) => ['numero' => $tel->numero, 'is_principal' => (bool) $tel->is_principal])->values(),
                 'email' => $t->email,
                 'profession' => $t->profession,
                 'lieu_service' => $t->lieu_service,
