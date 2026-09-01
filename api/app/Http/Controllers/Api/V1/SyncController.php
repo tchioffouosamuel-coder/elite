@@ -268,17 +268,6 @@ class SyncController extends Controller
             return $requete;
         };
 
-        if (request()->boolean('debug_sync')) {
-            abort(response()->json([
-                'modele' => $definition['modele'],
-                'depuis_recu' => $depuis?->format('Y-m-d H:i:s.u T'),
-                'depuis_converti' => $depuis?->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s.u T'),
-                'app_timezone' => config('app.timezone'),
-                'sql' => $construire()->toSql(),
-                'bindings' => $construire()->getBindings(),
-            ], 200));
-        }
-
         // Une ligne de plus que le lot : si elle arrive, c'est qu'il en reste.
         $lignes = $construire()->limit(self::LOT_MAX + 1)->get();
 
