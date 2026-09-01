@@ -119,6 +119,7 @@ const navGroups = [
     label: 'nav.group.staff',
     items: [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view' },
+      { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view' },
       { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true },
       {
         to: '/departements',

@@ -83,6 +83,7 @@ use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
 use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
+use App\Http\Controllers\Api\V1\SuiviActiviteController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrancheScolariteController;
@@ -204,6 +205,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
                 Route::get('personnels/rapport-mise-en-place', [PersonnelController::class, 'rapportMiseEnPlace'])->name('personnels.rapport-mise-en-place');
+                Route::get('personnels/suivi-activite', [SuiviActiviteController::class, 'parPersonnel'])->name('personnels.suivi-activite');
                 // Route littérale avant le paramètre générique {id} ci-dessous, sinon
                 // « identifiants » s'y ferait happer. Document sensible (mots de passe) :
                 // exige `.manage` en plus du `.view` du groupe.

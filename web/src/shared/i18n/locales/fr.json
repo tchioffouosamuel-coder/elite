@@ -33,6 +33,7 @@
     "dashboard": "Tableau de bord",
     "annonces": "Annonces",
     "personnel": "Personnel",
+    "suiviActivite": "Suivi d'activité",
     "fonctionsReferentiel": "Fonctions",
     "departements": "Départements",
     "classes": "Classes",
@@ -212,7 +213,24 @@
     "assign_matieres_search_placeholder": "Rechercher une matière…",
     "assign_matieres_empty_assignees": "Aucune matière assignée à un département",
     "assign_matieres_empty_sans_dept": "Toutes les matières sont assignées à un département",
-    "sexe": "Sexe"
+    "sexe": "Sexe",
+    "suivi_activite": {
+      "title": "Suivi d'activité",
+      "subtitle": "Heures prévues et réalisées par enseignant, pour tracer l'activité et fiabiliser la paie.",
+      "from": "Du",
+      "to": "Au",
+      "granularite": "Vue",
+      "jour": "Jour",
+      "semaine": "Semaine",
+      "mois": "Mois",
+      "all_staff": "Tout le personnel",
+      "column_staff": "Personnel",
+      "column_total": "Total période",
+      "hours_done_over_planned": "{{realisees}} h / {{prevues}} h",
+      "rate": "{{taux}} %",
+      "sessions_late": "{{count}} séance(s) en retard",
+      "empty": "Aucune séance sur cette période."
+    }
   },
   "fonctionsReferentiel": {
     "title": "Référentiel des fonctions",

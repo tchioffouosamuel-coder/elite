@@ -33,6 +33,7 @@
     "dashboard": "Dashboard",
     "annonces": "Announcements",
     "personnel": "Staff",
+    "suiviActivite": "Activity tracking",
     "fonctionsReferentiel": "Positions",
     "departements": "Departments",
     "classes": "Classes",
@@ -212,7 +213,24 @@
     "assign_matieres_search_placeholder": "Search a subject…",
     "assign_matieres_empty_assignees": "No subject assigned to a department",
     "assign_matieres_empty_sans_dept": "All subjects are assigned to a department",
-    "sexe": "Gender"
+    "sexe": "Gender",
+    "suivi_activite": {
+      "title": "Activity tracking",
+      "subtitle": "Planned vs. actual hours per teacher, to trace activity and reconcile payroll.",
+      "from": "From",
+      "to": "To",
+      "granularite": "View",
+      "jour": "Day",
+      "semaine": "Week",
+      "mois": "Month",
+      "all_staff": "All staff",
+      "column_staff": "Staff",
+      "column_total": "Period total",
+      "hours_done_over_planned": "{{realisees}} h / {{prevues}} h",
+      "rate": "{{taux}} %",
+      "sessions_late": "{{count}} session(s) overdue",
+      "empty": "No sessions over this period."
+    }
   },
   "fonctionsReferentiel": {
     "title": "Position catalog",

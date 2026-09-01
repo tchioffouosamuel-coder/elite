@@ -381,3 +381,42 @@ export async function batchFonctionPersonnel(
   >("/personnels/batch-fonction", { ids, fonction_id: fonctionId });
   return data.data;
 }
+
+// ------------------------------------------------------------- Suivi d'activité
+
+export type GranulariteSuivi = "jour" | "semaine" | "mois";
+
+export interface SuiviActiviteResume {
+  heures_prevues: number;
+  heures_realisees: number;
+  taux: number;
+  seances_prevues: number;
+  seances_realisees: number;
+  seances_annulees: number;
+  seances_en_retard: number;
+}
+
+export interface SuiviActivitePeriode extends SuiviActiviteResume {
+  periode: string;
+}
+
+export interface SuiviActivitePersonnel {
+  personnel_id: number;
+  nom_complet: string;
+  fonction: string | null;
+  periodes: SuiviActivitePeriode[];
+  totaux: SuiviActiviteResume;
+}
+
+export async function fetchSuiviActivite(params: {
+  date_debut: string;
+  date_fin: string;
+  granularite: GranulariteSuivi;
+  personnel_id?: number | null;
+}): Promise<SuiviActivitePersonnel[]> {
+  const { data } = await http.get<ApiResponse<SuiviActivitePersonnel[]>>(
+    "/personnels/suivi-activite",
+    { params },
+  );
+  return data.data;
+}
