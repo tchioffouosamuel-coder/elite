@@ -62,7 +62,7 @@ export function StepForm({
         <div className={clsx('flex overflow-x-auto pb-1', compact ? 'mb-5' : 'mb-8')}>
           <div className="flex min-w-max flex-1 items-center">
             {steps.map((step, index) => (
-              <div key={step.id} className="flex flex-none items-center sm:flex-1">
+              <div key={step.id} className="flex flex-1 items-center">
                 <button
                   type="button"
                   onClick={() => onStepChange(index)}
@@ -94,7 +94,7 @@ export function StepForm({
                 {index < steps.length - 1 && (
                   <span
                     className={clsx(
-                      'mx-2 h-1 w-8 flex-none rounded-full transition-colors sm:flex-1',
+                      'mx-2 h-1 min-w-4 flex-1 rounded-full transition-colors',
                       index < currentStep ? 'bg-green-500' : 'bg-navy-100',
                     )}
                   />

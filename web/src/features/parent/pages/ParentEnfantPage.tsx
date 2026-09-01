@@ -406,7 +406,7 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>
                 <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
-                <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
+                <dd className={`text-sm font-bold whitespace-nowrap tabular-nums ${couleur}`}>{valeur}</dd>
               </div>
             ))}
           </dl>
@@ -446,10 +446,10 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             {finance.rubriques.map((r) => (
               <div key={`${r.cle}:${r.dossier_frais_annexe_id ?? ''}`} className="flex flex-col gap-1.5 px-3 py-2.5">
                 <span className="font-medium text-navy-800">{r.libelle}</span>
-                <div className="flex items-center justify-between text-xs tabular-nums">
-                  <span className="text-navy-400">Dû / Due : <span className="text-navy-700">{francs(r.montant_du)}</span></span>
-                  <span className="text-navy-400">Payé / Paid : <span className="text-green-600">{francs(r.montant_paye)}</span></span>
-                  <span className="text-navy-400">Reste / Remaining : <span className="text-red-500">{francs(r.reste)}</span></span>
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs tabular-nums">
+                  <span className="whitespace-nowrap text-navy-400">Dû / Due : <span className="text-navy-700">{francs(r.montant_du)}</span></span>
+                  <span className="whitespace-nowrap text-navy-400">Payé / Paid : <span className="text-green-600">{francs(r.montant_paye)}</span></span>
+                  <span className="whitespace-nowrap text-navy-400">Reste / Remaining : <span className="text-red-500">{francs(r.reste)}</span></span>
                 </div>
               </div>
             ))}
@@ -469,9 +469,9 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
                 {finance.rubriques.map((r) => (
                   <tr key={`${r.cle}:${r.dossier_frais_annexe_id ?? ''}`}>
                     <td className="px-2.5 py-1.5 font-medium text-navy-800">{r.libelle}</td>
-                    <td className="px-2.5 py-1.5 text-right tabular-nums">{francs(r.montant_du)}</td>
-                    <td className="px-2.5 py-1.5 text-right tabular-nums text-green-600">{francs(r.montant_paye)}</td>
-                    <td className="px-2.5 py-1.5 text-right tabular-nums text-red-500">{francs(r.reste)}</td>
+                    <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{francs(r.montant_du)}</td>
+                    <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums text-green-600">{francs(r.montant_paye)}</td>
+                    <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums text-red-500">{francs(r.reste)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -485,7 +485,7 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
                   <span className="text-navy-600">
                     {v.numero_recu} · {new Date(v.date_versement).toLocaleDateString('fr-FR')}
                   </span>
-                  <span className="font-semibold tabular-nums text-navy-800">{francs(v.montant)}</span>
+                  <span className="whitespace-nowrap font-semibold tabular-nums text-navy-800">{francs(v.montant)}</span>
                 </div>
               ))}
             </div>
@@ -621,12 +621,12 @@ function AssiduiteCard({ eleveId }: { eleveId: number }) {
 
   return (
     <Card>
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
           <CalendarX className="h-4 w-4" />
           Assiduité et absences / Attendance and absences
         </h2>
-        <Button size="sm" variant="secondary" onClick={() => setModalOuvert(true)}>
+        <Button size="sm" variant="secondary" className="w-full sm:w-auto" onClick={() => setModalOuvert(true)}>
           Justifier une absence / Justify an absence
         </Button>
       </div>
@@ -1015,8 +1015,8 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
                 </span>
               </span>
               <span className="flex flex-col items-end">
-                <span className="text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
-                <span className={`text-[11px] font-semibold ${etat.classe}`}>
+                <span className="whitespace-nowrap text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
+                <span className={`whitespace-nowrap text-[11px] font-semibold ${etat.classe}`}>
                   {tranche.reste > 0 ? `${etat.libelle} · reste / remaining ${francs(tranche.reste)}` : etat.libelle}
                 </span>
               </span>

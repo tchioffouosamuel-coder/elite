@@ -12,7 +12,9 @@ use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\BusVehicule;
 use App\Models\BusVersement;
+use App\Models\Appreciation;
 use App\Models\Classe;
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Competence;
 use App\Models\CompteComptable;
@@ -152,12 +154,44 @@ class RegistreSync
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
+            // Attribution d'une compétence à une classe — sans elle, le poste
+            // hors ligne ne sait pas quelles compétences noter pour une classe
+            // donnée (cf. `GET classes/{id}/competences`, son pendant en
+            // ligne). Bornée comme `classe_matieres` : c'est la même notion
+            // d'affectation, juste portée par une compétence plutôt qu'une
+            // matière.
+            'classe_competences' => [
+                'modele' => ClasseCompetence::class,
+                'colonnes' => ['id', 'classe_id', 'competence_id', 'groupe', 'statut'],
+                'portee' => fn (Builder $q, int $s) => $q
+                    ->whereHas('classe', fn ($c) => $c->where('school_id', $s))
+                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                'permission' => 'pedagogie.view',
+            ],
+            // Référentiel d'appréciations de la maternelle (cf.
+            // `NotePrimaireService::parAppreciation()`) : sans lui, la grille
+            // primaire hors ligne ne peut proposer aucun niveau à cocher pour
+            // ces classes-là.
+            'appreciations' => [
+                'modele' => Appreciation::class,
+                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'emoji', 'couleur', 'ordre', 'statut'],
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'pedagogie.view',
+            ],
 
             // --- Structure pédagogique.
+            // Alignée sur `Classe::scopeDansPerimetre()` (cf.
+            // `FiltreParPerimetre`), qu'utilise déjà `GET /classes` en ligne :
+            // sans ce filtre, un compte borné voyait ici l'établissement
+            // entier alors que `seances`/`presences`/`notes` ci-dessous
+            // restaient correctement bornés à ses propres classes — la
+            // classe apparaissait dans la liste locale mais restait vide de
+            // tout, sans indication que ce n'était pas un problème de sync.
             'classes' => [
                 'modele' => Classe::class,
                 'colonnes' => ['id', 'school_id', 'niveau_id', 'niveau_scolaire_id', 'professeur_principal_id', 'titulaire_id', 'surveillant_general_id', 'nom', 'sigle', 'sous_systeme_id', 'niveau_classe', 'filiere', 'capacite', 'qr_token'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('id', $classesPerimetre)),
                 'permission' => 'classes.view',
             ],
             'classe_matieres' => [
@@ -267,7 +301,12 @@ class RegistreSync
             ],
             'notes' => [
                 'modele' => Note::class,
-                'colonnes' => ['id', 'eleve_id', 'classe_matiere_id', 'sequence_id', 'composante', 'valeur', 'saisi_par'],
+                // `classe_competence_id`/`appreciation_id` couvrent le
+                // primaire/maternelle (cf. `classe_competences` et
+                // `appreciations` ci-dessus) — `classe_matiere_id` reste seul
+                // renseigné au secondaire, les deux couples sont mutuellement
+                // exclusifs sur une même ligne.
+                'colonnes' => ['id', 'eleve_id', 'classe_matiere_id', 'classe_competence_id', 'sequence_id', 'composante', 'valeur', 'appreciation_id', 'saisi_par'],
                 'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)
                     ->when($classesPerimetre !== null, fn (Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
                 'permission' => 'notes.view',
@@ -525,7 +564,7 @@ class RegistreSync
         return match ($entite) {
             'annee_scolaires', 'niveaux', 'sous_systemes', 'departements', 'matieres', 'classes',
             'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'tuteurs', 'seances',
-            'annonces', 'notifications_internes',
+            'annonces', 'notifications_internes', 'competences', 'appreciations',
             'grilles_frais', 'frais_annexes', 'dossiers_scolarite',
             'versements', 'moratoires', 'remises', 'dettes_anterieures',
             'tranches_scolarite', 'ecritures_comptables', 'budgets_fonctionnement',
@@ -535,7 +574,7 @@ class RegistreSync
 
             'trimestres' => $m->anneeScolaire?->school_id,
             'sequences' => $m->trimestre?->anneeScolaire?->school_id,
-            'classe_matieres' => $m->classe?->school_id,
+            'classe_matieres', 'classe_competences' => $m->classe?->school_id,
             'progression_items' => $m->classeMatiere?->classe?->school_id,
             'presences' => $m->seance?->school_id,
             'notes', 'sanctions', 'bus_affectations', 'visites_infirmerie', 'eleve_tuteurs' => $m->eleve?->school_id,

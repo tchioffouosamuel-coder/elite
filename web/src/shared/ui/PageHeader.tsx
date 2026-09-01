@@ -28,7 +28,7 @@ export function PageHeader({
         )}
         <div className="min-w-0">
           <h1 className="truncate font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">{titre}</h1>
-          {sousTitre && <p className="truncate text-sm text-navy-400">{sousTitre}</p>}
+          {sousTitre && <p className="text-sm text-navy-400">{sousTitre}</p>}
         </div>
       </div>
 

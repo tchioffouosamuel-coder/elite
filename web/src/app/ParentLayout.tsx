@@ -7,10 +7,10 @@ import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 
 const liens = [
-  { to: '/parent', label: 'Mes enfants / My children', icon: Users, end: true },
-  { to: '/parent/annonces', label: 'Annonces / Announcements', icon: Megaphone, end: true },
-  { to: '/parent/preinscription/nouveau', label: 'Inscrire un enfant / Register a child', icon: FilePlus2, end: true },
-  { to: '/parent/preinscriptions', label: 'Mes démarches / My requests', icon: ClipboardList, end: true },
+  { to: '/parent', fr: 'Mes enfants', en: 'My children', icon: Users, end: true },
+  { to: '/parent/annonces', fr: 'Annonces', en: 'Announcements', icon: Megaphone, end: true },
+  { to: '/parent/preinscription/nouveau', fr: 'Inscrire un enfant', en: 'Register a child', icon: FilePlus2, end: true },
+  { to: '/parent/preinscriptions', fr: 'Mes démarches', en: 'My requests', icon: ClipboardList, end: true },
 ]
 
 function initiales(nom?: string) {
@@ -67,7 +67,13 @@ export function ParentLayout() {
                 }
               >
                 <lien.icon className="h-4 w-4 flex-none sm:h-3.5 sm:w-3.5" />
-                <span className="max-w-full truncate">{lien.label}</span>
+                <span className="flex max-w-full flex-col items-center leading-tight sm:hidden">
+                  <span className="truncate">{lien.fr}</span>
+                  <span className="truncate opacity-75">{lien.en}</span>
+                </span>
+                <span className="hidden max-w-full truncate sm:inline">
+                  {lien.fr} / {lien.en}
+                </span>
               </NavLink>
             ))}
           </nav>

@@ -49,7 +49,7 @@ export function ParentAccueilPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-base font-bold text-navy-900">{e.nom_complet}</p>
-                  <p className="truncate text-sm text-navy-400">
+                  <p className="text-sm text-navy-400">
                     {[e.classe?.nom, e.school?.name].filter(Boolean).join(' · ') || '—'}
                   </p>
                 </div>
