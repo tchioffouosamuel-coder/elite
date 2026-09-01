@@ -41,6 +41,17 @@ class Seance extends Model
             && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
     }
 
+    public function debutPrevu(): \Illuminate\Support\Carbon
+    {
+        return \Illuminate\Support\Carbon::parse($this->date_seance->toDateString().' '.$this->heure_debut);
+    }
+
+    /** Un appel pris avant l'heure de la séance pointerait des élèves pas encore en cours. */
+    public function aCommence(): bool
+    {
+        return now()->gte($this->debutPrevu());
+    }
+
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);

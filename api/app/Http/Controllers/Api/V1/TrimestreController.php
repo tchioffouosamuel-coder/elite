@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreTrimestreRequest;
+use App\Http\Requests\Api\V1\UpdateTrimestreRequest;
 use App\Http\Resources\Api\V1\TrimestreResource;
 use App\Models\AnneeScolaire;
+use App\Models\Classe;
 use App\Models\Setting;
 use App\Models\Trimestre;
+use App\Services\EmploiDuTempsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TrimestreController extends Controller
@@ -62,5 +66,36 @@ class TrimestreController extends Controller
         $trimestre->setRelation('sequences', $trimestre->sequencesRetenues());
 
         return ApiResponse::success(new TrimestreResource($trimestre), 'Trimestre activé.');
+    }
+
+    public function update(int $id, UpdateTrimestreRequest $request): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $trimestre = Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $schoolId))->findOrFail($id);
+
+        $trimestre->update($request->validated());
+        $trimestre->load('anneeScolaire');
+        $trimestre->setRelation('sequences', $trimestre->sequencesRetenues());
+
+        return ApiResponse::success(new TrimestreResource($trimestre), 'Trimestre mis à jour.');
+    }
+
+    /** Matérialise les séances de toutes les classes de l'année, pour ce trimestre, en un coup. */
+    public function genererSeances(int $id, Request $request, EmploiDuTempsService $service): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $trimestre = Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $schoolId))->findOrFail($id);
+
+        // Une classe est un gabarit permanent de l'établissement (cf. migration
+        // 2026_08_23_150000) : elle ne se rattache pas à une année précise, donc
+        // « les classes de ce trimestre » sont simplement celles de l'école,
+        // bornées au périmètre de l'agent.
+        $classes = Classe::forSchool($schoolId)
+            ->dansPerimetre($request->user())
+            ->get();
+
+        $resultat = $service->genererSeancesPourClasses($classes, $trimestre->date_debut, $trimestre->date_fin, $trimestre);
+
+        return ApiResponse::success($resultat, "{$resultat['creees']} séance(s) générée(s) sur {$resultat['classes']} classe(s).");
     }
 }

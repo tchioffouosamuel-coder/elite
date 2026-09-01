@@ -4,10 +4,19 @@ import { useTranslation } from 'react-i18next'
 import { Modal } from '@/shared/ui/Modal'
 import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
-import { createAnneeScolaire, type AnneeScolairePayload } from '@/features/session/api'
+import { createAnneeScolaire, updateAnneeScolaire, type AnneeScolaire, type AnneeScolairePayload } from '@/features/session/api'
 import type { ApiError } from '@/shared/types/api'
 
-export function AnneeScolaireFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function AnneeScolaireFormModal({
+  edition,
+  onClose,
+  onCreated,
+}: {
+  /** Présente en mode édition : préremplit le formulaire et bascule vers la mise à jour. */
+  edition?: AnneeScolaire
+  onClose: () => void
+  onCreated: () => void
+}) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -16,13 +25,21 @@ export function AnneeScolaireFormModal({ onClose, onCreated }: { onClose: () => 
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<AnneeScolairePayload & { is_active: boolean }>({ defaultValues: { is_active: false } })
+  } = useForm<AnneeScolairePayload & { is_active: boolean }>({
+    defaultValues: edition
+      ? { libelle: edition.libelle, date_debut: edition.date_debut, date_fin: edition.date_fin, is_active: edition.is_active }
+      : { is_active: false },
+  })
 
   const onSubmit = async (values: AnneeScolairePayload & { is_active: boolean }) => {
     setServerError(null)
     setSubmitting(true)
     try {
-      await createAnneeScolaire(values)
+      if (edition) {
+        await updateAnneeScolaire(edition.id, values)
+      } else {
+        await createAnneeScolaire(values)
+      }
       onCreated()
     } catch (err) {
       setServerError((err as ApiError).message)
@@ -32,7 +49,7 @@ export function AnneeScolaireFormModal({ onClose, onCreated }: { onClose: () => 
   }
 
   return (
-    <Modal title={t('session.add_annee')} onClose={onClose}>
+    <Modal title={edition ? t('session.edit_annee') : t('session.add_annee')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input
           label={t('session.libelle')}
@@ -54,10 +71,12 @@ export function AnneeScolaireFormModal({ onClose, onCreated }: { onClose: () => 
             {...register('date_fin', { required: true })}
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('is_active')} />
-          {t('session.active')}
-        </label>
+        {!edition && (
+          <label className="flex items-center gap-2 text-sm text-navy-700">
+            <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('is_active')} />
+            {t('session.active')}
+          </label>
+        )}
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

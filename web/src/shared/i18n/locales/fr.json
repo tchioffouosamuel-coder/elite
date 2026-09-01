@@ -979,7 +979,13 @@
     "select_annee": "Sélectionnez une année scolaire pour gérer ses trimestres.",
     "no_trimestres": "Aucun trimestre pour cette année.",
     "annee_activated": "Année {{libelle}} activée.",
-    "trimestre_activated": "{{libelle}} activé."
+    "trimestre_activated": "{{libelle}} activé.",
+    "edit_annee": "Modifier l'année scolaire",
+    "edit_trimestre": "Modifier le trimestre",
+    "generer_seances": "Générer les séances",
+    "generer_seances_confirm_title": "Générer les séances de {{libelle}} ?",
+    "generer_seances_confirm_message": "Les séances seront créées depuis l'emploi du temps de chaque classe accessible, sur toute la période. Les séances déjà créées ne sont pas dupliquées.",
+    "seances_generees": "{{creees}} séance(s) générée(s) sur {{classes}} classe(s)."
   },
   "export": {
     "excel": "Exporter en Excel",
@@ -1294,6 +1300,8 @@
     "empty_classes": "Aucune classe.",
     "appel_verrouille": "Appel verrouillé",
     "appel_verrouille_message": "Cet appel n'est plus modifiable depuis {{heure}} (verrouillé 15 minutes après son enregistrement). Contactez le Surveillant Général pour une correction.",
+    "appel_pas_encore_commencee": "Cette séance commence à {{heure}} — l'appel n'est pas encore possible.",
+    "appel_pas_encore_commence_message": "Cette séance n'a pas encore commencé : l'appel sera possible à partir de {{heure}}.",
     "modifier_creneau_title": "Modifier le créneau",
     "modifier_creneau": "Modifier le créneau",
     "creneau_modifie": "Créneau mis à jour.",

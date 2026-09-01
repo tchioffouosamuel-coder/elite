@@ -148,7 +148,13 @@ export function SeancesPage() {
       entete: '',
       cellule: (s) =>
         can('appel.manage') ? (
-          <Button size="sm" variant="secondary" onClick={() => navigate(`/seances/${s.id}/appel`)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => navigate(`/seances/${s.id}/appel`)}
+            disabled={!s.demarree}
+            title={!s.demarree ? t('emploiDuTemps.appel_pas_encore_commencee', { heure: s.heure_debut }) : undefined}
+          >
             <UserCheck className="h-4 w-4" />
             {t('emploiDuTemps.faire_appel')}
           </Button>

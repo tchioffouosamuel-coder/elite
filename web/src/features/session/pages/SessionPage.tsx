@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, CheckCircle2 } from 'lucide-react'
+import { Plus, CheckCircle2, Pencil, CalendarPlus } from 'lucide-react'
 import {
   fetchAnneesScolaires,
   activerAnneeScolaire,
+  genererSeancesAnnee,
   fetchTrimestresAll,
   activerTrimestre,
+  genererSeancesTrimestre,
+  type AnneeScolaire,
 } from '@/features/session/api'
+import type { Trimestre } from '@/features/pedagogie/api'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -27,6 +31,8 @@ export function SessionPage() {
 
   const [showAnneeForm, setShowAnneeForm] = useState(false)
   const [showTrimestreForm, setShowTrimestreForm] = useState(false)
+  const [editingAnnee, setEditingAnnee] = useState<AnneeScolaire | null>(null)
+  const [editingTrimestre, setEditingTrimestre] = useState<Trimestre | null>(null)
   const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
 
@@ -76,6 +82,48 @@ export function SessionPage() {
       await activerTrimestre(id)
       invalidateTrimestres()
       succes(t('session.trimestre_activated', { libelle }))
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  // Crée les séances de toutes les classes accessibles à l'agent, depuis leur
+  // emploi du temps — pas besoin de rouvrir chaque classe une par une.
+  const handleGenererSeancesAnnee = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: t('session.generer_seances_confirm_title', { libelle }),
+      message: t('session.generer_seances_confirm_message'),
+      action: t('session.generer_seances'),
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setBusyId(id)
+    try {
+      const resultat = await genererSeancesAnnee(id)
+      succes(t('session.seances_generees', resultat))
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleGenererSeancesTrimestre = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: t('session.generer_seances_confirm_title', { libelle }),
+      message: t('session.generer_seances_confirm_message'),
+      action: t('session.generer_seances'),
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setBusyId(id)
+    try {
+      const resultat = await genererSeancesTrimestre(id)
+      succes(t('session.seances_generees', resultat))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {
@@ -134,19 +182,42 @@ export function SessionPage() {
                   <Td>{a.date_debut}</Td>
                   <Td>{a.date_fin}</Td>
                   <Td>
-                    {!a.is_active && (
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleActivateAnnee(a.id, a.libelle)
+                          setEditingAnnee(a)
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t('common.edit')}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleGenererSeancesAnnee(a.id, a.libelle)
                         }}
                         disabled={busyId === a.id}
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('session.activate')}
+                        <CalendarPlus className="h-3.5 w-3.5" />
+                        {t('session.generer_seances')}
                       </button>
-                    )}
+                      {!a.is_active && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleActivateAnnee(a.id, a.libelle)
+                          }}
+                          disabled={busyId === a.id}
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t('session.activate')}
+                        </button>
+                      )}
+                    </div>
                   </Td>
                 </Tr>
               ))}
@@ -198,16 +269,33 @@ export function SessionPage() {
                   <Td>{tr.date_debut}</Td>
                   <Td>{tr.date_fin}</Td>
                   <Td>
-                    {!tr.is_active && (
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={() => handleActivateTrimestre(tr.id, tr.libelle)}
+                        onClick={() => setEditingTrimestre(tr)}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t('common.edit')}
+                      </button>
+                      <button
+                        onClick={() => handleGenererSeancesTrimestre(tr.id, tr.libelle)}
                         disabled={busyId === tr.id}
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('session.activate')}
+                        <CalendarPlus className="h-3.5 w-3.5" />
+                        {t('session.generer_seances')}
                       </button>
-                    )}
+                      {!tr.is_active && (
+                        <button
+                          onClick={() => handleActivateTrimestre(tr.id, tr.libelle)}
+                          disabled={busyId === tr.id}
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t('session.activate')}
+                        </button>
+                      )}
+                    </div>
                   </Td>
                 </Tr>
               ))}
@@ -225,6 +313,16 @@ export function SessionPage() {
           }}
         />
       )}
+      {editingAnnee && (
+        <AnneeScolaireFormModal
+          edition={editingAnnee}
+          onClose={() => setEditingAnnee(null)}
+          onCreated={() => {
+            setEditingAnnee(null)
+            invalidateAnnees()
+          }}
+        />
+      )}
       {showTrimestreForm && selectedAnnee && (
         <TrimestreFormModal
           anneeScolaireId={selectedAnnee.id}
@@ -232,6 +330,18 @@ export function SessionPage() {
           onClose={() => setShowTrimestreForm(false)}
           onCreated={() => {
             setShowTrimestreForm(false)
+            invalidateTrimestres()
+          }}
+        />
+      )}
+      {editingTrimestre && (
+        <TrimestreFormModal
+          anneeScolaireId={editingTrimestre.annee_scolaire_id}
+          prochainOrdre={editingTrimestre.ordre}
+          edition={editingTrimestre}
+          onClose={() => setEditingTrimestre(null)}
+          onCreated={() => {
+            setEditingTrimestre(null)
             invalidateTrimestres()
           }}
         />

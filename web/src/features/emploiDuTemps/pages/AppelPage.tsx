@@ -55,7 +55,8 @@ export function AppelPage() {
   if (isError) return <ErrorState />
 
   const absents = lignes.filter((l) => l.statut === 'absent').length
-  const verrouille = data.verrouille
+  const pasEncoreCommencee = !data.seance.demarree
+  const verrouille = data.verrouille || pasEncoreCommencee
   const heureLimite = data.modifiable_jusqua
     ? new Date(data.modifiable_jusqua).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     : null
@@ -78,11 +79,18 @@ export function AppelPage() {
       </div>
 
       <Card className="p-4">
-        {verrouille && (
+        {pasEncoreCommencee ? (
           <p className="mb-3 flex items-center gap-2 rounded-xl bg-navy-50 px-3.5 py-2.5 text-sm text-navy-700">
             <Lock className="h-4 w-4 shrink-0" />
-            {t('emploiDuTemps.appel_verrouille_message', { heure: heureLimite })}
+            {t('emploiDuTemps.appel_pas_encore_commence_message', { heure: data.seance.heure_debut })}
           </p>
+        ) : (
+          data.verrouille && (
+            <p className="mb-3 flex items-center gap-2 rounded-xl bg-navy-50 px-3.5 py-2.5 text-sm text-navy-700">
+              <Lock className="h-4 w-4 shrink-0" />
+              {t('emploiDuTemps.appel_verrouille_message', { heure: heureLimite })}
+            </p>
+          )
         )}
 
         {/* Un enseignant qui voit trois fois plus d'élèves que sa classe doit

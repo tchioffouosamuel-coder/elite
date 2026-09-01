@@ -61,6 +61,8 @@ export interface Seance {
   absents: number
   /** Plus de 15 minutes se sont écoulées depuis le premier enregistrement de l'appel. */
   verrouille: boolean
+  /** Faux tant que l'heure de début n'est pas arrivée — l'appel ne peut pas encore être fait. */
+  demarree: boolean
 }
 
 export type MotifAbsence = 'maladie' | 'inconnu' | 'scolarite' | 'permission'

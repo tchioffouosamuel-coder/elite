@@ -245,6 +245,25 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
+     * Générère les séances de plusieurs classes d'un coup — le pendant « en
+     * masse » de {@see genererSeances()}, pour ouvrir un trimestre ou une
+     * année sans repasser classe par classe.
+     *
+     * @param Collection<int, Classe> $classes
+     * @return array{creees: int, classes: int}
+     */
+    public function genererSeancesPourClasses(Collection $classes, Carbon $debut, Carbon $fin, ?Trimestre $trimestre): array
+    {
+        $creees = 0;
+
+        foreach ($classes as $classe) {
+            $creees += $this->genererSeances($classe, $debut, $fin, $trimestre);
+        }
+
+        return ['creees' => $creees, 'classes' => $classes->count()];
+    }
+
+    /**
      * Feuille d'appel : tous les élèves actifs convoqués, avec leur pointage
      * s'il a déjà été saisi. Les élèves non encore pointés remontent en
      * « present » — l'appel se fait par exception, comme sur une feuille papier.

@@ -952,7 +952,13 @@
     "select_annee": "Select a school year to manage its terms.",
     "no_trimestres": "No terms for this school year.",
     "annee_activated": "School year {{libelle}} activated.",
-    "trimestre_activated": "{{libelle}} activated."
+    "trimestre_activated": "{{libelle}} activated.",
+    "edit_annee": "Edit school year",
+    "edit_trimestre": "Edit term",
+    "generer_seances": "Generate sessions",
+    "generer_seances_confirm_title": "Generate the sessions for {{libelle}}?",
+    "generer_seances_confirm_message": "Sessions will be created from each accessible class's schedule, over the whole period. Sessions already created are not duplicated.",
+    "seances_generees": "{{creees}} session(s) generated across {{classes}} class(es)."
   },
   "export": {
     "excel": "Export to Excel",
@@ -1294,6 +1300,8 @@
     "empty_classes": "No class.",
     "appel_verrouille": "Roll call locked",
     "appel_verrouille_message": "This roll call is no longer editable since {{heure}} (locked 15 minutes after it was saved). Contact the Supervisor for a correction.",
+    "appel_pas_encore_commencee": "This session starts at {{heure}} — roll call isn't available yet.",
+    "appel_pas_encore_commence_message": "This session hasn't started yet: roll call will be available from {{heure}}.",
     "modifier_creneau_title": "Edit the timeslot",
     "modifier_creneau": "Edit timeslot",
     "creneau_modifie": "Timeslot updated.",

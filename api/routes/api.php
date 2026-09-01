@@ -264,7 +264,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:ecoles.manage')->group(function () {
                 Route::get('annees-scolaires', [AnneeScolaireController::class, 'index'])->name('annees.index');
                 Route::post('annees-scolaires', [AnneeScolaireController::class, 'store'])->name('annees.store');
+                Route::put('annees-scolaires/{id}', [AnneeScolaireController::class, 'update'])->name('annees.update');
                 Route::post('annees-scolaires/{id}/activer', [AnneeScolaireController::class, 'activate'])->name('annees.activate');
+                Route::post('annees-scolaires/{id}/generer-seances', [AnneeScolaireController::class, 'genererSeances'])->name('annees.generer-seances');
 
                 Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
                 Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
@@ -528,7 +530,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:ecoles.manage')->group(function () {
                 Route::post('trimestres', [TrimestreController::class, 'store'])->name('trimestres.store');
+                Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update');
                 Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate');
+                Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances');
             });
 
             Route::middleware('permission:notes.view')->group(function () {

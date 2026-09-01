@@ -125,6 +125,12 @@ class SeanceController extends Controller
     {
         $seance = $this->seance($id);
 
+        abort_unless(
+            $seance->aCommence(),
+            403,
+            "Cette séance n'a pas encore commencé — l'appel sera possible à partir de {$seance->heure_debut}."
+        );
+
         abort_if(
             $seance->appelVerrouille(),
             403,
@@ -172,6 +178,7 @@ class SeanceController extends Controller
             'statut' => $seance->statut,
             'absents' => $seance->absents_count,
             'verrouille' => $seance->appelVerrouille(),
+            'demarree' => $seance->aCommence(),
         ];
     }
 }
