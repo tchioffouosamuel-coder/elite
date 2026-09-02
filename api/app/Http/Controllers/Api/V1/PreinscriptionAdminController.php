@@ -43,6 +43,7 @@ class PreinscriptionAdminController extends Controller
             'reference_externe' => $p->reference_externe,
             'rubriques_versement' => $p->rubriques_versement,
             'classe_actuelle' => $p->eleve?->classe?->nom,
+            'classe_id' => $p->classe_id,
         ]);
     }
 
@@ -82,6 +83,10 @@ class PreinscriptionAdminController extends Controller
             'donnees_tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
             'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
             'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+
+            // Classe visée par la réinscription — laisser vide garde la
+            // classe actuelle de l'élève inchangée (cf. PreinscriptionService::valider).
+            'classe_id' => ['nullable', 'integer', 'exists:classes,id'],
 
             'montant_verser' => ['nullable', 'integer', 'min:1'],
             'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
@@ -125,6 +130,9 @@ class PreinscriptionAdminController extends Controller
             'donnees_eleve.situation_sanitaire' => ['nullable', 'string', 'max:1000'],
             'donnees_eleve.aptitude' => ['nullable', 'in:apte,inapte'],
             'donnees_eleve.allergies' => ['nullable', 'string', 'max:1000'],
+            // Pour une nouvelle inscription : la classe proposée par le
+            // parent vit ici, et reste directement modifiable par l'admin.
+            'donnees_eleve.classe_id' => ['nullable', 'integer', 'exists:classes,id'],
 
             'donnees_tuteurs' => ['required', 'array', 'min:1'],
             'donnees_tuteurs.*.nom_complet' => ['required', 'string', 'max:150'],
@@ -138,10 +146,16 @@ class PreinscriptionAdminController extends Controller
             'donnees_tuteurs.*.adresse' => ['nullable', 'string', 'max:255'],
             'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
             'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+
+            // Pour une réinscription : classe cible distincte de celle
+            // actuelle de l'élève, laissée vide si l'admin ne la change pas.
+            'classe_id' => ['nullable', 'integer', 'exists:classes,id'],
         ]);
 
         try {
-            $p = $this->service->modifierDonnees($p, $data['donnees_eleve'], $data['donnees_tuteurs']);
+            $p = $this->service->modifierDonnees($p, $data['donnees_eleve'], $data['donnees_tuteurs'], [
+                'classe_id' => $data['classe_id'] ?? null,
+            ]);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
@@ -150,6 +164,7 @@ class PreinscriptionAdminController extends Controller
             ...$this->resume($p),
             'donnees_eleve' => $p->donnees_eleve,
             'donnees_tuteurs' => $p->donnees_tuteurs,
+            'classe_id' => $p->classe_id,
         ], 'Informations mises à jour.');
     }
 

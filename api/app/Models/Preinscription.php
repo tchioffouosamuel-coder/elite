@@ -22,6 +22,7 @@ class Preinscription extends Model
         'statut',
         'donnees_eleve',
         'donnees_tuteurs',
+        'classe_id',
         'note_admin',
         'montant_verser',
         'mode_versement',
@@ -61,6 +62,11 @@ class Preinscription extends Model
     public function eleve(): BelongsTo
     {
         return $this->belongsTo(Eleve::class);
+    }
+
+    public function classe(): BelongsTo
+    {
+        return $this->belongsTo(Classe::class);
     }
 
     public function traitePar(): BelongsTo

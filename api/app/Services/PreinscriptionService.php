@@ -181,7 +181,7 @@ class PreinscriptionService extends BaseService
      * forcément, sans quoi il n'aurait pas pu être inscrit la première fois.
      *
      * @param  array{
-     *   donnees_eleve: array, donnees_tuteurs: array,
+     *   donnees_eleve: array, donnees_tuteurs: array, classe_id?: ?int,
      *   montant_verser?: ?int, mode_versement?: ?string, reference_externe?: ?string, rubriques_versement?: ?array,
      * }  $donnees
      */
@@ -205,6 +205,7 @@ class PreinscriptionService extends BaseService
                 'statut' => 'en_attente',
                 'donnees_eleve' => $donnees['donnees_eleve'],
                 'donnees_tuteurs' => $donnees['donnees_tuteurs'],
+                'classe_id' => $donnees['classe_id'] ?? null,
                 'montant_verser' => $donnees['montant_verser'] ?? null,
                 'mode_versement' => $donnees['mode_versement'] ?? null,
                 'reference_externe' => $donnees['reference_externe'] ?? null,
@@ -221,10 +222,11 @@ class PreinscriptionService extends BaseService
      * à faire redéposer toute la démarche. Fermé dès que la préinscription est
      * traitée : au-delà, c'est la fiche élève elle-même qu'il faut corriger.
      *
-     * Sert aussi bien l'admin (qui ne corrige que l'élève et les tuteurs) que
-     * le parent (qui peut en plus revoir le versement annoncé) : `$extra` ne
-     * porte que les clés que l'appelant fournit, les autres restent
-     * inchangées.
+     * Sert aussi bien l'admin (qui ne corrige que l'élève, les tuteurs et la
+     * classe visée) que le parent (qui peut en plus revoir le versement
+     * annoncé) : `$extra` ne porte que les clés que l'appelant fournit — en
+     * particulier `classe_id`, jamais présent dans les données validées côté
+     * parent, qui ne peut donc jamais l'atteindre par ce biais.
      */
     public function modifierDonnees(Preinscription $preinscription, array $donneesEleve, array $donneesTuteurs, array $extra = []): Preinscription
     {
@@ -236,7 +238,7 @@ class PreinscriptionService extends BaseService
             'donnees_eleve' => $donneesEleve,
             'donnees_tuteurs' => $donneesTuteurs,
             ...array_intersect_key($extra, array_flip([
-                'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement',
+                'classe_id', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement',
             ])),
         ]);
 
@@ -260,9 +262,12 @@ class PreinscriptionService extends BaseService
     }
 
     /**
-     * La classe ne change jamais ici, même si `donnees_eleve` en porte une :
-     * c'est volontairement une simple note à l'attention de l'admin
-     * (`note_admin`), pas un champ que le parent peut modifier lui-même.
+     * La classe ne suit jamais `donnees_eleve` ici, même si le parent en a
+     * proposé une : ce n'est qu'une note à son attention (`note_admin`), pas
+     * un champ qu'il peut modifier lui-même. Seul `classe_id` — renseigné
+     * explicitement par l'admin, cf. {@see modifierClasse()} — vaut décision
+     * de changer la classe ; `null` laisse la classe actuelle de l'élève
+     * inchangée.
      */
     private function appliquerSurExistant(Preinscription $preinscription): Eleve
     {
@@ -270,14 +275,28 @@ class PreinscriptionService extends BaseService
         $donnees = $preinscription->donnees_eleve;
         unset($donnees['classe_id']);
 
+        if ($preinscription->classe_id !== null) {
+            $donnees['classe_id'] = $preinscription->classe_id;
+        }
+
         $eleve->update($donnees);
 
         return $eleve->fresh();
     }
 
+    /**
+     * `classe_id` prime sur celle proposée dans `donnees_eleve` : c'est ce
+     * que l'admin a choisi en dernier lieu s'il a corrigé la proposition du
+     * parent (cf. {@see modifierClasse()}), sinon celle-ci reste la valeur
+     * par défaut pour une nouvelle inscription.
+     */
     private function creerNouvelEleve(Preinscription $preinscription): Eleve
     {
         $donnees = $preinscription->donnees_eleve;
+
+        if ($preinscription->classe_id !== null) {
+            $donnees['classe_id'] = $preinscription->classe_id;
+        }
 
         return Eleve::create([
             ...$donnees,

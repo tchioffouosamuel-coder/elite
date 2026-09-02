@@ -5,6 +5,7 @@ import { ClipboardCheck, Check, X, Search, Pencil, Plus } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier } from '@/features/finance/api'
+import { fetchClasses } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -39,6 +40,8 @@ interface PreinscriptionDetail extends PreinscriptionResume {
   note_admin: string | null
   mode_versement: string | null
   classe_actuelle: string | null
+  /** Classe choisie par l'admin pour la validation — `null` tant qu'il ne l'a pas corrigée. */
+  classe_id: number | null
 }
 
 async function fetchPreinscriptions(statut: Statut | ''): Promise<PreinscriptionResume[]> {
@@ -180,6 +183,9 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
   const [traitement, setTraitement] = useState(false)
   const [editionOuverte, setEditionOuverte] = useState(false)
   const [champsEdites, setChampsEdites] = useState<Record<string, string>>({})
+  const [classeIdEdite, setClasseIdEdite] = useState<number | null>(null)
+
+  const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
 
   const { data: p, isLoading } = useQuery({ queryKey: ['preinscription-admin', id], queryFn: () => fetchPreinscription(id) })
 
@@ -196,6 +202,9 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
     setChampsEdites(
       Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String(p?.donnees_eleve[cle] ?? '')])),
     )
+    // Nouvelle inscription : la classe proposée vit dans donnees_eleve.
+    // Réinscription : dans classe_id, distinct de la classe actuelle de l'élève.
+    setClasseIdEdite(p?.classe_id ?? (p?.donnees_eleve.classe_id as number | undefined) ?? null)
     setEditionOuverte(true)
   }
 
@@ -204,11 +213,12 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
     setTraitement(true)
     try {
       await http.put(`/preinscriptions/${id}`, {
-        donnees_eleve: { ...p.donnees_eleve, ...champsEdites },
-        // Portée volontairement limitée aux informations de l'élève : les
-        // tuteurs proposés repartent inchangés, ce n'est pas ce qui motive
-        // une correction avant validation.
+        donnees_eleve: { ...p.donnees_eleve, ...champsEdites, classe_id: classeIdEdite },
+        // Portée volontairement limitée aux informations de l'élève, la
+        // classe et les tuteurs : le versement annoncé n'est pas ce que
+        // l'admin a vocation à corriger ici.
         donnees_tuteurs: p.donnees_tuteurs,
+        classe_id: classeIdEdite,
       })
       succes('Informations mises à jour.')
       setEditionOuverte(false)
@@ -226,7 +236,9 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
       message:
         p?.type === 'nouveau'
           ? "L'élève sera créé avec les informations proposées."
-          : "La fiche de l'élève sera mise à jour" + (p?.montant_verser ? ` et ${francs(p.montant_verser)} seront encaissés avec délivrance d'un reçu.` : '.'),
+          : "La fiche de l'élève sera mise à jour" +
+            (p?.classe_id ? `, sa classe changée pour ${classes?.find((c) => c.id === p.classe_id)?.nom ?? 'la classe choisie'}` : '') +
+            (p?.montant_verser ? ` et ${francs(p.montant_verser)} seront encaissés avec délivrance d'un reçu.` : '.'),
       action: 'Valider',
     })
     if (!ok) return
@@ -274,8 +286,15 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
             <Badge tone={STATUT_TONE[p.statut]}>{STATUT_LABEL[p.statut]}</Badge>
           </div>
 
-          {p.type === 'existant' && p.classe_actuelle && (
-            <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">Classe actuelle (inchangée) : {p.classe_actuelle}</p>
+          {p.type === 'existant' && p.classe_actuelle && !editionOuverte && (
+            <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">
+              Classe actuelle : {p.classe_actuelle}
+              {p.classe_id && classes && (
+                <>
+                  {' '}→ <b className="text-navy-800">{classes.find((c) => c.id === p.classe_id)?.nom ?? '—'}</b> à la validation
+                </>
+              )}
+            </p>
           )}
 
           {p.note_admin && (
@@ -311,6 +330,18 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
                     />
                   ))}
                 </div>
+                <Select
+                  label={p.type === 'existant' ? 'Classe à la validation (vide = classe actuelle inchangée)' : 'Classe'}
+                  value={classeIdEdite ?? ''}
+                  onChange={(e) => setClasseIdEdite(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">{p.type === 'existant' ? 'Ne pas changer' : 'Sélectionner…'}</option>
+                  {classes?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom}
+                    </option>
+                  ))}
+                </Select>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="secondary" onClick={() => setEditionOuverte(false)} disabled={traitement}>
                     Annuler
@@ -332,6 +363,14 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
                     </div>
                   )
                 })}
+                {p.type === 'nouveau' && (
+                  <div>
+                    <span className="text-navy-400">Classe : </span>
+                    <span className="font-medium text-navy-800">
+                      {classes?.find((c) => c.id === (p.classe_id ?? p.donnees_eleve.classe_id))?.nom ?? '—'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

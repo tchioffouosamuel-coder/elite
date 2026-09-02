@@ -6,6 +6,7 @@ import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
 import { rechercheGlobaleEleves, type Eleve } from '@/features/eleves/api'
+import { fetchClasses } from '@/features/classes/api'
 import { CHAMPS_ELEVE, type PreinscriptionResume } from '@/features/eleves/pages/PreinscriptionsAdminPage'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
@@ -118,13 +119,17 @@ export function PreinscriptionCreerPage() {
   const [montant, setMontant] = useState(0)
   const [mode, setMode] = useState<ModePaiement>('especes')
   const [reference, setReference] = useState('')
+  const [classeId, setClasseId] = useState<number | null>(null)
   const [envoi, setEnvoi] = useState(false)
   const [erreurMsg, setErreurMsg] = useState<string | null>(null)
+
+  const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
 
   const choisirEleve = (choix: Eleve) => {
     setEleve(choix)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String((choix as unknown as Record<string, unknown>)[cle] ?? '')])))
     setTuteurs(choix.tuteurs.length > 0 ? choix.tuteurs.map(tuteurDepuisEleve) : [])
+    setClasseId(choix.classe?.id ?? null)
     setErreurMsg(null)
   }
 
@@ -161,6 +166,7 @@ export function PreinscriptionCreerPage() {
             lien_parente: t.lien_parente || undefined,
             is_principal: t.is_principal,
           })),
+        classe_id: classeId ?? undefined,
         montant_verser: montantNombre > 0 ? montantNombre : undefined,
         mode_versement: montantNombre > 0 ? mode : undefined,
         reference_externe: reference || undefined,
@@ -225,6 +231,18 @@ export function PreinscriptionCreerPage() {
                       onChange={(e) => setChamps((c) => ({ ...c, [cle]: e.target.value }))}
                     />
                   ))}
+                  <Select
+                    label="Classe"
+                    value={classeId ?? ''}
+                    onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Sélectionner…</option>
+                    {classes?.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
               </div>
 
