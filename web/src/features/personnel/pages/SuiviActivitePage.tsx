@@ -8,7 +8,8 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { useAuthStore } from '@/shared/store/authStore'
-import { fetchPersonnels, fetchSuiviActivite, type GranulariteSuivi } from '@/features/personnel/api'
+import { fetchDepartements, fetchPersonnels, fetchSuiviActivite, type GranulariteSuivi } from '@/features/personnel/api'
+import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
 
 function debutDuMois(): string {
   const d = new Date()
@@ -36,7 +37,9 @@ export function SuiviActivitePage() {
   const [du, setDu] = useState(debutDuMois())
   const [au, setAu] = useState(finDuMois())
   const [granularite, setGranularite] = useState<GranulariteSuivi>('jour')
-  const [personnelId, setPersonnelId] = useState('')
+  // '' = tout le personnel, 'p:<id>' = un enseignant précis,
+  // 's:<id>' = toute une section (sous-système), 'd:<id>' = tout un département.
+  const [selection, setSelection] = useState('')
 
   // Portée à l'école active : quand elle change de vraie source (le select
   // école lui-même), la liste ne doit garder que son personnel — sinon un
@@ -47,14 +50,34 @@ export function SuiviActivitePage() {
     queryFn: () => fetchPersonnels({ per_page: 500, schoolId: activeSchoolId ?? undefined }),
   })
 
+  const { data: sousSystemes } = useQuery({
+    queryKey: ['sous-systemes-suivi-activite-filtre', activeSchoolId],
+    queryFn: fetchSousSystemes,
+    enabled: activeSchoolId !== null,
+  })
+
+  const { data: departements } = useQuery({
+    queryKey: ['departements-suivi-activite-filtre', activeSchoolId],
+    queryFn: fetchDepartements,
+    enabled: activeSchoolId !== null,
+  })
+
+  const [type, idBrut] = selection.split(':')
+  const idSelection = idBrut ? Number(idBrut) : null
+  const personnelId = type === 'p' ? idSelection : null
+  const sousSystemeId = type === 's' ? idSelection : null
+  const departementId = type === 'd' ? idSelection : null
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['suivi-activite', activeSchoolId, du, au, granularite, personnelId],
+    queryKey: ['suivi-activite', activeSchoolId, du, au, granularite, selection],
     queryFn: () =>
       fetchSuiviActivite({
         date_debut: du,
         date_fin: au,
         granularite,
-        personnel_id: personnelId ? Number(personnelId) : null,
+        personnel_id: personnelId,
+        sous_systeme_id: sousSystemeId,
+        departement_id: departementId,
       }),
     enabled: activeSchoolId !== null,
   })
@@ -63,18 +86,21 @@ export function SuiviActivitePage() {
 
   const choisirEcole = (valeur: string) => {
     setActiveSchool(valeur ? Number(valeur) : null)
-    // Change de source : l'enseignant sélectionné n'a plus de raison
+    // Change de source : la sélection précédente n'a plus de raison
     // d'appartenir à la nouvelle école, on efface plutôt que de garder une
     // sélection incohérente.
-    setPersonnelId('')
+    setSelection('')
   }
 
-  const choisirPersonnel = (valeur: string) => {
-    setPersonnelId(valeur)
-    // Ici c'est l'enseignant qui pilote : on bascule l'école sur la sienne
-    // plutôt que de forcer l'utilisateur à le refaire à la main.
-    const ecoleDuPersonnel = personnels?.find((p) => String(p.id) === valeur)?.school_id
-    if (ecoleDuPersonnel && ecoleDuPersonnel !== activeSchoolId) setActiveSchool(ecoleDuPersonnel)
+  const choisirSelection = (valeur: string) => {
+    setSelection(valeur)
+    // Un enseignant précis pilote l'école plutôt que de forcer l'utilisateur
+    // à le refaire à la main ; une section ou un département reste dans
+    // l'école déjà active, à laquelle ces listes sont déjà bornées.
+    if (valeur.startsWith('p:')) {
+      const ecoleDuPersonnel = personnels?.find((p) => String(p.id) === valeur.slice(2))?.school_id
+      if (ecoleDuPersonnel && ecoleDuPersonnel !== activeSchoolId) setActiveSchool(ecoleDuPersonnel)
+    }
   }
 
   return (
@@ -95,13 +121,44 @@ export function SuiviActivitePage() {
           )}
           <Input label={t('personnel.suivi_activite.from')} type="date" value={du} onChange={(e) => setDu(e.target.value)} />
           <Input label={t('personnel.suivi_activite.to')} type="date" value={au} onChange={(e) => setAu(e.target.value)} />
-          <Select label={t('personnel.enseignant')} value={personnelId} onChange={(e) => choisirPersonnel(e.target.value)}>
+          <Select label={t('personnel.enseignant')} value={selection} onChange={(e) => choisirSelection(e.target.value)}>
             <option value="">{t('personnel.suivi_activite.all_staff')}</option>
-            {personnels?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nom_complet}
-              </option>
-            ))}
+            {!!sousSystemes?.length && (
+              <>
+                <option value="header:sections" disabled>
+                  {t('personnel.suivi_activite.group_sections')}
+                </option>
+                {sousSystemes.map((s) => (
+                  <option key={`s:${s.id}`} value={`s:${s.id}`}>
+                    {t('personnel.suivi_activite.all_of_section', { nom: s.nom })}
+                  </option>
+                ))}
+              </>
+            )}
+            {!!departements?.length && (
+              <>
+                <option value="header:departements" disabled>
+                  {t('personnel.suivi_activite.group_departments')}
+                </option>
+                {departements.map((d) => (
+                  <option key={`d:${d.id}`} value={`d:${d.id}`}>
+                    {t('personnel.suivi_activite.all_of_department', { nom: d.nom })}
+                  </option>
+                ))}
+              </>
+            )}
+            {!!personnels?.length && (
+              <>
+                <option value="header:staff" disabled>
+                  {t('personnel.suivi_activite.group_staff')}
+                </option>
+                {personnels.map((p) => (
+                  <option key={`p:${p.id}`} value={`p:${p.id}`}>
+                    {p.nom_complet}
+                  </option>
+                ))}
+              </>
+            )}
           </Select>
         </div>
       </Card>

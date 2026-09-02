@@ -257,6 +257,7 @@ class BulletinPrimaireGenerator
         $wEval = 20;
         $wNiveau = max((int) round((100 - $wComp - $wEval) / max($appreciations->count(), 1)), 6);
 
+        
         $entete = '<tr>'
             . '<th class="left" style="width:' . $wComp . '%;">Activités<br><i>Activities</i></th>'
             . '<th style="width:' . $wEval . '%;">Évaluation<br><i>Assessment</i></th>';
@@ -362,7 +363,7 @@ class BulletinPrimaireGenerator
         foreach ($sequences as $sequence) {
             $entete .= '<th colspan="2">' . $this->e($this->abregerSequence($sequence->libelle)) . '</th>';
         }
-        $entete .= '<th rowspan="2" style="width:' . $wTrim . '%;">Note trim.<br><i>Term mark</i></th>'
+        $entete .= '<th rowspan="2" style="width:' . $wTrim . '%;">Trim.<br><i>Term</i></th>'
             . '<th rowspan="2" style="width:' . $wAppr . '%;">Appr.<br><i>Rem.</i></th>'
             . '<th rowspan="2" style="width:' . $wObs . '%;">Observations<br><i>Remarks</i></th>'
             . '</tr><tr>';

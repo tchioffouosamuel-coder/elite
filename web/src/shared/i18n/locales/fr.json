@@ -258,7 +258,12 @@
       "empty": "Aucune séance sur cette période.",
       "select_school": "Veuillez sélectionner un établissement pour consulter ce suivi.",
       "all_schools": "Toutes les écoles",
-      "school": "Établissement"
+      "school": "Établissement",
+      "group_sections": "— Sections —",
+      "all_of_section": "Toute la section — {{nom}}",
+      "group_departments": "— Départements —",
+      "all_of_department": "Tout le département — {{nom}}",
+      "group_staff": "— Personnel —"
     }
   },
   "fonctionsReferentiel": {

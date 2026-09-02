@@ -413,6 +413,8 @@ export async function fetchSuiviActivite(params: {
   date_fin: string;
   granularite: GranulariteSuivi;
   personnel_id?: number | null;
+  sous_systeme_id?: number | null;
+  departement_id?: number | null;
 }): Promise<SuiviActivitePersonnel[]> {
   const { data } = await http.get<ApiResponse<SuiviActivitePersonnel[]>>(
     "/personnels/suivi-activite",

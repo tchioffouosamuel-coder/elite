@@ -9,6 +9,7 @@ use App\Support\Tenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Suivi transverse prévu/réalisé du personnel — le pendant admin de
@@ -22,11 +23,15 @@ class SuiviActiviteController extends Controller
     {
         abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement pour consulter ce suivi.");
 
+        $schoolId = Tenant::schoolId();
+
         $data = $request->validate([
             'date_debut' => ['nullable', 'date'],
             'date_fin' => ['nullable', 'date'],
             'granularite' => ['nullable', 'in:jour,semaine,mois,annee'],
             'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
+            'sous_systeme_id' => ['nullable', 'integer', Rule::exists('sous_systemes', 'id')->where('school_id', $schoolId)],
+            'departement_id' => ['nullable', 'integer', Rule::exists('departements', 'id')->where('school_id', $schoolId)],
         ]);
 
         $debut = isset($data['date_debut']) ? CarbonImmutable::parse($data['date_debut']) : CarbonImmutable::now()->startOfMonth();
@@ -34,11 +39,15 @@ class SuiviActiviteController extends Controller
 
         return ApiResponse::success(
             $this->service->parPersonnel(
-                Tenant::schoolId(),
+                $schoolId,
                 $debut->startOfDay(),
                 $fin->endOfDay(),
                 $data['granularite'] ?? 'jour',
-                $data['personnel_id'] ?? null,
+                [
+                    'personnel_id' => $data['personnel_id'] ?? null,
+                    'sous_systeme_id' => $data['sous_systeme_id'] ?? null,
+                    'departement_id' => $data['departement_id'] ?? null,
+                ],
             )
         );
     }

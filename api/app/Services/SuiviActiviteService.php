@@ -14,24 +14,50 @@ use Illuminate\Support\Collection;
 class SuiviActiviteService
 {
     /**
+     * @param array{personnel_id?: ?int, sous_systeme_id?: ?int, departement_id?: ?int} $filtres
      * @return Collection<int, array{
      *     personnel_id: int, nom_complet: string, fonction: ?string,
      *     periodes: Collection<int, array<string, mixed>>,
      *     totaux: array<string, mixed>,
      * }>
      */
-    public function parPersonnel(int $schoolId, CarbonImmutable $debut, CarbonImmutable $fin, string $granularite, ?int $personnelId = null): Collection
+    public function parPersonnel(int $schoolId, CarbonImmutable $debut, CarbonImmutable $fin, string $granularite, array $filtres = []): Collection
     {
+        $personnelId = $filtres['personnel_id'] ?? null;
+        $sousSystemeId = $filtres['sous_systeme_id'] ?? null;
+        $departementId = $filtres['departement_id'] ?? null;
+
         $seances = Seance::forSchool($schoolId)
             ->whereBetween('date_seance', [$debut, $fin])
-            ->whereHas('classeMatiere', fn($q) => $q
-                ->whereNotNull('personnel_id')
-                ->when($personnelId, fn($q2) => $q2->where('personnel_id', $personnelId)))
-            ->with('classeMatiere.enseignant')
+            ->whereHas('classeMatiere', function ($q) use ($personnelId, $sousSystemeId, $departementId) {
+                // Un enseignant du secondaire est nommé sur l'affectation ; au
+                // primaire/maternelle, c'est le titulaire de la classe qui
+                // couvre toutes les matières sans y être nommé lui-même.
+                $q->where(fn($q2) => $q2
+                    ->whereNotNull('personnel_id')
+                    ->orWhereHas('classe', fn($c) => $c->whereNotNull('titulaire_id')));
+
+                if ($personnelId) {
+                    $q->where(fn($q2) => $q2
+                        ->where('personnel_id', $personnelId)
+                        ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)));
+                }
+
+                if ($sousSystemeId) {
+                    $q->whereHas('classe', fn($c) => $c->where('sous_systeme_id', $sousSystemeId));
+                }
+
+                if ($departementId) {
+                    $q->where(fn($q2) => $q2
+                        ->whereHas('enseignant', fn($p) => $p->where('departement_id', $departementId))
+                        ->orWhereHas('classe.titulaire', fn($p) => $p->where('departement_id', $departementId)));
+                }
+            })
+            ->with(['classeMatiere.enseignant', 'classeMatiere.classe.titulaire'])
             ->get(['id', 'classe_matiere_id', 'date_seance', 'heure_debut', 'heure_fin', 'statut']);
 
         return $seances
-            ->groupBy(fn(Seance $s) => $s->classeMatiere->personnel_id)
+            ->groupBy(fn(Seance $s) => $s->classeMatiere->personnel_id ?? $s->classeMatiere->classe->titulaire_id)
             ->map(fn(Collection $seancesPersonnel) => $this->ligne($seancesPersonnel, $granularite))
             ->sortBy('nom_complet')
             ->values();
@@ -40,7 +66,8 @@ class SuiviActiviteService
     /** @param Collection<int, Seance> $seances */
     private function ligne(Collection $seances, string $granularite): array
     {
-        $personnel = $seances->first()->classeMatiere->enseignant;
+        $classeMatiere = $seances->first()->classeMatiere;
+        $personnel = $classeMatiere->enseignant ?? $classeMatiere->classe->titulaire;
 
         $periodes = $seances
             ->groupBy(fn(Seance $s) => $this->cle($s->date_seance, $granularite))

@@ -258,7 +258,12 @@
       "empty": "No sessions over this period.",
       "select_school": "Please select a school to view this tracking.",
       "all_schools": "All schools",
-      "school": "School"
+      "school": "School",
+      "group_sections": "— Sections —",
+      "all_of_section": "All — {{nom}}",
+      "group_departments": "— Departments —",
+      "all_of_department": "All — {{nom}}",
+      "group_staff": "— Staff —"
     }
   },
   "fonctionsReferentiel": {

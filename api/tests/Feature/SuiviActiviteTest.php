@@ -6,10 +6,12 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Matiere;
+use App\Models\Departement;
 use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\School;
 use App\Models\Seance;
+use App\Models\SousSysteme;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -111,6 +113,89 @@ class SuiviActiviteTest extends TestCase
         $this->actingAs($this->admin, 'sanctum')
             ->withHeader('X-School-Id', $this->school->id)
             ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&personnel_id={$autre->id}")
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_le_titulaire_du_primaire_apparait_sans_etre_nomme_sur_lclasse_matiere(): void
+    {
+        $titulaire = Personnel::create([
+            'school_id' => $this->school->id, 'nom_complet' => 'TITULAIRE CP', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+
+        $classePrimaire = Classe::create([
+            'school_id' => $this->school->id, 'nom' => 'CP', 'titulaire_id' => $titulaire->id,
+        ]);
+
+        $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Lecture']);
+
+        $classeMatierePrimaire = ClasseMatiere::create([
+            'classe_id' => $classePrimaire->id, 'matiere_id' => $matiere->id, 'statut' => 'actif',
+        ]);
+
+        Seance::create([
+            'school_id' => $this->school->id, 'classe_id' => $classePrimaire->id, 'classe_matiere_id' => $classeMatierePrimaire->id,
+            'date_seance' => '2026-09-02', 'heure_debut' => '08:00', 'heure_fin' => '09:00', 'statut' => 'effectuee',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&personnel_id={$titulaire->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $ligne = $response->json('data')[0];
+        $this->assertSame($titulaire->id, $ligne['personnel_id']);
+        $this->assertEquals(1.0, $ligne['totaux']['heures_realisees']);
+    }
+
+    public function test_le_filtre_sous_systeme_id_restreint_aux_classes_de_cette_section(): void
+    {
+        $anglophone = SousSysteme::create(['school_id' => $this->school->id, 'code' => 'ANG', 'nom' => 'Anglophone']);
+
+        $autreEnseignant = Personnel::create([
+            'school_id' => $this->school->id, 'nom_complet' => 'AUTRE ENSEIGNANT', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+        $classeAnglophone = Classe::create([
+            'school_id' => $this->school->id, 'nom' => 'Form 1', 'sous_systeme_id' => $anglophone->id,
+        ]);
+        $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'English']);
+        $classeMatiereAnglophone = ClasseMatiere::create([
+            'classe_id' => $classeAnglophone->id, 'matiere_id' => $matiere->id, 'personnel_id' => $autreEnseignant->id,
+            'statut' => 'actif',
+        ]);
+        Seance::create([
+            'school_id' => $this->school->id, 'classe_id' => $classeAnglophone->id, 'classe_matiere_id' => $classeMatiereAnglophone->id,
+            'date_seance' => '2026-09-02', 'heure_debut' => '08:00', 'heure_fin' => '09:00', 'statut' => 'effectuee',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&sous_systeme_id={$anglophone->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->assertSame($autreEnseignant->id, $response->json('data')[0]['personnel_id']);
+    }
+
+    public function test_le_filtre_departement_id_restreint_au_departement_de_lenseignant(): void
+    {
+        $sciences = Departement::create(['school_id' => $this->school->id, 'nom' => 'Sciences']);
+        $this->enseignant->update(['departement_id' => $sciences->id]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&departement_id={$sciences->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->assertSame($this->enseignant->id, $response->json('data')[0]['personnel_id']);
+
+        $autreDepartement = Departement::create(['school_id' => $this->school->id, 'nom' => 'Lettres']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&departement_id={$autreDepartement->id}")
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
