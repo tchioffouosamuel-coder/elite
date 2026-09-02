@@ -8,6 +8,7 @@ use App\Models\ProgressionItem;
 use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -67,6 +68,66 @@ class ProgressionService extends BaseService
             'lecons' => $lecons->values()->all(),
             'derniere_lecon_id' => $derniereTraitee['id'] ?? null,
         ];
+    }
+
+    /**
+     * Leçons prévues (`date_prevue`) de la classe, groupées en trois
+     * semaines calendaires — précédente, en cours, suivante — toutes
+     * matières confondues. Vue resserrée pour le portail parent : la liste
+     * complète du programme (cf. {@see programmeParent()}) ne concerne que
+     * l'école, pas ce que la famille a besoin de suivre au quotidien.
+     *
+     * Les leçons sans `date_prevue` renseignée n'apparaissent dans aucune
+     * des trois semaines.
+     *
+     * @return array<string, array{debut:string, fin:string, lecons:list<array<string, mixed>>}>
+     */
+    public function leconsSemaine(Classe $classe): array
+    {
+        $lundiCourant = Carbon::now()->startOfWeek(Carbon::MONDAY);
+
+        $semaines = [
+            'precedente' => $lundiCourant->clone()->subWeek(),
+            'en_cours' => $lundiCourant->clone(),
+            'suivante' => $lundiCourant->clone()->addWeek(),
+        ];
+
+        $debut = $semaines['precedente'];
+        $fin = $semaines['suivante']->clone()->endOfWeek(Carbon::SUNDAY);
+
+        $classeMatiereIds = $classe->classeMatieres()->where('statut', 'actif')->pluck('id');
+
+        $lecons = ProgressionItem::whereIn('classe_matiere_id', $classeMatiereIds)
+            ->lecons()
+            ->whereBetween('date_prevue', [$debut->toDateString(), $fin->toDateString()])
+            ->with('classeMatiere.matiere')
+            ->withCount('seances')
+            ->orderBy('date_prevue')
+            ->get();
+
+        $resultat = [];
+        foreach ($semaines as $cle => $lundi) {
+            $dimanche = $lundi->clone()->endOfWeek(Carbon::SUNDAY);
+
+            $resultat[$cle] = [
+                'debut' => $lundi->toDateString(),
+                'fin' => $dimanche->toDateString(),
+                'lecons' => $lecons
+                    ->filter(fn (ProgressionItem $l) => $l->date_prevue?->betweenIncluded($lundi, $dimanche))
+                    ->map(fn (ProgressionItem $l) => [
+                        'id' => $l->id,
+                        'matiere' => $l->classeMatiere->matiere->nom,
+                        'titre' => $l->titre,
+                        'date_prevue' => $l->date_prevue->toDateString(),
+                        'traitee' => $l->seances_count > 0,
+                    ])
+                    ->sortBy('date_prevue')
+                    ->values()
+                    ->all(),
+            ];
+        }
+
+        return $resultat;
     }
 
     /**

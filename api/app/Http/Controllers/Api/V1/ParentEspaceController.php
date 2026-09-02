@@ -24,6 +24,7 @@ use App\Services\BulletinService;
 use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\ModificationEleveService;
+use App\Services\DisciplineService;
 use App\Services\ProgressionService;
 use App\Services\EcheancierService;
 use App\Services\ScolariteService;
@@ -49,6 +50,7 @@ class ParentEspaceController extends Controller
         private readonly BulletinService $bulletins,
         private readonly BulletinPrimaireService $bulletinsPrimaire,
         private readonly ProgressionService $progression,
+        private readonly DisciplineService $discipline,
         private readonly JustificationAbsenceService $justifications,
         private readonly ModificationEleveService $modifications,
         private readonly EmploiDuTempsService $emploiDuTemps,
@@ -299,6 +301,35 @@ class ParentEspaceController extends Controller
             'matiere' => $classeMatiere->matiere->nom,
             ...$this->progression->programmeParent($classeMatiere),
         ]);
+    }
+
+    /**
+     * Leçons prévues de la classe pour la semaine précédente, en cours et
+     * suivante, toutes matières confondues — ce que le parent a besoin de
+     * suivre au jour le jour, plutôt que le programme complet de l'année.
+     */
+    public function leconsSemaine(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        if (! $e->classe) {
+            return ApiResponse::success([]);
+        }
+
+        return ApiResponse::success($this->progression->leconsSemaine($e->classe));
+    }
+
+    /** Assiduité de l'enfant, journée par journée, sur l'année scolaire active — de quoi calculer un taux par jour, par mois ou par année côté écran. */
+    public function assiduite(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+        $annee = $this->anneeActive($e->school_id);
+
+        if (! $annee) {
+            return ApiResponse::success([]);
+        }
+
+        return ApiResponse::success($this->discipline->assiduiteEleve($e, $annee));
     }
 
     /** Absences relevées à l'appel, les plus récentes en tête. */

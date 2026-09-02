@@ -25,13 +25,14 @@ import {
   FileEdit,
   ChevronRight,
   Check,
+  TrendingUp,
 } from 'lucide-react'
 import {
   fetchEnfant,
   fetchFinanceEnfant,
-  fetchProgressionEnfant,
-  fetchProgrammeMatiereEnfant,
+  fetchLeconsSemaineEnfant,
   fetchAbsencesEnfant,
+  fetchAssiduiteEnfant,
   fetchJustificationsEnfant,
   soumettreJustification,
   fetchObservationsEnfant,
@@ -42,6 +43,8 @@ import {
   fetchVisitesInfirmerieEnfant,
   fetchSanctionsEnfant,
   type MotifJustification,
+  type LeconsSemaine,
+  type JourAssiduite,
   type EnfantDossier,
   type ModificationEnfantPayload,
 } from '@/features/parent/api'
@@ -235,8 +238,9 @@ export function ParentEnfantPage() {
       </Card>
 
       <FinanceCard eleveId={eleveId} />
-      <ProgressionCard eleveId={eleveId} />
+      <LeconsSemaineCard eleveId={eleveId} />
       <EmploiDuTempsCard eleveId={eleveId} />
+      <TauxAssiduiteCard eleveId={eleveId} />
       <AssiduiteCard eleveId={eleveId} />
       <InfirmerieCard eleveId={eleveId} />
       <DisciplineCard eleveId={eleveId} />
@@ -509,113 +513,212 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
   )
 }
 
-function ProgressionCard({ eleveId }: { eleveId: number }) {
-  const [matiereOuverte, setMatiereOuverte] = useState<{ id: number; nom: string } | null>(null)
+const SEMAINE_LABEL: Record<keyof LeconsSemaine, string> = {
+  precedente: 'Semaine précédente / Previous week',
+  en_cours: 'Semaine en cours / Current week',
+  suivante: 'Semaine suivante / Next week',
+}
 
-  const { data: matieres, isLoading } = useQuery({
-    queryKey: ['parent-progression', eleveId],
-    queryFn: () => fetchProgressionEnfant(eleveId),
+/** Formate une plage "24-30 août" / "24-30 Aug" plutôt que deux dates ISO complètes. */
+function formaterPlage(debut: string, fin: string): string {
+  const d = new Date(`${debut}T00:00:00`)
+  const f = new Date(`${fin}T00:00:00`)
+  const jour = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric' })
+  const mois = (date: Date) => date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return d.getMonth() === f.getMonth() ? `${jour(d)}–${mois(f)}` : `${mois(d)}–${mois(f)}`
+}
+
+/**
+ * Ce que l'enfant doit voir en classe cette semaine, la précédente et la
+ * suivante — pas le programme complet de l'année, qui ne parle qu'à
+ * l'école. S'appuie sur `date_prevue`, renseignée leçon par leçon par
+ * l'enseignant : une matière où l'enseignant ne la remplit pas n'apparaît
+ * simplement pas ici cette semaine-là.
+ */
+function LeconsSemaineCard({ eleveId }: { eleveId: number }) {
+  const [semaine, setSemaine] = useState<keyof LeconsSemaine>('en_cours')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['parent-lecons-semaine', eleveId],
+    queryFn: () => fetchLeconsSemaineEnfant(eleveId),
   })
+
+  const donnees = Array.isArray(data) ? null : data
+  const courante = donnees?.[semaine]
 
   return (
     <Card>
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <GitBranch className="h-4 w-4" />
-        Progression dans les matières / Progress in subjects
+        Leçons prévues / Planned lessons
       </h2>
+
       {isLoading ? (
         <Spinner />
-      ) : !matieres || matieres.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucun programme renseigné pour l'instant. / No curriculum recorded yet.</p>
+      ) : !donnees ? (
+        <p className="text-sm text-navy-400">Aucune classe renseignée pour l'instant. / No class recorded yet.</p>
       ) : (
-        <div className="flex flex-col divide-y divide-navy-50">
-          {matieres.map((m) => (
-            <button
-              key={m.classe_matiere_id}
-              type="button"
-              onClick={() => setMatiereOuverte({ id: m.classe_matiere_id, nom: m.matiere })}
-              className="flex items-center justify-between gap-3 py-2.5 text-left first:pt-0 last:pb-0 transition-colors hover:bg-cream-50/80"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-navy-800">{m.matiere}</p>
-                <p className="truncate text-xs text-navy-400">{m.enseignant || '—'}</p>
-              </div>
-              <div className="flex flex-none items-center gap-2">
-                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-navy-100 sm:w-24">
-                  <div className="h-full rounded-full bg-gold-500" style={{ width: `${m.taux}%` }} />
-                </div>
-                <span className="w-10 text-right text-xs font-semibold tabular-nums text-navy-700">{m.taux}%</span>
-                <ChevronRight className="h-4 w-4 flex-none text-navy-300" />
-              </div>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="mb-4 flex gap-1.5 rounded-xl bg-cream-100 p-1">
+            {(Object.keys(SEMAINE_LABEL) as (keyof LeconsSemaine)[]).map((cle) => (
+              <button
+                key={cle}
+                type="button"
+                onClick={() => setSemaine(cle)}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  semaine === cle ? 'bg-white text-navy-800 shadow-soft' : 'text-navy-400 hover:text-navy-600'
+                }`}
+              >
+                {SEMAINE_LABEL[cle].split(' / ')[0]}
+              </button>
+            ))}
+          </div>
+
+          {courante && (
+            <>
+              <p className="mb-3 text-xs text-navy-400">{formaterPlage(courante.debut, courante.fin)}</p>
+              {courante.lecons.length === 0 ? (
+                <p className="text-sm text-navy-400">Aucune leçon prévue cette semaine-là. / No lesson planned for that week.</p>
+              ) : (
+                <ul className="flex flex-col divide-y divide-navy-50">
+                  {courante.lecons.map((lecon) => (
+                    <li key={lecon.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span
+                        className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${
+                          lecon.traitee ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-300'
+                        }`}
+                      >
+                        {lecon.traitee && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm ${lecon.traitee ? 'font-medium text-navy-800' : 'text-navy-600'}`}>{lecon.titre}</p>
+                        <p className="truncate text-xs text-navy-400">{lecon.matiere}</p>
+                      </div>
+                      {lecon.traitee && <Badge tone="green">Faite / Done</Badge>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+
+const MOIS_LABEL = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+
+/** Pourcentage de jours présents parmi les jours ayant au moins un pointage — les absences justifiées comptent comme une absence : ce taux mesure une présence réelle, pas un taux "couvert par un motif". */
+function tauxPresence(jours: JourAssiduite[]): number {
+  if (jours.length === 0) return 0
+  const presents = jours.filter((j) => j.statut === 'present').length
+  return Math.round((presents / jours.length) * 100)
+}
+
+/**
+ * Taux d'assiduité de l'enfant, à trois échelles : l'année scolaire active
+ * en un chiffre, chaque mois en un coup d'œil, et le détail jour par jour
+ * d'un mois choisi. S'appuie sur les mêmes pointages d'appel que la carte
+ * "Assiduité et absences" ci-dessous, agrégés en taux plutôt que listés un
+ * par un.
+ */
+function TauxAssiduiteCard({ eleveId }: { eleveId: number }) {
+  const [moisOuvert, setMoisOuvert] = useState<string | null>(null)
+
+  const { data: jours, isLoading } = useQuery({
+    queryKey: ['parent-assiduite', eleveId],
+    queryFn: () => fetchAssiduiteEnfant(eleveId),
+  })
+
+  const parMois = new Map<string, JourAssiduite[]>()
+  for (const j of jours ?? []) {
+    const cle = j.date.slice(0, 7)
+    if (!parMois.has(cle)) parMois.set(cle, [])
+    parMois.get(cle)!.push(j)
+  }
+  const mois = [...parMois.entries()].sort(([a], [b]) => b.localeCompare(a))
+
+  return (
+    <Card>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <TrendingUp className="h-4 w-4" />
+        Taux d'assiduité / Attendance rate
+      </h2>
+
+      {isLoading ? (
+        <Spinner />
+      ) : !jours || jours.length === 0 ? (
+        <p className="text-sm text-navy-400">Aucun pointage relevé pour l'instant. / No attendance recorded yet.</p>
+      ) : (
+        <>
+          <div className="mb-4 flex items-center justify-between rounded-xl bg-cream-100 px-4 py-3">
+            <span className="text-sm font-semibold text-navy-700">Sur l'année / For the year</span>
+            <span className="text-2xl font-bold tabular-nums text-navy-900">{tauxPresence(jours)}%</span>
+          </div>
+
+          <div className="flex flex-col divide-y divide-navy-50">
+            {mois.map(([cle, joursMois]) => {
+              const [annee, m] = cle.split('-')
+              const taux = tauxPresence(joursMois)
+              return (
+                <button
+                  key={cle}
+                  type="button"
+                  onClick={() => setMoisOuvert(cle)}
+                  className="flex items-center justify-between gap-3 py-2.5 text-left first:pt-0 last:pb-0 transition-colors hover:bg-cream-50/80"
+                >
+                  <span className="text-sm font-medium text-navy-800">
+                    {MOIS_LABEL[Number(m) - 1]} {annee}
+                  </span>
+                  <div className="flex flex-none items-center gap-2">
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-navy-100 sm:w-24">
+                      <div className={`h-full rounded-full ${taux >= 90 ? 'bg-green-500' : taux >= 75 ? 'bg-gold-500' : 'bg-red-500'}`} style={{ width: `${taux}%` }} />
+                    </div>
+                    <span className="w-10 text-right text-xs font-semibold tabular-nums text-navy-700">{taux}%</span>
+                    <ChevronRight className="h-4 w-4 flex-none text-navy-300" />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </>
       )}
 
-      {matiereOuverte && (
-        <ProgrammeMatiereModal
-          eleveId={eleveId}
-          classeMatiereId={matiereOuverte.id}
-          matiere={matiereOuverte.nom}
-          onClose={() => setMatiereOuverte(null)}
+      {moisOuvert && (
+        <DetailMoisModal
+          cle={moisOuvert}
+          jours={parMois.get(moisOuvert) ?? []}
+          onClose={() => setMoisOuvert(null)}
         />
       )}
     </Card>
   )
 }
 
-/**
- * Programme d'une matière, en lecture seule : titres des leçons dans
- * l'ordre, et celle où l'enseignant s'est arrêté — pas la fiche de
- * préparation complète, qui ne concerne pas le parent.
- */
-function ProgrammeMatiereModal({
-  eleveId,
-  classeMatiereId,
-  matiere,
-  onClose,
-}: {
-  eleveId: number
-  classeMatiereId: number
-  matiere: string
-  onClose: () => void
-}) {
-  const { data: programme, isLoading } = useQuery({
-    queryKey: ['parent-programme-matiere', eleveId, classeMatiereId],
-    queryFn: () => fetchProgrammeMatiereEnfant(eleveId, classeMatiereId),
-  })
+const JOUR_STATUT: Record<JourAssiduite['statut'], { label: string; tone: 'green' | 'red' | 'gold' }> = {
+  present: { label: 'Présent / Present', tone: 'green' },
+  absent_justifiee: { label: 'Absence justifiée / Excused absence', tone: 'gold' },
+  absent_non_justifiee: { label: 'Absence non justifiée / Unexcused absence', tone: 'red' },
+}
+
+/** Détail jour par jour d'un mois — la vue "par jour" demandée en plus des taux mensuel/annuel. */
+function DetailMoisModal({ cle, jours, onClose }: { cle: string; jours: JourAssiduite[]; onClose: () => void }) {
+  const [annee, m] = cle.split('-')
+  const parDate = [...jours].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
-    <Modal title={`${matiere} — Programme / Curriculum`} onClose={onClose}>
-      {isLoading ? (
-        <Spinner />
-      ) : !programme || programme.lecons.length === 0 ? (
-        <p className="text-sm text-navy-400">Aucune leçon renseignée pour l'instant. / No lesson recorded yet.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-navy-50">
-          {programme.lecons.map((lecon, index) => {
-            const estCourante = lecon.id === programme.derniere_lecon_id
-
-            return (
-              <li key={lecon.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <span
-                  className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${
-                    lecon.traitee ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-300'
-                  }`}
-                >
-                  {lecon.traitee ? <Check className="h-3.5 w-3.5" /> : index + 1}
-                </span>
-                <span className={`flex-1 text-sm ${lecon.traitee ? 'font-medium text-navy-800' : 'text-navy-400'}`}>
-                  {lecon.titre}
-                </span>
-                {estCourante && (
-                  <Badge tone="gold">Arrêté ici / Stopped here</Badge>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+    <Modal title={`${MOIS_LABEL[Number(m) - 1]} ${annee} — ${tauxPresence(jours)}% de présence / attendance`} onClose={onClose}>
+      <ul className="flex flex-col divide-y divide-navy-50">
+        {parDate.map((j) => (
+          <li key={j.date} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+            <span className="text-sm font-medium text-navy-800">
+              {new Date(`${j.date}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+            <Badge tone={JOUR_STATUT[j.statut].tone}>{JOUR_STATUT[j.statut].label}</Badge>
+          </li>
+        ))}
+      </ul>
     </Modal>
   )
 }

@@ -97,6 +97,7 @@ import { InfrastructuresPage } from '@/features/infrastructures/pages/Infrastruc
 import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
 import { SessionPage } from '@/features/session/pages/SessionPage'
 import { PreinscriptionsAdminPage } from '@/features/eleves/pages/PreinscriptionsAdminPage'
+import { PreinscriptionCreerPage } from '@/features/eleves/pages/PreinscriptionCreerPage'
 import { ModificationsElevesAdminPage } from '@/features/eleves/pages/ModificationsElevesAdminPage'
 import { ComptesParentsPage } from '@/features/eleves/pages/ComptesParentsPage'
 import { AdminParentStatsPage } from '@/features/eleves/pages/AdminParentStatsPage'
@@ -264,6 +265,7 @@ export const router = createHashRouter([
       { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },
       { path: 'rapport-trimestre', element: <ProtectedRoute permission="rapport_trimestre.view"><RapportTrimestrePage /></ProtectedRoute> },
       { path: 'preinscriptions', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionsAdminPage /></ProtectedRoute> },
+      { path: 'preinscriptions/nouvelle', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionCreerPage /></ProtectedRoute> },
       { path: 'modifications-eleves', element: <ProtectedRoute permission="eleves.manage"><ModificationsElevesAdminPage /></ProtectedRoute> },
       { path: 'comptes-parents', element: <ProtectedRoute permission="eleves.manage"><ComptesParentsPage /></ProtectedRoute> },
       { path: 'statistiques-parent', element: <ProtectedRoute permission="eleves.manage"><AdminParentStatsPage /></ProtectedRoute> },

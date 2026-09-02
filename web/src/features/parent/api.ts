@@ -88,35 +88,29 @@ export async function fetchFinanceEnfant(eleveId: number): Promise<FinanceEnfant
 
 // --------------------------------------------------------------- Pédagogie
 
-export interface MatiereProgression {
-  classe_matiere_id: number
-  matiere: string
-  enseignant: string | null
-  lecons: number
-  traitees: number
-  taux: number
-}
-
-export async function fetchProgressionEnfant(eleveId: number): Promise<MatiereProgression[]> {
-  const { data } = await http.get<ApiResponse<MatiereProgression[]>>(`/parent/enfants/${eleveId}/progression`)
-  return data.data
-}
-
-export interface LeconProgramme {
+export interface LeconSemaine {
   id: number
+  matiere: string
   titre: string
+  date_prevue: string
   traitee: boolean
 }
 
-export interface ProgrammeMatiere {
-  matiere: string
-  lecons: LeconProgramme[]
-  /** Dernière leçon traitée — là où l'enseignant s'est arrêté en classe. `null` si rien n'est encore traité. */
-  derniere_lecon_id: number | null
+export interface SemaineLecons {
+  debut: string
+  fin: string
+  lecons: LeconSemaine[]
 }
 
-export async function fetchProgrammeMatiereEnfant(eleveId: number, classeMatiereId: number): Promise<ProgrammeMatiere> {
-  const { data } = await http.get<ApiResponse<ProgrammeMatiere>>(`/parent/enfants/${eleveId}/progression/${classeMatiereId}`)
+export interface LeconsSemaine {
+  precedente: SemaineLecons
+  en_cours: SemaineLecons
+  suivante: SemaineLecons
+}
+
+/** `[]` quand l'enfant n'a pas (encore) de classe — cf. `ParentEspaceController::leconsSemaine`. */
+export async function fetchLeconsSemaineEnfant(eleveId: number): Promise<LeconsSemaine | []> {
+  const { data } = await http.get<ApiResponse<LeconsSemaine | []>>(`/parent/enfants/${eleveId}/lecons-semaine`)
   return data.data
 }
 
@@ -149,6 +143,17 @@ export interface AbsenceEnfant {
 
 export async function fetchAbsencesEnfant(eleveId: number): Promise<AbsenceEnfant[]> {
   const { data } = await http.get<ApiResponse<AbsenceEnfant[]>>(`/parent/enfants/${eleveId}/absences`)
+  return data.data
+}
+
+export interface JourAssiduite {
+  date: string
+  statut: 'present' | 'absent_justifiee' | 'absent_non_justifiee'
+}
+
+/** Une entrée par journée où l'enfant a eu au moins un pointage, sur l'année scolaire active. */
+export async function fetchAssiduiteEnfant(eleveId: number): Promise<JourAssiduite[]> {
+  const { data } = await http.get<ApiResponse<JourAssiduite[]>>(`/parent/enfants/${eleveId}/assiduite`)
   return data.data
 }
 

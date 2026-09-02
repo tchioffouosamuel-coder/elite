@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AbsenceTrimestre;
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Presence;
@@ -136,6 +137,48 @@ class DisciplineService extends BaseService
         }
 
         return collect($cumuls);
+    }
+
+    /**
+     * Assiduité d'un élève, journée par journée, sur une année scolaire —
+     * même convention que {@see joursAbsence()} : présent dès qu'il a
+     * répondu présent à au moins un cours de la journée, sinon absent
+     * (justifiée dès que la totalité des absences du jour le sont). Une
+     * journée sans aucun pointage pour lui n'apparaît pas — l'élève peut
+     * être arrivé en cours d'année, ou l'appel n'a pas encore eu lieu.
+     *
+     * Porte sur ses pointages quelle que soit sa classe au moment du cours :
+     * un transfert ou un redoublement en cours d'année ne doit pas faire
+     * disparaître l'historique déjà enregistré.
+     *
+     * @return Collection<int, array{date:string, statut:string}> triée par date croissante
+     */
+    public function assiduiteEleve(Eleve $eleve, AnneeScolaire $anneeScolaire): Collection
+    {
+        $presences = Presence::where('eleve_id', $eleve->id)
+            ->whereHas('seance', fn ($q) => $q->where('statut', 'effectuee')
+                ->whereHas('trimestre', fn ($q2) => $q2->where('annee_scolaire_id', $anneeScolaire->id)))
+            ->with('seance:id,date_seance')
+            ->get();
+
+        $jours = [];
+        foreach ($presences->groupBy(fn (Presence $p) => $p->seance->date_seance->toDateString()) as $date => $pointages) {
+            if ($pointages->whereIn('statut', self::STATUTS_PRESENCE)->isNotEmpty()) {
+                $jours[$date] = 'present';
+                continue;
+            }
+
+            $absences = $pointages->whereIn('statut', self::STATUTS_ABSENCE);
+            if ($absences->isEmpty()) {
+                continue;
+            }
+
+            $jours[$date] = $absences->every(fn (Presence $p) => $p->justifie) ? 'absent_justifiee' : 'absent_non_justifiee';
+        }
+
+        ksort($jours);
+
+        return collect($jours)->map(fn ($statut, $date) => ['date' => $date, 'statut' => $statut])->values();
     }
 
     /**
