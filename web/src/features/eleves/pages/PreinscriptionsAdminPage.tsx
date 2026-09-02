@@ -5,7 +5,7 @@ import { ClipboardCheck, Check, X, Search, Pencil, Plus } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier } from '@/features/finance/api'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -16,6 +16,9 @@ import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
+import { completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
+import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
+import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 
 type Statut = 'en_attente' | 'validee' | 'rejetee'
 type Type = 'existant' | 'nouveau'
@@ -56,6 +59,35 @@ async function fetchPreinscription(id: number): Promise<PreinscriptionDetail> {
 
 const STATUT_TONE = { en_attente: 'gold', validee: 'green', rejetee: 'red' } as const
 const STATUT_LABEL = { en_attente: 'En attente', validee: 'Validée', rejetee: 'Rejetée' } as const
+interface TuteurEditForm {
+  nom_complet: string
+  telephones: TelephoneEntry[]
+  email: string
+  profession: string
+  lien_parente: string
+  lieu_service: string
+  is_principal: boolean
+}
+
+function tuteurEditFormDepuisDonnees(t: Record<string, unknown>): TuteurEditForm {
+  const telephonesBrutes = Array.isArray(t.telephones) ? (t.telephones as { numero?: string; is_principal?: boolean }[]) : []
+  const telephones =
+    telephonesBrutes.length > 0
+      ? telephonesBrutes.map((tel) => ({ numero: String(tel.numero ?? ''), is_principal: Boolean(tel.is_principal) }))
+      : t.telephone
+        ? [{ numero: String(t.telephone), is_principal: true }]
+        : []
+  return {
+    nom_complet: String(t.nom_complet ?? ''),
+    telephones: completerTelephones(telephones),
+    email: String(t.email ?? ''),
+    profession: String(t.profession ?? ''),
+    lien_parente: String(t.lien_parente ?? ''),
+    lieu_service: String(t.lieu_service ?? ''),
+    is_principal: Boolean(t.is_principal),
+  }
+}
+
 export const CHAMPS_ELEVE: [string, string][] = [
   ['nom_complet', 'Nom complet'],
   ['sexe', 'Sexe'],
@@ -184,8 +216,11 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
   const [editionOuverte, setEditionOuverte] = useState(false)
   const [champsEdites, setChampsEdites] = useState<Record<string, string>>({})
   const [classeIdEdite, setClasseIdEdite] = useState<number | null>(null)
+  const [niveauIdEdite, setNiveauIdEdite] = useState<number | undefined>(undefined)
+  const [tuteursEdites, setTuteursEdites] = useState<TuteurEditForm[]>([])
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
+  const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
   const { data: p, isLoading } = useQuery({ queryKey: ['preinscription-admin', id], queryFn: () => fetchPreinscription(id) })
 
@@ -204,20 +239,35 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
     )
     // Nouvelle inscription : la classe proposée vit dans donnees_eleve.
     // Réinscription : dans classe_id, distinct de la classe actuelle de l'élève.
-    setClasseIdEdite(p?.classe_id ?? (p?.donnees_eleve.classe_id as number | undefined) ?? null)
+    const classeChoisie = p?.classe_id ?? (p?.donnees_eleve.classe_id as number | undefined) ?? null
+    setClasseIdEdite(classeChoisie)
+    setNiveauIdEdite(classeChoisie ? classes?.find((c) => c.id === classeChoisie)?.niveau_id : undefined)
+    setTuteursEdites((p?.donnees_tuteurs ?? []).map(tuteurEditFormDepuisDonnees))
     setEditionOuverte(true)
+  }
+
+  const majTuteurEdite = (index: number, patch: Partial<TuteurEditForm>) => {
+    setTuteursEdites((ts) => ts.map((t, i) => (i === index ? { ...t, ...patch } : t)))
   }
 
   const enregistrerEdition = async () => {
     if (!p) return
     setTraitement(true)
     try {
+      const donneesTuteurs = tuteursEdites
+        .filter((t) => t.nom_complet.trim() !== '')
+        .map((t) => ({
+          nom_complet: t.nom_complet,
+          telephones: t.telephones.filter((tel) => tel.numero.trim() !== ''),
+          email: t.email || undefined,
+          profession: t.profession || undefined,
+          lien_parente: t.lien_parente || undefined,
+          lieu_service: t.lieu_service || undefined,
+          is_principal: t.is_principal,
+        }))
       await http.put(`/preinscriptions/${id}`, {
         donnees_eleve: { ...p.donnees_eleve, ...champsEdites, classe_id: classeIdEdite },
-        // Portée volontairement limitée aux informations de l'élève, la
-        // classe et les tuteurs : le versement annoncé n'est pas ce que
-        // l'admin a vocation à corriger ici.
-        donnees_tuteurs: p.donnees_tuteurs,
+        donnees_tuteurs: donneesTuteurs,
         classe_id: classeIdEdite,
       })
       succes('Informations mises à jour.')
@@ -330,18 +380,52 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
                     />
                   ))}
                 </div>
-                <Select
-                  label={p.type === 'existant' ? 'Classe à la validation (vide = classe actuelle inchangée)' : 'Classe'}
-                  value={classeIdEdite ?? ''}
-                  onChange={(e) => setClasseIdEdite(e.target.value ? Number(e.target.value) : null)}
-                >
-                  <option value="">{p.type === 'existant' ? 'Ne pas changer' : 'Sélectionner…'}</option>
-                  {classes?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom}
-                    </option>
-                  ))}
-                </Select>
+                <ClasseNiveauPicker
+                  niveaux={niveaux}
+                  classes={classes}
+                  niveauId={niveauIdEdite}
+                  onChangeNiveauId={(id) => {
+                    setNiveauIdEdite(id)
+                    setClasseIdEdite(null)
+                  }}
+                  classeId={classeIdEdite ?? undefined}
+                  onChangeClasseId={(id) => setClasseIdEdite(id ?? null)}
+                  niveauLabel="Niveau"
+                  hint={
+                    p.type === 'existant'
+                      ? "Laissez le niveau vide pour conserver la classe actuelle de l'élève."
+                      : "La classe pourra être modifiée ultérieurement dans les paramètres de l'élève."
+                  }
+                />
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h4>
+                  <div className="flex flex-col gap-3">
+                    {tuteursEdites.map((t, i) => (
+                      <div key={i} className="grid grid-cols-2 gap-2.5 rounded-lg bg-cream-50 p-3">
+                        <Input label="Nom complet" value={t.nom_complet} onChange={(e) => majTuteurEdite(i, { nom_complet: e.target.value })} />
+                        <Input label="Email" value={t.email} onChange={(e) => majTuteurEdite(i, { email: e.target.value })} />
+                        <Input label="Profession" value={t.profession} onChange={(e) => majTuteurEdite(i, { profession: e.target.value })} />
+                        <Input
+                          label="Lien de parenté"
+                          value={t.lien_parente}
+                          onChange={(e) => majTuteurEdite(i, { lien_parente: e.target.value })}
+                        />
+                        <div className="col-span-2">
+                          <TelephonesEditor telephones={t.telephones} onChange={(telephones) => majTuteurEdite(i, { telephones })} />
+                        </div>
+                        <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={t.is_principal}
+                            onChange={() => setTuteursEdites((ts) => ts.map((tut, j) => ({ ...tut, is_principal: j === i })))}
+                            className="rounded border-navy-300"
+                          />
+                          <span className="text-navy-700">Tuteur principal</span>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="secondary" onClick={() => setEditionOuverte(false)} disabled={traitement}>
                     Annuler
@@ -375,19 +459,30 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
             )}
           </div>
 
-          <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h3>
-            <div className="flex flex-col gap-2">
-              {p.donnees_tuteurs.map((t, i) => (
-                <div key={i} className="rounded-lg bg-cream-50 px-3 py-2 text-xs">
-                  <p className="font-semibold text-navy-800">{String(t.nom_complet)}</p>
-                  <p className="text-navy-500">
-                    {[t.lien_parente, t.telephone, t.email, t.lieu_service].filter(Boolean).join(' · ') || '—'}
-                  </p>
-                </div>
-              ))}
+          {!editionOuverte && (
+            <div>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h3>
+              <div className="flex flex-col gap-2">
+                {p.donnees_tuteurs.map((t, i) => {
+                  const telephones = Array.isArray(t.telephones) ? (t.telephones as { numero?: string; is_principal?: boolean }[]) : []
+                  const numeros =
+                    telephones.length > 0
+                      ? telephones.filter((tel) => tel.numero).map((tel) => `${tel.numero}${tel.is_principal ? ' ★' : ''}`).join(', ')
+                      : t.telephone
+                        ? String(t.telephone)
+                        : null
+                  return (
+                    <div key={i} className="rounded-lg bg-cream-50 px-3 py-2 text-xs">
+                      <p className="font-semibold text-navy-800">{String(t.nom_complet)}</p>
+                      <p className="text-navy-500">
+                        {[t.lien_parente, numeros, t.email, t.lieu_service].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {dossier && (
             <dl className="grid grid-cols-3 gap-2 rounded-xl bg-cream-100 p-3 text-center">

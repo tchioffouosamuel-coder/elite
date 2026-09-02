@@ -6,7 +6,7 @@ import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
 import { rechercheGlobaleEleves, type Eleve } from '@/features/eleves/api'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { CHAMPS_ELEVE, type PreinscriptionResume } from '@/features/eleves/pages/PreinscriptionsAdminPage'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
@@ -15,10 +15,13 @@ import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
+import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
+import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 
 interface TuteurForm {
   nom_complet: string
-  telephone: string
+  telephones: TelephoneEntry[]
   email: string
   profession: string
   lien_parente: string
@@ -26,10 +29,15 @@ interface TuteurForm {
 }
 
 function tuteurDepuisEleve(t: Eleve['tuteurs'][number]): TuteurForm {
-  const telephonePrincipal = t.telephones.find((tel) => tel.is_principal)?.numero ?? t.telephones[0]?.numero ?? t.telephone ?? ''
+  const telephones =
+    t.telephones.length > 0
+      ? t.telephones.map((tel) => ({ numero: tel.numero, is_principal: tel.is_principal }))
+      : t.telephone
+        ? [{ numero: t.telephone, is_principal: true }]
+        : []
   return {
     nom_complet: t.nom_complet,
-    telephone: telephonePrincipal,
+    telephones: completerTelephones(telephones),
     email: t.email ?? '',
     profession: t.profession ?? '',
     lien_parente: t.lien_parente ?? '',
@@ -120,16 +128,19 @@ export function PreinscriptionCreerPage() {
   const [mode, setMode] = useState<ModePaiement>('especes')
   const [reference, setReference] = useState('')
   const [classeId, setClasseId] = useState<number | null>(null)
+  const [niveauId, setNiveauId] = useState<number | undefined>(undefined)
   const [envoi, setEnvoi] = useState(false)
   const [erreurMsg, setErreurMsg] = useState<string | null>(null)
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
+  const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
   const choisirEleve = (choix: Eleve) => {
     setEleve(choix)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String((choix as unknown as Record<string, unknown>)[cle] ?? '')])))
     setTuteurs(choix.tuteurs.length > 0 ? choix.tuteurs.map(tuteurDepuisEleve) : [])
     setClasseId(choix.classe?.id ?? null)
+    setNiveauId(choix.classe ? classes?.find((c) => c.id === choix.classe!.id)?.niveau_id : undefined)
     setErreurMsg(null)
   }
 
@@ -160,7 +171,7 @@ export function PreinscriptionCreerPage() {
           .filter((t) => t.nom_complet.trim() !== '')
           .map((t) => ({
             nom_complet: t.nom_complet,
-            telephone: t.telephone || undefined,
+            telephones: t.telephones.filter((tel) => tel.numero.trim() !== ''),
             email: t.email || undefined,
             profession: t.profession || undefined,
             lien_parente: t.lien_parente || undefined,
@@ -231,18 +242,19 @@ export function PreinscriptionCreerPage() {
                       onChange={(e) => setChamps((c) => ({ ...c, [cle]: e.target.value }))}
                     />
                   ))}
-                  <Select
-                    label="Classe"
-                    value={classeId ?? ''}
-                    onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Sélectionner…</option>
-                    {classes?.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nom}
-                      </option>
-                    ))}
-                  </Select>
+                </div>
+                <div className="mt-3">
+                  <ClasseNiveauPicker
+                    niveaux={niveaux}
+                    classes={classes}
+                    niveauId={niveauId}
+                    onChangeNiveauId={(id) => {
+                      setNiveauId(id)
+                      setClasseId(null)
+                    }}
+                    classeId={classeId ?? undefined}
+                    onChangeClasseId={(id) => setClasseId(id ?? null)}
+                  />
                 </div>
               </div>
 
@@ -257,7 +269,6 @@ export function PreinscriptionCreerPage() {
                     {tuteurs.map((t, i) => (
                       <div key={i} className="grid grid-cols-2 gap-2.5 rounded-lg bg-cream-50 p-3">
                         <Input label="Nom complet" value={t.nom_complet} onChange={(e) => majTuteur(i, { nom_complet: e.target.value })} />
-                        <Input label="Téléphone" value={t.telephone} onChange={(e) => majTuteur(i, { telephone: e.target.value })} />
                         <Input label="Email" value={t.email} onChange={(e) => majTuteur(i, { email: e.target.value })} />
                         <Input label="Profession" value={t.profession} onChange={(e) => majTuteur(i, { profession: e.target.value })} />
                         <Input
@@ -265,6 +276,12 @@ export function PreinscriptionCreerPage() {
                           value={t.lien_parente}
                           onChange={(e) => majTuteur(i, { lien_parente: e.target.value })}
                         />
+                        <div className="col-span-2">
+                          <TelephonesEditor
+                            telephones={t.telephones}
+                            onChange={(telephones) => majTuteur(i, { telephones })}
+                          />
+                        </div>
                         <label className="flex items-center gap-2 self-end pb-2 text-sm">
                           <input
                             type="checkbox"
