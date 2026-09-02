@@ -1,15 +1,12 @@
-import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   UserRound,
   Users,
   GraduationCap,
   School,
-  UserPlus,
-  BriefcaseBusiness,
   BookOpen,
-  LogIn,
   ListChecks,
   GitBranch,
   RadioTower,
@@ -21,12 +18,12 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react'
-import { fetchDashboardStats, fetchPilotage, fetchActiviteRecente, type CreneauPilotage, type ActiviteLog } from '@/features/dashboard/api'
+import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog } from '@/features/dashboard/api'
+import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
 
 export function DashboardPage() {
@@ -47,39 +44,16 @@ function EnTete({ titre, sousTitre }: { titre: string; sousTitre?: string | null
   )
 }
 
-// « eleve » reste géré pour la vue classe (titulaire), qui liste encore de
-// simples inscriptions plutôt que le journal complet — cf. DashboardService::statsClasse.
-const ICONES_ACTIVITE: Record<string, { Icon: typeof UserPlus; classe: string }> = {
-  connexion: { Icon: LogIn, classe: 'bg-green-50 text-green-600' },
-  'eleve.cree': { Icon: UserPlus, classe: 'bg-navy-50 text-navy-600' },
-  eleve: { Icon: UserPlus, classe: 'bg-navy-50 text-navy-600' },
-  'personnel.cree': { Icon: BriefcaseBusiness, classe: 'bg-gold-50 text-gold-600' },
-}
-const ICONE_PAR_DEFAUT = { Icon: BriefcaseBusiness, classe: 'bg-gold-50 text-gold-600' }
-
-function LigneActivite({ a }: { a: ActiviteLog }) {
-  const { Icon, classe } = ICONES_ACTIVITE[a.type] ?? ICONE_PAR_DEFAUT
-  return (
-    <li className="flex items-center gap-3 py-3 text-sm">
-      <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${classe}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="flex-1 text-navy-700">{a.libelle}</span>
-      <span className="flex-none text-xs text-navy-400">{new Date(a.date).toLocaleString()}</span>
-    </li>
-  )
-}
-
 function ActiviteRecente({ activite }: { activite: ActiviteLog[] }) {
   const { t } = useTranslation()
-  const [journalOuvert, setJournalOuvert] = useState(false)
+  const navigate = useNavigate()
   return (
     <Card>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.recent_activity')}</h2>
         <button
           type="button"
-          onClick={() => setJournalOuvert(true)}
+          onClick={() => navigate('/journal-activite')}
           className="text-xs font-semibold text-navy-500 hover:text-navy-800"
         >
           {t('dashboard.see_more')}
@@ -90,63 +64,7 @@ function ActiviteRecente({ activite }: { activite: ActiviteLog[] }) {
           <LigneActivite key={i} a={a} />
         ))}
       </ul>
-      {journalOuvert && <JournalActiviteModal onClose={() => setJournalOuvert(false)} />}
     </Card>
-  )
-}
-
-/** Journal complet, chargé par pages successives (« Charger plus ») derrière le « Voir plus » de la carte. */
-function JournalActiviteModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation()
-  const [page, setPage] = useState(1)
-  const [lignes, setLignes] = useState<ActiviteLog[]>([])
-  const [derniereePage, setDerniereePage] = useState<number | null>(null)
-
-  const { data, isFetching, isError } = useQuery({
-    queryKey: ['dashboard-activite', page],
-    queryFn: () => fetchActiviteRecente(page),
-  })
-
-  // Chaque page chargée s'ajoute aux précédentes plutôt que de les remplacer
-  // — même principe qu'un défilement infini, mais déclenché par un clic pour
-  // rester prévisible sur une liste qui peut être longue.
-  useEffect(() => {
-    if (!data) return
-    setLignes((l) => (page === 1 ? data.items : [...l, ...data.items]))
-    setDerniereePage(data.pagination.last_page)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data])
-
-  const encoreDesPages = derniereePage !== null && page < derniereePage
-
-  return (
-    <Modal title={t('dashboard.activity_journal_title')} onClose={onClose}>
-      <div className="flex flex-col gap-1">
-        {lignes.length === 0 && isFetching ? (
-          <Spinner />
-        ) : isError ? (
-          <ErrorState />
-        ) : (
-          <ul className="flex flex-col divide-y divide-navy-50">
-            {lignes.map((a, i) => (
-              <LigneActivite key={i} a={a} />
-            ))}
-          </ul>
-        )}
-
-        {lignes.length > 0 && (
-          <div className="mt-3 flex justify-center">
-            {encoreDesPages ? (
-              <Button type="button" variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isFetching}>
-                {isFetching ? t('common.loading') : t('dashboard.load_more')}
-              </Button>
-            ) : (
-              <p className="text-xs text-navy-400">{t('dashboard.no_more_activity')}</p>
-            )}
-          </div>
-        )}
-      </div>
-    </Modal>
   )
 }
 

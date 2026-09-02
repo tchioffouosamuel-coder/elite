@@ -31,15 +31,20 @@ export function SuiviActivitePage() {
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const ecoles = user?.ecoles_accessibles ?? []
+  const plusieursEcoles = user?.is_super_admin && ecoles.length > 1
 
   const [du, setDu] = useState(debutDuMois())
   const [au, setAu] = useState(finDuMois())
   const [granularite, setGranularite] = useState<GranulariteSuivi>('jour')
   const [personnelId, setPersonnelId] = useState('')
 
+  // Portée à l'école active : quand elle change de vraie source (le select
+  // école lui-même), la liste ne doit garder que son personnel — sinon un
+  // enseignant d'une autre école resterait sélectionnable puis introuvable
+  // une fois le suivi filtré côté API.
   const { data: personnels } = useQuery({
-    queryKey: ['personnels-suivi-activite-filtre'],
-    queryFn: () => fetchPersonnels({ per_page: 500 }),
+    queryKey: ['personnels-suivi-activite-filtre', activeSchoolId],
+    queryFn: () => fetchPersonnels({ per_page: 500, schoolId: activeSchoolId ?? undefined }),
   })
 
   const { data, isLoading, isError } = useQuery({
@@ -56,37 +61,50 @@ export function SuiviActivitePage() {
 
   const periodes = Array.from(new Set(data?.flatMap((ligne) => ligne.periodes.map((p) => p.periode)) ?? [])).sort()
 
+  const choisirEcole = (valeur: string) => {
+    setActiveSchool(valeur ? Number(valeur) : null)
+    // Change de source : l'enseignant sélectionné n'a plus de raison
+    // d'appartenir à la nouvelle école, on efface plutôt que de garder une
+    // sélection incohérente.
+    setPersonnelId('')
+  }
+
+  const choisirPersonnel = (valeur: string) => {
+    setPersonnelId(valeur)
+    // Ici c'est l'enseignant qui pilote : on bascule l'école sur la sienne
+    // plutôt que de forcer l'utilisateur à le refaire à la main.
+    const ecoleDuPersonnel = personnels?.find((p) => String(p.id) === valeur)?.school_id
+    if (ecoleDuPersonnel && ecoleDuPersonnel !== activeSchoolId) setActiveSchool(ecoleDuPersonnel)
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        titre={t('personnel.suivi_activite.title')}
-        sousTitre={t('personnel.suivi_activite.subtitle')}
-        icon={CalendarClock}
-        actions={
-          <div className="flex flex-wrap items-end gap-2">
-            {user?.is_super_admin && ecoles.length > 1 && (
-              <Select value={activeSchoolId ?? ''} onChange={(e) => setActiveSchool(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">Toutes les écoles</option>
-                {ecoles.map((ecole) => (
-                  <option key={ecole.id} value={ecole.id}>
-                    {ecole.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Input label={t('personnel.suivi_activite.from')} type="date" value={du} onChange={(e) => setDu(e.target.value)} />
-            <Input label={t('personnel.suivi_activite.to')} type="date" value={au} onChange={(e) => setAu(e.target.value)} />
-            <Select label={t('personnel.enseignant')} value={personnelId} onChange={(e) => setPersonnelId(e.target.value)}>
-              <option value="">{t('personnel.suivi_activite.all_staff')}</option>
-              {personnels?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nom_complet}
+      <PageHeader titre={t('personnel.suivi_activite.title')} sousTitre={t('personnel.suivi_activite.subtitle')} icon={CalendarClock} />
+
+      <Card>
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${plusieursEcoles ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+          {plusieursEcoles && (
+            <Select label={t('personnel.suivi_activite.school')} value={activeSchoolId ?? ''} onChange={(e) => choisirEcole(e.target.value)}>
+              <option value="">{t('personnel.suivi_activite.all_schools')}</option>
+              {ecoles.map((ecole) => (
+                <option key={ecole.id} value={ecole.id}>
+                  {ecole.name}
                 </option>
               ))}
             </Select>
-          </div>
-        }
-      />
+          )}
+          <Input label={t('personnel.suivi_activite.from')} type="date" value={du} onChange={(e) => setDu(e.target.value)} />
+          <Input label={t('personnel.suivi_activite.to')} type="date" value={au} onChange={(e) => setAu(e.target.value)} />
+          <Select label={t('personnel.enseignant')} value={personnelId} onChange={(e) => choisirPersonnel(e.target.value)}>
+            <option value="">{t('personnel.suivi_activite.all_staff')}</option>
+            {personnels?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nom_complet}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Card>
 
       <Tabs
         tabs={[
