@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Search, Receipt, UserPlus } from 'lucide-react'
+import { ArrowLeft, Search, Receipt, UserPlus, Plus, Trash2 } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
@@ -15,7 +15,7 @@ import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
-import { completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
+import { completerTelephones, telephonesParDefaut, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 
@@ -159,6 +159,17 @@ export function PreinscriptionCreerPage() {
     setTuteurs((t) => t.map((tut, i) => (i === index ? { ...tut, ...patch } : tut)))
   }
 
+  const ajouterTuteur = () => {
+    setTuteurs((t) => [
+      ...t,
+      { nom_complet: '', telephones: telephonesParDefaut(), email: '', profession: '', lien_parente: '', is_principal: t.length === 0 },
+    ])
+  }
+
+  const supprimerTuteur = (index: number) => {
+    setTuteurs((t) => t.filter((_, i) => i !== index))
+  }
+
   const enregistrer = async () => {
     if (!eleve) return
     setEnvoi(true)
@@ -259,12 +270,25 @@ export function PreinscriptionCreerPage() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h3>
-                {tuteurs.length === 0 ? (
-                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    Aucun tuteur enregistré pour cet élève. Ajoutez-en un depuis sa fiche avant de le réinscrire.
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h3>
+                  <button
+                    type="button"
+                    onClick={ajouterTuteur}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-navy-50 hover:text-navy-800"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Ajouter un tuteur
+                  </button>
+                </div>
+
+                {tuteurs.length === 0 && (
+                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Aucun tuteur enregistré pour cet élève. Ajoutez-en un ci-dessus pour pouvoir le réinscrire.
                   </p>
-                ) : (
+                )}
+
+                {tuteurs.length > 0 && (
                   <div className="flex flex-col gap-3">
                     {tuteurs.map((t, i) => (
                       <div key={i} className="grid grid-cols-2 gap-2.5 rounded-lg bg-cream-50 p-3">
@@ -282,15 +306,25 @@ export function PreinscriptionCreerPage() {
                             onChange={(telephones) => majTuteur(i, { telephones })}
                           />
                         </div>
-                        <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={t.is_principal}
-                            onChange={() => setTuteurs((ts) => ts.map((tut, j) => ({ ...tut, is_principal: j === i })))}
-                            className="rounded border-navy-300"
-                          />
-                          <span className="text-navy-700">Tuteur principal</span>
-                        </label>
+                        <div className="col-span-2 flex items-center justify-between border-t border-navy-100 pt-2">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={t.is_principal}
+                              onChange={() => setTuteurs((ts) => ts.map((tut, j) => ({ ...tut, is_principal: j === i })))}
+                              className="rounded border-navy-300"
+                            />
+                            <span className="text-navy-700">Tuteur principal</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => supprimerTuteur(i)}
+                            className="rounded-lg p-2 text-navy-400 hover:bg-red-100 hover:text-red-500"
+                            title="Supprimer ce tuteur"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -27,7 +27,10 @@ function finDuMois(): string {
  */
 export function SuiviActivitePage() {
   const { t } = useTranslation()
+  const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
+  const ecoles = user?.ecoles_accessibles ?? []
 
   const [du, setDu] = useState(debutDuMois())
   const [au, setAu] = useState(finDuMois())
@@ -61,6 +64,16 @@ export function SuiviActivitePage() {
         icon={CalendarClock}
         actions={
           <div className="flex flex-wrap items-end gap-2">
+            {user?.is_super_admin && ecoles.length > 1 && (
+              <Select value={activeSchoolId ?? ''} onChange={(e) => setActiveSchool(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">Toutes les écoles</option>
+                {ecoles.map((ecole) => (
+                  <option key={ecole.id} value={ecole.id}>
+                    {ecole.name}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Input label={t('personnel.suivi_activite.from')} type="date" value={du} onChange={(e) => setDu(e.target.value)} />
             <Input label={t('personnel.suivi_activite.to')} type="date" value={au} onChange={(e) => setAu(e.target.value)} />
             <Select label={t('personnel.enseignant')} value={personnelId} onChange={(e) => setPersonnelId(e.target.value)}>
@@ -80,6 +93,7 @@ export function SuiviActivitePage() {
           { key: 'jour', label: t('personnel.suivi_activite.jour') },
           { key: 'semaine', label: t('personnel.suivi_activite.semaine') },
           { key: 'mois', label: t('personnel.suivi_activite.mois') },
+          { key: 'annee', label: t('personnel.suivi_activite.annee') },
         ]}
         active={granularite}
         onChange={(cle) => setGranularite(cle as GranulariteSuivi)}

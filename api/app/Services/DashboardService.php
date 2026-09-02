@@ -12,6 +12,7 @@ use App\Models\Personnel;
 use App\Models\Sequence;
 use App\Models\User;
 use App\Support\Perimetre;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class DashboardService extends BaseService
@@ -82,11 +83,7 @@ class DashboardService extends BaseService
         // cf. cahier des charges §5.5.
         $activiteRecente = ActivityLog::forSchool($schoolId)
             ->latest('created_at')->limit(6)->get()
-            ->map(function (ActivityLog $log) {
-                $qui = $log->causer_role ? "{$log->causer_nom} — {$log->causer_role}" : $log->causer_nom;
-
-                return ['type' => $log->action, 'libelle' => "{$qui} : {$log->description}", 'date' => $log->created_at->toIso8601String()];
-            });
+            ->map(fn (ActivityLog $log) => $this->formaterLogActivite($log));
 
         return [
             'scope' => 'ecole',
@@ -214,5 +211,27 @@ class DashboardService extends BaseService
         }
 
         return [$tauxRemplissageNotes, $tauxProgression];
+    }
+
+    /** @return array{type: string, libelle: string, date: string} */
+    private function formaterLogActivite(ActivityLog $log): array
+    {
+        $qui = $log->causer_role ? "{$log->causer_nom} — {$log->causer_role}" : $log->causer_nom;
+
+        return ['type' => $log->action, 'libelle' => "{$qui} : {$log->description}", 'date' => $log->created_at->toIso8601String()];
+    }
+
+    /**
+     * Journal complet, paginé — derrière le « Voir plus » de la carte
+     * Activité récente qui n'en affiche qu'un aperçu.
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    public function activiteRecentePaginee(int|array $schoolId, int $perPage = 25): LengthAwarePaginator
+    {
+        return ActivityLog::forSchool($schoolId)
+            ->latest('created_at')
+            ->paginate(max(1, min($perPage, 100)))
+            ->through(fn (ActivityLog $log) => $this->formaterLogActivite($log));
     }
 }

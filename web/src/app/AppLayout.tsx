@@ -411,6 +411,16 @@ export function AppLayout() {
   const typeEcole = activeSchool()?.type
   const logoEcole = activeSchool()?.logo_url ?? null
 
+  // En-tête de la sidebar : le ou les logos des établissements auxquels le
+  // compte a accès plutôt qu'un logo générique fixe — un compte multi-école
+  // (super admin, direction du complexe) voit d'un coup d'œil tous les
+  // établissements couverts.
+  const ecolesAccessibles = user?.ecoles_accessibles ?? []
+  const ecolesAvecLogo = ecolesAccessibles.filter((e) => Boolean(e.logo_url))
+  const ecoleActive = activeSchool()
+  const logoReduitSrc = ecoleActive?.logo_url || ecolesAvecLogo[0]?.logo_url || logoMark
+  const logoReduitAlt = ecoleActive?.logo_url ? ecoleActive.name : t('app.name')
+
   // Le tiroir se referme à chaque navigation : sur mobile il recouvre la page,
   // le laisser ouvert masquerait l'écran qu'on vient d'ouvrir.
   useEffect(() => setMenuOuvert(false), [location.pathname])
@@ -563,11 +573,37 @@ export function AppLayout() {
         <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-green-500/20 blur-3xl" aria-hidden />
 
         <div className={clsx('relative z-10 flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
-          <span className={clsx('flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft', !sidebarOpen && 'lg:hidden')}>
-            <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
-          </span>
-          <span className={clsx('hidden h-14 w-14 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}>
-            <img src={logoMark} alt={t('app.name')} className="h-full w-full object-contain" />
+          {/*
+           * Déplié : un logo par établissement accessible, chacun dans sa
+           * propre tuile plutôt qu'entassés dans un cadre unique — une
+           * mire large (« wordmark ») et un emblème carré n'ont pas le
+           * même format, `object-contain` + largeur libre (bornée) évite
+           * d'écraser l'un ou de perdre l'autre dans trop de vide. Repli sur
+           * le logo générique quand aucune école du compte n'en a un.
+           */}
+          <div className={clsx('flex min-w-0 flex-1 flex-wrap items-center gap-1.5', !sidebarOpen && 'lg:hidden')}>
+            {ecolesAvecLogo.length > 0 ? (
+              ecolesAvecLogo.map((ecole) => (
+                <span
+                  key={ecole.id}
+                  title={ecole.name}
+                  className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft"
+                >
+                  <img src={ecole.logo_url!} alt={ecole.name} className="h-11 w-auto max-w-[92px] object-contain" />
+                </span>
+              ))
+            ) : (
+              <span className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft">
+                <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
+              </span>
+            )}
+          </div>
+          {/* Réduite : une seule tuile (l'école active, ou la première logotée) — pas la place pour plusieurs. */}
+          <span
+            title={ecolesAccessibles.length > 1 ? ecolesAccessibles.map((e) => e.name).join(' · ') : undefined}
+            className={clsx('hidden h-14 w-14 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}
+          >
+            <img src={logoReduitSrc} alt={logoReduitAlt} className="h-full w-full object-contain" />
           </span>
           <button
             onClick={() => setMenuOuvert(false)}

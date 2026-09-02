@@ -27,6 +27,7 @@ import {
   type VisiteAutorite,
   type VisiteAutoritePayload,
 } from '@/features/rapportRentree/api'
+import { fetchSchools } from '@/features/classes/api'
 import { fetchAnneesScolaires } from '@/features/session/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -70,30 +71,34 @@ const RUBRIQUES_AUTRES: { value: RubriqueTexteRentree; label: string }[] = [
 export function RapportRentreePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const queryClient = useQueryClient()
 
-  const { data: annees } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
+  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: annees } = useQuery({ queryKey: ['annees-scolaires', activeSchoolId], queryFn: fetchAnneesScolaires })
   const anneeActive = annees?.find((a) => a.is_active) ?? annees?.[0]
 
   const [categorieActive, setCategorieActive] = useState<CategorieActivite>('pedagogique')
 
   const { data: visites, isLoading: chargeVisites } = useQuery({
-    queryKey: ['visites-autorites', anneeActive?.id],
+    queryKey: ['visites-autorites', activeSchoolId, anneeActive?.id],
     queryFn: () => fetchVisitesAutorites(anneeActive?.id),
     enabled: !!anneeActive,
   })
   const { data: activites, isLoading: chargeActivites } = useQuery({
-    queryKey: ['activites-rentree', anneeActive?.id, categorieActive],
+    queryKey: ['activites-rentree', activeSchoolId, anneeActive?.id, categorieActive],
     queryFn: () => fetchActivitesRentree(anneeActive?.id, categorieActive),
     enabled: !!anneeActive,
   })
   const { data: ventes, isLoading: chargeVentes } = useQuery({
-    queryKey: ['ventes-denrees', anneeActive?.id],
+    queryKey: ['ventes-denrees', activeSchoolId, anneeActive?.id],
     queryFn: () => fetchVentesDenrees(anneeActive?.id),
     enabled: !!anneeActive,
   })
   const { data: textes } = useQuery({
-    queryKey: ['rapport-rentree-textes', anneeActive?.id],
+    queryKey: ['rapport-rentree-textes', activeSchoolId, anneeActive?.id],
     queryFn: () => fetchTextesRentree(anneeActive?.id),
     enabled: !!anneeActive,
   })
@@ -185,21 +190,21 @@ export function RapportRentreePage() {
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (v) => v.observations, cellule: (v) => v.observations ?? '—', masquerMobile: true },
     ...(peutModifier
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (v: VisiteAutorite) => (
-              <div className="flex items-center gap-1">
-                <button title={t('common.edit')} onClick={() => { setVisiteEnEdition(v); setShowVisiteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button title={t('common.delete')} onClick={() => supprimerVisite(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<VisiteAutorite>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (v: VisiteAutorite) => (
+            <div className="flex items-center gap-1">
+              <button title={t('common.edit')} onClick={() => { setVisiteEnEdition(v); setShowVisiteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button title={t('common.delete')} onClick={() => supprimerVisite(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<VisiteAutorite>,
+      ]
       : []),
   ]
 
@@ -211,21 +216,21 @@ export function RapportRentreePage() {
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (a) => a.observations, cellule: (a) => a.observations ?? '—', masquerMobile: true },
     ...(peutModifier
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (a: ActiviteRentree) => (
-              <div className="flex items-center gap-1">
-                <button title={t('common.edit')} onClick={() => { setActiviteEnEdition(a); setShowActiviteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button title={t('common.delete')} onClick={() => supprimerActivite(a)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<ActiviteRentree>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (a: ActiviteRentree) => (
+            <div className="flex items-center gap-1">
+              <button title={t('common.edit')} onClick={() => { setActiviteEnEdition(a); setShowActiviteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button title={t('common.delete')} onClick={() => supprimerActivite(a)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<ActiviteRentree>,
+      ]
       : []),
   ]
 
@@ -236,21 +241,21 @@ export function RapportRentreePage() {
     { cle: 'frais', entete: t('rapportRentree.frais_verses_col'), valeur: (v) => v.frais_verses, cellule: (v) => <span className="tabular-nums">{v.frais_verses}</span> },
     ...(peutModifier
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (v: VenteDenree) => (
-              <div className="flex items-center gap-1">
-                <button title={t('common.edit')} onClick={() => { setVenteEnEdition(v); setShowVenteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button title={t('common.delete')} onClick={() => supprimerVente(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<VenteDenree>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (v: VenteDenree) => (
+            <div className="flex items-center gap-1">
+              <button title={t('common.edit')} onClick={() => { setVenteEnEdition(v); setShowVenteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button title={t('common.delete')} onClick={() => supprimerVente(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<VenteDenree>,
+      ]
       : []),
   ]
 
@@ -262,6 +267,20 @@ export function RapportRentreePage() {
         icon={ClipboardList}
         actions={
           <div className="flex items-center gap-2">
+            {user?.is_super_admin && ecoles.length > 1 && (
+              <Select
+                value={activeSchoolId ?? ''}
+                onChange={(event) => setActiveSchool(event.target.value ? Number(event.target.value) : null)}
+                className="min-w-[180px]"
+              >
+                <option value="">Toutes les écoles</option>
+                {ecoles.map((ecole) => (
+                  <option key={ecole.id} value={ecole.id}>
+                    {ecole.name}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Button variant="secondary" disabled={exportEnCours || !anneeActive} onClick={exporterPdf}>
               <Download className="h-4 w-4" />
               {t('rapportRentree.export_pdf')}
@@ -482,15 +501,15 @@ function ActiviteFormModal({
   const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<ActiviteRentreePayload>({
     defaultValues: activite
       ? {
-          categorie: activite.categorie,
-          activite: activite.activite,
-          periode: activite.periode ?? '',
-          objectifs_vises: activite.objectifs_vises ?? '',
-          prevues: activite.prevues ?? undefined,
-          faites: activite.faites ?? undefined,
-          taux_realisation: activite.taux_realisation ?? undefined,
-          observations: activite.observations ?? '',
-        }
+        categorie: activite.categorie,
+        activite: activite.activite,
+        periode: activite.periode ?? '',
+        objectifs_vises: activite.objectifs_vises ?? '',
+        prevues: activite.prevues ?? undefined,
+        faites: activite.faites ?? undefined,
+        taux_realisation: activite.taux_realisation ?? undefined,
+        observations: activite.observations ?? '',
+      }
       : { annee_scolaire_id: anneeScolaireId, categorie: categorieParDefaut },
   })
 

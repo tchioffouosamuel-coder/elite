@@ -263,8 +263,8 @@ class BulletinPrimaireService extends BaseService
     private const LIBELLES_VOLETS = [
         'oral' => ['fr' => 'Oral', 'en' => 'Oral'],
         'ecrit' => ['fr' => 'Écrit', 'en' => 'Writing'],
-        'savoir_etre' => ['fr' => 'Savoir-être', 'en' => 'Attitude'],
-        'pratique' => ['fr' => 'Pratique', 'en' => 'Practical'],
+        'savoir_etre' => ['fr' => 'Savoir-être', 'en' => 'Att.'],
+        'pratique' => ['fr' => 'Pratique', 'en' => 'Pract.'],
     ];
 
     private function appreciationGenerale(?float $moyenne): string

@@ -7,6 +7,7 @@ import {
   fetchTextesTrimestre,
   type RubriqueTexteTrimestre,
 } from '@/features/rapportTrimestre/api'
+import { fetchSchools } from '@/features/classes/api'
 import { fetchTrimestresAll } from '@/features/session/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -30,12 +31,16 @@ const RUBRIQUES: { value: RubriqueTexteTrimestre; label: string }[] = [
 export function RapportTrimestrePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const queryClient = useQueryClient()
 
   const [exportEnCours, setExportEnCours] = useState(false)
   const [trimestreChoisi, setTrimestreChoisi] = useState<number | null>(null)
 
-  const { data: trimestres } = useQuery({ queryKey: ['trimestres-all'], queryFn: fetchTrimestresAll })
+  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: trimestres } = useQuery({ queryKey: ['trimestres-all', activeSchoolId], queryFn: fetchTrimestresAll })
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
   const trimestreId = trimestreChoisi ?? trimestreActif?.id ?? null
 
@@ -68,6 +73,20 @@ export function RapportTrimestrePage() {
         icon={ClipboardList}
         actions={
           <div className="flex items-center gap-2">
+            {user?.is_super_admin && ecoles.length > 1 && (
+              <Select
+                value={activeSchoolId ?? ''}
+                onChange={(event) => setActiveSchool(event.target.value ? Number(event.target.value) : null)}
+                className="min-w-[180px]"
+              >
+                <option value="">Toutes les écoles</option>
+                {ecoles.map((ecole) => (
+                  <option key={ecole.id} value={ecole.id}>
+                    {ecole.name}
+                  </option>
+                ))}
+              </Select>
+            )}
             {trimestres && trimestres.length > 0 && (
               <Select
                 value={trimestreId ?? ''}

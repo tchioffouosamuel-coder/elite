@@ -261,6 +261,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
             });
 
+            // Journal complet des connexions/actions : réservé au super admin,
+            // comme la carte « Activité récente » qui n'apparaît que pour lui.
+            Route::middleware('super_admin')->group(function () {
+                Route::get('dashboard/activite', [DashboardController::class, 'activiteRecente'])->name('dashboard.activite');
+            });
+
             // Notifications internes : chacun ne voit que les siennes, aucun
             // privilège au-delà d'être authentifié et rattaché à l'école.
             Route::get('notifications', [NotificationInterneController::class, 'index'])->name('notifications.index');

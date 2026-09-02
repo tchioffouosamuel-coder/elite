@@ -99,7 +99,7 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
  * papier plutôt que de simplement exister à côté d'elles.
  */
 export function AdminParentStatsPage() {
-  const [jours, setJours] = useState<7 | 30 | 90>(30)
+  const [jours, setJours] = useState<7 | 30 | 90>(7)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['parent-usage-stats', jours],

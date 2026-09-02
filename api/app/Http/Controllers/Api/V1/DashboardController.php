@@ -31,4 +31,15 @@ class DashboardController extends Controller
     {
         return ApiResponse::success($this->pilotage->pilotage(Tenant::schoolIds()));
     }
+
+    /**
+     * Journal complet (paginé) derrière le « Voir plus » de la carte Activité
+     * récente — celle-ci ne montre qu'un aperçu des 6 dernières lignes.
+     */
+    public function activiteRecente(Request $request): JsonResponse
+    {
+        return ApiResponse::paginated(
+            $this->service->activiteRecentePaginee(Tenant::schoolIds(), (int) $request->integer('per_page', 25)),
+        );
+    }
 }

@@ -24,15 +24,15 @@ class SuiviActiviteService
     {
         $seances = Seance::forSchool($schoolId)
             ->whereBetween('date_seance', [$debut, $fin])
-            ->whereHas('classeMatiere', fn ($q) => $q
+            ->whereHas('classeMatiere', fn($q) => $q
                 ->whereNotNull('personnel_id')
-                ->when($personnelId, fn ($q2) => $q2->where('personnel_id', $personnelId)))
+                ->when($personnelId, fn($q2) => $q2->where('personnel_id', $personnelId)))
             ->with('classeMatiere.enseignant')
             ->get(['id', 'classe_matiere_id', 'date_seance', 'heure_debut', 'heure_fin', 'statut']);
 
         return $seances
-            ->groupBy(fn (Seance $s) => $s->classeMatiere->personnel_id)
-            ->map(fn (Collection $seancesPersonnel) => $this->ligne($seancesPersonnel, $granularite))
+            ->groupBy(fn(Seance $s) => $s->classeMatiere->personnel_id)
+            ->map(fn(Collection $seancesPersonnel) => $this->ligne($seancesPersonnel, $granularite))
             ->sortBy('nom_complet')
             ->values();
     }
@@ -43,8 +43,8 @@ class SuiviActiviteService
         $personnel = $seances->first()->classeMatiere->enseignant;
 
         $periodes = $seances
-            ->groupBy(fn (Seance $s) => $this->cle($s->date_seance, $granularite))
-            ->map(fn (Collection $groupe, string $cle) => $this->resume($groupe) + ['periode' => $cle])
+            ->groupBy(fn(Seance $s) => $this->cle($s->date_seance, $granularite))
+            ->map(fn(Collection $groupe, string $cle) => $this->resume($groupe) + ['periode' => $cle])
             ->sortBy('periode')
             ->values();
 
@@ -60,8 +60,8 @@ class SuiviActiviteService
     /** @param Collection<int, Seance> $groupe */
     private function resume(Collection $groupe): array
     {
-        $prevues = (float) $groupe->sum(fn (Seance $s) => $s->dureeHeures());
-        $realisees = (float) $groupe->where('statut', 'effectuee')->sum(fn (Seance $s) => $s->dureeHeures());
+        $prevues = (float) $groupe->sum(fn(Seance $s) => $s->dureeHeures());
+        $realisees = (float) $groupe->where('statut', 'effectuee')->sum(fn(Seance $s) => $s->dureeHeures());
 
         return [
             'heures_prevues' => round($prevues, 1),
@@ -71,7 +71,7 @@ class SuiviActiviteService
             'seances_realisees' => $groupe->where('statut', 'effectuee')->count(),
             'seances_annulees' => $groupe->where('statut', 'annulee')->count(),
             'seances_en_retard' => $groupe->where('statut', 'prevue')
-                ->filter(fn (Seance $s) => $s->date_seance->lt(now()->startOfDay()))
+                ->filter(fn(Seance $s) => $s->date_seance->lt(now()->startOfDay()))
                 ->count(),
         ];
     }
@@ -79,8 +79,9 @@ class SuiviActiviteService
     private function cle(\Illuminate\Support\Carbon $date, string $granularite): string
     {
         return match ($granularite) {
-            'semaine' => $date->format('o').'-S'.$date->format('W'),
+            'semaine' => $date->format('o') . '-S' . $date->format('W'),
             'mois' => $date->format('Y-m'),
+            'annee' => $date->format('Y'),
             default => $date->format('Y-m-d'),
         };
     }

@@ -1,5 +1,11 @@
 import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
+import type { ApiResponse, Pagination } from '@/shared/types/api'
+
+export interface ActiviteLog {
+  type: string
+  libelle: string
+  date: string
+}
 
 export interface DashboardStatsEcole {
   scope: 'ecole'
@@ -8,7 +14,7 @@ export interface DashboardStatsEcole {
   repartition_genre: { garcons: number; filles: number }
   top_classes: { classe: string; effectif: number }[]
   indicateurs: { taux_filles: number; eleves_par_classe_moyenne: number }
-  activite_recente: { type: string; libelle: string; date: string }[]
+  activite_recente: ActiviteLog[]
 }
 
 /** Enseignant (ou titulaire de primaire/maternelle) : le tableau de bord se limite à ses classes. */
@@ -25,7 +31,7 @@ export interface DashboardStatsClasse {
     /** % de leçons traitées, moyenné sur mes affectations — `null` sans affectation. */
     taux_progression: number | null
   }
-  activite_recente: { type: string; libelle: string; date: string }[]
+  activite_recente: ActiviteLog[]
 }
 
 export type DashboardStats = DashboardStatsEcole | DashboardStatsClasse
@@ -70,4 +76,10 @@ export interface Pilotage {
 export async function fetchPilotage(): Promise<Pilotage> {
   const { data } = await http.get<ApiResponse<Pilotage>>('/dashboard/pilotage')
   return data.data
+}
+
+/** Journal complet, paginé — derrière le « Voir plus » de la carte Activité récente. */
+export async function fetchActiviteRecente(page: number, perPage = 25): Promise<{ items: ActiviteLog[]; pagination: Pagination }> {
+  const { data } = await http.get<ApiResponse<ActiviteLog[]>>('/dashboard/activite', { params: { page, per_page: perPage } })
+  return { items: data.data, pagination: data.meta!.pagination }
 }

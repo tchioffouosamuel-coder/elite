@@ -25,7 +25,7 @@ class SuiviActiviteController extends Controller
         $data = $request->validate([
             'date_debut' => ['nullable', 'date'],
             'date_fin' => ['nullable', 'date'],
-            'granularite' => ['nullable', 'in:jour,semaine,mois'],
+            'granularite' => ['nullable', 'in:jour,semaine,mois,annee'],
             'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
         ]);
 

@@ -384,7 +384,7 @@ export async function batchFonctionPersonnel(
 
 // ------------------------------------------------------------- Suivi d'activité
 
-export type GranulariteSuivi = "jour" | "semaine" | "mois";
+export type GranulariteSuivi = "jour" | "semaine" | "mois" | "annee";
 
 export interface SuiviActiviteResume {
   heures_prevues: number;

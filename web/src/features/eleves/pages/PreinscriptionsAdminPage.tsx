@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardCheck, Check, X, Search, Pencil, Plus } from 'lucide-react'
+import { ClipboardCheck, Check, X, Search, Pencil, Plus, Trash2 } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier } from '@/features/finance/api'
@@ -16,7 +16,7 @@ import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
-import { completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
+import { completerTelephones, telephonesParDefaut, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 
@@ -250,6 +250,25 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
     setTuteursEdites((ts) => ts.map((t, i) => (i === index ? { ...t, ...patch } : t)))
   }
 
+  const ajouterTuteurEdite = () => {
+    setTuteursEdites((ts) => [
+      ...ts,
+      {
+        nom_complet: '',
+        telephones: telephonesParDefaut(),
+        email: '',
+        profession: '',
+        lien_parente: '',
+        lieu_service: '',
+        is_principal: ts.length === 0,
+      },
+    ])
+  }
+
+  const supprimerTuteurEdite = (index: number) => {
+    setTuteursEdites((ts) => ts.filter((_, i) => i !== index))
+  }
+
   const enregistrerEdition = async () => {
     if (!p) return
     setTraitement(true)
@@ -398,33 +417,60 @@ function PreinscriptionDetailModal({ id, onClose, onTraitee }: { id: number; onC
                   }
                 />
                 <div>
-                  <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h4>
-                  <div className="flex flex-col gap-3">
-                    {tuteursEdites.map((t, i) => (
-                      <div key={i} className="grid grid-cols-2 gap-2.5 rounded-lg bg-cream-50 p-3">
-                        <Input label="Nom complet" value={t.nom_complet} onChange={(e) => majTuteurEdite(i, { nom_complet: e.target.value })} />
-                        <Input label="Email" value={t.email} onChange={(e) => majTuteurEdite(i, { email: e.target.value })} />
-                        <Input label="Profession" value={t.profession} onChange={(e) => majTuteurEdite(i, { profession: e.target.value })} />
-                        <Input
-                          label="Lien de parenté"
-                          value={t.lien_parente}
-                          onChange={(e) => majTuteurEdite(i, { lien_parente: e.target.value })}
-                        />
-                        <div className="col-span-2">
-                          <TelephonesEditor telephones={t.telephones} onChange={(telephones) => majTuteurEdite(i, { telephones })} />
-                        </div>
-                        <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={t.is_principal}
-                            onChange={() => setTuteursEdites((ts) => ts.map((tut, j) => ({ ...tut, is_principal: j === i })))}
-                            className="rounded border-navy-300"
-                          />
-                          <span className="text-navy-700">Tuteur principal</span>
-                        </label>
-                      </div>
-                    ))}
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wide text-navy-500">Tuteurs</h4>
+                    <button
+                      type="button"
+                      onClick={ajouterTuteurEdite}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-navy-50 hover:text-navy-800"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Ajouter un tuteur
+                    </button>
                   </div>
+
+                  {tuteursEdites.length === 0 ? (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Aucun tuteur. Ajoutez-en un ci-dessus avant de valider.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {tuteursEdites.map((t, i) => (
+                        <div key={i} className="grid grid-cols-2 gap-2.5 rounded-lg bg-cream-50 p-3">
+                          <Input label="Nom complet" value={t.nom_complet} onChange={(e) => majTuteurEdite(i, { nom_complet: e.target.value })} />
+                          <Input label="Email" value={t.email} onChange={(e) => majTuteurEdite(i, { email: e.target.value })} />
+                          <Input label="Profession" value={t.profession} onChange={(e) => majTuteurEdite(i, { profession: e.target.value })} />
+                          <Input
+                            label="Lien de parenté"
+                            value={t.lien_parente}
+                            onChange={(e) => majTuteurEdite(i, { lien_parente: e.target.value })}
+                          />
+                          <div className="col-span-2">
+                            <TelephonesEditor telephones={t.telephones} onChange={(telephones) => majTuteurEdite(i, { telephones })} />
+                          </div>
+                          <div className="col-span-2 flex items-center justify-between border-t border-navy-100 pt-2">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={t.is_principal}
+                                onChange={() => setTuteursEdites((ts) => ts.map((tut, j) => ({ ...tut, is_principal: j === i })))}
+                                className="rounded border-navy-300"
+                              />
+                              <span className="text-navy-700">Tuteur principal</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => supprimerTuteurEdite(i)}
+                              className="rounded-lg p-2 text-navy-400 hover:bg-red-100 hover:text-red-500"
+                              title="Supprimer ce tuteur"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="secondary" onClick={() => setEditionOuverte(false)} disabled={traitement}>
