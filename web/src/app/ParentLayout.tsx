@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Users, FilePlus2, ClipboardList, LogOut, Megaphone, UserCircle } from 'lucide-react'
+import { Users, FilePlus2, ClipboardList, LogOut, Megaphone } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -10,7 +10,6 @@ const liens = [
   { to: '/parent/annonces', fr: 'Annonces', en: 'Announcements', icon: Megaphone, end: true },
   { to: '/parent/preinscription/nouveau', fr: 'Inscrire un enfant', en: 'Register a child', icon: FilePlus2, end: true },
   { to: '/parent/preinscriptions', fr: 'Mes démarches', en: 'My requests', icon: ClipboardList, end: true },
-  { to: '/parent/profil', fr: 'Mon compte', en: 'My account', icon: UserCircle, end: true },
 ]
 
 function initiales(nom?: string) {
@@ -78,9 +77,18 @@ export function ParentLayout() {
           </nav>
 
           <div className="flex flex-none items-center gap-2">
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
+            <NavLink
+              to="/parent/profil"
+              title="Mon compte / My account"
+              className={({ isActive }) =>
+                clsx(
+                  'flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30 transition-colors hover:bg-gold-500/30',
+                  isActive && 'ring-2 ring-white/60',
+                )
+              }
+            >
               {initiales(user?.name)}
-            </span>
+            </NavLink>
             <button
               onClick={handleLogout}
               title="Déconnexion / Logout"

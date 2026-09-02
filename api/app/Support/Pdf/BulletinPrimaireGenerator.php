@@ -2,6 +2,7 @@
 
 namespace App\Support\Pdf;
 
+use App\Models\Appreciation;
 use App\Services\VisaComposeService;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Mpdf\Output\Destination;
@@ -52,15 +53,15 @@ class BulletinPrimaireGenerator
      */
     protected function logoBoiteMax(): array
     {
-        return ['largeur' => 22.0, 'hauteur' => 13.0];
+        return ['largeur' => 18.0, 'hauteur' => 10.0];
     }
 
     public function build(array $donnees): string
     {
         $mpdf = MpdfFactory::make([
             'orientation' => 'P',
-            'margin_top' => 8,
-            'margin_bottom' => 8,
+            'margin_top' => 6,
+            'margin_bottom' => 6,
         ], $donnees['school']);
         $mpdf->SetTitle('Bulletins ' . $donnees['classe']->nom . ' — ' . $donnees['trimestre']->libelle);
 
@@ -106,32 +107,39 @@ class BulletinPrimaireGenerator
             // partagé par les autres documents (cf. const VIOLET).
             . '.titre{color:' . self::VIOLET . ';}'
             . '.titre-en{color:' . self::VIOLET . ';}'
+            . '.header-table{margin-bottom:1mm;}'
 
-            . 'table.grille td,table.grille th{font-size:2.9mm;border-color:#000;}'
+            // La grille du primaire porte jusqu'à une trentaine de lignes
+            // (un volet par ligne, neuf matières) : sur une grille de cette
+            // densité, gagner ne serait-ce que 0,3 mm par ligne en resserrant
+            // police/interligne/marges se traduit par plusieurs centimètres au
+            // total — c'est ce qui ramène le bulletin sur une seule page.
+            . 'table.grille{margin-top:0.5mm;margin-bottom:1mm;}'
+            . 'table.grille td,table.grille th{font-size:2.6mm;border-color:#000;line-height:1.05;padding:0.5px 1px;}'
             . 'table.grille td{color:#000;}'
             . 'table.grille th{background-color:' . self::VERT . ';color:#000;}'
-            . '.matiere-cell{padding:1.5mm;}'
-            . '.matiere{font-weight:bold;font-size:2.9mm;}'
-            . '.bareme{font-size:2mm;font-style:italic;color:#666;}'
+            . '.matiere-cell{padding:0.8mm;}'
+            . '.matiere{font-weight:bold;font-size:2.6mm;}'
+            . '.bareme{font-size:1.8mm;font-style:italic;color:#666;}'
             . '.volet{background:#f6f8f6;}'
             . '.fusion{background:#eef3ee;font-weight:bold;}'
-            . '.note-trim{font-weight:bold;font-size:2.8mm;background:#f1f5f7;}'
+            . '.note-trim{font-weight:bold;font-size:2.5mm;background:#f1f5f7;}'
             . '.appr{font-weight:bold;}'
-            . '.zone{background:#fff;height:9mm;vertical-align:top;}'
+            . '.zone{background:#fff;height:6mm;vertical-align:top;}'
             . '.total-row td{background:' . self::ARDOISE . ';color:#fff;font-weight:bold;}'
-            . '.bandeau{background:' . self::ARDOISE . ';color:#fff;padding:1.4mm;}'
+            . '.bandeau{background:' . self::ARDOISE . ';color:#fff;padding:1mm;}'
             . '.photo-frame{border:0.35mm dashed ' . self::VIOLET . ';text-align:center;vertical-align:middle;font-weight:bold;color:' . self::VIOLET . ';}'
-            . 'table.pied-bloc{width:100%;border-collapse:collapse;margin:0 0 2mm 0;}'
-            . 'table.pied-bloc td,table.pied-bloc th{border:0.4px solid #999;padding:1mm;font-size:2.2mm;}'
+            . 'table.pied-bloc{width:100%;border-collapse:collapse;margin:0 0 1mm 0;}'
+            . 'table.pied-bloc td,table.pied-bloc th{border:0.4px solid #999;padding:0.6mm;font-size:2.1mm;line-height:1.1;}'
             . 'table.pied-bloc th{background-color:' . self::VERT . ';color:#000;}'
-            . '.codes-cell{text-align:left;padding:1.5mm;}'
-            . '.codes-titre{font-weight:bold;text-decoration:underline;margin-bottom:0.6mm;}'
-            . '.codes-l{line-height:1.4;}'
+            . '.codes-cell{text-align:left;padding:1mm;}'
+            . '.codes-titre{font-weight:bold;text-decoration:underline;margin-bottom:0.4mm;}'
+            . '.codes-l{line-height:1.25;}'
             . '.sign-lbl{text-align:center;font-weight:bold;}'
             . '.pied-lbl{text-align:left;font-weight:bold;padding-left:1.5mm;}'
-            . '.decision{margin-top:1mm;text-align:center;font-weight:bold;border:0.4px solid #999;padding:1.5mm;background:#f6f8f6;}'
+            . '.decision{margin-top:0.6mm;text-align:center;font-weight:bold;border:0.4px solid #999;padding:1mm;background:#f6f8f6;}'
             . '.th-pied{text-align:center;font-weight:bold;}'
-            . '.zone-obs{height:14mm;vertical-align:top;}'
+            . '.zone-obs{height:9mm;vertical-align:top;}'
             . '.stat-lbl{text-align:left;font-weight:bold;padding-left:1.5mm;}'
             . '.stat-val{text-align:right;padding-right:1.5mm;}'
             . '</style>';
@@ -142,10 +150,10 @@ class BulletinPrimaireGenerator
     {
         $ordinal = $this->ordinalTrimestre((int) ($donnees['trimestre']->ordre ?? 1));
 
-        return '<table class="no-border" style="margin-bottom:2mm;"><tr><td style="border:none;line-height:1.4;text-align:center;">'
+        return '<table class="no-border" style="margin:0 0 1mm 0;"><tr><td style="border:none;line-height:1.2;text-align:center;">'
             . '<span class="titre">Bulletin de notes du ' . $ordinal['fr'] . ' Trimestre</span><br>'
             . '<span class="titre-en">' . $ordinal['en'] . ' Term Report Card</span><br>'
-            . '<span style="font-size:2.8mm;">Année scolaire <i>/ Academic year</i> : <b>'
+            . '<span style="font-size:2.6mm;">Année scolaire <i>/ Academic year</i> : <b>'
             . $this->e($donnees['annee']?->libelle ?? '—') . '</b></span>'
             . '</td></tr></table>';
     }
@@ -184,19 +192,19 @@ class BulletinPrimaireGenerator
         // de façon fiable sur les cellules de tableau, pas sur les blocs.
         $photo = $this->cheminImage($eleve->photo_path);
         $contenuPhoto = $photo !== null
-            ? '<img style="width:20mm;height:24mm;" src="' . $this->e($photo) . '">'
+            ? '<img style="width:16mm;height:19mm;" src="' . $this->e($photo) . '">'
             : 'PHOTO';
-        $cellulePhoto = '<table class="no-border" style="width:20mm;"><tr>'
-            . '<td class="photo-frame" style="width:20mm;height:24mm;">' . $contenuPhoto . '</td>'
+        $cellulePhoto = '<table class="no-border" style="width:16mm;"><tr>'
+            . '<td class="photo-frame" style="width:16mm;height:19mm;">' . $contenuPhoto . '</td>'
             . '</tr></table>';
 
-        return '<table class="no-border" style="font-size:2.8mm;">'
+        return '<table class="no-border" style="font-size:2.6mm;margin-bottom:1mm;">'
             . '<tr><td class="left bandeau" colspan="2">'
             . '<span style="color:#fff;">Nom de l\'élève <i>/ Student\'s name</i> :</span> '
             . '<b style="color:#fff;text-transform:uppercase;">' . $this->e($eleve->nom_complet) . '</b></td></tr>'
-            . '<tr><td class="left" style="width:14%;vertical-align:top;">' . $cellulePhoto . '</td>'
+            . '<tr><td class="left" style="width:12%;vertical-align:top;">' . $cellulePhoto . '</td>'
             . '<td class="left">'
-            . '<table class="no-border" style="font-size:2.6mm;"><tr>'
+            . '<table class="no-border" style="font-size:2.4mm;"><tr>'
             . $this->champ('Né(e) le', 'Born on', $eleve->date_naissance?->format('d/m/Y'))
             . $this->champ('À', 'At', $eleve->lieu_naissance)
             . $this->champ('Sexe', 'Gender', $eleve->sexe)
@@ -264,7 +272,7 @@ class BulletinPrimaireGenerator
 
         foreach ($appreciations as $appreciation) {
             $entete .= '<th style="width:' . $wNiveau . '%;">'
-                . ($appreciation->emoji ? '<span style="font-family:symbola;font-size:5mm;">' . $this->e($appreciation->emoji) . '</span><br>' : '')
+                . ($appreciation->emoji ? '<span style="font-family:symbola;font-size:5mm;">' . $this->e(Appreciation::nettoyerEmoji($appreciation->emoji)) . '</span><br>' : '')
                 . '<span style="font-size:2.1mm;">' . $this->e($appreciation->label_fr) . '</span></th>';
         }
 
@@ -295,7 +303,7 @@ class BulletinPrimaireGenerator
                 foreach ($appreciations as $appreciation) {
                     $corps .= $appreciation->id === $atteinte
                         ? '<td style="background-color:' . $this->e($appreciation->couleur) . ';color:#fff;font-family:symbola;font-size:4mm;">'
-                            . $this->e($appreciation->emoji ?? '') . '</td>'
+                            . $this->e(Appreciation::nettoyerEmoji($appreciation->emoji ?? '')) . '</td>'
                         : '<td>&nbsp;</td>';
                 }
 
@@ -314,7 +322,7 @@ class BulletinPrimaireGenerator
         foreach (collect($donnees['appreciations'] ?? []) as $appreciation) {
             $legende .= '<div class="codes-l">'
                 . '<span style="color:' . $this->e($appreciation->couleur) . ';">■</span> '
-                . ($appreciation->emoji ? '<span style="font-family:symbola;">' . $this->e($appreciation->emoji) . '</span> ' : '')
+                . ($appreciation->emoji ? '<span style="font-family:symbola;">' . $this->e(Appreciation::nettoyerEmoji($appreciation->emoji)) . '</span> ' : '')
                 . '<b>' . $this->e($appreciation->label_fr) . '</b>'
                 . ($appreciation->label_en ? ' <i>/ ' . $this->e($appreciation->label_en) . '</i>' : '')
                 . '</div>';

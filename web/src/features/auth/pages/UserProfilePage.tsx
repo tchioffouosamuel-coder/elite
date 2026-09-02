@@ -61,7 +61,12 @@ export function UserProfilePage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoTile icon={IdCard} label={t('profile.account_id')} value={`#${user.id}`} />
             <InfoTile icon={ShieldCheck} label={t('profile.roles')} value={user.roles.length ? user.roles.join(', ') : '—'} />
-            <InfoTile icon={Building2} label={t('profile.active_school')} value={ecoleActive?.name ?? '—'} />
+            <InfoTile
+              icon={Building2}
+              label={t('profile.active_school')}
+              value={ecoleActive?.name ?? '—'}
+              sousValeur={ecoleActive?.code}
+            />
             <InfoTile icon={KeyRound} label={t('profile.permissions_count')} value={String(user.permissions.length)} />
           </div>
         </Card>
@@ -285,10 +290,12 @@ function InfoTile({
   icon: Icon,
   label,
   value,
+  sousValeur,
 }: {
   icon: ComponentType<{ className?: string }>
   label: string
   value: string
+  sousValeur?: string
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-navy-100 bg-white/70 px-3 py-3">
@@ -297,7 +304,13 @@ function InfoTile({
       </span>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{label}</p>
-        <p className="truncate text-sm font-semibold text-navy-800">{value}</p>
+        {/* Le libellé complet peut dépasser la carte sur mobile (nom
+            d'établissement long) : le code, court par construction, reste le
+            repère visible ; le nom complet passe en title() pour qui en a besoin. */}
+        <p className="truncate text-sm font-semibold text-navy-800" title={value}>
+          {sousValeur || value}
+        </p>
+        {sousValeur && <p className="truncate text-xs text-navy-400" title={value}>{value}</p>}
       </div>
     </div>
   )

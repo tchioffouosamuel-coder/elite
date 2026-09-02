@@ -37,6 +37,22 @@ class Appreciation extends Model
         return ['ordre' => 'integer'];
     }
 
+    /**
+     * Un émoji collé depuis le sélecteur Windows traîne souvent un
+     * sélecteur de variante (U+FE0F) ou un zero-width joiner : invisibles au
+     * clavier, mais sans glyphe dans la police PDF (symbola), où ils
+     * s'affichent en tofu juste après l'émoji.
+     */
+    public function setEmojiAttribute(?string $value): void
+    {
+        $this->attributes['emoji'] = $value === null ? null : self::nettoyerEmoji($value);
+    }
+
+    public static function nettoyerEmoji(string $value): string
+    {
+        return trim(preg_replace('/[\x{FE00}-\x{FE0F}\x{200D}]/u', '', $value) ?? $value);
+    }
+
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
