@@ -128,7 +128,7 @@ class PreinscriptionAdminTest extends TestCase
         $preinscription = $this->soumettrePreinscriptionNouvel();
 
         $notification = NotificationInterne::where('user_id', $destinataire->id)->where('type', 'preinscription')->firstOrFail();
-        $this->assertSame("/preinscriptions?id={$preinscription->id}", $notification->lien);
+        $this->assertSame("/preinscriptions/{$preinscription->id}", $notification->lien);
     }
 
     /** Régression : un enfant déjà préinscrit ne doit pas pouvoir être préinscrit une seconde fois tant que la demande n'est pas traitée. */

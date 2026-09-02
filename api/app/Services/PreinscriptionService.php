@@ -113,7 +113,7 @@ class PreinscriptionService extends BaseService
             $type === 'nouveau'
                 ? "{$tuteur->nom_complet} propose l'inscription de {$nomPropose}."
                 : "{$tuteur->nom_complet} propose une révision de la fiche de {$nomPropose}.",
-            "/preinscriptions?id={$preinscription->id}",
+            "/preinscriptions/{$preinscription->id}",
         );
 
         return $preinscription;
