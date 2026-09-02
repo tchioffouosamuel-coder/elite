@@ -13,6 +13,8 @@ import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, type ElevePayload, type TuteurSuggestion } from '@/features/eleves/api'
+import { NB_TELEPHONES_MIN, telephonesParDefaut, completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
+import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 import {
     fetchTarifs,
     fetchDossier,
@@ -39,25 +41,7 @@ function useLienParenteOptions() {
     ]
 }
 
-interface TuteurTelephoneFormData {
-    numero: string
-    is_principal: boolean
-}
-
-/** Nombre minimal de numéros exigé par tuteur — cf. demande d'avoir toujours au moins 3 contacts pour le joindre. */
-const NB_TELEPHONES_MIN = 3
-
-function telephonesParDefaut(): TuteurTelephoneFormData[] {
-    return Array.from({ length: NB_TELEPHONES_MIN }, (_, i) => ({ numero: '', is_principal: i === 0 }))
-}
-
-/** Complète jusqu'à `NB_TELEPHONES_MIN` entrées (fiche existante avec moins de 3 numéros) sans jamais en retirer. */
-function completerTelephones(telephones: TuteurTelephoneFormData[]): TuteurTelephoneFormData[] {
-    const liste = telephones.length > 0 ? [...telephones] : []
-    while (liste.length < NB_TELEPHONES_MIN) liste.push({ numero: '', is_principal: false })
-    if (!liste.some((t) => t.is_principal)) liste[0].is_principal = true
-    return liste
-}
+type TuteurTelephoneFormData = TelephoneEntry
 
 interface TuteurFormData {
     // Renseigné uniquement quand une suggestion de l'autocomplétion a été
@@ -400,10 +384,6 @@ export function EleveInscriptionPage() {
     // avant de choisir. `niveauId` est un état transitoire, non envoyé à
     // l'API (seul `classe_id` l'est).
     const [niveauId, setNiveauId] = useState<number | undefined>(undefined)
-    const classesDuNiveau = useMemo(
-        () => (niveauId ? classes?.filter((c) => c.niveau_id === niveauId) ?? [] : []),
-        [classes, niveauId],
-    )
 
     // Édition d'un élève déjà inscrit : déduire son niveau à partir de sa
     // classe actuelle pour préremplir l'étape scolarité correctement.
@@ -414,13 +394,6 @@ export function EleveInscriptionPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [eleve, classes])
 
-    // Une seule classe pour ce niveau : on ne fait pas choisir l'utilisateur.
-    useEffect(() => {
-        if (classesDuNiveau.length === 1) {
-            setValue('classe_id', classesDuNiveau[0].id, { shouldDirty: true })
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [classesDuNiveau])
     const { data: tarifs } = useQuery({
         queryKey: ['tarifs'],
         queryFn: () => fetchTarifs(),
@@ -701,91 +674,24 @@ export function EleveInscriptionPage() {
                             {steps[currentStep]?.id === 'scolarite' && (
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-navy-900 mb-4">{t('eleves.inscription.scolarite_title')}</h3>
-                                    <Select
-                                        label={t('eleves.inscription.niveau_label')}
-                                        value={niveauId ?? ''}
-                                        onChange={(e) => {
-                                            const val = e.target.value ? Number(e.target.value) : undefined
+                                    <ClasseNiveauPicker
+                                        niveaux={niveaux}
+                                        classes={classes}
+                                        niveauId={niveauId}
+                                        onChangeNiveauId={(val) => {
                                             setNiveauId(val)
                                             setValue('classe_id', undefined, { shouldDirty: true })
                                         }}
-                                    >
-                                        <option value="">{t('eleves.inscription.select_niveau_placeholder')}</option>
-                                        {niveaux?.map((n) => (
-                                            <option key={n.id} value={n.id}>
-                                                {n.name_fr}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                    <div className="mt-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm text-blue-800">{t('eleves.inscription.classe_hint')}</p>
-                                    </div>
-
-                                    {niveauId && classesDuNiveau.length === 0 && (
-                                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                            {t('eleves.inscription.niveau_aucune_classe')}
-                                        </p>
-                                    )}
-
-                                    {niveauId && classesDuNiveau.length === 1 && (
-                                        <p className="rounded-xl border border-navy-100 bg-navy-50 px-3 py-2 text-sm text-navy-700">
-                                            {t('eleves.inscription.niveau_classe_unique')}{' '}
-                                            <span className="font-semibold">{classesDuNiveau[0].nom}</span>
-                                        </p>
-                                    )}
-
-                                    {niveauId && classesDuNiveau.length > 1 && (
-                                        <div className="flex flex-col gap-2 pt-2">
-                                            <div>
-                                                <span className="text-sm font-semibold text-navy-800">
-                                                    {t('eleves.inscription.effectifs_niveau_title')}
-                                                </span>
-                                                <p className="text-xs text-navy-400">{t('eleves.inscription.effectifs_niveau_hint')}</p>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                {classesDuNiveau.map((c) => {
-                                                    const estSelectionnee = c.id === classeIdSelectionnee
-                                                    return (
-                                                        <label
-                                                            key={c.id}
-                                                            className={clsx(
-                                                                'flex cursor-pointer flex-col gap-3 rounded-2xl border p-4 shadow-soft transition-colors',
-                                                                estSelectionnee
-                                                                    ? 'border-navy-500 bg-navy-50'
-                                                                    : 'border-navy-100 bg-white hover:border-navy-300',
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <span className="font-semibold text-navy-900">{c.nom}</span>
-                                                                <input
-                                                                    type="radio"
-                                                                    name="classe_id_niveau"
-                                                                    checked={estSelectionnee}
-                                                                    onChange={() => setValue('classe_id', c.id, { shouldDirty: true })}
-                                                                    className="h-4 w-4 flex-none text-navy-600 focus:ring-navy-300"
-                                                                />
-                                                            </div>
-                                                            <dl className="grid grid-cols-3 gap-2 text-center text-xs">
-                                                                <div>
-                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_filles')}</dt>
-                                                                    <dd className="font-semibold tabular-nums text-navy-700">{c.filles ?? 0}</dd>
-                                                                </div>
-                                                                <div>
-                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_garcons')}</dt>
-                                                                    <dd className="font-semibold tabular-nums text-navy-700">{c.garcons ?? 0}</dd>
-                                                                </div>
-                                                                <div>
-                                                                    <dt className="text-navy-400">{t('eleves.inscription.effectifs_niveau_total')}</dt>
-                                                                    <dd className="font-semibold tabular-nums text-navy-900">{c.effectif ?? 0}</dd>
-                                                                </div>
-                                                            </dl>
-                                                        </label>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
+                                        classeId={classeIdSelectionnee}
+                                        onChangeClasseId={(id) => setValue('classe_id', id, { shouldDirty: true })}
+                                        hint={t('eleves.inscription.classe_hint')}
+                                        niveauLabel={t('eleves.inscription.niveau_label')}
+                                        niveauPlaceholder={t('eleves.inscription.select_niveau_placeholder')}
+                                        aucuneClasseLabel={t('eleves.inscription.niveau_aucune_classe')}
+                                        classeUniqueLabel={t('eleves.inscription.niveau_classe_unique')}
+                                        effectifsTitle={t('eleves.inscription.effectifs_niveau_title')}
+                                        effectifsHint={t('eleves.inscription.effectifs_niveau_hint')}
+                                    />
                                 </div>
                             )}
 
