@@ -37,9 +37,10 @@ return [
 
     /*
      * Envoi de SMS (confirmations de paiement, alertes bus…). `driver` vaut
-     * `log` tant qu'aucun compte Twilio n'est configuré : les messages
-     * s'écrivent alors dans les logs au lieu de partir réellement, ce qui
-     * permet de développer et tester sans compte actif.
+     * `log` tant qu'aucun compte n'est configuré : les messages s'écrivent
+     * alors dans les logs au lieu de partir réellement, ce qui permet de
+     * développer et tester sans compte actif. `twilio` ou `orange` une fois
+     * les identifiants correspondants renseignés ci-dessous.
      */
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),
@@ -64,6 +65,18 @@ return [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_TOKEN'),
         'from' => env('TWILIO_FROM'),
+    ],
+
+    /*
+     * Envoi de SMS via l'API Orange (SMS Africa and Middle East). Voir
+     * App\Services\OrangeSmsService — `sender_address` et `sender_name` sont
+     * ceux fournis par Orange lors de l'attribution du compte API.
+     */
+    'orange' => [
+        'client_id' => env('ORANGE_CLIENT_ID'),
+        'client_secret' => env('ORANGE_CLIENT_SECRET'),
+        'sender_address' => env('ORANGE_SENDER_ADDRESS'),
+        'sender_name' => env('ORANGE_SENDER_NAME'),
     ],
 
 ];

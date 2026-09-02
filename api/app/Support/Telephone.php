@@ -22,6 +22,13 @@ class Telephone
             return $nettoye;
         }
 
+        // L'indicatif est déjà présent mais sans le "+" (numéro copié depuis
+        // une autre source, saisi manuellement…) : ne pas le rajouter, sous
+        // peine d'un "+237237692342106" qui ne correspond à aucune ligne.
+        if (str_starts_with($nettoye, '237') && strlen($nettoye) === 12) {
+            return '+'.$nettoye;
+        }
+
         // Les numéros locaux à 9 chiffres commencent par 6 (mobile) ou 2
         // (fixe) ; un 0 initial est un préfixe national à retirer.
         $nettoye = ltrim($nettoye, '0');

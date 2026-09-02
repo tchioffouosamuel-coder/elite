@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\RevendicationController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
+use App\Http\Controllers\Api\V1\SmsCallbackController;
 use App\Http\Controllers\Api\V1\ScolariteController;
 use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
@@ -131,6 +132,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Même principe pour un reçu de transport scolaire — registre séparé, donc route séparée.
     Route::get('verification-versement-bus/{versementId}/{signature}', [VerificationVersementBusController::class, 'show'])
         ->name('verification-versement-bus.show');
+
+    // Callback DLR d'Orange (delivery report) : Orange n'authentifie pas cet
+    // appel ("No authentication" côté portail Orange), donc pas de
+    // middleware d'auth ici — le contrôleur ne fait qu'écrire un log
+    // (jamais lu ni exposé côté client) et répond toujours 200.
+    Route::post('sms/dlr-callback', [SmsCallbackController::class, 'handleDlr'])
+        ->name('sms.dlr-callback');
 
     // `mot_de_passe` barre tout l'espace authentifié tant que le mot de passe
     // provisoire n'a pas été remplacé, à l'exception des routes qui permettent

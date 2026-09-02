@@ -3,6 +3,7 @@
 namespace App\Services\Sms;
 
 use App\Services\Sms\Drivers\LogSmsDriver;
+use App\Services\Sms\Drivers\OrangeSmsDriver;
 use App\Services\Sms\Drivers\TwilioSmsDriver;
 use App\Support\Telephone;
 
@@ -20,6 +21,7 @@ class SmsService
     {
         $this->driver = match (config('services.sms.driver', 'log')) {
             'twilio' => new TwilioSmsDriver,
+            'orange' => new OrangeSmsDriver,
             default => new LogSmsDriver,
         };
     }
