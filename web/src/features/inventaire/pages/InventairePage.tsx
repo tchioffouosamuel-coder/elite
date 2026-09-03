@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Barcode, Boxes, Camera, Package, Pencil, Plus, Printer, Tags, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Boxes, Camera, Package, Pencil, Plus, Printer, Trash2, Wallet } from 'lucide-react'
 import {
   creerArticle,
   fetchInventaire,
@@ -107,29 +107,29 @@ export function InventairePage() {
   const colonnes: Colonne<ArticleInventaire>[] = [
     ...(can('inventaire.manage')
       ? [
-          {
-            cle: 'selection',
-            entete: (
-              <input
-                type="checkbox"
-                checked={toutSelectionne}
-                ref={(el) => {
-                  if (el) el.indeterminate = selectionPartielle
-                }}
-                onChange={basculerToutSelectionner}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ),
-            cellule: (a: ArticleInventaire) => (
-              <input
-                type="checkbox"
-                checked={selection.has(a.id)}
-                onChange={() => basculerSelection(a.id)}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ),
-          } satisfies Colonne<ArticleInventaire>,
-        ]
+        {
+          cle: 'selection',
+          entete: (
+            <input
+              type="checkbox"
+              checked={toutSelectionne}
+              ref={(el) => {
+                if (el) el.indeterminate = selectionPartielle
+              }}
+              onChange={basculerToutSelectionner}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+          cellule: (a: ArticleInventaire) => (
+            <input
+              type="checkbox"
+              checked={selection.has(a.id)}
+              onChange={() => basculerSelection(a.id)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+        } satisfies Colonne<ArticleInventaire>,
+      ]
       : []),
     {
       cle: 'nom',
@@ -208,65 +208,65 @@ export function InventairePage() {
     },
     ...(can('inventaire.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (a: ArticleInventaire) => (
-              <div className="flex items-center gap-1">
-                <button
-                  title={a.code_barre ? t('inventaire.code_barre_deja') : t('inventaire.generer_code_barre')}
-                  disabled={a.code_barre !== null}
-                  onClick={async () => {
-                    try {
-                      const misAJour = await genererCodeBarre(a.id)
-                      invalidate()
-                      succes(t('inventaire.code_barre_genere', { code: misAJour.code_barre }))
-                    } catch (err) {
-                      erreur((err as ApiError).message)
-                    }
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                >
-                  <Barcode className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('inventaire.imprimer_etiquette')}
-                  disabled={impressionEnCours}
-                  onClick={() => imprimerEtiquettes([a.id])}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:opacity-40"
-                >
-                  <Printer className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setArticleEnEdition(a)
-                    setShowForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={async () => {
-                    if (!(await confirmerSuppression(a.nom))) return
-                    try {
-                      await supprimerArticle(a.id)
-                      invalidate()
-                      succes(t('inventaire.deleted'))
-                    } catch (err) {
-                      erreur((err as ApiError).message)
-                    }
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-          } satisfies Colonne<ArticleInventaire>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (a: ArticleInventaire) => (
+            <div className="flex items-center gap-1">
+              <button
+                title={a.code_barre ? t('inventaire.code_barre_deja') : t('inventaire.generer_code_barre')}
+                disabled={a.code_barre !== null}
+                onClick={async () => {
+                  try {
+                    const misAJour = await genererCodeBarre(a.id)
+                    invalidate()
+                    succes(t('inventaire.code_barre_genere', { code: misAJour.code_barre }))
+                  } catch (err) {
+                    erreur((err as ApiError).message)
+                  }
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <Barcode className="h-4 w-4" />
+              </button>
+              <button
+                title={t('inventaire.imprimer_etiquette')}
+                disabled={impressionEnCours}
+                onClick={() => imprimerEtiquettes([a.id])}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:opacity-40"
+              >
+                <Printer className="h-4 w-4" />
+              </button>
+              <button
+                title={t('common.edit')}
+                onClick={() => {
+                  setArticleEnEdition(a)
+                  setShowForm(true)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                title={t('common.delete')}
+                onClick={async () => {
+                  if (!(await confirmerSuppression(a.nom))) return
+                  try {
+                    await supprimerArticle(a.id)
+                    invalidate()
+                    succes(t('inventaire.deleted'))
+                  } catch (err) {
+                    erreur((err as ApiError).message)
+                  }
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        } satisfies Colonne<ArticleInventaire>,
+      ]
       : []),
   ]
 
@@ -395,22 +395,21 @@ function ArticleFormModal({
     handleSubmit,
     setValue,
     watch,
-    control,
     formState: { isSubmitting, errors },
   } = useForm<ArticleInventairePayload>({
     defaultValues: article
       ? {
-          nom: article.nom,
-          code_barre: article.code_barre ?? '',
-          categorie: article.categorie,
-          quantite: article.quantite,
-          etat: article.etat,
-          localisation: article.localisation ?? '',
-          valeur_unitaire: article.valeur_unitaire ?? undefined,
-          prix_vente: article.prix_vente ?? undefined,
-          date_acquisition: article.date_acquisition ?? '',
-          notes: article.notes ?? '',
-        }
+        nom: article.nom,
+        code_barre: article.code_barre ?? '',
+        categorie: article.categorie,
+        quantite: article.quantite,
+        etat: article.etat,
+        localisation: article.localisation ?? '',
+        valeur_unitaire: article.valeur_unitaire ?? undefined,
+        prix_vente: article.prix_vente ?? undefined,
+        date_acquisition: article.date_acquisition ?? '',
+        notes: article.notes ?? '',
+      }
       : { categorie: 'mobilier', quantite: 1, etat: 'bon' },
   })
 

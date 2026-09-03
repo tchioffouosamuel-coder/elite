@@ -543,7 +543,7 @@ function LeconsSemaineCard({ eleveId }: { eleveId: number }) {
     queryFn: () => fetchLeconsSemaineEnfant(eleveId),
   })
 
-  const donnees = Array.isArray(data) ? null : data
+  const donnees: LeconsSemaine | null = data && !Array.isArray(data) ? data : null
   const courante = donnees?.[semaine]
 
   return (
@@ -565,9 +565,8 @@ function LeconsSemaineCard({ eleveId }: { eleveId: number }) {
                 key={cle}
                 type="button"
                 onClick={() => setSemaine(cle)}
-                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
-                  semaine === cle ? 'bg-white text-navy-800 shadow-soft' : 'text-navy-400 hover:text-navy-600'
-                }`}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${semaine === cle ? 'bg-white text-navy-800 shadow-soft' : 'text-navy-400 hover:text-navy-600'
+                  }`}
               >
                 {SEMAINE_LABEL[cle].split(' / ')[0]}
               </button>
@@ -584,9 +583,8 @@ function LeconsSemaineCard({ eleveId }: { eleveId: number }) {
                   {courante.lecons.map((lecon) => (
                     <li key={lecon.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                       <span
-                        className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${
-                          lecon.traitee ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-300'
-                        }`}
+                        className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${lecon.traitee ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-300'
+                          }`}
                       >
                         {lecon.traitee && <Check className="h-3.5 w-3.5" />}
                       </span>

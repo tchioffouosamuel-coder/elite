@@ -76,7 +76,7 @@ export function RapportRentreePage() {
   const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const queryClient = useQueryClient()
 
-  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: annees } = useQuery({ queryKey: ['annees-scolaires', activeSchoolId], queryFn: fetchAnneesScolaires })
   const anneeActive = annees?.find((a) => a.is_active) ?? annees?.[0]
 

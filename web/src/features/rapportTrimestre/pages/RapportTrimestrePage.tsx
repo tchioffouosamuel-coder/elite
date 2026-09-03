@@ -39,7 +39,7 @@ export function RapportTrimestrePage() {
   const [exportEnCours, setExportEnCours] = useState(false)
   const [trimestreChoisi, setTrimestreChoisi] = useState<number | null>(null)
 
-  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: fetchSchools })
+  const { data: ecoles = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres-all', activeSchoolId], queryFn: fetchTrimestresAll })
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
   const trimestreId = trimestreChoisi ?? trimestreActif?.id ?? null
