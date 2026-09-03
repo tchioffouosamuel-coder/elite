@@ -8,6 +8,7 @@ export interface AnneeScolaire {
   date_debut: string
   date_fin: string
   is_active: boolean
+  archivee_le?: string | null
 }
 
 export interface AnneeScolairePayload {
@@ -42,6 +43,18 @@ export async function updateAnneeScolaire(id: number, payload: AnneeScolairePayl
 
 export async function activerAnneeScolaire(id: number): Promise<AnneeScolaire> {
   const { data } = await http.post<ApiResponse<AnneeScolaire>>(`/annees-scolaires/${id}/activer`)
+  return data.data
+}
+
+/** Archive l'année : exige un conseil de classe validé pour chaque classe non vide (message d'erreur listant celles qui manquent, sinon). */
+export async function archiverAnneeScolaire(id: number): Promise<AnneeScolaire> {
+  const { data } = await http.post<ApiResponse<AnneeScolaire>>(`/annees-scolaires/${id}/archiver`)
+  return data.data
+}
+
+/** Bascule vers l'année suivante — exige que l'année active soit archivée, et que l'année visée soit postérieure. */
+export async function basculerAnneeScolaire(id: number): Promise<AnneeScolaire> {
+  const { data } = await http.post<ApiResponse<AnneeScolaire>>(`/annees-scolaires/${id}/basculer`)
   return data.data
 }
 

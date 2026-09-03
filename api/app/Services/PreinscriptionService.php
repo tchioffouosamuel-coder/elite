@@ -127,7 +127,11 @@ class PreinscriptionService extends BaseService
      */
     public function valider(Preinscription $preinscription, ?int $adminUserId = null): Preinscription
     {
-        if ($preinscription->statut !== 'en_attente') {
+        // Une préinscription rejetée reste validable après coup — un rejet
+        // n'est pas forcément définitif (pièce manquante depuis fournie,
+        // erreur d'appréciation) — mais une fois validée, plus question d'y
+        // revenir : l'élève et l'encaissement associés existent déjà.
+        if (! in_array($preinscription->statut, ['en_attente', 'rejetee'], true)) {
             throw new RuntimeException('Cette préinscription a déjà été traitée.');
         }
 

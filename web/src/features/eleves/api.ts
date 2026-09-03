@@ -127,6 +127,23 @@ export async function fetchEleve(id: number): Promise<Eleve> {
   return data.data;
 }
 
+export interface ParcoursAnnee {
+  annee_scolaire: { id: number; libelle: string };
+  classe_nom: string;
+  niveau_libelle: string | null;
+  moyenne_annuelle: number | null;
+  rang_annuel: number | null;
+  decision: "admis" | "redouble" | "exclu" | "diplome";
+  gracie: boolean;
+  motif: string | null;
+}
+
+/** Parcours scolaire de l'élève, une ligne par année — alimenté à chaque conseil de classe validé. */
+export async function fetchParcoursEleve(id: number): Promise<ParcoursAnnee[]> {
+  const { data } = await http.get<ApiResponse<ParcoursAnnee[]>>(`/eleves/${id}/parcours`);
+  return data.data;
+}
+
 export async function createEleve(payload: ElevePayload): Promise<Eleve> {
   const { data } = await http.post<ApiResponse<Eleve>>("/eleves", payload);
   return data.data;

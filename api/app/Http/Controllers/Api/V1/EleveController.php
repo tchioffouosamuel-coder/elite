@@ -12,6 +12,7 @@ use App\Http\Resources\Api\V1\EleveResource;
 use App\Models\ActivityLog;
 use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\HistoriqueScolariteEleve;
 use App\Models\School;
 use App\Models\Setting;
 use App\Services\AuthService;
@@ -94,6 +95,29 @@ class EleveController extends Controller
         $eleve = $this->service->find(Tenant::schoolIds(), $id);
 
         return ApiResponse::success(new EleveResource($eleve));
+    }
+
+    /** Parcours scolaire de l'élève, année par année — cf. HistoriqueScolariteEleve, alimenté à chaque conseil de classe validé. */
+    public function parcours(int $id): JsonResponse
+    {
+        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+
+        $historique = HistoriqueScolariteEleve::where('eleve_id', $eleve->id)
+            ->with('anneeScolaire')
+            ->orderByDesc('annee_scolaire_id')
+            ->get()
+            ->map(fn (HistoriqueScolariteEleve $h) => [
+                'annee_scolaire' => ['id' => $h->annee_scolaire_id, 'libelle' => $h->anneeScolaire->libelle],
+                'classe_nom' => $h->classe_nom,
+                'niveau_libelle' => $h->niveau_libelle,
+                'moyenne_annuelle' => $h->moyenne_annuelle,
+                'rang_annuel' => $h->rang_annuel,
+                'decision' => $h->decision,
+                'gracie' => $h->gracie,
+                'motif' => $h->motif,
+            ]);
+
+        return ApiResponse::success($historique);
     }
 
     public function update(UpdateEleveRequest $request, int $id): JsonResponse

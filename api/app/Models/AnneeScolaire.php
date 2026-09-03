@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnneeScolaire extends Model
 {
-    protected $fillable = ['school_id', 'libelle', 'date_debut', 'date_fin', 'is_active'];
+    protected $fillable = ['school_id', 'libelle', 'date_debut', 'date_fin', 'is_active', 'archivee_le'];
 
     protected function casts(): array
     {
@@ -16,6 +16,7 @@ class AnneeScolaire extends Model
             'date_debut' => 'date',
             'date_fin' => 'date',
             'is_active' => 'boolean',
+            'archivee_le' => 'datetime',
         ];
     }
 

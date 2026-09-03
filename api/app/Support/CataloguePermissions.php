@@ -152,6 +152,10 @@ class CataloguePermissions
             'revendications.view' => ['Consulter les réclamations', 'View complaints'],
             'revendications.manage' => ['Enregistrer et traiter les réclamations', 'Record and process complaints'],
         ]],
+        'conseil_classe' => ['Conseil de classe', 'Class council', [
+            'conseil_classe.view' => ['Consulter les conseils de classe et les archives d\'années passées', 'View class councils and archived years'],
+            'conseil_classe.manage' => ['Mener et valider les conseils de classe de fin d\'année', 'Run and validate end-of-year class councils'],
+        ]],
     ];
 
     /**

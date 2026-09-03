@@ -17,6 +17,7 @@ import {
   UserPlus,
   Trash2,
   School,
+  Gavel,
 } from 'lucide-react'
 import { fetchClasse, deleteClasse } from '@/features/classes/api'
 import { ouvrirBulletinsClasse, ouvrirPvConseilClasse } from '@/features/resultats/api'
@@ -120,6 +121,11 @@ export function ClasseDetailPage() {
           label: t('nav.palmares'),
           icon: Trophy,
           onClick: () => navigate('/palmares'),
+        },
+        can('conseil_classe.view') && {
+          label: t('hub.classe.conseil_fin_annee'),
+          icon: Gavel,
+          onClick: () => navigate(`/conseil-classe/${classe.id}`),
         },
         can('emploi_du_temps.manage') &&
           !!classe.qr_token && {

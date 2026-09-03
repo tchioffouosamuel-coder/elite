@@ -119,6 +119,7 @@
     "modificationsEleves": "Modifications de fiches",
     "comptesParents": "Comptes parents",
     "statsPortailParent": "Statistiques portail parent",
+    "archives": "Archives",
     "pointDeVente": "Point de vente",
     "competences": "Compétences",
     "appreciations": "Codes d'appréciation"
@@ -1019,7 +1020,18 @@
     "generer_seances": "Générer les séances",
     "generer_seances_confirm_title": "Générer les séances de {{libelle}} ?",
     "generer_seances_confirm_message": "Les séances seront créées depuis l'emploi du temps de chaque classe accessible, sur toute la période. Les séances déjà créées ne sont pas dupliquées.",
-    "seances_generees": "{{creees}} séance(s) générée(s) sur {{classes}} classe(s)."
+    "seances_generees": "{{creees}} séance(s) générée(s) sur {{classes}} classe(s).",
+    "archived": "Archivée",
+    "archiver": "Archiver",
+    "archiver_confirm_title": "Archiver l'année {{libelle}} ?",
+    "archiver_confirm_message": "Chaque classe non vide doit avoir un conseil de classe validé. Une fois archivée, les données pédagogiques de l'année sont figées et consultables depuis les archives.",
+    "annee_archived": "Année {{libelle}} archivée.",
+    "basculer": "Passer à l'année suivante",
+    "basculer_confirm_title": "Passer à {{libelle}} ?",
+    "basculer_confirm_message": "{{libelle}} devient l'année de référence de l'établissement.",
+    "annee_basculee": "Année {{libelle}} activée.",
+    "basculer_indisponible_non_archivee": "Archivez d'abord l'année active.",
+    "basculer_indisponible_pas_de_suivante": "Créez d'abord l'année scolaire suivante."
   },
   "export": {
     "excel": "Exporter en Excel",
@@ -1593,7 +1605,8 @@
       "documents": "Documents",
       "remuneration": "Rémunération",
       "avances": "Avances",
-      "budget": "Budget"
+      "budget": "Budget",
+      "parcours": "Parcours"
     },
     "groupe": {
       "dossier": "Dossier",
@@ -1609,6 +1622,14 @@
       "acces_parent": "Accès parent",
       "acces_parent_aide": "Ouvrir l'accès au portail parent",
       "acces_eleve": "Accès élève",
+      "parcours_vide": "Aucun historique — cet élève n'a pas encore été concerné par un conseil de classe validé.",
+      "moyenne_annuelle": "Moyenne annuelle :",
+      "rang_annuel": "Rang :",
+      "decision_admis": "Admis",
+      "decision_redouble": "Redoublant",
+      "decision_exclu": "Exclu",
+      "decision_diplome": "Diplômé",
+      "gracie": "gracié",
       "carte_classe": "Cartes scolaires de la classe",
       "voir_classe": "Ouvrir la fiche de la classe",
       "documents_sans_classe": "Aucun document : l'élève n'est inscrit dans aucune classe."
@@ -1683,7 +1704,8 @@
       "bulletins": "Bulletins de la classe",
       "pv_conseil": "PV du conseil de classe",
       "liste_pdf": "Liste des élèves (PDF)",
-      "liste_word": "Liste des élèves (Word)"
+      "liste_word": "Liste des élèves (Word)",
+      "conseil_fin_annee": "Conseil de classe de fin d'année"
     }
   },
   "pointDeVente": {

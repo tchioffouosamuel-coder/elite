@@ -19,6 +19,9 @@ import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsRe
 import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
+import { ConseilClassePage } from '@/features/conseilClasse/pages/ConseilClassePage'
+import { ArchivesPage } from '@/features/archives/pages/ArchivesPage'
+import { ArchiveClassePage } from '@/features/archives/pages/ArchiveClassePage'
 import { QrCodesPage } from '@/features/classes/pages/QrCodesPage'
 import { AnnoncesPage } from '@/features/annonces/pages/AnnoncesPage'
 import { MaClassePage } from '@/features/classes/pages/MaClassePage'
@@ -164,6 +167,9 @@ export const router = createHashRouter([
       { path: 'niveaux-globaux', element: <ProtectedRoute permission="niveaux.view"><NiveauxListPage /></ProtectedRoute> },
       { path: 'classes', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClassesListPage /></ProtectedRoute> },
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClasseDetailPage /></ProtectedRoute> },
+      { path: 'conseil-classe/:classeId', element: <ProtectedRoute permission="conseil_classe.view"><ConseilClassePage /></ProtectedRoute> },
+      { path: 'archives', element: <ProtectedRoute permission="conseil_classe.view"><ArchivesPage /></ProtectedRoute> },
+      { path: 'archives/:anneeId/classes/:classeId', element: <ProtectedRoute permission="conseil_classe.view"><ArchiveClassePage /></ProtectedRoute> },
       { path: 'ma-classe', element: <ProtectedRoute permission="classes.view" enseignantOnly><MaClassePage /></ProtectedRoute> },
       // Ses propres responsabilités : aucun privilège à exiger, l'écran ne
       // montre que ce qui a été confié au compte connecté.

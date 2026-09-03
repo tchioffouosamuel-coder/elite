@@ -32,6 +32,8 @@ import {
   reactivateEleve,
   deleteEleve,
   uploadElevePhoto,
+  fetchParcoursEleve,
+  type ParcoursAnnee,
 } from '@/features/eleves/api'
 import { identifiantsOuverts, erreur, succes, confirmer } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -154,6 +156,7 @@ export function EleveDetailPage() {
     secondaire && can('discipline.view') && { key: 'discipline', label: t('hub.tab.discipline') },
     can('bus.view') && { key: 'transport', label: t('hub.tab.transport') },
     { key: 'documents', label: t('hub.tab.documents') },
+    can('conseil_classe.view') && { key: 'parcours', label: t('hub.tab.parcours') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   const ongletDemande = searchParams.get('onglet')
@@ -512,6 +515,8 @@ export function EleveDetailPage() {
         </Card>
       )}
 
+      {onglet === 'parcours' && <ParcoursCard eleveId={eleve.id} />}
+
       {transfertClasse && (
         <TransfererClasseModal
           eleve={eleve}
@@ -547,5 +552,53 @@ export function EleveDetailPage() {
         />
       )}
     </div>
+  )
+}
+
+const DECISION_TONE: Record<ParcoursAnnee['decision'], 'green' | 'gold' | 'red' | 'blue'> = {
+  admis: 'green',
+  redouble: 'gold',
+  exclu: 'red',
+  diplome: 'blue',
+}
+
+/** Historique année par année : classe fréquentée, moyenne/rang annuels, décision du conseil de classe — alimenté à chaque conseil validé. */
+function ParcoursCard({ eleveId }: { eleveId: number }) {
+  const { t } = useTranslation()
+  const { data: parcours, isLoading } = useQuery({ queryKey: ['eleve-parcours', eleveId], queryFn: () => fetchParcoursEleve(eleveId) })
+
+  return (
+    <Card>
+      <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">{t('hub.tab.parcours')}</h2>
+      {isLoading ? (
+        <Spinner />
+      ) : !parcours || parcours.length === 0 ? (
+        <p className="text-sm text-navy-400">{t('hub.eleve.parcours_vide')}</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-navy-100">
+          {parcours.map((ligne) => (
+            <div key={ligne.annee_scolaire.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-semibold text-navy-800">{ligne.annee_scolaire.libelle}</p>
+                <p className="text-xs text-navy-400">{[ligne.classe_nom, ligne.niveau_libelle].filter(Boolean).join(' · ')}</p>
+                {ligne.motif && <p className="mt-1 text-xs text-navy-500">{ligne.motif}</p>}
+              </div>
+              <div className="flex items-center gap-3">
+                {ligne.moyenne_annuelle !== null && (
+                  <span className="text-xs text-navy-500">
+                    {t('hub.eleve.moyenne_annuelle')} <span className="font-semibold text-navy-800">{ligne.moyenne_annuelle}</span>
+                    {ligne.rang_annuel !== null && <> — {t('hub.eleve.rang_annuel')} <span className="font-semibold text-navy-800">{ligne.rang_annuel}</span></>}
+                  </span>
+                )}
+                <Badge tone={DECISION_TONE[ligne.decision]}>
+                  {t(`hub.eleve.decision_${ligne.decision}`)}
+                  {ligne.gracie ? ` (${t('hub.eleve.gracie')})` : ''}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }

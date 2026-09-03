@@ -57,6 +57,7 @@ import {
   KeyRound,
   TrendingUp,
   Landmark,
+  Archive,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -197,6 +198,7 @@ const navGroups = [
       { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/statistiques-parent', label: 'nav.statsPortailParent', icon: TrendingUp, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true },
     ],
   },
   {

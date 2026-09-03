@@ -9,10 +9,12 @@ use App\Http\Requests\Api\V1\UpdateAnneeScolaireRequest;
 use App\Http\Resources\Api\V1\AnneeScolaireResource;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Services\ArchivageService;
 use App\Services\EmploiDuTempsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class AnneeScolaireController extends Controller
 {
@@ -60,6 +62,53 @@ class AnneeScolaireController extends Controller
         $annee->update($request->validated());
 
         return ApiResponse::success(new AnneeScolaireResource($annee->refresh()), 'Année scolaire mise à jour.');
+    }
+
+    /**
+     * Archive l'année : exige un conseil de classe validé pour chaque classe
+     * non vide (sinon 422, avec la liste des classes manquantes), fige leurs
+     * données pédagogiques, puis pose `archivee_le`. Voir ArchivageService.
+     */
+    public function archiver(int $id): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $annee = AnneeScolaire::where('school_id', $schoolId)->findOrFail($id);
+
+        try {
+            app(ArchivageService::class)->archiverAnnee($annee, auth()->id());
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(new AnneeScolaireResource($annee->refresh()), 'Année archivée.');
+    }
+
+    /**
+     * Passe à l'année suivante : l'année active doit être archivée, et une
+     * année scolaire postérieure doit déjà exister (créée à l'avance par
+     * l'établissement) — ce n'est qu'une bascule, pas une création.
+     */
+    public function basculer(int $id, Request $request): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $actuelle = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->firstOrFail();
+
+        if ($actuelle->archivee_le === null) {
+            return ApiResponse::error("L'année active doit être archivée avant de basculer vers la suivante.", 422);
+        }
+
+        $suivante = AnneeScolaire::where('school_id', $schoolId)->findOrFail($id);
+
+        if ($suivante->date_debut->lte($actuelle->date_debut)) {
+            return ApiResponse::error("L'année choisie n'est pas postérieure à l'année active.", 422);
+        }
+
+        DB::transaction(function () use ($schoolId, $suivante) {
+            AnneeScolaire::where('school_id', $schoolId)->update(['is_active' => false]);
+            $suivante->update(['is_active' => true]);
+        });
+
+        return ApiResponse::success(new AnneeScolaireResource($suivante->refresh()), 'Année scolaire suivante activée.');
     }
 
     /** Matérialise les séances de toutes les classes de l'année en un coup. */

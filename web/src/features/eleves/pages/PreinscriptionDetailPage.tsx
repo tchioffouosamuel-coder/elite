@@ -431,7 +431,7 @@ export function PreinscriptionDetailPage() {
               </p>
             ) : null}
 
-            {p.statut === 'en_attente' && !editionOuverte && (
+            {(p.statut === 'en_attente' || p.statut === 'rejetee') && !editionOuverte && (
               <>
                 {rejetOuvert ? (
                   <div className="flex flex-col gap-2">
@@ -447,10 +447,12 @@ export function PreinscriptionDetailPage() {
                   </div>
                 ) : (
                   <div className="flex justify-end gap-2">
-                    <Button variant="secondary" onClick={() => setRejetOuvert(true)} disabled={traitement}>
-                      <X className="h-4 w-4" />
-                      Rejeter
-                    </Button>
+                    {p.statut === 'en_attente' && (
+                      <Button variant="secondary" onClick={() => setRejetOuvert(true)} disabled={traitement}>
+                        <X className="h-4 w-4" />
+                        Rejeter
+                      </Button>
+                    )}
                     <Button onClick={valider} disabled={traitement}>
                       <Check className="h-4 w-4" />
                       Valider

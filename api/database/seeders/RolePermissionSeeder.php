@@ -30,6 +30,8 @@ class RolePermissionSeeder extends Seeder
          */
         'admin_ecole' => [
             'ecoles.manage',
+            'conseil_classe.view',
+            'conseil_classe.manage',
             'personnel.view',
             'personnel.manage',
             'classes.view',
@@ -76,6 +78,8 @@ class RolePermissionSeeder extends Seeder
         ],
         'admin_college' => [
             'ecoles.manage',
+            'conseil_classe.view',
+            'conseil_classe.manage',
             'personnel.view',
             'personnel.manage',
             'classes.view',
@@ -121,6 +125,7 @@ class RolePermissionSeeder extends Seeder
             'revendications.manage',
         ],
         'censeur_sg' => [
+            'conseil_classe.view',
             'personnel.view',
             'classes.view',
             'eleves.view',

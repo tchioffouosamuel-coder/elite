@@ -91,6 +91,38 @@ class MoyenneService extends BaseService
     }
 
     /**
+     * Moyenne annuelle : moyenne des moyennes trimestrielles renseignées —
+     * même calcul que {@see \App\Services\MoyennePrimaireService::moyenneAnnuelleEleve()},
+     * sans compter les trimestres encore vides comme des zéros.
+     */
+    public function moyenneAnnuelleEleve(Eleve $eleve, int $anneeScolaireId): ?float
+    {
+        $trimestres = Trimestre::where('annee_scolaire_id', $anneeScolaireId)->orderBy('ordre')->get();
+
+        $moyennes = $trimestres
+            ->map(fn (Trimestre $t) => $this->moyenneGeneraleEleve($eleve, $t)['moyenne'])
+            ->filter(fn ($m) => $m !== null);
+
+        return $moyennes->isEmpty() ? null : round($moyennes->avg(), 2);
+    }
+
+    /**
+     * Classement général de la classe sur l'année, à partir des moyennes
+     * annuelles — sert au conseil de classe de fin d'année.
+     *
+     * @return Collection<int, array{eleve: Eleve, moyenne: ?float, rang: ?int}>
+     */
+    public function classementAnnuel(Classe $classe, int $anneeScolaireId): Collection
+    {
+        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(fn (Eleve $eleve) => [
+            'eleve' => $eleve,
+            'moyenne' => $this->moyenneAnnuelleEleve($eleve, $anneeScolaireId),
+        ]);
+
+        return $this->attribuerRangs($rows);
+    }
+
+    /**
      * Classement de la classe pour une matière donnée (sert au rang/min/max
      * affichés sur le bulletin, équivalent de RankOfNote/MinNote/MaxNote).
      *
@@ -119,9 +151,13 @@ class MoyenneService extends BaseService
         }
 
         $attendu = $nbEleves * $nbSequences;
+        // Scopé aux élèves actuellement actifs, comme $nbEleves : sinon un
+        // élève parti après avoir eu ses notes saisies gonfle le numérateur
+        // sans plus compter au dénominateur, et le taux dépasse 100 %.
         $saisi = Note::where('classe_matiere_id', $classeMatiere->id)
             ->whereIn('sequence_id', $sequenceIds)
             ->whereNotNull('valeur')
+            ->whereHas('eleve', fn ($q) => $q->where('statut', 'actif'))
             ->count();
 
         return round($saisi / $attendu * 100, 1);

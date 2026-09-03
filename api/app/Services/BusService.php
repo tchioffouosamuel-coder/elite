@@ -12,6 +12,7 @@ use App\Models\Depense;
 use App\Models\Eleve;
 use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use RuntimeException;
 
 /**
@@ -252,23 +253,31 @@ class BusService extends BaseService
      * Souscrit plusieurs élèves d'un coup au même trajet — une fratrie ou une
      * classe entière n'a pas à repasser un par un dans le même formulaire.
      * Un élève déjà affecté est simplement ignoré plutôt que de faire
-     * échouer tout le lot.
+     * échouer tout le lot. L'école de chaque élève vient de sa propre fiche :
+     * un lot peut mélanger des élèves de plusieurs écoles (compte agrégé), et
+     * un élève dont l'école n'a pas ce trajet est ignoré comme les autres cas
+     * invalides plutôt que de faire échouer le reste du lot.
      *
      * @param  array<int, int>  $eleveIds
      * @param  array<string, mixed>  $donnees
      * @return array{souscrits: int, ignores: list<string>}
      */
-    public function souscrireEnLot(int $schoolId, array $eleveIds, array $donnees): array
+    public function souscrireEnLot(array $eleveIds, array $donnees): array
     {
         $souscrits = 0;
         $ignores = [];
 
         foreach ($eleveIds as $eleveId) {
+            $eleve = Eleve::find($eleveId);
+
             try {
-                $this->affecterEleve($schoolId, [...$donnees, 'eleve_id' => $eleveId]);
+                if (! $eleve) {
+                    throw new RuntimeException("#{$eleveId}");
+                }
+
+                $this->affecterEleve($eleve->school_id, [...$donnees, 'eleve_id' => $eleveId]);
                 $souscrits++;
-            } catch (RuntimeException $e) {
-                $eleve = Eleve::find($eleveId);
+            } catch (RuntimeException|ModelNotFoundException $e) {
                 $ignores[] = $eleve?->nom_complet ?? "#{$eleveId}";
             }
         }

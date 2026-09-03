@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, CheckCircle2, Pencil, CalendarPlus } from 'lucide-react'
+import { Plus, CheckCircle2, Pencil, CalendarPlus, Archive, ArrowRightCircle } from 'lucide-react'
 import {
   fetchAnneesScolaires,
   activerAnneeScolaire,
+  archiverAnneeScolaire,
+  basculerAnneeScolaire,
   genererSeancesAnnee,
   fetchTrimestresAll,
   activerTrimestre,
@@ -61,6 +63,52 @@ export function SessionPage() {
       await activerAnneeScolaire(id)
       invalidateAnnees()
       succes(t('session.annee_activated', { libelle }))
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  // Archiver fige les données pédagogiques de l'année (notes, absences,
+  // discipline, infirmerie, par classe) — exige un conseil de classe validé
+  // pour chaque classe non vide, sinon le backend renvoie la liste précise
+  // de ce qui manque.
+  const handleArchiverAnnee = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: t('session.archiver_confirm_title', { libelle }),
+      message: t('session.archiver_confirm_message'),
+      action: t('session.archiver'),
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setBusyId(id)
+    try {
+      await archiverAnneeScolaire(id)
+      invalidateAnnees()
+      succes(t('session.annee_archived', { libelle }))
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleBasculerAnnee = async (id: number, libelle: string) => {
+    const confirme = await confirmer({
+      titre: t('session.basculer_confirm_title', { libelle }),
+      message: t('session.basculer_confirm_message', { libelle }),
+      action: t('session.basculer'),
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setBusyId(id)
+    try {
+      await basculerAnneeScolaire(id)
+      invalidateAnnees()
+      succes(t('session.annee_basculee', { libelle }))
     } catch (e) {
       erreur((e as ApiError).message)
     } finally {
@@ -132,6 +180,15 @@ export function SessionPage() {
   }
 
   const selectedAnnee = annees?.find((a) => a.id === selectedAnneeId) ?? null
+  const activeAnnee = annees?.find((a) => a.is_active) ?? null
+  // La suivante de l'année active, chronologiquement — cible naturelle de
+  // « Passer à l'année suivante » : pas besoin de la faire choisir puisqu'une
+  // bascule ne saute jamais une année.
+  const prochaineAnnee = activeAnnee
+    ? [...(annees ?? [])]
+        .filter((a) => a.id !== activeAnnee.id && a.date_debut > activeAnnee.date_debut)
+        .sort((a, b) => a.date_debut.localeCompare(b.date_debut))[0]
+    : undefined
   const trimestresAnnee = (trimestres ?? [])
     .filter((tr) => tr.annee_scolaire_id === selectedAnneeId)
     .sort((a, b) => a.ordre - b.ordre)
@@ -142,6 +199,10 @@ export function SessionPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-semibold text-navy-900">{t('session.title')}</h1>
       </div>
+
+      {activeAnnee?.archivee_le && !prochaineAnnee && (
+        <p className="rounded-lg bg-gold-50 px-3 py-2 text-sm text-gold-800">{t('session.basculer_indisponible_pas_de_suivante')}</p>
+      )}
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
@@ -177,6 +238,7 @@ export function SessionPage() {
                     <div className="flex items-center gap-2">
                       {a.libelle}
                       {a.is_active && <Badge tone="green">{t('session.active')}</Badge>}
+                      {a.archivee_le && <Badge tone="neutral">{t('session.archived')}</Badge>}
                     </div>
                   </Td>
                   <Td>{a.date_debut}</Td>
@@ -215,6 +277,33 @@ export function SessionPage() {
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           {t('session.activate')}
+                        </button>
+                      )}
+                      {a.is_active && !a.archivee_le && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleArchiverAnnee(a.id, a.libelle)
+                          }}
+                          disabled={busyId === a.id}
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                          {t('session.archiver')}
+                        </button>
+                      )}
+                      {a.id === prochaineAnnee?.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleBasculerAnnee(a.id, a.libelle)
+                          }}
+                          disabled={busyId === a.id || !activeAnnee?.archivee_le}
+                          title={!activeAnnee?.archivee_le ? t('session.basculer_indisponible_non_archivee') : undefined}
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        >
+                          <ArrowRightCircle className="h-3.5 w-3.5" />
+                          {t('session.basculer')}
                         </button>
                       )}
                     </div>

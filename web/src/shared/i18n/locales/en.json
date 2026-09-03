@@ -119,6 +119,7 @@
     "modificationsEleves": "Profile edit requests",
     "comptesParents": "Parent accounts",
     "statsPortailParent": "Parent portal statistics",
+    "archives": "Archives",
     "pointDeVente": "Point of sale",
     "competences": "Competencies",
     "appreciations": "Assessment codes"
@@ -992,7 +993,18 @@
     "generer_seances": "Generate sessions",
     "generer_seances_confirm_title": "Generate the sessions for {{libelle}}?",
     "generer_seances_confirm_message": "Sessions will be created from each accessible class's schedule, over the whole period. Sessions already created are not duplicated.",
-    "seances_generees": "{{creees}} session(s) generated across {{classes}} class(es)."
+    "seances_generees": "{{creees}} session(s) generated across {{classes}} class(es).",
+    "archived": "Archived",
+    "archiver": "Archive",
+    "archiver_confirm_title": "Archive school year {{libelle}}?",
+    "archiver_confirm_message": "Every non-empty class must have a validated class council. Once archived, the year's academic data is frozen and available from the archives.",
+    "annee_archived": "School year {{libelle}} archived.",
+    "basculer": "Move to next school year",
+    "basculer_confirm_title": "Switch to {{libelle}}?",
+    "basculer_confirm_message": "{{libelle}} becomes the school's reference year.",
+    "annee_basculee": "School year {{libelle}} activated.",
+    "basculer_indisponible_non_archivee": "Archive the active year first.",
+    "basculer_indisponible_pas_de_suivante": "Create the next school year first."
   },
   "export": {
     "excel": "Export to Excel",
@@ -1593,7 +1605,8 @@
       "documents": "Documents",
       "remuneration": "Pay",
       "avances": "Advances",
-      "budget": "Budget"
+      "budget": "Budget",
+      "parcours": "Track record"
     },
     "groupe": {
       "dossier": "Record",
@@ -1609,6 +1622,14 @@
       "acces_parent": "Parent access",
       "acces_parent_aide": "Open access to the parent portal",
       "acces_eleve": "Student access",
+      "parcours_vide": "No history yet — this student has not been through a validated class council.",
+      "moyenne_annuelle": "Annual average:",
+      "rang_annuel": "Rank:",
+      "decision_admis": "Promoted",
+      "decision_redouble": "Repeating",
+      "decision_exclu": "Excluded",
+      "decision_diplome": "Graduated",
+      "gracie": "pardoned",
       "carte_classe": "Student cards for the class",
       "voir_classe": "Open the class record",
       "documents_sans_classe": "No documents: this student is not enrolled in any class."
@@ -1683,7 +1704,8 @@
       "bulletins": "Class report cards",
       "pv_conseil": "Class council minutes",
       "liste_pdf": "Student list (PDF)",
-      "liste_word": "Student list (Word)"
+      "liste_word": "Student list (Word)",
+      "conseil_fin_annee": "End-of-year class council"
     }
   },
   "pointDeVente": {

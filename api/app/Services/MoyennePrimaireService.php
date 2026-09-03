@@ -166,6 +166,22 @@ class MoyennePrimaireService extends BaseService
     }
 
     /**
+     * Classement général de la classe sur l'année, à partir des moyennes
+     * annuelles — sert au conseil de classe de fin d'année.
+     *
+     * @return Collection<int, array{eleve: Eleve, moyenne: ?float, rang: ?int}>
+     */
+    public function classementAnnuel(Classe $classe, int $anneeScolaireId): Collection
+    {
+        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(fn (Eleve $eleve) => [
+            'eleve' => $eleve,
+            'moyenne' => $this->moyenneAnnuelleEleve($eleve, $anneeScolaireId),
+        ]);
+
+        return $this->moyenneService->classer($rows);
+    }
+
+    /**
      * Appréciation par compétence, calculée sur le pourcentage du barème
      * atteint — logique d'archange (`$perc = ($tterm / $no) * 100`), dont les
      * conditions se chevauchaient dans le legacy et sont ici remises à plat.
@@ -246,9 +262,13 @@ class MoyennePrimaireService extends BaseService
             return 0.0;
         }
 
+        // Scopé aux élèves actuellement actifs, comme $nbEleves : sinon un
+        // élève parti après avoir eu ses notes saisies gonfle le numérateur
+        // sans plus compter au dénominateur, et le taux dépasse 100 %.
         $saisi = Note::where('classe_competence_id', $classeCompetence->id)
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->whereNotNull('valeur')
+            ->whereHas('eleve', fn ($q) => $q->where('statut', 'actif'))
             ->count();
 
         return round($saisi / $attendu * 100, 1);

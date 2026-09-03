@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AnnonceController;
 use App\Http\Controllers\Api\V1\ApeeController;
 use App\Http\Controllers\Api\V1\AppreciationController;
+use App\Http\Controllers\Api\V1\ArchiveClasseController;
 use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\CompteController;
+use App\Http\Controllers\Api\V1\ConseilClasseController;
 use App\Http\Controllers\Api\V1\ConseilEcoleController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
@@ -308,6 +310,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('annees-scolaires/{id}', [AnneeScolaireController::class, 'update'])->name('annees.update');
                 Route::post('annees-scolaires/{id}/activer', [AnneeScolaireController::class, 'activate'])->name('annees.activate');
                 Route::post('annees-scolaires/{id}/generer-seances', [AnneeScolaireController::class, 'genererSeances'])->name('annees.generer-seances');
+                Route::post('annees-scolaires/{id}/archiver', [AnneeScolaireController::class, 'archiver'])->name('annees.archiver');
+                Route::post('annees-scolaires/{id}/basculer', [AnneeScolaireController::class, 'basculer'])->name('annees.basculer');
 
                 Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
                 Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
@@ -316,6 +320,31 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('ecole', [SchoolController::class, 'update'])->name('ecole.update');
                 Route::post('ecole/images/{type}', [SchoolController::class, 'uploadImage'])->name('ecole.images.upload');
                 Route::delete('ecole/images/{type}', [SchoolController::class, 'deleteImage'])->name('ecole.images.delete');
+            });
+
+            /*
+             * Conseil de classe de fin d'année et archives des années
+             * révolues — cf. ConseilClasseService/ArchivageService. Consulter
+             * une archive ou un PV ne demande que `.view` ; mener/valider un
+             * conseil exige `.manage`.
+             */
+            Route::middleware('permission:conseil_classe.view')->group(function () {
+                Route::get('classes/{classeId}/conseil', [ConseilClasseController::class, 'show'])->name('conseil-classe.show');
+                Route::get('conseils-classe/{id}/pv', [ConseilClasseController::class, 'pv'])->name('conseil-classe.pv');
+                Route::get('archives/annees', [ArchiveClasseController::class, 'annees'])->name('archives.annees');
+                Route::get('archives/annees/{anneeId}/classes', [ArchiveClasseController::class, 'classes'])->name('archives.classes');
+                Route::get('archives/annees/{anneeId}/classes/{classeId}', [ArchiveClasseController::class, 'show'])->name('archives.show');
+                Route::get('archives/annees/{anneeId}/classes/{classeId}/bulletin/{eleveId}', [ArchiveClasseController::class, 'bulletin'])->name('archives.bulletin');
+                Route::get('archives/annees/{anneeId}/classes/{classeId}/pv', [ArchiveClasseController::class, 'pv'])->name('archives.pv');
+            });
+
+            Route::middleware('permission:conseil_classe.manage')->group(function () {
+                Route::put('conseils-classe/{id}/seuil', [ConseilClasseController::class, 'definirSeuil'])->name('conseil-classe.seuil');
+                Route::post('conseils-classe/{id}/destination', [ConseilClasseController::class, 'definirDestination'])->name('conseil-classe.destination');
+                Route::post('conseil-classe-decisions/{decisionId}/exclure', [ConseilClasseController::class, 'exclure'])->name('conseil-classe.decisions.exclure');
+                Route::post('conseil-classe-decisions/{decisionId}/gracier', [ConseilClasseController::class, 'gracier'])->name('conseil-classe.decisions.gracier');
+                Route::post('conseil-classe-decisions/{decisionId}/annuler-ajustement', [ConseilClasseController::class, 'annulerAjustement'])->name('conseil-classe.decisions.annuler');
+                Route::post('conseils-classe/{id}/valider', [ConseilClasseController::class, 'valider'])->name('conseil-classe.valider');
             });
 
             /*
@@ -361,6 +390,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('photos-examen/classes/{classeId}', [PhotoExamenController::class, 'candidats'])->name('photos-examen.candidats');
                 Route::get('photos-examen/classes/{classeId}/archive', [PhotoExamenController::class, 'archive'])->name('photos-examen.archive');
                 Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
+                Route::get('eleves/{id}/parcours', [EleveController::class, 'parcours'])->name('eleves.parcours');
                 Route::get('eleves/recherche-globale', [EleveController::class, 'rechercheGlobale'])->name('eleves.recherche-globale');
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');

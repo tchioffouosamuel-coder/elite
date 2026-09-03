@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusAffectation;
 use App\Models\Eleve;
 use App\Services\BusService;
@@ -16,8 +15,6 @@ use RuntimeException;
 
 class BusAffectationController extends Controller
 {
-    use ScopedRules;
-
     public function __construct(private readonly BusService $service) {}
 
     public function index(Request $request): JsonResponse
@@ -43,8 +40,10 @@ class BusAffectationController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
         $donnees = $this->validerSouscription($request);
+        // L'école n'est jamais à choisir ici : c'est celle de l'élève qu'on
+        // affecte, même pour un compte multi-écoles en mode agrégé.
+        $schoolId = Eleve::whereKey($donnees['eleve_id'])->value('school_id');
 
         try {
             $affectation = $this->service->affecterEleve($schoolId, $donnees);
@@ -58,17 +57,15 @@ class BusAffectationController extends Controller
     /** Souscrit plusieurs élèves d'un coup au même trajet (fratrie, classe entière…). */
     public function souscrireLot(Request $request): JsonResponse
     {
-        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
-
         $data = $request->validate([
             'eleve_ids' => ['required', 'array', 'min:1'],
-            'eleve_ids.*' => ['integer', $this->scopedExists('eleves')],
+            'eleve_ids.*' => ['integer', Rule::exists('eleves', 'id')->whereIn('school_id', Tenant::schoolIds())],
         ]);
 
         $donnees = $this->validerSouscription($request);
         unset($donnees['eleve_id']);
 
-        $resultat = $this->service->souscrireEnLot($schoolId, $data['eleve_ids'], $donnees);
+        $resultat = $this->service->souscrireEnLot($data['eleve_ids'], $donnees);
 
         $message = "{$resultat['souscrits']} élève(s) souscrit(s) au bus.";
         if ($resultat['ignores'] !== []) {
@@ -107,12 +104,16 @@ class BusAffectationController extends Controller
     private function validerSouscription(Request $request): array
     {
         return $request->validate([
-            'eleve_id' => ['required_without:eleve_ids', 'integer', $this->scopedExists('eleves')],
-            'trajet_id' => ['required', 'integer', $this->scopedExists('bus_trajets')],
+            // Scopé aux écoles accessibles (et non à l'école ambiante du
+            // tenant) : en mode agrégé, l'élève ou le trajet visé peut
+            // appartenir à n'importe laquelle d'entre elles, pas seulement à
+            // celle retenue par défaut pour le compte.
+            'eleve_id' => ['required_without:eleve_ids', 'integer', Rule::exists('eleves', 'id')->whereIn('school_id', Tenant::schoolIds())],
+            'trajet_id' => ['required', 'integer', Rule::exists('bus_trajets', 'id')->whereIn('school_id', Tenant::schoolIds())],
             // Un arrêt n'appartenant pas au trajet choisi n'a pas de sens :
             // le champ « ramassera » un enfant sur un circuit qu'il ne suit pas.
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $request->integer('trajet_id'))],
-            'annee_scolaire_id' => ['nullable', 'integer', $this->scopedExists('annee_scolaires')],
+            'annee_scolaire_id' => ['nullable', 'integer', Rule::exists('annee_scolaires', 'id')->whereIn('school_id', Tenant::schoolIds())],
             'option_trajet' => ['required', Rule::in(BusAffectation::OPTIONS_TRAJET)],
         ]);
     }
