@@ -36,6 +36,7 @@ class CompteAgentService extends BaseService
         $comptes = User::query()
             ->when(is_array($schoolId), fn($query) => $query->whereIn('school_id', $schoolId), fn($query) => $query->where('school_id', $schoolId))
             ->where('is_active', true)
+            ->whereHas('personnel')
             ->with('personnel.fonctionReference')
             ->orderBy('name')
             ->get();
