@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 
 const MENTION_LABEL: Record<string, { fr: string; en: string; tone: 'green' | 'gold' | 'red' }> = {
   felicitations: { fr: 'Félicitations', en: 'With honors', tone: 'green' },
@@ -21,6 +22,7 @@ const MENTION_LABEL: Record<string, { fr: string; en: string; tone: 'green' | 'g
 export function ResultatsTab({ classeId }: { classeId: number }) {
   const { t, i18n } = useTranslation()
   const isFr = i18n.language === 'fr'
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const [remplissageOuvert, setRemplissageOuvert] = useState(false)
 
   const { data: remplissage, isLoading: loadingRemplissage } = useQuery({
@@ -65,19 +67,23 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
           <Badge tone={MENTION_LABEL[e.mention].tone}>{isFr ? MENTION_LABEL[e.mention].fr : MENTION_LABEL[e.mention].en}</Badge>
         ) : null,
     },
-    {
-      cle: 'bulletin',
-      entete: t('resultats.bulletin'),
-      cellule: (e) => (
-        <button
-          onClick={() => ouvrirBulletin(e.eleve_id)}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
-        >
-          <FileDown className="h-3.5 w-3.5" />
-          PDF
-        </button>
-      ),
-    },
+    ...(!estEnseignant
+      ? [
+        {
+          cle: 'bulletin',
+          entete: t('resultats.bulletin'),
+          cellule: (e: Classement['eleves'][number]) => (
+            <button
+              onClick={() => ouvrirBulletin(e.eleve_id)}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 hover:bg-cream-100"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </button>
+          ),
+        } satisfies Colonne<Classement['eleves'][number]>,
+      ]
+      : []),
   ]
 
   return (
