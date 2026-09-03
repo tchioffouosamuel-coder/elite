@@ -16,6 +16,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Select, Input, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -67,6 +68,7 @@ function CouvertureStats() {
 export function MaJourneePage() {
   const { t } = useTranslation()
   const location = useLocation()
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   // Arrivée depuis le scan d'un QR code de salle : l'affectation résolue est
   // déjà connue, pas besoin de la faire choisir une seconde fois.
   const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
@@ -209,6 +211,7 @@ export function MaJourneePage() {
               type="date"
               label={t('journee.date')}
               value={date}
+              disabled={estEnseignant}
               max={todayIso}
               onChange={(e) => {
                 setDate(e.target.value)

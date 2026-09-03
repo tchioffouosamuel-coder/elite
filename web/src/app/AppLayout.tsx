@@ -219,7 +219,7 @@ const navGroups = [
         label: 'nav.progression',
         icon: GitBranch,
         permission: 'pedagogie.view',
-        enseignantPrimaireOnly: true,
+        types: ['primaire', 'maternelle'] as TypeEcole[],
       },
       // Référentiel d'évaluation du primaire et de la maternelle : au
       // secondaire la matière se note elle-même, l'écran n'y a rien à montrer.
@@ -231,7 +231,6 @@ const navGroups = [
         masquerPourTitulaire: true,
         types: ['primaire', 'maternelle'] as TypeEcole[],
       },
-      { to: '/progression', label: 'nav.progression', icon: GitBranch, permission: 'pedagogie.view', masquerPourTitulaire: true },
       {
         to: '/enseignant/mes-matieres',
         label: 'nav.mesMatieres',
