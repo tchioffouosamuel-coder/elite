@@ -69,7 +69,7 @@ function transformer(
   )
 }
 
-export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }) {
+export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { classeMatiereId: number; lectureSeule?: boolean }) {
   const { t } = useTranslation()
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [chargement, setChargement] = useState(true)
@@ -190,17 +190,18 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
             <div className="flex items-center gap-2 border-b border-navy-100 pb-1.5">
               <input
                 value={item.titre}
+                readOnly={lectureSeule}
                 onChange={(e) => modifier(monChemin, { titre: e.target.value })}
                 placeholder={t('progression.partie')}
                 className="min-w-40 flex-1 rounded-lg border border-transparent px-2 py-1 font-display text-sm font-bold text-navy-800 hover:border-navy-200 focus:border-navy-400 focus:outline-none"
               />
-              <button
+              {!lectureSeule && <button
                 onClick={() => supprimer(monChemin)}
                 title={t('common.delete')}
                 className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </button>}
             </div>
             {item.enfants.length > 0 && <div className="pl-3">{rendre(item.enfants, monChemin)}</div>}
           </div>
@@ -212,9 +213,8 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
       return (
         <Fragment key={cle}>
           <div
-            className={`flex flex-wrap items-center gap-2 border-b border-navy-50 py-2 ${
-              ouvert ? 'bg-cream-50/60' : ''
-            }`}
+            className={`flex flex-wrap items-center gap-2 border-b border-navy-50 py-2 ${ouvert ? 'bg-cream-50/60' : ''
+              }`}
           >
             <button
               onClick={() => basculer(cle)}
@@ -226,6 +226,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
 
             <input
               value={item.topic ?? ''}
+              readOnly={lectureSeule}
               onChange={(e) => modifier(monChemin, { topic: e.target.value, titre: e.target.value })}
               placeholder="Topic"
               className={`min-w-40 flex-1 ${CHAMP_CLASSES}`}
@@ -233,6 +234,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
 
             <input
               value={item.sous_topic ?? ''}
+              readOnly={lectureSeule}
               onChange={(e) => modifier(monChemin, { sous_topic: e.target.value })}
               placeholder="Sub-topic"
               className={`min-w-32 flex-1 ${CHAMP_CLASSES}`}
@@ -244,13 +246,13 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
               </span>
             )}
 
-            <button
+            {!lectureSeule && <button
               onClick={() => supprimer(monChemin)}
               title={t('common.delete')}
               className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
             >
               <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            </button>}
           </div>
 
           {ouvert && (
@@ -260,6 +262,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">Week</span>
                   <input
                     value={item.semaine ?? ''}
+                    readOnly={lectureSeule}
                     onChange={(e) => modifier(monChemin, { semaine: e.target.value })}
                     placeholder={String(index + 1)}
                     className={`w-20 ${CHAMP_CLASSES}`}
@@ -273,6 +276,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                   <input
                     type="date"
                     value={item.date_prevue ?? ''}
+                    readOnly={lectureSeule}
                     onChange={(e) => modifier(monChemin, { date_prevue: e.target.value || null })}
                     className={`w-40 ${CHAMP_CLASSES}`}
                   />
@@ -285,6 +289,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                   <input
                     type="date"
                     value={item.date_realisee ?? ''}
+                    readOnly={lectureSeule}
                     onChange={(e) => modifier(monChemin, { date_realisee: e.target.value || null })}
                     className={`w-40 ${CHAMP_CLASSES}`}
                   />
@@ -296,6 +301,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                   </span>
                   <input
                     value={item.duree ?? ''}
+                    readOnly={lectureSeule}
                     onChange={(e) => modifier(monChemin, { duree: e.target.value })}
                     className={`w-28 ${CHAMP_CLASSES}`}
                   />
@@ -309,6 +315,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                     <textarea
                       rows={lignes}
                       value={(item[champCle] as string | null) ?? ''}
+                      readOnly={lectureSeule}
                       onChange={(e) => modifier(monChemin, { [champCle]: e.target.value })}
                       className={CHAMP_CLASSES}
                     />
@@ -323,6 +330,7 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
                     <textarea
                       rows={1}
                       value={item.colonnes_libres?.[colonne.id] ?? ''}
+                      readOnly={lectureSeule}
                       onChange={(e) => modifierColonneLibre(monChemin, colonne.id, e.target.value)}
                       className={CHAMP_CLASSES}
                     />
@@ -356,22 +364,22 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
             </div>
             <p className="mt-1 text-right text-xs font-semibold text-navy-600">{programme.taux} %</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setColonnesOuvert(true)}>
+          {!lectureSeule && <Button variant="secondary" size="sm" onClick={() => setColonnesOuvert(true)}>
             <Settings2 className="h-3.5 w-3.5" />
             {t('progression.colonnes_libres')}
-          </Button>
-          <Button variant="secondary" onClick={() => setImportOuvert(true)}>
+          </Button>}
+          {!lectureSeule && <Button variant="secondary" onClick={() => setImportOuvert(true)}>
             <Upload className="h-4 w-4" />
             {t('progression.importer_fiche')}
-          </Button>
+          </Button>}
           <Button variant="secondary" onClick={exporterPdf} disabled={exportEnCours}>
             <FileDown className="h-4 w-4" />
             PDF
           </Button>
-          <Button onClick={enregistrer} disabled={submitting}>
+          {!lectureSeule && <Button onClick={enregistrer} disabled={submitting}>
             <Save className="h-4 w-4" />
             {t('common.save')}
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -393,10 +401,10 @@ export function ProgrammeEditor({ classeMatiereId }: { classeMatiereId: number }
         )}
 
         <div className="mt-3 flex flex-wrap gap-2 border-t border-navy-100 pt-3">
-          <Button variant="secondary" size="sm" onClick={ajouterLecon}>
+          {!lectureSeule && <Button variant="secondary" size="sm" onClick={ajouterLecon}>
             <Plus className="h-3.5 w-3.5" />
             {t('progression.lecon')}
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -611,7 +619,7 @@ function ImportFicheModal({
       onClose()
       succes(
         t('progression.import_resultat', { creees: resultat.creees, completees: resultat.completees }) +
-          (resultat.ignorees > 0 ? ` ${t('progression.import_ignorees', { count: resultat.ignorees })}` : ''),
+        (resultat.ignorees > 0 ? ` ${t('progression.import_ignorees', { count: resultat.ignorees })}` : ''),
       )
     } catch (err) {
       setErreur((err as ApiError).message)

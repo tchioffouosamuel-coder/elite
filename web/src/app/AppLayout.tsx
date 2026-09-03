@@ -214,6 +214,13 @@ const navGroups = [
     label: 'nav.group.pedagogie',
     items: [
       { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true },
+      {
+        to: '/progression',
+        label: 'nav.progression',
+        icon: GitBranch,
+        permission: 'pedagogie.view',
+        enseignantPrimaireOnly: true,
+      },
       // Référentiel d'évaluation du primaire et de la maternelle : au
       // secondaire la matière se note elle-même, l'écran n'y a rien à montrer.
       {
@@ -507,6 +514,7 @@ export function AppLayout() {
               (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
               (!('professeurPrincipal' in item) || !item.professeurPrincipal || estProfesseurPrincipal) &&
               (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
+              (!('enseignantPrimaireOnly' in item) || !item.enseignantPrimaireOnly || user?.is_super_admin || can('pedagogie.manage') || estTitulaireDeClasse) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse) &&
               (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur),
           )

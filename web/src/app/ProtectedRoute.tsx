@@ -29,6 +29,7 @@ export function ProtectedRoute({
   children,
   permission,
   enseignantOnly = false,
+  enseignantPrimaireOnly = false,
   superAdminOnly = false,
   masquerPourTitulaire = false,
   masquerPourVendeur = false,
@@ -47,6 +48,8 @@ export function ProtectedRoute({
    * d'aucune classe : lui montrer « Ma journée » n'aurait pas de sens.
    */
   enseignantOnly?: boolean
+  /** Réservé aux enseignants du primaire et de la maternelle. */
+  enseignantPrimaireOnly?: boolean
   superAdminOnly?: boolean
   /**
    * Ferme cette route aux titulaires de primaire/maternelle : leur périmètre
@@ -131,6 +134,9 @@ export function ProtectedRoute({
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user)} replace />
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user)} replace />
   if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (enseignantPrimaireOnly && !user?.is_super_admin && !can('pedagogie.manage') && (!user?.est_enseignant || !['primaire', 'maternelle'].includes(activeSchool()?.type ?? ''))) {
+    return <Navigate to={redirectionParDefaut(user)} replace />
+  }
   if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user)} replace />
   if (chefDepartementOnly && !aAttribution('chef_departement')) return <Navigate to={redirectionParDefaut(user)} replace />
   if (professeurPrincipalOnly && !aAttribution('professeur_principal')) return <Navigate to={redirectionParDefaut(user)} replace />

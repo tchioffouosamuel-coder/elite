@@ -42,7 +42,7 @@ export function ProgressionPage() {
   const classeMatiereIdNumber = classeMatiereId ? Number(classeMatiereId) : null
 
   if (classeMatiereIdNumber) {
-    return <ProgrammeMatiereView classeMatiereId={classeMatiereIdNumber} />
+    return <ProgrammeMatiereView classeMatiereId={classeMatiereIdNumber} lectureSeule={estLectureSeule()} />
   }
 
   if (classeIdNumber) {
@@ -50,6 +50,13 @@ export function ProgressionPage() {
   }
 
   return <ClassesProgressionView />
+}
+
+function estLectureSeule(): boolean {
+  const { user, activeSchool } = useAuthStore.getState()
+  const type = activeSchool()?.type
+
+  return Boolean(user?.est_enseignant && (type === 'primaire' || type === 'maternelle'))
 }
 
 function ClassesProgressionView() {
@@ -221,9 +228,9 @@ function ImportModeleClasseModal({
           completees: resultat.completees,
           matieres: resultat.matieres_importees,
         }) +
-          (resultat.feuilles_ignorees.length > 0
-            ? ` ${t('progression.import_groupe.feuilles_ignorees', { count: resultat.feuilles_ignorees.length })}`
-            : ''),
+        (resultat.feuilles_ignorees.length > 0
+          ? ` ${t('progression.import_groupe.feuilles_ignorees', { count: resultat.feuilles_ignorees.length })}`
+          : ''),
       )
     } catch (err) {
       setErreur((err as ApiError).message)
@@ -346,7 +353,7 @@ function MatieresClasseView({ classeId }: { classeId: number }) {
   )
 }
 
-function ProgrammeMatiereView({ classeMatiereId }: { classeMatiereId: number }) {
+function ProgrammeMatiereView({ classeMatiereId, lectureSeule }: { classeMatiereId: number; lectureSeule: boolean }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
@@ -371,9 +378,9 @@ function ProgrammeMatiereView({ classeMatiereId }: { classeMatiereId: number }) 
 
       {can('pedagogie.view') && (
         <div className="flex flex-col gap-5">
-          <ProgrammeEditor classeMatiereId={classeMatiereId} />
-          <EvaluationsEditor classeMatiereId={classeMatiereId} />
-          <ChampsPersonnalisesEditor classeMatiereId={classeMatiereId} />
+          <ProgrammeEditor classeMatiereId={classeMatiereId} lectureSeule={lectureSeule} />
+          {!lectureSeule && <EvaluationsEditor classeMatiereId={classeMatiereId} />}
+          {!lectureSeule && <ChampsPersonnalisesEditor classeMatiereId={classeMatiereId} />}
         </div>
       )}
     </div>
