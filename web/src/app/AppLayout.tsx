@@ -218,7 +218,7 @@ const navGroups = [
         to: '/progression',
         label: 'nav.progression',
         icon: GitBranch,
-        permission: 'pedagogie.view',
+        permission: 'notes.view',
         types: ['primaire', 'maternelle'] as TypeEcole[],
       },
       // Référentiel d'évaluation du primaire et de la maternelle : au

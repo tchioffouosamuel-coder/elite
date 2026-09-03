@@ -553,7 +553,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EnseignantController::class, 'ajouterEvaluation'])->name('evaluations.store');
             });
 
-            Route::middleware('permission:pedagogie.view')->group(function () {
+            Route::middleware('permission:notes.view')->group(function () {
                 Route::get('matieres', [MatiereController::class, 'index'])->name('matieres.index');
 
                 /*
@@ -608,7 +608,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * Progression pédagogique : le programme annuel se consulte avec la
              * pédagogie et ne s'édite qu'avec le droit de la gérer.
              */
-            Route::middleware('permission:pedagogie.view')->group(function () {
+            Route::middleware('permission:notes.view')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
                 Route::get('classes/{classeId}/progression/modele', [ProgressionController::class, 'modeleClasse'])->name('progression.modele-classe');

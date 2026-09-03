@@ -212,9 +212,9 @@ export const router = createHashRouter([
       { path: 'seances/:id/appel', element: <ProtectedRoute permission="appel.manage"><AppelPage /></ProtectedRoute> },
       { path: 'codes-qr', element: <ProtectedRoute permission="emploi_du_temps.manage"><QrCodesPage /></ProtectedRoute> },
       { path: 'annonces', element: <ProtectedRoute permission="annonces.view"><AnnoncesPage /></ProtectedRoute> },
-      { path: 'progression', element: <ProtectedRoute permission="pedagogie.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
-      { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="pedagogie.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
-      { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="pedagogie.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
+      { path: 'progression', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
+      { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
+      { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
       { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
       {
