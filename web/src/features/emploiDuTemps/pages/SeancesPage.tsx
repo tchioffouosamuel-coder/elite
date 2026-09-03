@@ -23,6 +23,14 @@ function lundiCourant(): string {
   return date.toISOString().slice(0, 10)
 }
 
+function dateLocaleAujourdhui(): string {
+  const date = new Date()
+  const mois = String(date.getMonth() + 1).padStart(2, '0')
+  const jour = String(date.getDate()).padStart(2, '0')
+
+  return `${date.getFullYear()}-${mois}-${jour}`
+}
+
 export function SeancesPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
@@ -54,6 +62,9 @@ export function SeancesPage() {
     queryFn: () => fetchSeances(classeActive!),
     enabled: classeActive !== null,
   })
+
+  const seancesDuJour = seances?.filter((seance) => seance.date_seance === dateLocaleAujourdhui()) ?? []
+  const autresSeances = seances?.filter((seance) => seance.date_seance !== dateLocaleAujourdhui()) ?? []
 
   const colonnesClasses: Colonne<Classe>[] = [
     {
@@ -183,14 +194,30 @@ export function SeancesPage() {
           ) : isLoading ? (
             <Spinner />
           ) : (
-            <DataTable
-              colonnes={colonnes}
-              lignes={seances ?? []}
-              cleLigne={(s) => s.id}
-              placeholderRecherche={t('emploiDuTemps.search_placeholder')}
-              messageVide={t('emploiDuTemps.empty_seances')}
-              largeurMin={820}
-            />
+            <>
+              <Card>
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances du jour</h2>
+                <DataTable
+                  colonnes={colonnes}
+                  lignes={seancesDuJour}
+                  cleLigne={(s) => s.id}
+                  placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+                  messageVide="Aucune séance prévue aujourd'hui."
+                  largeurMin={820}
+                />
+              </Card>
+              <Card>
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances des autres jours</h2>
+                <DataTable
+                  colonnes={colonnes}
+                  lignes={autresSeances}
+                  cleLigne={(s) => s.id}
+                  placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+                  messageVide="Aucune autre séance."
+                  largeurMin={820}
+                />
+              </Card>
+            </>
           )}
         </>
       ) : classeActive === null ? (
