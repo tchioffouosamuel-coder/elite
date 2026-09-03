@@ -131,6 +131,8 @@ class ConseilClasseController extends Controller
         $ligne = fn ($d) => [
             'nom_complet' => $d->eleve->nom_complet,
             'matricule' => $d->eleve->matricule,
+            'date_naissance' => $d->eleve->date_naissance?->format('d/m/Y'),
+            'lieu_naissance' => $d->eleve->lieu_naissance,
             'moyenne_annuelle' => $d->moyenne_annuelle,
             'gracie' => $d->gracie,
             'motif' => $d->motif,
@@ -170,7 +172,7 @@ class ConseilClasseController extends Controller
 
         return [
             'id' => $conseil->id,
-            'classe' => ['id' => $conseil->classe->id, 'nom' => $conseil->classe->nom],
+            'classe' => ['id' => $conseil->classe->id, 'nom' => $conseil->classe->nom, 'school_id' => $conseil->classe->school_id],
             'annee_scolaire' => ['id' => $conseil->anneeScolaire->id, 'libelle' => $conseil->anneeScolaire->libelle],
             'seuil_moyenne' => (float) $conseil->seuil_moyenne,
             'motif_seuil' => $conseil->motif_seuil,

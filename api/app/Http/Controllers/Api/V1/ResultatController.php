@@ -10,9 +10,7 @@ use App\Models\Classe;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\Trimestre;
-use App\Services\BulletinService;
 use App\Services\MoyenneService;
-use App\Support\Pdf\MpdfFactory;
 use App\Support\Tenant;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -24,10 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ResultatController extends Controller
 {
-    public function __construct(
-        private readonly MoyenneService $service,
-        private readonly BulletinService $bulletinService,
-    ) {}
+    public function __construct(private readonly MoyenneService $service) {}
 
     public function remplissage(Request $request, int $classeId): JsonResponse
     {
@@ -60,36 +55,6 @@ class ResultatController extends Controller
             new ClassementExport($this->classementRows($classe, $trimestre)),
             "classement-{$classe->nom}-{$trimestre->libelle}.xlsx"
         );
-    }
-
-    /**
-     * Procès-verbal du conseil de classe : la situation de chaque élève en
-     * fin de trimestre (moyenne, rang, mentions), mise en forme pour être
-     * complétée en séance puis signée — le pendant académique du PV du
-     * conseil de discipline, en réutilisant le même calcul que le bulletin
-     * plutôt que de le refaire (`BulletinService::donneesClasse`).
-     */
-    public function pvConseilPdf(Request $request, int $classeId): Response
-    {
-        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
-        $trimestre = $this->resolveTrimestre($request, $classe->school_id);
-
-        $donnees = $this->bulletinService->donneesClasse($classe, $trimestre);
-
-        // Le conseil délibère du meilleur au plus faible, pas dans l'ordre
-        // alphabétique que renvoie donneesClasse() (pensé pour un bulletin
-        // par élève, où l'ordre n'a pas d'importance).
-        $eleves = collect($donnees['eleves'])->sortBy(
-            fn (array $e) => $e['rang'] ?? PHP_INT_MAX
-        )->values();
-
-        return MpdfFactory::streamFromView('pdf.pv-conseil-classe', [
-            'school' => $classe->school,
-            'classe' => $classe,
-            'trimestre' => $trimestre->load('anneeScolaire'),
-            'eleves' => $eleves,
-            'stats' => $donnees['stats'],
-        ], 'pv-conseil-classe.pdf', school: $classe->school);
     }
 
     public function palmares(Request $request): JsonResponse

@@ -132,25 +132,26 @@ export function ComptesPage() {
     },
   ]
 
-  const desactives = data?.filter((c) => !c.est_actif).length ?? 0
-  const doiventChanger = data?.filter((c) => c.doit_changer_mot_de_passe).length ?? 0
+  const comptesNonParent = data?.filter((c) => c.type !== 'parent')
+  const desactives = comptesNonParent?.filter((c) => !c.est_actif).length ?? 0
+  const doiventChanger = comptesNonParent?.filter((c) => c.doit_changer_mot_de_passe).length ?? 0
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         titre="Comptes utilisateurs"
-        sousTitre="Tous les comptes de connexion de l'établissement — personnel, parents, super administrateurs."
+        sousTitre="Tous les comptes de connexion de l'établissement — personnel, super administrateurs."
         icon={Users}
       />
 
       {isLoading ? (
         <Spinner />
-      ) : isError || !data ? (
+      ) : isError || !comptesNonParent ? (
         <ErrorState />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Comptes" value={data.length} icon={Users} accent="navy" />
+            <StatCard label="Comptes" value={comptesNonParent.length} icon={Users} accent="navy" />
             <StatCard
               label="Désactivés"
               value={desactives}
@@ -168,7 +169,7 @@ export function ComptesPage() {
 
           <DataTable
             colonnes={colonnes}
-            lignes={data}
+            lignes={comptesNonParent}
             cleLigne={(c) => c.id}
             placeholderRecherche="Rechercher un compte…"
             messageVide="Aucun compte utilisateur."

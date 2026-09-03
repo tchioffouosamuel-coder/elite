@@ -20,9 +20,9 @@ use Mpdf\Output\Destination;
  *   motif_seuil: ?string,
  *   classe_destination: ?string,
  *   valide_le: ?string,
- *   admis: list<array{nom_complet:string, matricule:?string, moyenne_annuelle:?float, gracie:bool, motif:?string}>,
- *   redoublants: list<array{nom_complet:string, matricule:?string, moyenne_annuelle:?float}>,
- *   exclus: list<array{nom_complet:string, matricule:?string, motif:?string}>,
+ *   admis: list<array{nom_complet:string, matricule:?string, date_naissance:?string, lieu_naissance:?string, moyenne_annuelle:?float, gracie:bool, motif:?string}>,
+ *   redoublants: list<array{nom_complet:string, matricule:?string, date_naissance:?string, lieu_naissance:?string, moyenne_annuelle:?float}>,
+ *   exclus: list<array{nom_complet:string, matricule:?string, date_naissance:?string, lieu_naissance:?string, motif:?string}>,
  * } $donnees
  */
 class ProcesVerbalConseilGenerator
@@ -101,11 +101,17 @@ class ProcesVerbalConseilGenerator
         }
 
         $html = '<h3 class="titre" style="font-size:3.2mm;margin-top:5mm;">'.$this->e($titre).' ('.count($lignes).')</h3>';
-        $html .= '<table><thead><tr><th>Matricule</th><th class="left">Nom complet / Full name</th><th>Détail / Detail</th></tr></thead><tbody>';
+        $html .= '<table><thead><tr>'
+            .'<th>Matricule</th><th class="left">Nom complet / Full name</th>'
+            .'<th>Date de naissance / Date of birth</th><th class="left">Lieu de naissance / Place of birth</th>'
+            .'<th>Détail / Detail</th>'
+            .'</tr></thead><tbody>';
 
         foreach ($lignes as $ligne) {
             $html .= '<tr><td>'.$this->e((string) ($ligne['matricule'] ?? '—')).'</td>'
                 .'<td class="left">'.$this->e($ligne['nom_complet']).'</td>'
+                .'<td>'.$this->e($ligne['date_naissance'] ?? '—').'</td>'
+                .'<td class="left">'.$this->e($ligne['lieu_naissance'] ?? '—').'</td>'
                 .'<td>'.$colonne($ligne).'</td></tr>';
         }
 

@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
+use App\Http\Controllers\Api\V1\JustificationAbsenceAdminController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MalaiseReferentielController;
@@ -57,6 +58,7 @@ use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NoteEleveController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
 use App\Http\Controllers\Api\V1\NotificationInterneController;
+use App\Http\Controllers\Api\V1\ObservationAdminController;
 use App\Http\Controllers\Api\V1\PaieController;
 use App\Http\Controllers\Api\V1\ParentEspaceController;
 use App\Http\Controllers\Api\V1\ParentPreinscriptionController;
@@ -456,6 +458,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('modifications-eleves/{id}', [ModificationEleveAdminController::class, 'show'])->name('modifications-eleves.show');
                 Route::post('modifications-eleves/{id}/valider', [ModificationEleveAdminController::class, 'valider'])->name('modifications-eleves.valider');
                 Route::post('modifications-eleves/{id}/rejeter', [ModificationEleveAdminController::class, 'rejeter'])->name('modifications-eleves.rejeter');
+
+                Route::get('justifications', [JustificationAbsenceAdminController::class, 'index'])->name('justifications.index');
+                Route::get('justifications/{id}', [JustificationAbsenceAdminController::class, 'show'])->name('justifications.show');
+
+                Route::get('observations', [ObservationAdminController::class, 'index'])->name('observations.index');
+                Route::get('observations/{eleveId}', [ObservationAdminController::class, 'show'])->name('observations.show');
+                Route::post('observations/{eleveId}', [ObservationAdminController::class, 'repondre'])->name('observations.repondre');
             });
 
             /*
@@ -708,7 +717,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('palmares/pdf', [ResultatController::class, 'palmaresPdf'])->name('resultats.palmares.pdf');
                 Route::get('eleves/{eleveId}/bulletin', [BulletinController::class, 'show'])->name('eleves.bulletin');
                 Route::get('classes/{classeId}/bulletins', [BulletinController::class, 'classe'])->name('classes.bulletins');
-                Route::get('classes/{classeId}/pv-conseil/pdf', [ResultatController::class, 'pvConseilPdf'])->name('resultats.pv-conseil.pdf');
 
                 // Statistiques globales de l'établissement (équivalent des pages
                 // generate_*_stats_batch_advanced.php de _smapp).

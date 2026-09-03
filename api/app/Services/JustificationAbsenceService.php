@@ -17,6 +17,8 @@ use RuntimeException;
  */
 class JustificationAbsenceService extends BaseService
 {
+    public function __construct(private readonly NotificationService $notifications) {}
+
     /**
      * @param  array{date_debut: string, date_fin?: ?string, motif: string, description?: ?string}  $donnees
      */
@@ -26,7 +28,7 @@ class JustificationAbsenceService extends BaseService
             throw new RuntimeException("Cet élève n'est pas rattaché à votre compte.");
         }
 
-        return JustificationAbsence::create([
+        $justification = JustificationAbsence::create([
             'school_id' => $eleve->school_id,
             'eleve_id' => $eleve->id,
             'tuteur_id' => $tuteur->id,
@@ -35,6 +37,17 @@ class JustificationAbsenceService extends BaseService
             'motif' => $donnees['motif'],
             'description' => $donnees['description'] ?? null,
         ]);
+
+        $this->notifications->notifierParPermission(
+            $eleve->school_id,
+            'eleves.manage',
+            'justification_absence',
+            "Justification d'absence déposée",
+            "{$tuteur->nom_complet} justifie une absence de {$eleve->nom_complet}.",
+            "/justifications?id={$justification->id}",
+        );
+
+        return $justification;
     }
 
     /** @return Collection<int, JustificationAbsence> */

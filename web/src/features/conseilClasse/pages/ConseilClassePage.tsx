@@ -140,9 +140,11 @@ export function ConseilClassePage() {
                 onChange={(e) => changerDestination(e.target.value)}
               >
                 <option value="">Fin de cycle — les admis seront diplômés</option>
-                {(classes ?? []).filter((c) => c.id !== conseil.classe.id).map((c) => (
-                  <option key={c.id} value={c.id}>{c.nom}</option>
-                ))}
+                {(classes ?? [])
+                  .filter((c) => c.id !== conseil.classe.id && c.school_id === conseil.classe.school_id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.nom}</option>
+                  ))}
               </Select>
             ) : (
               <span className="text-lg font-bold text-navy-900">{conseil.classe_destination?.nom ?? 'Fin de cycle (diplôme)'}</span>

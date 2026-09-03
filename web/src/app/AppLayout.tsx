@@ -58,6 +58,8 @@ import {
   TrendingUp,
   Landmark,
   Archive,
+  CalendarX,
+  MessageSquare,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -194,11 +196,18 @@ const navGroups = [
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true },
+    ],
+  },
+  {
+    label: 'nav.group.parents',
+    items: [
       { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true },
       { to: '/statistiques-parent', label: 'nav.statsPortailParent', icon: TrendingUp, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true },
     ],
   },
   {

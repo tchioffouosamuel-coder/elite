@@ -24,6 +24,7 @@ use App\Services\BulletinService;
 use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\ModificationEleveService;
+use App\Services\ObservationService;
 use App\Services\DisciplineService;
 use App\Services\ProgressionService;
 use App\Services\EcheancierService;
@@ -53,6 +54,7 @@ class ParentEspaceController extends Controller
         private readonly DisciplineService $discipline,
         private readonly JustificationAbsenceService $justifications,
         private readonly ModificationEleveService $modifications,
+        private readonly ObservationService $observations,
         private readonly EmploiDuTempsService $emploiDuTemps,
         private readonly EcheancierService $echeancier,
     ) {}
@@ -417,12 +419,7 @@ class ParentEspaceController extends Controller
 
         $data = $request->validate(['contenu' => ['required', 'string', 'max:2000']]);
 
-        $observation = Observation::create([
-            'school_id' => $e->school_id,
-            'eleve_id' => $e->id,
-            'user_id' => $request->user()->id,
-            'contenu' => $data['contenu'],
-        ]);
+        $observation = $this->observations->creer($e, $request->user(), $data['contenu']);
 
         return ApiResponse::created($observation, 'Observation transmise.');
     }

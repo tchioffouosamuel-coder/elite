@@ -8,7 +8,6 @@ import {
   Pencil,
   Users,
   FileDown,
-  FileText,
   FileSpreadsheet,
   CalendarClock,
   GitBranch,
@@ -20,9 +19,8 @@ import {
   Gavel,
 } from 'lucide-react'
 import { fetchClasse, deleteClasse } from '@/features/classes/api'
-import { ouvrirBulletinsClasse, ouvrirPvConseilClasse } from '@/features/resultats/api'
+import { ouvrirBulletinsClasse } from '@/features/resultats/api'
 import { useAuthStore } from '@/shared/store/authStore'
-import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { EntityHeader } from '@/shared/ui/EntityHeader'
@@ -58,8 +56,6 @@ export function ClasseDetailPage() {
 
   if (isLoading) return <Spinner />
   if (isError || !classe) return <ErrorState />
-
-  const secondaire = estSecondaire(classe.school?.type)
 
   const supprimer = async () => {
     const confirme = await confirmer({
@@ -143,12 +139,6 @@ export function ClasseDetailPage() {
           icon: FileDown,
           onClick: () => ouvrirBulletinsClasse(classe.id, undefined, classe.school?.type),
         },
-        secondaire &&
-          can('bulletins.view') && {
-            label: t('hub.classe.pv_conseil'),
-            icon: FileText,
-            onClick: () => ouvrirPvConseilClasse(classe.id),
-          },
         can('classes.view') && {
           label: t('export.carte'),
           icon: IdCard,

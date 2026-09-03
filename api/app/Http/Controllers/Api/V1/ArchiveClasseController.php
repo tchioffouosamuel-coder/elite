@@ -95,6 +95,8 @@ class ArchiveClasseController extends Controller
         $ligne = fn ($d) => [
             'nom_complet' => $d->eleve->nom_complet,
             'matricule' => $d->eleve->matricule,
+            'date_naissance' => $d->eleve->date_naissance?->format('d/m/Y'),
+            'lieu_naissance' => $d->eleve->lieu_naissance,
             'moyenne_annuelle' => $d->moyenne_annuelle,
             'gracie' => $d->gracie,
             'motif' => $d->motif,

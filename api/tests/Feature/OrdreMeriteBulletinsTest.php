@@ -166,11 +166,11 @@ class OrdreMeriteBulletinsTest extends TestCase
     }
 
     /**
-     * Le PV du conseil et le bilan disciplinaire passent par des vues Blade
-     * dont la feuille de style vient d'être réalignée sur celle des documents
-     * mPDF : ce test garde la compilation de ces vues sous surveillance.
+     * Le bilan disciplinaire passe par une vue Blade dont la feuille de style
+     * vient d'être réalignée sur celle des documents mPDF : ce test garde sa
+     * compilation sous surveillance.
      */
-    public function test_les_documents_de_classe_se_generent_toujours(): void
+    public function test_le_bilan_disciplinaire_se_genere_toujours(): void
     {
         $this->eleve('ZAITOUNA ASHRAF', 18.0);
         $this->eleve('ABDOURAMAN OUZAIFA', 11.0);
@@ -181,13 +181,10 @@ class OrdreMeriteBulletinsTest extends TestCase
         ]);
         $admin->assignRole('super_admin');
 
-        foreach ([
-            "/api/v1/classes/{$this->classe->id}/pv-conseil/pdf?trimestre_id={$this->trimestre->id}",
-            "/api/v1/classes/{$this->classe->id}/bilan-disciplinaire/pdf?trimestre_id={$this->trimestre->id}",
-        ] as $url) {
-            $reponse = $this->actingAs($admin, 'sanctum')->get($url)->assertOk();
-            $this->assertStringStartsWith('%PDF', $reponse->getContent(), $url);
-        }
+        $reponse = $this->actingAs($admin, 'sanctum')
+            ->get("/api/v1/classes/{$this->classe->id}/bilan-disciplinaire/pdf?trimestre_id={$this->trimestre->id}")
+            ->assertOk();
+        $this->assertStringStartsWith('%PDF', $reponse->getContent());
     }
 
     /** L'effectif affiché reste celui de la classe, pas celui de la sélection. */

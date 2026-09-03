@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Line, Bar } from 'react-chartjs-2'
 import {
@@ -98,7 +99,12 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
  * juger en continu si le portail remplace effectivement les démarches
  * papier plutôt que de simplement exister à côté d'elles.
  */
+// Ordre des séries du graphique « Démarches déposées » — sert à retrouver,
+// depuis l'index de la série cliquée, la page d'administration correspondante.
+const PAGES_DEMARCHES = ['/preinscriptions', '/modifications-eleves', '/justifications', '/observations']
+
 export function AdminParentStatsPage() {
+  const navigate = useNavigate()
   const [jours, setJours] = useState<7 | 30 | 90>(7)
 
   const { data, isLoading, isError } = useQuery({
@@ -206,12 +212,21 @@ export function AdminParentStatsPage() {
 
       <Card>
         <h2 className="mb-3 font-display text-base font-bold text-navy-900">Démarches déposées par les parents</h2>
+        <p className="mb-2 text-xs text-navy-400">Cliquez une barre pour ouvrir la page de gestion correspondante.</p>
         <div className="h-72">
           <Bar
             data={dataVolumes}
             options={{
               responsive: true,
               maintainAspectRatio: false,
+              onHover: (event, elements) => {
+                const target = event.native?.target as HTMLElement | undefined
+                if (target) target.style.cursor = elements.length > 0 ? 'pointer' : 'default'
+              },
+              onClick: (_event, elements) => {
+                const page = elements.length > 0 ? PAGES_DEMARCHES[elements[0].datasetIndex] : undefined
+                if (page) navigate(page)
+              },
               plugins: { legend: { display: true, position: 'top' as const, labels: { boxWidth: 10, usePointStyle: true } } },
               scales: { y: { beginAtZero: true, stacked: false, ticks: { precision: 0 } }, x: { grid: { display: false } } },
             }}

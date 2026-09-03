@@ -98,7 +98,8 @@
       "resultats": "Results",
       "finance": "Finance",
       "admin": "Administration",
-      "identification": "Identification & security"
+      "identification": "Identification & security",
+      "parents": "Parent portal"
     },
     "niveaux": "Levels",
     "niveauxGlobaux": "Global levels",
@@ -119,6 +120,8 @@
     "modificationsEleves": "Profile edit requests",
     "comptesParents": "Parent accounts",
     "statsPortailParent": "Parent portal statistics",
+    "justifications": "Absence justifications",
+    "observations": "Observations",
     "archives": "Archives",
     "pointDeVente": "Point of sale",
     "competences": "Competencies",
@@ -1702,7 +1705,6 @@
       "inscrire_eleve": "Enrol a student",
       "voir_eleves": "Students in the class",
       "bulletins": "Class report cards",
-      "pv_conseil": "Class council minutes",
       "liste_pdf": "Student list (PDF)",
       "liste_word": "Student list (Word)",
       "conseil_fin_annee": "End-of-year class council"

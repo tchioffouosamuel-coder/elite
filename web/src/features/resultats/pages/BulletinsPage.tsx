@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FileText, FileDown, Gavel } from 'lucide-react'
+import { FileText, FileDown } from 'lucide-react'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
-import { ouvrirBulletinsClasse, ouvrirPvConseilClasse } from '@/features/resultats/api'
+import { ouvrirBulletinsClasse } from '@/features/resultats/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -18,29 +18,20 @@ import { estSecondaire } from '@/shared/lib/ecole'
  *
  * En mode agrégé (super admin, "Toutes les écoles"), la liste mélange des
  * classes de types différents : le moteur de bulletin (secondaire/primaire)
- * et la disponibilité du PV se décident donc par ligne, sur l'école de
- * CHAQUE classe — jamais sur une école active globale qui n'existe pas ici.
+ * se décide donc par ligne, sur l'école de CHAQUE classe — jamais sur une
+ * école active globale qui n'existe pas ici.
  */
 export function BulletinsPage() {
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
-  const [enCours, setEnCours] = useState<{ classeId: number; type: 'bulletins' | 'pv' } | null>(null)
+  const [enCours, setEnCours] = useState<number | null>(null)
 
   const { data: classes, isLoading } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
 
   const editer = async (classe: Classe) => {
-    setEnCours({ classeId: classe.id, type: 'bulletins' })
+    setEnCours(classe.id)
     try {
       await ouvrirBulletinsClasse(classe.id, trimestreId ? Number(trimestreId) : undefined, classe.school?.type)
-    } finally {
-      setEnCours(null)
-    }
-  }
-
-  const editerPv = async (classeId: number) => {
-    setEnCours({ classeId, type: 'pv' })
-    try {
-      await ouvrirPvConseilClasse(classeId, trimestreId ? Number(trimestreId) : undefined)
     } finally {
       setEnCours(null)
     }
@@ -100,28 +91,15 @@ export function BulletinsPage() {
                   <Td>{classe.effectif ?? '—'}</Td>
                   <Td>{(classeSecondaire ? classe.professeur_principal : classe.titulaire)?.nom_complet ?? '—'}</Td>
                   <Td>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => editer(classe)}
-                        disabled={enCours?.classeId === classe.id}
-                      >
-                        <FileDown className="h-4 w-4" />
-                        {enCours?.classeId === classe.id && enCours.type === 'bulletins' ? 'Génération…' : 'Éditer les bulletins'}
-                      </Button>
-                      {classeSecondaire && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => editerPv(classe.id)}
-                          disabled={enCours?.classeId === classe.id}
-                        >
-                          <Gavel className="h-4 w-4" />
-                          {enCours?.classeId === classe.id && enCours.type === 'pv' ? 'Génération…' : 'PV du conseil'}
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => editer(classe)}
+                      disabled={enCours === classe.id}
+                    >
+                      <FileDown className="h-4 w-4" />
+                      {enCours === classe.id ? 'Génération…' : 'Éditer les bulletins'}
+                    </Button>
                   </Td>
                 </Tr>
               )

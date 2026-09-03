@@ -98,7 +98,8 @@
       "resultats": "Résultats",
       "finance": "Finances",
       "admin": "Administration",
-      "identification": "Identification & sécurité"
+      "identification": "Identification & sécurité",
+      "parents": "Portail parent"
     },
     "niveaux": "Niveaux",
     "niveauxGlobaux": "Niveaux globaux",
@@ -119,6 +120,8 @@
     "modificationsEleves": "Modifications de fiches",
     "comptesParents": "Comptes parents",
     "statsPortailParent": "Statistiques portail parent",
+    "justifications": "Justifications d'absence",
+    "observations": "Observations",
     "archives": "Archives",
     "pointDeVente": "Point de vente",
     "competences": "Compétences",
@@ -1702,7 +1705,6 @@
       "inscrire_eleve": "Inscrire un élève",
       "voir_eleves": "Élèves de la classe",
       "bulletins": "Bulletins de la classe",
-      "pv_conseil": "PV du conseil de classe",
       "liste_pdf": "Liste des élèves (PDF)",
       "liste_word": "Liste des élèves (Word)",
       "conseil_fin_annee": "Conseil de classe de fin d'année"

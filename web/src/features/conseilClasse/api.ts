@@ -13,7 +13,7 @@ export interface DecisionConseil {
 
 export interface ConseilClasse {
   id: number
-  classe: { id: number; nom: string }
+  classe: { id: number; nom: string; school_id: number }
   annee_scolaire: { id: number; libelle: string }
   seuil_moyenne: number
   motif_seuil: string | null
