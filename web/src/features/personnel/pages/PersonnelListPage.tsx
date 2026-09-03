@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, Upload, Users } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users } from 'lucide-react'
 import {
   fetchPersonnels,
   fetchFonctionsReferentiel,
@@ -23,6 +23,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
+import { ActionsMenu } from '@/shared/ui/ActionsMenu'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
@@ -34,6 +35,7 @@ import { Modal } from '@/shared/ui/Modal'
 export function PersonnelListPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
   const navigate = useNavigate()
@@ -56,6 +58,24 @@ export function PersonnelListPage() {
 
   const secondaire = estSecondaire()
   const personnelsAffiches = data?.filter((personnel) => !schoolFilter || String(personnel.school_id) === schoolFilter) ?? []
+
+  const exporterIdentifiants = async () => {
+    const ecoles = user?.is_super_admin ? user.ecoles_accessibles : []
+
+    if (!ecoles || ecoles.length < 2) {
+      await ouvrirDocument('/personnels/identifiants')
+      return
+    }
+
+    for (const ecole of ecoles) {
+      await telechargerFichier(
+        '/personnels/identifiants',
+        undefined,
+        `identifiants-${ecole.code || ecole.id}.pdf`,
+        { 'X-School-Id': String(ecole.id) },
+      )
+    }
+  }
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds)
@@ -296,27 +316,72 @@ export function PersonnelListPage() {
         icon={Users}
         actions={
           <>
-            <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
-              <FileText className="h-4 w-4" />
-              {t('personnel.fichier')}
-            </Button>
-            <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
-              <FileSpreadsheet className="h-4 w-4" />
-              {t('export.excel')}
-            </Button>
-            <TemplateDownloadButton url="/personnels/modele" nomFichier="modele-personnel.xlsx" />
-            {can('personnel.manage') && (
-              <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/identifiants')}>
-                <KeyRound className="h-4 w-4" />
-                {t('personnel.identifiants')}
+            {/* Desktop : chaque action a son propre bouton. Sur mobile, les
+                cinq boutons secondaires empilaient l'écran ; ils passent dans
+                un unique menu « Actions » (cf. ci-dessous) et seul « Ajouter »
+                reste visible en dehors du menu, comme action principale. */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
+                <FileText className="h-4 w-4" />
+                {t('personnel.fichier')}
               </Button>
-            )}
-            {can('personnel.manage') && (
-              <Button variant="secondary" onClick={() => setShowImport(true)}>
-                <Upload className="h-4 w-4" />
-                {t('personnel.import')}
+              <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
+                <FileSpreadsheet className="h-4 w-4" />
+                {t('export.excel')}
               </Button>
-            )}
+              <TemplateDownloadButton url="/personnels/modele" nomFichier="modele-personnel.xlsx" />
+              {can('personnel.manage') && (
+                <Button variant="secondary" onClick={exporterIdentifiants}>
+                  <KeyRound className="h-4 w-4" />
+                  {user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
+                    ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
+                    : t('personnel.identifiants')}
+                </Button>
+              )}
+              {can('personnel.manage') && (
+                <Button variant="secondary" onClick={() => setShowImport(true)}>
+                  <Upload className="h-4 w-4" />
+                  {t('personnel.import')}
+                </Button>
+              )}
+            </div>
+
+            <div className="sm:hidden">
+              <ActionsMenu
+                label={t('common.actions')}
+                variant="secondary"
+                groupes={[
+                  {
+                    items: [
+                      { label: t('personnel.fichier'), icon: FileText, onClick: () => ouvrirDocument('/personnels/fichier') },
+                      {
+                        label: t('export.excel'),
+                        icon: FileSpreadsheet,
+                        onClick: () => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx'),
+                      },
+                      {
+                        label: t('import.telecharger_modele'),
+                        icon: FileDown,
+                        onClick: () => telechargerFichier('/personnels/modele', undefined, 'modele-personnel.xlsx'),
+                      },
+                      can('personnel.manage') && {
+                        label: user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
+                          ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
+                          : t('personnel.identifiants'),
+                        icon: KeyRound,
+                        onClick: exporterIdentifiants,
+                      },
+                      can('personnel.manage') && {
+                        label: t('personnel.import'),
+                        icon: Upload,
+                        onClick: () => setShowImport(true),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            </div>
+
             {can('personnel.manage') && (
               <Button onClick={() => navigate('/personnel/nouveau')}>
                 <Plus className="h-4 w-4" />

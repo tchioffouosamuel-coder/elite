@@ -210,8 +210,8 @@ function ModificationDetailModal({ id, onClose, onTraitee }: { id: number; onClo
             <Badge tone={STATUT_TONE[m.statut]}>{STATUT_LABEL[m.statut]}</Badge>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-navy-100">
-            <table className="w-full text-xs">
+          <div className="overflow-x-auto rounded-xl border border-navy-100">
+            <table className="w-full min-w-[420px] text-xs">
               <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
                   <th className="px-2.5 py-2 text-left">Champ</th>

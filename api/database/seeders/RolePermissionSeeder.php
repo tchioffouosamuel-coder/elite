@@ -178,6 +178,7 @@ class RolePermissionSeeder extends Seeder
             'pedagogie.view',
             'notes.view',
             'notes.create',
+            'bulletins.view',
             'discipline.view',
             'annonces.view',
             'dashboard.view',

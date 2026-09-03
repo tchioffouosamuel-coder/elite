@@ -265,7 +265,7 @@ class BulletinPrimaireGenerator
         $wEval = 20;
         $wNiveau = max((int) round((100 - $wComp - $wEval) / max($appreciations->count(), 1)), 6);
 
-        
+
         $entete = '<tr>'
             . '<th class="left" style="width:' . $wComp . '%;">Activités<br><i>Activities</i></th>'
             . '<th style="width:' . $wEval . '%;">Évaluation<br><i>Assessment</i></th>';
@@ -303,7 +303,7 @@ class BulletinPrimaireGenerator
                 foreach ($appreciations as $appreciation) {
                     $corps .= $appreciation->id === $atteinte
                         ? '<td style="background-color:' . $this->e($appreciation->couleur) . ';color:#fff;font-family:symbola;font-size:4mm;">'
-                            . $this->e(Appreciation::nettoyerEmoji($appreciation->emoji ?? '')) . '</td>'
+                        . $this->e(Appreciation::nettoyerEmoji($appreciation->emoji ?? '')) . '</td>'
                         : '<td>&nbsp;</td>';
                 }
 
@@ -500,7 +500,7 @@ class BulletinPrimaireGenerator
         foreach ($bulletin['moyennes_sequences'] as $moyenne) {
             $ligneMoy .= '<td>' . $this->nombre($moyenne) . '</td>';
         }
-        $ligneMoy .= '<td class="value">' . $this->nombre($bulletin['moyenne_generale']) . '</td></tr>';
+        $ligneMoy .= '<td class="value">' . $this->nombre($bulletin['moyenne_generale'] ?? null) . '</td></tr>';
 
         // Le classement n'est calculé qu'au niveau du trimestre : pas de rang
         // par séquence isolée, pour ne pas fabriquer une donnée inexistante.
@@ -519,7 +519,7 @@ class BulletinPrimaireGenerator
     {
         $stats = $donnees['stats'];
         $visa = (new VisaComposeService)->chemin($donnees['school']);
-        $celluleVisa = $visa !== null ? '<img src="'.$this->e($visa).'" style="height:20mm;">' : '';
+        $celluleVisa = $visa !== null ? '<img src="' . $this->e($visa) . '" style="height:20mm;">' : '';
         // Sans cachet ni signature scannés, la ligne de soulignement reste le
         // seul repère pour une signature manuscrite ; avec eux, elle ferait doublon.
         $ligneSignature = $visa === null ? '<br>_______________' : '';

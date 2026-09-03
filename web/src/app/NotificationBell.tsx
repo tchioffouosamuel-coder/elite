@@ -142,7 +142,11 @@ export function NotificationBell() {
       {ouvert && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOuvert(false)} />
-          <div className="absolute right-0 top-full z-40 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lifted">
+          {/* Sous sm : ancrée aux bords de l'écran plutôt qu'au bouton — la
+              cloche n'est pas à l'extrême droite de la barre mobile, un
+              panneau de 320px accroché à son bord droit (`absolute right-0`)
+              débordait donc presque entièrement hors de l'écran. */}
+          <div className="fixed inset-x-3 top-14 z-40 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lifted sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[90vw]">
             <div className="flex items-center justify-between border-b border-navy-50 px-3.5 py-2.5">
               <h2 className="text-sm font-bold text-navy-800">{t('notifications.title')}</h2>
               {nonLues > 0 && (

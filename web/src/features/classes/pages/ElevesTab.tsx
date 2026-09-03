@@ -18,6 +18,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType?: TypeEcole | null }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const estSecondaire = estSecondaireHelper(ecoleType)
 
   const { data, isLoading, isError } = useQuery({
@@ -66,46 +67,50 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
     },
     ...(can('bus.view')
       ? [
-          {
-            cle: 'bus',
-            entete: 'Bus',
-            valeur: (e) => busParEleve.get(e.id)?.trajet.nom,
-            cellule: (e) => {
-              const bus = busParEleve.get(e.id)
-              return bus ? (
-                <Badge tone="blue">
-                  <Bus className="h-3 w-3" />
-                  {bus.trajet.nom}
-                </Badge>
-              ) : (
-                <span className="text-navy-300">—</span>
-              )
-            },
-            masquerMobile: true,
-          } satisfies Colonne<Eleve>,
-        ]
+        {
+          cle: 'bus',
+          entete: 'Bus',
+          valeur: (e) => busParEleve.get(e.id)?.trajet.nom,
+          cellule: (e) => {
+            const bus = busParEleve.get(e.id)
+            return bus ? (
+              <Badge tone="blue">
+                <Bus className="h-3 w-3" />
+                {bus.trajet.nom}
+              </Badge>
+            ) : (
+              <span className="text-navy-300">—</span>
+            )
+          },
+          masquerMobile: true,
+        } satisfies Colonne<Eleve>,
+      ]
       : []),
     {
       cle: 'documents',
       entete: t('common.actions'),
       cellule: (e) => (
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => ouvrirBulletin(e.id)}
-            title={t('resultats.bulletin')}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            PDF
-          </button>
-          <button
-            onClick={() => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx')}
-            title={t('export.attestation')}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Word
-          </button>
+          {!estEnseignant && (
+            <>
+              <button
+                onClick={() => ouvrirBulletin(e.id)}
+                title={t('resultats.bulletin')}
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                PDF
+              </button>
+              <button
+                onClick={() => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx')}
+                title={t('export.attestation')}
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-navy-600 transition-colors hover:bg-cream-100"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Word
+              </button>
+            </>
+          )}
         </div>
       ),
     },

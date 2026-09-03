@@ -1,5 +1,5 @@
-import { http } from '@/shared/lib/http'
-import { useDocumentPreviewStore } from '@/shared/store/documentPreviewStore'
+import { http } from "@/shared/lib/http";
+import { useDocumentPreviewStore } from "@/shared/store/documentPreviewStore";
 
 /**
  * Téléchargement de fichier authentifié (Excel/Word/PDF) : l'API exige un
@@ -11,31 +11,38 @@ import { useDocumentPreviewStore } from '@/shared/store/documentPreviewStore'
 export async function telechargerFichier(
   url: string,
   params?: Record<string, string | number | undefined>,
-  nomParDefaut = 'export',
+  nomParDefaut = "export",
+  headers?: Record<string, string>,
 ): Promise<void> {
-  const response = await http.get(url, { params, responseType: 'blob' })
+  const response = await http.get(url, {
+    params,
+    headers,
+    responseType: "blob",
+  });
 
-  const disposition = response.headers['content-disposition'] as string | undefined
-  const match = disposition?.match(/filename="?([^";]+)"?/)
-  const filename = match?.[1] ?? nomParDefaut
+  const disposition = response.headers["content-disposition"] as
+    | string
+    | undefined;
+  const match = disposition?.match(/filename="?([^";]+)"?/);
+  const filename = match?.[1] ?? nomParDefaut;
 
-  const blobUrl = URL.createObjectURL(response.data as Blob)
-  const a = document.createElement('a')
-  a.href = blobUrl
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(blobUrl)
+  const blobUrl = URL.createObjectURL(response.data as Blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(blobUrl);
 }
 
 function blobEnDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(blob)
-  })
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
@@ -56,8 +63,12 @@ export async function ouvrirDocument(
   headers?: Record<string, string>,
   titre?: string,
 ): Promise<void> {
-  const response = await http.get(url, { params, headers, responseType: 'blob' })
-  const dataUrl = await blobEnDataUrl(response.data as Blob)
+  const response = await http.get(url, {
+    params,
+    headers,
+    responseType: "blob",
+  });
+  const dataUrl = await blobEnDataUrl(response.data as Blob);
 
-  useDocumentPreviewStore.getState().open(dataUrl, titre)
+  useDocumentPreviewStore.getState().open(dataUrl, titre);
 }
