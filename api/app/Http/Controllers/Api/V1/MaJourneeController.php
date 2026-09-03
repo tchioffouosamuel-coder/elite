@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Classe;
+use Carbon\CarbonImmutable;
 use App\Models\ClasseMatiere;
 use App\Models\Presence;
 use App\Models\ProgressionItem;
@@ -29,6 +30,10 @@ class MaJourneeController extends Controller
         // de la rejeter proprement : on valide nous-mêmes, comme `enregistrer()`
         // le fait déjà plus bas, pour ne renvoyer qu'un 422 dans ce cas.
         $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? null;
+
+        if ($date !== null && ! CarbonImmutable::parse($date)->isToday() && ! $request->user()->estPersonnelDirection()) {
+            return ApiResponse::success([]);
+        }
 
         return ApiResponse::success(
             $this->service->mesAffectations($request->user(), app('tenant.school_id'), $date)
@@ -94,6 +99,14 @@ class MaJourneeController extends Controller
 
         $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
 
+        if ($request->user()->estEnseignant() && $date !== now()->format('Y-m-d')) {
+            return ApiResponse::error(
+                "Vous ne pouvez déclarer que la journée en cours.",
+                403,
+                ['code' => 'seance_hors_jour']
+            );
+        }
+
         try {
             $seance = $this->service->seanceDuJour($classeMatiere, $date);
         } catch (RuntimeException $e) {
@@ -157,7 +170,7 @@ class MaJourneeController extends Controller
                 ->filter()->implode(' › '),
             'sequence' => $lecon->sequence?->libelle,
             'description' => $lecon->description,
-            ...collect(ProgressionItem::CHAMPS_FICHE)->mapWithKeys(fn ($champ) => [$champ => $lecon->$champ])->all(),
+            ...collect(ProgressionItem::CHAMPS_FICHE)->mapWithKeys(fn($champ) => [$champ => $lecon->$champ])->all(),
             'duree_prevue' => $lecon->duree_prevue,
             'colonnes_libres' => $lecon->colonnes_libres ?? [],
         ]);
@@ -196,6 +209,7 @@ class MaJourneeController extends Controller
             'classe_id' => $classe->id,
             'classe' => $classe->nom,
             'matiere' => $classeMatiere->matiere?->nom,
+            'qr_token' => $token,
         ]);
     }
 

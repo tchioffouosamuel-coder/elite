@@ -22,7 +22,10 @@ export function QrScanPage() {
 
     resoudreQr(token)
       .then((resolu) => {
-        navigate('/ma-journee', { replace: true, state: { classeMatiereId: resolu.classe_matiere_id } })
+        navigate('/ma-journee', {
+          replace: true,
+          state: { classeMatiereId: resolu.classe_matiere_id, qrToken: resolu.qr_token },
+        })
       })
       .catch((e) => setErreur((e as ApiError).message))
   }, [token, navigate])

@@ -70,10 +70,12 @@ export function MaJourneePage() {
   // Arrivée depuis le scan d'un QR code de salle : l'affectation résolue est
   // déjà connue, pas besoin de la faire choisir une seconde fois.
   const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
+  const tokenScanne = (location.state as { qrToken?: string } | null)?.qrToken ?? null
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
   const [affectationId, setAffectationId] = useState<number | ''>(preselection ?? '')
   const [date, setDate] = useState(todayIso)
+  const [qrToken, setQrToken] = useState<string | null>(tokenScanne)
   const [lecons, setLecons] = useState<Set<number>>(new Set())
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
@@ -130,17 +132,23 @@ export function MaJourneePage() {
     })
   }
 
+  const changerAffectation = (value: string) => {
+    const id = value ? Number(value) : ''
+    setAffectationId(id)
+    if (id !== preselection) setQrToken(null)
+  }
+
   const changerStatut = (eleveId: number, present: boolean) => {
     setAppel((lignes) =>
       lignes.map((l) =>
         l.eleve_id === eleveId
           ? {
-              ...l,
-              statut: present ? 'present' : 'absent',
-              // Un motif par défaut évite d'enregistrer une absence muette ;
-              // l'enseignant le précise ensuite s'il le connaît.
-              motif: present ? null : (l.motif ?? 'inconnu'),
-            }
+            ...l,
+            statut: present ? 'present' : 'absent',
+            // Un motif par défaut évite d'enregistrer une absence muette ;
+            // l'enseignant le précise ensuite s'il le connaît.
+            motif: present ? null : (l.motif ?? 'inconnu'),
+          }
           : l,
       ),
     )
@@ -156,6 +164,7 @@ export function MaJourneePage() {
       await enregistrerJournee(Number(affectationId), {
         date,
         lecons: [...lecons],
+        qr_token: qrToken,
         appel: appel.map((l) => ({ eleve_id: l.eleve_id, statut: l.statut, motif: l.motif })),
         observations: observations || null,
         donnees_personnalisees: donneesPersonnalisees,
@@ -187,7 +196,7 @@ export function MaJourneePage() {
             <Select
               label={t('journee.classe_matiere')}
               value={affectationId}
-              onChange={(e) => setAffectationId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => changerAffectation(e.target.value)}
             >
               <option value="">—</option>
               {affectations.map((a) => (
@@ -196,7 +205,16 @@ export function MaJourneePage() {
                 </option>
               ))}
             </Select>
-            <Input type="date" label={t('journee.date')} value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              type="date"
+              label={t('journee.date')}
+              value={date}
+              max={todayIso}
+              onChange={(e) => {
+                setDate(e.target.value)
+                if (e.target.value !== todayIso) setQrToken(null)
+              }}
+            />
           </div>
 
           {feuille && (
@@ -301,46 +319,46 @@ export function MaJourneePage() {
               <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
                 <h2 className="mb-3 font-display text-base font-bold text-navy-800">Observations</h2>
 
-                  {feuille.champs_personnalises.length > 0 && (
-                    <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {feuille.champs_personnalises.map((champ) => (
-                        <label key={champ.id} className="flex flex-col gap-1.5">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
-                            {champ.libelle}
-                          </span>
-                          {champ.type === 'case' ? (
-                            <input
-                              type="checkbox"
-                              checked={Boolean(donneesPersonnalisees[champ.id])}
-                              onChange={(e) =>
-                                setDonneesPersonnalisees((d) => ({ ...d, [champ.id]: e.target.checked }))
-                              }
-                              className="h-4 w-4 rounded border-navy-300"
-                            />
-                          ) : (
-                            <input
-                              type={champ.type === 'nombre' ? 'number' : 'text'}
-                              value={(donneesPersonnalisees[champ.id] as string | number | undefined) ?? ''}
-                              onChange={(e) =>
-                                setDonneesPersonnalisees((d) => ({
-                                  ...d,
-                                  [champ.id]: champ.type === 'nombre' ? Number(e.target.value) : e.target.value,
-                                }))
-                              }
-                              className="rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
-                            />
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                {feuille.champs_personnalises.length > 0 && (
+                  <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {feuille.champs_personnalises.map((champ) => (
+                      <label key={champ.id} className="flex flex-col gap-1.5">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                          {champ.libelle}
+                        </span>
+                        {champ.type === 'case' ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(donneesPersonnalisees[champ.id])}
+                            onChange={(e) =>
+                              setDonneesPersonnalisees((d) => ({ ...d, [champ.id]: e.target.checked }))
+                            }
+                            className="h-4 w-4 rounded border-navy-300"
+                          />
+                        ) : (
+                          <input
+                            type={champ.type === 'nombre' ? 'number' : 'text'}
+                            value={(donneesPersonnalisees[champ.id] as string | number | undefined) ?? ''}
+                            onChange={(e) =>
+                              setDonneesPersonnalisees((d) => ({
+                                ...d,
+                                [champ.id]: champ.type === 'nombre' ? Number(e.target.value) : e.target.value,
+                              }))
+                            }
+                            className="rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+                          />
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                )}
 
-                  <Textarea
-                    label="Note de fin de cours"
-                    value={observations}
-                    onChange={(e) => setObservations(e.target.value)}
-                    placeholder="Difficultés rencontrées, points à revoir, comportement de la classe…"
-                  />
+                <Textarea
+                  label="Note de fin de cours"
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  placeholder="Difficultés rencontrées, points à revoir, comportement de la classe…"
+                />
               </div>
 
               <div className="flex items-center gap-3">
