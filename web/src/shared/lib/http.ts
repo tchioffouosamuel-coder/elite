@@ -62,8 +62,14 @@ http.interceptors.response.use(
     // (il n'y a pas de refresh-token séparé) : on ferme simplement la session.
     if (error.response?.status === 401) {
       useAuthStore.getState().clearSession();
-      if (!window.location.pathname.startsWith("/connexion")) {
-        window.location.href = "/connexion";
+      // Navigation par hash, jamais par `pathname`/`href` absolu : l'app
+      // utilise `createHashRouter` (cf. router.tsx), seul mode compatible
+      // avec le renderer desktop chargé en `file://` (Electron, main.cjs) —
+      // un `window.location.href = "/connexion"` y est résolu comme un
+      // chemin de fichier absolu (`file:///C:/connexion`) et échoue avec
+      // « Not allowed to load local resource ».
+      if (!window.location.hash.startsWith("#/connexion")) {
+        window.location.hash = "#/connexion";
       }
     }
 
@@ -92,9 +98,9 @@ http.interceptors.response.use(
     // incident, c'est une étape d'ouverture de compte.
     if (
       error.response?.status === 423 &&
-      !window.location.pathname.startsWith("/mot-de-passe")
+      !window.location.hash.startsWith("#/mot-de-passe")
     ) {
-      window.location.href = "/mot-de-passe";
+      window.location.hash = "#/mot-de-passe";
     }
 
     // Un refus d'autorisation se signale ici, une fois pour toute l'application :
