@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\DesktopProvisioningController;
 use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\EleveController;
+use App\Http\Controllers\Api\V1\EleveEspaceController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EnseignantController;
@@ -113,11 +114,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->name('auth.reinitialiser-mot-de-passe');
 
     // Provisioning d'une instance locale (client desktop offline) : aucun
-    // utilisateur local n'existe encore avant `provisionner`, et `session`
-    // EST le mécanisme de connexion de cette instance (mono-utilisateur,
-    // sans mot de passe — cf. DesktopProvisioningController).
+    // utilisateur local n'existe encore avant `provisionner`, et `connexion`
+    // EST le mécanisme de connexion de cette instance — plusieurs comptes
+    // peuvent y être provisionnés, chacun avec son propre mot de passe local
+    // (cf. DesktopProvisioningController).
     Route::post('desktop/provisionner', [DesktopProvisioningController::class, 'provisionner'])->name('desktop.provisionner');
-    Route::get('desktop/session', [DesktopProvisioningController::class, 'session'])->name('desktop.session');
+    Route::post('desktop/connexion', [DesktopProvisioningController::class, 'connexion'])->name('desktop.connexion');
 
     // Vérification publique d'authenticité d'un bulletin (QR code) : accessible
     // sans authentification, un tiers externe scanne depuis son téléphone.
@@ -152,6 +154,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
         // Référentiel global, non scopé par établissement.
         Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index')->middleware('permission:niveaux.view');
+        // `export`/`modele`/`import` exigent un périmètre résolu (Tenant::schoolIds())
+        // que le reste de ce contrôleur (référentiel global) n'a pas besoin de charger —
+        // 'tenant' ajouté explicitement à ces trois-là seulement.
+        Route::get('niveaux/export', [NiveauController::class, 'export'])->name('niveaux.export')->middleware(['tenant', 'permission:niveaux.view']);
+        Route::get('niveaux/modele', [NiveauController::class, 'modele'])->name('niveaux.modele')->middleware('permission:niveaux.view');
+        Route::post('niveaux/import', [NiveauController::class, 'import'])->name('niveaux.import')->middleware(['tenant', 'permission:niveaux.manage']);
         Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.manage');
         Route::get('niveaux/{id}', [NiveauController::class, 'show'])->name('niveaux.show')->middleware('permission:niveaux.view');
         Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.manage');
@@ -175,6 +183,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::get('sync', [SyncController::class, 'pull'])->name('sync.pull');
             Route::post('sync', [SyncController::class, 'push'])->name('sync.push');
+            Route::get('sync/comptage', [SyncController::class, 'comptage'])->name('sync.comptage');
 
             // Pilotage de la synchronisation d'une instance locale (client
             // desktop). Sans objet sur le serveur distant lui-même.
@@ -205,6 +214,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('comptes-utilisateurs', [CompteController::class, 'index'])->name('comptes-utilisateurs.index');
                 Route::get('comptes-utilisateurs/{id}/activite', [CompteController::class, 'activite'])->name('comptes-utilisateurs.activite');
                 Route::post('comptes-utilisateurs/{id}/reinitialiser-mot-de-passe', [CompteController::class, 'reinitialiserMotDePasse'])->name('comptes-utilisateurs.reinitialiser-mot-de-passe');
+                Route::put('comptes-utilisateurs/{id}/ecoles', [CompteController::class, 'attribuerEcoles'])->name('comptes-utilisateurs.attribuer-ecoles');
 
                 // Diagnostic des notifications push : vérifiable depuis un
                 // simple appel API, sans accès au `.env` du serveur.
@@ -214,13 +224,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:personnel.view')->group(function () {
                 Route::get('departements', [DepartementController::class, 'index'])->name('departements.index');
+                Route::get('departements/export', [DepartementController::class, 'export'])->name('departements.export');
+                Route::get('departements/modele', [DepartementController::class, 'modele'])->name('departements.modele');
                 Route::get('departements/{id}', [DepartementController::class, 'show'])->name('departements.show');
                 Route::get('departements/{id}/statistiques/pedagogiques', [DepartementController::class, 'statsPedagogiques'])->name('departements.stats-pedagogiques');
                 Route::get('departements/{id}/statistiques/pedagogiques/export-pdf', [DepartementController::class, 'exportPdfStatistiques'])->name('departements.export-pdf-stats');
                 Route::get('fonctions-referentiel', [FonctionReferentielController::class, 'index'])->name('fonctions-referentiel.index');
+                Route::get('fonctions-referentiel/export', [FonctionReferentielController::class, 'export'])->name('fonctions-referentiel.export');
+                Route::get('fonctions-referentiel/modele', [FonctionReferentielController::class, 'modele'])->name('fonctions-referentiel.modele');
                 Route::get('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'show'])->name('fonctions-referentiel.show');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
+                Route::get('personnels/modele', [PersonnelController::class, 'modele'])->name('personnels.modele');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
                 Route::get('personnels/rapport-mise-en-place', [PersonnelController::class, 'rapportMiseEnPlace'])->name('personnels.rapport-mise-en-place');
                 Route::get('personnels/suivi-activite', [SuiviActiviteController::class, 'parPersonnel'])->name('personnels.suivi-activite');
@@ -236,10 +251,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:personnel.manage')->group(function () {
                 Route::post('departements', [DepartementController::class, 'store'])->name('departements.store');
+                Route::post('departements/import', [DepartementController::class, 'import'])->name('departements.import');
                 Route::put('departements/{id}', [DepartementController::class, 'update'])->name('departements.update');
                 Route::delete('departements/{id}', [DepartementController::class, 'destroy'])->name('departements.destroy');
 
                 Route::post('fonctions-referentiel', [FonctionReferentielController::class, 'store'])->name('fonctions-referentiel.store');
+                Route::post('fonctions-referentiel/import', [FonctionReferentielController::class, 'import'])->name('fonctions-referentiel.import');
                 Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update');
                 Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy');
                 Route::post('fonctions-referentiel/batch-delete', [FonctionReferentielController::class, 'batchDelete'])->name('fonctions-referentiel.batch-delete');
@@ -329,6 +346,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('classes/{id}', [ClasseController::class, 'destroy'])->name('classes.destroy');
 
                 Route::get('sous-systemes', [SousSystemeController::class, 'index'])->name('sous-systemes.index');
+                Route::get('sous-systemes/export', [SousSystemeController::class, 'export'])->name('sous-systemes.export');
+                Route::get('sous-systemes/modele', [SousSystemeController::class, 'modele'])->name('sous-systemes.modele');
+                Route::post('sous-systemes/import', [SousSystemeController::class, 'import'])->name('sous-systemes.import');
                 Route::post('sous-systemes', [SousSystemeController::class, 'store'])->name('sous-systemes.store');
                 Route::get('sous-systemes/{id}', [SousSystemeController::class, 'show'])->name('sous-systemes.show');
                 Route::put('sous-systemes/{id}', [SousSystemeController::class, 'update'])->name('sous-systemes.update');
@@ -344,6 +364,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/recherche-globale', [EleveController::class, 'rechercheGlobale'])->name('eleves.recherche-globale');
                 Route::get('eleves/repartition', [EleveController::class, 'repartition'])->name('eleves.repartition');
                 Route::get('eleves/export', [EleveController::class, 'export'])->name('eleves.export');
+                Route::get('eleves/modele', [EleveController::class, 'modele'])->name('eleves.modele');
                 Route::get('eleves/pdf', [ListeElevesController::class, 'pdfEcole'])->name('eleves.pdf');
                 Route::get('eleves/recapitulatif-effectifs', [EleveRapportsController::class, 'recapitulatif'])->name('eleves.recapitulatif');
                 Route::get('eleves/recapitulatif-effectifs/pdf', [EleveRapportsController::class, 'recapitulatifPdf'])->name('eleves.recapitulatif.pdf');
@@ -383,6 +404,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter');
                 Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy');
                 Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
+
+                // Comptes du portail élève — même quatuor d'actions que les
+                // comptes parent ci-dessus (cf. TuteurController), porté par
+                // EleveController plutôt qu'un contrôleur dédié : ce sont des
+                // actions sur la fiche élève, pas un domaine à part.
+                Route::get('eleves/identifiants/pdf', [EleveController::class, 'identifiantsElevePdf'])->name('eleves.identifiants-pdf');
+                Route::post('eleves/{id}/compte-eleve', [EleveController::class, 'creerCompteEleve'])->name('eleves.compte-eleve');
+                Route::post('eleves/{id}/basculer-acces', [EleveController::class, 'basculerAcces'])->name('eleves.basculer-acces');
+                Route::delete('eleves/{id}/compte-eleve', [EleveController::class, 'supprimerCompteEleve'])->name('eleves.supprimer-compte-eleve');
+                Route::post('eleves/comptes-eleve-lot', [EleveController::class, 'creerComptesEleveLot'])->name('eleves.comptes-eleve-lot');
 
                 Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
                 Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store');
@@ -433,6 +464,23 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('ecoles/{schoolId}/classes', [ParentPreinscriptionController::class, 'classesDisponibles'])->name('ecoles.classes');
             });
 
+            /**
+             * Portail élève. Gardé par le rôle, comme le portail parent — ces
+             * routes ne rendent jamais que la fiche du compte connecté (cf.
+             * `EleveAccess`), en lecture seule, sans le volet finance (réservé
+             * au tuteur).
+             */
+            Route::prefix('eleve')->name('eleve.')->middleware('role:eleve')->group(function () {
+                Route::get('moi', [EleveEspaceController::class, 'moi'])->name('moi');
+                Route::get('notes', [EleveEspaceController::class, 'notes'])->name('notes');
+                Route::get('bulletin', [EleveEspaceController::class, 'bulletin'])->name('bulletin');
+                Route::get('emploi-du-temps', [EleveEspaceController::class, 'emploiDuTemps'])->name('emploi-du-temps');
+                Route::get('visites-infirmerie', [EleveEspaceController::class, 'visitesInfirmerie'])->name('visites-infirmerie');
+                Route::get('sanctions', [EleveEspaceController::class, 'sanctions'])->name('sanctions');
+                Route::get('absences', [EleveEspaceController::class, 'absences'])->name('absences');
+                Route::get('assiduite', [EleveEspaceController::class, 'assiduite'])->name('assiduite');
+            });
+
             /*
              * Espace personnel : libre-service pour l'employé sur ses propres
              * avances — aucun rôle dédié, juste la présence d'une fiche
@@ -475,9 +523,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                  * classes. Les matières en découlent.
                  */
                 Route::get('competences', [CompetenceController::class, 'index'])->name('competences.index');
+                Route::get('competences/export', [CompetenceController::class, 'export'])->name('competences.export');
+                Route::get('competences/modele', [CompetenceController::class, 'modele'])->name('competences.modele');
                 // Référentiel d'appréciations de la maternelle : les niveaux
                 // cochés à la saisie et coloriés sur le bulletin.
                 Route::get('appreciations', [AppreciationController::class, 'index'])->name('appreciations.index');
+                Route::get('appreciations/export', [AppreciationController::class, 'export'])->name('appreciations.export');
+                Route::get('appreciations/modele', [AppreciationController::class, 'modele'])->name('appreciations.modele');
                 Route::get('classes/{classeId}/competences', [CompetenceController::class, 'parClasse'])->name('classes.competences.index');
                 Route::get('matieres/export', [MatiereController::class, 'export'])->name('matieres.export');
                 Route::get('matieres/{id}/classes', [MatiereController::class, 'classes'])->name('matieres.classes');
@@ -485,10 +537,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('appreciations/import', [AppreciationController::class, 'import'])->name('appreciations.import');
                 Route::post('appreciations', [AppreciationController::class, 'store'])->name('appreciations.store');
                 Route::put('appreciations/{id}', [AppreciationController::class, 'update'])->name('appreciations.update');
                 Route::delete('appreciations/{id}', [AppreciationController::class, 'destroy'])->name('appreciations.destroy');
 
+                Route::post('competences/import', [CompetenceController::class, 'import'])->name('competences.import');
                 Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store');
                 Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update');
                 Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy');
@@ -787,13 +841,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::middleware('permission:finance.view')->group(function () {
                 Route::get('tarifs', [TarifsController::class, 'index'])->name('tarifs.index');
+                Route::get('tarifs/grille-frais/export', [TarifsController::class, 'exportGrilleFrais'])->name('tarifs.grille-frais.export');
+                Route::get('tarifs/grille-frais/modele', [TarifsController::class, 'modeleGrilleFrais'])->name('tarifs.grille-frais.modele');
+                Route::get('tarifs/frais-annexes/export', [TarifsController::class, 'exportFraisAnnexes'])->name('tarifs.frais-annexes.export');
+                Route::get('tarifs/frais-annexes/modele', [TarifsController::class, 'modeleFraisAnnexes'])->name('tarifs.frais-annexes.modele');
                 // Échéancier de la scolarité : le découpage de l'année en
                 // tranches, lu par le portail parent et par les insolvables.
                 Route::get('tranches-scolarite', [TrancheScolariteController::class, 'index'])->name('tranches-scolarite.index');
+                Route::get('tranches-scolarite/export', [TrancheScolariteController::class, 'export'])->name('tranches-scolarite.export');
+                Route::get('tranches-scolarite/modele', [TrancheScolariteController::class, 'modele'])->name('tranches-scolarite.modele');
             });
 
             Route::middleware('permission:finance.manage')->group(function () {
                 Route::put('tranches-scolarite', [TrancheScolariteController::class, 'remplacer'])->name('tranches-scolarite.remplacer');
+                Route::post('tranches-scolarite/import', [TrancheScolariteController::class, 'import'])->name('tranches-scolarite.import');
+                Route::post('tarifs/grille-frais/import', [TarifsController::class, 'importGrilleFrais'])->name('tarifs.grille-frais.import');
+                Route::post('tarifs/frais-annexes/import', [TarifsController::class, 'importFraisAnnexes'])->name('tarifs.frais-annexes.import');
                 Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir');
                 Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer');
                 Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store');
@@ -886,6 +949,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:bus.view')->group(function () {
                 Route::get('bus/vehicules', [BusVehiculeController::class, 'index'])->name('bus.vehicules.index');
+                Route::get('bus/vehicules/export', [BusVehiculeController::class, 'export'])->name('bus.vehicules.export');
+                Route::get('bus/vehicules/modele', [BusVehiculeController::class, 'modele'])->name('bus.vehicules.modele');
                 Route::get('bus/vehicules/{id}/eleves/pdf', [BusVehiculeController::class, 'elevesPdf'])->name('bus.vehicules.eleves-pdf');
                 Route::get('bus/vehicules/{id}/bilan/pdf', [BusVehiculeController::class, 'bilanPdf'])->name('bus.vehicules.bilan-pdf');
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
@@ -897,6 +962,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:bus.manage')->group(function () {
+                Route::post('bus/vehicules/import', [BusVehiculeController::class, 'import'])->name('bus.vehicules.import');
                 Route::post('bus/vehicules', [BusVehiculeController::class, 'store'])->name('bus.vehicules.store');
                 Route::put('bus/vehicules/{id}', [BusVehiculeController::class, 'update'])->name('bus.vehicules.update');
                 Route::delete('bus/vehicules/{id}', [BusVehiculeController::class, 'destroy'])->name('bus.vehicules.destroy');
@@ -922,8 +988,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:inventaire.view')->group(function () {
                 Route::get('inventaire', [InventaireController::class, 'index'])->name('inventaire.index');
+                Route::get('inventaire/export', [InventaireController::class, 'export'])->name('inventaire.export');
+                Route::get('inventaire/modele', [InventaireController::class, 'modele'])->name('inventaire.modele');
             });
             Route::middleware('permission:inventaire.manage')->group(function () {
+                Route::post('inventaire/import', [InventaireController::class, 'import'])->name('inventaire.import');
                 Route::post('inventaire', [InventaireController::class, 'store'])->name('inventaire.store');
                 // Déclarées avant « inventaire/{id} » : sans cela, « etiquettes »
                 // serait capté comme un identifiant d'article.
@@ -935,10 +1004,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:infrastructures.view')->group(function () {
                 Route::get('infrastructures', [InfrastructureController::class, 'index'])->name('infrastructures.index');
+                Route::get('infrastructures/export', [InfrastructureController::class, 'exportInfrastructures'])->name('infrastructures.export');
+                Route::get('infrastructures/modele', [InfrastructureController::class, 'modeleInfrastructures'])->name('infrastructures.modele');
+                Route::get('infrastructures/equipements/export', [InfrastructureController::class, 'exportEquipements'])->name('infrastructures.equipements.export');
+                Route::get('infrastructures/equipements/modele', [InfrastructureController::class, 'modeleEquipements'])->name('infrastructures.equipements.modele');
                 Route::get('infrastructures/rapport', [InfrastructureController::class, 'rapport'])->name('infrastructures.rapport');
                 Route::get('infrastructures/equipements', [InfrastructureController::class, 'equipements'])->name('infrastructures.equipements.index');
             });
             Route::middleware('permission:infrastructures.manage')->group(function () {
+                Route::post('infrastructures/import', [InfrastructureController::class, 'importInfrastructures'])->name('infrastructures.import');
+                Route::post('infrastructures/equipements/import', [InfrastructureController::class, 'importEquipements'])->name('infrastructures.equipements.import');
                 Route::post('infrastructures', [InfrastructureController::class, 'store'])->name('infrastructures.store');
                 Route::put('infrastructures/{id}', [InfrastructureController::class, 'update'])->name('infrastructures.update');
                 Route::delete('infrastructures/{id}', [InfrastructureController::class, 'destroy'])->name('infrastructures.destroy');

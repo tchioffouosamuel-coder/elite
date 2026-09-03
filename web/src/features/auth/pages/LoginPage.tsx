@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -6,7 +6,7 @@ import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
-import { authentifierSessionDesktop, provisionnerPoste } from '@/features/auth/desktopProvisioning'
+import { connecterSessionDesktop, provisionnerPoste } from '@/features/auth/desktopProvisioning'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { Input } from '@/shared/ui/Field'
@@ -27,6 +27,12 @@ const estDesktop = Boolean(window.desktop)
  */
 const SERVEUR_URL_DESKTOP = 'https://elite.artiscodeagency.tech'
 
+function destinationApresConnexion(roles: string[]): string {
+  if (roles.includes('eleve')) return '/eleve'
+  if (roles.includes('parent')) return '/parent'
+  return '/'
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -35,10 +41,6 @@ export function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  // `null` = vérification en cours, `true`/`false` une fois tranché. Seul le
-  // desktop a cette question à se poser : le web n'a pas de notion de poste
-  // « déjà lié à un compte ».
-  const [posteProvisionne, setPosteProvisionne] = useState<boolean | null>(estDesktop ? null : true)
 
   const {
     register,
@@ -46,36 +48,21 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>()
 
-  // Un poste desktop déjà lié à un compte s'authentifie tout seul, sans
-  // repasser par un formulaire — un seul utilisateur par poste, pas de
-  // changement de compte (cf. le plan de synchronisation offline).
-  useEffect(() => {
-    if (!estDesktop) return
-
-    authentifierSessionDesktop()
-      .then((session) => {
-        if (!session) {
-          setPosteProvisionne(false)
-          return
-        }
-        setSession(session.token, session.user)
-        navigate(session.user.roles.includes('parent') ? '/parent' : '/', { replace: true })
-      })
-      .catch(() => setPosteProvisionne(false))
-  }, [navigate, setSession])
-
   const onSubmit = async (form: LoginForm) => {
     setServerError(null)
     setSubmitting(true)
     try {
-      if (estDesktop && !posteProvisionne) {
-        const session = await provisionnerPoste({
-          serveurUrl: SERVEUR_URL_DESKTOP,
-          identifiant: form.identifiant,
-          password: form.password,
-        })
+      if (estDesktop) {
+        // Plusieurs comptes peuvent partager ce poste : on tente d'abord une
+        // connexion locale (ce compte y a déjà été provisionné), et on ne
+        // bascule sur le provisioning (première fois de CE compte sur CE
+        // poste) que si elle échoue — jamais l'inverse, un compte déjà connu
+        // localement ne doit pas retourner interroger le serveur distant.
+        const session = await connecterSessionDesktop({ identifiant: form.identifiant, password: form.password })
+          ?? await provisionnerPoste({ serveurUrl: SERVEUR_URL_DESKTOP, identifiant: form.identifiant, password: form.password })
+
         setSession(session.token, session.user)
-        navigate(session.user.roles.includes('parent') ? '/parent' : '/', { replace: true })
+        navigate(destinationApresConnexion(session.user.roles), { replace: true })
         return
       }
 
@@ -83,20 +70,15 @@ export function LoginPage() {
       useAuthStore.setState({ token })
       const user = await fetchMe()
       setSession(token, user)
-      // Un compte parent n'a pas `dashboard.view` : le tableau de bord du
-      // personnel le renverrait dans une boucle de redirection.
-      navigate(user.roles.includes('parent') ? '/parent' : '/', { replace: true })
+      // Un compte parent ou élève n'a pas `dashboard.view` : le tableau de
+      // bord du personnel le renverrait dans une boucle de redirection.
+      navigate(destinationApresConnexion(user.roles), { replace: true })
     } catch (err) {
       setServerError((err as ApiError).message || t('auth.error_invalid'))
     } finally {
       setSubmitting(false)
     }
   }
-
-  // Le temps de savoir si ce poste desktop est déjà lié à un compte, il n'y
-  // a rien d'utile à afficher — surtout pas un formulaire qui disparaîtrait
-  // aussitôt la session automatique établie.
-  if (posteProvisionne === null) return null
 
   return (
     <div className="flex min-h-svh bg-cream-50">
@@ -109,8 +91,8 @@ export function LoginPage() {
         <div className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-navy-500/30 blur-3xl" aria-hidden />
 
         <div className="relative flex items-center gap-2.5">
-          <span className="flex h-20 items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lifted">
-            <img src={logoWordmark} alt={t('app.name')} className="h-16 w-auto object-contain" />
+          <span className="flex h-32 items-center justify-center rounded-2xl bg-white px-7 py-4 shadow-lifted">
+            <img src={logoWordmark} alt={t('app.name')} className="h-28 w-auto object-contain" />
           </span>
         </div>
 

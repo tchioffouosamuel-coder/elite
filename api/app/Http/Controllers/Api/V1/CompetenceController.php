@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreCompetenceRequest;
 use App\Http\Resources\Api\V1\CompetenceResource;
@@ -12,6 +13,8 @@ use App\Models\Competence;
 use App\Models\Sequence;
 use App\Services\CompetenceAttributionService;
 use App\Services\NotePrimaireService;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\CompetenceSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +29,13 @@ use Illuminate\Support\Facades\Hash;
  */
 class CompetenceController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new CompetenceSpec();
+    }
+
     public function __construct(
         private readonly CompetenceAttributionService $attribution,
         private readonly NotePrimaireService $notes,

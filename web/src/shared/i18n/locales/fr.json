@@ -1026,12 +1026,14 @@
     "word": "Exporter en Word",
     "pdf": "Exporter en PDF",
     "carte": "Carte scolaire",
-    "attestation": "Certificat de scolarité"
+    "attestation": "Certificat de scolarité",
+    "telechargement": "Téléchargement…"
   },
   "import": {
     "title": "Importer un fichier Excel",
     "file": "Fichier (.xlsx, .xls, .csv)",
     "submit": "Importer",
+    "telecharger_modele": "Télécharger le modèle",
     "result": "{{imported}} ligne(s) importée(s), {{failed}} échec(s).",
     "updated": "{{count}} ligne(s) existante(s) mise(s) à jour.",
     "comptes_ouverts": "{{count}} accès de connexion ouvert(s) — adresses en prenom.nom@elite.school, mot de passe par défaut.",
@@ -1606,6 +1608,7 @@
       "souscrire_bus": "Souscription au transport",
       "acces_parent": "Accès parent",
       "acces_parent_aide": "Ouvrir l'accès au portail parent",
+      "acces_eleve": "Accès élève",
       "carte_classe": "Cartes scolaires de la classe",
       "voir_classe": "Ouvrir la fiche de la classe",
       "documents_sans_classe": "Aucun document : l'élève n'est inscrit dans aucune classe."

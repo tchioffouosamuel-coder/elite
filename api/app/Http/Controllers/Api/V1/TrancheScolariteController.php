@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\TrancheScolarite;
 use App\Services\EcheancierService;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\TrancheScolariteSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +26,13 @@ use Illuminate\Http\Request;
  */
 class TrancheScolariteController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new TrancheScolariteSpec();
+    }
+
     public function __construct(private readonly EcheancierService $service) {}
 
     public function index(Request $request): JsonResponse

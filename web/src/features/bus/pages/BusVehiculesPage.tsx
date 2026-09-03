@@ -19,6 +19,7 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -182,15 +183,26 @@ export function BusVehiculesPage() {
         icon={Bus}
         actions={
           can('bus.manage') && (
-            <Button
-              onClick={() => {
-                setVehiculeEnEdition(null)
-                setShowForm(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('bus.vehicule_add')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <ImportExportBar
+                titreImport={t('bus.vehicules_title')}
+                importUrl="/bus/vehicules/import"
+                exportUrl="/bus/vehicules/export"
+                modeleUrl="/bus/vehicules/modele"
+                colonnes={['Immatriculation', 'Marque', 'Couleur', 'Capacité', 'Chauffeur', 'Statut']}
+                nomFichier="vehicules-bus"
+                onImported={invalidate}
+              />
+              <Button
+                onClick={() => {
+                  setVehiculeEnEdition(null)
+                  setShowForm(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('bus.vehicule_add')}
+              </Button>
+            </div>
           )
         }
       />

@@ -999,11 +999,13 @@
     "word": "Export to Word",
     "pdf": "Export to PDF",
     "carte": "ID card",
-    "attestation": "School attendance certificate"
+    "attestation": "School attendance certificate",
+    "telechargement": "Downloading…"
   },
   "import": {
     "title": "Import an Excel file",
     "file": "File (.xlsx, .xls, .csv)",
+    "telecharger_modele": "Download template",
     "submit": "Import",
     "result": "{{imported}} row(s) imported, {{failed}} failure(s).",
     "updated": "{{count}} existing row(s) updated.",
@@ -1606,6 +1608,7 @@
       "souscrire_bus": "Transport subscription",
       "acces_parent": "Parent access",
       "acces_parent_aide": "Open access to the parent portal",
+      "acces_eleve": "Student access",
       "carte_classe": "Student cards for the class",
       "voir_classe": "Open the class record",
       "documents_sans_classe": "No documents: this student is not enrolled in any class."

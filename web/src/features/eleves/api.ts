@@ -307,6 +307,30 @@ export async function creerCompteParent(tuteurId: number): Promise<{
   return data.data;
 }
 
+/** Ouvre (ou renvoie) l'accès au portail élève pour cette fiche — identifiant : son matricule. */
+export async function creerCompteEleve(eleveId: number): Promise<{
+  user_id: number;
+  identifiant: string;
+  mot_de_passe_provisoire: string | null;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{
+      user_id: number;
+      identifiant: string;
+      mot_de_passe_provisoire: string | null;
+    }>
+  >(`/eleves/${eleveId}/compte-eleve`);
+  return data.data;
+}
+
+export async function basculerAccesEleve(eleveId: number): Promise<void> {
+  await http.post(`/eleves/${eleveId}/basculer-acces`);
+}
+
+export async function supprimerCompteEleve(eleveId: number): Promise<void> {
+  await http.delete(`/eleves/${eleveId}/compte-eleve`);
+}
+
 // ----------------------------------------------------------- Comptes parents
 
 export interface TuteurCompte {

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Appreciation;
 use App\Services\AppreciationService;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\AppreciationSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +22,13 @@ use Illuminate\Http\Request;
  */
 class AppreciationController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new AppreciationSpec();
+    }
+
     public function __construct(private readonly AppreciationService $service) {}
 
     public function index(): JsonResponse

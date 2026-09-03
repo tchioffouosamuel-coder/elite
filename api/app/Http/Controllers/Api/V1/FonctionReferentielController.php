@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\FonctionReferentielResource;
 use App\Models\FonctionReferentiel;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\FonctionReferentielSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +17,13 @@ use Illuminate\Validation\Rule;
 
 class FonctionReferentielController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new FonctionReferentielSpec();
+    }
+
     public function index(): JsonResponse
     {
         $fonctions = FonctionReferentiel::forSchool(Tenant::schoolIds())

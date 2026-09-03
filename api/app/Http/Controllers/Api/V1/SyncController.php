@@ -37,6 +37,35 @@ class SyncController extends Controller
      */
     private const LOT_PUSH_MAX = 50;
 
+    /**
+     * Nombre de lignes par entité, dans le même périmètre (école + permissions
+     * + classes du compte) que {@see pull()} — sert au poste desktop à
+     * vérifier que sa réplique locale est bien complète (cf.
+     * `DesktopProvisioningController::statutSync()`), plutôt que de faire
+     * confiance silencieusement au fait qu'un `sync:pull` a tourné sans
+     * erreur visible.
+     */
+    public function comptage(Request $request): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $user = $request->user();
+        $definitions = RegistreSync::entites($user);
+
+        $comptages = [];
+
+        foreach ($definitions as $cle => $definition) {
+            if ($definition['permission'] !== null && ! $user->can($definition['permission'])) {
+                continue;
+            }
+
+            $requete = $definition['modele']::query();
+            ($definition['portee'])($requete, $schoolId);
+            $comptages[$cle] = $requete->count();
+        }
+
+        return ApiResponse::success($comptages);
+    }
+
     public function pull(Request $request): JsonResponse
     {
         $schoolId = app('tenant.school_id');

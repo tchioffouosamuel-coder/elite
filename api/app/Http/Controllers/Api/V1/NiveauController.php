@@ -3,17 +3,27 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreNiveauRequest;
 use App\Http\Requests\Api\V1\UpdateNiveauRequest;
 use App\Http\Resources\Api\V1\NiveauResource;
 use App\Models\Niveau;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\NiveauSpec;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 
 class NiveauController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new NiveauSpec();
+    }
+
     public function index(Request $request): ResourceCollection
     {
         $schoolId = $request->query('school_id');

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusVehicule;
 use App\Services\BusService;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\BusVehiculeSpec;
 use App\Support\Pdf\BilanVehiculeGenerator;
 use App\Support\Pdf\ListeElevesBusGenerator;
 use App\Support\Tenant;
@@ -17,6 +20,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class BusVehiculeController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new BusVehiculeSpec();
+    }
+
     use ScopedRules;
 
     public function __construct(private readonly BusService $service) {}

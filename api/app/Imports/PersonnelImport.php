@@ -38,6 +38,21 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
     use SkipsFailures;
 
     /**
+     * En-têtes du modèle téléchargeable — un libellé par champ canonique
+     * accepté à l'import, pas tous les synonymes tolérés.
+     *
+     * @return list<string>
+     */
+    public static function enTetes(): array
+    {
+        return [
+            'Nom complet', 'Civilité', 'Matricule', 'Numéro CNI', 'Numéro CNPS',
+            'Date de naissance', "Date d'embauche", 'Date de fin', 'Téléphone', 'Email',
+            'Fonction', 'Département',
+        ];
+    }
+
+    /**
      * En-tête source (normalisé par self::cle) => clé canonique.
      *
      * Volontairement absents, faute d'équivalent en base : le numéro d'ordre,

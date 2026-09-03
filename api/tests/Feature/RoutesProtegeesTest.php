@@ -47,6 +47,10 @@ class RoutesProtegeesTest extends TestCase
         // Le push rejoue les routes métier une par une : chaque opération
         // repasse par le privilège de sa propre route.
         'api.v1.sync.push',
+        // Même principe que `pull` : le comptage ne fait que refléter, par
+        // entité, ce que `pull` aurait renvoyé — pas de privilège propre à
+        // ajouter au-delà de celui déjà vérifié entité par entité.
+        'api.v1.sync.comptage',
 
         // Enregistrement de son propre appareil pour les notifications push.
         'api.v1.appareils.store',
@@ -54,11 +58,11 @@ class RoutesProtegeesTest extends TestCase
 
         // Provisioning d'une instance locale (client desktop offline) :
         // `provisionner` n'a par définition aucun utilisateur local avant de
-        // créer le sien, et `session`/`statut-sync`/`synchroniser` n'agissent
-        // que sur l'unique compte lié à ce poste — un privilège n'y protégerait
+        // créer le sien, et `connexion`/`statut-sync`/`synchroniser` n'agissent
+        // que sur les comptes liés à ce poste — un privilège n'y protégerait
         // rien de plus (cf. DesktopProvisioningController).
         'api.v1.desktop.provisionner',
-        'api.v1.desktop.session',
+        'api.v1.desktop.connexion',
         'api.v1.desktop.statut-sync',
         'api.v1.desktop.synchroniser',
 
@@ -115,6 +119,18 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.parent.ecoles-disponibles',
         'api.v1.parent.ecoles.classes',
 
+        // Portail élève : même principe que le portail parent ci-dessus —
+        // gardé par `role:eleve` et borné à la seule fiche du compte connecté
+        // par EleveAccess::assertMoi(), pas par un privilège.
+        'api.v1.eleve.moi',
+        'api.v1.eleve.notes',
+        'api.v1.eleve.bulletin',
+        'api.v1.eleve.emploi-du-temps',
+        'api.v1.eleve.visites-infirmerie',
+        'api.v1.eleve.sanctions',
+        'api.v1.eleve.absences',
+        'api.v1.eleve.assiduite',
+
         // Espace enseignant : même principe que « mon-espace » ci-dessus (cf.
         // EnseignantController), sans middleware `permission`/`role` — le
         // périmètre (fiche personnel, département/niveau/classe dirigés) est
@@ -141,10 +157,11 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.verification-versement.show',
 
         // Bootstrap d'une instance locale desktop : aucun jeton n'existe
-        // encore avant `provisionner`, et `session` EST le mécanisme qui en
-        // délivre un (mono-utilisateur, sans mot de passe — cf. plus haut).
+        // encore avant `provisionner`, et `connexion` EST le mécanisme qui en
+        // délivre un — vérifié par le mot de passe local, pas par un compte
+        // déjà authentifié (cf. plus haut).
         'api.v1.desktop.provisionner',
-        'api.v1.desktop.session',
+        'api.v1.desktop.connexion',
     ];
 
     public function test_toute_route_api_controle_les_privileges(): void

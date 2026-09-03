@@ -15,6 +15,7 @@ class Eleve extends Model
 
     protected $fillable = [
         'school_id',
+        'user_id',
         'classe_id',
         'matricule',
         'nom_complet',
@@ -85,6 +86,12 @@ class Eleve extends Model
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);
+    }
+
+    /** Compte de connexion du portail élève, quand l'accès a été ouvert — cf. CompteEleveService. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function classe(): BelongsTo

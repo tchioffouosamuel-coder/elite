@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreDepartementRequest;
 use App\Http\Resources\Api\V1\DepartementResource;
 use App\Models\Departement;
 use App\Models\Trimestre;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\DepartementSpec;
 use App\Support\Pdf\GenerateurStatistiquesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +19,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DepartementController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new DepartementSpec();
+    }
+
     public function index(Request $request): JsonResponse
     {
         $departements = Departement::forSchool(Tenant::schoolIds())

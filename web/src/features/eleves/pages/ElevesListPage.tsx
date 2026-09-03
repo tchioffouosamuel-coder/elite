@@ -31,6 +31,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
@@ -373,6 +374,7 @@ export function ElevesListPage() {
               <FileSpreadsheet className="h-4 w-4" />
               {t('export.excel')}
             </Button>
+            <TemplateDownloadButton url="/eleves/modele" nomFichier="modele-eleves.xlsx" />
             <Button
               variant="secondary"
               onClick={() => ouvrirDocument('/eleves/pdf', schoolFilter ? { school_id: schoolFilter } : undefined)}

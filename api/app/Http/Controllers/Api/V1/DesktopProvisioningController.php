@@ -9,10 +9,13 @@ use App\Models\DesktopProvisioningEcole;
 use App\Models\School;
 use App\Models\SyncOutbox;
 use App\Models\User;
+use App\Support\Sync\RegistreSync;
+use App\Support\Telephone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -31,22 +34,26 @@ class DesktopProvisioningController extends Controller
     /**
      * Lie ce poste à un compte, à partir des jetons obtenus par une
      * connexion réussie sur le serveur distant (l'écran de connexion
-     * n'appelle CE endpoint qu'une seule fois, au tout premier lancement).
+     * appelle cet endpoint la première fois qu'un compte donné se connecte
+     * sur CE poste).
      *
-     * Mono-utilisateur : une instance déjà provisionnée refuse un second
-     * provisioning tant qu'elle n'a pas été explicitement réinitialisée —
-     * il n'y a pas de changement de compte sur un poste desktop.
+     * Multi-utilisateur : plusieurs comptes peuvent être provisionnés sur le
+     * même poste (ex. plusieurs membres du personnel qui se relaient sur le
+     * même ordinateur de l'école) — seul un second provisioning du MÊME
+     * compte est refusé, pas celui d'un compte différent.
      */
     public function provisionner(Request $request): JsonResponse
     {
-        if (DesktopProvisioning::actuelle() !== null) {
-            return ApiResponse::error('Ce poste est déjà lié à un compte.', 409);
-        }
-
         $data = $request->validate([
             'serveur_url' => ['required', 'url'],
             'token' => ['required', 'string'],
             'refresh_token' => ['required', 'string'],
+            // Le mot de passe qui vient de servir à la connexion sur le
+            // serveur distant (formulaire de connexion desktop) : jamais
+            // renvoyé ni renvoyé en clair ensuite, seul son hash est stocké
+            // (colonne `password`) pour permettre à CE compte de rouvrir sa
+            // session localement (cf. connexion()), y compris hors-ligne.
+            'password' => ['required', 'string'],
             'user' => ['required', 'array'],
             'user.id' => ['required', 'integer'],
             'user.name' => ['required', 'string', 'max:255'],
@@ -99,6 +106,10 @@ class DesktopProvisioningController extends Controller
             ? $data['user']['school_id']
             : null;
 
+        if (DesktopProvisioning::pourUtilisateur($data['user']['id']) !== null) {
+            return ApiResponse::error('Ce compte est déjà lié à ce poste.', 409);
+        }
+
         $utilisateur = User::find($data['user']['id']) ?? new User();
         $utilisateur->id = $data['user']['id'];
         $utilisateur->fill([
@@ -109,9 +120,11 @@ class DesktopProvisioningController extends Controller
             'is_active' => $data['user']['is_active'] ?? true,
             'school_id' => $schoolId,
         ]);
-        // Jamais vérifié : `session()` authentifie ce compte sans mot de
-        // passe, seul un utilisateur ayant l'accès physique au poste pouvant
-        // l'atteindre.
+        // Mot de passe distant : cette copie locale ne le vérifie jamais
+        // (cf. connexion(), qui vérifie `desktop_provisioning.password`,
+        // propre à CE poste) — un compte sans mot de passe local exploitable
+        // reste malgré tout impossible à atteindre depuis l'API distante,
+        // qu'aucun poste desktop n'expose.
         $utilisateur->password = Hash::make(Str::random(40));
         // Explicite plutôt que laissé au défaut de colonne : si l'identifiant
         // remote coïncide avec celui du compte super-admin de démo seedé
@@ -136,6 +149,7 @@ class DesktopProvisioningController extends Controller
 
         $provisioning = DesktopProvisioning::create([
             'user_id' => $utilisateur->id,
+            'password' => Hash::make($data['password']),
             'serveur_url' => $data['serveur_url'],
             'token' => $data['token'],
             'refresh_token' => $data['refresh_token'],
@@ -159,19 +173,35 @@ class DesktopProvisioningController extends Controller
     }
 
     /**
-     * Authentifie automatiquement l'unique compte lié à ce poste, sans mot
-     * de passe : un seul utilisateur du système d'exploitation a accès à
-     * cette machine, et il n'existe qu'un seul compte applicatif dessus.
+     * Connexion locale : plusieurs comptes pouvant désormais partager le
+     * même poste, chacun doit se réauthentifier explicitement avec son
+     * propre mot de passe **local** (capturé une seule fois au provisioning,
+     * cf. `provisionner()`) — plus d'ouverture automatique et silencieuse du
+     * premier compte venu.
+     *
+     * Même résolution d'identifiant que `AuthService::login()` côté serveur
+     * distant (e-mail si « @ », téléphone normalisé sinon), restreinte aux
+     * seuls comptes déjà provisionnés sur CE poste.
      */
-    public function session(): JsonResponse
+    public function connexion(Request $request): JsonResponse
     {
-        $provisioning = DesktopProvisioning::actuelle();
+        $data = $request->validate([
+            'identifiant' => ['required', 'string'],
+            'password' => ['required', 'string'],
+        ]);
 
-        if ($provisioning === null) {
-            return ApiResponse::notFound('Ce poste n’est lié à aucun compte.');
+        $identifiant = trim($data['identifiant']);
+
+        $utilisateur = str_contains($identifiant, '@')
+            ? User::where('email', $identifiant)->first()
+            : User::where('phone', Telephone::normaliser($identifiant))->first();
+
+        $provisioning = $utilisateur ? DesktopProvisioning::pourUtilisateur($utilisateur->id) : null;
+
+        if (! $provisioning || ! $provisioning->password || ! Hash::check($data['password'], $provisioning->password) || ! $utilisateur->is_active) {
+            return ApiResponse::error('Identifiants incorrects, ou ce compte n’est pas lié à ce poste.', 401);
         }
 
-        $utilisateur = $provisioning->user;
         $jeton = $utilisateur->createToken('desktop-session', ['access']);
 
         return ApiResponse::success([
@@ -180,15 +210,23 @@ class DesktopProvisioningController extends Controller
         ]);
     }
 
-    public function statutSync(): JsonResponse
+    /**
+     * `?verifier=1` déclenche en plus une vérification de complétude
+     * (comparaison des comptages locaux à ceux du serveur distant, école par
+     * école) — hors du chemin par défaut : c'est un aller-retour réseau par
+     * école, à ne pas payer à chaque rafraîchissement d'un simple indicateur
+     * de statut.
+     */
+    public function statutSync(Request $request): JsonResponse
     {
-        $provisioning = DesktopProvisioning::actuelle();
+        $provisioning = DesktopProvisioning::pourUtilisateur($request->user()->id);
 
         if ($provisioning === null) {
             return ApiResponse::notFound('Ce poste n’est lié à aucun compte.');
         }
 
         $ecoles = $provisioning->ecoles()->with('school:id,name')->get();
+        $verifier = $request->boolean('verifier');
 
         return ApiResponse::success([
             // Le plus ancien pull parmi les écoles du poste : celle qui
@@ -197,19 +235,76 @@ class DesktopProvisioningController extends Controller
             // retard des autres.
             'dernier_pull_le' => $ecoles->pluck('dernier_pull_le')->filter()->min()?->toIso8601String(),
             'dernier_push_le' => $provisioning->dernier_push_le?->toIso8601String(),
-            'en_attente_push' => SyncOutbox::query()->enAttente()->count(),
+            'en_attente_push' => SyncOutbox::query()->enAttente()->where('desktop_provisioning_id', $provisioning->id)->count(),
             'ecoles' => $ecoles->map(fn (DesktopProvisioningEcole $e) => [
                 'school_id' => $e->school_id,
                 'nom' => $e->school?->name,
                 'dernier_pull_le' => $e->dernier_pull_le?->toIso8601String(),
+                // `null` = non vérifié (verifier=0, ou aléa réseau pendant la
+                // vérification) — à ne pas confondre avec `false` (incomplet
+                // confirmé) : l'un dit « on ne sait pas », l'autre « il
+                // manque des lignes ».
+                'complet' => $verifier ? $this->completudeEcole($provisioning, $e->school_id) : null,
             ])->values(),
         ]);
     }
 
-    /** Déclenche un cycle pull puis push, pour un bouton « Synchroniser maintenant ». */
-    public function synchroniser(): JsonResponse
+    /**
+     * Vrai si chaque entité du registre compte, en local, au moins autant de
+     * lignes que sur le serveur distant pour cette école — `null` si la
+     * vérification elle-même a échoué (aléa réseau), pas une conclusion.
+     *
+     * « Au moins autant » plutôt que « exactement autant » : une écriture
+     * faite hors-ligne et pas encore poussée (cf. SyncPush) est, à cet
+     * instant précis, en avance sur le serveur distant — ce n'est pas un
+     * signe d'incomplétude.
+     */
+    private function completudeEcole(DesktopProvisioning $provisioning, int $schoolId): ?bool
     {
-        if (DesktopProvisioning::actuelle() === null) {
+        try {
+            $reponse = Http::withToken($provisioning->token)
+                ->withHeaders(['X-School-Id' => $schoolId])
+                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                ->acceptJson()
+                ->connectTimeout(10)
+                ->timeout(30)
+                ->get('sync/comptage');
+
+            if ($reponse->failed()) {
+                return null;
+            }
+
+            $distant = (array) $reponse->json('data');
+            $definitions = RegistreSync::entites($provisioning->user);
+
+            foreach ($distant as $cle => $comptageDistant) {
+                if (! isset($definitions[$cle])) {
+                    continue;
+                }
+
+                $requete = $definitions[$cle]['modele']::query();
+                ($definitions[$cle]['portee'])($requete, $schoolId);
+
+                if ($requete->count() < $comptageDistant) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Déclenche un cycle pull puis push, pour un bouton « Synchroniser
+     * maintenant ». Rejoue pour TOUS les comptes du poste (base locale
+     * partagée) — la vérification ci-dessous ne fait que confirmer que le
+     * compte qui clique est bien l'un d'eux.
+     */
+    public function synchroniser(Request $request): JsonResponse
+    {
+        if (DesktopProvisioning::pourUtilisateur($request->user()->id) === null) {
             return ApiResponse::notFound('Ce poste n’est lié à aucun compte.');
         }
 

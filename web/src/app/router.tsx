@@ -106,6 +106,8 @@ import { AdminParentStatsPage } from '@/features/eleves/pages/AdminParentStatsPa
 import { ParentLayout } from '@/app/ParentLayout'
 import { ParentAccueilPage } from '@/features/parent/pages/ParentAccueilPage'
 import { ParentEnfantPage } from '@/features/parent/pages/ParentEnfantPage'
+import { EleveLayout } from '@/app/EleveLayout'
+import { EleveAccueilPage } from '@/features/eleve/pages/EleveAccueilPage'
 import { ParentPreinscriptionExistantPage } from '@/features/parent/pages/ParentPreinscriptionExistantPage'
 import { ParentPreinscriptionNouveauPage } from '@/features/parent/pages/ParentPreinscriptionNouveauPage'
 import { ParentPreinscriptionsListPage } from '@/features/parent/pages/ParentPreinscriptionsListPage'
@@ -292,6 +294,22 @@ export const router = createHashRouter([
       { path: 'preinscription/nouveau', element: <ParentPreinscriptionNouveauPage /> },
       { path: 'preinscription/existant/:eleveId', element: <ParentPreinscriptionExistantPage /> },
       { path: 'preinscriptions', element: <ParentPreinscriptionsListPage /> },
+      { path: 'profil', element: <UserProfilePage /> },
+    ],
+  },
+  // Portail élève : même principe que le portail parent, mais un seul
+  // dossier à consulter (le sien) et pas de démarche à initier — cf.
+  // EleveLayout et ProtectedRoute#eleveOnly.
+  {
+    path: '/eleve',
+    element: (
+      <ProtectedRoute eleveOnly>
+        <EleveLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <EleveAccueilPage /> },
+      { path: 'annonces', element: <AnnoncesPage /> },
       { path: 'profil', element: <UserProfilePage /> },
     ],
   },

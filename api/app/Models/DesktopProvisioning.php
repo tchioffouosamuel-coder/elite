@@ -7,19 +7,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Ligne unique décrivant à quel compte et quel serveur distant cette
- * instance locale (client desktop) est liée — un compte peut y répliquer
- * plusieurs écoles ({@see ecoles()}), chacune avec son propre avancement de
- * synchronisation. Voir {@see \App\Http\Controllers\Api\V1\DesktopProvisioningController}.
+ * Un compte lié à ce poste desktop, avec le serveur distant dont il vient et
+ * son mot de passe local (cf. {@see \App\Http\Controllers\Api\V1\DesktopProvisioningController::connexion()}).
+ * Plusieurs comptes peuvent coexister sur le même poste — une ligne chacun —
+ * chaque compte y réplique une ou plusieurs écoles ({@see ecoles()}),
+ * chacune avec son propre avancement de synchronisation.
  */
 class DesktopProvisioning extends Model
 {
     protected $table = 'desktop_provisioning';
 
     protected $fillable = [
-        'user_id', 'serveur_url', 'token', 'refresh_token',
+        'user_id', 'password', 'serveur_url', 'token', 'refresh_token',
         'dernier_push_le', 'provisionne_le',
     ];
+
+    protected $hidden = ['password'];
 
     protected function casts(): array
     {
@@ -39,9 +42,13 @@ class DesktopProvisioning extends Model
         return $this->hasMany(DesktopProvisioningEcole::class);
     }
 
-    /** Une seule ligne existe jamais : le poste n'est lié qu'à un seul compte. */
-    public static function actuelle(): ?self
+    /**
+     * Provisioning de ce compte précis sur ce poste, s'il existe — utilisé
+     * pour la connexion locale et pour scoper `statutSync()`/`synchroniser()`
+     * au compte réellement authentifié plutôt qu'à « le » poste.
+     */
+    public static function pourUtilisateur(int $userId): ?self
     {
-        return static::query()->first();
+        return static::where('user_id', $userId)->first();
     }
 }

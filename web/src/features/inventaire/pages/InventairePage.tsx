@@ -22,6 +22,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { StatCard } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -278,6 +279,15 @@ export function InventairePage() {
         actions={
           can('inventaire.manage') && (
             <>
+              <ImportExportBar
+                titreImport={t('inventaire.title')}
+                importUrl="/inventaire/import"
+                exportUrl="/inventaire/export"
+                modeleUrl="/inventaire/modele"
+                colonnes={['Article', 'Catégorie', 'Quantité', 'État', 'Valeur unitaire']}
+                nomFichier="inventaire"
+                onImported={invalidate}
+              />
               {selection.size > 0 && (
                 <Button
                   variant="secondary"

@@ -25,6 +25,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -226,15 +227,26 @@ export function InfrastructuresPage() {
             {t('infrastructures.section_infra')}
           </h2>
           {can('infrastructures.manage') && (
-            <Button
-              onClick={() => {
-                setInfraEnEdition(null)
-                setShowInfraForm(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('infrastructures.add')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <ImportExportBar
+                titreImport={t('infrastructures.section_infra')}
+                importUrl="/infrastructures/import"
+                exportUrl="/infrastructures/export"
+                modeleUrl="/infrastructures/modele"
+                colonnes={['Type', 'Libellé', 'Matériau', 'État', 'Quantité', 'Besoin (quantité)', 'Observations']}
+                nomFichier="infrastructures"
+                onImported={invalidateInfra}
+              />
+              <Button
+                onClick={() => {
+                  setInfraEnEdition(null)
+                  setShowInfraForm(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('infrastructures.add')}
+              </Button>
+            </div>
           )}
         </div>
         {chargeInfra ? (
@@ -257,6 +269,16 @@ export function InfrastructuresPage() {
             {t('infrastructures.section_equipements')}
           </h2>
           {can('infrastructures.manage') && (
+            <div className="flex items-center gap-2">
+            <ImportExportBar
+              titreImport={t('infrastructures.section_equipements')}
+              importUrl="/infrastructures/equipements/import"
+              exportUrl="/infrastructures/equipements/export"
+              modeleUrl="/infrastructures/equipements/modele"
+              colonnes={['Nature', 'Quantité', 'Besoin (quantité)']}
+              nomFichier="equipements"
+              onImported={invalidateEquipements}
+            />
             <Button
               onClick={() => {
                 setEquipementEnEdition(null)
@@ -266,6 +288,7 @@ export function InfrastructuresPage() {
               <Plus className="h-4 w-4" />
               {t('infrastructures.add')}
             </Button>
+            </div>
           )}
         </div>
         {chargeEquipements ? (

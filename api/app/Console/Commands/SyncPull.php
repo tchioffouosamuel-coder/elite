@@ -18,11 +18,13 @@ use Illuminate\Support\Facades\Log;
  * mobile ({@see \App\Http\Controllers\Api\V1\SyncController::pull()}) :
  * cette instance locale se comporte ici comme n'importe quel client sync.
  *
- * Un appel par école ({@see DesktopProvisioningEcole}), avec son propre
- * curseur : `SyncController::pull()` ne résout jamais qu'une seule école à
- * la fois (`X-School-Id`, ou l'école par défaut du compte à défaut d'en-tête)
- * — un compte non borné à une seule école (super admin d'un complexe) n'a
- * donc pas d'appel agrégé possible, il faut boucler.
+ * Un appel par (compte, école) — {@see DesktopProvisioningEcole} — avec son
+ * propre curseur : `SyncController::pull()` ne résout jamais qu'une seule
+ * école à la fois (`X-School-Id`, ou l'école par défaut du compte à défaut
+ * d'en-tête), donc il faut boucler, aussi bien sur les écoles d'un compte
+ * non borné à une seule (super admin, direction transverse) que sur les
+ * comptes eux-mêmes : plusieurs comptes peuvent désormais être provisionnés
+ * sur le même poste, chacun avec son propre jeton et ses propres écoles.
  *
  * Résolution de conflit : le plus récent gagne. Une ligne locale plus
  * récente que la ligne distante reçue n'est PAS écrasée — elle n'a pas
@@ -37,18 +39,10 @@ class SyncPull extends Command
 
     public function handle(): int
     {
-        $provisioning = DesktopProvisioning::actuelle();
+        $provisionings = DesktopProvisioning::all();
 
-        if ($provisioning === null) {
+        if ($provisionings->isEmpty()) {
             $this->error('Aucune instance provisionnée : rien à synchroniser.');
-
-            return self::FAILURE;
-        }
-
-        $ecoles = $provisioning->ecoles;
-
-        if ($ecoles->isEmpty()) {
-            $this->error('Aucune école associée à ce poste : rien à synchroniser.');
 
             return self::FAILURE;
         }
@@ -68,24 +62,27 @@ class SyncPull extends Command
         $echec = false;
 
         try {
-            foreach ($ecoles as $ecoleProvisioning) {
-                try {
-                    if (! $this->tirerEcole($provisioning, $ecoleProvisioning)) {
+            foreach ($provisionings as $provisioning) {
+                foreach ($provisioning->ecoles as $ecoleProvisioning) {
+                    try {
+                        if (! $this->tirerEcole($provisioning, $ecoleProvisioning)) {
+                            $echec = true;
+                        }
+                    } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                        // Un aléa réseau (coupure, DNS, timeout) sur UNE école ne
+                        // doit pas priver les écoles suivantes de la boucle de
+                        // leur propre tentative — observé en conditions réelles :
+                        // un timeout sur la 2e école d'un compte en écoutant 3
+                        // laissait la 3e totalement non synchronisée, sans que
+                        // rien ne le signale au-delà d'un curseur resté `null`.
+                        Log::warning('sync:pull erreur réseau', [
+                            'user_id' => $provisioning->user_id,
+                            'school_id' => $ecoleProvisioning->school_id,
+                            'erreur' => $e->getMessage(),
+                        ]);
+                        $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
                         $echec = true;
                     }
-                } catch (\Illuminate\Http\Client\ConnectionException $e) {
-                    // Un aléa réseau (coupure, DNS, timeout) sur UNE école ne
-                    // doit pas priver les écoles suivantes de la boucle de
-                    // leur propre tentative — observé en conditions réelles :
-                    // un timeout sur la 2e école d'un compte en écoutant 3
-                    // laissait la 3e totalement non synchronisée, sans que
-                    // rien ne le signale au-delà d'un curseur resté `null`.
-                    Log::warning('sync:pull erreur réseau', [
-                        'school_id' => $ecoleProvisioning->school_id,
-                        'erreur' => $e->getMessage(),
-                    ]);
-                    $this->error("École #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
-                    $echec = true;
                 }
             }
         } finally {

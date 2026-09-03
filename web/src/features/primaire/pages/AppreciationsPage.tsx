@@ -16,6 +16,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { EmojiPickerButton } from '@/shared/ui/EmojiPicker'
@@ -211,15 +212,26 @@ export function AppreciationsPage() {
         icon={SmilePlus}
         actions={
           can('pedagogie.manage') && (
-            <Button
-              onClick={() => {
-                setEnEdition(null)
-                setFormOuvert(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('appreciations.ajouter')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <ImportExportBar
+                titreImport={t('appreciations.title')}
+                importUrl="/appreciations/import"
+                exportUrl="/appreciations/export"
+                modeleUrl="/appreciations/modele"
+                colonnes={['Appréciation (FR)', 'Appréciation (EN)', 'Emoji', 'Couleur', 'Ordre']}
+                nomFichier="appreciations"
+                onImported={() => queryClient.invalidateQueries({ queryKey: ['appreciations'] })}
+              />
+              <Button
+                onClick={() => {
+                  setEnEdition(null)
+                  setFormOuvert(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('appreciations.ajouter')}
+              </Button>
+            </div>
           )
         }
       />

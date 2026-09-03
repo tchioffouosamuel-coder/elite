@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Input } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
@@ -114,10 +115,21 @@ export function EcheancierCard({
 
   return (
     <Card>
-      <h2 className="mb-3 flex items-center gap-2 border-b border-navy-100/70 pb-2 font-display text-sm font-bold text-navy-900">
-        <CalendarClock className="h-4 w-4 text-gold-500" />
-        Échéancier de la scolarité
-      </h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy-100/70 pb-2">
+        <h2 className="flex items-center gap-2 font-display text-sm font-bold text-navy-900">
+          <CalendarClock className="h-4 w-4 text-gold-500" />
+          Échéancier de la scolarité
+        </h2>
+        <ImportExportBar
+          titreImport="Tranches de scolarité"
+          importUrl="/tranches-scolarite/import"
+          exportUrl="/tranches-scolarite/export"
+          modeleUrl="/tranches-scolarite/modele"
+          colonnes={['Tranche', 'Pourcentage', "Date d'échéance", 'Ordre']}
+          nomFichier="tranches-scolarite"
+          onImported={() => queryClient.invalidateQueries({ queryKey: ['tranches-scolarite'] })}
+        />
+      </div>
 
       <p className="mb-3 flex items-start gap-2 rounded-xl bg-cream-100 px-3.5 py-2.5 text-xs text-navy-600">
         <Info className="mt-0.5 h-3.5 w-3.5 flex-none" />

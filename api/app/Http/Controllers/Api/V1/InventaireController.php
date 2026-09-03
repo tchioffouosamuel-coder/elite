@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Models\InventaireArticle;
 use App\Services\InventaireService;
 use App\Support\CodeBarreArticle;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\InventaireArticleSpec;
 use App\Support\Pdf\EtiquettesArticlesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +18,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InventaireController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new InventaireArticleSpec();
+    }
+
     public function __construct(private readonly InventaireService $service) {}
 
     public function index(Request $request): JsonResponse

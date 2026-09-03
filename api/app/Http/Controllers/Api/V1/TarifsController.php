@@ -10,9 +10,13 @@ use App\Models\DossierScolarite;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Services\ScolariteService;
+use App\Support\ImportExport\ActionsImportExport;
+use App\Support\ImportExport\Specs\FraisAnnexeSpec;
+use App\Support\ImportExport\Specs\GrilleFraisSpec;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Paramétrage des tarifs : grille de scolarité par classe (ou par défaut pour
@@ -181,6 +185,42 @@ class TarifsController extends Controller
         return DossierScolarite::where('annee_scolaire_id', $anneeId)
             ->whereHas('eleve', fn ($q) => $q->where('classe_id', $classeId))
             ->count();
+    }
+
+    // -------------------------------------------------- Import / export / modèle
+
+    public function importGrilleFrais(Request $request): JsonResponse
+    {
+        $resultat = ActionsImportExport::importer(new GrilleFraisSpec(), $request);
+
+        return ApiResponse::success($resultat, "{$resultat['imported']} tarif(s) créé(s), {$resultat['updated']} mis à jour.");
+    }
+
+    public function exportGrilleFrais(): BinaryFileResponse
+    {
+        return ActionsImportExport::exporter(new GrilleFraisSpec(), 'grille-frais');
+    }
+
+    public function modeleGrilleFrais(): BinaryFileResponse
+    {
+        return ActionsImportExport::modele(new GrilleFraisSpec(), 'grille-frais');
+    }
+
+    public function importFraisAnnexes(Request $request): JsonResponse
+    {
+        $resultat = ActionsImportExport::importer(new FraisAnnexeSpec(), $request);
+
+        return ApiResponse::success($resultat, "{$resultat['imported']} frais annexe(s) créé(s), {$resultat['updated']} mis à jour.");
+    }
+
+    public function exportFraisAnnexes(): BinaryFileResponse
+    {
+        return ActionsImportExport::exporter(new FraisAnnexeSpec(), 'frais-annexes');
+    }
+
+    public function modeleFraisAnnexes(): BinaryFileResponse
+    {
+        return ActionsImportExport::modele(new FraisAnnexeSpec(), 'frais-annexes');
     }
 
     private function annee(Request $request): AnneeScolaire

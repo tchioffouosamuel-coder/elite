@@ -102,6 +102,24 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         'annee_scol' => 'annee_source',
     ];
 
+    /**
+     * En-têtes du modèle téléchargeable — un libellé par champ canonique
+     * (le premier de {@see self::COLONNES}), pas tous les synonymes tolérés
+     * à l'import.
+     *
+     * @return list<string>
+     */
+    public static function enTetes(): array
+    {
+        return [
+            'Matricule', 'Nom complet', 'Sexe', 'Date de naissance', 'Lieu de naissance', 'Nationalité',
+            "Numéro d'acte de naissance", 'Redoublant', 'Réfugié', 'Déplacé interne', 'Statut', 'Classe',
+            'Adresse', 'Nom du père', 'Téléphone du père', 'Profession du père',
+            'Nom de la mère', 'Téléphone de la mère', 'Profession de la mère',
+            'Nom du tuteur', 'Téléphone du tuteur',
+        ];
+    }
+
     public int $importedCount = 0;
 
     public int $updatedCount = 0;

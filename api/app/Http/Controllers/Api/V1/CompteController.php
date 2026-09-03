@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ReinitialiserMotDePasseRequest;
 use App\Models\ActivityLog;
+use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Services\AuthService;
@@ -31,7 +32,7 @@ class CompteController extends Controller
     public function index(): JsonResponse
     {
         $comptes = $this->comptesAccessibles()
-            ->with(['school:id,name,code', 'roles', 'personnel:id,user_id,nom_complet,matricule,fonction_id', 'personnel.fonctionReference'])
+            ->with(['school:id,name,code', 'schools:id,name,code', 'roles', 'personnel:id,user_id,nom_complet,matricule,fonction_id', 'personnel.fonctionReference'])
             ->orderBy('name')
             ->get();
 
@@ -86,16 +87,66 @@ class CompteController extends Controller
     }
 
     /**
-     * Comptes que le super administrateur peut administrer : ceux du
-     * périmètre résolu par le tenant, et — pour qu'un super administrateur ne
-     * s'exclue jamais lui-même de sa propre liste — tout compte portant ce
-     * rôle, même sans `school_id` (cas du compte racine, rattaché à aucun
-     * établissement en particulier).
+     * Attribue à ce compte l'accès à des écoles supplémentaires, en plus de
+     * son école principale — pour un compte de direction transverse
+     * (« Directrice Primaire et Maternelle », chauffeur/infirmier/vendeur
+     * des deux écoles). Cf. {@see \App\Models\User::ecolesAccessibles()}.
+     *
+     * Restreint aux écoles du même complexe que l'école principale : ouvrir
+     * l'accès à un autre complexe n'a pas de sens métier et court-circuiterait
+     * le périmètre du super admin lui-même.
+     */
+    public function attribuerEcoles(Request $request, int $id): JsonResponse
+    {
+        $compte = $this->comptesAccessibles()->findOrFail($id);
+
+        $complexeId = $compte->school?->complexe_id;
+
+        $data = $request->validate([
+            'school_ids' => ['array'],
+            'school_ids.*' => [
+                'integer',
+                function ($attribut, $valeur, $fail) use ($complexeId) {
+                    if (! School::where('id', $valeur)->where('complexe_id', $complexeId)->exists()) {
+                        $fail("L'établissement {$valeur} n'appartient pas au même complexe que l'école principale du compte.");
+                    }
+                },
+            ],
+        ]);
+
+        // L'école principale reste gérée par la fiche personnel/le compte
+        // lui-même (`school_id`), jamais dupliquée dans la pivot.
+        $ecoles = collect($data['school_ids'] ?? [])->reject(fn ($id) => $id === $compte->school_id)->values();
+
+        $compte->schools()->sync($ecoles);
+
+        ActivityLog::enregistrer(
+            $request->user(),
+            'attribution_ecoles',
+            "Écoles accessibles mises à jour pour {$compte->name}.",
+            $compte,
+        );
+
+        return ApiResponse::success(
+            $compte->fresh()->ecolesAccessibles()->map(fn ($ecole) => ['id' => $ecole->id, 'name' => $ecole->name])->values(),
+            'Écoles accessibles mises à jour.',
+        );
+    }
+
+    /**
+     * Comptes que le super administrateur peut administrer : ceux dont
+     * l'école principale OU une école supplémentaire (compte de direction
+     * transverse, cf. `attribuerEcoles()`) est dans le périmètre résolu par
+     * le tenant, et — pour qu'un super administrateur ne s'exclue jamais
+     * lui-même de sa propre liste — tout compte portant ce rôle, même sans
+     * `school_id` (cas du compte racine, rattaché à aucun établissement en
+     * particulier).
      */
     private function comptesAccessibles(): Builder
     {
         return User::where(
             fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+                ->orWhereHas('schools', fn ($s) => $s->whereIn('schools.id', Tenant::schoolIds()))
                 ->orWhereHas('roles', fn ($r) => $r->where('name', 'super_admin')),
         );
     }
@@ -124,6 +175,10 @@ class CompteController extends Controller
             'role' => $u->libelleRole(),
             'matricule' => $u->personnel?->matricule,
             'school' => $u->school ? ['id' => $u->school->id, 'name' => $u->school->name] : null,
+            // Écoles supplémentaires (compte de direction transverse, cf.
+            // attribuerEcoles()) — l'école principale ci-dessus n'y figure
+            // pas, l'écran de gestion des comptes les affiche séparément.
+            'ecoles_supplementaires' => $u->schools->map(fn ($e) => ['id' => $e->id, 'name' => $e->name])->values(),
             'derniere_connexion' => $derniere ? Carbon::parse($derniere)->toISOString() : null,
             'cree_le' => $u->created_at?->toISOString(),
         ];

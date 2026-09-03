@@ -3,15 +3,25 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
+use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\SousSystemeResource;
 use App\Models\SousSysteme;
+use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Specs\SousSystemeSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SousSystemeController extends Controller
 {
+    use GereImportExport;
+
+    protected function specificationImportExport(): SpecificationModele
+    {
+        return new SousSystemeSpec();
+    }
+
     public function index(Request $request): JsonResponse
     {
         $sousSystemes = SousSysteme::forSchool(Tenant::schoolIds())->with('school:id,name,code,type')->get();

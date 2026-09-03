@@ -224,9 +224,19 @@ class RolePermissionSeeder extends Seeder
             'finance.view',
             'annonces.view',
         ],
+        /*
+         * Portail élève : lecture seule sur son propre dossier — pas de
+         * finance.* (réservée au tuteur), pas de *.manage. Cf. CompteEleveService
+         * et EleveEspaceController, qui bornent chaque requête à la fiche du
+         * compte connecté quel que soit le privilège porté ici.
+         */
         'eleve' => [
             'notes.view',
             'annonces.view',
+            'discipline.view',
+            'infirmerie.view',
+            'emploi_du_temps.view',
+            'bulletins.view',
         ],
         /*
          * Gabarits de fonctions de soutien (infirmier, chauffeur, agents de

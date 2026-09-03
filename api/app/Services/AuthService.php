@@ -31,11 +31,13 @@ class AuthService extends BaseService
 
     /**
      * Le personnel se connecte par e-mail, les parents par téléphone (cf.
-     * CompteParentService, qui n'ouvre pas d'adresse) : `$identifiant` peut
-     * être l'un ou l'autre, distingués par la présence d'un « @ ». Un numéro
-     * doit passer par la même normalisation qu'à l'ouverture du compte, sans
-     * quoi la moindre variante de saisie (espaces, préfixe 0…) le rendrait
-     * introuvable.
+     * CompteParentService, qui n'ouvre pas d'adresse), les élèves par
+     * matricule (cf. CompteEleveService, pour la même raison — un élève n'a
+     * pas forcément de téléphone à lui) : `$identifiant` peut être l'un des
+     * trois, distingués par la présence d'un « @ » pour l'e-mail, puis par
+     * essai téléphone avant repli matricule. Un numéro doit passer par la
+     * même normalisation qu'à l'ouverture du compte, sans quoi la moindre
+     * variante de saisie (espaces, préfixe 0…) le rendrait introuvable.
      *
      * @return array{user: User, token: string, refresh_token: string}|null null when the credentials are invalid or the account is disabled.
      */
@@ -45,7 +47,8 @@ class AuthService extends BaseService
 
         $user = str_contains($identifiant, '@')
             ? User::where('email', $identifiant)->first()
-            : User::where('phone', Telephone::normaliser($identifiant))->first();
+            : User::where('phone', Telephone::normaliser($identifiant))->first()
+                ?? User::whereHas('eleve', fn ($q) => $q->where('matricule', $identifiant))->first();
 
         if (! $user || ! Hash::check($password, $user->password) || ! $user->is_active) {
             return null;

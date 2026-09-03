@@ -7,6 +7,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, succes } from '@/shared/lib/alertes'
 import { SousSystemeFormModal } from './SousSystemeFormModal'
@@ -110,10 +111,21 @@ export function SousSystemesListPage() {
                 icon={Layers}
                 actions={
                     can('classes.manage') && (
-                        <Button onClick={() => setShowForm(true)}>
-                            <Plus className="h-4 w-4" />
-                            {t('sousSystemes.create')}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <ImportExportBar
+                                titreImport={t('sousSystemes.title')}
+                                importUrl="/sous-systemes/import"
+                                exportUrl="/sous-systemes/export"
+                                modeleUrl="/sous-systemes/modele"
+                                colonnes={['Code', 'Nom', 'Description']}
+                                nomFichier="sous-systemes"
+                                onImported={() => queryClient.invalidateQueries({ queryKey: ['sous-systemes'] })}
+                            />
+                            <Button onClick={() => setShowForm(true)}>
+                                <Plus className="h-4 w-4" />
+                                {t('sousSystemes.create')}
+                            </Button>
+                        </div>
                     )
                 }
             />

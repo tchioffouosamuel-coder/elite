@@ -22,6 +22,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
@@ -303,6 +304,7 @@ export function PersonnelListPage() {
               <FileSpreadsheet className="h-4 w-4" />
               {t('export.excel')}
             </Button>
+            <TemplateDownloadButton url="/personnels/modele" nomFichier="modele-personnel.xlsx" />
             {can('personnel.manage') && (
               <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/identifiants')}>
                 <KeyRound className="h-4 w-4" />

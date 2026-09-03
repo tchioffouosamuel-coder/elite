@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 
@@ -111,7 +112,21 @@ export function DepartementsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre={t('nav.departements')} icon={Building2} />
+      <PageHeader
+        titre={t('nav.departements')}
+        icon={Building2}
+        actions={
+          <ImportExportBar
+            titreImport={t('nav.departements')}
+            importUrl="/departements/import"
+            exportUrl="/departements/export"
+            modeleUrl="/departements/modele"
+            colonnes={['Département', 'Chef de département']}
+            nomFichier="departements"
+            onImported={() => queryClient.invalidateQueries({ queryKey: ['departements'] })}
+          />
+        }
+      />
 
       {can('personnel.manage') && (
         <div className="flex max-w-xl gap-2">

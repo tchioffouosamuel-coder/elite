@@ -13,6 +13,7 @@ import { fetchMe } from '@/features/auth/api'
  * compte authentifié.
  */
 function redirectionParDefaut(user: AuthUser | null | undefined): string {
+  if (user?.roles.includes('eleve')) return '/eleve'
   if (user?.roles.includes('parent')) return '/parent'
 
   const peut = (permission: string) => Boolean(user?.is_super_admin || user?.permissions.includes(permission))
@@ -32,6 +33,7 @@ export function ProtectedRoute({
   masquerPourTitulaire = false,
   masquerPourVendeur = false,
   parentOnly = false,
+  eleveOnly = false,
   personnelOnly = false,
   chefDepartementOnly = false,
   professeurPrincipalOnly = false,
@@ -62,6 +64,8 @@ export function ProtectedRoute({
   masquerPourVendeur?: boolean
   /** Réservé au portail parent — un compte du personnel n'y a rien à faire. */
   parentOnly?: boolean
+  /** Réservé au portail élève — même principe que `parentOnly`, pour le rôle `eleve`. */
+  eleveOnly?: boolean
   /**
    * Réservé aux comptes portant une fiche personnel : l'espace libre-service
    * n'a rien à montrer à un compte purement administratif, et l'API y répond
@@ -119,6 +123,10 @@ export function ProtectedRoute({
   const estParent = Boolean(user?.roles.includes('parent'))
   if (parentOnly && !estParent) return <Navigate to={redirectionParDefaut(user)} replace />
   if (!parentOnly && estParent) return <Navigate to={redirectionParDefaut(user)} replace />
+
+  const estEleve = Boolean(user?.roles.includes('eleve'))
+  if (eleveOnly && !estEleve) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (!eleveOnly && estEleve) return <Navigate to={redirectionParDefaut(user)} replace />
 
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user)} replace />
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user)} replace />

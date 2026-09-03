@@ -18,6 +18,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
@@ -248,6 +249,15 @@ export function CompetencesPage() {
         actions={
           can('pedagogie.manage') && (
             <>
+              <ImportExportBar
+                titreImport={t('competences.title')}
+                importUrl="/competences/import"
+                exportUrl="/competences/export"
+                modeleUrl="/competences/modele"
+                colonnes={['Compétence (FR)', 'Compétence (EN)', 'Abréviation', 'Notation (/20 ou /10)', 'Ordre']}
+                nomFichier="competences"
+                onImported={() => queryClient.invalidateQueries({ queryKey: ['competences'] })}
+              />
               {selectedIds.size > 0 && (
                 <Button variant="danger" onClick={handleBatchDelete}>
                   <Trash2 className="h-4 w-4" />

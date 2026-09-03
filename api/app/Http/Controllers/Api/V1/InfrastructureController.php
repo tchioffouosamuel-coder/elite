@@ -11,8 +11,13 @@ use App\Http\Requests\Api\V1\UpdateInfrastructureRequest;
 use App\Models\EquipementMobilier;
 use App\Models\Infrastructure;
 use App\Services\InfrastructureService;
+use App\Support\ImportExport\ActionsImportExport;
+use App\Support\ImportExport\Specs\EquipementMobilierSpec;
+use App\Support\ImportExport\Specs\InfrastructureSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Bâti, mobilier et équipements de l'école — infrastructures.view/manage
@@ -86,5 +91,41 @@ class InfrastructureController extends Controller
     public function rapport(): JsonResponse
     {
         return ApiResponse::success($this->service->rapport(Tenant::schoolIds()));
+    }
+
+    // -------------------------------------------------- Import / export / modèle
+
+    public function importInfrastructures(Request $request): JsonResponse
+    {
+        $resultat = ActionsImportExport::importer(new InfrastructureSpec(), $request);
+
+        return ApiResponse::success($resultat, "{$resultat['imported']} infrastructure(s) créée(s), {$resultat['updated']} mise(s) à jour.");
+    }
+
+    public function exportInfrastructures(): BinaryFileResponse
+    {
+        return ActionsImportExport::exporter(new InfrastructureSpec(), 'infrastructures');
+    }
+
+    public function modeleInfrastructures(): BinaryFileResponse
+    {
+        return ActionsImportExport::modele(new InfrastructureSpec(), 'infrastructures');
+    }
+
+    public function importEquipements(Request $request): JsonResponse
+    {
+        $resultat = ActionsImportExport::importer(new EquipementMobilierSpec(), $request);
+
+        return ApiResponse::success($resultat, "{$resultat['imported']} équipement(s) créé(s), {$resultat['updated']} mis à jour.");
+    }
+
+    public function exportEquipements(): BinaryFileResponse
+    {
+        return ActionsImportExport::exporter(new EquipementMobilierSpec(), 'equipements');
+    }
+
+    public function modeleEquipements(): BinaryFileResponse
+    {
+        return ActionsImportExport::modele(new EquipementMobilierSpec(), 'equipements');
     }
 }

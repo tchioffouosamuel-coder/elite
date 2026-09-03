@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -48,6 +49,18 @@ class User extends Authenticatable
         return $this->belongsTo(School::class);
     }
 
+    /**
+     * Écoles supplémentaires du compte, en plus de son école principale
+     * ({@see school()}) — cf. {@see ecolesAccessibles()}. Un compte de
+     * direction transverse (« Directrice Primaire et Maternelle »,
+     * chauffeur/infirmier/vendeur des deux écoles) en porte une ou
+     * plusieurs ; un compte ordinaire n'en a aucune.
+     */
+    public function schools(): BelongsToMany
+    {
+        return $this->belongsToMany(School::class, 'school_user');
+    }
+
     public function niveau(): BelongsTo
     {
         return $this->belongsTo(Niveau::class);
@@ -56,6 +69,12 @@ class User extends Authenticatable
     public function personnel(): HasOne
     {
         return $this->hasOne(Personnel::class);
+    }
+
+    /** Fiche élève portée par ce compte, pour un compte du portail élève — cf. CompteEleveService. */
+    public function eleve(): HasOne
+    {
+        return $this->hasOne(Eleve::class);
     }
 
     public function estSuperAdmin(): bool
@@ -243,21 +262,31 @@ class User extends Authenticatable
 
     /**
      * Établissements sur lesquels le compte peut travailler. Le super
-     * administrateur voit les trois écoles du complexe et bascule de l'une à
-     * l'autre ; tout autre compte reste sur le sien, vers lequel il est
-     * directement redirigé à la connexion.
+     * administrateur voit toutes les écoles du complexe et bascule de l'une
+     * à l'autre. Un compte ordinaire ne voit que son école principale ; un
+     * compte de direction transverse (« Directrice Primaire et Maternelle »,
+     * chauffeur/infirmier/vendeur des deux écoles) y ajoute celles portées
+     * par {@see schools()}. Sans école supplémentaire, le compte reste
+     * redirigé directement sur la sienne à la connexion — comportement
+     * inchangé pour l'immense majorité des comptes.
      *
      * @return Collection<int, School>
      */
     public function ecolesAccessibles(): Collection
     {
-        if (! $this->hasRole('super_admin')) {
-            return $this->school ? collect([$this->school]) : collect();
+        if ($this->hasRole('super_admin')) {
+            return School::where('is_active', true)
+                ->when($this->school?->complexe_id, fn ($q, $id) => $q->where('complexe_id', $id))
+                ->orderBy('type')
+                ->get();
         }
 
-        return School::where('is_active', true)
-            ->when($this->school?->complexe_id, fn ($q, $id) => $q->where('complexe_id', $id))
-            ->orderBy('type')
-            ->get();
+        return collect([$this->school])
+            ->merge($this->schools)
+            ->filter()
+            ->unique('id')
+            ->filter(fn (School $ecole) => $ecole->is_active)
+            ->sortBy('type')
+            ->values();
     }
 }

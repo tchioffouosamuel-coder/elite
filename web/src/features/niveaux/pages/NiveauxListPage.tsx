@@ -10,6 +10,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 
 export function NiveauxListPage() {
@@ -252,6 +253,15 @@ export function NiveauxListPage() {
                 </Button>
               </>
             )}
+            <ImportExportBar
+              titreImport={t('niveauxGlobaux.title')}
+              importUrl="/niveaux/import"
+              exportUrl="/niveaux/export"
+              modeleUrl="/niveaux/modele"
+              colonnes={['Code', 'Nom (FR)', 'Nom (EN)', 'Sous-système']}
+              nomFichier="niveaux"
+              onImported={invalidate}
+            />
             <Button
               onClick={() => {
                 setSelectedNiveau(null)

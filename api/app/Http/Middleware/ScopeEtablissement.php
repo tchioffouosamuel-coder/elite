@@ -14,10 +14,13 @@ use Symfony\Component\HttpFoundation\Response;
  * doit voir tout le complexe), app('tenant.is_aggregate') et
  * app('tenant.niveau_id'). Voir App\Support\Tenant pour l'API à utiliser.
  *
- * super_admin has no fixed school_id and may pass X-School-Id to focus on one
- * specific établissement. Sans X-School-Id, le super admin est en mode
- * agrégé : `school_ids` couvre tout le complexe, sans qu'il ait à choisir une
- * école pour voir ses propres données.
+ * Un seul mode de résolution pour tous les comptes, basé sur
+ * `User::ecolesAccessibles()` : le super admin (tout le complexe) et un
+ * compte de direction transverse (« Directrice Primaire et Maternelle »,
+ * chauffeur/infirmier/vendeur des deux écoles) s'y comportent pareil — X-School-Id
+ * pour se concentrer sur un seul établissement, sinon mode agrégé dès qu'il y
+ * en a plusieurs. Un compte mono-école garde le comportement d'avant : un
+ * seul `school_id`, jamais agrégé.
  */
 class ScopeEtablissement
 {
@@ -29,50 +32,42 @@ class ScopeEtablissement
             return ApiResponse::unauthorized();
         }
 
+        $accessibles = $user->ecolesAccessibles();
+
+        if ($accessibles->isEmpty()) {
+            return ApiResponse::forbidden("Votre compte n'est rattaché à aucun établissement.");
+        }
+
         $isAggregate = false;
+        $demande = (int) $request->header('X-School-Id');
 
-        if (! $user->hasRole('super_admin')) {
-            if (! $user->school_id) {
-                return ApiResponse::forbidden("Votre compte n'est rattaché à aucun établissement.");
-            }
+        if ($demande && ! $accessibles->contains('id', $demande)) {
+            return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
+        }
 
-            $schoolId = $user->school_id;
+        if ($demande) {
+            // Mode "focus" : le compte consulte volontairement un seul
+            // établissement (ex. réglages propres à une école).
+            $schoolId = $demande;
+            $schoolIds = [$demande];
+        } elseif ($accessibles->count() === 1) {
+            // Compte mono-école (l'immense majorité) : jamais agrégé, comme
+            // avant l'introduction du multi-écoles.
+            $schoolId = $accessibles->first()->id;
             $schoolIds = [$schoolId];
         } else {
-            // Le super admin bascule d'une école à l'autre via X-School-Id, mais
-            // reste borné aux établissements de son complexe : accepter l'en-tête
-            // tel quel ouvrirait l'accès à n'importe quel établissement.
-            $accessibles = $user->ecolesAccessibles();
-
-            if ($accessibles->isEmpty()) {
-                return ApiResponse::forbidden("Aucun établissement actif n'est configuré.");
-            }
-
-            $demande = (int) $request->header('X-School-Id');
-
-            if ($demande && ! $accessibles->contains('id', $demande)) {
-                return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
-            }
-
-            if ($demande) {
-                // Mode "focus" : le super admin consulte volontairement un seul
-                // établissement (ex. réglages propres à une école).
-                $schoolId = $demande;
-                $schoolIds = [$demande];
-            } else {
-                // Pas d'en-tête : mode agrégé par défaut — tout le complexe,
-                // sans que le super admin ait à choisir une école pour voir ses
-                // propres données. `$user->school_id` ne sert de repli que s'il
-                // pointe encore vers une école accessible : sinon (école
-                // désactivée ou hors complexe), une écriture non explicitement
-                // ciblée irait s'y perdre silencieusement — hors de portée de
-                // toute liste qui lit `school_ids`.
-                $schoolIds = $accessibles->pluck('id')->all();
-                $schoolId = $user->school_id !== null && $accessibles->contains('id', $user->school_id)
-                    ? $user->school_id
-                    : $accessibles->first()->id;
-                $isAggregate = true;
-            }
+            // Pas d'en-tête, plusieurs écoles accessibles : mode agrégé par
+            // défaut — toutes, sans que le compte ait à en choisir une pour
+            // voir ses propres données. `$user->school_id` ne sert de repli
+            // que s'il pointe encore vers une école accessible : sinon
+            // (école désactivée ou retirée du compte), une écriture non
+            // explicitement ciblée irait s'y perdre silencieusement — hors
+            // de portée de toute liste qui lit `school_ids`.
+            $schoolIds = $accessibles->pluck('id')->all();
+            $schoolId = $user->school_id !== null && $accessibles->contains('id', $user->school_id)
+                ? $user->school_id
+                : $accessibles->first()->id;
+            $isAggregate = true;
         }
 
         // bind() plutôt qu'instance() : $schoolId peut être null, et

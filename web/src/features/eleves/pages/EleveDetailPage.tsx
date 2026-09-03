@@ -27,6 +27,7 @@ import {
 import {
   fetchEleve,
   creerCompteParent,
+  creerCompteEleve,
   archiveEleve,
   reactivateEleve,
   deleteEleve,
@@ -85,6 +86,7 @@ export function EleveDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
+  const [ouvertureCompteEleveEnCours, setOuvertureCompteEleveEnCours] = useState(false)
   const [transfertClasse, setTransfertClasse] = useState(false)
   const [transfertEcole, setTransfertEcole] = useState(false)
   const [sanctionOuverte, setSanctionOuverte] = useState(false)
@@ -111,6 +113,18 @@ export function EleveDetailPage() {
       erreur((err as ApiError).message)
     } finally {
       setOuvertureEnCours(null)
+    }
+  }
+
+  const ouvrirAccesEleve = async () => {
+    setOuvertureCompteEleveEnCours(true)
+    try {
+      const { identifiant, mot_de_passe_provisoire } = await creerCompteEleve(eleveId)
+      identifiantsOuverts(identifiant, mot_de_passe_provisoire)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setOuvertureCompteEleveEnCours(false)
     }
   }
 
@@ -221,6 +235,12 @@ export function EleveDetailPage() {
             aide: eleve.school?.name ?? undefined,
             onClick: () => setTransfertEcole(true),
           },
+        can('eleves.manage') && {
+          label: t('hub.eleve.acces_eleve'),
+          icon: KeyRound,
+          onClick: ouvrirAccesEleve,
+          disabled: ouvertureCompteEleveEnCours,
+        },
       ],
     },
     {

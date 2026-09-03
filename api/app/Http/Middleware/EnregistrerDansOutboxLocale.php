@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\DesktopProvisioning;
 use App\Models\SyncOutbox;
 use Closure;
 use Illuminate\Http\Request;
@@ -51,6 +52,11 @@ class EnregistrerDansOutboxLocale
             // `/api/v1/sync` qui le transporte (cf. migration
             // `add_school_id_to_sync_outbox_table`).
             'school_id' => app('tenant.school_id'),
+            // Compte auteur de cette écriture : plusieurs comptes pouvant
+            // désormais être provisionnés sur le même poste, c'est ce qui
+            // permet à `SyncPush` de rejouer chaque lot avec le bon jeton
+            // plutôt qu'un jeton unique choisi arbitrairement.
+            'desktop_provisioning_id' => DesktopProvisioning::pourUtilisateur($request->user()->id)?->id,
             'corps' => $this->corpsAvecFichiers($request),
         ]);
 

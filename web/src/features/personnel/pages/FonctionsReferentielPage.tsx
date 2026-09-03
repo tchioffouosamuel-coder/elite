@@ -13,6 +13,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes, info } from '@/shared/lib/alertes'
 import { FonctionReferentielFormModal } from './FonctionReferentielFormModal'
@@ -175,10 +176,21 @@ export function FonctionsReferentielPage() {
         titre={t('fonctionsReferentiel.title')}
         icon={BriefcaseBusiness}
         actions={
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            {t('fonctionsReferentiel.create')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <ImportExportBar
+              titreImport={t('fonctionsReferentiel.title')}
+              importUrl="/fonctions-referentiel/import"
+              exportUrl="/fonctions-referentiel/export"
+              modeleUrl="/fonctions-referentiel/modele"
+              colonnes={['Fonction (FR)', 'Fonction (EN)']}
+              nomFichier="fonctions-referentiel"
+              onImported={() => queryClient.invalidateQueries({ queryKey: ['fonctions-referentiel'] })}
+            />
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              {t('fonctionsReferentiel.create')}
+            </Button>
+          </div>
         }
       />
 

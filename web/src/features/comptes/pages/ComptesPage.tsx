@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Users, History, KeyRound, AlertTriangle } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Users, History, KeyRound, AlertTriangle, School } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -10,6 +10,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { fetchComptesUtilisateurs, type CompteUtilisateur, type TypeCompte } from '@/features/comptes/api'
 import { ReinitialiserMotDePasseModal } from '@/features/comptes/pages/ReinitialiserMotDePasseModal'
 import { ActiviteCompteModal } from '@/features/comptes/pages/ActiviteCompteModal'
+import { AttribuerEcolesModal } from '@/features/comptes/pages/AttribuerEcolesModal'
 
 const LIBELLE_TYPE: Record<TypeCompte, string> = {
   personnel: 'Personnel',
@@ -34,6 +35,8 @@ function formaterDate(iso: string | null): string {
 export function ComptesPage() {
   const [reinitialisationPour, setReinitialisationPour] = useState<CompteUtilisateur | null>(null)
   const [activitePour, setActivitePour] = useState<CompteUtilisateur | null>(null)
+  const [ecolesPour, setEcolesPour] = useState<CompteUtilisateur | null>(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['comptes-utilisateurs'],
@@ -74,10 +77,17 @@ export function ComptesPage() {
     },
     {
       cle: 'school',
-      entete: 'École',
-      largeur: '170px',
-      valeur: (c) => c.school?.name ?? '',
-      cellule: (c) => <span className="block truncate text-navy-600">{c.school?.name ?? '—'}</span>,
+      entete: 'École(s)',
+      largeur: '190px',
+      valeur: (c) => [c.school?.name, ...c.ecoles_supplementaires.map((e) => e.name)].filter(Boolean).join(' '),
+      cellule: (c) => (
+        <div className="min-w-0">
+          <div className="truncate text-navy-600">{c.school?.name ?? '—'}</div>
+          {c.ecoles_supplementaires.length > 0 && (
+            <div className="truncate text-xs text-navy-400">+ {c.ecoles_supplementaires.map((e) => e.name).join(', ')}</div>
+          )}
+        </div>
+      ),
       masquerMobile: true,
     },
     {
@@ -103,12 +113,17 @@ export function ComptesPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: '110px',
+      largeur: '150px',
       cellule: (c) => (
         <div className="flex justify-end gap-1.5">
           <Button size="sm" variant="secondary" title="Activité du compte" onClick={() => setActivitePour(c)}>
             <History className="h-3.5 w-3.5" />
           </Button>
+          {c.type !== 'parent' && (
+            <Button size="sm" variant="secondary" title="Écoles accessibles" onClick={() => setEcolesPour(c)}>
+              <School className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button size="sm" title="Réinitialiser le mot de passe" onClick={() => setReinitialisationPour(c)}>
             <KeyRound className="h-3.5 w-3.5" />
           </Button>
@@ -171,6 +186,17 @@ export function ComptesPage() {
       )}
 
       {activitePour && <ActiviteCompteModal compte={activitePour} onClose={() => setActivitePour(null)} />}
+
+      {ecolesPour && (
+        <AttribuerEcolesModal
+          compte={ecolesPour}
+          onClose={() => setEcolesPour(null)}
+          onAttribue={() => {
+            setEcolesPour(null)
+            queryClient.invalidateQueries({ queryKey: ['comptes-utilisateurs'] })
+          }}
+        />
+      )}
     </div>
   )
 }

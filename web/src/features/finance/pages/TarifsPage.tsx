@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Tags, Plus, Save, Trash2, Info, Pencil, Search } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -213,6 +214,28 @@ export function TarifsPage() {
         titre="Tarifs et frais annexes"
         sousTitre={`Grille de l'année ${data.annee_scolaire.libelle}.`}
         icon={Tags}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportExportBar
+              titreImport="Grille de frais"
+              importUrl="/tarifs/grille-frais/import"
+              exportUrl="/tarifs/grille-frais/export"
+              modeleUrl="/tarifs/grille-frais/modele"
+              colonnes={['Classe', 'Montant (FCFA)']}
+              nomFichier="grille-frais"
+              onImported={rafraichir}
+            />
+            <ImportExportBar
+              titreImport="Frais annexes"
+              importUrl="/tarifs/frais-annexes/import"
+              exportUrl="/tarifs/frais-annexes/export"
+              modeleUrl="/tarifs/frais-annexes/modele"
+              colonnes={['Libellé', 'Montant (FCFA)', 'Obligatoire (Oui/Non)']}
+              nomFichier="frais-annexes"
+              onImported={rafraichir}
+            />
+          </div>
+        }
       />
 
       <p className="flex items-start gap-2 rounded-xl bg-gold-50 px-3.5 py-2.5 text-sm text-gold-800 ring-1 ring-gold-100">

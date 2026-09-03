@@ -20,9 +20,10 @@ use Tests\TestCase;
 
 /**
  * Fondations de la synchronisation desktop offline : provisioning
- * mono-utilisateur, `sync:pull` (delta + résolution « le plus récent
- * gagne »), `sync:push` (rejeu de l'outbox locale) et l'enregistrement
- * automatique de l'outbox par {@see \App\Http\Middleware\EnregistrerDansOutboxLocale}.
+ * multi-utilisateur (plusieurs comptes sur le même poste), `sync:pull`
+ * (delta + résolution « le plus récent gagne »), `sync:push` (rejeu de
+ * l'outbox locale) et l'enregistrement automatique de l'outbox par
+ * {@see \App\Http\Middleware\EnregistrerDansOutboxLocale}.
  */
 class DesktopSyncTest extends TestCase
 {
@@ -69,6 +70,7 @@ class DesktopSyncTest extends TestCase
             'serveur_url' => 'https://distant.test',
             'token' => 'jeton-acces',
             'refresh_token' => 'jeton-refresh',
+            'password' => 'motdepasse-local',
             'schools' => [['id' => 9, 'name' => 'École distante', 'code' => 'ED', 'type' => 'secondaire']],
             'user' => [
                 'id' => 42,
@@ -86,7 +88,7 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseHas('desktop_provisioning', ['user_id' => 42, 'serveur_url' => 'https://distant.test']);
         $this->assertDatabaseHas('eleves', ['id' => 501, 'nom_complet' => 'ELEVE DISTANT']);
 
-        $provisioning = DesktopProvisioning::actuelle();
+        $provisioning = DesktopProvisioning::pourUtilisateur(42);
         $ecole = $provisioning->ecoles()->where('school_id', 9)->firstOrFail();
         $this->assertNotNull($ecole->dernier_pull_le);
         $this->assertSame('2026-01-01T00:00:00Z', $ecole->curseur_sync);
@@ -108,6 +110,7 @@ class DesktopSyncTest extends TestCase
             'serveur_url' => 'https://distant.test',
             'token' => 'jeton-acces',
             'refresh_token' => 'jeton-refresh',
+            'password' => 'motdepasse-local',
             'schools' => [
                 ['id' => 11, 'name' => 'École Un', 'code' => 'E1', 'type' => 'secondaire'],
                 ['id' => 12, 'name' => 'École Deux', 'code' => 'E2', 'type' => 'secondaire'],
@@ -123,35 +126,63 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseHas('eleves', ['id' => 701, 'nom_complet' => 'ELEVE ECOLE 1']);
         $this->assertDatabaseHas('eleves', ['id' => 702, 'nom_complet' => 'ELEVE ECOLE 2']);
 
-        $provisioning = DesktopProvisioning::actuelle();
+        $provisioning = DesktopProvisioning::pourUtilisateur(77);
         $this->assertSame(2, $provisioning->ecoles()->count());
         $this->assertNotNull($provisioning->ecoles()->where('school_id', 11)->first()->curseur_sync);
         $this->assertNotNull($provisioning->ecoles()->where('school_id', 12)->first()->curseur_sync);
     }
 
-    public function test_refuse_un_second_provisioning(): void
+    public function test_refuse_un_second_provisioning_du_meme_compte(): void
     {
         $user = User::factory()->create();
         DesktopProvisioning::create([
-            'user_id' => $user->id, 'serveur_url' => 'https://distant.test',
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
             'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
         ]);
 
         $this->postJson('/api/v1/desktop/provisionner', [
-            'serveur_url' => 'https://autre.test', 'token' => 't', 'refresh_token' => 'r',
-            'user' => ['id' => 99, 'name' => 'Intrus'],
+            'serveur_url' => 'https://autre.test', 'token' => 't', 'refresh_token' => 'r', 'password' => 'secret',
+            'schools' => [['id' => 1, 'name' => 'X', 'code' => 'X', 'type' => 'secondaire']],
+            'user' => ['id' => $user->id, 'name' => 'Intrus'],
         ])->assertStatus(409);
     }
 
-    public function test_session_authentifie_le_compte_du_poste_sans_mot_de_passe(): void
+    /** Deux membres du personnel qui se relaient sur le même poste : chacun garde son propre accès. */
+    public function test_autorise_un_second_compte_different_sur_le_meme_poste(): void
     {
-        $user = User::factory()->create(['is_active' => true]);
+        Http::fake(['*/api/v1/sync*' => Http::response([
+            'success' => true,
+            'data' => ['curseur' => null, 'complet' => true, 'donnees' => [], 'suppressions' => []],
+        ], 200)]);
+
+        $premier = User::factory()->create();
         DesktopProvisioning::create([
-            'user_id' => $user->id, 'serveur_url' => 'https://distant.test',
+            'user_id' => $premier->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
             'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
         ]);
 
-        $reponse = $this->getJson('/api/v1/desktop/session')->assertOk();
+        $this->postJson('/api/v1/desktop/provisionner', [
+            'serveur_url' => 'https://distant.test', 'token' => 't2', 'refresh_token' => 'r2', 'password' => 'secret2',
+            'schools' => [['id' => 1, 'name' => 'X', 'code' => 'X', 'type' => 'secondaire']],
+            'user' => ['id' => 999, 'name' => 'Second Compte'],
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('desktop_provisioning', ['user_id' => $premier->id]);
+        $this->assertDatabaseHas('desktop_provisioning', ['user_id' => 999]);
+    }
+
+    public function test_connexion_authentifie_avec_le_mot_de_passe_local(): void
+    {
+        $user = User::factory()->create(['is_active' => true, 'email' => 'agent@test.local']);
+        DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('motdepasse-local'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+
+        $reponse = $this->postJson('/api/v1/desktop/connexion', [
+            'identifiant' => 'agent@test.local', 'password' => 'motdepasse-local',
+        ])->assertOk();
+
         $token = $reponse->json('data.token');
 
         $this->assertNotEmpty($token);
@@ -160,6 +191,19 @@ class DesktopSyncTest extends TestCase
             ->getJson('/api/v1/auth/me')
             ->assertOk()
             ->assertJsonPath('data.id', $user->id);
+    }
+
+    public function test_connexion_refuse_un_mauvais_mot_de_passe(): void
+    {
+        $user = User::factory()->create(['is_active' => true, 'email' => 'agent2@test.local']);
+        DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('bonmotdepasse'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+
+        $this->postJson('/api/v1/desktop/connexion', [
+            'identifiant' => 'agent2@test.local', 'password' => 'mauvais',
+        ])->assertStatus(401);
     }
 
     // --------------------------------------------------------------- sync:pull
@@ -288,6 +332,36 @@ class DesktopSyncTest extends TestCase
         $this->assertNotNull($eleve->fresh()->photo_path);
     }
 
+    /**
+     * Plusieurs comptes pouvant écrire hors-ligne sur le même poste, chaque
+     * ligne de l'outbox doit porter le compte qui l'a produite — sans quoi
+     * `SyncPush` ne saurait pas avec quel jeton la rejouer (cf. `fillable`
+     * de `SyncOutbox`, qui a longtemps omis cette colonne en silence : une
+     * régression que seule une vérification de bout en bout, pas les
+     * assertions existantes sur `chemin`/`methode`, pouvait révéler).
+     */
+    public function test_le_middleware_outbox_attribue_lecriture_au_bon_compte(): void
+    {
+        config(['sync.local_replica' => true]);
+
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/appareils', ['jeton' => 'abc123', 'plateforme' => 'android'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('sync_outbox', [
+            'chemin' => 'appareils',
+            'desktop_provisioning_id' => $provisioning->id,
+        ]);
+    }
+
     // ----------------------------------------------------------- Middleware
 
     public function test_le_middleware_outbox_enregistre_une_ecriture_reussie_en_mode_local(): void
@@ -367,6 +441,80 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseCount('sync_outbox', 0);
     }
 
+    // ---------------------------------------------------------- statut-sync
+
+    public function test_sync_comptage_renvoie_le_nombre_de_lignes_par_entite(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+        $this->creerEleveAvecId(8001, $ecole->id, 'ELEVE UN');
+        $this->creerEleveAvecId(8002, $ecole->id, 'ELEVE DEUX');
+
+        $reponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/sync/comptage')->assertOk();
+
+        $this->assertSame(2, $reponse->json('data.eleves'));
+    }
+
+    public function test_statut_sync_signale_une_replique_complete(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id, 'is_active' => true]);
+        $user->assignRole('super_admin');
+        $this->creerEleveAvecId(8101, $ecole->id, 'ELEVE LOCAL');
+
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+
+        // Le serveur "distant" (simulé) rapporte exactement ce qui existe déjà
+        // en local : la réplique doit ressortir complète.
+        Http::fake(['*/api/v1/sync/comptage*' => Http::response(['success' => true, 'data' => ['eleves' => 1]], 200)]);
+
+        $reponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/desktop/statut-sync?verifier=1')->assertOk();
+
+        $this->assertTrue($reponse->json('data.ecoles.0.complet'));
+    }
+
+    public function test_statut_sync_signale_une_replique_incomplete(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id, 'is_active' => true]);
+        $user->assignRole('super_admin');
+        $this->creerEleveAvecId(8102, $ecole->id, 'ELEVE LOCAL');
+
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+
+        // Le serveur "distant" en rapporte deux, la base locale n'en a qu'un.
+        Http::fake(['*/api/v1/sync/comptage*' => Http::response(['success' => true, 'data' => ['eleves' => 2]], 200)]);
+
+        $reponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/desktop/statut-sync?verifier=1')->assertOk();
+
+        $this->assertFalse($reponse->json('data.ecoles.0.complet'));
+    }
+
+    public function test_statut_sync_sans_verifier_ne_verifie_pas(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id, 'is_active' => true]);
+        $user->assignRole('super_admin');
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+
+        $reponse = $this->actingAs($user, 'sanctum')->getJson('/api/v1/desktop/statut-sync')->assertOk();
+
+        $this->assertNull($reponse->json('data.ecoles.0.complet'));
+    }
+
     // ------------------------------------------------------------------ aides
 
     /** `id` n'étant fillable sur aucun modèle, `create(['id' => ...])` l'ignorerait silencieusement. */
@@ -389,6 +537,7 @@ class DesktopSyncTest extends TestCase
 
         $provisioning = DesktopProvisioning::create([
             'user_id' => $user->id,
+            'password' => bcrypt('x'),
             'serveur_url' => 'https://distant.test',
             'token' => 'jeton-acces',
             'refresh_token' => 'jeton-refresh',

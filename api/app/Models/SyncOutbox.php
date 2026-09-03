@@ -19,7 +19,7 @@ class SyncOutbox extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'methode', 'chemin', 'school_id', 'corps', 'created_at', 'pushed_at', 'tentatives'];
+    protected $fillable = ['id', 'methode', 'chemin', 'school_id', 'desktop_provisioning_id', 'corps', 'created_at', 'pushed_at', 'tentatives'];
 
     protected function casts(): array
     {

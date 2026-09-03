@@ -14,6 +14,8 @@ export interface CompteUtilisateur {
   role: string | null
   matricule: string | null
   school: { id: number; name: string } | null
+  /** Écoles supplémentaires (compte de direction transverse : « Directrice Primaire et Maternelle », chauffeur/infirmier/vendeur des deux écoles). */
+  ecoles_supplementaires: { id: number; name: string }[]
   /** Dernière connexion réussie, d'après le journal d'activité — absente si le compte ne s'est jamais connecté. */
   derniere_connexion: string | null
   cree_le: string | null
@@ -45,6 +47,11 @@ export async function fetchActiviteCompte(
     params: { page },
   })
   return { items: data.data, pagination: data.meta!.pagination! }
+}
+
+/** Remplace les écoles supplémentaires du compte (hors école principale) — cf. `CompteController::attribuerEcoles()`. */
+export async function attribuerEcolesCompte(compteId: number, schoolIds: number[]): Promise<void> {
+  await http.put(`/comptes-utilisateurs/${compteId}/ecoles`, { school_ids: schoolIds })
 }
 
 export async function reinitialiserMotDePasseCompte(

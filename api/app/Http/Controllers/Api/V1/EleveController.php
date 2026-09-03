@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Exports\EleveExport;
+use App\Exports\ModeleGenerique;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreEleveRequest;
@@ -10,7 +11,14 @@ use App\Http\Requests\Api\V1\UpdateEleveRequest;
 use App\Http\Resources\Api\V1\EleveResource;
 use App\Models\ActivityLog;
 use App\Models\Classe;
+use App\Models\Eleve;
+use App\Models\School;
+use App\Models\Setting;
+use App\Services\AuthService;
+use App\Services\CompteEleveService;
 use App\Services\EleveService;
+use App\Services\SettingsCatalog;
+use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,10 +28,15 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class EleveController extends Controller
 {
-    public function __construct(private readonly EleveService $service) {}
+    public function __construct(
+        private readonly EleveService $service,
+        private readonly CompteEleveService $comptes,
+        private readonly AuthService $auth,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -101,6 +114,11 @@ class EleveController extends Controller
         $classeId = $request->integer('classe_id') ?: null;
 
         return Excel::download(new EleveExport(Tenant::schoolIds(), $classeId), 'eleves.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(\App\Imports\EleveImport::enTetes()), 'modele-eleves.xlsx');
     }
 
     public function import(Request $request): JsonResponse
@@ -323,5 +341,96 @@ class EleveController extends Controller
         }
 
         return ApiResponse::success(['transferes' => $transferes], "{$transferes} élève(s) transféré(s) vers {$classe->school->name} — {$classe->nom}.");
+    }
+
+    /** Ouvre l'accès élève (portail lecture seule) — pendant de {@see TuteurController::creerCompteParent()}. */
+    public function creerCompteEleve(int $id): JsonResponse
+    {
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        try {
+            $user = $this->comptes->assurer($eleve);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([
+            'user_id' => $user->id,
+            'identifiant' => $eleve->matricule,
+            'mot_de_passe_provisoire' => $user->doit_changer_mot_de_passe
+                ? Setting::get($eleve->school_id, 'mot_de_passe_defaut', SettingsCatalog::default('mot_de_passe_defaut'))
+                : null,
+        ], 'Accès élève ouvert.');
+    }
+
+    /** Ouvre l'accès de tous les élèves de l'école qui n'en ont pas encore — pendant de {@see TuteurController::creerComptesParentLot()}. */
+    public function creerComptesEleveLot(Request $request): JsonResponse
+    {
+        $schoolId = $request->integer('school_id') ?: null;
+        $schoolIds = $schoolId !== null ? [Tenant::resolveWriteSchoolId($schoolId)] : Tenant::schoolIds();
+
+        $resultat = $this->comptes->assurerLot($schoolIds);
+
+        $message = $resultat['crees'] > 0
+            ? "{$resultat['crees']} accès élève ouvert(s)."
+            : 'Aucun nouvel accès à ouvrir — tous les élèves avec un matricule valide en ont déjà un.';
+
+        return ApiResponse::success($resultat, $message);
+    }
+
+    /** Bloque/débloque l'accès élève — pendant de {@see TuteurController::basculerAcces()}. */
+    public function basculerAcces(int $id): JsonResponse
+    {
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if (! $eleve->user) {
+            return ApiResponse::error("Cet élève n'a pas encore de compte.", 422);
+        }
+
+        $eleve->user->update(['is_active' => ! $eleve->user->is_active]);
+
+        if (! $eleve->user->is_active) {
+            $this->auth->revoquerTousLesJetons($eleve->user);
+        }
+
+        return ApiResponse::success(null, $eleve->user->is_active ? 'Accès élève débloqué.' : 'Accès élève bloqué.');
+    }
+
+    /** Supprime le compte élève (le portail, pas la fiche) — pendant de {@see TuteurController::supprimerCompteParent()}. */
+    public function supprimerCompteEleve(int $id): JsonResponse
+    {
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if ($eleve->user) {
+            $eleve->user->delete();
+            $eleve->forceFill(['user_id' => null])->save();
+        }
+
+        return ApiResponse::success(null, 'Compte élève supprimé.');
+    }
+
+    /** Document PDF des identifiants élèves — pendant de {@see TuteurController::identifiantsParentPdf()}. */
+    public function identifiantsElevePdf(): Response
+    {
+        $schoolIds = Tenant::schoolIds();
+        $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
+
+        if (Tenant::isAggregate()) {
+            $documents = $schools->map(fn (School $school) => [
+                'donnees' => $this->comptes->identifiants($school->id),
+                'school' => $school,
+            ])->all();
+            $pdf = (new IdentifiantsGenerator)->buildMany($documents);
+            $nom = 'identifiants-eleves-toutes-les-ecoles';
+        } else {
+            $school = $schools->firstOrFail();
+            $pdf = (new IdentifiantsGenerator)->build($this->comptes->identifiants($school->id), $school);
+            $nom = 'identifiants-eleves-' . Str::slug($school->name);
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $nom . '.pdf"',
+        ]);
     }
 }

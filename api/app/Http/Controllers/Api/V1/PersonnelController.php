@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ModeleGenerique;
 use App\Exports\PersonnelExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
@@ -187,6 +188,11 @@ class PersonnelController extends Controller
     public function export(): BinaryFileResponse
     {
         return Excel::download(new PersonnelExport(Tenant::schoolIds()), 'personnel.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(\App\Imports\PersonnelImport::enTetes()), 'modele-personnel.xlsx');
     }
 
     /**
