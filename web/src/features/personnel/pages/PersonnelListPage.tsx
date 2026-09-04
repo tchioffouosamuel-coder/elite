@@ -25,7 +25,6 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
-import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { ActionsMenu } from '@/shared/ui/ActionsMenu'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
@@ -407,103 +406,68 @@ export function PersonnelListPage() {
         icon={Users}
         actions={
           <>
-            {/* Desktop : chaque action a son propre bouton. Sur mobile, les
-                cinq boutons secondaires empilaient l'écran ; ils passent dans
-                un unique menu « Actions » (cf. ci-dessous) et seul « Ajouter »
-                reste visible en dehors du menu, comme action principale. */}
-            <div className="hidden flex-wrap items-center justify-end gap-2 sm:flex">
-              <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
-                <FileText className="h-4 w-4" />
-                {t('personnel.fichier')}
-              </Button>
-              <Button variant="secondary" onClick={() => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx')}>
-                <FileSpreadsheet className="h-4 w-4" />
-                {t('export.excel')}
-              </Button>
-              <TemplateDownloadButton url="/personnels/modele" nomFichier="modele-personnel.xlsx" />
-              {can('personnel.manage') && (
-                <Button variant="secondary" onClick={exporterIdentifiants}>
-                  <KeyRound className="h-4 w-4" />
-                  {user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
-                    ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
-                    : t('personnel.identifiants')}
-                </Button>
-              )}
-              {can('personnel.manage') && (
-                <Button variant="secondary" onClick={() => setShowImport(true)}>
-                  <Upload className="h-4 w-4" />
-                  {t('personnel.import')}
-                </Button>
-              )}
-              {can('personnel.manage') && (
-                <button
-                  type="button"
-                  title="Rattraper les téléphones manquants"
-                  disabled={rattrapageEnCours}
-                  onClick={rattraperTelephones}
-                  className="inline-flex items-center justify-center rounded-xl border border-navy-200 bg-white p-2.5 text-navy-700 shadow-soft transition-all duration-150 hover:border-navy-300 hover:bg-cream-50 hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Phone className="h-4 w-4" />
-                </button>
-              )}
-              {can('personnel.manage') && (
-                <button
-                  type="button"
-                  title="Fusionner les comptes personnel/parent en doublon"
-                  disabled={fusionEnCours}
-                  onClick={fusionnerParent}
-                  className="inline-flex items-center justify-center rounded-xl border border-navy-200 bg-white p-2.5 text-navy-700 shadow-soft transition-all duration-150 hover:border-navy-300 hover:bg-cream-50 hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Merge className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="sm:hidden">
-              <ActionsMenu
-                label={t('common.actions')}
-                variant="secondary"
-                groupes={[
-                  {
-                    items: [
-                      { label: t('personnel.fichier'), icon: FileText, onClick: () => ouvrirDocument('/personnels/fichier') },
-                      {
-                        label: t('export.excel'),
-                        icon: FileSpreadsheet,
-                        onClick: () => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx'),
-                      },
-                      {
-                        label: t('import.telecharger_modele'),
-                        icon: FileDown,
-                        onClick: () => telechargerFichier('/personnels/modele', undefined, 'modele-personnel.xlsx'),
-                      },
-                      can('personnel.manage') && {
-                        label: user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
-                          ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
-                          : t('personnel.identifiants'),
-                        icon: KeyRound,
-                        onClick: exporterIdentifiants,
-                      },
-                      can('personnel.manage') && {
-                        label: t('personnel.import'),
-                        icon: Upload,
-                        onClick: () => setShowImport(true),
-                      },
-                      can('personnel.manage') && {
-                        label: 'Rattraper les téléphones',
-                        icon: Phone,
-                        onClick: rattraperTelephones,
-                      },
-                      can('personnel.manage') && {
-                        label: 'Fusionner comptes parent',
-                        icon: Merge,
-                        onClick: fusionnerParent,
-                      },
-                    ],
-                  },
-                ]}
-              />
-            </div>
+            {/* Un seul menu « Actions » range les exports, l'import et les
+                opérations de maintenance par section, plutôt que d'aligner
+                sept boutons qui débordaient sur deux lignes. Seul « Ajouter »
+                reste hors menu, comme action principale de la page. */}
+            <ActionsMenu
+              label={t('common.actions')}
+              variant="secondary"
+              groupes={[
+                {
+                  titre: 'Documents',
+                  items: [
+                    { label: t('personnel.fichier'), icon: FileText, onClick: () => ouvrirDocument('/personnels/fichier') },
+                    {
+                      label: t('export.excel'),
+                      icon: FileSpreadsheet,
+                      onClick: () => telechargerFichier('/personnels/export', undefined, 'personnel.xlsx'),
+                    },
+                    {
+                      label: t('import.telecharger_modele'),
+                      icon: FileDown,
+                      onClick: () => telechargerFichier('/personnels/modele', undefined, 'modele-personnel.xlsx'),
+                    },
+                    can('personnel.manage') && {
+                      label: user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
+                        ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
+                        : t('personnel.identifiants'),
+                      icon: KeyRound,
+                      onClick: exporterIdentifiants,
+                    },
+                  ],
+                },
+                {
+                  titre: 'Import',
+                  items: [
+                    can('personnel.manage') && {
+                      label: t('personnel.import'),
+                      icon: Upload,
+                      onClick: () => setShowImport(true),
+                    },
+                  ],
+                },
+                {
+                  titre: 'Maintenance',
+                  items: [
+                    can('personnel.manage') && {
+                      label: 'Rattraper les téléphones manquants',
+                      aide: "Renseigne le numéro de téléphone sur les comptes qui n'en ont pas encore",
+                      icon: Phone,
+                      disabled: rattrapageEnCours,
+                      onClick: rattraperTelephones,
+                    },
+                    can('personnel.manage') && {
+                      label: 'Fusionner comptes parent',
+                      aide: 'Fusionne les comptes personnel/parent en doublon',
+                      icon: Merge,
+                      disabled: fusionEnCours,
+                      onClick: fusionnerParent,
+                    },
+                  ],
+                },
+              ]}
+            />
 
             {can('personnel.manage') && (
               <Button onClick={() => navigate('/personnel/nouveau')}>
