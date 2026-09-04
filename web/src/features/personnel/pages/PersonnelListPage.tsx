@@ -49,6 +49,7 @@ export function PersonnelListPage() {
   const [schoolFilter, setSchoolFilter] = useState('')
   const [rattrapageEnCours, setRattrapageEnCours] = useState(false)
   const [fusionEnCours, setFusionEnCours] = useState(false)
+  const [ignoresTelephones, setIgnoresTelephones] = useState<Array<{ personnel: string; motif: string }> | null>(null)
 
   // Recherche, tri et pagination sont pris en charge par DataTable côté client :
   // on charge donc la liste entière plutôt que page par page. À l'échelle d'un
@@ -108,6 +109,7 @@ export function PersonnelListPage() {
             ? `${maj} compte(s) mis à jour avec leur numéro de téléphone.`
             : 'Aucun compte à mettre à jour.',
       )
+      if (ignores.length > 0) setIgnoresTelephones(ignores)
       invalidate()
     } catch (err) {
       erreur((err as ApiError).message)
@@ -637,6 +639,19 @@ export function PersonnelListPage() {
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />
+      )}
+
+      {ignoresTelephones && (
+        <Modal title={`${ignoresTelephones.length} compte(s) ignoré(s)`} onClose={() => setIgnoresTelephones(null)}>
+          <ul className="divide-y divide-navy-50">
+            {ignoresTelephones.map((i, index) => (
+              <li key={index} className="flex flex-col gap-0.5 py-2.5">
+                <span className="font-medium text-navy-900">{i.personnel}</span>
+                <span className="text-sm text-navy-500">{i.motif}</span>
+              </li>
+            ))}
+          </ul>
+        </Modal>
       )}
     </div>
   )

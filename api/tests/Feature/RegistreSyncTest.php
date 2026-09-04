@@ -9,6 +9,7 @@ use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\School;
+use App\Models\Seance;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use App\Support\Sync\RegistreSync;
@@ -68,6 +69,44 @@ class RegistreSyncTest extends TestCase
         }
 
         $this->assertTrue(true);
+    }
+
+    /**
+     * Non-régression : une colonne castée `date` (`date_seance`) ne doit
+     * jamais dériver d'un jour selon le fuseau du serveur une fois passée
+     * par `/sync`. `config('app.timezone')` vaut `Africa/Douala` (UTC+1) :
+     * un `Carbon` calé à minuit local pour ce jour-là se sérialise par
+     * défaut en JSON en UTC (`CarbonInterface::jsonSerialize()`), soit 23h
+     * la VEILLE — le mobile, qui tronque la chaîne reçue à 10 caractères,
+     * stockait alors la mauvaise date (observé : les cours du lundi
+     * ressortaient datés du dimanche sur l'écran Absences).
+     */
+    public function test_date_seance_ne_derive_pas_dun_jour_avec_le_fuseau_local(): void
+    {
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $school = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $niveau = Niveau::create(['code' => 'college', 'name_fr' => 'Collège', 'name_en' => 'College', 'ordre' => 1]);
+        $classe = Classe::create(['school_id' => $school->id, 'niveau_id' => $niveau->id, 'nom' => '6ème A']);
+        $matiere = Matiere::create(['school_id' => $school->id, 'nom' => 'Mathématiques']);
+        $classeMatiere = ClasseMatiere::create(['classe_id' => $classe->id, 'matiere_id' => $matiere->id, 'statut' => 'actif']);
+
+        Seance::create([
+            'school_id' => $school->id, 'classe_id' => $classe->id, 'classe_matiere_id' => $classeMatiere->id,
+            'date_seance' => '2026-09-07', 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'statut' => 'prevue',
+        ]);
+
+        $user = User::factory()->create(['school_id' => $school->id]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/sync?entites=seances')
+            ->assertOk();
+
+        $this->assertSame('2026-09-07', $reponse->json('data.donnees.seances.0.date_seance'));
     }
 
     /**

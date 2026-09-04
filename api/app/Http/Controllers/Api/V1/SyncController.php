@@ -111,7 +111,7 @@ class SyncController extends Controller
                 // sur lui que le client desktop (SyncPull) arbitre un conflit
                 // avec une ligne locale pas encore poussée (le plus récent
                 // gagne). Le mobile, qui l'ignorait déjà, n'est pas affecté.
-                $donnees[$cle] = $lignes->map->only([...$definition['colonnes'], 'updated_at'])->all();
+                $donnees[$cle] = $lignes->map(fn ($ligne) => $this->projeter($ligne, $definition['colonnes']))->all();
             }
         }
 
@@ -395,6 +395,46 @@ class SyncController extends Controller
         // quitte à dépasser le plafond, faute de quoi le curseur n'avancerait
         // jamais et le client boucherait indéfiniment.
         return [$construire()->where('updated_at', $borne)->get(), $borne];
+    }
+
+    /**
+     * Colonnes d'une ligne, prêtes pour le JSON — sans le piège du fuseau sur
+     * les dates seules (`date_seance`, `date_naissance`, `date_embauche`…).
+     *
+     * `$modele->only(...)` renvoie l'attribut tel que le cast Eloquent le
+     * produit : pour un cast `date`, un `Carbon` calé à minuit dans
+     * `config('app.timezone')` (`Africa/Douala`, UTC+1). Une fois ce `Carbon`
+     * atteint par `json_encode()`, sa sérialisation par défaut
+     * (`CarbonInterface::jsonSerialize()`) le convertit d'abord en UTC — la
+     * même dérive que celle déjà documentée plus haut sur `updated_at` et
+     * `supprime_le`, mais jamais traitée ici : minuit local devient 23h la
+     * veille en UTC, et le mobile, qui ne garde que les 10 premiers
+     * caractères de la chaîne reçue, stocke alors la mauvaille date — un
+     * cours du lundi ressort daté du dimanche (observé sur l'écran Absences).
+     * On fige donc en `Y-m-d` toute colonne castée `date` (ou `date:format`)
+     * avant qu'elle n'atteigne `json_encode()` ; une colonne `datetime`
+     * garde sa sérialisation UTC habituelle, dont la précision reste
+     * nécessaire ailleurs (ex. `appel_verrouille_le`).
+     *
+     * @param  \Illuminate\Database\Eloquent\Model  $ligne
+     * @param  list<string>  $colonnes
+     * @return array<string, mixed>
+     */
+    private function projeter($ligne, array $colonnes): array
+    {
+        $casts = $ligne->getCasts();
+        $projection = [];
+
+        foreach ([...$colonnes, 'updated_at'] as $colonne) {
+            $valeur = $ligne->getAttribute($colonne);
+            $castee = (string) ($casts[$colonne] ?? '');
+
+            $projection[$colonne] = $valeur instanceof \DateTimeInterface && preg_match('/^date(:|$)/', $castee)
+                ? $valeur->format('Y-m-d')
+                : $valeur;
+        }
+
+        return $projection;
     }
 
     /**
