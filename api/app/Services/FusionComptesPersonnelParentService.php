@@ -28,8 +28,14 @@ use App\Support\Telephone;
 class FusionComptesPersonnelParentService extends BaseService
 {
     /**
-     * Paires personnel/tuteur d'une même personne (même téléphone, même
-     * école) mais deux comptes différents — à fusionner.
+     * Paires personnel/tuteur d'une même personne (même téléphone) mais deux
+     * comptes différents — à fusionner.
+     *
+     * Le rapprochement se fait sur le seul numéro de téléphone, sans exiger
+     * la même école : un agent travaille dans un établissement et peut très
+     * bien avoir un enfant scolarisé dans un autre du même complexe — sa
+     * fiche tuteur y est alors rattachée, avec un `school_id` différent de
+     * celui de sa fiche personnel.
      *
      * @return list<array{personnel: Personnel, tuteur: Tuteur}>
      */
@@ -38,14 +44,14 @@ class FusionComptesPersonnelParentService extends BaseService
         $personnels = Personnel::forSchool($schoolId)->whereNotNull('user_id')->whereNotNull('telephone')->where('telephone', '!=', '')->get();
         $tuteurs = Tuteur::forSchool($schoolId)->whereNotNull('user_id')->whereNotNull('telephone')->where('telephone', '!=', '')->get();
 
-        $tuteursParCle = $tuteurs->groupBy(fn (Tuteur $t) => $t->school_id.'|'.Telephone::normaliser($t->telephone));
+        $tuteursParTelephone = $tuteurs->groupBy(fn (Tuteur $t) => Telephone::normaliser($t->telephone));
 
         $paires = [];
 
         foreach ($personnels as $personnel) {
-            $cle = $personnel->school_id.'|'.Telephone::normaliser($personnel->telephone);
+            $telephone = Telephone::normaliser($personnel->telephone);
 
-            foreach ($tuteursParCle->get($cle, collect()) as $tuteur) {
+            foreach ($tuteursParTelephone->get($telephone, collect()) as $tuteur) {
                 if ($tuteur->user_id === $personnel->user_id) {
                     continue;
                 }
