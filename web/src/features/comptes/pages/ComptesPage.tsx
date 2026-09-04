@@ -52,7 +52,7 @@ export function ComptesPage() {
       cellule: (c) => (
         <div className="min-w-0">
           <div className="truncate font-semibold text-navy-900">{c.nom}</div>
-          <div className="truncate text-xs text-navy-400">{c.email ?? c.phone ?? '—'}</div>
+          <div className="truncate text-xs text-navy-400">{c.phone ?? c.email ?? '—'}</div>
         </div>
       ),
     },
