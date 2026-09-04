@@ -368,6 +368,22 @@ export async function createLoginAccount(
 }
 
 /**
+ * Rattrape les comptes ouverts avant que la connexion par téléphone
+ * n'existe : leur `phone` est resté vide alors que la fiche porte un
+ * numéro. Un seul appel — pas de découpage en lots côté client, l'opération
+ * ne fait que mettre à jour une colonne sur des comptes déjà créés.
+ */
+export async function rattraperTelephonesPersonnel(): Promise<{
+  maj: number;
+  ignores: Array<{ personnel: string; motif: string }>;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{ maj: number; ignores: Array<{ personnel: string; motif: string }> }>
+  >("/personnels/rattraper-telephones");
+  return data.data;
+}
+
+/**
  * Change la fonction de plusieurs agents d'un coup. La fonction porte les
  * privilèges : après une reprise de fichier, les doter un par un demande
  * autant d'allers-retours qu'il y a d'enseignants.

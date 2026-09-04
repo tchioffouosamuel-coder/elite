@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Personnel;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\Telephone;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -71,11 +72,13 @@ class CompteAgentService extends BaseService
         }
 
         $email = $this->email($personnel);
+        $phone = $this->phone($personnel);
 
-        return $this->transaction(function () use ($personnel, $email) {
+        return $this->transaction(function () use ($personnel, $email, $phone) {
             $user = User::create([
                 'name' => $personnel->nom_complet,
                 'email' => $email,
+                'phone' => $phone,
                 'password' => Hash::make($this->motDePasseDefaut($personnel->school_id)),
                 'school_id' => $personnel->school_id,
                 'is_active' => true,
@@ -88,6 +91,78 @@ class CompteAgentService extends BaseService
 
             return $user;
         });
+    }
+
+    /**
+     * Numéro de la fiche, normalisé, pour permettre au personnel de se
+     * connecter par téléphone comme les parents (cf. {@see CompteParentService}).
+     * L'email reste l'identifiant garanti — un numéro absent ou déjà pris par
+     * un autre compte (parent ou agent) ne bloque donc pas l'ouverture de
+     * l'accès, il est simplement laissé vide.
+     */
+    private function phone(Personnel $personnel): ?string
+    {
+        $saisi = trim((string) $personnel->telephone);
+
+        if ($saisi === '') {
+            return null;
+        }
+
+        $normalise = Telephone::normaliser($saisi);
+
+        return User::where('phone', $normalise)->exists() ? null : $normalise;
+    }
+
+    /**
+     * Rattrape les comptes personnel ouverts avant que la connexion par
+     * téléphone n'existe : leur `User::phone` est resté vide alors que la
+     * fiche porte un numéro. Contrairement à {@see CompteParentService::assurerLot()},
+     * aucun compte n'est créé ici — seule une colonne est mise à jour sur des
+     * comptes existants — donc pas de découpage en lots : `Hash::make()`
+     * (le coût qui imposait les lots côté parents) n'entre pas en jeu.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{maj: int, ignores: list<array{personnel: string, motif: string}>}
+     */
+    public function rattraperTelephones(int|array $schoolId): array
+    {
+        $personnels = Personnel::query()
+            ->forSchool($schoolId)
+            ->whereNotNull('user_id')
+            ->with('user')
+            ->get();
+
+        $maj = 0;
+        $ignores = [];
+
+        foreach ($personnels as $personnel) {
+            $user = $personnel->user;
+
+            if ($user === null || $user->phone !== null) {
+                continue;
+            }
+
+            $saisi = trim((string) $personnel->telephone);
+
+            if ($saisi === '') {
+                $ignores[] = ['personnel' => $personnel->nom_complet, 'motif' => 'Aucun numéro renseigné sur la fiche.'];
+
+                continue;
+            }
+
+            $normalise = Telephone::normaliser($saisi);
+
+            if (User::where('phone', $normalise)->exists()) {
+                $ignores[] = ['personnel' => $personnel->nom_complet, 'motif' => "Le numéro {$saisi} est déjà utilisé par un autre compte."];
+
+                continue;
+            }
+
+            $user->forceFill(['phone' => $normalise])->save();
+            $maj++;
+        }
+
+        return ['maj' => $maj, 'ignores' => $ignores];
     }
 
     /**

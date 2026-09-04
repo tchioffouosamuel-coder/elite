@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users, Phone } from 'lucide-react'
 import {
   fetchPersonnels,
   fetchFonctionsReferentiel,
@@ -12,6 +12,7 @@ import {
   deletePersonnel,
   batchDeletePersonnel,
   batchArchivePersonnel,
+  rattraperTelephonesPersonnel,
   type Personnel,
 } from '@/features/personnel/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -44,6 +45,7 @@ export function PersonnelListPage() {
   const [fonctionEnMasse, setFonctionEnMasse] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [schoolFilter, setSchoolFilter] = useState('')
+  const [rattrapageEnCours, setRattrapageEnCours] = useState(false)
 
   // Recherche, tri et pagination sont pris en charge par DataTable côté client :
   // on charge donc la liste entière plutôt que page par page. À l'échelle d'un
@@ -74,6 +76,40 @@ export function PersonnelListPage() {
         `identifiants-${ecole.code || ecole.id}.pdf`,
         { 'X-School-Id': String(ecole.id) },
       )
+    }
+  }
+
+  /**
+   * Rattrapage pour les comptes ouverts avant que la connexion par
+   * téléphone n'existe : leur numéro n'a jamais été copié sur le compte. Un
+   * seul appel suffit — l'opération ne fait que mettre à jour une colonne
+   * sur des comptes déjà créés, pas de découpage en lots à prévoir.
+   */
+  const rattraperTelephones = async () => {
+    const confirme = await confirmer({
+      titre: 'Rattraper les téléphones manquants ?',
+      message:
+        "Renseigne le numéro de téléphone sur les comptes du personnel qui n'en ont pas encore, à partir de la fiche de l'agent — ce qui leur permettra de se connecter avec leur numéro en plus de leur e-mail.",
+      action: 'Rattraper',
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setRattrapageEnCours(true)
+    try {
+      const { maj, ignores } = await rattraperTelephonesPersonnel()
+      succes(
+        ignores.length > 0
+          ? `${maj} compte(s) mis à jour, ${ignores.length} ignoré(s) (numéro manquant ou déjà utilisé).`
+          : maj > 0
+            ? `${maj} compte(s) mis à jour avec leur numéro de téléphone.`
+            : 'Aucun compte à mettre à jour.',
+      )
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setRattrapageEnCours(false)
     }
   }
 
@@ -344,6 +380,12 @@ export function PersonnelListPage() {
                   {t('personnel.import')}
                 </Button>
               )}
+              {can('personnel.manage') && (
+                <Button variant="secondary" disabled={rattrapageEnCours} onClick={rattraperTelephones}>
+                  <Phone className="h-4 w-4" />
+                  {rattrapageEnCours ? 'Rattrapage…' : 'Rattraper les téléphones'}
+                </Button>
+              )}
             </div>
 
             <div className="sm:hidden">
@@ -375,6 +417,11 @@ export function PersonnelListPage() {
                         label: t('personnel.import'),
                         icon: Upload,
                         onClick: () => setShowImport(true),
+                      },
+                      can('personnel.manage') && {
+                        label: 'Rattraper les téléphones',
+                        icon: Phone,
+                        onClick: rattraperTelephones,
                       },
                     ],
                   },

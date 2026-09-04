@@ -107,6 +107,21 @@ class PersonnelController extends Controller
         );
     }
 
+    /**
+     * Rattrapage pour les comptes ouverts avant que la connexion par
+     * téléphone n'existe : cf. CompteAgentService::rattraperTelephones().
+     */
+    public function rattraperTelephones(): JsonResponse
+    {
+        $resultat = $this->comptes->rattraperTelephones(Tenant::schoolIds());
+
+        $message = $resultat['maj'] > 0
+            ? "{$resultat['maj']} compte(s) mis à jour avec leur numéro de téléphone."
+            : 'Aucun compte à mettre à jour — tous les agents avec un numéro valide en ont déjà un sur leur compte.';
+
+        return ApiResponse::success($resultat, $message);
+    }
+
     public function destroy(int $id): JsonResponse
     {
         $personnel = $this->service->find(Tenant::schoolIds(), $id);

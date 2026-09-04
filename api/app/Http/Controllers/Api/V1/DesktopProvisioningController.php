@@ -14,6 +14,7 @@ use App\Support\Telephone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -77,98 +78,120 @@ class DesktopProvisioningController extends Controller
             'schools.*.type' => ['required', 'string', 'max:50'],
         ]);
 
-        // `id` n'est fillable ni sur `School` ni sur `User` : `updateOrCreate`
-        // laisserait silencieusement l'auto-incrément attribuer un autre
-        // identifiant que celui du serveur distant, brisant toute
-        // correspondance avec les lignes reçues ensuite par `sync:pull`.
-        // L'affectation directe (`->id =`) contourne le mass-assignment pour
-        // cette seule colonne.
-        $ecoles = collect($data['schools'])->map(function (array $donneesEcole) {
-            $ecole = School::find($donneesEcole['id']) ?? new School();
-            $ecole->id = $donneesEcole['id'];
-            $ecole->fill([
-                'name' => $donneesEcole['name'],
-                'code' => $donneesEcole['code'],
-                'type' => $donneesEcole['type'],
-                'is_active' => true,
-            ]);
-            $ecole->save();
-
-            return $ecole;
-        });
-
-        // École "principale" du compte, quand il en a une (un compte non
-        // borné comme le super admin peut n'en avoir aucune en propre) :
-        // uniquement parmi celles qu'on vient de répliquer, jamais une
-        // valeur du serveur distant qui pointerait vers une école absente
-        // du lot fourni.
-        $schoolId = isset($data['user']['school_id']) && $ecoles->contains('id', $data['user']['school_id'])
-            ? $data['user']['school_id']
-            : null;
-
         if (DesktopProvisioning::pourUtilisateur($data['user']['id']) !== null) {
             return ApiResponse::error('Ce compte est déjà lié à ce poste.', 409);
         }
 
-        $utilisateur = User::find($data['user']['id']) ?? new User();
-        $utilisateur->id = $data['user']['id'];
-        $utilisateur->fill([
-            'name' => $data['user']['name'],
-            'email' => $data['user']['email'] ?? null,
-            'phone' => $data['user']['phone'] ?? null,
-            'locale' => $data['user']['locale'] ?? 'fr',
-            'is_active' => $data['user']['is_active'] ?? true,
-            'school_id' => $schoolId,
-        ]);
-        // Mot de passe distant : cette copie locale ne le vérifie jamais
-        // (cf. connexion(), qui vérifie `desktop_provisioning.password`,
-        // propre à CE poste) — un compte sans mot de passe local exploitable
-        // reste malgré tout impossible à atteindre depuis l'API distante,
-        // qu'aucun poste desktop n'expose.
-        $utilisateur->password = Hash::make(Str::random(40));
-        // Explicite plutôt que laissé au défaut de colonne : si l'identifiant
-        // remote coïncide avec celui du compte super-admin de démo seedé
-        // localement par une migration (`create_super_admin_user`, id 1),
-        // `User::find()` réutilise CETTE ligne, qui porte déjà
-        // `doit_changer_mot_de_passe = true`. Sans ce reset, le renouvellement
-        // exigerait de connaître un mot de passe local qui n'existe pas
-        // vraiment — la politique de mot de passe reste l'affaire du serveur
-        // distant, jamais de cette copie locale authentifiée sans mot de passe.
-        $utilisateur->doit_changer_mot_de_passe = false;
-        $utilisateur->save();
+        // Toutes les écritures (écoles, utilisateur, rôles/permissions,
+        // provisioning) doivent réussir ensemble : un échec à mi-chemin
+        // laissait auparavant une ligne `desktop_provisioning` sans école
+        // rattachée, ou un utilisateur sans provisioning — un état
+        // incohérent qui bloquait silencieusement toute connexion locale
+        // ultérieure pour ce compte.
+        $utilisateur = DB::transaction(function () use ($data) {
+            // `id` n'est fillable ni sur `School` ni sur `User` : `updateOrCreate`
+            // laisserait silencieusement l'auto-incrément attribuer un autre
+            // identifiant que celui du serveur distant, brisant toute
+            // correspondance avec les lignes reçues ensuite par `sync:pull`.
+            // L'affectation directe (`->id =`) contourne le mass-assignment pour
+            // cette seule colonne.
+            $ecoles = collect($data['schools'])->map(function (array $donneesEcole) {
+                $ecole = School::find($donneesEcole['id']) ?? new School();
+                $ecole->id = $donneesEcole['id'];
+                $ecole->fill([
+                    'name' => $donneesEcole['name'],
+                    'code' => $donneesEcole['code'],
+                    'type' => $donneesEcole['type'],
+                    'is_active' => true,
+                ]);
+                $ecole->save();
 
-        foreach ($data['user']['roles'] ?? [] as $role) {
-            Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
-        }
-        $utilisateur->syncRoles($data['user']['roles'] ?? []);
+                return $ecole;
+            });
 
-        foreach ($data['user']['permissions'] ?? [] as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-        }
-        $utilisateur->syncPermissions($data['user']['permissions'] ?? []);
+            // École "principale" du compte, quand il en a une (un compte non
+            // borné comme le super admin peut n'en avoir aucune en propre) :
+            // uniquement parmi celles qu'on vient de répliquer, jamais une
+            // valeur du serveur distant qui pointerait vers une école absente
+            // du lot fourni.
+            $schoolId = isset($data['user']['school_id']) && $ecoles->contains('id', $data['user']['school_id'])
+                ? $data['user']['school_id']
+                : null;
 
-        $provisioning = DesktopProvisioning::create([
-            'user_id' => $utilisateur->id,
-            'password' => Hash::make($data['password']),
-            'serveur_url' => $data['serveur_url'],
-            'token' => $data['token'],
-            'refresh_token' => $data['refresh_token'],
-            'provisionne_le' => now(),
-        ]);
-
-        foreach ($ecoles as $ecole) {
-            DesktopProvisioningEcole::create([
-                'desktop_provisioning_id' => $provisioning->id,
-                'school_id' => $ecole->id,
+            $utilisateur = User::find($data['user']['id']) ?? new User();
+            $utilisateur->id = $data['user']['id'];
+            $utilisateur->fill([
+                'name' => $data['user']['name'],
+                'email' => $data['user']['email'] ?? null,
+                'phone' => $data['user']['phone'] ?? null,
+                'locale' => $data['user']['locale'] ?? 'fr',
+                'is_active' => $data['user']['is_active'] ?? true,
+                'school_id' => $schoolId,
             ]);
-        }
+            // Mot de passe distant : cette copie locale ne le vérifie jamais
+            // (cf. connexion(), qui vérifie `desktop_provisioning.password`,
+            // propre à CE poste) — un compte sans mot de passe local exploitable
+            // reste malgré tout impossible à atteindre depuis l'API distante,
+            // qu'aucun poste desktop n'expose.
+            $utilisateur->password = Hash::make(Str::random(40));
+            // Explicite plutôt que laissé au défaut de colonne : si l'identifiant
+            // remote coïncide avec celui du compte super-admin de démo seedé
+            // localement par une migration (`create_super_admin_user`, id 1),
+            // `User::find()` réutilise CETTE ligne, qui porte déjà
+            // `doit_changer_mot_de_passe = true`. Sans ce reset, le renouvellement
+            // exigerait de connaître un mot de passe local qui n'existe pas
+            // vraiment — la politique de mot de passe reste l'affaire du serveur
+            // distant, jamais de cette copie locale authentifiée sans mot de passe.
+            $utilisateur->doit_changer_mot_de_passe = false;
+            $utilisateur->save();
 
-        Artisan::call('sync:pull');
+            foreach ($data['user']['roles'] ?? [] as $role) {
+                Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+            }
+            $utilisateur->syncRoles($data['user']['roles'] ?? []);
+
+            foreach ($data['user']['permissions'] ?? [] as $permission) {
+                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+            }
+            $utilisateur->syncPermissions($data['user']['permissions'] ?? []);
+
+            $provisioning = DesktopProvisioning::create([
+                'user_id' => $utilisateur->id,
+                'password' => Hash::make($data['password']),
+                'serveur_url' => $data['serveur_url'],
+                'token' => $data['token'],
+                'refresh_token' => $data['refresh_token'],
+                'provisionne_le' => now(),
+            ]);
+
+            foreach ($ecoles as $ecole) {
+                DesktopProvisioningEcole::create([
+                    'desktop_provisioning_id' => $provisioning->id,
+                    'school_id' => $ecole->id,
+                ]);
+            }
+
+            return $utilisateur;
+        });
+
+        // Hors transaction et non bloquant : le poste est déjà lié avec
+        // succès à ce stade (ligne `desktop_provisioning` commitée), donc un
+        // premier pull en échec (jeton rejeté, réseau, timeout...) ne doit
+        // jamais faire échouer le provisioning lui-même — la boucle
+        // périodique (`lancerSyncPeriodique`, cf. main.cjs) retentera d'elle-même.
+        $pull = '';
+        try {
+            Artisan::call('sync:pull');
+            $pull = trim(Artisan::output());
+        } catch (\Throwable $erreur) {
+            report($erreur);
+            $pull = 'Échec du premier pull, nouvelle tentative automatique à venir.';
+        }
 
         return ApiResponse::created([
             'provisionne' => true,
             'utilisateur' => ['id' => $utilisateur->id, 'name' => $utilisateur->name],
-            'pull' => trim(Artisan::output()),
+            'pull' => $pull,
         ], 'Poste lié avec succès.');
     }
 

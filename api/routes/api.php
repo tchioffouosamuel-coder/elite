@@ -270,6 +270,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('personnels/{id}/archive', [PersonnelController::class, 'archive'])->name('personnels.archive');
                 Route::post('personnels/{id}/reactivate', [PersonnelController::class, 'reactivate'])->name('personnels.reactivate');
                 Route::post('personnels/{id}/compte', [PersonnelController::class, 'createAccount'])->name('personnels.compte');
+                Route::post('personnels/rattraper-telephones', [PersonnelController::class, 'rattraperTelephones'])->name('personnels.rattraper-telephones');
                 Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
                 Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
                 Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
