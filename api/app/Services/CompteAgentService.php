@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Personnel;
 use App\Models\Setting;
+use App\Models\Tuteur;
 use App\Models\User;
 use App\Support\Telephone;
 use Illuminate\Support\Facades\Hash;
@@ -184,8 +185,13 @@ class CompteAgentService extends BaseService
 
             $normalise = Telephone::normaliser($saisi);
 
-            if (User::where('phone', $normalise)->exists()) {
-                $ignores[] = ['personnel' => $personnel->nom_complet, 'motif' => "Le numéro {$saisi} est déjà utilisé par un autre compte."];
+            $conflit = User::with('personnel.fonctionReference', 'personnel.school')->where('phone', $normalise)->first();
+
+            if ($conflit !== null) {
+                $ignores[] = [
+                    'personnel' => $personnel->nom_complet,
+                    'motif' => "Le numéro {$saisi} est déjà utilisé par " . $this->decrireCompte($conflit) . '.',
+                ];
 
                 continue;
             }
@@ -195,6 +201,33 @@ class CompteAgentService extends BaseService
         }
 
         return ['maj' => $maj, 'ignores' => $ignores];
+    }
+
+    /**
+     * Identifie le titulaire d'un compte en conflit, pour que l'administrateur
+     * sache à qui appartient le numéro plutôt que de devoir le rechercher lui-même.
+     */
+    private function decrireCompte(User $compte): string
+    {
+        if ($compte->personnel !== null) {
+            $fonction = $compte->personnel->fonctionReference?->label();
+            $ecole = $compte->personnel->school?->name;
+            $details = collect([$fonction, $ecole])->filter()->implode(', ');
+
+            return $compte->personnel->nom_complet . ($details !== '' ? " ({$details})" : '');
+        }
+
+        $tuteur = Tuteur::where('user_id', $compte->id)->first();
+
+        if ($tuteur !== null) {
+            return "{$tuteur->nom_complet} (parent d'élève)";
+        }
+
+        if ($compte->eleve !== null) {
+            return "{$compte->eleve->nom_complet} (élève)";
+        }
+
+        return $compte->name . ($compte->email ? " ({$compte->email})" : '');
     }
 
     /**
