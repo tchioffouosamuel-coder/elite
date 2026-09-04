@@ -154,6 +154,7 @@
     "error_mot_de_passe_different": "Choisissez un mot de passe différent du précédent.",
     "error_confirmation_mismatch": "La confirmation ne correspond pas.",
     "submit_save_continue": "Enregistrer et continuer",
+    "back_to_login": "Retour à la connexion",
     "forgot_password_link": "Mot de passe oublié ?",
     "forgot_password_title": "Mot de passe oublié",
     "forgot_password_subtitle": "Indiquez votre e-mail : si un compte existe, un code de vérification vous sera envoyé.",

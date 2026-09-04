@@ -7,7 +7,7 @@ import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
-import { changerMotDePasse } from '@/features/auth/api'
+import { changerMotDePasse, logout } from '@/features/auth/api'
 import type { ApiError } from '@/shared/types/api'
 
 interface FormValues {
@@ -29,6 +29,7 @@ export function ChangerMotDePassePage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const refreshUser = useAuthStore((s) => s.refreshUser)
+  const clearSession = useAuthStore((s) => s.clearSession)
   const obligatoire = user?.doit_changer_mot_de_passe === true
 
   const [serverError, setServerError] = useState<string | null>(null)
@@ -41,6 +42,15 @@ export function ChangerMotDePassePage() {
     setError,
     formState: { errors },
   } = useForm<FormValues>()
+
+  const retourConnexion = async () => {
+    try {
+      await logout()
+    } finally {
+      clearSession()
+      navigate('/connexion', { replace: true })
+    }
+  }
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null)
@@ -119,6 +129,14 @@ export function ChangerMotDePassePage() {
             <ShieldCheck className="h-4 w-4" />
             {submitting ? t('common.saving') : t('auth.submit_save_continue')}
           </Button>
+
+          <button
+            type="button"
+            onClick={retourConnexion}
+            className="text-center text-sm font-medium text-navy-500 hover:text-navy-700"
+          >
+            {t('auth.back_to_login')}
+          </button>
         </form>
       </div>
     </div>
