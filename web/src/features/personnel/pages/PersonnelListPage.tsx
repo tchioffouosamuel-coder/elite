@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users, Phone } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users, Phone, Merge } from 'lucide-react'
 import {
   fetchPersonnels,
   fetchFonctionsReferentiel,
@@ -13,6 +13,8 @@ import {
   batchDeletePersonnel,
   batchArchivePersonnel,
   rattraperTelephonesPersonnel,
+  apercuFusionComptesParent,
+  fusionnerComptesParent,
   type Personnel,
 } from '@/features/personnel/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -46,6 +48,7 @@ export function PersonnelListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [schoolFilter, setSchoolFilter] = useState('')
   const [rattrapageEnCours, setRattrapageEnCours] = useState(false)
+  const [fusionEnCours, setFusionEnCours] = useState(false)
 
   // Recherche, tri et pagination sont pris en charge par DataTable côté client :
   // on charge donc la liste entière plutôt que page par page. À l'échelle d'un
@@ -110,6 +113,56 @@ export function PersonnelListPage() {
       erreur((err as ApiError).message)
     } finally {
       setRattrapageEnCours(false)
+    }
+  }
+
+  /**
+   * Fusionne les comptes d'un agent qui est aussi parent d'élève (même
+   * téléphone sur sa fiche personnel et sur une fiche tuteur) : ne garde que
+   * le compte personnel, avec l'accès parent en plus, et supprime l'autre.
+   * Aperçu d'abord — la suppression d'un compte est irréversible.
+   */
+  const fusionnerParent = async () => {
+    setFusionEnCours(true)
+    let paires
+    try {
+      ;({ paires } = await apercuFusionComptesParent())
+    } catch (err) {
+      erreur((err as ApiError).message)
+      setFusionEnCours(false)
+      return
+    }
+
+    if (paires.length === 0) {
+      succes('Aucun doublon personnel/parent détecté.')
+      setFusionEnCours(false)
+      return
+    }
+
+    const apercu = paires
+      .slice(0, 8)
+      .map((p) => p.personnel)
+      .join(', ')
+    const reste = paires.length > 8 ? `, et ${paires.length - 8} autre(s)` : ''
+
+    const confirme = await confirmer({
+      titre: `Fusionner ${paires.length} compte(s) personnel/parent ?`,
+      message: `Ces agents sont aussi parents d'élève, avec deux comptes distincts : ${apercu}${reste}. Leur compte parent sera supprimé et son accès (leurs enfants) rattaché à leur compte personnel — irréversible.`,
+      action: 'Fusionner',
+    })
+    if (!confirme) {
+      setFusionEnCours(false)
+      return
+    }
+
+    try {
+      const { fusionnes } = await fusionnerComptesParent()
+      succes(`${fusionnes} compte(s) fusionné(s) avec leur compte parent.`)
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setFusionEnCours(false)
     }
   }
 
@@ -356,7 +409,7 @@ export function PersonnelListPage() {
                 cinq boutons secondaires empilaient l'écran ; ils passent dans
                 un unique menu « Actions » (cf. ci-dessous) et seul « Ajouter »
                 reste visible en dehors du menu, comme action principale. */}
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="hidden flex-wrap items-center justify-end gap-2 sm:flex">
               <Button variant="secondary" onClick={() => ouvrirDocument('/personnels/fichier')}>
                 <FileText className="h-4 w-4" />
                 {t('personnel.fichier')}
@@ -381,10 +434,26 @@ export function PersonnelListPage() {
                 </Button>
               )}
               {can('personnel.manage') && (
-                <Button variant="secondary" disabled={rattrapageEnCours} onClick={rattraperTelephones}>
+                <button
+                  type="button"
+                  title="Rattraper les téléphones manquants"
+                  disabled={rattrapageEnCours}
+                  onClick={rattraperTelephones}
+                  className="inline-flex items-center justify-center rounded-xl border border-navy-200 bg-white p-2.5 text-navy-700 shadow-soft transition-all duration-150 hover:border-navy-300 hover:bg-cream-50 hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   <Phone className="h-4 w-4" />
-                  {rattrapageEnCours ? 'Rattrapage…' : 'Rattraper les téléphones'}
-                </Button>
+                </button>
+              )}
+              {can('personnel.manage') && (
+                <button
+                  type="button"
+                  title="Fusionner les comptes personnel/parent en doublon"
+                  disabled={fusionEnCours}
+                  onClick={fusionnerParent}
+                  className="inline-flex items-center justify-center rounded-xl border border-navy-200 bg-white p-2.5 text-navy-700 shadow-soft transition-all duration-150 hover:border-navy-300 hover:bg-cream-50 hover:shadow-card focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-navy-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Merge className="h-4 w-4" />
+                </button>
               )}
             </div>
 
@@ -422,6 +491,11 @@ export function PersonnelListPage() {
                         label: 'Rattraper les téléphones',
                         icon: Phone,
                         onClick: rattraperTelephones,
+                      },
+                      can('personnel.manage') && {
+                        label: 'Fusionner comptes parent',
+                        icon: Merge,
+                        onClick: fusionnerParent,
                       },
                     ],
                   },

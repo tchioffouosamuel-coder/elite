@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Users, FilePlus2, ClipboardList, LogOut, Megaphone } from 'lucide-react'
+import { Users, FilePlus2, ClipboardList, LogOut, Megaphone, ArrowLeftRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -77,6 +77,15 @@ export function ParentLayout() {
           </nav>
 
           <div className="flex flex-none items-center gap-2">
+            {user?.est_personnel && (
+              <button
+                onClick={() => navigate('/')}
+                title="Retour à mon espace personnel / Back to my staff account"
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-navy-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+              </button>
+            )}
             <NavLink
               to="/parent/profil"
               title="Mon compte / My account"

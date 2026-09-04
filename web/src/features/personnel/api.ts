@@ -383,6 +383,45 @@ export async function rattraperTelephonesPersonnel(): Promise<{
   return data.data;
 }
 
+export interface PaireFusionParent {
+  personnel: string;
+  personnel_id: number;
+  tuteur: string;
+  tuteur_id: number;
+}
+
+/**
+ * Doublons personnel/parent détectés (même téléphone, comptes différents) —
+ * aperçu affiché avant confirmation, cf. {@see fusionnerComptesParent()}.
+ */
+export async function apercuFusionComptesParent(): Promise<{
+  paires: PaireFusionParent[];
+  total: number;
+}> {
+  const { data } = await http.get<
+    ApiResponse<{ paires: PaireFusionParent[]; total: number }>
+  >("/personnels/fusion-parent/apercu");
+  return data.data;
+}
+
+/**
+ * Fusionne les doublons personnel/parent détectés : rattache chaque fiche
+ * tuteur au compte personnel correspondant et supprime le compte parent
+ * devenu superflu.
+ */
+export async function fusionnerComptesParent(): Promise<{
+  fusionnes: number;
+  paires: Array<{ personnel: string; tuteur: string }>;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{
+      fusionnes: number;
+      paires: Array<{ personnel: string; tuteur: string }>;
+    }>
+  >("/personnels/fusion-parent");
+  return data.data;
+}
+
 /**
  * Change la fonction de plusieurs agents d'un coup. La fonction porte les
  * privilèges : après une reprise de fichier, les doter un par un demande

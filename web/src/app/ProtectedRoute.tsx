@@ -122,10 +122,14 @@ export function ProtectedRoute({
   // Le portail parent est fermé au personnel, et l'inverse aussi : partager
   // une même route entre les deux enverrait un parent chercher un menu de
   // quarante entrées qui ne le concernent pas, ou un agent chercher les
-  // écrans d'un rôle qu'il ne porte pas.
+  // écrans d'un rôle qu'il ne porte pas. Un compte fusionné (agent qui est
+  // aussi tuteur, cf. FusionnerComptesPersonnelParent) porte les deux à la
+  // fois : il garde son menu personnel par défaut, et n'est jamais forcé
+  // vers /parent — seul un compte purement parent l'est.
   const estParent = Boolean(user?.roles.includes('parent'))
+  const estParentSeul = estParent && !user?.est_personnel
   if (parentOnly && !estParent) return <Navigate to={redirectionParDefaut(user)} replace />
-  if (!parentOnly && estParent) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (!parentOnly && estParentSeul) return <Navigate to={redirectionParDefaut(user)} replace />
 
   const estEleve = Boolean(user?.roles.includes('eleve'))
   if (eleveOnly && !estEleve) return <Navigate to={redirectionParDefaut(user)} replace />

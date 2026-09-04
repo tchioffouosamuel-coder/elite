@@ -101,6 +101,17 @@ const navGroups = [
         estEnseignant: true,
       },
       {
+        to: '/parent',
+        label: 'nav.espaceParent',
+        icon: Users,
+        // Compte fusionné (agent qui est aussi tuteur d'un élève, cf.
+        // FusionnerComptesPersonnelParent) : porte le rôle `parent` en plus
+        // de sa fiche personnel. Un agent ordinaire ou un parent pur ne voit
+        // pas cette entrée — le premier n'a pas le rôle, le second est de
+        // toute façon cantonné à /parent par ProtectedRoute.
+        estParentEtPersonnel: true,
+      },
+      {
         to: '/mes-avances',
         label: 'nav.mesAvances',
         icon: HandCoins,
@@ -484,6 +495,11 @@ export function AppLayout() {
   // un privilège — l'écran ne parle que du salaire de son titulaire.
   const estPersonnel = Boolean(user?.est_personnel)
 
+  // Compte fusionné personnel/parent (cf. FusionnerComptesPersonnelParent) :
+  // ouvre l'entrée « Espace parent » du menu, seul moyen d'atteindre /parent
+  // depuis l'interface personnel — un lien direct, pas une redirection.
+  const estParentEtPersonnel = estPersonnel && Boolean(user?.roles.includes('parent'))
+
   // Dirige au moins un département : ouvre « Mon département », sur son seul
   // département (cf. EnseignantController::monDepartement()).
   const estChefDepartement = aAttribution('chef_departement')
@@ -510,6 +526,7 @@ export function AppLayout() {
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
               (!('estEnseignant' in item) || !item.estEnseignant || user?.est_enseignant) &&
               (!('estPersonnel' in item) || !item.estPersonnel || estPersonnel) &&
+              (!('estParentEtPersonnel' in item) || !item.estParentEtPersonnel || estParentEtPersonnel) &&
               (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
               (!('professeurPrincipal' in item) || !item.professeurPrincipal || estProfesseurPrincipal) &&
               (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
@@ -530,7 +547,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
   )
 
   /**

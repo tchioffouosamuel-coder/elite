@@ -39,8 +39,23 @@ class CompteParentService extends BaseService
 
         $telephoneNormalise = Telephone::normaliser($telephone);
 
-        if (User::where('phone', $telephoneNormalise)->exists()) {
-            throw new RuntimeException("Le numéro {$telephone} est déjà utilisé par un autre compte.");
+        // Un compte porte déjà ce numéro — typiquement un agent qui est aussi
+        // parent, dont le compte personnel a été ouvert en premier. On le
+        // rattache à la fiche tuteur plutôt que d'échouer : la personne garde
+        // un seul compte, avec l'accès parent en plus (cf. ParentAccess, qui
+        // ne présume pas qu'un compte n'a qu'une seule fiche tuteur).
+        $existant = User::where('phone', $telephoneNormalise)->first();
+
+        if ($existant !== null) {
+            return $this->transaction(function () use ($tuteur, $existant) {
+                if (! $existant->hasRole('parent')) {
+                    $existant->assignRole('parent');
+                }
+
+                $tuteur->forceFill(['user_id' => $existant->id])->save();
+
+                return $existant;
+            });
         }
 
         return $this->transaction(function () use ($tuteur, $telephoneNormalise) {

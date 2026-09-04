@@ -72,6 +72,22 @@ class CompteAgentService extends BaseService
         }
 
         $email = $this->email($personnel);
+
+        // Un compte porte déjà le numéro de la fiche — typiquement un parent
+        // déjà inscrit qui rejoint l'établissement comme agent. On le
+        // rattache plutôt que d'ouvrir un second compte avec le téléphone
+        // laissé vide : la personne garde un seul compte, avec l'accès
+        // personnel en plus (cf. CompteParentService::assurer(), symétrique).
+        $existant = $this->utilisateurExistant($personnel);
+
+        if ($existant !== null) {
+            return $this->transaction(function () use ($personnel, $existant, $email) {
+                $personnel->forceFill(['user_id' => $existant->id, 'email' => $email])->save();
+
+                return $existant;
+            });
+        }
+
         $phone = $this->phone($personnel);
 
         return $this->transaction(function () use ($personnel, $email, $phone) {
@@ -91,6 +107,22 @@ class CompteAgentService extends BaseService
 
             return $user;
         });
+    }
+
+    /**
+     * Compte déjà ouvert pour le numéro de la fiche, s'il en existe un — voir
+     * {@see assurer()}. `null` si le numéro est vide ou libre : dans ce cas
+     * {@see phone()} tranche normalement (assigné si libre, laissé vide sinon).
+     */
+    private function utilisateurExistant(Personnel $personnel): ?User
+    {
+        $saisi = trim((string) $personnel->telephone);
+
+        if ($saisi === '') {
+            return null;
+        }
+
+        return User::where('phone', Telephone::normaliser($saisi))->first();
     }
 
     /**

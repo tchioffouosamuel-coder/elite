@@ -18,6 +18,7 @@ use App\Models\School;
 use App\Services\AttestationEmployeurService;
 use App\Services\CompteAgentService;
 use App\Services\FicheIdentitePersonnelService;
+use App\Services\FusionComptesPersonnelParentService;
 use App\Services\PersonnelService;
 use App\Support\Pdf\FicheIdentitePersonnelGenerator;
 use App\Support\Pdf\IdentifiantsGenerator;
@@ -35,6 +36,7 @@ class PersonnelController extends Controller
     public function __construct(
         private readonly PersonnelService $service,
         private readonly CompteAgentService $comptes,
+        private readonly FusionComptesPersonnelParentService $fusionComptes,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -118,6 +120,33 @@ class PersonnelController extends Controller
         $message = $resultat['maj'] > 0
             ? "{$resultat['maj']} compte(s) mis à jour avec leur numéro de téléphone."
             : 'Aucun compte à mettre à jour — tous les agents avec un numéro valide en ont déjà un sur leur compte.';
+
+        return ApiResponse::success($resultat, $message);
+    }
+
+    /**
+     * Doublons personnel/parent détectés (même téléphone, comptes
+     * différents) — aperçu affiché avant confirmation, cf. {@see fusionnerComptesParent()}.
+     */
+    public function apercuFusionComptesParent(): JsonResponse
+    {
+        $paires = $this->fusionComptes->apercu(Tenant::schoolIds());
+
+        return ApiResponse::success(['paires' => $paires, 'total' => count($paires)]);
+    }
+
+    /**
+     * Fusionne les doublons personnel/parent détectés : rattache chaque
+     * fiche tuteur au compte personnel correspondant et supprime le compte
+     * parent devenu superflu — cf. FusionComptesPersonnelParentService.
+     */
+    public function fusionnerComptesParent(): JsonResponse
+    {
+        $resultat = $this->fusionComptes->fusionner(Tenant::schoolIds());
+
+        $message = $resultat['fusionnes'] > 0
+            ? "{$resultat['fusionnes']} compte(s) fusionné(s) avec leur compte parent."
+            : 'Aucun doublon personnel/parent à fusionner.';
 
         return ApiResponse::success($resultat, $message);
     }
