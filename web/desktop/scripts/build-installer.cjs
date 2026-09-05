@@ -99,6 +99,42 @@ function copierApi(destination) {
   // build embarquerait celles de la machine qui compile l'installeur.
 }
 
+/**
+ * `electron-updater` lit ce fichier, embarqué dans `resources/` de l'app
+ * installée, pour savoir où chercher les mises à jour (cf. le commentaire de
+ * `configurerAutoUpdate()` dans `src/main.cjs`). electron-builder l'écrit
+ * normalement lui-même via son hook `afterPack` — mais `--prepackaged`
+ * (cf. `embarquerIconeEtVersion()` plus haut) fait retourner `doPack()`
+ * avant même que cet évènement ne soit émis, donc le hook ne se déclenche
+ * jamais et le fichier n'existe jamais dans l'installeur produit ici. On le
+ * régénère donc nous-mêmes, à partir de `build.publish` de `package.json` —
+ * seul le provider GitHub (celui réellement utilisé, cf. `release.ps1`) est
+ * géré, un format minimal suffisant à `electron-updater` pour un dépôt
+ * public sans canal ni jeton spécifique.
+ */
+function ecrireAppUpdateYml(resourcesDir) {
+  const publish = packageJson.build?.publish;
+  if (!publish || publish.provider !== "github" || !publish.owner || !publish.repo) {
+    console.warn(
+      "[desktop] build.publish (provider github, owner, repo) absent ou incomplet dans package.json : " +
+      "app-update.yml non généré, l'auto-update sera inactif sur cet installeur.",
+    );
+    return;
+  }
+
+  const updaterCacheDirName = `${packageJson.name.toLowerCase()}-updater`;
+  const contenu = [
+    `provider: ${publish.provider}`,
+    `owner: ${publish.owner}`,
+    `repo: ${publish.repo}`,
+    `updaterCacheDirName: ${updaterCacheDirName}`,
+    "",
+  ].join("\n");
+
+  writeFileSync(path.join(resourcesDir, "app-update.yml"), contenu, "utf8");
+  console.log("[desktop] app-update.yml généré pour electron-updater");
+}
+
 function runBuilder(args) {
   const cli = path.join(root, "node_modules", "electron-builder", "cli.js");
   const result = spawnSync(process.execPath, [cli, ...args], {
@@ -174,6 +210,7 @@ function runBuilder(args) {
 
   console.log("[desktop] creation d'une copie stable pour NSIS");
   cpSync(unpacked, stableOutput, { recursive: true });
+  ecrireAppUpdateYml(path.join(stableOutput, "resources"));
 
   const shouldPublish = process.argv.includes("--publish");
   if (shouldPublish && !process.env.GH_TOKEN) {

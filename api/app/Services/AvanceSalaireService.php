@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AvanceEcheance;
 use App\Models\AvanceSalaire;
 use App\Models\Personnel;
 use App\Models\Remuneration;
@@ -22,7 +23,7 @@ class AvanceSalaireService extends BaseService
     public function lister(int|array $schoolId, array $filtres = []): Collection
     {
         return AvanceSalaire::forSchool($schoolId)
-            ->with(['personnel.school', 'remboursements'])
+            ->with(['personnel.school', 'remboursements', 'echeances'])
             ->when($filtres['personnel_id'] ?? null, fn ($q, $id) => $q->where('personnel_id', $id))
             ->orderByDesc('date_avance')
             ->get()
@@ -35,22 +36,30 @@ class AvanceSalaireService extends BaseService
     /** @param int|array<int> $schoolId */
     public function trouver(int|array $schoolId, int $id): AvanceSalaire
     {
-        return AvanceSalaire::forSchool($schoolId)->with(['personnel.school', 'remboursements'])->findOrFail($id);
-    }
-
-    public function calculerMensualite(int $montant, int $nombreMois): int
-    {
-        return (int) ceil($montant / $nombreMois);
+        return AvanceSalaire::forSchool($schoolId)->with(['personnel.school', 'remboursements', 'echeances'])->findOrFail($id);
     }
 
     /**
-     * Nombre de mois qu'un remboursement à mensualité fixe prend pour
-     * s'éteindre — la dernière mensualité peut être plus faible que les
-     * autres, l'échéancier n'a pas à être uniforme.
+     * Répartition égale du montant sur `$nombreMois`, un mois consécutif à
+     * partir de `$moisDebut` : valeur par défaut proposée au formulaire, que
+     * l'employé ou l'admin peut ensuite corriger ligne par ligne. Le reliquat
+     * de l'arrondi est absorbé par le dernier mois pour que la somme reste
+     * exactement `$montant`.
+     *
+     * @return array<int, array{mois: string, montant: int}>
      */
-    public function calculerNombreMois(int $montant, int $mensualite): int
+    public function genererEcheancierUniforme(int $montant, int $nombreMois, string $moisDebut): array
     {
-        return (int) ceil($montant / $mensualite);
+        $base = intdiv($montant, $nombreMois);
+        $reliquat = $montant - $base * $nombreMois;
+        $debut = Carbon::parse($moisDebut)->startOfMonth();
+
+        return collect(range(0, $nombreMois - 1))
+            ->map(fn (int $i) => [
+                'mois' => $debut->copy()->addMonthsNoOverflow($i)->toDateString(),
+                'montant' => $base + ($i === $nombreMois - 1 ? $reliquat : 0),
+            ])
+            ->all();
     }
 
     /**
@@ -79,15 +88,22 @@ class AvanceSalaireService extends BaseService
     }
 
     /**
-     * Vérifie qu'une mensualité choisie par l'employé ne dépasse pas 50% du
-     * salaire brut en cours — utilisé à la fois à l'octroi direct et à la
-     * soumission d'une demande, pour ne jamais laisser passer un échéancier
-     * intenable. L'échéancier n'est plus supposé uniforme : c'est la
-     * mensualité elle-même qui est saisie, pas un nombre de mois dont elle se
-     * déduirait.
+     * Vérifie qu'un échéancier choisi par l'employé est cohérent : chaque
+     * ligne positive, la somme égale au montant emprunté, et aucune ligne ne
+     * dépasse 50% du salaire brut en cours — utilisé à la fois à l'octroi
+     * direct et à la soumission d'une demande, pour ne jamais laisser passer
+     * un plan intenable. L'échéancier n'est plus supposé uniforme : chaque
+     * mois porte le montant que l'employé a choisi pour lui, pas une
+     * mensualité fixe.
+     *
+     * @param  array<int, array{mois: string, montant: int}>  $echeancier
      */
-    public function verifierPlafond(Personnel $personnel, int $montant, int $mensualite): int
+    public function verifierEcheancier(Personnel $personnel, int $montant, array $echeancier): void
     {
+        if (count($echeancier) === 0) {
+            throw new RuntimeException("L'échéancier doit comporter au moins un mois.");
+        }
+
         $bornes = $this->plafond($personnel);
 
         if (! $bornes) {
@@ -95,38 +111,65 @@ class AvanceSalaireService extends BaseService
         }
 
         $plafond = $bornes['plafond_mensualite'];
+        $somme = 0;
 
-        if ($mensualite > $plafond) {
-            throw new RuntimeException(
-                "La mensualité de remboursement ({$mensualite} F CFA) dépasse 50% du salaire brut ({$plafond} F CFA). Réduisez la mensualité ou le montant.",
-            );
+        foreach ($echeancier as $ligne) {
+            $ligneMontant = (int) $ligne['montant'];
+
+            if ($ligneMontant <= 0) {
+                throw new RuntimeException('Chaque mois de l\'échéancier doit avoir un montant supérieur à zéro.');
+            }
+
+            if ($ligneMontant > $plafond) {
+                $mois = Carbon::parse($ligne['mois'])->translatedFormat('F Y');
+                throw new RuntimeException(
+                    "Le montant prévu pour {$mois} ({$ligneMontant} F CFA) dépasse 50% du salaire brut ({$plafond} F CFA). Réduisez ce montant.",
+                );
+            }
+
+            $somme += $ligneMontant;
         }
 
-        return $mensualite;
+        if ($somme !== $montant) {
+            throw new RuntimeException("La somme de l'échéancier ({$somme} F CFA) ne correspond pas au montant de l'avance ({$montant} F CFA).");
+        }
     }
 
     /**
-     * @param  array{personnel_id: int, montant: int, mensualite: int, date_avance: string, motif?: ?string, mois_debut_remboursement?: ?string}  $donnees
+     * @param  array{personnel_id: int, montant: int, echeancier: array<int, array{mois: string, montant: int}>, date_avance: string, motif?: ?string}  $donnees
      */
     public function accorder(int $schoolId, array $donnees, ?int $accordeePar): AvanceSalaire
     {
         $personnel = Personnel::findOrFail($donnees['personnel_id']);
         $montant = (int) $donnees['montant'];
-        $mensualite = $this->verifierPlafond($personnel, $montant, (int) $donnees['mensualite']);
+        $echeancier = $donnees['echeancier'];
+        $this->verifierEcheancier($personnel, $montant, $echeancier);
 
-        return AvanceSalaire::create([
-            'school_id' => $schoolId,
-            'personnel_id' => $donnees['personnel_id'],
-            'montant' => $montant,
-            'mensualite' => $mensualite,
-            'nombre_mois' => $this->calculerNombreMois($montant, $mensualite),
-            // Par défaut, la retenue commence dès le mois en cours — mais
-            // l'employé (ou l'admin à l'octroi direct) peut la décaler.
-            'mois_debut_remboursement' => $donnees['mois_debut_remboursement'] ?? now()->startOfMonth()->toDateString(),
-            'date_avance' => $donnees['date_avance'],
-            'motif' => $donnees['motif'] ?? null,
-            'accordee_par' => $accordeePar,
-        ]);
+        $moisTries = collect($echeancier)->sortBy('mois')->values();
+        $nombreMois = $moisTries->count();
+
+        return $this->transaction(function () use ($schoolId, $donnees, $accordeePar, $montant, $moisTries, $nombreMois) {
+            $avance = AvanceSalaire::create([
+                'school_id' => $schoolId,
+                'personnel_id' => $donnees['personnel_id'],
+                'montant' => $montant,
+                'mensualite' => (int) round($montant / $nombreMois),
+                'nombre_mois' => $nombreMois,
+                'mois_debut_remboursement' => $moisTries->first()['mois'],
+                'date_avance' => $donnees['date_avance'],
+                'motif' => $donnees['motif'] ?? null,
+                'accordee_par' => $accordeePar,
+            ]);
+
+            $avance->echeances()->createMany(
+                $moisTries->map(fn (array $ligne) => [
+                    'mois' => Carbon::parse($ligne['mois'])->startOfMonth()->toDateString(),
+                    'montant_prevu' => (int) $ligne['montant'],
+                ])->all(),
+            );
+
+            return $avance->fresh(['echeances']);
+        });
     }
 
     /** @param array{montant: int, date_remboursement?: ?string, mode?: string, note?: ?string} $donnees */
@@ -172,7 +215,7 @@ class AvanceSalaireService extends BaseService
     {
         return AvanceSalaire::where('personnel_id', $personnelId)
             ->valides()
-            ->with('remboursements')
+            ->with(['remboursements', 'echeances'])
             ->orderBy('date_avance')
             ->get()
             ->filter(fn (AvanceSalaire $a) => $a->solde > 0)
@@ -183,9 +226,48 @@ class AvanceSalaireService extends BaseService
     }
 
     /**
-     * Retenue du mois au titre des avances : la somme des mensualités de
-     * l'échéancier, chacune bornée par ce qui reste dû — pour les seules
-     * avances déjà entrées dans leur période de remboursement.
+     * Montant planifié pour une avance sur une période donnée (`Y-m`) —
+     * `0` si cette période n'a pas de ligne dans l'échéancier (avant le
+     * début du plan, ou après sa dernière ligne).
+     *
+     * Avances créées avant l'introduction de l'échéancier ligne à ligne :
+     * elles n'ont pas de lignes en base, on retombe sur la mensualité fixe
+     * historique tant que la période reste dans `nombre_mois` du début.
+     */
+    private function montantEcheancePour(AvanceSalaire $avance, string $periode): int
+    {
+        $periode = Carbon::parse($periode)->format('Y-m');
+
+        if ($avance->echeances->isNotEmpty()) {
+            $ligne = $avance->echeances->first(fn (AvanceEcheance $e) => $e->mois->format('Y-m') === $periode);
+
+            if ($ligne) {
+                return (int) $ligne->montant_prevu;
+            }
+
+            // Après la dernière échéance planifiée, un solde peut subsister
+            // (paie manquée, retenue partielle) : la dernière ligne continue
+            // de s'appliquer en rattrapage plutôt que de laisser la dette
+            // impayée indéfiniment.
+            $derniere = $avance->echeances->last();
+
+            return ($derniere && $periode > $derniere->mois->format('Y-m')) ? (int) $derniere->montant_prevu : 0;
+        }
+
+        if (! $avance->mensualite || ! $avance->nombre_mois || ! $avance->mois_debut_remboursement) {
+            return 0;
+        }
+
+        $debut = $avance->mois_debut_remboursement->format('Y-m');
+
+        return ($periode >= $debut) ? (int) $avance->mensualite : 0;
+    }
+
+    /**
+     * Retenue du mois au titre des avances : la somme des lignes
+     * d'échéancier prévues pour cette période, chacune bornée par ce qui
+     * reste dû — pour les seules avances déjà entrées dans leur période de
+     * remboursement.
      *
      * C'est ce montant que la paie propose en déduction — sans quoi
      * l'échéancier resterait une intention, recopiée à la main d'un mois sur
@@ -194,7 +276,7 @@ class AvanceSalaireService extends BaseService
     public function mensualiteDue(int $personnelId, string $periode): int
     {
         return (int) $this->enCoursPour($personnelId, $periode)
-            ->sum(fn (AvanceSalaire $a) => min((int) ($a->mensualite ?? 0), $a->solde));
+            ->sum(fn (AvanceSalaire $a) => min($this->montantEcheancePour($a, $periode), $a->solde));
     }
 
     /**

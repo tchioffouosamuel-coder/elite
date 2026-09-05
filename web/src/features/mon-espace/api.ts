@@ -1,6 +1,6 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
-import type { PlafondAvance, StatutAvance, StatutBudget, StatutDemandeAvance } from '@/features/finance/api'
+import type { EcheanceAvance, LigneEcheancier, PlafondAvance, StatutAvance, StatutBudget, StatutDemandeAvance } from '@/features/finance/api'
 
 export interface MonAvance {
   id: number
@@ -13,6 +13,7 @@ export interface MonAvance {
   montant_rembourse: number
   solde: number
   statut: StatutAvance
+  echeances: EcheanceAvance[]
 }
 
 export interface MaDemandeAvance {
@@ -25,6 +26,7 @@ export interface MaDemandeAvance {
   statut: StatutDemandeAvance
   motif_rejet: string | null
   created_at: string
+  echeances: EcheanceAvance[]
 }
 
 export interface MonEspaceAvances {
@@ -41,8 +43,7 @@ export async function fetchMesAvances(): Promise<MonEspaceAvances> {
 
 export async function soumettreDemandeAvance(payload: {
   montant: number
-  mensualite: number
-  mois_debut_remboursement?: string | null
+  echeancier: LigneEcheancier[]
   motif?: string | null
 }): Promise<MaDemandeAvance> {
   const { data } = await http.post<ApiResponse<MaDemandeAvance>>('/mon-espace/avances/demandes', payload)

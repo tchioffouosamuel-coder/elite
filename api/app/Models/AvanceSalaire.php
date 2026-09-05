@@ -65,6 +65,11 @@ class AvanceSalaire extends Model
         return $this->hasMany(AvanceRemboursement::class);
     }
 
+    public function echeances(): HasMany
+    {
+        return $this->hasMany(AvanceEcheance::class)->orderBy('mois');
+    }
+
     public function getMontantRembourseAttribute(): int
     {
         return (int) $this->remboursements->sum('montant');

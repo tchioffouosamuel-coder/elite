@@ -18,8 +18,9 @@ use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
- * Échéancier de remboursement (durée, mensualité plafonnée à la moitié du
- * brut) et circuit des demandes soumises par le personnel lui-même.
+ * Échéancier de remboursement ligne à ligne (un montant par mois, plafonné à
+ * la moitié du brut) et circuit des demandes soumises par le personnel
+ * lui-même.
  */
 class AvanceSalaireTest extends TestCase
 {
@@ -62,15 +63,24 @@ class AvanceSalaireTest extends TestCase
         return app(DemandeAvanceSalaireService::class);
     }
 
+    /** @return array<int, array{mois: string, montant: int}> */
+    private function echeancierUniforme(int $montant = 100000, int $nombreMois = 5, string $moisDebut = '2024-04-01'): array
+    {
+        return $this->avances()->genererEcheancierUniforme($montant, $nombreMois, $moisDebut);
+    }
+
     /** @param array<string, mixed> $donnees */
     private function accorder(array $donnees = []): AvanceSalaire
     {
+        $montant = $donnees['montant'] ?? 100000;
+        $echeancier = $donnees['echeancier'] ?? $this->echeancierUniforme($montant);
+
         return $this->avances()->accorder($this->school->id, [
             'personnel_id' => $this->agent->id,
-            'montant' => 100000,
-            'mensualite' => 20000,
+            'montant' => $montant,
+            'echeancier' => $echeancier,
             'date_avance' => '2024-04-01',
-            ...$donnees,
+            ...array_diff_key($donnees, ['echeancier' => null]),
         ], null);
     }
 
@@ -78,56 +88,105 @@ class AvanceSalaireTest extends TestCase
     {
         $avance = $this->accorder();
 
-        // 100 000 à 20 000/mois : 5 échéances, sous le plafond de 24 000.
+        // 100 000 sur 5 mois à 20 000 chacun, sous le plafond de 24 000.
         $this->assertSame(5, $avance->nombre_mois);
         $this->assertSame(20000, $avance->mensualite);
+        $this->assertCount(5, $avance->echeances);
+        $this->assertSame(20000, $avance->echeances->first()->montant_prevu);
     }
 
-    public function test_le_nombre_de_mois_arrondit_au_mois_superieur(): void
+    public function test_un_echeancier_personnalise_non_uniforme_est_accepte(): void
     {
-        // 90 000 à 23 000/mois : 3,91 — la dernière échéance solde le reste
-        // (21 000) plutôt que d'imposer une mensualité uniforme.
-        $avance = $this->accorder(['montant' => 90000, 'mensualite' => 23000]);
+        // L'employé choisit lui-même combien débiter chaque mois, tant que la
+        // somme correspond au montant emprunté et qu'aucune ligne ne dépasse
+        // le plafond.
+        $echeancier = [
+            ['mois' => '2024-04-01', 'montant' => 15000],
+            ['mois' => '2024-05-01', 'montant' => 24000],
+            ['mois' => '2024-06-01', 'montant' => 11000],
+        ];
 
-        $this->assertSame(4, $avance->nombre_mois);
-        $this->assertSame(23000, $avance->mensualite);
+        $avance = $this->accorder(['montant' => 50000, 'echeancier' => $echeancier]);
+
+        $this->assertSame(3, $avance->nombre_mois);
+        $this->assertSame(15000, $avance->echeances[0]->montant_prevu);
+        $this->assertSame(24000, $avance->echeances[1]->montant_prevu);
+        $this->assertSame(11000, $avance->echeances[2]->montant_prevu);
     }
 
-    public function test_une_mensualite_au_dela_de_la_moitie_du_brut_est_refusee(): void
+    public function test_une_somme_d_echeancier_differente_du_montant_est_refusee(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('ne correspond pas au montant');
+
+        $this->accorder([
+            'montant' => 50000,
+            'echeancier' => [['mois' => '2024-04-01', 'montant' => 20000]],
+        ]);
+    }
+
+    public function test_une_ligne_au_dela_de_la_moitie_du_brut_est_refusee(): void
     {
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('dépasse 50%');
 
-        $this->accorder(['mensualite' => 50000]);
+        $this->accorder([
+            'montant' => 50000,
+            'echeancier' => [['mois' => '2024-04-01', 'montant' => 50000]],
+        ]);
     }
 
-    public function test_la_mensualite_juste_egale_au_plafond_passe(): void
+    public function test_une_ligne_juste_egale_au_plafond_passe(): void
     {
-        $avance = $this->accorder(['montant' => 48000, 'mensualite' => 24000]);
+        $avance = $this->accorder([
+            'montant' => 24000,
+            'echeancier' => [['mois' => '2024-04-01', 'montant' => 24000]],
+        ]);
 
-        $this->assertSame(24000, $avance->mensualite);
+        $this->assertSame(24000, $avance->echeances->first()->montant_prevu);
     }
 
-    public function test_le_debut_de_remboursement_peut_etre_decale(): void
+    public function test_le_debut_de_remboursement_se_deduit_du_mois_minimal(): void
     {
-        $avance = $this->accorder(['mois_debut_remboursement' => '2024-07-01']);
+        $avance = $this->accorder(['echeancier' => $this->echeancierUniforme(100000, 5, '2024-07-01')]);
 
         $this->assertSame('2024-07-01', $avance->mois_debut_remboursement->format('Y-m-d'));
     }
 
-    public function test_a_defaut_le_remboursement_commence_le_mois_en_cours(): void
-    {
-        $avance = $this->accorder();
-
-        $this->assertSame(now()->startOfMonth()->format('Y-m-d'), $avance->mois_debut_remboursement->format('Y-m-d'));
-    }
-
     public function test_la_retenue_n_est_pas_due_avant_le_mois_de_debut(): void
     {
-        $this->accorder(['mois_debut_remboursement' => '2024-07-01']);
+        $this->accorder(['echeancier' => $this->echeancierUniforme(100000, 5, '2024-07-01')]);
 
         $this->assertSame(0, $this->avances()->mensualiteDue($this->agent->id, '2024-06-30'));
         $this->assertSame(20000, $this->avances()->mensualiteDue($this->agent->id, '2024-07-15'));
+    }
+
+    public function test_la_retenue_du_mois_suit_le_montant_planifie_pour_ce_mois(): void
+    {
+        // Échéancier non uniforme : la retenue du mois doit suivre la ligne
+        // prévue pour ce mois précis, pas une mensualité moyenne.
+        $this->accorder([
+            'montant' => 50000,
+            'echeancier' => [
+                ['mois' => '2024-04-01', 'montant' => 15000],
+                ['mois' => '2024-05-01', 'montant' => 24000],
+                ['mois' => '2024-06-01', 'montant' => 11000],
+            ],
+        ]);
+
+        $this->assertSame(15000, $this->avances()->mensualiteDue($this->agent->id, '2024-04-10'));
+        $this->assertSame(24000, $this->avances()->mensualiteDue($this->agent->id, '2024-05-10'));
+        $this->assertSame(11000, $this->avances()->mensualiteDue($this->agent->id, '2024-06-10'));
+
+        // Une fois le solde épuisé, plus rien n'est dû même après la fin du
+        // plan (le rattrapage ne s'applique qu'à un solde encore ouvert).
+        $avance = AvanceSalaire::sole();
+        $avance->remboursements()->createMany([
+            ['montant' => 15000, 'date_remboursement' => '2024-04-10', 'mode' => 'retenue_salaire'],
+            ['montant' => 24000, 'date_remboursement' => '2024-05-10', 'mode' => 'retenue_salaire'],
+            ['montant' => 11000, 'date_remboursement' => '2024-06-10', 'mode' => 'retenue_salaire'],
+        ]);
+        $this->assertSame(0, $this->avances()->mensualiteDue($this->agent->id, '2024-07-10'));
     }
 
     public function test_le_plafond_suit_la_derniere_remuneration_en_date(): void
@@ -158,7 +217,7 @@ class AvanceSalaireTest extends TestCase
 
     public function test_une_demande_du_personnel_n_accorde_rien_avant_validation(): void
     {
-        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'mensualite' => 20000]);
+        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'echeancier' => $this->echeancierUniforme()]);
 
         $this->assertSame('en_attente', $demande->statut);
         $this->assertSame(0, AvanceSalaire::count());
@@ -167,7 +226,11 @@ class AvanceSalaireTest extends TestCase
     public function test_la_validation_cree_l_avance_avec_l_echeancier_demande(): void
     {
         $admin = $this->admin();
-        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'mensualite' => 20000, 'motif' => 'Frais médicaux']);
+        $demande = $this->demandes()->soumettre($this->agent, [
+            'montant' => 100000,
+            'echeancier' => $this->echeancierUniforme(),
+            'motif' => 'Frais médicaux',
+        ]);
 
         $demande = $this->demandes()->valider($demande, $admin->id);
 
@@ -179,11 +242,12 @@ class AvanceSalaireTest extends TestCase
         $this->assertSame(5, $avance->nombre_mois);
         $this->assertSame(20000, $avance->mensualite);
         $this->assertSame('Frais médicaux', $avance->motif);
+        $this->assertCount(5, $avance->echeances);
     }
 
     public function test_le_rejet_conserve_le_motif_et_n_accorde_rien(): void
     {
-        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'mensualite' => 20000]);
+        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'echeancier' => $this->echeancierUniforme()]);
 
         $demande = $this->demandes()->rejeter($demande, 'Trésorerie insuffisante ce mois-ci', $this->admin()->id);
 
@@ -194,7 +258,7 @@ class AvanceSalaireTest extends TestCase
 
     public function test_une_demande_deja_traitee_ne_se_traite_pas_deux_fois(): void
     {
-        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'mensualite' => 20000]);
+        $demande = $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'echeancier' => $this->echeancierUniforme()]);
         $this->demandes()->valider($demande);
 
         $this->expectException(RuntimeException::class);
@@ -203,12 +267,12 @@ class AvanceSalaireTest extends TestCase
 
     public function test_un_employe_n_a_qu_une_demande_en_attente_a_la_fois(): void
     {
-        $this->demandes()->soumettre($this->agent, ['montant' => 50000, 'mensualite' => 10000]);
+        $this->demandes()->soumettre($this->agent, ['montant' => 50000, 'echeancier' => $this->echeancierUniforme(50000, 5, '2024-04-01')]);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('déjà en attente');
 
-        $this->demandes()->soumettre($this->agent, ['montant' => 20000, 'mensualite' => 6667]);
+        $this->demandes()->soumettre($this->agent, ['montant' => 20000, 'echeancier' => $this->echeancierUniforme(20000, 3, '2024-04-01')]);
     }
 
     public function test_une_demande_hors_plafond_est_refusee_des_la_soumission(): void
@@ -216,7 +280,10 @@ class AvanceSalaireTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('dépasse 50%');
 
-        $this->demandes()->soumettre($this->agent, ['montant' => 100000, 'mensualite' => 50000]);
+        $this->demandes()->soumettre($this->agent, [
+            'montant' => 100000,
+            'echeancier' => [['mois' => '2024-04-01', 'montant' => 50000], ['mois' => '2024-05-01', 'montant' => 50000]],
+        ]);
 
         $this->assertSame(0, DemandeAvanceSalaire::count());
     }
@@ -224,7 +291,7 @@ class AvanceSalaireTest extends TestCase
     public function test_l_employe_consulte_ses_avances_et_son_plafond(): void
     {
         $this->accorder();
-        $this->demandes()->soumettre($this->agent, ['montant' => 30000, 'mensualite' => 10000]);
+        $this->demandes()->soumettre($this->agent, ['montant' => 30000, 'echeancier' => $this->echeancierUniforme(30000, 3, '2024-04-01')]);
 
         $reponse = $this->actingAs($this->compteDe($this->agent), 'sanctum')
             ->getJson('/api/v1/mon-espace/avances')

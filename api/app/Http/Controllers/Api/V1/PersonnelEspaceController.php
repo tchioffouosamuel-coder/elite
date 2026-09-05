@@ -59,6 +59,10 @@ class PersonnelEspaceController extends Controller
                 'montant_rembourse' => $a->montant_rembourse,
                 'solde' => $a->solde,
                 'statut' => $a->statut,
+                'echeances' => $a->echeances->map(fn ($e) => [
+                    'mois' => $e->mois->format('Y-m-d'),
+                    'montant_prevu' => $e->montant_prevu,
+                ])->values(),
             ])->values(),
             'demandes' => $demandes->map(fn (DemandeAvanceSalaire $d) => [
                 'id' => $d->id,
@@ -70,6 +74,10 @@ class PersonnelEspaceController extends Controller
                 'statut' => $d->statut,
                 'motif_rejet' => $d->motif_rejet,
                 'created_at' => $d->created_at->format('Y-m-d H:i'),
+                'echeances' => $d->echeances->map(fn ($e) => [
+                    'mois' => $e->mois->format('Y-m-d'),
+                    'montant_prevu' => $e->montant_prevu,
+                ])->values(),
             ])->values(),
         ]);
     }
@@ -80,8 +88,9 @@ class PersonnelEspaceController extends Controller
 
         $data = $request->validate([
             'montant' => ['required', 'integer', 'min:1'],
-            'mensualite' => ['required', 'integer', 'min:1'],
-            'mois_debut_remboursement' => ['nullable', 'date'],
+            'echeancier' => ['required', 'array', 'min:1'],
+            'echeancier.*.mois' => ['required', 'date'],
+            'echeancier.*.montant' => ['required', 'integer', 'min:1'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
 

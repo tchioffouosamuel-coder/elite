@@ -57,8 +57,9 @@ class AvanceSalaireController extends Controller
         $donnees = $request->validate([
             'personnel_id' => ['required', 'integer', Rule::exists('personnels', 'id')->where('school_id', Tenant::schoolIds())],
             'montant' => ['required', 'integer', 'min:1'],
-            'mensualite' => ['required', 'integer', 'min:1'],
-            'mois_debut_remboursement' => ['nullable', 'date'],
+            'echeancier' => ['required', 'array', 'min:1'],
+            'echeancier.*.mois' => ['required', 'date'],
+            'echeancier.*.montant' => ['required', 'integer', 'min:1'],
             'date_avance' => ['required', 'date'],
             'motif' => ['nullable', 'string', 'max:255'],
         ]);
@@ -108,7 +109,7 @@ class AvanceSalaireController extends Controller
     /** @return array<string, mixed> */
     private function resumer(AvanceSalaire $avance): array
     {
-        $avance->loadMissing('personnel.school', 'remboursements');
+        $avance->loadMissing('personnel.school', 'remboursements', 'echeances');
 
         return [
             'id' => $avance->id,
@@ -142,7 +143,36 @@ class AvanceSalaireController extends Controller
                 'mode' => $r->mode,
                 'note' => $r->note,
             ])->values(),
+            'echeances' => $avance->echeances->isNotEmpty()
+                ? $avance->echeances->map(fn ($e) => [
+                    'mois' => $e->mois->format('Y-m-d'),
+                    'montant_prevu' => $e->montant_prevu,
+                ])->values()
+                : $this->echeancierHerite($avance),
         ];
+    }
+
+    /**
+     * Avances créées avant l'introduction de l'échéancier ligne à ligne :
+     * elles n'ont que `mensualite`/`nombre_mois`, on reconstitue un
+     * échéancier virtuel équivalent pour que l'affichage reste cohérent.
+     *
+     * @return array<int, array{mois: string, montant_prevu: int}>
+     */
+    private function echeancierHerite(AvanceSalaire $avance): array
+    {
+        if (! $avance->mensualite || ! $avance->nombre_mois || ! $avance->mois_debut_remboursement) {
+            return [];
+        }
+
+        $debut = $avance->mois_debut_remboursement->copy()->startOfMonth();
+
+        return collect(range(0, $avance->nombre_mois - 1))
+            ->map(fn (int $i) => [
+                'mois' => $debut->copy()->addMonthsNoOverflow($i)->format('Y-m-d'),
+                'montant_prevu' => $avance->mensualite,
+            ])
+            ->all();
     }
 
     /** Les refus métier du service sont des 422, pas des erreurs serveur. */

@@ -412,6 +412,17 @@ export interface RemboursementAvance {
   note: string | null;
 }
 
+export interface EcheanceAvance {
+  mois: string;
+  montant_prevu: number;
+}
+
+/** Une ligne d'échéancier telle qu'envoyée au serveur (à l'octroi ou à la demande). */
+export interface LigneEcheancier {
+  mois: string;
+  montant: number;
+}
+
 export interface AvanceSalaire {
   id: number;
   personnel: {
@@ -433,6 +444,7 @@ export interface AvanceSalaire {
   annule: boolean;
   motif_annulation: string | null;
   remboursements: RemboursementAvance[];
+  echeances: EcheanceAvance[];
 }
 
 export interface TotauxAvances {
@@ -476,8 +488,7 @@ export async function fetchPlafondAvance(
 export async function accorderAvance(payload: {
   personnel_id: number;
   montant: number;
-  mensualite: number;
-  mois_debut_remboursement?: string | null;
+  echeancier: LigneEcheancier[];
   date_avance: string;
   motif?: string | null;
 }): Promise<AvanceSalaire> {
@@ -643,6 +654,7 @@ export interface DemandeAvanceSalaire {
   avance_salaire_id: number | null;
   created_at: string;
   traite_le: string | null;
+  echeances: EcheanceAvance[];
 }
 
 export async function fetchDemandesAvanceSalaire(

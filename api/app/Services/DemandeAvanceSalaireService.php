@@ -24,7 +24,7 @@ class DemandeAvanceSalaireService extends BaseService
     /** @return Collection<int, DemandeAvanceSalaire> */
     public function pourPersonnel(int $personnelId): Collection
     {
-        return DemandeAvanceSalaire::where('personnel_id', $personnelId)->latest()->get();
+        return DemandeAvanceSalaire::where('personnel_id', $personnelId)->with('echeances')->latest()->get();
     }
 
     public function enAttentePour(int $personnelId): ?DemandeAvanceSalaire
@@ -32,7 +32,7 @@ class DemandeAvanceSalaireService extends BaseService
         return DemandeAvanceSalaire::where('personnel_id', $personnelId)->where('statut', 'en_attente')->latest()->first();
     }
 
-    /** @param array{montant: int, mensualite: int, mois_debut_remboursement?: ?string, motif?: ?string} $donnees */
+    /** @param array{montant: int, echeancier: array<int, array{mois: string, montant: int}>, motif?: ?string} $donnees */
     public function soumettre(Personnel $personnel, array $donnees): DemandeAvanceSalaire
     {
         if ($this->enAttentePour($personnel->id)) {
@@ -40,24 +40,39 @@ class DemandeAvanceSalaireService extends BaseService
         }
 
         $montant = (int) $donnees['montant'];
-        $mensualite = (int) $donnees['mensualite'];
-        $moisDebut = $donnees['mois_debut_remboursement'] ?? now()->startOfMonth()->toDateString();
+        $echeancier = $donnees['echeancier'];
 
         // Valide déjà le plafond à la soumission : autant prévenir l'employé
         // tout de suite plutôt que de laisser l'admin rejeter une demande
         // vouée à l'échec.
-        $this->avances->verifierPlafond($personnel, $montant, $mensualite);
+        $this->avances->verifierEcheancier($personnel, $montant, $echeancier);
 
-        $demande = DemandeAvanceSalaire::create([
-            'school_id' => $personnel->school_id,
-            'personnel_id' => $personnel->id,
-            'montant' => $montant,
-            'mensualite' => $mensualite,
-            'nombre_mois' => $this->avances->calculerNombreMois($montant, $mensualite),
-            'mois_debut_remboursement' => $moisDebut,
-            'motif' => $donnees['motif'] ?? null,
-            'statut' => 'en_attente',
-        ]);
+        $moisTries = collect($echeancier)->sortBy('mois')->values();
+        $nombreMois = $moisTries->count();
+        $mensualite = (int) round($montant / $nombreMois);
+        $moisDebut = $moisTries->first()['mois'];
+
+        $demande = $this->transaction(function () use ($personnel, $montant, $mensualite, $nombreMois, $moisDebut, $moisTries, $donnees) {
+            $demande = DemandeAvanceSalaire::create([
+                'school_id' => $personnel->school_id,
+                'personnel_id' => $personnel->id,
+                'montant' => $montant,
+                'mensualite' => $mensualite,
+                'nombre_mois' => $nombreMois,
+                'mois_debut_remboursement' => $moisDebut,
+                'motif' => $donnees['motif'] ?? null,
+                'statut' => 'en_attente',
+            ]);
+
+            $demande->echeances()->createMany(
+                $moisTries->map(fn (array $ligne) => [
+                    'mois' => Carbon::parse($ligne['mois'])->startOfMonth()->toDateString(),
+                    'montant_prevu' => (int) $ligne['montant'],
+                ])->all(),
+            );
+
+            return $demande->fresh(['echeances']);
+        });
 
         $this->notifications->notifierParPermission(
             $personnel->school_id,
@@ -77,11 +92,18 @@ class DemandeAvanceSalaireService extends BaseService
         }
 
         return $this->transaction(function () use ($demande, $adminUserId) {
+            $echeancier = $demande->echeances->isNotEmpty()
+                ? $demande->echeances->map(fn ($e) => ['mois' => $e->mois->toDateString(), 'montant' => $e->montant_prevu])->all()
+                : $this->avances->genererEcheancierUniforme(
+                    $demande->montant,
+                    $demande->nombre_mois,
+                    $demande->mois_debut_remboursement?->toDateString() ?? now()->startOfMonth()->toDateString(),
+                );
+
             $avance = $this->avances->accorder($demande->school_id, [
                 'personnel_id' => $demande->personnel_id,
                 'montant' => $demande->montant,
-                'mensualite' => $demande->mensualite,
-                'mois_debut_remboursement' => $demande->mois_debut_remboursement?->toDateString(),
+                'echeancier' => $echeancier,
                 'date_avance' => now()->toDateString(),
                 'motif' => $demande->motif,
             ], $adminUserId);

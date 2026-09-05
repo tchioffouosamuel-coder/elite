@@ -61,6 +61,7 @@ export function AvancesSalairePage() {
   const [onglet, setOnglet] = useState<'avances' | 'demandes'>('avances')
   const [showForm, setShowForm] = useState(false)
   const [avanceARembourser, setAvanceARembourser] = useState<AvanceSalaire | null>(null)
+  const [avanceDetail, setAvanceDetail] = useState<AvanceSalaire | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['avances-salaire', statut],
@@ -126,10 +127,14 @@ export function AvancesSalairePage() {
       valeur: (a) => a.mensualite ?? 0,
       cellule: (a) =>
         a.nombre_mois ? (
-          <div className="min-w-0">
+          <button
+            type="button"
+            onClick={() => setAvanceDetail(a)}
+            className="min-w-0 text-left underline decoration-dotted decoration-navy-200 hover:decoration-navy-500"
+          >
             <div className="tabular-nums font-semibold text-navy-800">{francs(a.mensualite ?? 0)}/mois</div>
             <div className="text-xs text-navy-400">sur {a.nombre_mois} mois</div>
-          </div>
+          </button>
         ) : (
           // Les avances accordées avant l'échéancier n'en portent pas : le
           // remboursement y reste libre, saisi au fil de l'eau.
@@ -276,7 +281,49 @@ export function AvancesSalairePage() {
           }}
         />
       )}
+
+      {avanceDetail && <EcheancierDetailModal avance={avanceDetail} onClose={() => setAvanceDetail(null)} />}
     </div>
+  )
+}
+
+function EcheancierDetailModal({ avance, onClose }: { avance: AvanceSalaire; onClose: () => void }) {
+  return (
+    <Modal title={`Échéancier — ${avance.personnel.nom_complet}`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <p className="rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
+          Montant emprunté <span className="font-semibold text-navy-800">{francs(avance.montant)}</span> — reste à recouvrer{' '}
+          <span className="font-semibold text-navy-800">{francs(avance.solde)}</span>.
+        </p>
+
+        <div className="max-h-72 overflow-y-auto rounded-xl border border-navy-100">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-cream-50 text-xs uppercase tracking-wide text-navy-400">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold">Mois</th>
+                <th className="px-3 py-2 text-right font-semibold">Montant prévu</th>
+              </tr>
+            </thead>
+            <tbody>
+              {avance.echeances.map((e) => (
+                <tr key={e.mois} className="border-t border-navy-50">
+                  <td className="px-3 py-1.5 capitalize text-navy-600">
+                    {new Date(e.mois).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-navy-800">{francs(e.montant_prevu)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Fermer
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -393,6 +440,20 @@ function DemandesAvanceSection({ onTraitee }: { onTraitee: () => void }) {
                   </p>
                 </div>
               </div>
+
+              {d.echeances.length > 0 && (
+                <details className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">
+                  <summary className="cursor-pointer font-semibold text-navy-700">Voir la répartition mois par mois</summary>
+                  <ul className="mt-2 flex flex-col gap-1">
+                    {d.echeances.map((e) => (
+                      <li key={e.mois} className="flex items-center justify-between gap-3">
+                        <span className="capitalize">{new Date(e.mois).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</span>
+                        <span className="tabular-nums font-semibold text-navy-800">{francs(e.montant_prevu)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
 
               {d.motif && <p className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">{d.motif}</p>}
 

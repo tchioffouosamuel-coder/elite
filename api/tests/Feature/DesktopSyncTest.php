@@ -222,6 +222,87 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseHas('eleves', ['id' => 601, 'nom_complet' => 'NOUVEL ELEVE']);
     }
 
+    /**
+     * Non-régression : le jeton d'accès expire au bout de 24h
+     * (`AuthService::ACCESS_TOKEN_TTL_MINUTES`) et rien ne le renouvelait
+     * avant ce correctif — `sync:pull` échouait alors silencieusement en
+     * boucle, indéfiniment, dès le lendemain de la connexion (observé en
+     * conditions réelles). `retry(3, 3000)` épuise ses 3 tentatives (donc 3
+     * réponses 401 en file) avant de lever l'exception que `tirerEcole()`
+     * intercepte pour rafraîchir le jeton via `refresh_token`, puis
+     * réessayer une seule fois avec le nouveau.
+     */
+    public function test_sync_pull_rafraichit_le_jeton_expire_et_reessaie(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $provisioning = $this->provisionnerSansHttp($ecole);
+
+        $reponse401 = ['success' => false, 'data' => null, 'message' => 'Authentification requise.', 'errors' => null, 'meta' => null];
+
+        Http::fake([
+            '*/api/v1/auth/refresh*' => Http::response([
+                'success' => true,
+                'data' => ['token' => 'nouveau-jeton-acces', 'refresh_token' => 'nouveau-jeton-refresh'],
+            ], 200),
+            '*/api/v1/sync*' => Http::sequence()
+                ->push($reponse401, 401)
+                ->push($reponse401, 401)
+                ->push($reponse401, 401)
+                ->push($this->reponseSyncAvecUnEleve(
+                    id: 604, nom: 'ELEVE APRES RAFRAICHISSEMENT', updatedAt: now(), schoolId: $ecole->id,
+                ), 200),
+        ]);
+
+        $statut = Artisan::call('sync:pull');
+
+        $this->assertSame(0, $statut);
+        $this->assertDatabaseHas('eleves', ['id' => 604, 'nom_complet' => 'ELEVE APRES RAFRAICHISSEMENT']);
+        $this->assertSame('nouveau-jeton-acces', $provisioning->fresh()->token);
+        $this->assertSame('nouveau-jeton-refresh', $provisioning->fresh()->refresh_token);
+    }
+
+    /**
+     * Non-régression : avant ce correctif, `RequestException` (levée par
+     * `retry()` une fois ses tentatives épuisées sur une réponse en échec)
+     * n'était pas interceptée par `handle()` — seule `ConnectionException`
+     * l'était — et remontait donc hors de la boucle, privant tout compte
+     * provisionné APRÈS celui en défaut de sa propre tentative de
+     * synchronisation.
+     */
+    public function test_sync_pull_dun_compte_en_echec_ninterrompt_pas_les_comptes_suivants(): void
+    {
+        $ecoleUn = School::create(['name' => 'Un', 'code' => 'UN', 'type' => 'secondaire', 'is_active' => true]);
+        $ecoleDeux = School::create(['name' => 'Deux', 'code' => 'DEUX', 'type' => 'secondaire', 'is_active' => true]);
+
+        $premier = User::factory()->create();
+        $provisioningEnEchec = DesktopProvisioning::create([
+            'user_id' => $premier->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 'jeton-invalide', 'refresh_token' => 'refresh-invalide', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioningEnEchec->id, 'school_id' => $ecoleUn->id]);
+
+        $this->provisionnerSansHttp($ecoleDeux);
+
+        $reponse401 = ['success' => false, 'data' => null, 'message' => 'Authentification requise.', 'errors' => null, 'meta' => null];
+
+        Http::fake([
+            '*/api/v1/auth/refresh*' => Http::response($reponse401, 401),
+            '*/api/v1/sync*' => function ($request) use ($reponse401, $ecoleDeux) {
+                $ecoleId = $request->header('X-School-Id')[0] ?? null;
+
+                return (int) $ecoleId === $ecoleDeux->id
+                    ? Http::response($this->reponseSyncAvecUnEleve(
+                        id: 605, nom: 'ELEVE ECOLE SAINE', updatedAt: now(), schoolId: $ecoleDeux->id,
+                    ), 200)
+                    : Http::response($reponse401, 401);
+            },
+        ]);
+
+        Artisan::call('sync:pull');
+
+        $this->assertDatabaseHas('eleves', ['id' => 605, 'nom_complet' => 'ELEVE ECOLE SAINE']);
+    }
+
     /** Une ligne locale plus récente que celle reçue n'est pas écrasée : elle n'a pas encore été poussée. */
     public function test_sync_pull_garde_la_ligne_locale_si_elle_est_plus_recente(): void
     {

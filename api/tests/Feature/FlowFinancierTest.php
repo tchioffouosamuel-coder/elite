@@ -213,11 +213,12 @@ class FlowFinancierTest extends TestCase
 
     private function accorder(Personnel $agent, int $montant, int $mois): AvanceSalaire
     {
-        return app(AvanceSalaireService::class)->accorder($this->school->id, [
+        $service = app(AvanceSalaireService::class);
+
+        return $service->accorder($this->school->id, [
             'personnel_id' => $agent->id,
             'montant' => $montant,
-            'mensualite' => (int) ceil($montant / $mois),
-            'mois_debut_remboursement' => '2025-10-01',
+            'echeancier' => $service->genererEcheancierUniforme($montant, $mois, '2025-10-01'),
             'date_avance' => '2025-10-01',
         ], null);
     }

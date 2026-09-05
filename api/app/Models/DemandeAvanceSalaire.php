@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Demande d'avance sur salaire soumise par un employé lui-même, en attente
@@ -61,5 +62,10 @@ class DemandeAvanceSalaire extends Model
     public function traitePar(): BelongsTo
     {
         return $this->belongsTo(User::class, 'traite_par');
+    }
+
+    public function echeances(): HasMany
+    {
+        return $this->hasMany(DemandeAvanceEcheance::class)->orderBy('mois');
     }
 }

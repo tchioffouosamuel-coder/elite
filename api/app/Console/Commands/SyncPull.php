@@ -82,6 +82,27 @@ class SyncPull extends Command
                         ]);
                         $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
                         $echec = true;
+                    } catch (\Illuminate\Http\Client\RequestException $e) {
+                        // `retry()` (cf. `tirerEcole()`) relance cette exception,
+                        // par défaut, après épuisement de ses tentatives sur
+                        // toute réponse en échec (jeton d'accès expiré — TTL de
+                        // 24h, cf. `AuthService::ACCESS_TOKEN_TTL_MINUTES` —
+                        // rejeté même après rafraîchissement, compte désactivé
+                        // côté serveur distant...). Sans ce filet, elle
+                        // remontait telle quelle hors de la boucle et
+                        // interrompait `sync:pull` en plein milieu : tout
+                        // compte provisionné APRÈS celui en défaut sur ce même
+                        // poste perdait alors sa propre chance de se
+                        // synchroniser à ce passage — observé en conditions
+                        // réelles avec un jeton expiré sur le premier compte
+                        // provisionné, qui privait silencieusement les autres.
+                        Log::warning('sync:pull requête refusée', [
+                            'user_id' => $provisioning->user_id,
+                            'school_id' => $ecoleProvisioning->school_id,
+                            'statut' => $e->response?->status(),
+                        ]);
+                        $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : le serveur distant a refusé la requête ({$e->response?->status()}).");
+                        $echec = true;
                     }
                 }
             }
@@ -96,8 +117,17 @@ class SyncPull extends Command
         return $echec ? self::FAILURE : self::SUCCESS;
     }
 
-    /** Pull complet d'une seule école, jusqu'à épuisement de ses pages. */
-    private function tirerEcole(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning): bool
+    /**
+     * Pull complet d'une seule école, jusqu'à épuisement de ses pages.
+     *
+     * @param  bool  $jetonDejaRafraichi  Empêche une boucle infinie : si le
+     *                                    jeton tout juste rafraîchi se fait
+     *                                    encore rejeter, inutile de
+     *                                    réessayer indéfiniment — l'échec
+     *                                    remonte alors normalement à
+     *                                    `handle()`.
+     */
+    private function tirerEcole(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, bool $jetonDejaRafraichi = false): bool
     {
         $entitesParCle = RegistreSync::entites();
         $complet = false;
@@ -106,34 +136,50 @@ class SyncPull extends Command
         $totalSuppressions = 0;
 
         while (! $complet) {
-            $reponse = Http::withToken($provisioning->token)
-                ->withHeaders(['X-School-Id' => $ecoleProvisioning->school_id])
-                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
-                ->acceptJson()
-                // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
-                // parfois trop court pour une page pleine (jusqu'à 500 lignes
-                // par entité du registre) : observé en conditions réelles à
-                // 17s de réponse normale, et jusqu'à un échec à 30s sous une
-                // latence réseau moins favorable. `connectTimeout` séparé de
-                // `timeout` : un aléa sur la connexion elle-même (DNS/TLS) ne
-                // doit pas se cacher derrière un délai pensé pour la réponse.
-                ->connectTimeout(30)
-                ->timeout(180)
-                // Une page qui échoue (réseau instable, coupure momentanée)
-                // se retente seule, 3 fois avec un délai croissant, avant de
-                // remonter l'échec au niveau de l'école : beaucoup moins
-                // coûteux qu'un ré-essai de la commande entière, qui reprend
-                // certes désormais à la bonne page (curseur persisté après
-                // chaque page ci-dessous) mais reperd quand même la page en
-                // cours d'échec.
-                ->retry(3, 3000)
-                ->get('sync', array_filter(['depuis' => $curseur]));
+            try {
+                $reponse = Http::withToken($provisioning->token)
+                    ->withHeaders(['X-School-Id' => $ecoleProvisioning->school_id])
+                    ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                    ->acceptJson()
+                    // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
+                    // parfois trop court pour une page pleine (jusqu'à 500 lignes
+                    // par entité du registre) : observé en conditions réelles à
+                    // 17s de réponse normale, et jusqu'à un échec à 30s sous une
+                    // latence réseau moins favorable. `connectTimeout` séparé de
+                    // `timeout` : un aléa sur la connexion elle-même (DNS/TLS) ne
+                    // doit pas se cacher derrière un délai pensé pour la réponse.
+                    ->connectTimeout(30)
+                    ->timeout(180)
+                    // Une page qui échoue (réseau instable, coupure momentanée)
+                    // se retente seule, 3 fois avec un délai croissant, avant de
+                    // remonter l'échec au niveau de l'école : beaucoup moins
+                    // coûteux qu'un ré-essai de la commande entière, qui reprend
+                    // certes désormais à la bonne page (curseur persisté après
+                    // chaque page ci-dessous) mais reperd quand même la page en
+                    // cours d'échec. Par défaut, Laravel relance l'exception une
+                    // fois les tentatives épuisées (`retryThrow`) plutôt que de
+                    // renvoyer simplement la réponse en échec — c'est ce qui
+                    // permet d'intercepter un 401 ci-dessous pour rafraîchir le
+                    // jeton avant d'abandonner.
+                    ->retry(3, 3000)
+                    ->get('sync', array_filter(['depuis' => $curseur]));
+            } catch (\Illuminate\Http\Client\RequestException $e) {
+                // Le jeton d'accès n'est valable que 24h (cf.
+                // `AuthService::ACCESS_TOKEN_TTL_MINUTES`) et rien ne le
+                // renouvelait jamais ici avant ce correctif : un poste
+                // resté ouvert, ou simplement pas relancé depuis la veille,
+                // voyait alors TOUTE synchronisation échouer en silence dès
+                // le lendemain de la connexion — observé en conditions
+                // réelles (compte provisionné le 01/09, plus aucune donnée
+                // reçue depuis). On tente donc un rafraîchissement via le
+                // jeton de rafraîchissement (30 jours) avant d'abandonner,
+                // une seule fois par appel pour ne jamais boucler si le
+                // rafraîchissement lui-même est refusé.
+                if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
+                    return $this->tirerEcole($provisioning, $ecoleProvisioning, jetonDejaRafraichi: true);
+                }
 
-            if ($reponse->failed()) {
-                Log::warning('sync:pull échec HTTP', ['school_id' => $ecoleProvisioning->school_id, 'statut' => $reponse->status()]);
-                $this->error("École #{$ecoleProvisioning->school_id} : le serveur distant a répondu {$reponse->status()}.");
-
-                return false;
+                throw $e;
             }
 
             $payload = $reponse->json('data') ?? [];
@@ -193,6 +239,48 @@ class SyncPull extends Command
         }
 
         $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
+
+        return true;
+    }
+
+    /**
+     * Échange le jeton de rafraîchissement (30 jours) contre une nouvelle
+     * paire de jetons auprès du serveur distant — même mécanisme que
+     * `AuthService::refresh()` côté web/mobile. Met à jour `$provisioning`
+     * en base sur succès, pour que ce nouveau jeton serve aussi bien à
+     * `tirerEcole()` (retenté juste après) qu'aux appels suivants
+     * (`sync:push`, prochains passages de `sync:pull`).
+     */
+    private function rafraichirJeton(DesktopProvisioning $provisioning): bool
+    {
+        try {
+            $reponse = Http::withToken($provisioning->refresh_token)
+                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                ->acceptJson()
+                ->connectTimeout(15)
+                ->timeout(30)
+                ->post('auth/refresh');
+        } catch (\Illuminate\Http\Client\ConnectionException|\Illuminate\Http\Client\RequestException $e) {
+            Log::warning('sync:pull rafraîchissement du jeton impossible', [
+                'user_id' => $provisioning->user_id,
+                'erreur' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        $donnees = $reponse->json('data') ?? [];
+
+        if (! $reponse->successful() || ! isset($donnees['token'], $donnees['refresh_token'])) {
+            Log::warning('sync:pull rafraîchissement du jeton refusé', [
+                'user_id' => $provisioning->user_id,
+                'statut' => $reponse->status(),
+            ]);
+
+            return false;
+        }
+
+        $provisioning->update(['token' => $donnees['token'], 'refresh_token' => $donnees['refresh_token']]);
 
         return true;
     }

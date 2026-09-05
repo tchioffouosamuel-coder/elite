@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { HandCoins, Plus } from 'lucide-react'
@@ -9,6 +9,7 @@ import {
   type MonAvance,
 } from '@/features/mon-espace/api'
 import { francs, type PlafondAvance, type StatutAvance, type StatutDemandeAvance } from '@/features/finance/api'
+import { EcheancierTable, genererEcheancierUniforme, sommeEcheancier, type LigneEcheancier } from '@/features/finance/EcheancierAvanceEditor'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -95,25 +96,40 @@ export function MesAvancesPage() {
             ) : (
               <div className="flex flex-col divide-y divide-navy-50">
                 {data.avances.map((a: MonAvance) => (
-                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-sm font-semibold text-navy-800">
-                        {francs(a.montant)} — {new Date(a.date_avance).toLocaleDateString('fr-FR')}
-                      </p>
-                      <p className="text-xs text-navy-400">
-                        {a.nombre_mois ? `${a.nombre_mois} mois · ${francs(a.mensualite ?? 0)}/mois` : 'Échéancier non défini'}
-                        {a.mois_debut_remboursement
-                          ? ` · à partir de ${new Date(a.mois_debut_remboursement).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
-                          : ''}
-                        {a.motif ? ` · ${a.motif}` : ''}
-                      </p>
+                  <div key={a.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-navy-800">
+                          {francs(a.montant)} — {new Date(a.date_avance).toLocaleDateString('fr-FR')}
+                        </p>
+                        <p className="text-xs text-navy-400">
+                          {a.nombre_mois ? `${a.nombre_mois} mois · ${francs(a.mensualite ?? 0)}/mois` : 'Échéancier non défini'}
+                          {a.mois_debut_remboursement
+                            ? ` · à partir de ${new Date(a.mois_debut_remboursement).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
+                            : ''}
+                          {a.motif ? ` · ${a.motif}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={a.solde > 0 ? 'text-sm font-semibold tabular-nums text-red-500' : 'text-sm tabular-nums text-navy-300'}>
+                          {a.solde > 0 ? `Reste ${francs(a.solde)}` : 'Soldée'}
+                        </span>
+                        <Badge tone={TONE_AVANCE[a.statut]}>{LIBELLE_AVANCE[a.statut]}</Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={a.solde > 0 ? 'text-sm font-semibold tabular-nums text-red-500' : 'text-sm tabular-nums text-navy-300'}>
-                        {a.solde > 0 ? `Reste ${francs(a.solde)}` : 'Soldée'}
-                      </span>
-                      <Badge tone={TONE_AVANCE[a.statut]}>{LIBELLE_AVANCE[a.statut]}</Badge>
-                    </div>
+                    {a.echeances.length > 0 && (
+                      <details className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">
+                        <summary className="cursor-pointer font-semibold text-navy-700">Voir la répartition mois par mois</summary>
+                        <ul className="mt-2 flex flex-col gap-1">
+                          {a.echeances.map((e) => (
+                            <li key={e.mois} className="flex items-center justify-between gap-3">
+                              <span className="capitalize">{new Date(e.mois).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</span>
+                              <span className="tabular-nums font-semibold text-navy-800">{francs(e.montant_prevu)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </div>
                 ))}
               </div>
@@ -166,7 +182,7 @@ export function MesAvancesPage() {
 
 interface FormDemande {
   montant: number
-  mensualite: number
+  nombre_mois: number
   mois_debut_remboursement: string
   motif: string
 }
@@ -181,6 +197,8 @@ function DemanderAvanceModal({
   onSaved: () => void
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
+  const [echeancier, setEcheancier] = useState<LigneEcheancier[]>([])
+  const [touched, setTouched] = useState(false)
 
   const {
     register,
@@ -190,17 +208,36 @@ function DemanderAvanceModal({
   } = useForm<FormDemande>({ defaultValues: { mois_debut_remboursement: new Date().toISOString().slice(0, 10) } })
 
   const montant = Number(watch('montant')) || 0
-  const mensualite = Number(watch('mensualite')) || 0
-  const nombreMois = mensualite > 0 ? Math.ceil(montant / mensualite) : 0
-  const horsPlafond = plafond.plafond_mensualite !== null && mensualite > plafond.plafond_mensualite
+  const nombreMois = Number(watch('nombre_mois')) || 0
+  const moisDebut = watch('mois_debut_remboursement')
+
+  useEffect(() => {
+    if (touched) return
+    setEcheancier(genererEcheancierUniforme(montant, nombreMois, moisDebut))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [montant, nombreMois, moisDebut, touched])
+
+  const reinitialiserRepartition = () => {
+    setEcheancier(genererEcheancierUniforme(montant, nombreMois, moisDebut))
+    setTouched(false)
+  }
+
+  const modifierLigne = (index: number, valeur: number) => {
+    setTouched(true)
+    setEcheancier((lignes) => lignes.map((l, i) => (i === index ? { ...l, montant: valeur } : l)))
+  }
+
+  const totalReparti = sommeEcheancier(echeancier)
+  const totalValide = echeancier.length > 0 && totalReparti === montant
+  const ligneHorsPlafond =
+    plafond.plafond_mensualite !== null && echeancier.some((l) => l.montant > plafond.plafond_mensualite!)
 
   const onSubmit = async (values: FormDemande) => {
     setServerError(null)
     try {
       await soumettreDemandeAvance({
         montant: Number(values.montant),
-        mensualite: Number(values.mensualite),
-        mois_debut_remboursement: values.mois_debut_remboursement || null,
+        echeancier,
         motif: values.motif || null,
       })
       succes("Demande transmise, en attente de validation par l'établissement.")
@@ -215,24 +252,25 @@ function DemanderAvanceModal({
   return (
     <Modal title="Demander une avance" onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Input
-          label="Montant (F CFA)"
-          type="number"
-          min={1}
-          error={errors.montant?.message}
-          {...register('montant', { required: 'Saisissez le montant.', min: { value: 1, message: 'Le montant doit être supérieur à zéro.' } })}
-        />
-
-        <Input
-          label="Mensualité souhaitée (F CFA)"
-          type="number"
-          min={1}
-          error={errors.mensualite?.message}
-          {...register('mensualite', {
-            required: 'Saisissez combien vous rembourserez chaque mois.',
-            min: { value: 1, message: 'La mensualité doit être supérieure à zéro.' },
-          })}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Montant (F CFA)"
+            type="number"
+            min={1}
+            error={errors.montant?.message}
+            {...register('montant', { required: 'Saisissez le montant.', min: { value: 1, message: 'Le montant doit être supérieur à zéro.' } })}
+          />
+          <Input
+            label="Nombre de mois"
+            type="number"
+            min={1}
+            error={errors.nombre_mois?.message}
+            {...register('nombre_mois', {
+              required: 'Saisissez en combien de mois vous voulez rembourser.',
+              min: { value: 1, message: 'Il faut au moins un mois.' },
+            })}
+          />
+        </div>
 
         <Input
           label="Mois de début de remboursement"
@@ -241,30 +279,38 @@ function DemanderAvanceModal({
           {...register('mois_debut_remboursement', { required: 'Requis.' })}
         />
 
-        {/* Échéancier tel que vous le proposez : ce n'est pas l'établissement
-            qui divise également, c'est vous qui choisissez la mensualité — la
-            durée s'en déduit et la dernière échéance solde le reste. */}
-        {montant > 0 && mensualite > 0 && (
-          <div
-            className={
-              horsPlafond
-                ? 'rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700'
-                : 'rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-500'
-            }
-          >
-            <p>
-              Retenue mensuelle sur salaire :{' '}
-              <span className={horsPlafond ? 'font-semibold' : 'font-semibold text-navy-800'}>{francs(mensualite)}</span>{' '}
-              pendant {nombreMois} mois.
-            </p>
+        {echeancier.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                Ce que vous voulez voir débité, mois par mois
+              </span>
+              {touched && (
+                <button
+                  type="button"
+                  onClick={reinitialiserRepartition}
+                  className="text-xs font-semibold text-navy-500 underline decoration-dotted hover:text-navy-700"
+                >
+                  Répartir également
+                </button>
+              )}
+            </div>
+            <EcheancierTable
+              echeancier={echeancier}
+              montantCible={montant}
+              plafondMensualite={plafond.plafond_mensualite}
+              onChangeLigne={modifierLigne}
+            />
             {plafond.plafond_mensualite !== null && (
-              <p className="mt-0.5">
+              <p className="px-1 text-xs text-navy-400">
                 Plafond autorisé : <span className="font-semibold">{francs(plafond.plafond_mensualite)}</span>/mois (50% du
                 salaire brut).
               </p>
             )}
-            {horsPlafond && (
-              <p className="mt-0.5 font-semibold">Au-delà du plafond : réduisez la mensualité demandée.</p>
+            {ligneHorsPlafond && (
+              <p className="px-1 text-xs font-semibold text-red-600">
+                Une ou plusieurs lignes dépassent le plafond : réduisez les montants concernés.
+              </p>
             )}
           </div>
         )}
@@ -277,7 +323,7 @@ function DemanderAvanceModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          <Button type="submit" disabled={isSubmitting || horsPlafond}>
+          <Button type="submit" disabled={isSubmitting || !totalValide || ligneHorsPlafond}>
             Transmettre
           </Button>
         </div>

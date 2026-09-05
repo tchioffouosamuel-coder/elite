@@ -23,7 +23,7 @@ class DemandeAvanceSalaireAdminController extends Controller
     public function index(Request $request): JsonResponse
     {
         $demandes = DemandeAvanceSalaire::forSchool(Tenant::schoolIds())
-            ->with('personnel:id,nom_complet,matricule,fonction_id')
+            ->with(['personnel:id,nom_complet,matricule,fonction_id', 'echeances'])
             ->when($request->string('statut')->toString(), fn ($q, $s) => $q->where('statut', $s))
             ->latest()
             ->get();
@@ -81,6 +81,10 @@ class DemandeAvanceSalaireAdminController extends Controller
             'avance_salaire_id' => $d->avance_salaire_id,
             'created_at' => $d->created_at->format('Y-m-d H:i'),
             'traite_le' => $d->traite_le?->format('Y-m-d H:i'),
+            'echeances' => $d->echeances->map(fn ($e) => [
+                'mois' => $e->mois->format('Y-m-d'),
+                'montant_prevu' => $e->montant_prevu,
+            ])->values(),
         ];
     }
 }

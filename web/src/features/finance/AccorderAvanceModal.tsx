@@ -1,18 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { accorderAvance, fetchPlafondAvance, francs } from '@/features/finance/api'
+import { accorderAvance, fetchPlafondAvance } from '@/features/finance/api'
 import { fetchPersonnels } from '@/features/personnel/api'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, MontantInput, Select, FieldWrapper } from '@/shared/ui/Field'
 import { succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { EcheancierTable, genererEcheancierUniforme, sommeEcheancier, type LigneEcheancier } from '@/features/finance/EcheancierAvanceEditor'
 
 interface FormAccorder {
   personnel_id: number
   montant: number
-  mensualite: number
+  nombre_mois: number
   mois_debut_remboursement: string
   date_avance: string
   motif: string
@@ -33,6 +34,8 @@ export function AccorderAvanceModal({
   onSaved: () => void
 }) {
   const [serverError, setServerError] = useState<string | null>(null)
+  const [echeancier, setEcheancier] = useState<LigneEcheancier[]>([])
+  const [touched, setTouched] = useState(false)
   const { data: personnels } = useQuery({
     queryKey: ['personnels', 'avances'],
     queryFn: () => fetchPersonnels({ per_page: 500 }),
@@ -55,8 +58,8 @@ export function AccorderAvanceModal({
 
   const personnelId = personnel ? personnel.id : Number(watch('personnel_id')) || 0
   const montant = Number(watch('montant')) || 0
-  const mensualite = Number(watch('mensualite')) || 0
-  const nombreMois = mensualite > 0 ? Math.ceil(montant / mensualite) : 0
+  const nombreMois = Number(watch('nombre_mois')) || 0
+  const moisDebut = watch('mois_debut_remboursement')
 
   // Le plafond dépend de l'agent choisi : on le charge dès la sélection pour
   // que l'échéancier se corrige dans le formulaire, pas après un refus 422.
@@ -66,7 +69,29 @@ export function AccorderAvanceModal({
     enabled: personnelId > 0,
   })
 
-  const horsPlafond = plafond?.plafond_mensualite != null && mensualite > plafond.plafond_mensualite
+  // Régénère la répartition égale tant que l'utilisateur n'a pas corrigé une
+  // ligne à la main — un changement de durée ou de date de départ reste
+  // structurel et régénère toujours le tableau.
+  useEffect(() => {
+    if (touched) return
+    setEcheancier(genererEcheancierUniforme(montant, nombreMois, moisDebut))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [montant, nombreMois, moisDebut, touched])
+
+  const reinitialiserRepartition = () => {
+    setEcheancier(genererEcheancierUniforme(montant, nombreMois, moisDebut))
+    setTouched(false)
+  }
+
+  const modifierLigne = (index: number, valeur: number) => {
+    setTouched(true)
+    setEcheancier((lignes) => lignes.map((l, i) => (i === index ? { ...l, montant: valeur } : l)))
+  }
+
+  const totalReparti = sommeEcheancier(echeancier)
+  const totalValide = echeancier.length > 0 && totalReparti === montant
+  const ligneHorsPlafond =
+    plafond?.plafond_mensualite != null && echeancier.some((l) => l.montant > plafond.plafond_mensualite!)
 
   const onSubmit = async (values: FormAccorder) => {
     setServerError(null)
@@ -74,8 +99,7 @@ export function AccorderAvanceModal({
       await accorderAvance({
         personnel_id: personnel ? personnel.id : Number(values.personnel_id),
         montant: Number(values.montant),
-        mensualite: Number(values.mensualite),
-        mois_debut_remboursement: values.mois_debut_remboursement || null,
+        echeancier,
         date_avance: values.date_avance,
         motif: values.motif || null,
       })
@@ -128,58 +152,23 @@ export function AccorderAvanceModal({
               />
             )}
           />
-          <Controller
-            name="mensualite"
-            control={control}
-            rules={{
-              required: 'Saisissez la mensualité.',
-              min: { value: 1, message: 'La mensualité doit être supérieure à zéro.' },
-            }}
-            render={({ field }) => (
-              <MontantInput
-                label="Mensualité (F CFA)"
-                error={errors.mensualite?.message}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-              />
-            )}
+          <Input
+            label="Nombre de mois"
+            type="number"
+            min={1}
+            error={errors.nombre_mois?.message}
+            {...register('nombre_mois', {
+              required: 'Saisissez le nombre de mois.',
+              min: { value: 1, message: 'Il faut au moins un mois.' },
+            })}
           />
         </div>
 
-        {/* L'échéancier n'est pas forcé uniforme : c'est l'employé qui choisit
-            la mensualité, la durée s'en déduit et la dernière échéance solde
-            simplement ce qui reste. */}
         {personnelId > 0 && plafond?.plafond_mensualite == null && (
           <p className="rounded-lg bg-gold-50 px-3 py-2 text-xs text-gold-800">
             Aucune rémunération n'est enregistrée pour cet employé : le plafond de remboursement ne peut pas être calculé
             et l'avance sera refusée.
           </p>
-        )}
-
-        {montant > 0 && mensualite > 0 && (
-          <div
-            className={
-              horsPlafond
-                ? 'rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700'
-                : 'rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-500'
-            }
-          >
-            <p>
-              Retenue mensuelle sur salaire :{' '}
-              <span className={horsPlafond ? 'font-semibold' : 'font-semibold text-navy-800'}>{francs(mensualite)}</span>{' '}
-              pendant {nombreMois} mois.
-            </p>
-            {plafond?.plafond_mensualite != null && (
-              <p className="mt-0.5">
-                Salaire brut {francs(plafond.salaire_brut ?? 0)} — plafond 50% :{' '}
-                <span className="font-semibold">{francs(plafond.plafond_mensualite)}</span>/mois.
-              </p>
-            )}
-            {horsPlafond && (
-              <p className="mt-0.5 font-semibold">Au-delà du plafond : réduisez la mensualité.</p>
-            )}
-          </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -191,6 +180,43 @@ export function AccorderAvanceModal({
             error={errors.mois_debut_remboursement?.message}
           />
         </div>
+
+        {echeancier.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                Répartition du remboursement, mois par mois
+              </span>
+              {touched && (
+                <button
+                  type="button"
+                  onClick={reinitialiserRepartition}
+                  className="text-xs font-semibold text-navy-500 underline decoration-dotted hover:text-navy-700"
+                >
+                  Répartir également
+                </button>
+              )}
+            </div>
+            <EcheancierTable
+              echeancier={echeancier}
+              montantCible={montant}
+              plafondMensualite={plafond?.plafond_mensualite ?? null}
+              onChangeLigne={modifierLigne}
+            />
+            {plafond?.plafond_mensualite != null && (
+              <p className="px-1 text-xs text-navy-400">
+                Salaire brut {plafond.salaire_brut != null ? plafond.salaire_brut.toLocaleString('fr-FR') : '—'} F CFA — plafond
+                50% : {plafond.plafond_mensualite.toLocaleString('fr-FR')} F CFA/mois.
+              </p>
+            )}
+            {ligneHorsPlafond && (
+              <p className="px-1 text-xs font-semibold text-red-600">
+                Une ou plusieurs lignes dépassent le plafond : réduisez les montants concernés.
+              </p>
+            )}
+          </div>
+        )}
+
         <Input label="Motif" placeholder="Facultatif" {...register('motif')} />
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
@@ -199,7 +225,7 @@ export function AccorderAvanceModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Annuler
           </Button>
-          <Button type="submit" disabled={isSubmitting || horsPlafond}>
+          <Button type="submit" disabled={isSubmitting || !totalValide || ligneHorsPlafond}>
             Accorder
           </Button>
         </div>
