@@ -18,6 +18,10 @@ class UpdatePersonnelRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Un agent peut changer d'établissement au sein du complexe. Comme
+            // à la création, l'appartenance de l'id au périmètre du compte est
+            // vérifiée côté contrôleur (403), pas ici.
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom_complet' => ['sometimes', 'required', 'string', 'max:200'],
             'fonction_id' => ['sometimes', 'required', $this->scopedExists('fonction_referentiel')],
             ...$this->reglesDossier(),

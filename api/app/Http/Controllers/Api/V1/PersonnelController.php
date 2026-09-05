@@ -73,7 +73,21 @@ class PersonnelController extends Controller
     public function update(UpdatePersonnelRequest $request, int $id): JsonResponse
     {
         $personnel = $this->service->find(Tenant::schoolIds(), $id);
-        $personnel = $this->service->update($personnel, $request->validated());
+
+        $data = $request->validated();
+
+        // Une école soumise est celle où l'agent doit désormais être rattaché.
+        // Elle est vérifiée contre les écoles accessibles au compte, et non
+        // contre `Tenant::schoolIds()` : muter un agent suppose de désigner
+        // une école *autre* que celle consultée, ce qu'un compte en mode
+        // "focus" (X-School-Id) ne pourrait jamais faire autrement. Même
+        // règle que le transfert d'un élève, cf. EleveController::transfert().
+        if (($data['school_id'] ?? null) !== null
+            && ! $request->user()->ecolesAccessibles()->contains('id', (int) $data['school_id'])) {
+            return ApiResponse::forbidden("Cet établissement n'est pas accessible à votre compte.");
+        }
+
+        $personnel = $this->service->update($personnel, $data);
 
         return ApiResponse::success(new PersonnelResource($personnel), 'Membre du personnel mis à jour.');
     }

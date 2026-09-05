@@ -9,6 +9,7 @@ use App\Repositories\PersonnelRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -49,9 +50,56 @@ class PersonnelService extends BaseService
         });
     }
 
+    /**
+     * Un `school_id` égal à l'école actuelle — ou absent — laisse le
+     * rattachement en place ; un autre déplace l'agent dans cette école du
+     * complexe, avec son compte de connexion et sans traîner derrière lui les
+     * responsabilités qu'il tenait dans l'ancienne (cf. {@see libererAttributions()}).
+     */
     public function update(Personnel $personnel, array $attributes): Personnel
     {
-        return $this->repository->update($personnel, $attributes);
+        $nouvelleEcole = $attributes['school_id'] ?? null;
+        unset($attributes['school_id']);
+
+        if ($nouvelleEcole === null || (int) $nouvelleEcole === $personnel->school_id) {
+            return $this->repository->update($personnel, $attributes);
+        }
+
+        return $this->transaction(function () use ($personnel, $attributes, $nouvelleEcole) {
+            $this->libererAttributions($personnel);
+
+            $personnel = $this->repository->update($personnel, [...$attributes, 'school_id' => (int) $nouvelleEcole]);
+            $personnel->user?->update(['school_id' => (int) $nouvelleEcole]);
+
+            return $personnel->refresh();
+        });
+    }
+
+    /**
+     * Libère les responsabilités nominatives d'un agent qui quitte une école :
+     * classes tenues, matières enseignées, tête de département, animation de
+     * niveau, conduite d'un véhicule. Toutes sont scopées à l'école qu'il
+     * quitte — les garder ferait d'un agent du primaire le titulaire d'une
+     * classe du secondaire, et lui en ouvrirait les privilèges.
+     *
+     * Les traces d'activité (notes saisies, sanctions enregistrées) ne sont
+     * pas touchées : elles disent qui a fait quoi, et restent vraies.
+     */
+    private function libererAttributions(Personnel $personnel): void
+    {
+        $liens = [
+            'classes' => ['titulaire_id', 'professeur_principal_id', 'surveillant_general_id', 'censeur_id', 'conseiller_orientation_id'],
+            'classe_matieres' => ['personnel_id'],
+            'departements' => ['head_personnel_id'],
+            'niveau_scolaires' => ['animateur_personnel_id'],
+            'bus_vehicules' => ['chauffeur_id'],
+        ];
+
+        foreach ($liens as $table => $colonnes) {
+            foreach ($colonnes as $colonne) {
+                DB::table($table)->where($colonne, $personnel->id)->update([$colonne => null]);
+            }
+        }
     }
 
     /**

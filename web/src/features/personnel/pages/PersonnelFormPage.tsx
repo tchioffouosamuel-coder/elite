@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -164,6 +164,7 @@ export function PersonnelFormPage() {
     trigger,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '' } })
 
@@ -179,6 +180,24 @@ export function PersonnelFormPage() {
     ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
     : personnel?.school?.type
   const avecDepartements = estSecondaire(typeEcoleFormulaire)
+  const ecoleModifiee = !!personnel && !!ecoleChoisie && Number(ecoleChoisie) !== personnel.school_id
+
+  // Fonction et département appartiennent à une école : les laisser en place
+  // après un changement d'école ferait échouer l'enregistrement sur un id hors
+  // périmètre, sans que rien à l'écran n'explique pourquoi. On repart de zéro.
+  // Le rechargement de la fiche passe aussi par ici : la référence retient
+  // l'école connue pour ne pas vider ce que `reset()` vient de poser.
+  const ecolePrecedente = useRef<string | number | null | undefined>(undefined)
+
+  useEffect(() => {
+    const precedente = ecolePrecedente.current
+    ecolePrecedente.current = ecoleChoisie
+
+    if (precedente === undefined || precedente === ecoleChoisie) return
+
+    setValue('fonction_id', '' as never)
+    setValue('departement_id', '' as never)
+  }, [ecoleChoisie, setValue])
 
   // La fiche à modifier arrive après le premier rendu : le formulaire est
   // recalé quand elle est là, pas construit à vide puis laissé tel quel.
@@ -260,6 +279,7 @@ export function PersonnelFormPage() {
   const valeurs = watch()
   const enfantsSaisis = (valeurs.enfants ?? []).filter((enfant) => !estVide(enfant))
   const fonctionLabel = fonctions?.find((f) => f.id === Number(valeurs.fonction_id))?.label
+  const ecoleLabel = schools?.find((s) => s.id === Number(valeurs.school_id))?.name ?? personnel?.school?.name
   const handleNext = async (): Promise<boolean> => {
     if (ETAPES[etape]?.id === 'famille') {
       const champsEnfants = enfants.map((_, index) => [
@@ -279,6 +299,7 @@ export function PersonnelFormPage() {
 
   const recapitulatif: [string, string | number | null | undefined][] = [
     [t('personnel.nom_complet'), [valeurs.civilite, valeurs.nom_complet].filter(Boolean).join(' ')],
+    [t('classes.ecole'), ecoleLabel],
     [t('personnel.fonction'), fonctionLabel],
     ['Affectation', valeurs.affectation],
     [t('personnel.matricule'), valeurs.matricule],
@@ -374,19 +395,28 @@ export function PersonnelFormPage() {
           {etape === 1 && (
             <div className="flex flex-col gap-4">
               <h3 className="font-display text-base font-bold text-navy-900">Poste et affectation</h3>
-              {!personnel && (schools?.length ?? 0) > 1 && (
-                <Select
-                  label={`${t('classes.ecole')} *`}
-                  error={errors.school_id?.message}
-                  {...register('school_id', { required: "L'école est requise." })}
-                >
-                  <option value="">—</option>
-                  {schools?.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
+              {(schools?.length ?? 0) > 1 && (
+                <>
+                  <Select
+                    label={`${t('classes.ecole')} *`}
+                    error={errors.school_id?.message}
+                    {...register('school_id', { required: "L'école est requise." })}
+                  >
+                    <option value="">—</option>
+                    {schools?.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
+                  {ecoleModifiee && (
+                    <p className="-mt-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
+                      L'agent sera rattaché à cette école. Ses responsabilités dans l'école qu'il quitte — classes
+                      tenues, matières, département, niveau, véhicule — sont libérées ; sa fonction et son département
+                      sont à ressaisir ci-dessous.
+                    </p>
+                  )}
+                </>
               )}
               <Select
                 label={t('personnel.fonction')}
