@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\NotificationInterne;
 use App\Models\Preinscription;
@@ -212,6 +213,44 @@ class PreinscriptionAdminTest extends TestCase
         ]);
 
         $reponse->assertStatus(404);
+    }
+
+    /** Les champs statistiques (origine, redoublement, handicap) soumis par le parent atteignent bien l'élève créé. */
+    public function test_les_champs_statistiques_soumis_par_le_parent_sont_repris_a_la_validation(): void
+    {
+        $user = $this->parentUser();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $donnees = [
+            'type' => 'nouveau',
+            'school_id' => $this->school->id,
+            'donnees_eleve' => [
+                'nom_complet' => 'Mballa Junior', 'sexe' => 'M', 'date_naissance' => '2017-03-04',
+                'classe_id' => $classe->id,
+                'nationalite' => 'Camerounaise', 'deplace_interne' => 'Oui', 'bororo' => 'Non', 'baka' => 'Non',
+                'region_origine' => 'Extrême-Nord', 'departement_origine' => 'Diamaré',
+                'redoublant' => true, 'ecole_precedente' => 'École Publique de Maroua',
+                'handicap' => 'Oui', 'type_handicap' => 'Moteur',
+            ],
+            'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000']],
+        ];
+
+        $reponse = $this->actingAs($user, 'sanctum')->postJson('/api/v1/parent/preinscriptions', $donnees);
+        $reponse->assertCreated();
+
+        $preinscription = Preinscription::where('tuteur_id', $this->tuteur->id)->firstOrFail();
+        app(PreinscriptionService::class)->valider($preinscription);
+
+        $eleve = Eleve::where('nom_complet', 'Mballa Junior')->firstOrFail();
+        $this->assertSame('Camerounaise', $eleve->nationalite);
+        $this->assertSame('Oui', $eleve->deplace_interne);
+        $this->assertSame('Non', $eleve->bororo);
+        $this->assertSame('Extrême-Nord', $eleve->region_origine);
+        $this->assertSame('Diamaré', $eleve->departement_origine);
+        $this->assertTrue($eleve->redoublant);
+        $this->assertSame('École Publique de Maroua', $eleve->ecole_precedente);
+        $this->assertSame('Oui', $eleve->handicap);
+        $this->assertSame('Moteur', $eleve->type_handicap);
     }
 
     // --------------------------------------------------- Création par l'admin

@@ -23,6 +23,8 @@ class Eleve extends Model
         'date_naissance',
         'lieu_naissance',
         'nationalite',
+        'region_origine',
+        'departement_origine',
         'numero_acte_naissance',
         'lieu_delivrance_acte',
         'officier_etat_civil',
@@ -30,6 +32,8 @@ class Eleve extends Model
         'deplace_interne',
         'bororo',
         'baka',
+        'handicap',
+        'type_handicap',
         'adresse',
         'photo_path',
         'photo_tenue_path',
@@ -38,6 +42,7 @@ class Eleve extends Model
         'aptitude',
         'allergies',
         'redoublant',
+        'ecole_precedente',
         'statut',
         'alerte_absence_declenchee_le',
     ];
@@ -51,6 +56,7 @@ class Eleve extends Model
             'deplace_interne' => 'string',
             'bororo' => 'string',
             'baka' => 'string',
+            'handicap' => 'string',
             'alerte_absence_declenchee_le' => 'date:Y-m-d',
         ];
     }
