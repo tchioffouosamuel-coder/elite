@@ -1,6 +1,7 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import type { RubriqueScolarite, StatutPaiement, ModePaiement, Echeancier } from '@/features/finance/api'
+import type { DocumentBibliothequeLecture } from '@/features/bibliotheque/api'
 
 // -------------------------------------------------------------- Mes enfants
 
@@ -16,6 +17,12 @@ export interface EnfantResume {
 
 export async function fetchMesEnfants(): Promise<EnfantResume[]> {
   const { data } = await http.get<ApiResponse<EnfantResume[]>>('/parent/enfants')
+  return data.data
+}
+
+/** Documents de la bibliothèque numérique visibles pour les écoles de mes enfants — lecture seule. */
+export async function fetchMaBibliotheque(): Promise<DocumentBibliothequeLecture[]> {
+  const { data } = await http.get<ApiResponse<DocumentBibliotheque[]>>('/parent/bibliotheque')
   return data.data
 }
 

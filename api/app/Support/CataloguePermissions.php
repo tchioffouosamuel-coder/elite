@@ -148,6 +148,10 @@ class CataloguePermissions
             'annonces.view' => ['Consulter les annonces', 'View announcements'],
             'annonces.publish' => ['Publier des annonces', 'Publish announcements'],
         ]],
+        'bibliotheque' => ['Bibliothèque numérique', 'Digital library', [
+            'bibliotheque.view' => ['Consulter la bibliothèque numérique', 'View the digital library'],
+            'bibliotheque.manage' => ['Déposer et supprimer des documents', 'Upload and delete documents'],
+        ]],
         'revendications' => ['Réclamations', 'Complaints', [
             'revendications.view' => ['Consulter les réclamations', 'View complaints'],
             'revendications.manage' => ['Enregistrer et traiter les réclamations', 'Record and process complaints'],

@@ -1,6 +1,13 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import type { EcheanceAvance, LigneEcheancier, PlafondAvance, StatutAvance, StatutBudget, StatutDemandeAvance } from '@/features/finance/api'
+import type { DocumentBibliothequeLecture } from '@/features/bibliotheque/api'
+
+/** Documents de la bibliothèque numérique visibles pour mon école — lecture seule. */
+export async function fetchMaBibliotheque(): Promise<DocumentBibliothequeLecture[]> {
+  const { data } = await http.get<ApiResponse<DocumentBibliothequeLecture[]>>('/mon-espace/bibliotheque')
+  return data.data
+}
 
 export interface MonAvance {
   id: number

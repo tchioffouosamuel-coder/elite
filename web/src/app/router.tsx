@@ -24,6 +24,9 @@ import { ArchivesPage } from '@/features/archives/pages/ArchivesPage'
 import { ArchiveClassePage } from '@/features/archives/pages/ArchiveClassePage'
 import { QrCodesPage } from '@/features/classes/pages/QrCodesPage'
 import { AnnoncesPage } from '@/features/annonces/pages/AnnoncesPage'
+import { BibliothequePage } from '@/features/bibliotheque/pages/BibliothequePage'
+import { ParentBibliothequePage } from '@/features/parent/pages/ParentBibliothequePage'
+import { MaBibliothequePage } from '@/features/mon-espace/pages/MaBibliothequePage'
 import { MaClassePage } from '@/features/classes/pages/MaClassePage'
 import { MesAttributionsPage } from '@/features/classes/pages/MesAttributionsPage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
@@ -212,6 +215,7 @@ export const router = createHashRouter([
       { path: 'seances/:id/appel', element: <ProtectedRoute permission="appel.manage"><AppelPage /></ProtectedRoute> },
       { path: 'codes-qr', element: <ProtectedRoute permission="emploi_du_temps.manage"><QrCodesPage /></ProtectedRoute> },
       { path: 'annonces', element: <ProtectedRoute permission="annonces.view"><AnnoncesPage /></ProtectedRoute> },
+      { path: 'bibliotheque', element: <ProtectedRoute permission="bibliotheque.view"><BibliothequePage /></ProtectedRoute> },
       { path: 'progression', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
       { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
       { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
@@ -244,6 +248,7 @@ export const router = createHashRouter([
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
       { path: 'mon-budget', element: <ProtectedRoute personnelOnly><MonBudgetPage /></ProtectedRoute> },
+      { path: 'ma-bibliotheque', element: <ProtectedRoute personnelOnly><MaBibliothequePage /></ProtectedRoute> },
       // Espace enseignant : fiche personnelle, rémunération et matières
       // enseignées, en libre-service — cf. EnseignantController.
       { path: 'enseignant/mes-informations', element: <ProtectedRoute enseignantOnly><MesInformationsPage /></ProtectedRoute> },
@@ -300,6 +305,7 @@ export const router = createHashRouter([
     children: [
       { index: true, element: <ParentAccueilPage /> },
       { path: 'annonces', element: <AnnoncesPage /> },
+      { path: 'bibliotheque', element: <ParentBibliothequePage /> },
       { path: 'enfants/:id', element: <ParentEnfantPage /> },
       { path: 'preinscription/nouveau', element: <ParentPreinscriptionNouveauPage /> },
       { path: 'preinscription/existant/:eleveId', element: <ParentPreinscriptionExistantPage /> },

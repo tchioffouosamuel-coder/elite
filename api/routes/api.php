@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AbsenceController;
 use App\Http\Controllers\Api\V1\ActiviteRentreeController;
 use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AnnonceController;
+use App\Http\Controllers\Api\V1\BibliothequeController;
 use App\Http\Controllers\Api\V1\ApeeController;
 use App\Http\Controllers\Api\V1\AppreciationController;
 use App\Http\Controllers\Api\V1\ArchiveClasseController;
@@ -309,6 +310,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('annonces/destinataires', [AnnonceController::class, 'destinataires'])->name('annonces.destinataires');
             });
 
+            Route::middleware('permission:bibliotheque.view')->group(function () {
+                Route::get('bibliotheque', [BibliothequeController::class, 'index'])->name('bibliotheque.index');
+            });
+
+            Route::middleware('permission:bibliotheque.manage')->group(function () {
+                Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store');
+                Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
+            });
+
             Route::middleware('permission:ecoles.manage')->group(function () {
                 Route::get('annees-scolaires', [AnneeScolaireController::class, 'index'])->name('annees.index');
                 Route::post('annees-scolaires', [AnneeScolaireController::class, 'store'])->name('annees.store');
@@ -504,6 +514,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('preinscriptions/{id}', [ParentPreinscriptionController::class, 'update'])->name('preinscriptions.update');
                 Route::get('ecoles-disponibles', [ParentPreinscriptionController::class, 'ecolesDisponibles'])->name('ecoles-disponibles');
                 Route::get('ecoles/{schoolId}/classes', [ParentPreinscriptionController::class, 'classesDisponibles'])->name('ecoles.classes');
+
+                Route::get('bibliotheque', [ParentEspaceController::class, 'bibliotheque'])->name('bibliotheque.index');
             });
 
             /**
@@ -536,6 +548,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('budgets', [PersonnelEspaceController::class, 'mesBudgets'])->name('budgets.index');
                 Route::put('budgets/{id}/note-gestion', [PersonnelEspaceController::class, 'modifierNoteGestionBudget'])->name('budgets.note-gestion');
                 Route::get('budgets/{id}/bilan/pdf', [PersonnelEspaceController::class, 'bilanBudgetPdf'])->name('budgets.bilan-pdf');
+                Route::get('bibliotheque', [PersonnelEspaceController::class, 'bibliotheque'])->name('bibliotheque.index');
             });
 
             /*

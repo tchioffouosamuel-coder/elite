@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\BibliothequeDocument;
 use App\Models\BulletinPublication;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
@@ -23,6 +24,7 @@ use App\Services\BulletinPrimaireService;
 use App\Services\BulletinService;
 use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
+use App\Services\BibliothequeService;
 use App\Services\ModificationEleveService;
 use App\Services\ObservationService;
 use App\Services\DisciplineService;
@@ -57,7 +59,31 @@ class ParentEspaceController extends Controller
         private readonly ObservationService $observations,
         private readonly EmploiDuTempsService $emploiDuTemps,
         private readonly EcheancierService $echeancier,
+        private readonly BibliothequeService $bibliotheque,
     ) {}
+
+    /** Documents de la bibliothèque numérique visibles pour les écoles des enfants du compte connecté. */
+    public function bibliotheque(Request $request): JsonResponse
+    {
+        $ecoleIds = ParentAccess::enfants($request->user())->pluck('school_id')->filter()->unique()->values()->all();
+
+        if (empty($ecoleIds)) {
+            return ApiResponse::success([]);
+        }
+
+        $documents = $this->bibliotheque->lister($ecoleIds);
+
+        return ApiResponse::success($documents->map(fn (BibliothequeDocument $d) => [
+            'id' => $d->id,
+            'titre' => $d->titre,
+            'description' => $d->description,
+            'fichier_url' => $d->fichier_url,
+            'fichier_nom_original' => $d->fichier_nom_original,
+            'taille' => $d->taille,
+            'type_mime' => $d->type_mime,
+            'created_at' => $d->created_at->format('Y-m-d H:i'),
+        ])->values());
+    }
 
     /** Enfants du compte connecté — la liste qui ouvre le portail. */
     public function mesEnfants(Request $request): JsonResponse

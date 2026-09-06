@@ -32,6 +32,8 @@
   "nav": {
     "dashboard": "Dashboard",
     "annonces": "Announcements",
+    "bibliotheque": "Library",
+    "maBibliotheque": "My library",
     "personnel": "Staff",
     "suiviActivite": "Activity tracking",
     "fonctionsReferentiel": "Positions",

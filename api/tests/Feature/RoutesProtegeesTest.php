@@ -90,6 +90,10 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.mon-espace.budgets.index',
         'api.v1.mon-espace.budgets.note-gestion',
         'api.v1.mon-espace.budgets.bilan-pdf',
+        // Bibliothèque numérique en lecture seule, bornée à l'école du
+        // personnel connecté (cf. PersonnelEspaceController::bibliotheque) —
+        // même principe que les avances/budgets ci-dessus.
+        'api.v1.mon-espace.bibliotheque.index',
 
         // Portail parent : gardé par le rôle `role:parent` (pas un privilège
         // `X.view`) et borné aux seuls enfants du compte par ParentAccess.
@@ -118,6 +122,9 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.parent.preinscriptions.update',
         'api.v1.parent.ecoles-disponibles',
         'api.v1.parent.ecoles.classes',
+        // Bibliothèque numérique en lecture seule, bornée aux écoles des
+        // enfants du compte (cf. ParentEspaceController::bibliotheque).
+        'api.v1.parent.bibliotheque.index',
 
         // Portail élève : même principe que le portail parent ci-dessus —
         // gardé par `role:eleve` et borné à la seule fiche du compte connecté

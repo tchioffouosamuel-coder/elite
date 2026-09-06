@@ -32,6 +32,8 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "annonces": "Annonces",
+    "bibliotheque": "Bibliothèque",
+    "maBibliotheque": "Ma bibliothèque",
     "personnel": "Personnel",
     "suiviActivite": "Suivi d'activité",
     "fonctionsReferentiel": "Fonctions",

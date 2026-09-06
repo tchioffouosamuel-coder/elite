@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AvanceSalaire;
+use App\Models\BibliothequeDocument;
 use App\Models\BudgetPersonnel;
 use App\Models\DemandeAvanceSalaire;
 use App\Models\Personnel;
 use App\Services\AvanceSalaireService;
+use App\Services\BibliothequeService;
 use App\Services\BudgetPersonnelService;
 use App\Services\DemandeAvanceSalaireService;
 use App\Support\Pdf\BudgetPersonnelBilanGenerator;
@@ -31,7 +33,27 @@ class PersonnelEspaceController extends Controller
         private readonly AvanceSalaireService $avances,
         private readonly DemandeAvanceSalaireService $demandes,
         private readonly BudgetPersonnelService $budgets,
+        private readonly BibliothequeService $bibliotheque,
     ) {}
+
+    /** Documents de la bibliothèque numérique visibles pour l'école de l'employé. */
+    public function bibliotheque(Request $request): JsonResponse
+    {
+        $personnel = $this->moi($request);
+
+        $documents = $this->bibliotheque->lister($personnel->school_id);
+
+        return ApiResponse::success($documents->map(fn (BibliothequeDocument $d) => [
+            'id' => $d->id,
+            'titre' => $d->titre,
+            'description' => $d->description,
+            'fichier_url' => $d->fichier_url,
+            'fichier_nom_original' => $d->fichier_nom_original,
+            'taille' => $d->taille,
+            'type_mime' => $d->type_mime,
+            'created_at' => $d->created_at->format('Y-m-d H:i'),
+        ])->values());
+    }
 
     /** Mes avances déjà accordées, et mes demandes en cours ou passées. */
     public function mesAvances(Request $request): JsonResponse

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Users, FilePlus2, ClipboardList, LogOut, Megaphone, ArrowLeftRight } from 'lucide-react'
+import { Users, FilePlus2, ClipboardList, LogOut, Megaphone, ArrowLeftRight, Library } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -8,6 +8,7 @@ import { logout } from '@/features/auth/api'
 const liens = [
   { to: '/parent', fr: 'Mes enfants', en: 'My children', icon: Users, end: true },
   { to: '/parent/annonces', fr: 'Annonces', en: 'Announcements', icon: Megaphone, end: true },
+  { to: '/parent/bibliotheque', fr: 'Bibliothèque', en: 'Library', icon: Library, end: true },
   { to: '/parent/preinscription/nouveau', fr: 'Inscrire un enfant', en: 'Register a child', icon: FilePlus2, end: true },
   { to: '/parent/preinscriptions', fr: 'Mes démarches', en: 'My requests', icon: ClipboardList, end: true },
 ]
