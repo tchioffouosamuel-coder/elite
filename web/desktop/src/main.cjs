@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, session } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
@@ -307,6 +307,9 @@ function arreterServeurPhp() {
   phpProcess = null;
 }
 
+/** Fenêtre principale — gardée pour y relayer les événements `electron-updater` (cf. `configurerAutoUpdate`). */
+let mainWindow = null;
+
 function createWindow() {
   const window = new BrowserWindow({
     width: 1440,
@@ -337,6 +340,16 @@ function createWindow() {
     ? path.join(process.resourcesPath, "web-dist")
     : path.join(__dirname, "../../dist");
   window.loadFile(path.join(dist, "index.html"));
+
+  mainWindow = window;
+  window.on("closed", () => {
+    if (mainWindow === window) mainWindow = null;
+  });
+}
+
+/** Relaie un statut au renderer — silencieux si aucune fenêtre n'est encore ouverte (ne devrait pas arriver, `createWindow()` précède toujours `configurerAutoUpdate()`). */
+function envoyerStatutMiseAJour(statut) {
+  mainWindow?.webContents.send("desktop:update-status", statut);
 }
 
 /**
@@ -347,20 +360,46 @@ function createWindow() {
  * remplacer, `checkForUpdates` échouerait pour rien à chaque lancement.
  */
 function configurerAutoUpdate() {
-  if (!app.isPackaged) return;
+  if (!app.isPackaged) {
+    // Pas d'installeur NSIS à remplacer en dev (ni `app-update.yml`) : le
+    // renderer doit quand même savoir pourquoi le panneau de statut ne dit
+    // jamais rien, plutôt que de rester bloqué sur « Vérification... ».
+    envoyerStatutMiseAJour({ etat: "non-empaquete" });
+    return;
+  }
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on("checking-for-update", () => {
+    envoyerStatutMiseAJour({ etat: "verification" });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    envoyerStatutMiseAJour({ etat: "disponible", version: info.version });
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    envoyerStatutMiseAJour({ etat: "a-jour", version: info.version });
+  });
+
+  autoUpdater.on("download-progress", (progres) => {
+    envoyerStatutMiseAJour({ etat: "telechargement", pourcentage: Math.round(progres.percent) });
+  });
+
   autoUpdater.on("error", (erreur) => {
     console.error("[update] échec de la vérification/du téléchargement", erreur);
+    envoyerStatutMiseAJour({ etat: "erreur", message: erreur.message });
   });
 
   // Téléchargée en tâche de fond, l'installation ne se fait qu'après accord
   // explicite : forcer un redémarrage sans prévenir couperait l'utilisateur
   // en pleine saisie (bulletins, absences...) sans sauvegarde préalable côté
-  // SPA.
+  // SPA. Le renderer propose aussi son propre bouton « Redémarrer » (cf.
+  // `desktop:quit-and-install`) : les deux mènent au même `quitAndInstall()`.
   autoUpdater.on("update-downloaded", (info) => {
+    envoyerStatutMiseAJour({ etat: "telechargee", version: info.version });
+
     dialog.showMessageBox({
       type: "info",
       title: "Mise à jour disponible",
@@ -376,6 +415,7 @@ function configurerAutoUpdate() {
 
   const verifier = () => autoUpdater.checkForUpdates().catch((erreur) => {
     console.error("[update] vérification impossible", erreur);
+    envoyerStatutMiseAJour({ etat: "erreur", message: erreur.message });
   });
 
   verifier();
@@ -384,6 +424,29 @@ function configurerAutoUpdate() {
   // suffit pas à faire arriver une mise à jour publiée en cours de journée.
   setInterval(verifier, 4 * 60 * 60 * 1000);
 }
+
+/**
+ * Ponts IPC pour le panneau de statut desktop du renderer (version de l'app,
+ * vérification manuelle des mises à jour, redémarrage pour installer) — cf.
+ * `preload.cjs`. Enregistrés une fois, avant `app.whenReady()` n'a pas
+ * d'importance ici : `ipcMain.handle` n'exige pas que l'app soit prête.
+ */
+ipcMain.handle("desktop:get-app-version", () => app.getVersion());
+
+ipcMain.handle("desktop:check-for-updates", async () => {
+  if (!app.isPackaged) return { skipped: true };
+
+  try {
+    await autoUpdater.checkForUpdates();
+    return { skipped: false };
+  } catch (erreur) {
+    return { skipped: false, error: erreur.message };
+  }
+});
+
+ipcMain.handle("desktop:quit-and-install", () => {
+  autoUpdater.quitAndInstall();
+});
 
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

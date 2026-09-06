@@ -10,6 +10,7 @@ import {
   LogOut,
   Building2,
   BookOpen,
+  Library,
   ShieldAlert,
   ShieldCheck,
   Trophy,
@@ -68,6 +69,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { logout } from '@/features/auth/api'
 import { NotificationBell } from './NotificationBell'
+import { DesktopStatusIndicator } from '@/features/desktop/DesktopStatusIndicator'
 
 type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
 
@@ -92,6 +94,7 @@ const navGroups = [
     items: [
       { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
       { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view' },
+      { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view' },
       {
         to: '/enseignant/mes-informations',
         label: 'nav.mesInformations',
@@ -118,6 +121,14 @@ const navGroups = [
         // Aucun privilège : l'écran ne montre que les avances du compte
         // connecté. `estPersonnel` le réserve aux agents — un compte
         // purement administratif n'a pas de salaire à avancer.
+        estPersonnel: true,
+      },
+      {
+        to: '/ma-bibliotheque',
+        label: 'nav.maBibliotheque',
+        icon: Library,
+        // Même principe que « Mes avances » : lecture seule, bornée à
+        // l'école de l'agent — cf. PersonnelEspaceController::bibliotheque().
         estPersonnel: true,
       },
       {
@@ -864,6 +875,7 @@ export function AppLayout() {
 
           {groupesTopbar.length === 0 && <div className="min-w-0 flex-1" />}
 
+          <DesktopStatusIndicator />
           <NotificationBell />
 
           <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
