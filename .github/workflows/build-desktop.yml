@@ -6,6 +6,12 @@ on:
     tags:
       - "v*"
 
+# Nécessaire pour que le jeton d'exécution du workflow (GITHUB_TOKEN) puisse
+# créer/publier une Release — sans quoi electron-builder échoue avec une
+# erreur d'autorisation lors de l'étape `--publish always`.
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -28,9 +34,16 @@ jobs:
         working-directory: web/desktop
         run: npm install --no-audit --no-fund
 
-      - name: Build Windows installer
+      - name: Build and publish Windows installer
         working-directory: web/desktop
-        run: npm run build
+        # `GH_TOKEN` est lu par scripts/build-installer.cjs (et transmis tel
+        # quel à electron-builder) pour publier la Release GitHub que
+        # electron-updater ira ensuite consulter sur les postes desktop —
+        # seul un tag `v*` (jamais un `workflow_dispatch` manuel qui n'en
+        # porte pas forcément un cohérent) déclenche réellement la publication.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'build' }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
