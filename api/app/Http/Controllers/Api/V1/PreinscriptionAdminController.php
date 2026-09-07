@@ -14,6 +14,7 @@ use App\Services\PreinscriptionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -235,6 +236,38 @@ class PreinscriptionAdminController extends Controller
             'failed' => count($import->erreurs),
             'erreurs' => $import->erreurs,
         ], "{$import->importees} préinscription(s) importée(s) et validée(s).");
+    }
+
+    /**
+     * Dépose le fichier et le découpe en lots — cf.
+     * `PreinscriptionService::preparerImportDecoupe()`. Un fichier de
+     * plusieurs centaines de lignes envoyé en un seul appel à `import()`
+     * dépasse le délai d'exécution du serveur ; le client traite ensuite
+     * chaque lot séparément via `importerLot()`.
+     */
+    public function importPreparer(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $token = (string) Str::uuid();
+        $lots = $this->service->preparerImportDecoupe($request->file('file'), $token);
+
+        return ApiResponse::success(['token' => $token, 'lots' => $lots]);
+    }
+
+    public function importerLot(Request $request, string $token): JsonResponse
+    {
+        $data = $request->validate(['index' => ['required', 'integer', 'min:0']]);
+
+        try {
+            ['resultat' => $resultat, 'dernier' => $dernier] = $this->service->importerChunk(
+                Tenant::schoolId(), $token, $data['index'], $request->user()->id,
+            );
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([...$resultat, 'dernier' => $dernier]);
     }
 
     public function rejeter(Request $request, int $id): JsonResponse

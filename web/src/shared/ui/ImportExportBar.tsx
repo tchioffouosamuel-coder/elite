@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { ImportModal } from '@/shared/ui/ImportModal'
+import { ImportModal, type ImportDecoupe } from '@/shared/ui/ImportModal'
 import { ExportButton } from '@/shared/ui/ExportButton'
 import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 
@@ -21,6 +21,7 @@ export function ImportExportBar({
   colonnes,
   nomFichier,
   onImported,
+  decoupe,
 }: {
   titreImport: string
   importUrl: string
@@ -29,6 +30,8 @@ export function ImportExportBar({
   colonnes: string[]
   nomFichier: string
   onImported: () => void
+  /** Bascule l'envoi en petits lots successifs — pour un fichier trop volumineux pour un seul appel (cf. `ImportModal`). */
+  decoupe?: ImportDecoupe
 }) {
   const { t } = useTranslation()
   const [importOuvert, setImportOuvert] = useState(false)
@@ -47,6 +50,7 @@ export function ImportExportBar({
           title={titreImport}
           url={importUrl}
           columns={colonnes}
+          decoupe={decoupe}
           onClose={() => setImportOuvert(false)}
           onImported={() => {
             setImportOuvert(false)

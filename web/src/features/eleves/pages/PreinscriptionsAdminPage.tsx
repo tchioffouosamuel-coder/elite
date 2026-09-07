@@ -128,6 +128,7 @@ export function PreinscriptionsAdminPage() {
             <ImportExportBar
               titreImport="Importer des préinscriptions"
               importUrl="preinscriptions/import"
+              decoupe={{ preparerUrl: 'preinscriptions/import/preparer', traiterUrl: 'preinscriptions/import/traiter' }}
               exportUrl={onglet === 'non-inscrits' ? 'preinscriptions/non-inscrits/export' : 'preinscriptions/export'}
               modeleUrl="preinscriptions/modele"
               colonnes={[

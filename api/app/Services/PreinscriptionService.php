@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Imports\PreinscriptionImport;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\DetteAnterieure;
@@ -11,7 +12,9 @@ use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 
 /**
@@ -419,6 +422,87 @@ class PreinscriptionService extends BaseService
 
             return $this->valider($preinscription, $adminUserId);
         });
+    }
+
+    /**
+     * Découpe le fichier en lots traités par requêtes séparées — sans quoi
+     * un fichier de plusieurs centaines de lignes (chacune ouvrant une
+     * transaction, un dossier de scolarité, parfois un tuteur) dépasse
+     * largement le délai d'exécution du serveur en un seul appel : la requête
+     * finit tuée en plein milieu, l'hébergement mutualisé ne laissant aucune
+     * marge pour l'allonger. Le client (`ImportModal`, prop `decoupe`)
+     * traite ensuite chaque lot l'un après l'autre — même mécanique que
+     * {@see \App\Services\EleveService::preparerImportDecoupe()}, dont
+     * l'import massif de préinscriptions partage le format de fichier.
+     */
+    public function preparerImportDecoupe(UploadedFile $file, string $token, int $tailleLot = 60): int
+    {
+        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($file->getRealPath());
+        $lecteur->setReadDataOnly(true);
+        $feuille = $lecteur->load($file->getRealPath())->getSheet(0);
+
+        // `formatData: false` : les dates restent leur numéro de série Excel
+        // brut, exactement ce que lirait un import non découpé —
+        // `PreinscriptionImport::date()` sait déjà convertir cette valeur.
+        $lignes = $feuille->toArray(null, true, false, false);
+        $entetes = array_shift($lignes) ?? [];
+
+        $dossier = $this->dossierImportDecoupe($token);
+        if (! is_dir($dossier)) {
+            mkdir($dossier, 0755, true);
+        }
+
+        $lots = array_chunk($lignes, max(1, $tailleLot));
+
+        foreach ($lots as $i => $lot) {
+            $classeur = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $feuilleLot = $classeur->getActiveSheet();
+            $feuilleLot->fromArray($entetes, null, 'A1');
+            $feuilleLot->fromArray($lot, null, 'A2');
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($classeur))->save("{$dossier}/{$i}.xlsx");
+            $classeur->disconnectWorksheets();
+        }
+
+        return count($lots);
+    }
+
+    /**
+     * Importe un lot préparé par {@see preparerImportDecoupe()}. Le lot
+     * traité est supprimé aussitôt, et le dossier avec lui une fois le
+     * dernier lot passé — rien ne doit s'accumuler sur le disque au-delà de
+     * la durée de l'import.
+     *
+     * @return array{resultat: array{imported: int, failed: int, erreurs: array}, dernier: bool}
+     */
+    public function importerChunk(int $schoolId, string $token, int $index, int $adminUserId): array
+    {
+        $dossier = $this->dossierImportDecoupe($token);
+        $chemin = "{$dossier}/{$index}.xlsx";
+
+        if (! is_file($chemin)) {
+            throw new RuntimeException("Ce lot est introuvable — il a peut-être déjà été traité, ou l'import a expiré.");
+        }
+
+        $import = new PreinscriptionImport($schoolId, $this, $adminUserId);
+        Excel::import($import, $chemin);
+
+        @unlink($chemin);
+        $dernier = ! is_file("{$dossier}/".($index + 1).'.xlsx');
+        if ($dernier) {
+            @rmdir($dossier);
+        }
+
+        return [
+            'resultat' => ['imported' => $import->importees, 'failed' => count($import->erreurs), 'erreurs' => $import->erreurs],
+            'dernier' => $dernier,
+        ];
+    }
+
+    private function dossierImportDecoupe(string $token): string
+    {
+        // Un UUID généré côté serveur (cf. PreinscriptionAdminController::importPreparer) :
+        // jamais de segment de chemin fourni par le client dans `$token`.
+        return storage_path('app/private/imports-preinscriptions/'.$token);
     }
 
     /**

@@ -475,6 +475,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('preinscriptions/non-inscrits/export', [PreinscriptionAdminController::class, 'exportNonInscrits'])->name('preinscriptions.non-inscrits.export');
                 Route::get('preinscriptions/modele', [PreinscriptionAdminController::class, 'modele'])->name('preinscriptions.modele');
                 Route::post('preinscriptions/import', [PreinscriptionAdminController::class, 'import'])->name('preinscriptions.import');
+                Route::post('preinscriptions/import/preparer', [PreinscriptionAdminController::class, 'importPreparer'])->name('preinscriptions.import-preparer');
+                Route::post('preinscriptions/import/traiter/{token}', [PreinscriptionAdminController::class, 'importerLot'])->name('preinscriptions.import-traiter');
                 Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
                 Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');
