@@ -91,11 +91,33 @@ jobs:
       # courte (objet) de `publish` (échec vécu sur les builds v1.2.0-v1.2.2).
       # La release est donc créée en brouillon par electron-builder, puis
       # publiée ici explicitement via l'API GitHub.
-      - name: Publish the GitHub release (undraft)
+      #
+      # electron-builder rend la main dès que son propre process termine, mais
+      # ses uploads d'assets (exe, blockmap, latest.yml) ne sont pas forcément
+      # tous arrivés sur GitHub à cet instant précis (vécu sur le build de la
+      # v1.2.3 : la release publiée juste après ne contenait que le blockmap,
+      # ni l'installeur ni `latest.yml` — cassant l'auto-update pour de vrai).
+      # On attend donc de voir l'installeur `.exe` réellement attaché avant de
+      # lever le brouillon.
+      - name: Wait for release assets, then publish it (undraft)
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit ${{ github.ref_name }} --draft=false
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $deadline = (Get-Date).AddMinutes(5)
+          while ($true) {
+            $assets = gh release view $tag --json assets | ConvertFrom-Json
+            $exe = $assets.assets | Where-Object { $_.name -like "*.exe" }
+            if ($exe) { break }
+            if ((Get-Date) -gt $deadline) {
+              throw "L'installeur .exe n'est toujours pas attaché à la release $tag après 5 minutes — publication annulée pour ne pas exposer une release incomplète."
+            }
+            Write-Host "Installeur pas encore attaché à $tag, nouvelle vérification dans 10s..."
+            Start-Sleep -Seconds 10
+          }
+          gh release edit $tag --draft=false
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
