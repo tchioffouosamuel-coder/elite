@@ -289,12 +289,14 @@ export function ImportModal({
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.cancel')}
+            {result ? t('common.close') : t('common.cancel')}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={!file || submitting}>
-            <Upload className="h-4 w-4" />
-            {t('import.submit')}
-          </Button>
+          {!result && (
+            <Button type="button" onClick={handleSubmit} disabled={!file || submitting}>
+              <Upload className="h-4 w-4" />
+              {t('import.submit')}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

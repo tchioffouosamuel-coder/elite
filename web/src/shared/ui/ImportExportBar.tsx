@@ -52,10 +52,11 @@ export function ImportExportBar({
           columns={colonnes}
           decoupe={decoupe}
           onClose={() => setImportOuvert(false)}
-          onImported={() => {
-            setImportOuvert(false)
-            onImported()
-          }}
+          // Rafraîchit la liste en fond, sans fermer la fenêtre : celle-ci
+          // affiche le résultat (« X importées, Y échouées ») juste après —
+          // la fermer automatiquement le cachait avant que quiconque ait pu
+          // le lire, donnant l'impression que rien ne s'était passé.
+          onImported={onImported}
         />
       )}
     </>
