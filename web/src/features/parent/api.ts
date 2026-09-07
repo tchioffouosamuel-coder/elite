@@ -22,7 +22,7 @@ export async function fetchMesEnfants(): Promise<EnfantResume[]> {
 
 /** Documents de la bibliothèque numérique visibles pour les écoles de mes enfants — lecture seule. */
 export async function fetchMaBibliotheque(): Promise<DocumentBibliothequeLecture[]> {
-  const { data } = await http.get<ApiResponse<DocumentBibliotheque[]>>('/parent/bibliotheque')
+  const { data } = await http.get<ApiResponse<DocumentBibliothequeLecture[]>>('/parent/bibliotheque')
   return data.data
 }
 
