@@ -906,6 +906,7 @@
     "notify_sent": "{{count}} parent(s) notified.",
     "suspendu": "Suspended",
     "affectations_subtitle": "Every student assigned to transport, across all routes.",
+    "import_title": "Import a transport situation",
     "affectation_edit": "Edit assignment",
     "affectation_updated": "Assignment updated.",
     "all_trajets": "All routes",

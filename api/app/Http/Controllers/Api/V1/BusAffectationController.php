@@ -2,20 +2,29 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\BusSouscriptionExport;
+use App\Exports\ModeleGenerique;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\BusSouscriptionImport;
 use App\Models\BusAffectation;
 use App\Models\Eleve;
+use App\Services\BusPaiementService;
 use App\Services\BusService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BusAffectationController extends Controller
 {
-    public function __construct(private readonly BusService $service) {}
+    public function __construct(
+        private readonly BusService $service,
+        private readonly BusPaiementService $paiements,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -73,6 +82,41 @@ class BusAffectationController extends Controller
         }
 
         return ApiResponse::success($resultat, $message);
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new BusSouscriptionExport(Tenant::schoolIds(), $this->service), 'souscriptions-bus.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(BusSouscriptionImport::enTetes()), 'modele-souscriptions-bus.xlsx');
+    }
+
+    /** Import massif d'une situation de transport (souscriptions + versements) — cf. `BusSouscriptionImport`. */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $schoolId = Tenant::schoolId();
+        $import = new BusSouscriptionImport($schoolId, $this->service, $this->paiements, $request->user()->id);
+        Excel::import($import, $request->file('file'));
+
+        $message = "{$import->versementsCrees} versement(s) importé(s).";
+        if ($import->versementsIgnores > 0) {
+            $message .= " {$import->versementsIgnores} déjà présent(s), ignoré(s).";
+        }
+        if (count($import->erreurs) > 0) {
+            $message .= ' '.count($import->erreurs).' ligne(s) en erreur.';
+        }
+
+        return ApiResponse::success([
+            'imported' => $import->versementsCrees,
+            'ignored' => $import->versementsIgnores,
+            'failed' => count($import->erreurs),
+            'erreurs' => $import->erreurs,
+        ], $message);
     }
 
     public function update(Request $request, int $id): JsonResponse

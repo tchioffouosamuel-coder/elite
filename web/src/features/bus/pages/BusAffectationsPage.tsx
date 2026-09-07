@@ -16,8 +16,11 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+const COLONNES_IMPORT_BUS = ['Matricule', 'Nom', 'Bus', 'Date', 'Classe', 'Tarif', 'Arrêt', 'Mois', 'Option', 'Mode']
 
 const TONE_PAIEMENT: Record<string, 'green' | 'gold' | 'red' | 'neutral'> = {
   solde: 'green',
@@ -239,7 +242,24 @@ export function BusAffectationsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre={t('bus.affectations')} sousTitre={t('bus.affectations_subtitle')} icon={Bus} />
+      <PageHeader
+        titre={t('bus.affectations')}
+        sousTitre={t('bus.affectations_subtitle')}
+        icon={Bus}
+        actions={
+          can('bus.manage') && (
+            <ImportExportBar
+              titreImport={t('bus.import_title')}
+              importUrl="bus/affectations/import"
+              exportUrl="bus/affectations/export"
+              modeleUrl="bus/affectations/modele"
+              colonnes={COLONNES_IMPORT_BUS}
+              nomFichier="souscriptions-bus"
+              onImported={invalidate}
+            />
+          )
+        }
+      />
 
       {selectedIds.size > 0 && can('bus.manage') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">

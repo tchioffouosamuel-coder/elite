@@ -933,6 +933,7 @@
     "notify_sent": "{{count}} parent(s) notifié(s).",
     "suspendu": "Suspendu",
     "affectations_subtitle": "Tous les élèves affectés au transport, tous trajets confondus.",
+    "import_title": "Importer une situation de transport",
     "affectation_edit": "Modifier l'affectation",
     "affectation_updated": "Affectation mise à jour.",
     "all_trajets": "Tous les trajets",

@@ -285,6 +285,58 @@ class BusService extends BaseService
         return ['souscrits' => $souscrits, 'ignores' => $ignores];
     }
 
+    /**
+     * Retrouve ou crée l'affectation d'un élève pour l'import massif d'une
+     * situation de paiement historique — {@see affecterEleve()} ne convient
+     * pas telle quelle : `mois_couverture` part de `created_at`, donc une
+     * affectation fraîchement créée aujourd'hui rejetterait tout versement
+     * antérieur. On la (re)date donc au premier mois réellement importé.
+     *
+     * @throws RuntimeException si l'élève est déjà affecté à un AUTRE trajet.
+     */
+    public function resoudreOuCreerAffectationPourImport(
+        Eleve $eleve,
+        BusTrajet $trajet,
+        ?BusArret $arret,
+        string $optionTrajet,
+        \Illuminate\Support\Carbon $depuis,
+    ): BusAffectation {
+        $existante = BusAffectation::where('eleve_id', $eleve->id)->actives()->first();
+
+        if ($existante !== null) {
+            if ($existante->trajet_id !== $trajet->id) {
+                throw new RuntimeException("{$eleve->nom_complet} est déjà affecté(e) à un autre trajet ({$existante->trajet->nom}).");
+            }
+
+            // N'avance jamais la date d'une affectation déjà plus ancienne
+            // que ce mois-ci — seul un mois plus ancien que sa création
+            // actuelle doit la faire reculer.
+            if ($depuis->lessThan($existante->created_at)) {
+                $existante->forceFill(['created_at' => $depuis])->save();
+            }
+
+            return $existante->fresh(['eleve.classe', 'trajet', 'arret']);
+        }
+
+        $anneeScolaireId = AnneeScolaire::where('school_id', $eleve->school_id)->where('is_active', true)->value('id');
+
+        return $this->transaction(function () use ($eleve, $trajet, $arret, $optionTrajet, $depuis, $anneeScolaireId) {
+            $affectation = BusAffectation::create([
+                'eleve_id' => $eleve->id,
+                'trajet_id' => $trajet->id,
+                'arret_id' => $arret?->id,
+                'annee_scolaire_id' => $anneeScolaireId,
+                'option_trajet' => $optionTrajet,
+                'tarif_mensuel' => $trajet->tarifPour($optionTrajet),
+                'statut' => 'actif',
+            ]);
+
+            $affectation->forceFill(['created_at' => $depuis])->save();
+
+            return $affectation->fresh(['eleve.classe', 'trajet', 'arret']);
+        });
+    }
+
     /** @param array<string, mixed> $donnees */
     public function modifierAffectation(BusAffectation $affectation, array $donnees): BusAffectation
     {
