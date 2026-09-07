@@ -38,12 +38,9 @@ class BibliothequeController extends Controller
             'school_ids.*' => ['integer', Rule::exists('schools', 'id')],
         ]);
 
-        // Un admin ne peut cibler que les écoles de son propre périmètre —
-        // même garde-fou que pour l'octroi d'une avance ou le ciblage d'une
-        // annonce : lister une école hors périmètre serait arbitraire.
-        $schoolIds = array_values(array_intersect($donnees['school_ids'], Tenant::schoolIds()));
+        $schoolIds = $this->schoolIdsAccessibles($donnees['school_ids']);
 
-        if (empty($schoolIds)) {
+        if ($schoolIds === null) {
             return ApiResponse::error("Aucune des écoles sélectionnées n'est accessible à votre compte.", 422);
         }
 
@@ -56,12 +53,62 @@ class BibliothequeController extends Controller
         return ApiResponse::created($this->resumer($document), 'Document ajouté à la bibliothèque.');
     }
 
+    /**
+     * Import massif : un document par fichier déposé, même ciblage d'écoles
+     * et même description pour tous — cf. `BibliothequeService::importer()`
+     * pour la déduction du titre à partir du nom de fichier.
+     */
+    public function importer(Request $request): JsonResponse
+    {
+        $donnees = $request->validate([
+            'fichiers' => ['required', 'array', 'min:1'],
+            'fichiers.*' => ['file', 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,png', 'max:20480'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'school_ids' => ['required', 'array', 'min:1'],
+            'school_ids.*' => ['integer', Rule::exists('schools', 'id')],
+        ]);
+
+        $schoolIds = $this->schoolIdsAccessibles($donnees['school_ids']);
+
+        if ($schoolIds === null) {
+            return ApiResponse::error("Aucune des écoles sélectionnées n'est accessible à votre compte.", 422);
+        }
+
+        $documents = $this->service->importer(
+            $donnees['fichiers'],
+            $schoolIds,
+            $donnees['description'] ?? null,
+            $request->user()?->id,
+        );
+
+        return ApiResponse::created(
+            $documents->map(fn (BibliothequeDocument $d) => $this->resumer($d))->values(),
+            $documents->count().' document(s) ajouté(s) à la bibliothèque.',
+        );
+    }
+
     public function destroy(int $id): JsonResponse
     {
         $document = BibliothequeDocument::visiblePour(Tenant::schoolIds())->findOrFail($id);
         $this->service->supprimer($document);
 
         return ApiResponse::success();
+    }
+
+    /**
+     * Un admin ne peut cibler que les écoles de son propre périmètre — même
+     * garde-fou que pour l'octroi d'une avance ou le ciblage d'une annonce :
+     * lister une école hors périmètre serait arbitraire. `null` si aucune
+     * des écoles demandées n'est accessible.
+     *
+     * @param  array<int>  $schoolIdsDemandes
+     * @return array<int>|null
+     */
+    private function schoolIdsAccessibles(array $schoolIdsDemandes): ?array
+    {
+        $accessibles = array_values(array_intersect($schoolIdsDemandes, Tenant::schoolIds()));
+
+        return empty($accessibles) ? null : $accessibles;
     }
 
     /** @return array<string, mixed> */

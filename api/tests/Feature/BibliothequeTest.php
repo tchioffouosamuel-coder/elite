@@ -89,6 +89,28 @@ class BibliothequeTest extends TestCase
         Storage::disk('public')->assertExists($document->fichier_path);
     }
 
+    public function test_import_massif_cree_un_document_par_fichier_avec_titre_deduit_du_nom(): void
+    {
+        $admin = $this->admin($this->ecoleA);
+
+        $reponse = $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->ecoleA->id)
+            ->postJson('/api/v1/bibliotheque/import', [
+                'fichiers' => [
+                    UploadedFile::fake()->create('Programme de mathématiques.pdf', 200, 'application/pdf'),
+                    UploadedFile::fake()->create('Reglement interieur.docx', 150, 'application/msword'),
+                ],
+                'description' => 'Rentrée 2026-2027',
+                'school_ids' => [$this->ecoleA->id],
+            ]);
+
+        $reponse->assertCreated();
+        $this->assertSame(2, BibliothequeDocument::count());
+        $titres = BibliothequeDocument::orderBy('titre')->pluck('titre')->all();
+        $this->assertSame(['Programme de mathématiques', 'Reglement interieur'], $titres);
+        $this->assertTrue(BibliothequeDocument::where('description', 'Rentrée 2026-2027')->count() === 2);
+    }
+
     public function test_une_ecole_hors_perimetre_ne_peut_pas_etre_ciblee(): void
     {
         $admin = $this->admin($this->ecoleA);

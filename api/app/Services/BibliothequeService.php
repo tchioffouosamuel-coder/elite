@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BibliothequeDocument;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Storage;
 
 class BibliothequeService extends BaseService
@@ -35,6 +36,27 @@ class BibliothequeService extends BaseService
             $document->ecoles()->sync($donnees['school_ids']);
 
             return $document->fresh(['ecoles', 'uploadePar']);
+        });
+    }
+
+    /**
+     * Import massif : un document par fichier, même ciblage d'écoles et même
+     * description pour tous — le titre de chacun se déduit de son nom de
+     * fichier (sans l'extension), pour ne pas demander une saisie manuelle
+     * répétée à chaque fichier d'un lot.
+     *
+     * @param  array<int, UploadedFile>  $fichiers
+     * @param  array<int>  $schoolIds
+     * @return SupportCollection<int, BibliothequeDocument>
+     */
+    public function importer(array $fichiers, array $schoolIds, ?string $description, ?int $uploadePar): SupportCollection
+    {
+        return $this->transaction(function () use ($fichiers, $schoolIds, $description, $uploadePar) {
+            return collect($fichiers)->map(fn (UploadedFile $fichier) => $this->uploader([
+                'titre' => pathinfo($fichier->getClientOriginalName(), PATHINFO_FILENAME),
+                'description' => $description,
+                'school_ids' => $schoolIds,
+            ], $fichier, $uploadePar))->values();
         });
     }
 

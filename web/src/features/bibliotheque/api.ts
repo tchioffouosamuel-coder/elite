@@ -41,6 +41,23 @@ export async function uploaderDocument(champs: {
   return data.data
 }
 
+/** Import massif : un document par fichier, même écoles et même description pour tous — le titre de chacun se déduit de son nom de fichier. */
+export async function importerDocuments(champs: {
+  fichiers: File[]
+  description?: string
+  school_ids: number[]
+}): Promise<DocumentBibliotheque[]> {
+  const formulaire = new FormData()
+  champs.fichiers.forEach((fichier) => formulaire.append('fichiers[]', fichier))
+  if (champs.description) formulaire.append('description', champs.description)
+  champs.school_ids.forEach((id) => formulaire.append('school_ids[]', String(id)))
+
+  const { data } = await http.post<ApiResponse<DocumentBibliotheque[]>>('/bibliotheque/import', formulaire, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
 export async function supprimerDocument(id: number): Promise<void> {
   await http.delete(`/bibliotheque/${id}`)
 }

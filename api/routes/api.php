@@ -316,6 +316,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:bibliotheque.manage')->group(function () {
                 Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store');
+                Route::post('bibliotheque/import', [BibliothequeController::class, 'importer'])->name('bibliotheque.import');
                 Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
             });
 
