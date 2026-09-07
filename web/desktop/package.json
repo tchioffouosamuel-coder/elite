@@ -45,7 +45,8 @@
     "publish": {
       "provider": "github",
       "owner": "tchioffouosamuel-coder",
-      "repo": "elite"
+      "repo": "elite",
+      "draft": false
     }
   }
 }
