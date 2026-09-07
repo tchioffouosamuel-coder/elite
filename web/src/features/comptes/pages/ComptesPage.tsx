@@ -1,16 +1,26 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, History, KeyRound, AlertTriangle, School } from 'lucide-react'
+import { Users, History, KeyRound, AlertTriangle, School, Lock, Unlock, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { fetchComptesUtilisateurs, type CompteUtilisateur, type TypeCompte } from '@/features/comptes/api'
+import {
+  fetchComptesUtilisateurs,
+  bloquerCompte,
+  debloquerCompte,
+  supprimerCompte,
+  type CompteUtilisateur,
+  type TypeCompte,
+} from '@/features/comptes/api'
 import { ReinitialiserMotDePasseModal } from '@/features/comptes/pages/ReinitialiserMotDePasseModal'
 import { ActiviteCompteModal } from '@/features/comptes/pages/ActiviteCompteModal'
 import { AttribuerEcolesModal } from '@/features/comptes/pages/AttribuerEcolesModal'
+import { confirmer, succes, erreur } from '@/shared/lib/alertes'
+import { useAuthStore } from '@/shared/store/authStore'
+import type { ApiError } from '@/shared/types/api'
 
 const LIBELLE_TYPE: Record<TypeCompte, string> = {
   personnel: 'Personnel',
@@ -36,12 +46,71 @@ export function ComptesPage() {
   const [reinitialisationPour, setReinitialisationPour] = useState<CompteUtilisateur | null>(null)
   const [activitePour, setActivitePour] = useState<CompteUtilisateur | null>(null)
   const [ecolesPour, setEcolesPour] = useState<CompteUtilisateur | null>(null)
+  const [enCoursId, setEnCoursId] = useState<number | null>(null)
   const queryClient = useQueryClient()
+  const moi = useAuthStore((s) => s.user)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['comptes-utilisateurs'],
     queryFn: fetchComptesUtilisateurs,
   })
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['comptes-utilisateurs'] })
+
+  const basculerBlocage = async (compte: CompteUtilisateur) => {
+    const confirme = await confirmer(
+      compte.est_actif
+        ? {
+            titre: `Bloquer le compte de ${compte.nom} ?`,
+            message: 'Il ne pourra plus se connecter tant que le compte n’est pas débloqué. Sa fiche reste intacte.',
+            action: 'Bloquer',
+          }
+        : {
+            titre: `Débloquer le compte de ${compte.nom} ?`,
+            message: 'Il pourra de nouveau se connecter avec son identifiant et son mot de passe.',
+            action: 'Débloquer',
+            destructif: false,
+          },
+    )
+    if (!confirme) return
+
+    setEnCoursId(compte.id)
+    try {
+      if (compte.est_actif) {
+        await bloquerCompte(compte.id)
+        succes(`Compte de ${compte.nom} bloqué.`)
+      } else {
+        await debloquerCompte(compte.id)
+        succes(`Compte de ${compte.nom} débloqué.`)
+      }
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnCoursId(null)
+    }
+  }
+
+  const supprimer = async (compte: CompteUtilisateur) => {
+    const confirme = await confirmer({
+      titre: `Supprimer le compte de ${compte.nom} ?`,
+      message:
+        'Son accès sera définitivement supprimé — irréversible. La fiche personnel/tuteur qu’il représente n’est pas touchée : un nouveau compte pourra lui être ouvert plus tard si besoin.',
+      action: 'Supprimer',
+    })
+    if (!confirme) return
+
+    setEnCoursId(compte.id)
+    try {
+      await supprimerCompte(compte.id)
+      succes(`Compte de ${compte.nom} supprimé.`)
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnCoursId(null)
+    }
+  }
 
   const colonnes: Colonne<CompteUtilisateur>[] = [
     {
@@ -113,22 +182,45 @@ export function ComptesPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: '150px',
-      cellule: (c) => (
-        <div className="flex justify-end gap-1.5">
-          <Button size="sm" variant="secondary" title="Activité du compte" onClick={() => setActivitePour(c)}>
-            <History className="h-3.5 w-3.5" />
-          </Button>
-          {c.type !== 'parent' && (
-            <Button size="sm" variant="secondary" title="Écoles accessibles" onClick={() => setEcolesPour(c)}>
-              <School className="h-3.5 w-3.5" />
+      largeur: '230px',
+      cellule: (c) => {
+        const cestMoi = c.id === moi?.id
+        const enCours = enCoursId === c.id
+
+        return (
+          <div className="flex justify-end gap-1.5">
+            <Button size="sm" variant="secondary" title="Activité du compte" onClick={() => setActivitePour(c)}>
+              <History className="h-3.5 w-3.5" />
             </Button>
-          )}
-          <Button size="sm" title="Réinitialiser le mot de passe" onClick={() => setReinitialisationPour(c)}>
-            <KeyRound className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      ),
+            {c.type !== 'parent' && (
+              <Button size="sm" variant="secondary" title="Écoles accessibles" onClick={() => setEcolesPour(c)}>
+                <School className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button size="sm" title="Réinitialiser le mot de passe" onClick={() => setReinitialisationPour(c)}>
+              <KeyRound className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              title={cestMoi ? 'Impossible de bloquer votre propre compte' : c.est_actif ? 'Bloquer le compte' : 'Débloquer le compte'}
+              disabled={cestMoi || enCours}
+              onClick={() => basculerBlocage(c)}
+            >
+              {c.est_actif ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              title={cestMoi ? 'Impossible de supprimer votre propre compte' : 'Supprimer le compte'}
+              disabled={cestMoi || enCours}
+              onClick={() => supprimer(c)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 

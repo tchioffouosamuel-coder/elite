@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DesktopProvisioning;
 use App\Models\SyncOutbox;
+use App\Support\Sync\RafraichitJetonDesktop;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SyncPush extends Command
 {
+    use RafraichitJetonDesktop;
+
     /** Même plafond que `SyncController::LOT_PUSH_MAX` côté serveur distant. */
     private const LOT_MAX = 50;
 
@@ -69,28 +72,15 @@ class SyncPush extends Command
 
             $rienATraiter = false;
 
-            $reponse = Http::withToken($provisioning->token)
-                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
-                ->acceptJson()
-                ->post('sync', [
-                    'operations' => $lot->map(fn (SyncOutbox $o) => [
-                        'id' => $o->id,
-                        'methode' => $o->methode,
-                        'chemin' => $o->chemin,
-                        'school_id' => $o->school_id,
-                        'corps' => $o->corps,
-                    ])->all(),
-                ]);
+            $reponse = $this->envoyerLot($provisioning, $lot);
 
-            if ($reponse->failed()) {
-                Log::warning('sync:push échec HTTP', ['user_id' => $provisioning->user_id, 'statut' => $reponse->status()]);
-                $this->error("Compte #{$provisioning->user_id} : le serveur distant a répondu {$reponse->status()}.");
+            if ($reponse === null) {
                 $echec = true;
 
                 continue;
             }
 
-            $resultats = collect($reponse->json('data.resultats') ?? []);
+            $resultats = collect($reponse['resultats'] ?? []);
             $reussies = 0;
 
             foreach ($resultats as $resultat) {
@@ -116,5 +106,54 @@ class SyncPush extends Command
         }
 
         return $echec ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Envoie ce lot d'opérations, avec un rafraîchissement de jeton et un
+     * seul nouvel essai si le serveur distant répond 401 — sans quoi, tant
+     * que `sync:pull` n'a pas rafraîchi ce même jeton de son côté (même
+     * table, mais un compte dormant sans pull réussi ne le déclenche
+     * jamais), l'outbox reste bloquée indéfiniment sans qu'aucune erreur ne
+     * remonte jusqu'à l'interface : observé en conditions réelles, « dernier
+     * push » figé pendant que « dernier pull » continue d'avancer.
+     *
+     * @param  \Illuminate\Support\Collection<int, SyncOutbox>  $lot
+     * @return array{resultats: list<array{id: string, statut: int}>}|null
+     */
+    private function envoyerLot(DesktopProvisioning $provisioning, $lot, bool $jetonDejaRafraichi = false): ?array
+    {
+        try {
+            $reponse = Http::withToken($provisioning->token)
+                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                ->acceptJson()
+                ->connectTimeout(30)
+                ->timeout(60)
+                ->retry(3, 3000)
+                ->post('sync', [
+                    'operations' => $lot->map(fn (SyncOutbox $o) => [
+                        'id' => $o->id,
+                        'methode' => $o->methode,
+                        'chemin' => $o->chemin,
+                        'school_id' => $o->school_id,
+                        'corps' => $o->corps,
+                    ])->all(),
+                ]);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
+                return $this->envoyerLot($provisioning, $lot, jetonDejaRafraichi: true);
+            }
+
+            Log::warning('sync:push échec HTTP', ['user_id' => $provisioning->user_id, 'statut' => $e->response?->status()]);
+            $this->error("Compte #{$provisioning->user_id} : le serveur distant a répondu {$e->response?->status()}.");
+
+            return null;
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::warning('sync:push erreur réseau', ['user_id' => $provisioning->user_id, 'erreur' => $e->getMessage()]);
+            $this->error("Compte #{$provisioning->user_id} : erreur réseau, réessaiera au prochain sync.");
+
+            return null;
+        }
+
+        return ['resultats' => $reponse->json('data.resultats') ?? []];
     }
 }

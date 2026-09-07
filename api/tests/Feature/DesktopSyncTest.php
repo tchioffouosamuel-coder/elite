@@ -355,6 +355,47 @@ class DesktopSyncTest extends TestCase
         $this->assertNotNull($enAttente->fresh()->pushed_at);
     }
 
+    /**
+     * Non-régression : contrairement à `sync:pull`, `sync:push` n'avait
+     * jusqu'ici aucun rafraîchissement de jeton — un 401 y était traité
+     * comme un simple échec HTTP à journaliser, sans retenter. Un compte
+     * resté ouvert plus de 24h (`AuthService::ACCESS_TOKEN_TTL_MINUTES`)
+     * voyait alors son outbox bloquée indéfiniment (« dernier push » figé)
+     * même quand `sync:pull`, qui s'exécute juste avant dans la même boucle
+     * (`main.cjs::lancerSyncPeriodique`), continuait d'avancer normalement —
+     * observé en conditions réelles.
+     */
+    public function test_sync_push_rafraichit_le_jeton_expire_et_reessaie(): void
+    {
+        $provisioning = $this->provisionnerSansHttp();
+
+        SyncOutbox::create(['id' => (string) \Illuminate\Support\Str::uuid(), 'methode' => 'POST', 'chemin' => 'annonces', 'corps' => ['titre' => 'Test']]);
+        $enAttente = SyncOutbox::query()->enAttente()->first();
+
+        $reponse401 = ['success' => false, 'data' => null, 'message' => 'Authentification requise.', 'errors' => null, 'meta' => null];
+
+        Http::fake([
+            '*/api/v1/auth/refresh*' => Http::response([
+                'success' => true,
+                'data' => ['token' => 'nouveau-jeton-acces', 'refresh_token' => 'nouveau-jeton-refresh'],
+            ], 200),
+            '*/api/v1/sync*' => Http::sequence()
+                ->push($reponse401, 401)
+                ->push($reponse401, 401)
+                ->push($reponse401, 401)
+                ->push([
+                    'success' => true,
+                    'data' => ['resultats' => [['id' => $enAttente->id, 'statut' => 201, 'reponse' => []]]],
+                ], 200),
+        ]);
+
+        $statut = Artisan::call('sync:push');
+
+        $this->assertSame(0, $statut);
+        $this->assertNotNull($enAttente->fresh()->pushed_at);
+        $this->assertSame('nouveau-jeton-acces', $provisioning->fresh()->token);
+    }
+
     public function test_sync_push_garde_dans_loutbox_une_operation_refusee(): void
     {
         $this->provisionnerSansHttp();

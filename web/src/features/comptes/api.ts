@@ -54,6 +54,18 @@ export async function attribuerEcolesCompte(compteId: number, schoolIds: number[
   await http.put(`/comptes-utilisateurs/${compteId}/ecoles`, { school_ids: schoolIds })
 }
 
+export async function bloquerCompte(compteId: number): Promise<void> {
+  await http.post(`/comptes-utilisateurs/${compteId}/bloquer`)
+}
+
+export async function debloquerCompte(compteId: number): Promise<void> {
+  await http.post(`/comptes-utilisateurs/${compteId}/debloquer`)
+}
+
+export async function supprimerCompte(compteId: number): Promise<void> {
+  await http.delete(`/comptes-utilisateurs/${compteId}`)
+}
+
 export async function reinitialiserMotDePasseCompte(
   compteId: number,
   nouveauMotDePasse: string,

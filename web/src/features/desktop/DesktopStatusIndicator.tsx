@@ -182,10 +182,16 @@ function SectionMiseAJour() {
 export function DesktopStatusIndicator() {
   const [ouvert, setOuvert] = useState(false)
   const { statut } = useDesktopUpdate()
+  // `enabled` plutôt qu'un simple `return null` plus bas : ce dernier
+  // n'empêche que le rendu, pas le hook lui-même — sans ce garde, le sondage
+  // partait quand même toutes les 60s sur le site web classique (pas de
+  // `window.desktop`), martelant `/desktop/statut-sync` de 404 en boucle
+  // (route sans objet hors poste desktop provisionné) sur chaque page.
   const { data } = useQuery({
     queryKey: ['desktop-statut-sync', false],
     queryFn: () => fetchStatutSync(false),
     refetchInterval: 60_000,
+    enabled: Boolean(window.desktop),
   })
 
   const alerte = (data?.en_attente_push ?? 0) > 0 || statut?.etat === 'telechargee' || statut?.etat === 'erreur'

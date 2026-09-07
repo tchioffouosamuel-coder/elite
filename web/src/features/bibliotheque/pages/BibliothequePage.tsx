@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { clsx } from 'clsx'
-import { BookOpen, Download, FileUp, Plus, Trash2, X } from 'lucide-react'
+import { BookOpen, Download, FileUp, Plus, Search, Trash2, X } from 'lucide-react'
 import {
   fetchBibliotheque,
   uploaderDocument,
@@ -268,10 +268,21 @@ export function BibliothequePage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [recherche, setRecherche] = useState('')
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['bibliotheque'], queryFn: fetchBibliotheque })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['bibliotheque'] })
+
+  const termeRecherche = recherche.trim().toLowerCase()
+  const documentsFiltres = data?.filter((document) => {
+    if (termeRecherche === '') return true
+    const contenu = [document.titre, document.description, ...document.ecoles.map((e) => e.name)]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return contenu.includes(termeRecherche)
+  })
 
   const supprimer = async (document: DocumentBibliotheque) => {
     const confirme = await confirmerSuppression(`Supprimer « ${document.titre} » ?`)
@@ -312,45 +323,65 @@ export function BibliothequePage() {
         <Spinner />
       ) : isError || !data ? (
         <ErrorState />
-      ) : data.length === 0 ? (
-        <EmptyState label="Aucun document dans la bibliothèque." />
       ) : (
-        <div className="flex flex-col gap-3">
-          {data.map((document) => (
-            <div key={document.id} className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-display text-base font-bold text-navy-900">{document.titre}</h2>
-                  <p className="mt-0.5 text-xs text-navy-400">
-                    {formatTaille(document.taille)} · {document.ecoles.map((e) => e.name).join(', ')}
-                    {document.uploade_par && ` · déposé par ${document.uploade_par}`}
-                  </p>
-                </div>
-                <div className="flex flex-none items-center gap-1">
-                  <a
-                    href={document.fichier_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Télécharger"
-                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                  {can('bibliotheque.manage') && (
-                    <button
-                      title="Supprimer"
-                      onClick={() => supprimer(document)}
-                      className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+        <>
+          {data.length > 0 && (
+            <div className="relative max-w-sm">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-navy-300" />
+              <input
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                placeholder="Rechercher un document…"
+                className="w-full rounded-xl border border-navy-200 py-2 pr-3 pl-9 text-sm outline-none focus:border-navy-400"
+              />
+            </div>
+          )}
+
+          {data.length === 0 ? (
+            <EmptyState label="Aucun document dans la bibliothèque." />
+          ) : documentsFiltres?.length === 0 ? (
+            <EmptyState label="Aucun document ne correspond à cette recherche." />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {documentsFiltres?.map((document) => (
+                <div key={document.id} className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="font-display text-base font-bold text-navy-900">{document.titre}</h2>
+                      <p className="mt-0.5 text-xs text-navy-400">
+                        {formatTaille(document.taille)} · {document.ecoles.map((e) => e.name).join(', ')}
+                        {document.uploade_par && ` · déposé par ${document.uploade_par}`}
+                      </p>
+                    </div>
+                    <div className="flex flex-none items-center gap-1">
+                      <a
+                        href={document.fichier_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Télécharger"
+                        className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
+                      {can('bibliotheque.manage') && (
+                        <button
+                          title="Supprimer"
+                          onClick={() => supprimer(document)}
+                          className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {document.description && (
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{document.description}</p>
                   )}
                 </div>
-              </div>
-              {document.description && <p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{document.description}</p>}
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {showForm && (

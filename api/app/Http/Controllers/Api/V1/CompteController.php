@@ -95,6 +95,13 @@ class CompteController extends Controller
      * Restreint aux écoles du même complexe que l'école principale : ouvrir
      * l'accès à un autre complexe n'a pas de sens métier et court-circuiterait
      * le périmètre du super admin lui-même.
+     *
+     * Le compte racine (super admin sans `school_id`, cf. `comptesAccessibles()`)
+     * n'a justement aucune école principale à comparer : lui appliquer cette
+     * restriction l'empêchait de s'attribuer la moindre école, la requête
+     * `complexe_id = null` ne correspondant à aucun établissement. Un tel
+     * compte n'étant scopé à aucun complexe en particulier, il peut recevoir
+     * l'accès à n'importe quelle école existante.
      */
     public function attribuerEcoles(Request $request, int $id): JsonResponse
     {
@@ -107,7 +114,11 @@ class CompteController extends Controller
             'school_ids.*' => [
                 'integer',
                 function ($attribut, $valeur, $fail) use ($complexeId) {
-                    if (! School::where('id', $valeur)->where('complexe_id', $complexeId)->exists()) {
+                    $ecole = School::find($valeur);
+
+                    if ($ecole === null) {
+                        $fail("L'établissement {$valeur} n'existe pas.");
+                    } elseif ($complexeId !== null && $ecole->complexe_id !== $complexeId) {
                         $fail("L'établissement {$valeur} n'appartient pas au même complexe que l'école principale du compte.");
                     }
                 },
@@ -131,6 +142,63 @@ class CompteController extends Controller
             $compte->fresh()->ecolesAccessibles()->map(fn ($ecole) => ['id' => $ecole->id, 'name' => $ecole->name])->values(),
             'Écoles accessibles mises à jour.',
         );
+    }
+
+    /**
+     * Bloque ce compte : `is_active = false` empêche toute connexion future
+     * (cf. `AuthService::login()`), sans toucher à la fiche personnel/tuteur
+     * qu'il représente — l'agent ou le parent reste dans les effectifs,
+     * seul son accès est coupé. Réversible via {@see debloquer()}.
+     */
+    public function bloquer(Request $request, int $id): JsonResponse
+    {
+        $compte = $this->comptesAccessibles()->findOrFail($id);
+
+        if ($compte->id === $request->user()->id) {
+            return ApiResponse::error('Impossible de bloquer votre propre compte.', 422);
+        }
+
+        $compte->update(['is_active' => false]);
+
+        ActivityLog::enregistrer($request->user(), 'blocage_compte', "Compte de {$compte->name} bloqué.", $compte);
+
+        return ApiResponse::success(message: 'Compte bloqué.');
+    }
+
+    public function debloquer(Request $request, int $id): JsonResponse
+    {
+        $compte = $this->comptesAccessibles()->findOrFail($id);
+
+        $compte->update(['is_active' => true]);
+
+        ActivityLog::enregistrer($request->user(), 'deblocage_compte', "Compte de {$compte->name} débloqué.", $compte);
+
+        return ApiResponse::success(message: 'Compte débloqué.');
+    }
+
+    /**
+     * Supprime définitivement ce compte de connexion — pas la fiche qu'il
+     * représente. Les tables qui en dépendent directement (jetons d'accès,
+     * provisioning desktop, notifications...) sont supprimées en cascade par
+     * la base ; la fiche personnel/tuteur/élève, elle, ne fait que perdre sa
+     * référence (`user_id` remis à `null`, cf. migrations correspondantes) et
+     * reste intacte — seul l'accès disparaît, l'administration pourra en
+     * rouvrir un nouveau plus tard si besoin.
+     */
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $compte = $this->comptesAccessibles()->findOrFail($id);
+
+        if ($compte->id === $request->user()->id) {
+            return ApiResponse::error('Impossible de supprimer votre propre compte.', 422);
+        }
+
+        $nom = $compte->name;
+        $compte->delete();
+
+        ActivityLog::enregistrer($request->user(), 'suppression_compte', "Compte de {$nom} supprimé.");
+
+        return ApiResponse::success(message: 'Compte supprimé.');
     }
 
     /**

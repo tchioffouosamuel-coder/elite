@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DesktopProvisioning;
 use App\Models\DesktopProvisioningEcole;
 use App\Models\SyncTombstone;
+use App\Support\Sync\RafraichitJetonDesktop;
 use App\Support\Sync\RegistreSync;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -33,6 +34,8 @@ use Illuminate\Support\Facades\Log;
  */
 class SyncPull extends Command
 {
+    use RafraichitJetonDesktop;
+
     protected $signature = 'sync:pull';
 
     protected $description = "Tire les données du serveur distant vers la base locale (client desktop)";
@@ -239,48 +242,6 @@ class SyncPull extends Command
         }
 
         $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
-
-        return true;
-    }
-
-    /**
-     * Échange le jeton de rafraîchissement (30 jours) contre une nouvelle
-     * paire de jetons auprès du serveur distant — même mécanisme que
-     * `AuthService::refresh()` côté web/mobile. Met à jour `$provisioning`
-     * en base sur succès, pour que ce nouveau jeton serve aussi bien à
-     * `tirerEcole()` (retenté juste après) qu'aux appels suivants
-     * (`sync:push`, prochains passages de `sync:pull`).
-     */
-    private function rafraichirJeton(DesktopProvisioning $provisioning): bool
-    {
-        try {
-            $reponse = Http::withToken($provisioning->refresh_token)
-                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
-                ->acceptJson()
-                ->connectTimeout(15)
-                ->timeout(30)
-                ->post('auth/refresh');
-        } catch (\Illuminate\Http\Client\ConnectionException|\Illuminate\Http\Client\RequestException $e) {
-            Log::warning('sync:pull rafraîchissement du jeton impossible', [
-                'user_id' => $provisioning->user_id,
-                'erreur' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
-
-        $donnees = $reponse->json('data') ?? [];
-
-        if (! $reponse->successful() || ! isset($donnees['token'], $donnees['refresh_token'])) {
-            Log::warning('sync:pull rafraîchissement du jeton refusé', [
-                'user_id' => $provisioning->user_id,
-                'statut' => $reponse->status(),
-            ]);
-
-            return false;
-        }
-
-        $provisioning->update(['token' => $donnees['token'], 'refresh_token' => $donnees['refresh_token']]);
 
         return true;
     }

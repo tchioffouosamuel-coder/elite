@@ -220,6 +220,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('comptes-utilisateurs/{id}/activite', [CompteController::class, 'activite'])->name('comptes-utilisateurs.activite');
                 Route::post('comptes-utilisateurs/{id}/reinitialiser-mot-de-passe', [CompteController::class, 'reinitialiserMotDePasse'])->name('comptes-utilisateurs.reinitialiser-mot-de-passe');
                 Route::put('comptes-utilisateurs/{id}/ecoles', [CompteController::class, 'attribuerEcoles'])->name('comptes-utilisateurs.attribuer-ecoles');
+                Route::post('comptes-utilisateurs/{id}/bloquer', [CompteController::class, 'bloquer'])->name('comptes-utilisateurs.bloquer');
+                Route::post('comptes-utilisateurs/{id}/debloquer', [CompteController::class, 'debloquer'])->name('comptes-utilisateurs.debloquer');
+                Route::delete('comptes-utilisateurs/{id}', [CompteController::class, 'destroy'])->name('comptes-utilisateurs.destroy');
 
                 // Diagnostic des notifications push : vérifiable depuis un
                 // simple appel API, sans accès au `.env` du serveur.
