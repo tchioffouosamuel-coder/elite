@@ -396,6 +396,55 @@ class DesktopSyncTest extends TestCase
         $this->assertSame('nouveau-jeton-acces', $provisioning->fresh()->token);
     }
 
+    /**
+     * Non-régression : un lot où quelques opérations minuscules voisinent un
+     * import volumineux ne doit pas rester bloqué en entier sur un 413 —
+     * observé en conditions réelles (21 opérations en attente, dont 14
+     * imports de bibliothèque totalisant ~18 Mo, aucune ne passait plus,
+     * y compris 7 mises à jour d'appréciations de quelques octets). Le lot de
+     * 3 est scindé en 2+1 ; le 2 passe, le 1 restant (toujours trop gros,
+     * seul) reste en attente sans faire échouer la commande ni bloquer quoi
+     * que ce soit d'autre.
+     */
+    public function test_sync_push_scinde_le_lot_sur_413_et_isole_loperation_trop_volumineuse(): void
+    {
+        $this->provisionnerSansHttp();
+
+        $ids = [];
+        foreach (range(1, 3) as $i) {
+            $outbox = SyncOutbox::create([
+                'id' => (string) \Illuminate\Support\Str::uuid(), 'methode' => 'POST',
+                'chemin' => "annonces/{$i}", 'corps' => ['titre' => "Op {$i}"],
+            ]);
+            $ids[] = $outbox->id;
+        }
+
+        $reponse413 = ['success' => false, 'data' => null, 'message' => 'Payload Too Large', 'errors' => null, 'meta' => null];
+
+        Http::fake(['*/api/v1/sync*' => function ($request) use ($reponse413) {
+            $operations = $request->data()['operations'] ?? [];
+
+            if (count($operations) === 2) {
+                return Http::response([
+                    'success' => true,
+                    'data' => ['resultats' => array_map(fn ($o) => ['id' => $o['id'], 'statut' => 201, 'reponse' => []], $operations)],
+                ], 200);
+            }
+
+            // Lot complet (3) et opération isolée (1, la "grosse") : toujours trop gros.
+            return Http::response($reponse413, 413);
+        }]);
+
+        $statut = Artisan::call('sync:push');
+
+        $this->assertSame(0, $statut);
+        // Lot de 3 scindé en 2+1 (`intdiv(3, 2) = 1`) : le premier élément
+        // isolé reste bloqué seul (toujours 413), les deux suivants passent.
+        $this->assertNull(SyncOutbox::find($ids[0])->pushed_at);
+        $this->assertNotNull(SyncOutbox::find($ids[1])->pushed_at);
+        $this->assertNotNull(SyncOutbox::find($ids[2])->pushed_at);
+    }
+
     public function test_sync_push_garde_dans_loutbox_une_operation_refusee(): void
     {
         $this->provisionnerSansHttp();

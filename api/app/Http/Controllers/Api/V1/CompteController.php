@@ -7,9 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ReinitialiserMotDePasseRequest;
 use App\Models\ActivityLog;
 use App\Models\School;
+use App\Models\Setting;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\SettingsCatalog;
 use App\Support\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +86,61 @@ class CompteController extends Controller
         );
 
         return ApiResponse::success(message: 'Mot de passe réinitialisé.');
+    }
+
+    /**
+     * Réinitialise en une fois le mot de passe de tout compte du périmètre
+     * qui ne s'est JAMAIS connecté (aucune entrée `ActivityLog` d'action
+     * `connexion`) — pour rattraper d'un coup les comptes ouverts de longue
+     * date mais jamais retirés par leur titulaire, sans devoir les repérer et
+     * les réinitialiser un par un depuis la colonne « Dernière connexion ».
+     *
+     * Remis au mot de passe par défaut DE L'ÉCOLE du compte (`Setting`,
+     * configurable, cf. `SettingsCatalog`) plutôt qu'une valeur figée : deux
+     * établissements du même complexe peuvent avoir choisi des valeurs
+     * différentes. Les comptes parents ne sont pas concernés — cet écran ne
+     * les affiche pas (cf. `ComptesPage`, filtrés côté frontend) — ni le
+     * compte de l'administrateur qui déclenche l'action, pour ne jamais se
+     * verrouiller lui-même hors de sa propre session.
+     */
+    public function reinitialiserMotsDePasseJamaisConnectes(Request $request): JsonResponse
+    {
+        $comptes = $this->comptesAccessibles()->get();
+
+        $idsTuteurs = Tuteur::whereIn('user_id', $comptes->pluck('id')->filter())->pluck('user_id');
+
+        $idsDejaConnectes = ActivityLog::whereIn('user_id', $comptes->pluck('id'))
+            ->where('action', 'connexion')
+            ->distinct()
+            ->pluck('user_id');
+
+        $cibles = $comptes
+            ->whereNotIn('id', $idsTuteurs)
+            ->whereNotIn('id', $idsDejaConnectes)
+            ->reject(fn (User $u) => $u->id === $request->user()->id);
+
+        foreach ($cibles as $compte) {
+            $motDePasse = $compte->school_id
+                ? Setting::get($compte->school_id, 'mot_de_passe_defaut', SettingsCatalog::default('mot_de_passe_defaut'))
+                : SettingsCatalog::default('mot_de_passe_defaut');
+
+            $this->authService->reinitialiserMotDePasse($compte, $motDePasse);
+        }
+
+        if ($cibles->isNotEmpty()) {
+            ActivityLog::enregistrer(
+                $request->user(),
+                'reinitialisation_mots_de_passe_masse',
+                "{$cibles->count()} compte(s) jamais connecté(s) réinitialisé(s) au mot de passe par défaut.",
+            );
+        }
+
+        return ApiResponse::success(
+            ['total' => $cibles->count()],
+            $cibles->isNotEmpty()
+                ? "{$cibles->count()} compte(s) réinitialisé(s)."
+                : 'Aucun compte jamais connecté à réinitialiser.',
+        );
     }
 
     /**

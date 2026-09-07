@@ -5,6 +5,7 @@ namespace App\Support\Pdf;
 use App\Models\School;
 use App\Models\User;
 use App\Support\Pdf\Concerns\RenduDocument;
+use App\Support\Telephone;
 use Mpdf\Output\Destination;
 
 /**
@@ -108,8 +109,13 @@ class IdentifiantsGenerator
                 // Le téléphone est désormais l'identifiant privilégié : la
                 // connexion l'accepte au même titre que l'e-mail (cf.
                 // AuthService::login()), et un compte parent n'a de toute
-                // façon pas d'e-mail (cf. CompteParentService).
-                . '<td class="left">' . $this->e($compte->phone ?: ($compte->email ?: '—')) . '</td>'
+                // façon pas d'e-mail (cf. CompteParentService). Repassé par
+                // `Telephone::normaliser()` avant impression : la valeur en
+                // base l'est déjà à l'écriture, mais l'imprimer sous sa forme
+                // canonique (+237...) plutôt qu'une éventuelle saisie ancienne
+                // non normalisée évite qu'un titulaire ne pense à tort devoir
+                // ressaisir l'indicatif tel quel pour se connecter.
+                . '<td class="left">' . $this->e($compte->phone ? Telephone::normaliser($compte->phone) : ($compte->email ?: '—')) . '</td>'
                 . '<td>' . $this->motDePasse($compte, $donnees['mot_de_passe_defaut']) . '</td>'
                 . '</tr>';
             $rang++;

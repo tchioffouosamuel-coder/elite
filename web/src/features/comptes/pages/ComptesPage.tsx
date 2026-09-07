@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, History, KeyRound, AlertTriangle, School, Lock, Unlock, Trash2 } from 'lucide-react'
+import { Users, History, KeyRound, AlertTriangle, School, Lock, Unlock, Trash2, KeySquare } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -12,6 +12,7 @@ import {
   bloquerCompte,
   debloquerCompte,
   supprimerCompte,
+  reinitialiserMotsDePasseJamaisConnectes,
   type CompteUtilisateur,
   type TypeCompte,
 } from '@/features/comptes/api'
@@ -47,6 +48,7 @@ export function ComptesPage() {
   const [activitePour, setActivitePour] = useState<CompteUtilisateur | null>(null)
   const [ecolesPour, setEcolesPour] = useState<CompteUtilisateur | null>(null)
   const [enCoursId, setEnCoursId] = useState<number | null>(null)
+  const [reinitialisationMasseEnCours, setReinitialisationMasseEnCours] = useState(false)
   const queryClient = useQueryClient()
   const moi = useAuthStore((s) => s.user)
 
@@ -109,6 +111,27 @@ export function ComptesPage() {
       erreur((err as ApiError).message)
     } finally {
       setEnCoursId(null)
+    }
+  }
+
+  const reinitialiserJamaisConnectes = async () => {
+    const confirme = await confirmer({
+      titre: 'Réinitialiser les comptes jamais connectés ?',
+      message:
+        'Remet le mot de passe par défaut de l’établissement sur tout compte (personnel, super admin) qui ne s’est encore jamais connecté — utile pour rattraper des accès ouverts de longue date. Les comptes déjà utilisés au moins une fois, et le vôtre, ne sont pas concernés.',
+      action: 'Réinitialiser',
+    })
+    if (!confirme) return
+
+    setReinitialisationMasseEnCours(true)
+    try {
+      const { total } = await reinitialiserMotsDePasseJamaisConnectes()
+      succes(total > 0 ? `${total} compte(s) réinitialisé(s) au mot de passe par défaut.` : 'Aucun compte jamais connecté à réinitialiser.')
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setReinitialisationMasseEnCours(false)
     }
   }
 
@@ -234,6 +257,18 @@ export function ComptesPage() {
         titre="Comptes utilisateurs"
         sousTitre="Tous les comptes de connexion de l'établissement — personnel, super administrateurs."
         icon={Users}
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={reinitialisationMasseEnCours}
+            onClick={reinitialiserJamaisConnectes}
+            title="Remet au mot de passe par défaut tout compte qui ne s'est jamais connecté"
+          >
+            <KeySquare className="h-3.5 w-3.5" />
+            {reinitialisationMasseEnCours ? 'Réinitialisation…' : 'Réinitialiser les jamais connectés'}
+          </Button>
+        }
       />
 
       {isLoading ? (

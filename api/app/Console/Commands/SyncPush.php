@@ -117,6 +117,14 @@ class SyncPush extends Command
      * remonte jusqu'à l'interface : observé en conditions réelles, « dernier
      * push » figé pendant que « dernier pull » continue d'avancer.
      *
+     * Un 413 (lot trop volumineux pour le serveur distant) scinde le lot en
+     * deux et retente chaque moitié séparément plutôt que d'abandonner tout
+     * le monde : sans ce découpage, quelques imports de bibliothèque de
+     * plusieurs Mo suffisaient à bloquer indéfiniment, dans le même lot,
+     * une poignée d'opérations minuscules qui n'avaient rien à y voir —
+     * observé en conditions réelles (21 opérations en attente, dont 14
+     * imports totalisant ~18 Mo, aucune ne passait plus jamais).
+     *
      * @param  \Illuminate\Support\Collection<int, SyncOutbox>  $lot
      * @return array{resultats: list<array{id: string, statut: int}>}|null
      */
@@ -128,7 +136,11 @@ class SyncPush extends Command
                 ->acceptJson()
                 ->connectTimeout(30)
                 ->timeout(60)
-                ->retry(3, 3000)
+                // Un 413 est déterministe (la taille ne change pas d'un essai
+                // à l'autre) : le retenter tel quel ne ferait que perdre 6
+                // secondes avant d'arriver de toute façon au découpage
+                // ci-dessous.
+                ->retry(3, 3000, fn ($e) => ! ($e instanceof \Illuminate\Http\Client\RequestException && $e->response?->status() === 413))
                 ->post('sync', [
                     'operations' => $lot->map(fn (SyncOutbox $o) => [
                         'id' => $o->id,
@@ -139,12 +151,40 @@ class SyncPush extends Command
                     ])->all(),
                 ]);
         } catch (\Illuminate\Http\Client\RequestException $e) {
-            if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
+            $statut = $e->response?->status();
+
+            if ($statut === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
                 return $this->envoyerLot($provisioning, $lot, jetonDejaRafraichi: true);
             }
 
-            Log::warning('sync:push échec HTTP', ['user_id' => $provisioning->user_id, 'statut' => $e->response?->status()]);
-            $this->error("Compte #{$provisioning->user_id} : le serveur distant a répondu {$e->response?->status()}.");
+            if ($statut === 413 && $lot->count() > 1) {
+                $moitie = intdiv($lot->count(), 2);
+                $premiere = $this->envoyerLot($provisioning, $lot->take($moitie));
+                $seconde = $this->envoyerLot($provisioning, $lot->skip($moitie));
+
+                return $premiere === null || $seconde === null
+                    ? null
+                    : ['resultats' => [...$premiere['resultats'], ...$seconde['resultats']]];
+            }
+
+            if ($statut === 413) {
+                // Une seule opération, encore trop volumineuse : rien à
+                // découper de plus. Elle restera dans l'outbox jusqu'à ce que
+                // le serveur distant relève sa limite d'upload — la
+                // retenter à chaque cycle ne change rien tant que ce n'est
+                // pas fait, mais elle ne bloque plus les autres.
+                Log::warning('sync:push opération trop volumineuse', [
+                    'user_id' => $provisioning->user_id,
+                    'operation_id' => $lot->first()->id,
+                    'chemin' => $lot->first()->chemin,
+                ]);
+                $this->error("Compte #{$provisioning->user_id} : une opération dépasse la limite du serveur distant, restera en attente.");
+
+                return ['resultats' => []];
+            }
+
+            Log::warning('sync:push échec HTTP', ['user_id' => $provisioning->user_id, 'statut' => $statut]);
+            $this->error("Compte #{$provisioning->user_id} : le serveur distant a répondu {$statut}.");
 
             return null;
         } catch (\Illuminate\Http\Client\ConnectionException $e) {

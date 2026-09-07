@@ -54,6 +54,14 @@ export async function attribuerEcolesCompte(compteId: number, schoolIds: number[
   await http.put(`/comptes-utilisateurs/${compteId}/ecoles`, { school_ids: schoolIds })
 }
 
+/** Réinitialise au mot de passe par défaut tout compte du périmètre qui ne s'est jamais connecté — cf. `CompteController::reinitialiserMotsDePasseJamaisConnectes()`. */
+export async function reinitialiserMotsDePasseJamaisConnectes(): Promise<{ total: number }> {
+  const { data } = await http.post<ApiResponse<{ total: number }>>(
+    '/comptes-utilisateurs/reinitialiser-mots-de-passe-jamais-connectes',
+  )
+  return data.data
+}
+
 export async function bloquerCompte(compteId: number): Promise<void> {
   await http.post(`/comptes-utilisateurs/${compteId}/bloquer`)
 }
