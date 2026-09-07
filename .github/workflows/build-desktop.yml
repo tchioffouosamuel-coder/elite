@@ -103,8 +103,29 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
-          $exe = Get-Item "web/desktop/dist/*.exe" | Select-Object -First 1
-          $blockmap = Get-Item "web/desktop/dist/*.exe.blockmap" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $exeOriginal = Get-Item "web/desktop/dist/*.exe" | Select-Object -First 1
+          $blockmapOriginal = Get-Item "web/desktop/dist/*.exe.blockmap" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          # `gh release upload` remplace lui-même les espaces du nom de fichier
+          # par des points ("Elites School Setup 1.2.5.exe" devient "Elites.
+          # School.Setup.1.2.5.exe" côté GitHub) sans le signaler autrement que
+          # dans le nom réellement attaché — silencieusement cassé sur la
+          # v1.2.5 : `latest.yml` référençait encore le nom avec espaces,
+          # qu'electron-updater n'a jamais pu télécharger (404). On renomme
+          # donc nous-mêmes AVANT l'upload, pour que le nom mis dans
+          # `latest.yml` soit exactement celui sous lequel l'asset existera.
+          $exeName = ($exeOriginal.Name -replace ' ', '-')
+          $exePath = Join-Path $exeOriginal.DirectoryName $exeName
+          Rename-Item -Path $exeOriginal.FullName -NewName $exeName
+          $exe = Get-Item $exePath
+
+          $blockmap = $null
+          if ($blockmapOriginal) {
+            $blockmapName = ($blockmapOriginal.Name -replace ' ', '-')
+            $blockmapPath = Join-Path $blockmapOriginal.DirectoryName $blockmapName
+            Rename-Item -Path $blockmapOriginal.FullName -NewName $blockmapName
+            $blockmap = Get-Item $blockmapPath
+          }
 
           # Get-FileHash rend un hex : on le reconvertit en octets puis en base64,
           # le format attendu par electron-updater dans latest.yml.
