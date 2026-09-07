@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\AnneeScolaire;
+use App\Models\Classe;
+use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 /**
@@ -90,6 +93,7 @@ class PreinscriptionService extends BaseService
 
         $preinscription = Preinscription::create([
             'school_id' => $schoolId,
+            'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
             'tuteur_id' => $tuteur->id,
             'eleve_id' => $eleve?->id,
             'type' => $type,
@@ -144,19 +148,32 @@ class PreinscriptionService extends BaseService
 
             $versementId = null;
 
-            if ($preinscription->type === 'existant' && ($preinscription->montant_verser ?? 0) > 0) {
-                $annee = AnneeScolaire::where('school_id', $preinscription->school_id)->where('is_active', true)->firstOrFail();
+            // Confirmer sa présence pour l'année, pour un élève déjà scolarisé,
+            // doit garantir un dossier financier à jour dès la validation — pas
+            // seulement quand un versement est annoncé, sinon la conversion de
+            // la dette antérieure (ci-dessous) n'aurait jamais lieu pour une
+            // famille qui ne paie rien dans l'immédiat.
+            if ($preinscription->type === 'existant') {
+                $annee = $preinscription->anneeScolaire ?? $this->anneeActive($preinscription->school_id);
+
+                if ($annee === null) {
+                    throw new RuntimeException("Aucune année scolaire active pour cet établissement.");
+                }
+
                 $dossier = $this->scolarite->dossier($eleve, $annee);
+                $this->convertirDetteEnFraisAnnexe($dossier);
 
-                $versement = $this->scolarite->encaisser($dossier, [
-                    'montant' => $preinscription->montant_verser,
-                    'mode' => $preinscription->mode_versement ?? 'especes',
-                    'reference_externe' => $preinscription->reference_externe,
-                    'note' => 'Versement initié par le parent à la préinscription.',
-                    'lignes' => $preinscription->rubriques_versement,
-                ], $adminUserId);
+                if (($preinscription->montant_verser ?? 0) > 0) {
+                    $versement = $this->scolarite->encaisser($dossier, [
+                        'montant' => $preinscription->montant_verser,
+                        'mode' => $preinscription->mode_versement ?? 'especes',
+                        'reference_externe' => $preinscription->reference_externe,
+                        'note' => 'Versement initié par le parent à la préinscription.',
+                        'lignes' => $preinscription->rubriques_versement,
+                    ], $adminUserId);
 
-                $versementId = $versement->id;
+                    $versementId = $versement->id;
+                }
             }
 
             $preinscription->update([
@@ -169,6 +186,100 @@ class PreinscriptionService extends BaseService
 
             return $preinscription->fresh();
         });
+    }
+
+    private function anneeActive(int $schoolId): ?AnneeScolaire
+    {
+        return AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+    }
+
+    /**
+     * Convertit le reliquat automatiquement calculé par
+     * {@see ScolariteService::dossier()} (solde impayé de l'année précédente
+     * + dettes antérieures non imputées) en une ligne de frais annexe
+     * distincte « Dette antérieure » — décision produit : la présenter comme
+     * un poste à part plutôt que la laisser dans `report_dette`, sans jamais
+     * la compter deux fois. `wasRecentlyCreated` borne l'opération au tout
+     * premier appel qui ouvre le dossier : une relecture d'un dossier déjà
+     * existant ne doit rien reconvertir (report_dette y vaut déjà 0 depuis
+     * la première conversion, ou porte un ajustement manuel qu'il ne faut pas
+     * écraser).
+     */
+    private function convertirDetteEnFraisAnnexe(DossierScolarite $dossier): void
+    {
+        if (! $dossier->wasRecentlyCreated || $dossier->report_dette <= 0) {
+            return;
+        }
+
+        $dossier->fraisAnnexes()->create([
+            'frais_annexe_id' => null,
+            'libelle' => 'Dette antérieure',
+            'montant' => $dossier->report_dette,
+        ]);
+
+        $dossier->update(['report_dette' => 0]);
+    }
+
+    /**
+     * Anciens élèves (déjà présents avant le début de l'année active) qui ne
+     * se sont pas encore réinscrits pour cette année — ni via une
+     * préinscription `existant` validée, ni via un dossier de scolarité déjà
+     * ouvert pour l'année en cours (une réinscription faite hors du circuit
+     * préinscription compte aussi comme réinscrit).
+     *
+     * @param  int|array<int>  $schoolId
+     * @return Collection<int, Eleve>
+     */
+    public function listeAnciensNonReinscrits(int|array $schoolId): Collection
+    {
+        return $this->anciensEleves($schoolId)->reject(fn (Eleve $e) => $this->estReinscritAnneeActive($e))->values();
+    }
+
+    /**
+     * Anciens élèves de l'école : actifs, déjà présents avant le début de
+     * l'année scolaire active — base commune au compte total (dashboard) et
+     * à la liste des non-réinscrits.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return Collection<int, Eleve>
+     */
+    public function anciensEleves(int|array $schoolId): Collection
+    {
+        return Eleve::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->get()
+            ->filter(function (Eleve $eleve) {
+                $annee = $this->anneeActive($eleve->school_id);
+
+                return $annee !== null && $eleve->created_at->lessThan($annee->date_debut);
+            })
+            ->values();
+    }
+
+    private function estReinscritAnneeActive(Eleve $eleve): bool
+    {
+        $annee = $this->anneeActive($eleve->school_id);
+
+        if ($annee === null) {
+            return false;
+        }
+
+        return Preinscription::where('eleve_id', $eleve->id)
+            ->where('type', 'existant')
+            ->where('statut', 'validee')
+            ->where('annee_scolaire_id', $annee->id)
+            ->exists()
+            || DossierScolarite::where('eleve_id', $eleve->id)->where('annee_scolaire_id', $annee->id)->exists();
+    }
+
+    /** @param int|array<int> $schoolId */
+    public function listeInscritsAnneeActive(int|array $schoolId): Collection
+    {
+        return Preinscription::forSchool($schoolId)
+            ->where('statut', 'validee')
+            ->get()
+            ->filter(fn (Preinscription $p) => $p->annee_scolaire_id !== null && $p->annee_scolaire_id === $this->anneeActive($p->school_id)?->id)
+            ->values();
     }
 
     /**
@@ -203,6 +314,7 @@ class PreinscriptionService extends BaseService
         return $this->transaction(function () use ($eleve, $tuteurId, $donnees, $adminUserId) {
             $preinscription = Preinscription::create([
                 'school_id' => $eleve->school_id,
+                'annee_scolaire_id' => $this->anneeActive($eleve->school_id)?->id,
                 'tuteur_id' => $tuteurId,
                 'eleve_id' => $eleve->id,
                 'type' => 'existant',
@@ -218,6 +330,110 @@ class PreinscriptionService extends BaseService
 
             return $this->valider($preinscription, $adminUserId);
         });
+    }
+
+    /**
+     * Une ligne d'import massif (fichier XLSX de campagne de réinscription) —
+     * validée immédiatement comme {@see creerEtValiderParAdmin()} : l'admin a
+     * déjà revu son fichier avant de l'importer, pas de file d'attente
+     * intermédiaire. Ancien élève si un matricule est fourni, nouveau sinon.
+     *
+     * @param  array{matricule?: ?string, nom_complet?: ?string, sexe?: ?string, date_naissance?: ?string, classe?: ?string, tuteur_nom?: ?string, tuteur_telephone?: ?string, montant_verser?: ?int, mode_versement?: ?string}  $ligne
+     */
+    public function importerLigne(int $schoolId, array $ligne, int $adminUserId): Preinscription
+    {
+        $classeId = $this->resoudreClasse($schoolId, $ligne['classe'] ?? null);
+
+        $donneesEleve = array_filter([
+            'nom_complet' => $ligne['nom_complet'] ?? null,
+            'sexe' => $ligne['sexe'] ?? null,
+            'date_naissance' => $ligne['date_naissance'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        $tuteurFourni = ($ligne['tuteur_nom'] ?? null) !== null || ($ligne['tuteur_telephone'] ?? null) !== null;
+        $donneesTuteurs = $tuteurFourni
+            ? [['nom_complet' => $ligne['tuteur_nom'] ?? $ligne['tuteur_telephone'], 'telephone' => $ligne['tuteur_telephone'] ?? null, 'is_principal' => true]]
+            : [];
+
+        if (! empty($ligne['matricule'])) {
+            $eleve = Eleve::where('school_id', $schoolId)->where('matricule', $ligne['matricule'])->first();
+
+            if ($eleve === null) {
+                throw new RuntimeException("Aucun élève avec le matricule « {$ligne['matricule']} » dans cette école.");
+            }
+
+            if (! isset($donneesEleve['nom_complet'])) {
+                $donneesEleve['nom_complet'] = $eleve->nom_complet;
+            }
+
+            return $this->creerEtValiderParAdmin($eleve, [
+                'donnees_eleve' => $donneesEleve,
+                'donnees_tuteurs' => $donneesTuteurs,
+                'classe_id' => $classeId,
+                'montant_verser' => $ligne['montant_verser'] ?? null,
+                'mode_versement' => $ligne['mode_versement'] ?? null,
+            ], $adminUserId);
+        }
+
+        if (! $tuteurFourni) {
+            throw new RuntimeException("Un nouvel élève (sans matricule) doit avoir un tuteur (nom ou téléphone).");
+        }
+
+        if (empty($donneesEleve['nom_complet']) || empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance'])) {
+            throw new RuntimeException("Un nouvel élève doit avoir un nom, un sexe et une date de naissance.");
+        }
+
+        if ($classeId === null) {
+            throw new RuntimeException("Classe introuvable pour un nouvel élève.");
+        }
+
+        $tuteur = $this->resoudreOuCreerTuteur($schoolId, $donneesTuteurs[0]);
+
+        return $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId) {
+            $preinscription = Preinscription::create([
+                'school_id' => $schoolId,
+                'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+                'tuteur_id' => $tuteur->id,
+                'eleve_id' => null,
+                'type' => 'nouveau',
+                'statut' => 'en_attente',
+                'donnees_eleve' => $donneesEleve,
+                'donnees_tuteurs' => $donneesTuteurs,
+                'classe_id' => $classeId,
+            ]);
+
+            return $this->valider($preinscription, $adminUserId);
+        });
+    }
+
+    /** Rapprochement insensible à la casse/accents/espaces, comme les libellés de classe d'un fichier de situation. */
+    private function resoudreClasse(int $schoolId, ?string $libelle): ?int
+    {
+        if ($libelle === null || trim($libelle) === '') {
+            return null;
+        }
+
+        $cle = self::cleClasse($libelle);
+
+        return Classe::where('school_id', $schoolId)
+            ->get(['id', 'nom', 'sigle'])
+            ->first(fn (Classe $c) => self::cleClasse($c->nom) === $cle || self::cleClasse($c->sigle) === $cle)
+            ?->id;
+    }
+
+    private static function cleClasse(?string $libelle): string
+    {
+        return preg_replace('/[^A-Z0-9]+/', '', mb_strtoupper(\Illuminate\Support\Str::ascii((string) $libelle))) ?? '';
+    }
+
+    /** Même rapprochement par téléphone que {@see synchroniserTuteurs()}, exposé pour l'import massif qui n'a pas encore d'élève à qui rattacher le tuteur. */
+    private function resoudreOuCreerTuteur(int $schoolId, array $tuteurData): Tuteur
+    {
+        $telephone = $tuteurData['telephone'] ?? null;
+
+        return $telephone
+            ? Tuteur::updateOrCreate(['school_id' => $schoolId, 'telephone' => $telephone], ['nom_complet' => $tuteurData['nom_complet']])
+            : Tuteur::create(['school_id' => $schoolId, 'nom_complet' => $tuteurData['nom_complet']]);
     }
 
     /**

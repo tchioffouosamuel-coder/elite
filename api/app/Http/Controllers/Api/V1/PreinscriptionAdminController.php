@@ -2,15 +2,21 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ModeleGenerique;
+use App\Exports\NonInscritExport;
+use App\Exports\PreinscriptionExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Imports\PreinscriptionImport;
 use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Services\PreinscriptionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** File d'attente des préinscriptions déposées par les parents, à valider ou rejeter. */
 class PreinscriptionAdminController extends Controller
@@ -179,6 +185,56 @@ class PreinscriptionAdminController extends Controller
         }
 
         return ApiResponse::success($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription validée.');
+    }
+
+    /** Anciens élèves qui ne se sont pas encore réinscrits pour l'année scolaire active. */
+    public function nonInscrits(): JsonResponse
+    {
+        $eleves = $this->service->listeAnciensNonReinscrits(Tenant::schoolIds())->load(['classe', 'tuteurs']);
+
+        return ApiResponse::success($eleves->map(fn (Eleve $e) => [
+            'id' => $e->id,
+            'matricule' => $e->matricule,
+            'nom_complet' => $e->nom_complet,
+            'classe' => $e->classe?->nom,
+            'tuteur' => $e->tuteurs->first()?->nom_complet,
+            'telephone' => $e->tuteurs->first()?->telephone,
+        ])->values());
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new PreinscriptionExport(Tenant::schoolIds(), $this->service), 'preinscriptions.xlsx');
+    }
+
+    public function exportNonInscrits(): BinaryFileResponse
+    {
+        return Excel::download(new NonInscritExport(Tenant::schoolIds(), $this->service), 'eleves-non-inscrits.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(PreinscriptionImport::enTetes()), 'modele-preinscriptions.xlsx');
+    }
+
+    /** Import massif d'une campagne de réinscription — chaque ligne validée immédiatement, cf. `PreinscriptionService::importerLigne()`. */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $schoolId = Tenant::schoolId();
+        $import = new PreinscriptionImport($schoolId, $this->service, $request->user()->id);
+        Excel::import($import, $request->file('file'));
+
+        // `imported`/`failed` : mêmes clés que les autres imports de l'appli
+        // (cf. EleveController::import()), pour rester compatible avec le
+        // composant générique `ImportModal` côté web sans lui apprendre un
+        // nouveau format de réponse.
+        return ApiResponse::success([
+            'imported' => $import->importees,
+            'failed' => count($import->erreurs),
+            'erreurs' => $import->erreurs,
+        ], "{$import->importees} préinscription(s) importée(s) et validée(s).");
     }
 
     public function rejeter(Request $request, int $id): JsonResponse

@@ -20,6 +20,13 @@ export interface DashboardStatsEcole {
   top_classes: { classe: string; effectif: number }[];
   indicateurs: { taux_filles: number; eleves_par_classe_moyenne: number };
   activite_recente: ActiviteLog[];
+  /** Confirmation de présence pour l'année active : réinscription des anciens élèves et nouveaux arrivants. */
+  reinscription: {
+    anciens_total: number;
+    anciens_reinscrits: number;
+    taux_reinscription: number;
+    nouveaux_eleves: number;
+  };
 }
 
 /** Enseignant (ou titulaire de primaire/maternelle) : le tableau de bord se limite à ses classes. */

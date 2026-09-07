@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Imports\PreinscriptionImport;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\NotificationInterne;
 use App\Models\Preinscription;
@@ -13,6 +15,8 @@ use App\Models\User;
 use App\Models\Versement;
 use App\Services\PreinscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -258,6 +262,11 @@ class PreinscriptionAdminTest extends TestCase
     /** Réinscription au guichet : l'admin choisit un élève déjà connu, saisie et validation en un seul appel. */
     public function test_admin_cree_et_valide_une_preinscription_pour_un_eleve_existant(): void
     {
+        AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+        ]);
+
         $eleve = Eleve::create([
             'school_id' => $this->school->id, 'matricule' => '26SEC2', 'nom_complet' => 'Mballa Aline',
             'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
@@ -332,5 +341,146 @@ class PreinscriptionAdminTest extends TestCase
 
         $reponse->assertStatus(422);
         $this->assertSame(0, Preinscription::where('eleve_id', $eleve->id)->count());
+    }
+
+    // ----------------------------------------- Confirmation de présence (année)
+
+    private function anneeActive(): AnneeScolaire
+    {
+        return AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+        ]);
+    }
+
+    public function test_la_preinscription_est_stampee_de_lannee_scolaire_active(): void
+    {
+        $annee = $this->anneeActive();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $user = $this->parentUser();
+
+        $reponse = $this->actingAs($user, 'sanctum')->postJson('/api/v1/parent/preinscriptions', [
+            'type' => 'nouveau',
+            'school_id' => $this->school->id,
+            'donnees_eleve' => ['nom_complet' => 'Mballa Junior', 'sexe' => 'M', 'date_naissance' => '2017-03-04', 'classe_id' => $classe->id],
+            'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000']],
+        ]);
+        $reponse->assertCreated();
+
+        $preinscription = Preinscription::where('tuteur_id', $this->tuteur->id)->firstOrFail();
+        $this->assertSame($annee->id, $preinscription->annee_scolaire_id);
+    }
+
+    public function test_valider_un_ancien_eleve_convertit_le_solde_impaye_en_frais_annexe(): void
+    {
+        $anneePrecedente = AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-15', 'is_active' => false,
+        ]);
+        $annee = $this->anneeActive();
+
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SEC9', 'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        // Dossier de l'an dernier, jamais réglé : 50 000 restent dus.
+        DossierScolarite::create([
+            'school_id' => $this->school->id, 'annee_scolaire_id' => $anneePrecedente->id, 'eleve_id' => $eleve->id,
+            'montant_scolarite' => 50000, 'remise' => 0, 'report_dette' => 0,
+        ]);
+
+        $admin = $this->admin();
+        app(PreinscriptionService::class)->creerEtValiderParAdmin($eleve, [
+            'donnees_eleve' => ['nom_complet' => 'Mballa Aline', 'sexe' => 'F', 'date_naissance' => '2016-01-01'],
+            'donnees_tuteurs' => [],
+        ], $admin->id);
+
+        $dossierAnneeActive = DossierScolarite::where('eleve_id', $eleve->id)->where('annee_scolaire_id', $annee->id)->firstOrFail();
+        $this->assertSame(0, $dossierAnneeActive->report_dette);
+        $ligneDette = $dossierAnneeActive->fraisAnnexes()->where('libelle', 'Dette antérieure')->first();
+        $this->assertNotNull($ligneDette);
+        $this->assertSame(50000, $ligneDette->montant);
+    }
+
+    public function test_liste_anciens_non_reinscrits_exclut_les_deja_reinscrits(): void
+    {
+        $annee = $this->anneeActive();
+
+        $reinscrit = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SECA', 'nom_complet' => 'Déjà réinscrit',
+            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+        $reinscrit->forceFill(['created_at' => '2025-01-01'])->saveQuietly();
+        $reinscrit->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+        $nonReinscrit = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SECB', 'nom_complet' => 'Pas encore réinscrit',
+            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+        ]);
+        $nonReinscrit->forceFill(['created_at' => '2025-01-01'])->saveQuietly();
+
+        app(PreinscriptionService::class)->creerEtValiderParAdmin($reinscrit, [
+            'donnees_eleve' => ['nom_complet' => 'Déjà réinscrit', 'sexe' => 'M', 'date_naissance' => '2016-01-01'],
+            'donnees_tuteurs' => [],
+        ], $this->admin()->id);
+
+        $nonReinscrits = app(PreinscriptionService::class)->listeAnciensNonReinscrits($this->school->id);
+
+        $this->assertTrue($nonReinscrits->contains('id', $nonReinscrit->id));
+        $this->assertFalse($nonReinscrits->contains('id', $reinscrit->id));
+    }
+
+    // --------------------------------------------------------- Import massif
+
+    public function test_import_xlsx_traite_ancien_et_nouvel_eleve_et_rapporte_les_erreurs(): void
+    {
+        Excel::fake();
+        $this->anneeActive();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $ancien = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => 'IMP1', 'nom_complet' => 'Ancien Un',
+            'sexe' => 'M', 'date_naissance' => '2015-01-01', 'statut' => 'actif',
+        ]);
+        $ancien->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+
+        // Ligne 1 : ancien élève par matricule. Ligne 2 : nouvel élève avec
+        // tuteur. Ligne 3 : matricule inconnu, doit remonter en erreur sans
+        // empêcher les deux autres lignes de s'importer.
+        $import->collection(collect([
+            collect(['matricule' => 'IMP1', 'nom_complet' => 'Ancien Un', 'classe' => 'CM2']),
+            collect(['nom_complet' => 'Nouvel Eleve', 'sexe' => 'M', 'date_naissance' => '2018-01-01', 'classe' => 'CM2', 'tuteur_nom' => 'Un Tuteur', 'tuteur_telephone' => '698000000']),
+            collect(['matricule' => 'INCONNU', 'nom_complet' => 'Fantome']),
+        ]));
+
+        $this->assertSame(2, $import->importees);
+        $this->assertCount(1, $import->erreurs);
+        // +1 pour l'en-tête (absent de ce tableau construit à la main), +1 pour repasser en base 1 : la 3e ligne de données est la ligne 4 d'un vrai fichier.
+        $this->assertSame(4, $import->erreurs[0]['ligne']);
+
+        $this->assertSame($classe->id, $ancien->fresh()->classe_id);
+        $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel Eleve')->first());
+    }
+
+    public function test_endpoint_import_preinscriptions_accepte_un_fichier(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $fichier = UploadedFile::fake()->createWithContent(
+            'import.csv',
+            "nom_complet,sexe,date_naissance,classe,tuteur_nom,tuteur_telephone\nNouvel CSV,M,2018-01-01,CM2,Tuteur CSV,698111111\n",
+        );
+
+        $reponse = $this->actingAs($this->admin(), 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->post('/api/v1/preinscriptions/import', ['file' => $fichier]);
+
+        $reponse->assertOk();
+        $this->assertSame(1, $reponse->json('data.imported'));
+        $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel CSV')->first());
     }
 }

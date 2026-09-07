@@ -463,6 +463,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
                 Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store');
+                // Routes statiques déclarées avant `preinscriptions/{id}` : sinon
+                // Laravel les fait matcher par le paramètre `{id}` (ex.
+                // "export" essaierait de charger la préinscription n°"export").
+                Route::get('preinscriptions/non-inscrits', [PreinscriptionAdminController::class, 'nonInscrits'])->name('preinscriptions.non-inscrits');
+                Route::get('preinscriptions/export', [PreinscriptionAdminController::class, 'export'])->name('preinscriptions.export');
+                Route::get('preinscriptions/non-inscrits/export', [PreinscriptionAdminController::class, 'exportNonInscrits'])->name('preinscriptions.non-inscrits.export');
+                Route::get('preinscriptions/modele', [PreinscriptionAdminController::class, 'modele'])->name('preinscriptions.modele');
+                Route::post('preinscriptions/import', [PreinscriptionAdminController::class, 'import'])->name('preinscriptions.import');
                 Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
                 Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');

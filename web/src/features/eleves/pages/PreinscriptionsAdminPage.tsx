@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ClipboardCheck, Search, Plus } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ClipboardCheck, Search, Plus, UserX } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs } from '@/features/finance/api'
@@ -11,6 +11,8 @@ import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+import { Tabs } from '@/shared/ui/Tabs'
 
 type Statut = 'en_attente' | 'validee' | 'rejetee'
 type Type = 'existant' | 'nouveau'
@@ -31,6 +33,20 @@ export interface PreinscriptionResume {
 
 async function fetchPreinscriptions(statut: Statut | ''): Promise<PreinscriptionResume[]> {
   const { data } = await http.get<ApiResponse<PreinscriptionResume[]>>('/preinscriptions', { params: { statut: statut || undefined } })
+  return data.data
+}
+
+export interface EleveNonInscrit {
+  id: number
+  matricule: string | null
+  nom_complet: string
+  classe: string | null
+  tuteur: string | null
+  telephone: string | null
+}
+
+async function fetchNonInscrits(): Promise<EleveNonInscrit[]> {
+  const { data } = await http.get<ApiResponse<EleveNonInscrit[]>>('/preinscriptions/non-inscrits')
   return data.data
 }
 
@@ -55,12 +71,21 @@ export const CHAMPS_ELEVE: [string, string][] = [
 /** File d'attente des préinscriptions déposées par les parents — à examiner, valider ou rejeter (détail sur sa propre page, cf. `PreinscriptionDetailPage`). */
 export function PreinscriptionsAdminPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [onglet, setOnglet] = useState<'preinscriptions' | 'non-inscrits'>('preinscriptions')
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['preinscriptions-admin', statut],
     queryFn: () => fetchPreinscriptions(statut),
+    enabled: onglet === 'preinscriptions',
+  })
+
+  const { data: nonInscrits, isLoading: nonInscritsLoading, isError: nonInscritsError } = useQuery({
+    queryKey: ['preinscriptions-non-inscrits'],
+    queryFn: fetchNonInscrits,
+    enabled: onglet === 'non-inscrits',
   })
 
   const donneesFiltrees = (data ?? []).filter((p) => {
@@ -71,11 +96,17 @@ export function PreinscriptionsAdminPage() {
       .some((v) => String(v).toLowerCase().includes(q))
   })
 
+  const nonInscritsFiltres = (nonInscrits ?? []).filter((e) => {
+    const q = recherche.trim().toLowerCase()
+    if (!q) return true
+    return [e.nom_complet, e.matricule, e.tuteur, e.telephone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+  })
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         titre="Préinscriptions"
-        sousTitre="Demandes déposées par les parents, en attente de validation."
+        sousTitre="Confirmation de présence pour l'année scolaire en cours."
         icon={ClipboardCheck}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -86,12 +117,26 @@ export function PreinscriptionsAdminPage() {
               className="w-56"
               icon={Search}
             />
-            <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
-              <option value="en_attente">En attente</option>
-              <option value="validee">Validées</option>
-              <option value="rejetee">Rejetées</option>
-              <option value="">Toutes</option>
-            </Select>
+            {onglet === 'preinscriptions' && (
+              <Select value={statut} onChange={(e) => setStatut(e.target.value as Statut | '')} className="w-48">
+                <option value="en_attente">En attente</option>
+                <option value="validee">Validées</option>
+                <option value="rejetee">Rejetées</option>
+                <option value="">Toutes</option>
+              </Select>
+            )}
+            <ImportExportBar
+              titreImport="Importer des préinscriptions"
+              importUrl="preinscriptions/import"
+              exportUrl={onglet === 'non-inscrits' ? 'preinscriptions/non-inscrits/export' : 'preinscriptions/export'}
+              modeleUrl="preinscriptions/modele"
+              colonnes={['Matricule', 'Nom complet', 'Sexe', 'Date de naissance', 'Classe', 'Nom du tuteur', 'Téléphone du tuteur', 'Montant à verser', 'Mode de versement']}
+              nomFichier={onglet === 'non-inscrits' ? 'eleves-non-inscrits' : 'preinscriptions'}
+              onImported={() => {
+                queryClient.invalidateQueries({ queryKey: ['preinscriptions-admin'] })
+                queryClient.invalidateQueries({ queryKey: ['preinscriptions-non-inscrits'] })
+              }}
+            />
             <Link to="/preinscriptions/nouvelle">
               <Button type="button">
                 <Plus className="h-4 w-4" />
@@ -102,7 +147,45 @@ export function PreinscriptionsAdminPage() {
         }
       />
 
-      {isLoading ? (
+      <Tabs
+        active={onglet}
+        onChange={(cle) => setOnglet(cle as 'preinscriptions' | 'non-inscrits')}
+        tabs={[
+          { key: 'preinscriptions', label: 'Préinscriptions' },
+          { key: 'non-inscrits', label: nonInscrits?.length ? `Non inscrits (${nonInscrits.length})` : 'Non inscrits' },
+        ]}
+      />
+
+      {onglet === 'non-inscrits' ? (
+        nonInscritsLoading ? (
+          <Spinner />
+        ) : nonInscritsError || !nonInscrits ? (
+          <ErrorState />
+        ) : nonInscrits.length === 0 ? (
+          <EmptyState label="Tous les anciens élèves se sont réinscrits." />
+        ) : nonInscritsFiltres.length === 0 ? (
+          <EmptyState label="Aucun élève ne correspond à cette recherche." />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {nonInscritsFiltres.map((e) => (
+              <Card key={e.id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-display text-base font-bold text-navy-900">{e.nom_complet}</p>
+                    <p className="mt-0.5 text-xs text-navy-400">
+                      {e.matricule} · {e.classe ?? 'Sans classe'} · {e.tuteur ?? 'Aucun tuteur'} {e.telephone ? `(${e.telephone})` : ''}
+                    </p>
+                  </div>
+                  <Badge tone="gold">
+                    <UserX className="h-3.5 w-3.5" />
+                    Non réinscrit
+                  </Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : isLoading ? (
         <Spinner />
       ) : isError || !data ? (
         <ErrorState />

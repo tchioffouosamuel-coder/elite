@@ -16,6 +16,7 @@ class Preinscription extends Model
 {
     protected $fillable = [
         'school_id',
+        'annee_scolaire_id',
         'tuteur_id',
         'eleve_id',
         'type',
@@ -52,6 +53,11 @@ class Preinscription extends Model
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);
+    }
+
+    public function anneeScolaire(): BelongsTo
+    {
+        return $this->belongsTo(AnneeScolaire::class);
     }
 
     public function tuteur(): BelongsTo

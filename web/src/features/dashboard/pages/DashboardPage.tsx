@@ -18,6 +18,8 @@ import {
   UserX,
   TrendingUp,
   Eye,
+  ClipboardCheck,
+  UserPlus,
 } from 'lucide-react'
 import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog } from '@/features/dashboard/api'
 import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
@@ -389,7 +391,7 @@ function PilotagePanel() {
 function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'ecole' }> }) {
   const { t } = useTranslation()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
-  const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active } = data
+  const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
   const partGarcons = Math.round((repartition_genre.garcons / totalGenre) * 100)
@@ -406,6 +408,17 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
         <StatCard label={t('dashboard.staff')} value={effectifs.personnel} icon={Users} accent="green" />
         <StatCard label={t('dashboard.teachers')} value={effectifs.enseignants} icon={GraduationCap} accent="green" />
         <StatCard label={t('dashboard.classes')} value={effectifs.classes} icon={School} accent="gold" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          label={t('dashboard.reinscription_rate')}
+          value={`${reinscription.taux_reinscription}%`}
+          hint={`${reinscription.anciens_reinscrits} / ${reinscription.anciens_total}`}
+          icon={ClipboardCheck}
+          accent="gold"
+        />
+        <StatCard label={t('dashboard.new_students')} value={reinscription.nouveaux_eleves} icon={UserPlus} accent="navy" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

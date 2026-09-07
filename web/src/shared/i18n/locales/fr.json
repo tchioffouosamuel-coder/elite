@@ -177,6 +177,8 @@
     "staff": "Personnel",
     "teachers": "Enseignants",
     "classes": "Classes",
+    "reinscription_rate": "Taux de réinscription",
+    "new_students": "Nouveaux élèves",
     "gender_distribution": "Répartition par genre",
     "boys": "Garçons",
     "girls": "Filles",

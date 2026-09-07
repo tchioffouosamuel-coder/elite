@@ -9,6 +9,7 @@ use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\Sequence;
 use App\Models\User;
 use App\Support\Perimetre;
@@ -21,6 +22,7 @@ class DashboardService extends BaseService
         private readonly NoteService $notes,
         private readonly NotePrimaireService $notesPrimaire,
         private readonly ProgressionService $progression,
+        private readonly PreinscriptionService $preinscriptions,
     ) {}
 
     /**
@@ -85,6 +87,17 @@ class DashboardService extends BaseService
             ->latest('created_at')->limit(6)->get()
             ->map(fn (ActivityLog $log) => $this->formaterLogActivite($log));
 
+        // Confirmation de présence pour l'année en cours : combien d'anciens
+        // élèves se sont déjà réinscrits, et combien de nouveaux ont rejoint —
+        // cf. PreinscriptionService pour la définition exacte d'« ancien ».
+        $anciensTotal = $this->preinscriptions->anciensEleves($schoolId)->count();
+        $ancienesNonReinscrits = $this->preinscriptions->listeAnciensNonReinscrits($schoolId)->count();
+        $ancienesReinscrits = $anciensTotal - $ancienesNonReinscrits;
+        $nouveauxEleves = Preinscription::forSchool($schoolId)
+            ->where('type', 'nouveau')->where('statut', 'validee')
+            ->whereHas('anneeScolaire', fn ($q) => $q->where('is_active', true))
+            ->count();
+
         return [
             'scope' => 'ecole',
             'annee_scolaire_active' => $anneeActive?->libelle,
@@ -101,6 +114,12 @@ class DashboardService extends BaseService
                 'eleves_par_classe_moyenne' => $totalClasses > 0 ? round($totalEleves / $totalClasses, 1) : 0,
             ],
             'activite_recente' => $activiteRecente,
+            'reinscription' => [
+                'anciens_total' => $anciensTotal,
+                'anciens_reinscrits' => $ancienesReinscrits,
+                'taux_reinscription' => $anciensTotal > 0 ? round($ancienesReinscrits / $anciensTotal * 100, 1) : 0,
+                'nouveaux_eleves' => $nouveauxEleves,
+            ],
         ];
     }
 
