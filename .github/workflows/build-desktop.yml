@@ -34,6 +34,19 @@ jobs:
         working-directory: web/desktop
         run: npm install --no-audit --no-fund
 
+      # `scripts/bundle-php.cjs` copie une installation PHP portable
+      # existante (poste de développement : `C:\php`) — un runner GitHub
+      # Actions n'en a aucune à cet emplacement, donc on en télécharge une
+      # (build officiel Windows, NTS/x64, même variante que celle utilisée en
+      # développement) et on la pointe via `ELITES_PHP_SOURCE`.
+      - name: Download portable PHP
+        shell: pwsh
+        run: |
+          $releases = Invoke-RestMethod -Uri "https://windows.php.net/downloads/releases/releases.json"
+          $zipName = $releases.'8.3'.'nts-vs16-x64'.zip.path
+          Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/$zipName" -OutFile php.zip
+          Expand-Archive -Path php.zip -DestinationPath C:\php-portable
+
       - name: Build and publish Windows installer
         working-directory: web/desktop
         # `GH_TOKEN` est lu par scripts/build-installer.cjs (et transmis tel
@@ -43,6 +56,7 @@ jobs:
         # porte pas forcément un cohérent) déclenche réellement la publication.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELITES_PHP_SOURCE: C:\php-portable
         run: npm run ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'build' }}
 
       - name: Upload installer
