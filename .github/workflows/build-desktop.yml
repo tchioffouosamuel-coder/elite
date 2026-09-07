@@ -31,10 +31,14 @@ jobs:
       # runner, pas le PHP portable téléchargé plus bas pour l'app elle-même —
       # celui préinstallé par défaut sur windows-latest n'active ni fileinfo
       # ni gd, requis par phpspreadsheet/phpword/mpdf/flysystem.
+      # 8.4, pas 8.3 (la contrainte `^8.3` de composer.json) : composer.lock a
+      # été résolu avec un PHP 8.4 en développement, et certains paquets
+      # verrouillés (symfony/*) exigent réellement >=8.4.1 — un 8.3 sur le
+      # runner échouerait la résolution des mêmes verrous.
       - name: Setup PHP (for composer)
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: fileinfo, gd, mbstring, intl, pdo_sqlite, sqlite3, zip, curl, sodium, openssl
           tools: composer
 
@@ -55,7 +59,13 @@ jobs:
         shell: pwsh
         run: |
           $releases = Invoke-RestMethod -Uri "https://windows.php.net/downloads/releases/releases.json"
-          $zipName = $releases.'8.3'.'nts-vs16-x64'.zip.path
+          $release = $releases.'8.4'
+          # Le nom de la variante (vs16/vs17/...) suit la version de Visual
+          # Studio utilisée pour compiler cette version de PHP — imprévisible
+          # d'une version à l'autre, on la retrouve donc par motif plutôt que
+          # de la coder en dur.
+          $variante = $release.PSObject.Properties.Name | Where-Object { $_ -like 'nts-*-x64' } | Select-Object -First 1
+          $zipName = $release.$variante.zip.path
           Invoke-WebRequest -Uri "https://windows.php.net/downloads/releases/$zipName" -OutFile php.zip
           Expand-Archive -Path php.zip -DestinationPath C:\php-portable
 
