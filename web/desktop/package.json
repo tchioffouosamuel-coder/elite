@@ -1,6 +1,6 @@
 {
   "name": "elites-school-desktop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Elites School — client desktop offline",
   "author": "Artiscode Agency",
   "private": true,
@@ -45,8 +45,7 @@
     "publish": {
       "provider": "github",
       "owner": "tchioffouosamuel-coder",
-      "repo": "elite",
-      "draft": false
+      "repo": "elite"
     }
   }
 }

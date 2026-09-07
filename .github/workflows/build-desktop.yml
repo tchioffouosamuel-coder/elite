@@ -86,6 +86,17 @@ jobs:
           ELITES_PHP_SOURCE: C:\php-portable
         run: npm run ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'build' }}
 
+      # `build.publish.draft` n'est volontairement pas dans package.json : le
+      # schéma de validation d'electron-builder rejette cette clé sur la forme
+      # courte (objet) de `publish` (échec vécu sur les builds v1.2.0-v1.2.2).
+      # La release est donc créée en brouillon par electron-builder, puis
+      # publiée ici explicitement via l'API GitHub.
+      - name: Publish the GitHub release (undraft)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit ${{ github.ref_name }} --draft=false
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
