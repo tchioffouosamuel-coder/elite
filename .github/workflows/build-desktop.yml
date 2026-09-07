@@ -48,7 +48,12 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: web/desktop
-        run: npm install --no-audit --no-fund
+        # `npm ci`, pas `npm install` : ce dernier peut faire flotter une
+        # dépendance transitive au-delà de ce que verrouille package-lock.json
+        # (ex. le validateur de schéma d'electron-builder), cassant la
+        # validation de `build.publish` d'une exécution à l'autre sans qu'aucun
+        # fichier du dépôt n'ait changé — vécu lors du build de la v1.2.0.
+        run: npm ci --no-audit --no-fund
 
       # `scripts/bundle-php.cjs` copie une installation PHP portable
       # existante (poste de développement : `C:\php`) — un runner GitHub

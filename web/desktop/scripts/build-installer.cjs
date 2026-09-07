@@ -113,7 +113,7 @@ function copierApi(destination) {
  * public sans canal ni jeton spécifique.
  */
 function ecrireAppUpdateYml(resourcesDir) {
-  const publish = Array.isArray(packageJson.build?.publish) ? packageJson.build.publish[0] : packageJson.build?.publish;
+  const publish = packageJson.build?.publish;
   if (!publish || publish.provider !== "github" || !publish.owner || !publish.repo) {
     console.warn(
       "[desktop] build.publish (provider github, owner, repo) absent ou incomplet dans package.json : " +
