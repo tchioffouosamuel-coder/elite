@@ -26,6 +26,18 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      # `composer install --no-dev` (lancé par scripts/build-installer.cjs
+      # pour la copie de l'API embarquée) tourne avec le PHP système du
+      # runner, pas le PHP portable téléchargé plus bas pour l'app elle-même —
+      # celui préinstallé par défaut sur windows-latest n'active ni fileinfo
+      # ni gd, requis par phpspreadsheet/phpword/mpdf/flysystem.
+      - name: Setup PHP (for composer)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: fileinfo, gd, mbstring, intl, pdo_sqlite, sqlite3, zip, curl, sodium, openssl
+          tools: composer
+
       - name: Install web dependencies
         working-directory: web
         run: npm ci
