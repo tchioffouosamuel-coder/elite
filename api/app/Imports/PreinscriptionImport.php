@@ -72,6 +72,17 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
         'montant_scolarite' => 'scolarite_payee',
         'remise_scol' => 'scolarite_remise',
         'annee_scol' => 'annee_source',
+
+        /*
+         * Le fichier porte aussi sa propre colonne « DEBTS » — en principe
+         * égale à frais_scolarite - MONTANT_SCOLARITE - remise_scol (cf. le
+         * commentaire ci-dessus), mais pas toujours : certaines lignes n'ont
+         * pas les trois colonnes de calcul renseignées alors que DEBTS l'est.
+         * Elle prime donc sur le calcul quand elle est présente — cf.
+         * `PreinscriptionService::enregistrerDetteImport()`.
+         */
+        'debts' => 'dette_declaree',
+        'dette' => 'dette_declaree',
     ];
 
     /** @return list<string> */
@@ -81,7 +92,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
             'IDEleves', 'nom_eleves', 'sexe_eleves', 'ddn_eleves', 'Nom_classe', 'niveau_classe',
             'nationalité', 'lieu_naiss', 'numero_acte_naissance', 'redoublant', 'refugies', 'deplace_interne',
             'adresse_parent', 'nom_parents', 'tel_pere', 'fonction_pere', 'nom_mere', 'tel_mere', 'fonction_mere',
-            'tel_autre', 'frais_scolarite', 'MONTANT_SCOLARITE', 'remise_scol', 'annee_scol',
+            'tel_autre', 'frais_scolarite', 'MONTANT_SCOLARITE', 'remise_scol', 'annee_scol', 'DEBTS',
         ];
     }
 
@@ -149,6 +160,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
             'scolarite_due' => self::montant($ligne['scolarite_due'] ?? null),
             'scolarite_payee' => self::montant($ligne['scolarite_payee'] ?? null),
             'scolarite_remise' => self::montant($ligne['scolarite_remise'] ?? null),
+            'dette_declaree' => self::montant($ligne['dette_declaree'] ?? null),
             'annee_source' => isset($ligne['annee_source']) ? self::texte($ligne['annee_source']) : null,
         ];
     }

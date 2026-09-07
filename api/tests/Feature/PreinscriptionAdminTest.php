@@ -539,4 +539,31 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertNotNull($ligneDette);
         $this->assertSame(50000, $ligneDette->montant); // 90000 - 30000 - 10000
     }
+
+    /** La colonne DEBTS du fichier prime sur le calcul quand elle est renseignée. */
+    public function test_import_utilise_la_colonne_debts_quand_les_colonnes_de_calcul_sont_absentes(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => 'DET2', 'nom_complet' => 'Autre Endette',
+            'sexe' => 'M', 'date_naissance' => '2014-01-01', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'ideleves' => 'DET2', 'nom_eleves' => 'Autre Endette', 'nom_classe' => 'CM2',
+                'debts' => '25000', 'annee_scol' => '2025-2026',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+
+        $dossier = DossierScolarite::where('eleve_id', $eleve->id)->firstOrFail();
+        $ligneDette = $dossier->fraisAnnexes()->where('libelle', 'Dette antérieure')->first();
+        $this->assertNotNull($ligneDette);
+        $this->assertSame(25000, $ligneDette->montant);
+    }
 }

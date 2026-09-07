@@ -146,6 +146,7 @@ export function PreinscriptionsAdminPage() {
                 'frais_scolarite',
                 'MONTANT_SCOLARITE',
                 'remise_scol',
+                'DEBTS',
               ]}
               nomFichier={onglet === 'non-inscrits' ? 'eleves-non-inscrits' : 'preinscriptions'}
               onImported={() => {

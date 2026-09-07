@@ -348,7 +348,7 @@ class PreinscriptionService extends BaseService
      *   redoublant?: ?bool, refugie?: ?string, deplace_interne?: ?string,
      *   classe?: ?string, niveau_classe?: ?string,
      *   tuteurs?: list<array{lien: string, nom: ?string, telephone: ?string, profession: ?string}>,
-     *   scolarite_due?: ?int, scolarite_payee?: ?int, scolarite_remise?: ?int, annee_source?: ?string,
+     *   scolarite_due?: ?int, scolarite_payee?: ?int, scolarite_remise?: ?int, dette_declaree?: ?int, annee_source?: ?string,
      * }  $ligne
      */
     public function importerLigne(int $schoolId, array $ligne, int $adminUserId): Preinscription
@@ -451,8 +451,11 @@ class PreinscriptionService extends BaseService
 
     /**
      * Reprend en dette antérieure ce que le fichier de situation dit encore
-     * dû (frais - montant réglé - remise), exactement comme
-     * `EleveImport::traiterDette()` — idempotent sur (élève, année source) via
+     * dû. La colonne « DEBTS » du fichier prime quand elle est renseignée —
+     * certaines lignes ne portent pas les trois colonnes de calcul (frais,
+     * montant réglé, remise) alors que DEBTS l'est ; à défaut, on retombe sur
+     * le calcul (frais - montant réglé - remise), exactement comme
+     * `EleveImport::traiterDette()`. Idempotent sur (élève, année source) via
      * le motif, pour qu'un réimport du même fichier ne double pas le report.
      * La dette rejoint `report_dette` du prochain dossier ouvert
      * (`ScolariteService::dossier()`), que {@see valider()} convertit ensuite
@@ -460,13 +463,17 @@ class PreinscriptionService extends BaseService
      */
     private function enregistrerDetteImport(Eleve $eleve, array $ligne): void
     {
-        $du = $ligne['scolarite_due'] ?? null;
+        if (($ligne['dette_declaree'] ?? null) !== null) {
+            $dette = $ligne['dette_declaree'];
+        } else {
+            $du = $ligne['scolarite_due'] ?? null;
 
-        if ($du === null) {
-            return;
+            if ($du === null) {
+                return;
+            }
+
+            $dette = $du - ($ligne['scolarite_payee'] ?? 0) - ($ligne['scolarite_remise'] ?? 0);
         }
-
-        $dette = $du - ($ligne['scolarite_payee'] ?? 0) - ($ligne['scolarite_remise'] ?? 0);
 
         if ($dette <= 0) {
             return;
