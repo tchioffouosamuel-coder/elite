@@ -522,10 +522,25 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         return preg_replace('/[^A-Z0-9]+/', '', mb_strtoupper(Str::ascii((string) $libelle))) ?? '';
     }
 
+    /**
+     * Erreurs de formule Excel qui se retrouvent parfois figées en texte dans
+     * un export (VLOOKUP resté en `#N/A` faute de correspondance, etc.) — à
+     * traiter comme une case vide, pas comme une vraie valeur : sans ce
+     * filtre, `#N/A` glissait tel quel jusque dans les champs (ex. `sexe`
+     * devenait `"#"`, le premier caractère de `#N/A`), écrasant en silence,
+     * sans jamais lever d'erreur, une donnée correcte déjà en base pour un
+     * élève existant. Cf. `PreinscriptionImport::ERREURS_EXCEL`, même filtre.
+     */
+    private const ERREURS_EXCEL = ['#N/A', '#REF!', '#VALUE!', '#DIV/0!', '#NAME?', '#NULL!', '#NUM!'];
+
     private static function nettoyer(mixed $valeur): mixed
     {
         if (is_string($valeur)) {
             $valeur = trim($valeur);
+
+            if (in_array(mb_strtoupper($valeur), self::ERREURS_EXCEL, true)) {
+                return null;
+            }
         }
 
         return ($valeur === '' || $valeur === null) ? null : $valeur;

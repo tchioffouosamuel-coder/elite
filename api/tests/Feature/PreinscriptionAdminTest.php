@@ -469,6 +469,43 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel Eleve')->first());
     }
 
+    /**
+     * Non-régression : un export « fichier de situation » construit à coups
+     * de VLOOKUP laisse souvent des `#N/A` littéraux sur les lignes sans
+     * correspondance (observé en conditions réelles : 173 lignes sur 763 dans
+     * un fichier réel). Avant ce correctif, `#N/A` passait tel quel jusqu'au
+     * champ `sexe` de l'élève déjà en base — `mb_substr("#N/A", 0, 1)` = `"#"`
+     * — l'écrasant silencieusement avec une valeur invalide, sans jamais
+     * lever d'erreur ni empêcher l'import de « réussir ».
+     */
+    public function test_import_ignore_les_erreurs_de_formule_excel_comme_na(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => 'NA1', 'nom_complet' => 'Deja Correct',
+            'sexe' => 'F', 'date_naissance' => '2014-01-01', 'lieu_naissance' => 'Douala', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'ideleves' => 'NA1', 'nom_eleves' => 'Deja Correct', 'nom_classe' => 'CM2',
+                'sexe_eleves' => '#N/A', 'ddn_eleves' => '#N/A', 'lieu_naiss' => '#N/A',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+        $this->assertCount(0, $import->erreurs);
+
+        $frais = $eleve->fresh();
+        // Les `#N/A` n'ont écrasé aucun champ existant : sexe/date/lieu restent ceux d'avant l'import.
+        $this->assertSame('F', $frais->sexe);
+        $this->assertSame('2014-01-01', $frais->date_naissance->toDateString());
+        $this->assertSame('Douala', $frais->lieu_naissance);
+    }
+
     public function test_endpoint_import_preinscriptions_accepte_un_fichier(): void
     {
         $this->anneeActive();
