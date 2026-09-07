@@ -212,21 +212,21 @@ function runBuilder(args) {
   cpSync(unpacked, stableOutput, { recursive: true });
   ecrireAppUpdateYml(path.join(stableOutput, "resources"));
 
-  const shouldPublish = process.argv.includes("--publish");
-  if (shouldPublish && !process.env.GH_TOKEN) {
-    throw new Error(
-      "--publish demande la variable d'environnement GH_TOKEN (jeton GitHub avec accès aux releases du dépôt tchioffouosamuel-coder/elite).",
-    );
-  }
-
-  console.log(`[desktop] creation du setup NSIS${shouldPublish ? " (avec publication GitHub)" : ""}`);
+  // electron-builder ne publie plus lui-même la Release GitHub : ses uploads
+  // d'assets tournent en parallèle et chacun tente d'assurer que la release
+  // existe, ce qui a fini par créer deux releases distinctes pour le même
+  // tag (une seule complète, l'autre orpheline — parfois même sans le bon
+  // nom de tag, cf. la release "untagged-" produite pour la v1.2.5). La
+  // publication se fait donc désormais ailleurs (`gh release create`, un
+  // seul appel atomique), une fois le build terminé — cf. le workflow CI.
+  console.log("[desktop] creation du setup NSIS");
   const status = runBuilder([
     "--win",
     "nsis",
     "--prepackaged",
     stableOutput,
     "--publish",
-    shouldPublish ? "always" : "never",
+    "never",
     `--config.directories.output=${installerOutput}`,
   ]);
 
