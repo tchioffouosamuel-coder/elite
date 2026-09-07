@@ -32,6 +32,11 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.auth.logout',
         'api.v1.auth.mot-de-passe',
         'api.v1.auth.profil',
+        // Mot de passe oublié : par définition accessible à qui n'a plus
+        // accès à son compte, donc sans privilège ni session à vérifier —
+        // l'OTP envoyé au téléphone/email déjà connu en tient lieu.
+        'api.v1.auth.mot-de-passe-oublie',
+        'api.v1.auth.reinitialiser-mot-de-passe',
 
         // Ses propres notifications : les lire ou les marquer lues ne touche
         // que les lignes déjà destinées à l'appelant.
@@ -72,6 +77,14 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.verification-bulletin.show',
         // Même principe pour le reçu de versement, scanné depuis le papier.
         'api.v1.verification-versement.show',
+        // Idem pour le reçu de versement bus.
+        'api.v1.verification-versement-bus.show',
+
+        // Rapport de livraison SMS : rappelé par la passerelle SMS elle-même,
+        // jamais par un compte de l'application — son authenticité vient de
+        // son propre mécanisme (jeton/signature du fournisseur), pas d'un
+        // privilège applicatif.
+        'api.v1.sms.dlr-callback',
 
         // Responsabilités du compte connecté (professeur principal,
         // surveillant général, censeur…) : il n'y lit que les siennes, et les
@@ -160,8 +173,12 @@ class RoutesProtegeesTest extends TestCase
      */
     private const PUBLIQUES = [
         'api.v1.auth.login',
+        'api.v1.auth.mot-de-passe-oublie',
+        'api.v1.auth.reinitialiser-mot-de-passe',
         'api.v1.verification-bulletin.show',
         'api.v1.verification-versement.show',
+        'api.v1.verification-versement-bus.show',
+        'api.v1.sms.dlr-callback',
 
         // Bootstrap d'une instance locale desktop : aucun jeton n'existe
         // encore avant `provisionner`, et `connexion` EST le mécanisme qui en
