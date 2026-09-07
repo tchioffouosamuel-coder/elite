@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\DetteAnterieure;
 use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\Preinscription;
@@ -333,50 +334,64 @@ class PreinscriptionService extends BaseService
     }
 
     /**
-     * Une ligne d'import massif (fichier XLSX de campagne de réinscription) —
-     * validée immédiatement comme {@see creerEtValiderParAdmin()} : l'admin a
-     * déjà revu son fichier avant de l'importer, pas de file d'attente
-     * intermédiaire. Ancien élève si un matricule est fourni, nouveau sinon.
+     * Une ligne d'import massif (fichier de situation, même format que
+     * l'import élèves) — validée immédiatement comme
+     * {@see creerEtValiderParAdmin()} : l'admin a déjà revu son fichier avant
+     * de l'importer, pas de file d'attente intermédiaire.
      *
-     * @param  array{matricule?: ?string, nom_complet?: ?string, sexe?: ?string, date_naissance?: ?string, classe?: ?string, tuteur_nom?: ?string, tuteur_telephone?: ?string, montant_verser?: ?int, mode_versement?: ?string}  $ligne
+     * Ancien élève ou nouveau : jamais une colonne dédiée, toujours une
+     * comparaison — cf. {@see rapprocherEleveExistant()}.
+     *
+     * @param  array{
+     *   matricule?: ?string, nom_complet?: ?string, sexe?: ?string, date_naissance?: ?string,
+     *   lieu_naissance?: ?string, nationalite?: ?string, numero_acte_naissance?: ?string, adresse?: ?string,
+     *   redoublant?: ?bool, refugie?: ?string, deplace_interne?: ?string,
+     *   classe?: ?string, niveau_classe?: ?string,
+     *   tuteurs?: list<array{lien: string, nom: ?string, telephone: ?string, profession: ?string}>,
+     *   scolarite_due?: ?int, scolarite_payee?: ?int, scolarite_remise?: ?int, annee_source?: ?string,
+     * }  $ligne
      */
     public function importerLigne(int $schoolId, array $ligne, int $adminUserId): Preinscription
     {
-        $classeId = $this->resoudreClasse($schoolId, $ligne['classe'] ?? null);
+        $classeId = $this->resoudreClasse($schoolId, [$ligne['classe'] ?? null, $ligne['niveau_classe'] ?? null]);
 
         $donneesEleve = array_filter([
             'nom_complet' => $ligne['nom_complet'] ?? null,
             'sexe' => $ligne['sexe'] ?? null,
             'date_naissance' => $ligne['date_naissance'] ?? null,
+            'lieu_naissance' => $ligne['lieu_naissance'] ?? null,
+            'nationalite' => $ligne['nationalite'] ?? null,
+            'numero_acte_naissance' => $ligne['numero_acte_naissance'] ?? null,
+            'adresse' => $ligne['adresse'] ?? null,
+            'redoublant' => $ligne['redoublant'] ?? null,
+            'refugie' => $ligne['refugie'] ?? null,
+            'deplace_interne' => $ligne['deplace_interne'] ?? null,
         ], fn ($v) => $v !== null);
 
-        $tuteurFourni = ($ligne['tuteur_nom'] ?? null) !== null || ($ligne['tuteur_telephone'] ?? null) !== null;
-        $donneesTuteurs = $tuteurFourni
-            ? [['nom_complet' => $ligne['tuteur_nom'] ?? $ligne['tuteur_telephone'], 'telephone' => $ligne['tuteur_telephone'] ?? null, 'is_principal' => true]]
-            : [];
+        $donneesTuteurs = collect($ligne['tuteurs'] ?? [])
+            ->values()
+            ->map(fn (array $c, int $i) => [
+                'nom_complet' => $c['nom'] ?? $c['lien'],
+                'telephone' => $c['telephone'] ?? null,
+                'lien_parente' => $c['lien'],
+                'profession' => $c['profession'] ?? null,
+                'is_principal' => $i === 0,
+            ])->all();
 
-        if (! empty($ligne['matricule'])) {
-            $eleve = Eleve::where('school_id', $schoolId)->where('matricule', $ligne['matricule'])->first();
+        $eleve = $this->rapprocherEleveExistant($schoolId, $ligne);
 
-            if ($eleve === null) {
-                throw new RuntimeException("Aucun élève avec le matricule « {$ligne['matricule']} » dans cette école.");
-            }
-
-            if (! isset($donneesEleve['nom_complet'])) {
-                $donneesEleve['nom_complet'] = $eleve->nom_complet;
-            }
+        if ($eleve !== null) {
+            $this->enregistrerDetteImport($eleve, $ligne);
 
             return $this->creerEtValiderParAdmin($eleve, [
                 'donnees_eleve' => $donneesEleve,
                 'donnees_tuteurs' => $donneesTuteurs,
                 'classe_id' => $classeId,
-                'montant_verser' => $ligne['montant_verser'] ?? null,
-                'mode_versement' => $ligne['mode_versement'] ?? null,
             ], $adminUserId);
         }
 
-        if (! $tuteurFourni) {
-            throw new RuntimeException("Un nouvel élève (sans matricule) doit avoir un tuteur (nom ou téléphone).");
+        if ($donneesTuteurs === []) {
+            throw new RuntimeException("Aucun élève existant ne correspond (nom + date de naissance) : un nouvel élève doit avoir au moins un contact (père, mère ou autre).");
         }
 
         if (empty($donneesEleve['nom_complet']) || empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance'])) {
@@ -406,19 +421,89 @@ class PreinscriptionService extends BaseService
         });
     }
 
-    /** Rapprochement insensible à la casse/accents/espaces, comme les libellés de classe d'un fichier de situation. */
-    private function resoudreClasse(int $schoolId, ?string $libelle): ?int
+    /**
+     * Ancien élève ou nouveau : le matricule prime s'il correspond
+     * réellement à un élève de l'école (une ligne peut en porter un ancien,
+     * périmé) ; à défaut, on rapproche sur nom complet + date de naissance —
+     * le même duo qu'utilise déjà {@see soumettre()} pour détecter les
+     * doublons d'une nouvelle inscription. Sans les deux, aucun rapprochement
+     * n'est tenté : un nom seul rapprocherait trop de monde.
+     */
+    private function rapprocherEleveExistant(int $schoolId, array $ligne): ?Eleve
     {
-        if ($libelle === null || trim($libelle) === '') {
+        if (! empty($ligne['matricule'])) {
+            $parMatricule = Eleve::where('school_id', $schoolId)->where('matricule', $ligne['matricule'])->first();
+
+            if ($parMatricule !== null) {
+                return $parMatricule;
+            }
+        }
+
+        if (empty($ligne['nom_complet']) || empty($ligne['date_naissance'])) {
             return null;
         }
 
-        $cle = self::cleClasse($libelle);
+        return Eleve::where('school_id', $schoolId)
+            ->whereRaw('LOWER(nom_complet) = ?', [mb_strtolower(trim($ligne['nom_complet']))])
+            ->whereDate('date_naissance', $ligne['date_naissance'])
+            ->first();
+    }
 
-        return Classe::where('school_id', $schoolId)
-            ->get(['id', 'nom', 'sigle'])
-            ->first(fn (Classe $c) => self::cleClasse($c->nom) === $cle || self::cleClasse($c->sigle) === $cle)
-            ?->id;
+    /**
+     * Reprend en dette antérieure ce que le fichier de situation dit encore
+     * dû (frais - montant réglé - remise), exactement comme
+     * `EleveImport::traiterDette()` — idempotent sur (élève, année source) via
+     * le motif, pour qu'un réimport du même fichier ne double pas le report.
+     * La dette rejoint `report_dette` du prochain dossier ouvert
+     * (`ScolariteService::dossier()`), que {@see valider()} convertit ensuite
+     * en ligne de frais annexe « Dette antérieure ».
+     */
+    private function enregistrerDetteImport(Eleve $eleve, array $ligne): void
+    {
+        $du = $ligne['scolarite_due'] ?? null;
+
+        if ($du === null) {
+            return;
+        }
+
+        $dette = $du - ($ligne['scolarite_payee'] ?? 0) - ($ligne['scolarite_remise'] ?? 0);
+
+        if ($dette <= 0) {
+            return;
+        }
+
+        $motif = 'Report scolarité '.($ligne['annee_source'] ?? 'année antérieure').' (import préinscription)';
+
+        if (DetteAnterieure::where('eleve_id', $eleve->id)->where('motif', $motif)->exists()) {
+            return;
+        }
+
+        $this->scolarite->enregistrerDetteAnterieure($eleve, $dette, $motif, null);
+    }
+
+    /**
+     * Rapprochement insensible à la casse/accents/espaces, comme les
+     * libellés de classe d'un fichier de situation. `$candidats` essaie
+     * chaque libellé dans l'ordre (nom de classe précis, puis niveau en
+     * repli) — le premier qui correspond l'emporte.
+     *
+     * @param  list<?string>  $candidats
+     */
+    private function resoudreClasse(int $schoolId, array $candidats): ?int
+    {
+        $classes = null;
+
+        foreach (array_filter($candidats, fn (?string $c) => $c !== null && trim($c) !== '') as $libelle) {
+            $classes ??= Classe::where('school_id', $schoolId)->get(['id', 'nom', 'sigle']);
+            $cle = self::cleClasse($libelle);
+            $trouvee = $classes->first(fn (Classe $c) => self::cleClasse($c->nom) === $cle || self::cleClasse($c->sigle) === $cle);
+
+            if ($trouvee) {
+                return $trouvee->id;
+            }
+        }
+
+        return null;
     }
 
     private static function cleClasse(?string $libelle): string

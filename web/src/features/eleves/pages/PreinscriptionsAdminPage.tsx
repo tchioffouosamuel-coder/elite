@@ -130,7 +130,23 @@ export function PreinscriptionsAdminPage() {
               importUrl="preinscriptions/import"
               exportUrl={onglet === 'non-inscrits' ? 'preinscriptions/non-inscrits/export' : 'preinscriptions/export'}
               modeleUrl="preinscriptions/modele"
-              colonnes={['Matricule', 'Nom complet', 'Sexe', 'Date de naissance', 'Classe', 'Nom du tuteur', 'Téléphone du tuteur', 'Montant à verser', 'Mode de versement']}
+              colonnes={[
+                'IDEleves',
+                'nom_eleves',
+                'sexe_eleves',
+                'ddn_eleves',
+                'Nom_classe',
+                'nationalité',
+                'lieu_naiss',
+                'nom_parents',
+                'tel_pere',
+                'nom_mere',
+                'tel_mere',
+                'tel_autre',
+                'frais_scolarite',
+                'MONTANT_SCOLARITE',
+                'remise_scol',
+              ]}
               nomFichier={onglet === 'non-inscrits' ? 'eleves-non-inscrits' : 'preinscriptions'}
               onImported={() => {
                 queryClient.invalidateQueries({ queryKey: ['preinscriptions-admin'] })

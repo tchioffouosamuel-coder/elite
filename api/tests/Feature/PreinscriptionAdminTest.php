@@ -447,13 +447,17 @@ class PreinscriptionAdminTest extends TestCase
 
         $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
 
-        // Ligne 1 : ancien élève par matricule. Ligne 2 : nouvel élève avec
-        // tuteur. Ligne 3 : matricule inconnu, doit remonter en erreur sans
-        // empêcher les deux autres lignes de s'importer.
+        // Ligne 1 : ancien élève rapproché par matricule (IDEleves). Ligne 2 :
+        // nouvel élève avec un contact père. Ligne 3 : ni matricule ni date de
+        // naissance exploitable, doit remonter en erreur sans empêcher les
+        // deux autres lignes de s'importer. Clés déjà en forme « slug » —
+        // celle que produit réellement l'en-tête normalisé de maatwebsite
+        // (« IDEleves » → « ideleves »), ce test appelant collection()
+        // directement sans passer par la lecture du fichier.
         $import->collection(collect([
-            collect(['matricule' => 'IMP1', 'nom_complet' => 'Ancien Un', 'classe' => 'CM2']),
-            collect(['nom_complet' => 'Nouvel Eleve', 'sexe' => 'M', 'date_naissance' => '2018-01-01', 'classe' => 'CM2', 'tuteur_nom' => 'Un Tuteur', 'tuteur_telephone' => '698000000']),
-            collect(['matricule' => 'INCONNU', 'nom_complet' => 'Fantome']),
+            collect(['ideleves' => 'IMP1', 'nom_eleves' => 'Ancien Un', 'nom_classe' => 'CM2']),
+            collect(['nom_eleves' => 'Nouvel Eleve', 'sexe_eleves' => 'M', 'ddn_eleves' => '2018-01-01', 'nom_classe' => 'CM2', 'nom_parents' => 'Un Tuteur', 'tel_pere' => '698000000']),
+            collect(['ideleves' => 'INCONNU', 'nom_eleves' => 'Fantome']),
         ]));
 
         $this->assertSame(2, $import->importees);
@@ -472,7 +476,7 @@ class PreinscriptionAdminTest extends TestCase
 
         $fichier = UploadedFile::fake()->createWithContent(
             'import.csv',
-            "nom_complet,sexe,date_naissance,classe,tuteur_nom,tuteur_telephone\nNouvel CSV,M,2018-01-01,CM2,Tuteur CSV,698111111\n",
+            "nom_eleves,sexe_eleves,ddn_eleves,Nom_classe,nom_parents,tel_pere\nNouvel CSV,M,2018-01-01,CM2,Tuteur CSV,698111111\n",
         );
 
         $reponse = $this->actingAs($this->admin(), 'sanctum')
@@ -482,5 +486,57 @@ class PreinscriptionAdminTest extends TestCase
         $reponse->assertOk();
         $this->assertSame(1, $reponse->json('data.imported'));
         $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel CSV')->first());
+    }
+
+    /** Le cœur de la demande : jamais une colonne « ancien/nouveau », toujours une comparaison — ici sans aucun matricule. */
+    public function test_import_rapproche_un_ancien_eleve_sans_matricule_par_nom_et_date_naissance(): void
+    {
+        $this->anneeActive();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => 'SANSID', 'nom_complet' => 'Nkomo Alice',
+            'sexe' => 'F', 'date_naissance' => '2014-05-02', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            // Pas de colonne IDEleves du tout : seule la comparaison nom + date de naissance rapproche cette ligne de l'élève existant.
+            collect(['nom_eleves' => 'Nkomo Alice', 'ddn_eleves' => '2014-05-02', 'nom_classe' => 'CM2']),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+        $this->assertCount(0, $import->erreurs);
+        $this->assertSame(1, Eleve::where('nom_complet', 'Nkomo Alice')->count());
+        $this->assertSame($classe->id, $eleve->fresh()->classe_id);
+    }
+
+    /** La dette déclarée dans le fichier de situation (frais - réglé - remise) doit ressortir en ligne « Dette antérieure », pas en report_dette. */
+    public function test_import_reprend_la_dette_du_fichier_de_situation_en_frais_annexe(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => 'DET1', 'nom_complet' => 'Ancien Endette',
+            'sexe' => 'M', 'date_naissance' => '2014-01-01', 'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'ideleves' => 'DET1', 'nom_eleves' => 'Ancien Endette', 'nom_classe' => 'CM2',
+                'frais_scolarite' => '90000', 'montant_scolarite' => '30000', 'remise_scol' => '10000',
+                'annee_scol' => '2025-2026',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+
+        $dossier = DossierScolarite::where('eleve_id', $eleve->id)->firstOrFail();
+        $this->assertSame(0, $dossier->report_dette);
+        $ligneDette = $dossier->fraisAnnexes()->where('libelle', 'Dette antérieure')->first();
+        $this->assertNotNull($ligneDette);
+        $this->assertSame(50000, $ligneDette->montant); // 90000 - 30000 - 10000
     }
 }
