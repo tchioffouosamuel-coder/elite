@@ -174,3 +174,7 @@ export async function bulkUpdateClasses(
 ): Promise<void> {
   await http.put("/classes/bulk-update", { class_ids: classIds, ...updates });
 }
+
+export async function deleteClassesBulk(classIds: number[]): Promise<void> {
+  await http.post("/classes/batch-delete", { ids: classIds });
+}

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ClasseExport;
+use App\Exports\ModeleGenerique;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreClasseRequest;
@@ -13,6 +15,7 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ClasseController extends Controller
 {
@@ -109,6 +112,16 @@ class ClasseController extends Controller
         return ApiResponse::success($result, "{$result['imported']} classe(s) importée(s).");
     }
 
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new ClasseExport(Tenant::schoolIds()), 'classes.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(ClasseImport::enTetes()), 'modele-classes.xlsx');
+    }
+
     public function schools(): JsonResponse
     {
         $schoolId = app('tenant.school_id');
@@ -168,5 +181,26 @@ class ClasseController extends Controller
             ->update($updates);
 
         return ApiResponse::success(message: 'Classes mises à jour.');
+    }
+
+    /**
+     * Supprime plusieurs classes d'un coup — tout ce qui en dépend (élèves,
+     * emplois du temps, séances, sanctions, compétences, bulletins…) suit la
+     * même règle qu'une suppression unitaire ({@see destroy()}) : cascade ou
+     * remise à `null` selon la table, définie au niveau des contraintes de
+     * clé étrangère, jamais ici.
+     */
+    public function batchDestroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $count = \App\Models\Classe::forSchool(Tenant::schoolIds())
+            ->whereIn('id', $data['ids'])
+            ->delete();
+
+        return ApiResponse::success(['deleted' => $count], "{$count} classe(s) supprimée(s).");
     }
 }

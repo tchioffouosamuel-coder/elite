@@ -378,6 +378,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:classes.view')->group(function () {
                 Route::get('classes', [ClasseController::class, 'index'])->name('classes.index');
+                // Avant `classes/{id}` : sinon "export"/"modele" y seraient captés comme un identifiant.
+                Route::get('classes/export', [ClasseController::class, 'export'])->name('classes.export');
+                Route::get('classes/modele', [ClasseController::class, 'modele'])->name('classes.modele');
                 Route::get('ma-classe', [ClasseController::class, 'maClasse'])->name('classes.ma-classe');
                 Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
                 Route::get('classes/{id}/eleves/pdf', [ListeElevesController::class, 'pdf'])->name('classes.eleves.pdf');
@@ -391,6 +394,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes', [ClasseController::class, 'store'])->name('classes.store');
                 Route::post('classes/import', [ClasseController::class, 'import'])->name('classes.import');
                 Route::put('classes/bulk-update', [ClasseController::class, 'bulkUpdate'])->name('classes.bulk-update');
+                Route::post('classes/batch-delete', [ClasseController::class, 'batchDestroy'])->name('classes.batch-destroy');
                 Route::put('classes/{id}', [ClasseController::class, 'update'])->name('classes.update');
                 Route::delete('classes/{id}', [ClasseController::class, 'destroy'])->name('classes.destroy');
 

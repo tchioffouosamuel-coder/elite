@@ -26,6 +26,12 @@ class ClasseImport implements SkipsOnFailure, ToModel, WithHeadingRow, WithValid
     {
     }
 
+    /** @return list<string> */
+    public static function enTetes(): array
+    {
+        return ['Nom', 'Sigle', 'Capacite'];
+    }
+
     public function model(array $row): ?Classe
     {
         $this->importedCount++;

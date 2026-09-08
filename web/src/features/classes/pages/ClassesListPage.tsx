@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
-import { Plus, Pencil, Trash2, School, Upload, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, School, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown } from 'lucide-react'
 import {
   fetchClasses,
   deleteClasse,
+  deleteClassesBulk,
   fetchSousSystemes,
   fetchSchools,
   bulkUpdateClasses,
@@ -20,7 +21,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { ImportModal } from '@/shared/ui/ImportModal'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Select } from '@/shared/ui/Select'
 import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
@@ -34,7 +35,6 @@ export function ClassesListPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
-  const [showImport, setShowImport] = useState(false)
   const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
@@ -100,6 +100,22 @@ export function ClassesListPage() {
       setSelectedClasses(new Set())
       invalidate()
       succes(t('classes.bulk_updated', { count: selectedClasses.size }))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const confirme = await confirmerSuppression(
+      t('classes.bulk_delete_confirm_quoi', { count: selectedClasses.size }),
+      t('classes.delete_confirm_precision'),
+    )
+    if (!confirme) return
+    try {
+      await deleteClassesBulk(Array.from(selectedClasses))
+      setSelectedClasses(new Set())
+      invalidate()
+      succes(t('classes.bulk_deleted', { count: selectedClasses.size }))
     } catch (err) {
       erreur((err as ApiError).message)
     }
@@ -275,10 +291,15 @@ export function ClassesListPage() {
         actions={
           can('classes.manage') && (
             <>
-              <Button variant="secondary" onClick={() => setShowImport(true)}>
-                <Upload className="h-4 w-4" />
-                {t('import.title')}
-              </Button>
+              <ImportExportBar
+                titreImport={t('import.title')}
+                importUrl="classes/import"
+                exportUrl="classes/export"
+                modeleUrl="classes/modele"
+                colonnes={['Nom', 'Sigle', 'Capacite']}
+                nomFichier="classes"
+                onImported={invalidate}
+              />
               <Button onClick={() => setShowForm(true)}>
                 <Plus className="h-4 w-4" />
                 {t('classes.add')}
@@ -342,6 +363,11 @@ export function ClassesListPage() {
                   isClearable={false}
                 />
               </div>
+
+              <Button variant="danger" onClick={handleBulkDelete}>
+                <Trash2 className="h-4 w-4" />
+                {t('common.delete')}
+              </Button>
 
               <button
                 onClick={() => setSelectedClasses(new Set())}
@@ -407,15 +433,6 @@ export function ClassesListPage() {
         />
       )}
 
-      {showImport && (
-        <ImportModal
-          title={t('import.title')}
-          url="/classes/import"
-          columns={['nom', 'sigle', 'capacite']}
-          onClose={() => setShowImport(false)}
-          onImported={invalidate}
-        />
-      )}
     </div>
   )
 }
