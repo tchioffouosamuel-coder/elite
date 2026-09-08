@@ -9,6 +9,7 @@ use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\NotificationInterne;
 use App\Models\Preinscription;
+use App\Models\Remise;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\User;
@@ -469,6 +470,26 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel Eleve')->first());
     }
 
+    public function test_import_accepte_un_nom_paye_comme_preinscription_incomplete(): void
+    {
+        $this->anneeActive();
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'nom_eleves' => 'Eleve Sans Dossier',
+                'montant_scolarite' => '25000',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+        $this->assertCount(0, $import->erreurs);
+        $preinscription = Preinscription::where('type', 'nouveau')->latest('id')->firstOrFail();
+        $this->assertSame('en_attente', $preinscription->statut);
+        $this->assertSame('Eleve Sans Dossier', $preinscription->donnees_eleve['nom_complet']);
+        $this->assertStringContainsString('25 000 FCFA', $preinscription->note_admin);
+    }
+
     /**
      * Non-régression : un export « fichier de situation » construit à coups
      * de VLOOKUP laisse souvent des `#N/A` littéraux sur les lignes sans
@@ -605,6 +626,9 @@ class PreinscriptionAdminTest extends TestCase
         $ligneDette = $dossier->fraisAnnexes()->where('libelle', 'Dette antérieure')->first();
         $this->assertNotNull($ligneDette);
         $this->assertSame(50000, $ligneDette->montant); // 90000 - 30000 - 10000
+        $this->assertSame(1, Versement::where('dossier_scolarite_id', $dossier->id)->count());
+        $this->assertSame(30000, Versement::where('dossier_scolarite_id', $dossier->id)->value('montant'));
+        $this->assertSame(10000, Remise::where('eleve_id', $eleve->id)->value('montant'));
     }
 
     /** La colonne DEBTS du fichier prime sur le calcul quand elle est renseignée. */

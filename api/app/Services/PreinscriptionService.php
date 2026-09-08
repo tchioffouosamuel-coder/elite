@@ -9,6 +9,7 @@ use App\Models\DetteAnterieure;
 use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\Preinscription;
+use App\Models\Remise;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
@@ -144,6 +145,7 @@ class PreinscriptionService extends BaseService
         }
 
         return $this->transaction(function () use ($preinscription, $adminUserId) {
+            $donneesImport = $preinscription->donnees_eleve['_import_financier'] ?? [];
             $eleve = $preinscription->type === 'existant'
                 ? $this->appliquerSurExistant($preinscription)
                 : $this->creerNouvelEleve($preinscription);
@@ -157,7 +159,10 @@ class PreinscriptionService extends BaseService
             // seulement quand un versement est annoncé, sinon la conversion de
             // la dette antérieure (ci-dessous) n'aurait jamais lieu pour une
             // famille qui ne paie rien dans l'immédiat.
-            if ($preinscription->type === 'existant') {
+            $montantVerse = (int) ($preinscription->montant_verser ?? $donneesImport['scolarite_payee'] ?? 0);
+            $montantRemise = (int) ($donneesImport['scolarite_remise'] ?? 0);
+
+            if ($preinscription->type === 'existant' || $montantVerse > 0 || $montantRemise > 0) {
                 $annee = $preinscription->anneeScolaire ?? $this->anneeActive($preinscription->school_id);
 
                 if ($annee === null) {
@@ -167,9 +172,9 @@ class PreinscriptionService extends BaseService
                 $dossier = $this->scolarite->dossier($eleve, $annee);
                 $this->convertirDetteEnFraisAnnexe($dossier);
 
-                if (($preinscription->montant_verser ?? 0) > 0) {
+                if ($montantVerse > 0) {
                     $versement = $this->scolarite->encaisser($dossier, [
-                        'montant' => $preinscription->montant_verser,
+                        'montant' => $montantVerse,
                         'mode' => $preinscription->mode_versement ?? 'especes',
                         'reference_externe' => $preinscription->reference_externe,
                         'note' => 'Versement initié par le parent à la préinscription.',
@@ -177,6 +182,10 @@ class PreinscriptionService extends BaseService
                     ], $adminUserId);
 
                     $versementId = $versement->id;
+                }
+
+                if ($montantRemise > 0) {
+                    $this->enregistrerRemiseImport($eleve, $annee, $montantRemise, $adminUserId, $donneesImport['annee_source'] ?? null);
                 }
             }
 
@@ -387,10 +396,26 @@ class PreinscriptionService extends BaseService
             $this->enregistrerDetteImport($eleve, $ligne);
 
             return $this->creerEtValiderParAdmin($eleve, [
-                'donnees_eleve' => $donneesEleve,
+                'donnees_eleve' => $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne),
                 'donnees_tuteurs' => $donneesTuteurs,
                 'classe_id' => $classeId,
+                'montant_verser' => max(0, (int) ($ligne['scolarite_payee'] ?? 0)) ?: null,
+                'mode_versement' => 'especes',
             ], $adminUserId);
+        }
+
+        $donneesEleve = $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne);
+
+        if (! empty($donneesEleve['nom_complet'])
+            && (($ligne['scolarite_payee'] ?? 0) > 0)
+            && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])) {
+            return $this->creerPreinscriptionImportIncomplete(
+                $schoolId,
+                $classeId,
+                $donneesEleve,
+                $donneesTuteurs,
+                $ligne,
+            );
         }
 
         if ($donneesTuteurs === []) {
@@ -418,10 +443,83 @@ class PreinscriptionService extends BaseService
                 'donnees_eleve' => $donneesEleve,
                 'donnees_tuteurs' => $donneesTuteurs,
                 'classe_id' => $classeId,
+                'montant_verser' => max(0, (int) ($ligne['scolarite_payee'] ?? 0)) ?: null,
+                'mode_versement' => 'especes',
             ]);
 
             return $this->valider($preinscription, $adminUserId);
         });
+    }
+
+    /** Conserve une ligne payée mais incomplète dans la file admin plutôt que de la rejeter. */
+    private function creerPreinscriptionImportIncomplete(
+        int $schoolId,
+        ?int $classeId,
+        array $donneesEleve,
+        array $donneesTuteurs,
+        array $ligne,
+    ): Preinscription {
+        if ($donneesTuteurs === []) {
+            $nomContact = 'Contact à compléter - '.($donneesEleve['nom_complet'] ?? 'Import');
+            $tuteur = $this->resoudreOuCreerTuteur($schoolId, ['nom_complet' => $nomContact]);
+            $donneesTuteurs = [[
+                'nom_complet' => $nomContact,
+                'telephone' => null,
+                'lien_parente' => 'Contact à compléter',
+                'is_principal' => true,
+            ]];
+        } else {
+            $tuteur = $this->resoudreOuCreerTuteur($schoolId, [
+                'nom_complet' => $donneesTuteurs[0]['nom_complet'],
+                'telephone' => $donneesTuteurs[0]['telephone'] ?? null,
+            ]);
+        }
+
+        $montantPaye = (int) ($ligne['scolarite_payee'] ?? 0);
+        $note = 'Import accepté avec montant déjà payé : '.number_format($montantPaye, 0, ',', ' ').' FCFA.';
+        if (($ligne['scolarite_due'] ?? null) !== null) {
+            $note .= ' Montant dû déclaré : '.number_format((int) $ligne['scolarite_due'], 0, ',', ' ').' FCFA.';
+        }
+        $note .= ' Compléter les informations manquantes avant validation.';
+
+        return Preinscription::create([
+            'school_id' => $schoolId,
+            'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+            'tuteur_id' => $tuteur->id,
+            'eleve_id' => null,
+            'type' => 'nouveau',
+            'statut' => 'en_attente',
+            'donnees_eleve' => $donneesEleve,
+            'donnees_tuteurs' => $donneesTuteurs,
+            'classe_id' => $classeId,
+            'note_admin' => $note,
+            'montant_verser' => $montantPaye > 0 ? $montantPaye : null,
+            'mode_versement' => 'especes',
+        ]);
+    }
+
+    /** Conserve les montants du fichier dans la préinscription sans les envoyer dans `eleves`. */
+    private function ajouterDonneesFinancieresImport(array $donneesEleve, array $ligne): array
+    {
+        $finances = array_filter([
+            'scolarite_due' => $ligne['scolarite_due'] ?? null,
+            'scolarite_payee' => $ligne['scolarite_payee'] ?? null,
+            'scolarite_remise' => $ligne['scolarite_remise'] ?? null,
+            'annee_source' => $ligne['annee_source'] ?? null,
+        ], fn ($valeur) => $valeur !== null);
+
+        return $finances === [] ? $donneesEleve : [...$donneesEleve, '_import_financier' => $finances];
+    }
+
+    private function enregistrerRemiseImport(Eleve $eleve, AnneeScolaire $annee, int $montant, ?int $adminUserId, ?string $anneeSource): void
+    {
+        $motif = 'Remise import préinscription '.($anneeSource ?: 'sans année');
+
+        if (Remise::where('eleve_id', $eleve->id)->where('annee_scolaire_id', $annee->id)->where('motif', $motif)->exists()) {
+            return;
+        }
+
+        $this->scolarite->enregistrerRemise($eleve, $annee, $montant, $motif, $adminUserId);
     }
 
     /**
@@ -670,6 +768,7 @@ class PreinscriptionService extends BaseService
         $eleve = Eleve::findOrFail($preinscription->eleve_id);
         $donnees = $preinscription->donnees_eleve;
         unset($donnees['classe_id']);
+        unset($donnees['_import_financier']);
 
         if ($preinscription->classe_id !== null) {
             $donnees['classe_id'] = $preinscription->classe_id;
@@ -689,6 +788,7 @@ class PreinscriptionService extends BaseService
     private function creerNouvelEleve(Preinscription $preinscription): Eleve
     {
         $donnees = $preinscription->donnees_eleve;
+        unset($donnees['_import_financier']);
 
         if ($preinscription->classe_id !== null) {
             $donnees['classe_id'] = $preinscription->classe_id;
