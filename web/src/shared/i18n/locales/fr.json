@@ -1069,7 +1069,8 @@
     "enseignants_introuvables": "Enseignants non trouvés :",
     "dettes": "{{count}} dette(s) antérieure(s) reprise(s) ({{montant}} FCFA).",
     "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s).",
-    "processing": "Importation en cours…"
+    "processing": "Importation en cours…",
+    "erreurs_detail": "Motifs d'échec les plus fréquents :"
   },
   "progression": {
     "title": "Progression pédagogique",

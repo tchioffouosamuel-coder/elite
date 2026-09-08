@@ -29,6 +29,13 @@ interface ImportResult {
   trajets_introuvables?: Record<string, number>
   /** Noms de matière hors catalogue (import d'emploi du temps). */
   matieres_introuvables?: Record<string, number>
+  /**
+   * Détail ligne par ligne des échecs, quand l'import le fournit (ex.
+   * préinscriptions). `ligne` est relative au lot (`decoupe`) qui l'a
+   * renvoyée — sans `lot`, un même numéro de ligne réapparaîtrait
+   * identique à chaque lot puisque chacun est un petit fichier à part.
+   */
+  erreurs?: { ligne: number; lot?: number; message: string }[]
 }
 
 interface ImportProgress {
@@ -151,6 +158,9 @@ export function ImportModal({
         const courant = (agrege[cle] as Record<string, number> | undefined) ?? {}
         for (const [nom, n] of Object.entries(libelles)) courant[nom] = (courant[nom] ?? 0) + n
         ;(agrege[cle] as Record<string, number>) = courant
+      }
+      if (r.erreurs && r.erreurs.length > 0) {
+        agrege.erreurs = [...(agrege.erreurs ?? []), ...r.erreurs.map((e) => ({ ...e, lot: i + 1 }))]
       }
 
       setProgress({ processed: i + 1, total: lots, current_name: null })
@@ -283,6 +293,24 @@ export function ImportModal({
                   </span>
                 </p>
               ) : null,
+            )}
+            {result.erreurs && result.erreurs.length > 0 && (
+              <div className="mt-1 flex flex-col gap-1 rounded-lg border border-red-100 bg-red-50 p-2.5">
+                <p className="text-xs font-semibold text-red-600">{t('import.erreurs_detail')}</p>
+                {Object.entries(
+                  result.erreurs.reduce<Record<string, number>>((acc, e) => {
+                    acc[e.message] = (acc[e.message] ?? 0) + 1
+                    return acc
+                  }, {}),
+                )
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 8)
+                  .map(([message, count]) => (
+                    <p key={message} className="text-xs text-red-500">
+                      <span className="font-semibold">{count}×</span> {message}
+                    </p>
+                  ))}
+              </div>
             )}
           </div>
         )}

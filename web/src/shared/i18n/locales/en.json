@@ -1042,7 +1042,8 @@
     "enseignants_introuvables": "Teachers not found:",
     "dettes": "{{count}} prior debt(s) carried over ({{montant}} XAF).",
     "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated.",
-    "processing": "Import in progress…"
+    "processing": "Import in progress…",
+    "erreurs_detail": "Most common failure reasons:"
   },
   "niveaux": {
     "title": "Teaching levels",
