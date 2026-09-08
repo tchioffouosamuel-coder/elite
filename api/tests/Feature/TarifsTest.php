@@ -102,6 +102,47 @@ class TarifsTest extends TestCase
         $this->assertCount(0, $dossierB->fraisAnnexes);
     }
 
+    public function test_modifier_un_frais_annexe_met_a_jour_les_dossiers_non_regles(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
+        $annee = AnneeScolaire::create([
+            'school_id' => $school->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+        ]);
+        $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
+        $user = User::create([
+            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
+            'school_id' => $school->id, 'is_active' => true,
+        ]);
+        $user->assignRole('super_admin');
+
+        $creation = $this->actingAs($user, 'sanctum')
+            ->withHeader('X-School-Id', $school->id)
+            ->postJson('/api/v1/tarifs/frais-annexes', [
+                'libelle' => 'Tenue de sport', 'montant' => 15000, 'obligatoire' => true,
+            ]);
+        $fraisId = $creation->json('data.id');
+
+        $eleve = Eleve::create([
+            'school_id' => $school->id, 'classe_id' => $classe->id,
+            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+        $dossier = app(ScolariteService::class)->dossier($eleve, $annee);
+
+        $this->actingAs($user, 'sanctum')
+            ->withHeader('X-School-Id', $school->id)
+            ->putJson("/api/v1/tarifs/frais-annexes/{$fraisId}", [
+                'libelle' => 'Nouvelle tenue', 'montant' => 20000,
+            ])
+            ->assertOk();
+
+        $ligne = $dossier->fresh()->fraisAnnexes->first();
+        $this->assertSame('Nouvelle tenue', $ligne->libelle);
+        $this->assertSame(20000, $ligne->montant);
+    }
+
     public function test_rendre_un_frais_obligatoire_facultatif_le_retire_des_dossiers_non_regles(): void
     {
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);

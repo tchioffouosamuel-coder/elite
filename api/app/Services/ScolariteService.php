@@ -34,8 +34,8 @@ use RuntimeException;
  * compris (cf. `synchroniserTarifs`, appelée par `TarifsController` à chaque
  * modification de grille). Les frais annexes déjà rattachés à un dossier, en
  * revanche, ne suivent pas le catalogue : leur libellé et leur montant sont
- * recopiés une fois pour toutes à l'ouverture, pour que les reçus déjà émis
- * restent exacts. Ensuite, un encaissement ne se supprime jamais : le reçu
+ * recopiés à l'ouverture puis réalignés tant qu'aucun paiement n'a été reçu,
+ * pour que les reçus déjà émis restent exacts. Ensuite, un encaissement ne se supprime jamais : le reçu
  * porte un numéro remis à la famille, une erreur s'annule en gardant trace de
  * qui, quand et pourquoi.
  */
@@ -369,6 +369,25 @@ class ScolariteService extends BaseService
             ->get();
     }
 
+    /** Réaligne manuellement la scolarité et les frais annexes d'une année. */
+    public function synchroniserFraisAnnexes(int $schoolId, AnneeScolaire $annee): array
+    {
+        $totaux = ['ajoutes' => 0, 'retires' => 0, 'modifies' => 0];
+
+        FraisAnnexe::forSchool($schoolId)
+            ->where('annee_scolaire_id', $annee->id)
+            ->with('classes')
+            ->get()
+            ->each(function (FraisAnnexe $frais) use (&$totaux): void {
+                $resultat = $this->synchroniserFraisAnnexe($frais, false);
+                foreach ($totaux as $cle => $total) {
+                    $totaux[$cle] = $total + $resultat[$cle];
+                }
+            });
+
+        return $totaux;
+    }
+
     /**
      * Répercute sur les dossiers déjà ouverts de son année un changement
      * d'applicabilité d'un frais annexe — le pendant de `synchroniserTarifs()`
@@ -381,15 +400,11 @@ class ScolariteService extends BaseService
      * poste — un encaissement ne se supprime jamais, seul ce qui restait dû
      * s'annule. Chaque dossier touché en avertit le tuteur par SMS.
      *
-     * @return array{ajoutes: int, retires: int}
+    * @return array{ajoutes: int, retires: int, modifies: int}
      */
     public function synchroniserFraisAnnexe(FraisAnnexe $frais, bool $etaitApplicable): array
     {
         $estApplicable = $frais->is_active && $frais->obligatoire;
-
-        if ($etaitApplicable === $estApplicable) {
-            return ['ajoutes' => 0, 'retires' => 0];
-        }
 
         $frais->loadMissing('classes');
 
@@ -397,15 +412,17 @@ class ScolariteService extends BaseService
             ->where('annee_scolaire_id', $frais->annee_scolaire_id)
             ->with(['eleve.tuteurs', 'fraisAnnexes'])
             ->get()
-            ->filter(fn(DossierScolarite $d) => $d->eleve && $this->fraisConcerneClasse($frais, $d->eleve->classe_id));
+            ->filter(fn(DossierScolarite $d) => $d->eleve);
 
         $ajoutes = 0;
         $retires = 0;
+        $modifies = 0;
 
         foreach ($dossiers as $dossier) {
             $existant = $dossier->fraisAnnexes->firstWhere('frais_annexe_id', $frais->id);
+            $concerne = $estApplicable && $this->fraisConcerneClasse($frais, $dossier->eleve->classe_id);
 
-            if ($estApplicable && ! $existant) {
+            if ($concerne && ! $existant) {
                 $dossier->fraisAnnexes()->create([
                     'frais_annexe_id' => $frais->id,
                     'libelle' => $frais->libelle,
@@ -413,14 +430,24 @@ class ScolariteService extends BaseService
                 ]);
                 $ajoutes++;
                 $this->notifierFraisAnnexe($dossier->eleve, $frais, true);
-            } elseif (! $estApplicable && $existant && ! $this->fraisAnnexeRegle($existant)) {
+            } elseif (! $concerne && $existant && ! $this->fraisAnnexeRegle($existant)) {
                 $existant->delete();
                 $retires++;
                 $this->notifierFraisAnnexe($dossier->eleve, $frais, false);
+            } elseif ($concerne && $existant && ! $this->fraisAnnexeRegle($existant)) {
+                $changements = array_filter([
+                    'libelle' => $frais->libelle,
+                    'montant' => $frais->montant,
+                ], fn ($valeur, $attribut) => $existant->{$attribut} !== $valeur, ARRAY_FILTER_USE_BOTH);
+
+                if ($changements !== []) {
+                    $existant->update($changements);
+                    $modifies++;
+                }
             }
         }
 
-        return ['ajoutes' => $ajoutes, 'retires' => $retires];
+        return ['ajoutes' => $ajoutes, 'retires' => $retires, 'modifies' => $modifies];
     }
 
     /** Un frais sans classe rattachée s'applique à toute l'école ; sinon seulement aux classes listées. */

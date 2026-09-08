@@ -120,6 +120,21 @@ class TarifsController extends Controller
         );
     }
 
+    public function synchroniserDossiers(Request $request): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $annee = $this->annee($request);
+        $tarifs = $this->scolarite->synchroniserTarifs($schoolId, $annee);
+        $frais = $this->scolarite->synchroniserFraisAnnexes($schoolId, $annee);
+
+        return ApiResponse::success(
+            ['tarifs' => $tarifs, 'frais' => $frais],
+            "Synchronisation terminée : {$tarifs} dossier(s) de scolarité et "
+                .($frais['ajoutes'] + $frais['retires'] + $frais['modifies'])
+                .' ligne(s) de frais annexe traitée(s).',
+        );
+    }
+
     public function creerFraisAnnexe(Request $request): JsonResponse
     {
         $schoolId = app('tenant.school_id');
@@ -175,6 +190,9 @@ class TarifsController extends Controller
         }
         if ($sync['retires'] > 0) {
             $message .= " Retiré de {$sync['retires']} dossier(s).";
+        }
+        if ($sync['modifies'] > 0) {
+            $message .= " Mis à jour dans {$sync['modifies']} dossier(s).";
         }
 
         return ApiResponse::success($frais->fresh()->load('classes:id,nom'), $message);

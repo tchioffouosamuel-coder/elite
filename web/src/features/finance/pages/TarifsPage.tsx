@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Tags, Plus, Save, Trash2, Info, Pencil, Search, RotateCcw } from 'lucide-react'
+import { Tags, Plus, Save, Trash2, Info, Pencil, Search, RotateCcw, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
@@ -20,6 +20,7 @@ import {
   francs,
   modifierFraisAnnexe,
   supprimerTarif,
+  synchroniserDossiersTarifs,
 } from '@/features/finance/api'
 import { fetchClassesForSchool } from '@/features/classes/api'
 import type { ApiError } from '@/shared/types/api'
@@ -172,6 +173,23 @@ export function TarifsPage() {
     )
   }
 
+  const synchroniserDossiers = async () => {
+    const ok = await confirmer({
+      titre: 'Synchroniser les dossiers ?',
+      message: 'Les montants de scolarité et les frais annexes seront réalignés sur les tarifs actuels de cette école.',
+      action: 'Synchroniser',
+    })
+    if (!ok) return
+
+    mutation.mutate(
+      async () => {
+        const resultat = await synchroniserDossiersTarifs(ecoleFiltreId)
+        succes(resultat.message)
+      },
+      { onError: (e: ApiError) => e.status !== 403 && erreur(e.message) },
+    )
+  }
+
   const ajouterFrais = () => {
     if (!nouveauFrais.libelle || !nouveauFrais.montant) return
 
@@ -219,6 +237,12 @@ export function TarifsPage() {
         icon={Tags}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {modifiable && (
+              <Button onClick={synchroniserDossiers} disabled={mutation.isPending} title="Synchroniser les dossiers">
+                <RefreshCw className={`h-4 w-4 ${mutation.isPending ? 'animate-spin' : ''}`} />
+                Synchroniser les dossiers
+              </Button>
+            )}
             <ImportExportBar
               titreImport="Grille de frais"
               importUrl="/tarifs/grille-frais/import"

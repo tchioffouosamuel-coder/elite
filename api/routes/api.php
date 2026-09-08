@@ -935,6 +935,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('tarifs/grille-frais/import', [TarifsController::class, 'importGrilleFrais'])->name('tarifs.grille-frais.import');
                 Route::post('tarifs/frais-annexes/import', [TarifsController::class, 'importFraisAnnexes'])->name('tarifs.frais-annexes.import');
                 Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir');
+                Route::post('tarifs/synchroniser-dossiers', [TarifsController::class, 'synchroniserDossiers'])->name('tarifs.synchroniser-dossiers');
                 Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer');
                 Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store');
                 Route::put('tarifs/frais-annexes/{id}', [TarifsController::class, 'modifierFraisAnnexe'])->name('tarifs.frais.update');

@@ -880,6 +880,17 @@ export async function supprimerTarif(
   return data.data;
 }
 
+export async function synchroniserDossiersTarifs(
+  schoolId?: number | null,
+): Promise<{ message: string }> {
+  const { data } = await http.post<ApiResponse<never>>(
+    "/tarifs/synchroniser-dossiers",
+    undefined,
+    enTeteEcole(schoolId),
+  );
+  return { message: data.message ?? "Synchronisation terminée." };
+}
+
 export async function creerFraisAnnexe(
   payload: {
     libelle: string;
