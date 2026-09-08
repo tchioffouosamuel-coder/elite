@@ -117,9 +117,32 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
                 $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId);
                 $this->importees++;
             } catch (RuntimeException $e) {
-                $this->erreurs[] = ['ligne' => $numeroLigne, 'message' => $e->getMessage()];
+                $this->erreurs[] = ['ligne' => $numeroLigne, 'message' => self::messageCourt($e)];
             }
         }
+    }
+
+    /**
+     * Un `RuntimeException` métier (message déjà pensé pour l'admin, cf.
+     * `PreinscriptionService::importerLigne()`) est gardé tel quel. Une
+     * exception technique remontée telle quelle — `QueryException` en
+     * pratique, dont le message embarque la requête SQL complète et ses
+     * valeurs liées (téléphones des tuteurs inclus) — est réduite à sa
+     * première ligne : assez pour diagnostiquer une erreur de schéma sans
+     * exposer de données personnelles côté admin, et surtout sans empêcher
+     * des lignes en échec pour la même cause de se regrouper dans le résumé
+     * affiché (cf. `ImportModal`, qui compte les messages identiques —
+     * chaque requête SQL différant par ses valeurs, un message non tronqué
+     * ressort à tort comme une multitude d'erreurs distinctes plutôt qu'une
+     * seule cause répétée).
+     */
+    private static function messageCourt(RuntimeException $e): string
+    {
+        if (! $e instanceof \Illuminate\Database\QueryException) {
+            return $e->getMessage();
+        }
+
+        return explode(' (Connection:', $e->getMessage())[0];
     }
 
     /** @param array<string, mixed> $donnees */

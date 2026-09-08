@@ -506,6 +506,36 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertSame('Douala', $frais->lieu_naissance);
     }
 
+    /**
+     * Non-régression : une `QueryException` (ex. colonne absente côté
+     * serveur, comme observé en conditions réelles avec `classe_id` avant
+     * qu'une migration ne soit rejouée) embarque par défaut la requête SQL
+     * complète et ses valeurs liées — numéros de téléphone des tuteurs
+     * inclus — dans son message. Remonté tel quel jusqu'à l'admin, ce
+     * message expose ces données ET empêche le résumé de l'import
+     * (`ImportModal`, qui compte les messages identiques) de regrouper des
+     * lignes en échec pour la même cause : chaque requête générée diffère
+     * par ses valeurs, donc chaque ligne ressortait comme une erreur
+     * distincte plutôt qu'une seule cause répétée sur des centaines de
+     * lignes.
+     */
+    public function test_une_exception_sql_est_reduite_a_sa_premiere_ligne_sans_les_valeurs_liees(): void
+    {
+        $sql = 'insert into `preinscriptions` (`school_id`, `classe_id`) values (?, ?)';
+        $exception = new \Illuminate\Database\QueryException(
+            'mysql', $sql, ['699902861'],
+            new \PDOException("SQLSTATE[42S22]: Column not found: 1054 Unknown column 'classe_id' in 'field list'"),
+        );
+
+        $reflection = new \ReflectionMethod(PreinscriptionImport::class, 'messageCourt');
+        $reflection->setAccessible(true);
+        $message = $reflection->invoke(null, $exception);
+
+        $this->assertSame("SQLSTATE[42S22]: Column not found: 1054 Unknown column 'classe_id' in 'field list'", $message);
+        $this->assertStringNotContainsString('699902861', $message);
+        $this->assertStringNotContainsString($sql, $message);
+    }
+
     public function test_endpoint_import_preinscriptions_accepte_un_fichier(): void
     {
         $this->anneeActive();
