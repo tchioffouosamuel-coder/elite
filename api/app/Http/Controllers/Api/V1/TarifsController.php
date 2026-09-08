@@ -41,7 +41,7 @@ class TarifsController extends Controller
         $grilles = GrilleFrais::forSchool($schoolId)
             ->where('annee_scolaire_id', $annee->id)
             ->get()
-            ->keyBy(fn (GrilleFrais $g) => $g->classe_id ?? 0);
+            ->keyBy(fn(GrilleFrais $g) => $g->classe_id ?? 0);
 
         $classes = Classe::forSchool($schoolId)
             ->orderBy('nom')
@@ -50,7 +50,7 @@ class TarifsController extends Controller
         return ApiResponse::success([
             'annee_scolaire' => ['id' => $annee->id, 'libelle' => $annee->libelle],
             'tarif_par_defaut' => $grilles->get(0)?->montant,
-            'classes' => $classes->map(fn (Classe $classe) => [
+            'classes' => $classes->map(fn(Classe $classe) => [
                 'id' => $classe->id,
                 'nom' => $classe->nom,
                 'montant' => $grilles->get($classe->id)?->montant,
@@ -61,14 +61,14 @@ class TarifsController extends Controller
                 ->with('classes:id,nom')
                 ->orderBy('libelle')
                 ->get(['id', 'libelle', 'montant', 'obligatoire', 'is_active'])
-                ->map(fn (FraisAnnexe $frais) => [
+                ->map(fn(FraisAnnexe $frais) => [
                     'id' => $frais->id,
                     'libelle' => $frais->libelle,
                     'montant' => $frais->montant,
                     'obligatoire' => $frais->obligatoire,
                     'is_active' => $frais->is_active,
                     // Vide = portée école entière.
-                    'classes' => $frais->classes->map(fn (Classe $c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+                    'classes' => $frais->classes->map(fn(Classe $c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
                 ]),
         ]);
     }
@@ -116,7 +116,7 @@ class TarifsController extends Controller
 
         return ApiResponse::success(
             ['dossiers_mis_a_jour' => $misAJour],
-            "Tarif retiré — la classe suit désormais le tarif par défaut".($misAJour > 0 ? " ({$misAJour} dossier(s) mis à jour)." : '.'),
+            "Tarif retiré — la classe suit désormais le tarif par défaut" . ($misAJour > 0 ? " ({$misAJour} dossier(s) mis à jour)." : '.'),
         );
     }
 
@@ -130,8 +130,8 @@ class TarifsController extends Controller
         return ApiResponse::success(
             ['tarifs' => $tarifs, 'frais' => $frais],
             "Synchronisation terminée : {$tarifs} dossier(s) de scolarité et "
-                .($frais['ajoutes'] + $frais['retires'] + $frais['modifies'])
-                .' ligne(s) de frais annexe traitée(s).',
+                . ($frais['ajoutes'] + $frais['retires'] + $frais['modifies'])
+                . ' ligne(s) de frais annexe traitée(s).',
         );
     }
 
@@ -215,14 +215,14 @@ class TarifsController extends Controller
 
         return ApiResponse::success(
             null,
-            'Frais annexe désactivé.'.($sync['retires'] > 0 ? " Retiré de {$sync['retires']} dossier(s)." : ''),
+            'Frais annexe désactivé.' . ($sync['retires'] > 0 ? " Retiré de {$sync['retires']} dossier(s)." : ''),
         );
     }
 
     private function dossiersOuverts(int $classeId, int $anneeId): int
     {
         return DossierScolarite::where('annee_scolaire_id', $anneeId)
-            ->whereHas('eleve', fn ($q) => $q->where('classe_id', $classeId))
+            ->whereHas('eleve', fn($q) => $q->where('classe_id', $classeId))
             ->count();
     }
 

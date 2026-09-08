@@ -850,11 +850,16 @@ export interface Tarifs {
 
 /** `schoolId` cible une école précise du complexe sans changer l'école active (cf. `fetchClassesForSchool`). */
 function enTeteEcole(schoolId?: number | null) {
-  return schoolId ? { headers: { "X-School-Id": String(schoolId) } } : undefined;
+  return schoolId
+    ? { headers: { "X-School-Id": String(schoolId) } }
+    : undefined;
 }
 
 export async function fetchTarifs(schoolId?: number | null): Promise<Tarifs> {
-  const { data } = await http.get<ApiResponse<Tarifs>>("/tarifs", enTeteEcole(schoolId));
+  const { data } = await http.get<ApiResponse<Tarifs>>(
+    "/tarifs",
+    enTeteEcole(schoolId),
+  );
   return data.data;
 }
 
@@ -1087,7 +1092,11 @@ export interface Insolvable {
   du_a_ce_jour: number;
   /** Ce qui manque sur les échéances déjà passées — le motif réel de la relance. */
   retard: number;
-  tranches_en_retard: { libelle: string; date_echeance: string | null; reste: number }[];
+  tranches_en_retard: {
+    libelle: string;
+    date_echeance: string | null;
+    reste: number;
+  }[];
   rubriques: RubriqueScolarite[];
   moratoire: { date_expiration: string; motif: string | null } | null;
 }
@@ -1242,9 +1251,15 @@ export interface TotauxDettesAnterieures {
 export async function fetchDettesAnterieuresListe(params: {
   school_id?: number | null;
   classe_id?: number | null;
-}): Promise<{ lignes: LigneDetteAnterieure[]; totaux: TotauxDettesAnterieures }> {
+}): Promise<{
+  lignes: LigneDetteAnterieure[];
+  totaux: TotauxDettesAnterieures;
+}> {
   const { data } = await http.get<
-    ApiResponse<{ lignes: LigneDetteAnterieure[]; totaux: TotauxDettesAnterieures }>
+    ApiResponse<{
+      lignes: LigneDetteAnterieure[];
+      totaux: TotauxDettesAnterieures;
+    }>
   >("/finance/dettes-anterieures", { params });
   return data.data;
 }
@@ -1476,15 +1491,23 @@ export async function reviserImmobilisation(
 /* Échéancier de scolarité                                             */
 /* ------------------------------------------------------------------ */
 
-export async function fetchTranchesScolarite(anneeScolaireId?: number): Promise<{
+export async function fetchTranchesScolarite(
+  anneeScolaireId?: number,
+): Promise<{
   annee_scolaire_id: number;
   delai_grace: number;
   tranches: TrancheScolarite[];
 }> {
   const { data } = await http.get<
-    ApiResponse<{ annee_scolaire_id: number; delai_grace: number; tranches: TrancheScolarite[] }>
+    ApiResponse<{
+      annee_scolaire_id: number;
+      delai_grace: number;
+      tranches: TrancheScolarite[];
+    }>
   >("/tranches-scolarite", {
-    params: anneeScolaireId ? { annee_scolaire_id: anneeScolaireId } : undefined,
+    params: anneeScolaireId
+      ? { annee_scolaire_id: anneeScolaireId }
+      : undefined,
   });
   return data.data;
 }
@@ -1498,10 +1521,13 @@ export async function remplacerTranchesScolarite(
   tranches: TrancheScolaritePayload[],
   schoolId?: number | null,
 ): Promise<TrancheScolarite[]> {
-  const { data } = await http.put<ApiResponse<TrancheScolarite[]>>("/tranches-scolarite", {
-    annee_scolaire_id: anneeScolaireId,
-    school_id: schoolId ?? null,
-    tranches,
-  });
+  const { data } = await http.put<ApiResponse<TrancheScolarite[]>>(
+    "/tranches-scolarite",
+    {
+      annee_scolaire_id: anneeScolaireId,
+      school_id: schoolId ?? null,
+      tranches,
+    },
+  );
   return data.data;
 }

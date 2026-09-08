@@ -24,26 +24,37 @@ class TarifsTest extends TestCase
 
         $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $annee = AnneeScolaire::create([
-            'school_id' => $school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
 
         GrilleFrais::create([
-            'school_id' => $school->id, 'annee_scolaire_id' => $annee->id,
-            'classe_id' => $classe->id, 'montant' => 100000,
+            'school_id' => $school->id,
+            'annee_scolaire_id' => $annee->id,
+            'classe_id' => $classe->id,
+            'montant' => 100000,
         ]);
 
         $eleve = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classe->id,
-            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'nom_complet' => 'Alice Ngono',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $dossier = app(ScolariteService::class)->dossier($eleve, $annee);
         $this->assertSame(100000, $dossier->montant_scolarite);
 
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 
@@ -62,15 +73,21 @@ class TarifsTest extends TestCase
 
         $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $annee = AnneeScolaire::create([
-            'school_id' => $school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classeA = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
         $classeB = Classe::create(['school_id' => $school->id, 'nom' => '6e B']);
 
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 
@@ -86,12 +103,18 @@ class TarifsTest extends TestCase
         $creation->assertCreated()->assertJsonCount(1, 'data.classes');
 
         $eleveA = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classeA->id,
-            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classeA->id,
+            'nom_complet' => 'Alice Ngono',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $eleveB = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classeB->id,
-            'nom_complet' => 'Bruno Essomba', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classeB->id,
+            'nom_complet' => 'Bruno Essomba',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
 
         $service = app(ScolariteService::class);
@@ -108,33 +131,45 @@ class TarifsTest extends TestCase
 
         $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $annee = AnneeScolaire::create([
-            'school_id' => $school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 
         $creation = $this->actingAs($user, 'sanctum')
             ->withHeader('X-School-Id', $school->id)
             ->postJson('/api/v1/tarifs/frais-annexes', [
-                'libelle' => 'Tenue de sport', 'montant' => 15000, 'obligatoire' => true,
+                'libelle' => 'Tenue de sport',
+                'montant' => 15000,
+                'obligatoire' => true,
             ]);
         $fraisId = $creation->json('data.id');
 
         $eleve = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classe->id,
-            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'nom_complet' => 'Alice Ngono',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $dossier = app(ScolariteService::class)->dossier($eleve, $annee);
 
         $this->actingAs($user, 'sanctum')
             ->withHeader('X-School-Id', $school->id)
             ->putJson("/api/v1/tarifs/frais-annexes/{$fraisId}", [
-                'libelle' => 'Nouvelle tenue', 'montant' => 20000,
+                'libelle' => 'Nouvelle tenue',
+                'montant' => 20000,
             ])
             ->assertOk();
 
@@ -149,27 +184,38 @@ class TarifsTest extends TestCase
 
         $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $annee = AnneeScolaire::create([
-            'school_id' => $school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
 
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 
         $creation = $this->actingAs($user, 'sanctum')
             ->withHeader('X-School-Id', $school->id)
             ->postJson('/api/v1/tarifs/frais-annexes', [
-                'libelle' => 'Tenue de sport', 'montant' => 15000, 'obligatoire' => true,
+                'libelle' => 'Tenue de sport',
+                'montant' => 15000,
+                'obligatoire' => true,
             ]);
         $fraisId = $creation->json('data.id');
 
         $eleve = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classe->id,
-            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'nom_complet' => 'Alice Ngono',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $dossier = app(ScolariteService::class)->dossier($eleve, $annee);
         $this->assertCount(1, $dossier->fraisAnnexes);
@@ -196,31 +242,45 @@ class TarifsTest extends TestCase
 
         $school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $annee = AnneeScolaire::create([
-            'school_id' => $school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create(['school_id' => $school->id, 'nom' => '6e A']);
 
         $user = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('super_admin');
 
         $creation = $this->actingAs($user, 'sanctum')
             ->withHeader('X-School-Id', $school->id)
             ->postJson('/api/v1/tarifs/frais-annexes', [
-                'libelle' => 'Tenue de sport', 'montant' => 15000, 'obligatoire' => true,
+                'libelle' => 'Tenue de sport',
+                'montant' => 15000,
+                'obligatoire' => true,
             ]);
         $fraisId = $creation->json('data.id');
 
         $eleveNonPaye = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classe->id,
-            'nom_complet' => 'Alice Ngono', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'nom_complet' => 'Alice Ngono',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $eleveDejaPaye = Eleve::create([
-            'school_id' => $school->id, 'classe_id' => $classe->id,
-            'nom_complet' => 'Bruno Essomba', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'nom_complet' => 'Bruno Essomba',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
 
         $service = app(ScolariteService::class);

@@ -304,7 +304,7 @@ class ScolariteService extends BaseService
 
             $dossier->update([
                 'report_dette' => $reliquat['montant_paye'],
-                'observation' => trim(($dossier->observation ? $dossier->observation."\n" : '').$note),
+                'observation' => trim(($dossier->observation ? $dossier->observation . "\n" : '') . $note),
             ]);
 
             return $dossier;
@@ -400,7 +400,7 @@ class ScolariteService extends BaseService
      * poste — un encaissement ne se supprime jamais, seul ce qui restait dû
      * s'annule. Chaque dossier touché en avertit le tuteur par SMS.
      *
-    * @return array{ajoutes: int, retires: int, modifies: int}
+     * @return array{ajoutes: int, retires: int, modifies: int}
      */
     public function synchroniserFraisAnnexe(FraisAnnexe $frais, bool $etaitApplicable): array
     {
@@ -438,7 +438,7 @@ class ScolariteService extends BaseService
                 $changements = array_filter([
                     'libelle' => $frais->libelle,
                     'montant' => $frais->montant,
-                ], fn ($valeur, $attribut) => $existant->{$attribut} !== $valeur, ARRAY_FILTER_USE_BOTH);
+                ], fn($valeur, $attribut) => $existant->{$attribut} !== $valeur, ARRAY_FILTER_USE_BOTH);
 
                 if ($changements !== []) {
                     $existant->update($changements);
