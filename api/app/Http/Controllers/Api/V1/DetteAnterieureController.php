@@ -7,11 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\DetteAnterieureResource;
 use App\Models\DetteAnterieure;
 use App\Models\Eleve;
+use App\Models\School;
 use App\Services\ScolariteService;
+use App\Support\Pdf\DettesAnterieuresGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Dettes des années antérieures, saisies à la main — le cas d'un élève qui
@@ -33,6 +36,50 @@ class DetteAnterieureController extends Controller
             ->get();
 
         return ApiResponse::success(DetteAnterieureResource::collection($dettes));
+    }
+
+    /**
+     * Tous les reliquats d'années antérieures non soldés, un ou plusieurs
+     * établissements confondus — la vue caisse d'ensemble, distincte de la
+     * fiche par élève ci-dessus.
+     */
+    public function liste(Request $request): JsonResponse
+    {
+        $situation = $this->service->dettesAnterieures($this->schoolIds($request), [
+            'classe_id' => $request->integer('classe_id') ?: null,
+        ]);
+
+        return ApiResponse::success($situation);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        $schoolIds = $this->schoolIds($request);
+        $situation = $this->service->dettesAnterieures($schoolIds, [
+            'classe_id' => $request->integer('classe_id') ?: null,
+        ]);
+
+        $school = School::whereIn('id', $schoolIds)->first();
+
+        $pdf = (new DettesAnterieuresGenerator)->build($school, $situation['lignes'], $situation['totaux']);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="dettes-anterieures.pdf"',
+        ]);
+    }
+
+    /** @return list<int> */
+    private function schoolIds(Request $request): array
+    {
+        $requested = $request->integer('school_id');
+        if (! $requested) {
+            return Tenant::schoolIds();
+        }
+
+        abort_unless(in_array($requested, Tenant::schoolIds(), true), 403, "Cet établissement n'est pas accessible à votre compte.");
+
+        return [$requested];
     }
 
     public function store(Request $request, int $eleveId): JsonResponse

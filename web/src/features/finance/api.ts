@@ -1190,6 +1190,36 @@ export async function supprimerDetteAnterieure(id: number): Promise<void> {
   await http.delete(`/dettes-anterieures/${id}`);
 }
 
+export interface LigneDetteAnterieure {
+  eleve: {
+    id: number;
+    matricule: string | null;
+    nom_complet: string;
+    classe: string | null;
+  };
+  school: { id: number; name: string };
+  montant: number;
+  paye: number;
+  reste: number;
+}
+
+export interface TotauxDettesAnterieures {
+  effectif: number;
+  total_montant: number;
+  total_reste: number;
+}
+
+/** Vue caisse d'ensemble des reliquats non soldés, distincte de la fiche par élève ci-dessus. */
+export async function fetchDettesAnterieuresListe(params: {
+  school_id?: number | null;
+  classe_id?: number | null;
+}): Promise<{ lignes: LigneDetteAnterieure[]; totaux: TotauxDettesAnterieures }> {
+  const { data } = await http.get<
+    ApiResponse<{ lignes: LigneDetteAnterieure[]; totaux: TotauxDettesAnterieures }>
+  >("/finance/dettes-anterieures", { params });
+  return data.data;
+}
+
 /** Séparateur d'unités de mille, comme sur les documents imprimés. */
 export function francs(montant: number | null | undefined): string {
   return `${(montant ?? 0).toLocaleString("fr-FR").replace(/ | /g, " ")} F`;

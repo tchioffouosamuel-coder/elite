@@ -685,6 +685,65 @@ class ScolariteService extends BaseService
     }
 
     /**
+     * Qui traîne encore un reliquat d'avant l'année active, un ou plusieurs
+     * établissements à la fois — la rubrique `report_dette` du dossier
+     * (ouvert ou projeté), isolée du reste de la scolarité en cours : un
+     * élève à jour sur l'année mais qui doit encore sur un ancien reliquat
+     * doit apparaître ici même s'il n'apparaît pas dans les insolvables.
+     *
+     * @param  list<int>  $schoolIds
+     * @param  array{classe_id?: ?int}  $filtres
+     * @return array{lignes: Collection, totaux: array{effectif: int, total_montant: int, total_reste: int}}
+     */
+    public function dettesAnterieures(array $schoolIds, array $filtres = []): array
+    {
+        $classeId = $filtres['classe_id'] ?? null;
+        $ecoles = School::whereIn('id', $schoolIds)->get()->keyBy('id');
+
+        $lignes = collect();
+
+        foreach ($schoolIds as $schoolId) {
+            $annee = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+            if (! $annee) {
+                continue;
+            }
+
+            $situation = $this->situation($schoolId, $annee->id, ['classe_id' => $classeId]);
+
+            foreach ($situation['dossiers'] as $dossier) {
+                $reliquat = collect($dossier->rubriques)->firstWhere('cle', 'report_dette');
+                if (! $reliquat || $reliquat['reste'] <= 0) {
+                    continue;
+                }
+
+                $lignes->push([
+                    'eleve' => [
+                        'id' => $dossier->eleve->id,
+                        'matricule' => $dossier->eleve->matricule,
+                        'nom_complet' => $dossier->eleve->nom_complet,
+                        'classe' => $dossier->eleve->classe?->nom,
+                    ],
+                    'school' => ['id' => $schoolId, 'name' => $ecoles->get($schoolId)?->name],
+                    'montant' => $reliquat['montant_du'],
+                    'paye' => $reliquat['montant_paye'],
+                    'reste' => $reliquat['reste'],
+                ]);
+            }
+        }
+
+        $lignes = $lignes->sortBy([['school.name', 'asc'], ['eleve.nom_complet', 'asc']])->values();
+
+        return [
+            'lignes' => $lignes,
+            'totaux' => [
+                'effectif' => $lignes->count(),
+                'total_montant' => (int) $lignes->sum('montant'),
+                'total_reste' => (int) $lignes->sum('reste'),
+            ],
+        ];
+    }
+
+    /**
      * Ce que devra l'élève si son dossier était ouvert aujourd'hui. Non
      * persisté : ouvrir 269 dossiers à la simple consultation d'un écran
      * écrirait en base sur une lecture, et créerait un dossier à des élèves

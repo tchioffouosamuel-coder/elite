@@ -15,7 +15,6 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
-import { CreerDetteAnterieureModal } from '@/features/finance/CreerDetteAnterieureModal'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
@@ -59,7 +58,6 @@ export function CaissePage() {
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
-  const [detteModalOuvert, setDetteModalOuvert] = useState(false)
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -187,12 +185,10 @@ export function CaissePage() {
         icon={Wallet}
         actions={
           <>
-            {can('finance.manage') && (
-              <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
-                <History className="h-4 w-4" />
-                Dette antérieure
-              </Button>
-            )}
+            <Button variant="secondary" onClick={() => navigate('/caisse/dettes-anterieures')}>
+              <History className="h-4 w-4" />
+              Dettes antérieures
+            </Button>
             <Button variant="secondary" onClick={() => navigate('/caisse/insolvables')}>
               <ListFilter className="h-4 w-4" />
               Insolvables
@@ -254,14 +250,6 @@ export function CaissePage() {
             }
           />
         </>
-      )}
-
-      {detteModalOuvert && data && (
-        <CreerDetteAnterieureModal
-          eleves={data.dossiers.map((d) => ({ id: d.eleve.id, nom_complet: d.eleve.nom_complet, matricule: d.eleve.matricule }))}
-          onClose={() => setDetteModalOuvert(false)}
-          onCreated={rafraichir}
-        />
       )}
     </div>
   )

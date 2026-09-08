@@ -77,6 +77,7 @@ import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { ComptesPage } from '@/features/comptes/pages/ComptesPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
 import { InsolvablesPage } from '@/features/finance/pages/InsolvablesPage'
+import { DettesAnterieuresPage } from '@/features/finance/pages/DettesAnterieuresPage'
 import { EncaissementPage } from '@/features/finance/pages/EncaissementPage'
 import { DepensesPage } from '@/features/finance/pages/DepensesPage'
 import { PaiePage } from '@/features/finance/pages/PaiePage'
@@ -234,6 +235,7 @@ export const router = createHashRouter([
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
       { path: 'caisse', element: <ProtectedRoute permission="finance.view"><CaissePage /></ProtectedRoute> },
       { path: 'caisse/insolvables', element: <ProtectedRoute permission="finance.view"><InsolvablesPage /></ProtectedRoute> },
+      { path: 'caisse/dettes-anterieures', element: <ProtectedRoute permission="finance.view"><DettesAnterieuresPage /></ProtectedRoute> },
       { path: 'caisse/encaisser/:eleveId', element: <ProtectedRoute permission="finance.encaisser"><EncaissementPage /></ProtectedRoute> },
       { path: 'tarifs', element: <ProtectedRoute permission="finance.view"><TarifsPage /></ProtectedRoute> },
       { path: 'depenses', element: <ProtectedRoute permission="finance.view"><DepensesPage /></ProtectedRoute> },

@@ -822,6 +822,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('finance/insolvables', [InsolvablesController::class, 'index'])->name('finance.insolvables');
                 Route::get('finance/insolvables/pdf', [InsolvablesController::class, 'pdf'])->name('finance.insolvables.pdf');
 
+                Route::get('finance/dettes-anterieures', [DetteAnterieureController::class, 'liste'])->name('finance.dettes-anterieures');
+                Route::get('finance/dettes-anterieures/pdf', [DetteAnterieureController::class, 'pdf'])->name('finance.dettes-anterieures.pdf');
+
                 Route::get('eleves/{eleveId}/moratoires', [MoratoireController::class, 'index'])->name('moratoires.index');
                 Route::get('eleves/{eleveId}/remises', [RemiseController::class, 'index'])->name('remises.index');
                 Route::get('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'index'])->name('dettes-anterieures.index');

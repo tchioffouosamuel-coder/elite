@@ -20,8 +20,8 @@ import {
   Repeat,
   BarChart3,
 } from 'lucide-react'
-import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, type Eleve } from '@/features/eleves/api'
-import { fetchClasses, fetchSchools } from '@/features/classes/api'
+import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, changerClasseEleve, type Eleve } from '@/features/eleves/api'
+import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -35,8 +35,9 @@ import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
-import { confirmer, succes } from '@/shared/lib/alertes'
+import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { Select } from '@/shared/ui/Select'
+import type { ApiError } from '@/shared/types/api'
 
 function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: string; photo_url: string | null }; canManage: boolean }) {
   const { t } = useTranslation()
@@ -94,6 +95,77 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Double-clic pour passer en édition, clic à l'extérieur (blur du select)
+ * pour enregistrer — évite d'ouvrir la modale de transfert pour un simple
+ * changement de classe.
+ */
+function ClasseCell({
+  eleve,
+  classes,
+  canManage,
+  onSaved,
+}: {
+  eleve: Eleve
+  classes: Classe[]
+  canManage: boolean
+  onSaved: () => void
+}) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (!canManage) return <>{eleve.classe?.nom ?? '—'}</>
+
+  if (!editing) {
+    return (
+      <span
+        onDoubleClick={(event) => {
+          event.stopPropagation()
+          setEditing(true)
+        }}
+        title={t('eleves.double_clic_modifier_classe')}
+        className="-mx-1.5 -my-1 rounded-md px-1.5 py-1 hover:bg-cream-100"
+      >
+        {saving ? '…' : (eleve.classe?.nom ?? '—')}
+      </span>
+    )
+  }
+
+  return (
+    <select
+      autoFocus
+      disabled={saving}
+      defaultValue={eleve.classe?.id ?? ''}
+      onClick={(event) => event.stopPropagation()}
+      onChange={async (event) => {
+        const classeId = event.target.value ? Number(event.target.value) : null
+        setEditing(false)
+        if (!classeId || classeId === eleve.classe?.id) return
+        setSaving(true)
+        try {
+          await changerClasseEleve(eleve.id, classeId)
+          succes(t('eleves.transfered_singular', { nom: eleve.nom_complet }))
+          onSaved()
+        } catch (err) {
+          erreur((err as ApiError).message)
+        } finally {
+          setSaving(false)
+        }
+      }}
+      onBlur={() => setEditing(false)}
+      className="rounded-md border border-navy-200 bg-white px-1.5 py-1 text-sm focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+    >
+      <option value="">—</option>
+      {classes.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.nom}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -248,7 +320,14 @@ export function ElevesListPage() {
       cle: 'classe',
       entete: t('eleves.classe'),
       valeur: (e) => e.classe?.nom,
-      cellule: (e) => e.classe?.nom ?? '—',
+      cellule: (e) => (
+        <ClasseCell
+          eleve={e}
+          classes={classes.filter((c) => (c.school_id ?? c.school?.id) === e.school_id)}
+          canManage={can('eleves.manage')}
+          onSaved={invalidate}
+        />
+      ),
     },
     {
       cle: 'ecole',
