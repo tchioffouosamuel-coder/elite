@@ -119,6 +119,38 @@ class PreinscriptionAdminController extends Controller
         );
     }
 
+    public function storeNouveau(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'donnees_eleve.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_eleve.sexe' => ['required', 'in:M,F'],
+            'donnees_eleve.date_naissance' => ['required', 'date'],
+            'donnees_eleve.lieu_naissance' => ['nullable', 'string', 'max:150'],
+            'donnees_eleve.adresse' => ['nullable', 'string', 'max:255'],
+            'donnees_tuteurs' => ['required', 'array', 'min:1'],
+            'donnees_tuteurs.*.nom_complet' => ['required', 'string', 'max:150'],
+            'donnees_tuteurs.*.telephone' => ['nullable', 'string', 'max:30'],
+            'donnees_tuteurs.*.telephones' => ['nullable', 'array'],
+            'donnees_tuteurs.*.telephones.*.numero' => ['required_with:donnees_tuteurs.*.telephones', 'string', 'max:30'],
+            'donnees_tuteurs.*.email' => ['nullable', 'email', 'max:150'],
+            'donnees_tuteurs.*.profession' => ['nullable', 'string', 'max:150'],
+            'donnees_tuteurs.*.lien_parente' => ['nullable', 'string', 'max:50'],
+            'donnees_tuteurs.*.is_principal' => ['nullable', 'boolean'],
+            'classe_id' => ['nullable', 'integer', 'exists:classes,id'],
+            'montant_verser' => ['nullable', 'integer', 'min:1'],
+            'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
+            'reference_externe' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        try {
+            $p = $this->service->creerEtValiderNouveauParAdmin(app('tenant.school_id'), $data, $request->user()->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::created($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription enregistrée et validée.');
+    }
+
     /** Corrige les informations proposées par le parent avant validation (coquille, champ oublié…). */
     public function update(Request $request, int $id): JsonResponse
     {

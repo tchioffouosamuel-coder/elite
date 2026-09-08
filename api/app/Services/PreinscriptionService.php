@@ -83,7 +83,7 @@ class PreinscriptionService extends BaseService
                 ->where('statut', 'en_attente')
                 ->get()
                 ->contains(
-                    fn (Preinscription $p) => ($p->donnees_eleve['nom_complet'] ?? null) === ($donnees['donnees_eleve']['nom_complet'] ?? null)
+                    fn(Preinscription $p) => ($p->donnees_eleve['nom_complet'] ?? null) === ($donnees['donnees_eleve']['nom_complet'] ?? null)
                         && ($p->donnees_eleve['date_naissance'] ?? null) === ($donnees['donnees_eleve']['date_naissance'] ?? null)
                 );
 
@@ -245,7 +245,7 @@ class PreinscriptionService extends BaseService
      */
     public function listeAnciensNonReinscrits(int|array $schoolId): Collection
     {
-        return $this->anciensEleves($schoolId)->reject(fn (Eleve $e) => $this->estReinscritAnneeActive($e))->values();
+        return $this->anciensEleves($schoolId)->reject(fn(Eleve $e) => $this->estReinscritAnneeActive($e))->values();
     }
 
     /**
@@ -291,7 +291,7 @@ class PreinscriptionService extends BaseService
         return Preinscription::forSchool($schoolId)
             ->where('statut', 'validee')
             ->get()
-            ->filter(fn (Preinscription $p) => $p->annee_scolaire_id !== null && $p->annee_scolaire_id === $this->anneeActive($p->school_id)?->id)
+            ->filter(fn(Preinscription $p) => $p->annee_scolaire_id !== null && $p->annee_scolaire_id === $this->anneeActive($p->school_id)?->id)
             ->values();
     }
 
@@ -345,6 +345,38 @@ class PreinscriptionService extends BaseService
         });
     }
 
+    /** Crée et valide directement une préinscription admin pour un nouvel élève. */
+    public function creerEtValiderNouveauParAdmin(int $schoolId, array $donnees, int $adminUserId): Preinscription
+    {
+        return $this->transaction(function () use ($schoolId, $donnees, $adminUserId) {
+            $tuteurData = $donnees['donnees_tuteurs'][0] ?? null;
+            if ($tuteurData === null) {
+                throw new RuntimeException('Ajoutez au moins un tuteur pour ce nouvel élève.');
+            }
+
+            $telephone = $tuteurData['telephone'] ?? null;
+            $tuteur = $telephone
+                ? Tuteur::updateOrCreate(['school_id' => $schoolId, 'telephone' => $telephone], ['nom_complet' => $tuteurData['nom_complet']])
+                : Tuteur::create(['school_id' => $schoolId, 'nom_complet' => $tuteurData['nom_complet']]);
+
+            $preinscription = Preinscription::create([
+                'school_id' => $schoolId,
+                'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+                'tuteur_id' => $tuteur->id,
+                'type' => 'nouveau',
+                'statut' => 'en_attente',
+                'donnees_eleve' => $donnees['donnees_eleve'],
+                'donnees_tuteurs' => $donnees['donnees_tuteurs'],
+                'classe_id' => $donnees['classe_id'] ?? null,
+                'montant_verser' => $donnees['montant_verser'] ?? null,
+                'mode_versement' => $donnees['mode_versement'] ?? null,
+                'reference_externe' => $donnees['reference_externe'] ?? null,
+            ]);
+
+            return $this->valider($preinscription, $adminUserId);
+        });
+    }
+
     /**
      * Une ligne d'import massif (fichier de situation, même format que
      * l'import élèves) — validée immédiatement comme
@@ -378,11 +410,11 @@ class PreinscriptionService extends BaseService
             'redoublant' => $ligne['redoublant'] ?? null,
             'refugie' => $ligne['refugie'] ?? null,
             'deplace_interne' => $ligne['deplace_interne'] ?? null,
-        ], fn ($v) => $v !== null);
+        ], fn($v) => $v !== null);
 
         $donneesTuteurs = collect($ligne['tuteurs'] ?? [])
             ->values()
-            ->map(fn (array $c, int $i) => [
+            ->map(fn(array $c, int $i) => [
                 'nom_complet' => $c['nom'] ?? $c['lien'],
                 'telephone' => $c['telephone'] ?? null,
                 'lien_parente' => $c['lien'],
@@ -406,9 +438,11 @@ class PreinscriptionService extends BaseService
 
         $donneesEleve = $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne);
 
-        if (! empty($donneesEleve['nom_complet'])
+        if (
+            ! empty($donneesEleve['nom_complet'])
             && (($ligne['scolarite_payee'] ?? 0) > 0)
-            && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])) {
+            && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])
+        ) {
             return $this->creerPreinscriptionImportIncomplete(
                 $schoolId,
                 $classeId,
@@ -460,7 +494,7 @@ class PreinscriptionService extends BaseService
         array $ligne,
     ): Preinscription {
         if ($donneesTuteurs === []) {
-            $nomContact = 'Contact à compléter - '.($donneesEleve['nom_complet'] ?? 'Import');
+            $nomContact = 'Contact à compléter - ' . ($donneesEleve['nom_complet'] ?? 'Import');
             $tuteur = $this->resoudreOuCreerTuteur($schoolId, ['nom_complet' => $nomContact]);
             $donneesTuteurs = [[
                 'nom_complet' => $nomContact,
@@ -476,9 +510,9 @@ class PreinscriptionService extends BaseService
         }
 
         $montantPaye = (int) ($ligne['scolarite_payee'] ?? 0);
-        $note = 'Import accepté avec montant déjà payé : '.number_format($montantPaye, 0, ',', ' ').' FCFA.';
+        $note = 'Import accepté avec montant déjà payé : ' . number_format($montantPaye, 0, ',', ' ') . ' FCFA.';
         if (($ligne['scolarite_due'] ?? null) !== null) {
-            $note .= ' Montant dû déclaré : '.number_format((int) $ligne['scolarite_due'], 0, ',', ' ').' FCFA.';
+            $note .= ' Montant dû déclaré : ' . number_format((int) $ligne['scolarite_due'], 0, ',', ' ') . ' FCFA.';
         }
         $note .= ' Compléter les informations manquantes avant validation.';
 
@@ -506,14 +540,14 @@ class PreinscriptionService extends BaseService
             'scolarite_payee' => $ligne['scolarite_payee'] ?? null,
             'scolarite_remise' => $ligne['scolarite_remise'] ?? null,
             'annee_source' => $ligne['annee_source'] ?? null,
-        ], fn ($valeur) => $valeur !== null);
+        ], fn($valeur) => $valeur !== null);
 
         return $finances === [] ? $donneesEleve : [...$donneesEleve, '_import_financier' => $finances];
     }
 
     private function enregistrerRemiseImport(Eleve $eleve, AnneeScolaire $annee, int $montant, ?int $adminUserId, ?string $anneeSource): void
     {
-        $motif = 'Remise import préinscription '.($anneeSource ?: 'sans année');
+        $motif = 'Remise import préinscription ' . ($anneeSource ?: 'sans année');
 
         if (Remise::where('eleve_id', $eleve->id)->where('annee_scolaire_id', $annee->id)->where('motif', $motif)->exists()) {
             return;
@@ -585,7 +619,7 @@ class PreinscriptionService extends BaseService
         Excel::import($import, $chemin);
 
         @unlink($chemin);
-        $dernier = ! is_file("{$dossier}/".($index + 1).'.xlsx');
+        $dernier = ! is_file("{$dossier}/" . ($index + 1) . '.xlsx');
         if ($dernier) {
             @rmdir($dossier);
         }
@@ -600,7 +634,7 @@ class PreinscriptionService extends BaseService
     {
         // Un UUID généré côté serveur (cf. PreinscriptionAdminController::importPreparer) :
         // jamais de segment de chemin fourni par le client dans `$token`.
-        return storage_path('app/private/imports-preinscriptions/'.$token);
+        return storage_path('app/private/imports-preinscriptions/' . $token);
     }
 
     /**
@@ -661,7 +695,7 @@ class PreinscriptionService extends BaseService
             return;
         }
 
-        $motif = 'Report scolarité '.($ligne['annee_source'] ?? 'année antérieure').' (import préinscription)';
+        $motif = 'Report scolarité ' . ($ligne['annee_source'] ?? 'année antérieure') . ' (import préinscription)';
 
         if (DetteAnterieure::where('eleve_id', $eleve->id)->where('motif', $motif)->exists()) {
             return;
@@ -682,10 +716,10 @@ class PreinscriptionService extends BaseService
     {
         $classes = null;
 
-        foreach (array_filter($candidats, fn (?string $c) => $c !== null && trim($c) !== '') as $libelle) {
+        foreach (array_filter($candidats, fn(?string $c) => $c !== null && trim($c) !== '') as $libelle) {
             $classes ??= Classe::where('school_id', $schoolId)->get(['id', 'nom', 'sigle']);
             $cle = self::cleClasse($libelle);
-            $trouvee = $classes->first(fn (Classe $c) => self::cleClasse($c->nom) === $cle || self::cleClasse($c->sigle) === $cle);
+            $trouvee = $classes->first(fn(Classe $c) => self::cleClasse($c->nom) === $cle || self::cleClasse($c->sigle) === $cle);
 
             if ($trouvee) {
                 return $trouvee->id;
@@ -732,7 +766,12 @@ class PreinscriptionService extends BaseService
             'donnees_eleve' => $donneesEleve,
             'donnees_tuteurs' => $donneesTuteurs,
             ...array_intersect_key($extra, array_flip([
-                'classe_id', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement',
+                'classe_id',
+                'note_admin',
+                'montant_verser',
+                'mode_versement',
+                'reference_externe',
+                'rubriques_versement',
             ])),
         ]);
 
@@ -842,7 +881,7 @@ class PreinscriptionService extends BaseService
         $telephones = $data['telephones'] ?? [];
 
         if ($telephones !== []) {
-            $principal = collect($telephones)->first(fn ($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
+            $principal = collect($telephones)->first(fn($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
 
             return $principal['numero'] ?? null;
         }
@@ -870,7 +909,7 @@ class PreinscriptionService extends BaseService
 
         $tuteur->telephones()->delete();
 
-        $aUnPrincipal = collect($telephones)->contains(fn ($tel) => ! empty($tel['is_principal']));
+        $aUnPrincipal = collect($telephones)->contains(fn($tel) => ! empty($tel['is_principal']));
 
         foreach ($telephones as $index => $tel) {
             TuteurTelephone::create([

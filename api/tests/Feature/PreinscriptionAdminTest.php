@@ -41,15 +41,20 @@ class PreinscriptionAdminTest extends TestCase
 
         $this->school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $this->tuteur = Tuteur::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'Mballa Jean', 'telephone' => '699000000',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'Mballa Jean',
+            'telephone' => '699000000',
         ]);
     }
 
     private function admin(): User
     {
         $admin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $admin->assignRole('super_admin');
 
@@ -60,8 +65,11 @@ class PreinscriptionAdminTest extends TestCase
     private function parentUser(): User
     {
         $user = User::create([
-            'name' => 'Mballa Jean', 'email' => 'mballa@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Mballa Jean',
+            'email' => 'mballa@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('parent');
         $user->givePermissionTo('eleves.view');
@@ -126,8 +134,11 @@ class PreinscriptionAdminTest extends TestCase
     public function test_la_soumission_notifie_avec_un_lien_exploitable(): void
     {
         $destinataire = User::create([
-            'name' => 'Censeur', 'email' => 'censeur@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Censeur',
+            'email' => 'censeur@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $destinataire->givePermissionTo('eleves.manage');
 
@@ -141,8 +152,11 @@ class PreinscriptionAdminTest extends TestCase
     public function test_le_parent_ne_peut_pas_repreinscrire_un_eleve_deja_en_attente(): void
     {
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC1', 'nom_complet' => 'Mballa Aline',
-            'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC1',
+            'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
         $user = $this->parentUser();
@@ -206,8 +220,11 @@ class PreinscriptionAdminTest extends TestCase
 
         $autreTuteur = Tuteur::create(['school_id' => $this->school->id, 'nom_complet' => 'Autre Parent', 'telephone' => '699999999']);
         $autreUser = User::create([
-            'name' => 'Autre Parent', 'email' => 'autre@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Autre Parent',
+            'email' => 'autre@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $autreUser->assignRole('parent');
         $autreTuteur->update(['user_id' => $autreUser->id]);
@@ -230,12 +247,20 @@ class PreinscriptionAdminTest extends TestCase
             'type' => 'nouveau',
             'school_id' => $this->school->id,
             'donnees_eleve' => [
-                'nom_complet' => 'Mballa Junior', 'sexe' => 'M', 'date_naissance' => '2017-03-04',
+                'nom_complet' => 'Mballa Junior',
+                'sexe' => 'M',
+                'date_naissance' => '2017-03-04',
                 'classe_id' => $classe->id,
-                'nationalite' => 'Camerounaise', 'deplace_interne' => 'Oui', 'bororo' => 'Non', 'baka' => 'Non',
-                'region_origine' => 'Extrême-Nord', 'departement_origine' => 'Diamaré',
-                'redoublant' => true, 'ecole_precedente' => 'École Publique de Maroua',
-                'handicap' => 'Oui', 'type_handicap' => 'Moteur',
+                'nationalite' => 'Camerounaise',
+                'deplace_interne' => 'Oui',
+                'bororo' => 'Non',
+                'baka' => 'Non',
+                'region_origine' => 'Extrême-Nord',
+                'departement_origine' => 'Diamaré',
+                'redoublant' => true,
+                'ecole_precedente' => 'École Publique de Maroua',
+                'handicap' => 'Oui',
+                'type_handicap' => 'Moteur',
             ],
             'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000']],
         ];
@@ -264,13 +289,20 @@ class PreinscriptionAdminTest extends TestCase
     public function test_admin_cree_et_valide_une_preinscription_pour_un_eleve_existant(): void
     {
         AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-15',
+            'is_active' => true,
         ]);
 
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC2', 'nom_complet' => 'Mballa Aline',
-            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC2',
+            'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
@@ -279,7 +311,9 @@ class PreinscriptionAdminTest extends TestCase
             ->postJson('/api/v1/preinscriptions', [
                 'eleve_id' => $eleve->id,
                 'donnees_eleve' => [
-                    'nom_complet' => 'Mballa Aline', 'sexe' => 'F', 'date_naissance' => '2016-01-01',
+                    'nom_complet' => 'Mballa Aline',
+                    'sexe' => 'F',
+                    'date_naissance' => '2016-01-01',
                     'adresse' => 'Nouvelle adresse',
                 ],
                 'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000', 'is_principal' => true]],
@@ -297,13 +331,20 @@ class PreinscriptionAdminTest extends TestCase
     public function test_admin_encaisse_immediatement_si_un_montant_est_indique(): void
     {
         AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-15',
+            'is_active' => true,
         ]);
 
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC3', 'nom_complet' => 'Mballa Aline',
-            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC3',
+            'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
@@ -328,8 +369,12 @@ class PreinscriptionAdminTest extends TestCase
     public function test_admin_ne_peut_pas_reinscrire_un_eleve_sans_tuteur(): void
     {
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC4', 'nom_complet' => 'Sans Tuteur',
-            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC4',
+            'nom_complet' => 'Sans Tuteur',
+            'sexe' => 'M',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
 
         $reponse = $this->actingAs($this->admin(), 'sanctum')
@@ -349,8 +394,11 @@ class PreinscriptionAdminTest extends TestCase
     private function anneeActive(): AnneeScolaire
     {
         return AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-15',
+            'is_active' => true,
         ]);
     }
 
@@ -375,21 +423,32 @@ class PreinscriptionAdminTest extends TestCase
     public function test_valider_un_ancien_eleve_convertit_le_solde_impaye_en_frais_annexe(): void
     {
         $anneePrecedente = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2025-2026',
-            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-15', 'is_active' => false,
+            'school_id' => $this->school->id,
+            'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01',
+            'date_fin' => '2026-07-15',
+            'is_active' => false,
         ]);
         $annee = $this->anneeActive();
 
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC9', 'nom_complet' => 'Mballa Aline',
-            'sexe' => 'F', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC9',
+            'nom_complet' => 'Mballa Aline',
+            'sexe' => 'F',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
         // Dossier de l'an dernier, jamais réglé : 50 000 restent dus.
         DossierScolarite::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $anneePrecedente->id, 'eleve_id' => $eleve->id,
-            'montant_scolarite' => 50000, 'remise' => 0, 'report_dette' => 0,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $anneePrecedente->id,
+            'eleve_id' => $eleve->id,
+            'montant_scolarite' => 50000,
+            'remise' => 0,
+            'report_dette' => 0,
         ]);
 
         $admin = $this->admin();
@@ -410,14 +469,22 @@ class PreinscriptionAdminTest extends TestCase
         $annee = $this->anneeActive();
 
         $reinscrit = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SECA', 'nom_complet' => 'Déjà réinscrit',
-            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SECA',
+            'nom_complet' => 'Déjà réinscrit',
+            'sexe' => 'M',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
         $reinscrit->forceFill(['created_at' => '2025-01-01'])->saveQuietly();
         $reinscrit->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
         $nonReinscrit = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SECB', 'nom_complet' => 'Pas encore réinscrit',
-            'sexe' => 'M', 'date_naissance' => '2016-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SECB',
+            'nom_complet' => 'Pas encore réinscrit',
+            'sexe' => 'M',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
         ]);
         $nonReinscrit->forceFill(['created_at' => '2025-01-01'])->saveQuietly();
 
@@ -441,8 +508,12 @@ class PreinscriptionAdminTest extends TestCase
         $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
 
         $ancien = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => 'IMP1', 'nom_complet' => 'Ancien Un',
-            'sexe' => 'M', 'date_naissance' => '2015-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => 'IMP1',
+            'nom_complet' => 'Ancien Un',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'statut' => 'actif',
         ]);
         $ancien->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
@@ -504,16 +575,25 @@ class PreinscriptionAdminTest extends TestCase
         $this->anneeActive();
         Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => 'NA1', 'nom_complet' => 'Deja Correct',
-            'sexe' => 'F', 'date_naissance' => '2014-01-01', 'lieu_naissance' => 'Douala', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => 'NA1',
+            'nom_complet' => 'Deja Correct',
+            'sexe' => 'F',
+            'date_naissance' => '2014-01-01',
+            'lieu_naissance' => 'Douala',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
         $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
         $import->collection(collect([
             collect([
-                'ideleves' => 'NA1', 'nom_eleves' => 'Deja Correct', 'nom_classe' => 'CM2',
-                'sexe_eleves' => '#N/A', 'ddn_eleves' => '#N/A', 'lieu_naiss' => '#N/A',
+                'ideleves' => 'NA1',
+                'nom_eleves' => 'Deja Correct',
+                'nom_classe' => 'CM2',
+                'sexe_eleves' => '#N/A',
+                'ddn_eleves' => '#N/A',
+                'lieu_naiss' => '#N/A',
             ]),
         ]));
 
@@ -544,7 +624,9 @@ class PreinscriptionAdminTest extends TestCase
     {
         $sql = 'insert into `preinscriptions` (`school_id`, `classe_id`) values (?, ?)';
         $exception = new \Illuminate\Database\QueryException(
-            'mysql', $sql, ['699902861'],
+            'mysql',
+            $sql,
+            ['699902861'],
             new \PDOException("SQLSTATE[42S22]: Column not found: 1054 Unknown column 'classe_id' in 'field list'"),
         );
 
@@ -582,8 +664,12 @@ class PreinscriptionAdminTest extends TestCase
         $this->anneeActive();
         $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => 'SANSID', 'nom_complet' => 'Nkomo Alice',
-            'sexe' => 'F', 'date_naissance' => '2014-05-02', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => 'SANSID',
+            'nom_complet' => 'Nkomo Alice',
+            'sexe' => 'F',
+            'date_naissance' => '2014-05-02',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
@@ -605,16 +691,24 @@ class PreinscriptionAdminTest extends TestCase
         $this->anneeActive();
         Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => 'DET1', 'nom_complet' => 'Ancien Endette',
-            'sexe' => 'M', 'date_naissance' => '2014-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => 'DET1',
+            'nom_complet' => 'Ancien Endette',
+            'sexe' => 'M',
+            'date_naissance' => '2014-01-01',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
         $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
         $import->collection(collect([
             collect([
-                'ideleves' => 'DET1', 'nom_eleves' => 'Ancien Endette', 'nom_classe' => 'CM2',
-                'frais_scolarite' => '90000', 'montant_scolarite' => '30000', 'remise_scol' => '10000',
+                'ideleves' => 'DET1',
+                'nom_eleves' => 'Ancien Endette',
+                'nom_classe' => 'CM2',
+                'frais_scolarite' => '90000',
+                'montant_scolarite' => '30000',
+                'remise_scol' => '10000',
                 'annee_scol' => '2025-2026',
             ]),
         ]));
@@ -637,16 +731,23 @@ class PreinscriptionAdminTest extends TestCase
         $this->anneeActive();
         Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => 'DET2', 'nom_complet' => 'Autre Endette',
-            'sexe' => 'M', 'date_naissance' => '2014-01-01', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => 'DET2',
+            'nom_complet' => 'Autre Endette',
+            'sexe' => 'M',
+            'date_naissance' => '2014-01-01',
+            'statut' => 'actif',
         ]);
         $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
 
         $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
         $import->collection(collect([
             collect([
-                'ideleves' => 'DET2', 'nom_eleves' => 'Autre Endette', 'nom_classe' => 'CM2',
-                'debts' => '25000', 'annee_scol' => '2025-2026',
+                'ideleves' => 'DET2',
+                'nom_eleves' => 'Autre Endette',
+                'nom_classe' => 'CM2',
+                'debts' => '25000',
+                'annee_scol' => '2025-2026',
             ]),
         ]));
 

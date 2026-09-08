@@ -52,7 +52,7 @@ function tuteurDepuisEleve(t: Eleve['tuteurs'][number]): TuteurForm {
  * renseigne pas qu'un identifiant — tout le formulaire se recharge avec la
  * fiche actuelle de l'élève, prête à être complétée ou corrigée.
  */
-function EleveAutocomplete({ onChoisir }: { onChoisir: (eleve: Eleve) => void }) {
+function EleveAutocomplete({ onChoisir, onNouveau }: { onChoisir: (eleve: Eleve) => void; onNouveau: (nom: string) => void }) {
   const [terme, setTerme] = useState('')
   const [termeDebounce, setTermeDebounce] = useState('')
   const [ouvert, setOuvert] = useState(false)
@@ -68,7 +68,8 @@ function EleveAutocomplete({ onChoisir }: { onChoisir: (eleve: Eleve) => void })
     enabled: ouvert && termeDebounce.length >= 2,
   })
 
-  const afficherSuggestions = ouvert && termeDebounce.length >= 2 && ((suggestions?.length ?? 0) > 0 || isFetching)
+  const rechercheTerminee = ouvert && termeDebounce.length >= 2 && !isFetching
+  const afficherSuggestions = ouvert && termeDebounce.length >= 2 && ((suggestions?.length ?? 0) > 0 || isFetching || rechercheTerminee)
 
   return (
     <div className="relative">
@@ -107,6 +108,22 @@ function EleveAutocomplete({ onChoisir }: { onChoisir: (eleve: Eleve) => void })
             </li>
           ))}
           {isFetching && <li className="px-3 py-2 text-xs text-navy-300">Recherche…</li>}
+          {rechercheTerminee && suggestions?.length === 0 && (
+            <li className="border-t border-navy-50 px-3 py-2">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onNouveau(terme.trim())
+                  setOuvert(false)
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold text-navy-700 hover:bg-cream-100"
+              >
+                <UserPlus className="h-4 w-4" />
+                Aucun élève trouvé : créer une nouvelle préinscription
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>
@@ -122,6 +139,7 @@ function EleveAutocomplete({ onChoisir }: { onChoisir: (eleve: Eleve) => void })
 export function PreinscriptionCreerPage() {
   const navigate = useNavigate()
   const [eleve, setEleve] = useState<Eleve | null>(null)
+  const [mode, setMode] = useState<'recherche' | 'nouveau'>('recherche')
   const [champs, setChamps] = useState<Record<string, string>>({})
   const [tuteurs, setTuteurs] = useState<TuteurForm[]>([])
   const [montant, setMontant] = useState(0)
@@ -136,11 +154,22 @@ export function PreinscriptionCreerPage() {
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
   const choisirEleve = (choix: Eleve) => {
+    setMode('recherche')
     setEleve(choix)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String((choix as unknown as Record<string, unknown>)[cle] ?? '')])))
     setTuteurs(choix.tuteurs.length > 0 ? choix.tuteurs.map(tuteurDepuisEleve) : [])
     setClasseId(choix.classe?.id ?? null)
     setNiveauId(choix.classe ? classes?.find((c) => c.id === choix.classe!.id)?.niveau_id : undefined)
+    setErreurMsg(null)
+  }
+
+  const commencerNouveau = (nom: string) => {
+    setMode('nouveau')
+    setEleve(null)
+    setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, cle === 'nom_complet' ? nom : ''])))
+    setTuteurs([])
+    setClasseId(null)
+    setNiveauId(undefined)
     setErreurMsg(null)
   }
 
@@ -171,12 +200,13 @@ export function PreinscriptionCreerPage() {
   }
 
   const enregistrer = async () => {
-    if (!eleve) return
+    if (!eleve && mode !== 'nouveau') return
     setEnvoi(true)
     setErreurMsg(null)
     try {
-      const { data } = await http.post<ApiResponse<PreinscriptionResume>>('/preinscriptions', {
-        eleve_id: eleve.id,
+      const endpoint = eleve ? '/preinscriptions' : '/preinscriptions/nouveau'
+      const { data } = await http.post<ApiResponse<PreinscriptionResume>>(endpoint, {
+        ...(eleve ? { eleve_id: eleve.id } : {}),
         donnees_eleve: champs,
         donnees_tuteurs: tuteurs
           .filter((t) => t.nom_complet.trim() !== '')
@@ -228,7 +258,7 @@ export function PreinscriptionCreerPage() {
                 Recherchez l'élève à réinscrire : ses informations et ses tuteurs se rechargeront automatiquement, prêts à être
                 complétés.
               </p>
-              <EleveAutocomplete onChoisir={choisirEleve} />
+              <EleveAutocomplete onChoisir={choisirEleve} onNouveau={commencerNouveau} />
             </>
           ) : (
             <>

@@ -471,6 +471,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
                 Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store');
+                Route::post('preinscriptions/nouveau', [PreinscriptionAdminController::class, 'storeNouveau'])->name('preinscriptions.nouveau');
                 // Routes statiques déclarées avant `preinscriptions/{id}` : sinon
                 // Laravel les fait matcher par le paramètre `{id}` (ex.
                 // "export" essaierait de charger la préinscription n°"export").
