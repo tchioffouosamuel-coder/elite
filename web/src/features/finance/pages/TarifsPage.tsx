@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Tags, Plus, Save, Trash2, Info, Pencil, Search } from 'lucide-react'
+import { Tags, Plus, Save, Trash2, Info, Pencil, Search, RotateCcw } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { EcheancierCard } from '@/features/finance/pages/EcheancierCard'
@@ -121,11 +121,14 @@ export function TarifsPage() {
     },
   })
 
-  const agir = (action: () => Promise<void>, message: string) =>
+  // Certaines actions (bascule obligatoire/facultatif, désactivation,
+  // réactivation) renvoient un message enrichi par le nombre de dossiers
+  // répercutés — on l'affiche tel quel plutôt que le message par défaut.
+  const agir = (action: () => Promise<{ message: string } | void>, messageParDefaut: string) =>
     mutation.mutate(
       async () => {
-        await action()
-        succes(message)
+        const resultat = await action()
+        succes(resultat && 'message' in resultat ? resultat.message : messageParDefaut)
       },
       { onError: (e: ApiError) => e.status !== 403 && erreur(e.message) },
     )
@@ -401,32 +404,51 @@ export function TarifsPage() {
                       {!frais.is_active && <Badge tone="neutral">Désactivé</Badge>}
                     </div>
                   </div>
-                  {modifiable && frais.is_active && (
+                  {modifiable && (
                     // `flex-none` : les actions gardent leur largeur, c'est le
                     // libellé qui cède s'il faut tronquer.
                     <div className="flex flex-none items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        title={frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
-                        onClick={() =>
-                          agir(
-                            () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }, ecoleFiltreId),
-                            'Frais annexe mis à jour.',
-                          )
-                        }
-                      >
-                        {/* Un verbe : le bouton dit ce qu'il fait, pas un état. */}
-                        {frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        title="Désactiver"
-                        onClick={() => agir(() => desactiverFraisAnnexe(frais.id, ecoleFiltreId), 'Frais annexe désactivé.')}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {frais.is_active ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            title={frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
+                            onClick={() =>
+                              agir(
+                                () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }, ecoleFiltreId),
+                                'Frais annexe mis à jour.',
+                              )
+                            }
+                          >
+                            {/* Un verbe : le bouton dit ce qu'il fait, pas un état. */}
+                            {frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            title="Désactiver"
+                            onClick={() => agir(() => desactiverFraisAnnexe(frais.id, ecoleFiltreId), 'Frais annexe désactivé.')}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          title="Réactiver"
+                          onClick={() =>
+                            agir(
+                              () => modifierFraisAnnexe(frais.id, { is_active: true }, ecoleFiltreId),
+                              'Frais annexe réactivé.',
+                            )
+                          }
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Réactiver
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>

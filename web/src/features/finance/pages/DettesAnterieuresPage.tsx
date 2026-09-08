@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { History, ArrowLeft, FileDown, Plus, Wallet, Users } from 'lucide-react'
+import { History, ArrowLeft, FileDown, Plus, Wallet, Users, HeartHandshake, Search } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
-import { fetchDettesAnterieuresListe, francs } from '@/features/finance/api'
+import { fetchDettesAnterieuresListe, oublierDetteAnterieure, francs, type LigneDetteAnterieure } from '@/features/finance/api'
 import { CreerDetteAnterieureModal } from '@/features/finance/CreerDetteAnterieureModal'
+import type { ApiError } from '@/shared/types/api'
 
 /**
  * Vue caisse d'ensemble des reliquats d'années antérieures non soldés — qui
@@ -28,6 +30,7 @@ export function DettesAnterieuresPage() {
 
   const [schoolId, setSchoolId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
+  const [terme, setTerme] = useState('')
   const [detteModalOuvert, setDetteModalOuvert] = useState(false)
 
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
@@ -48,9 +51,35 @@ export function DettesAnterieuresPage() {
     enabled: detteModalOuvert,
   })
 
-  const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['finance-dettes-anterieures'] })
+  const rafraichir = () => {
+    queryClient.invalidateQueries({ queryKey: ['finance-dettes-anterieures'] })
+    queryClient.invalidateQueries({ queryKey: ['finance-insolvables'] })
+    queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] })
+  }
+
+  const oublier = async (ligne: LigneDetteAnterieure) => {
+    const ok = await confirmer({
+      titre: `Oublier la dette de ${ligne.eleve.nom_complet} ?`,
+      message: `Le reliquat de ${francs(ligne.reste)} sera définitivement effacé de son dossier. Les versements déjà encaissés ne sont pas affectés. Cette action est irréversible.`,
+      action: 'Oublier la dette',
+    })
+    if (!ok) return
+
+    try {
+      await oublierDetteAnterieure(ligne.eleve.id)
+      succes('Reliquat effacé.')
+      rafraichir()
+    } catch (e) {
+      erreur((e as ApiError).message)
+    }
+  }
 
   const pdfParams = { ...(schoolId ? { school_id: String(schoolId) } : {}), ...(classeId ? { classe_id: String(classeId) } : {}) }
+
+  const q = terme.trim().toLowerCase()
+  const lignesFiltrees = (data?.lignes ?? []).filter((ligne) =>
+    !q || ligne.eleve.nom_complet.toLowerCase().includes(q) || (ligne.eleve.matricule ?? '').toLowerCase().includes(q),
+  )
 
   return (
     <div className="flex flex-col gap-5">
@@ -83,6 +112,15 @@ export function DettesAnterieuresPage() {
       />
 
       <div className="flex flex-wrap gap-2">
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
+          <input
+            value={terme}
+            onChange={(e) => setTerme(e.target.value)}
+            placeholder="Rechercher un nom, un matricule…"
+            className="w-full rounded-xl border border-navy-200 bg-white py-2.5 pl-10 pr-3 text-sm shadow-soft transition-colors placeholder:text-navy-300 focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+          />
+        </div>
         {schools.length > 1 && (
           <div className="w-full sm:w-56">
             <Select
@@ -121,8 +159,14 @@ export function DettesAnterieuresPage() {
             <StatCard label="Reste à recouvrer" value={francs(data.totaux.total_reste)} icon={Wallet} accent="red" />
           </div>
 
-          {data.lignes.length === 0 ? (
-            <EmptyState label="Aucun reliquat d'année antérieure en attente sur ce périmètre." />
+          {lignesFiltrees.length === 0 ? (
+            <EmptyState
+              label={
+                q
+                  ? `Aucun résultat pour « ${terme} ».`
+                  : "Aucun reliquat d'année antérieure en attente sur ce périmètre."
+              }
+            />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-navy-100/70 bg-white/75 shadow-card">
               <table className="w-full border-collapse text-sm">
@@ -134,10 +178,11 @@ export function DettesAnterieuresPage() {
                     <th className="px-3 py-2.5 text-right">Reliquat</th>
                     <th className="px-3 py-2.5 text-right">Versé</th>
                     <th className="px-3 py-2.5 text-right">Reste</th>
+                    {can('finance.manage') && <th className="px-3 py-2.5"></th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {data.lignes.map((ligne) => (
+                  {lignesFiltrees.map((ligne) => (
                     <tr key={ligne.eleve.id} className="border-b border-navy-50 hover:bg-cream-50/60">
                       <td className="px-4 py-2.5">
                         <div className="font-semibold text-navy-900">{ligne.eleve.nom_complet}</div>
@@ -150,6 +195,14 @@ export function DettesAnterieuresPage() {
                       <td className="px-3 py-2.5 text-right">
                         <span className="font-semibold tabular-nums text-red-600">{francs(ligne.reste)}</span>
                       </td>
+                      {can('finance.manage') && (
+                        <td className="px-3 py-2.5 text-right">
+                          <Button size="sm" variant="secondary" onClick={() => oublier(ligne)}>
+                            <HeartHandshake className="h-3.5 w-3.5" />
+                            Oublier la dette
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

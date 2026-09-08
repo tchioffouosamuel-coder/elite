@@ -16,7 +16,9 @@ use App\Models\Moratoire;
 use App\Models\Remise;
 use App\Models\School;
 use App\Models\Setting;
+use App\Models\User;
 use App\Models\Versement;
+use App\Models\VersementLigne;
 use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
@@ -269,6 +271,47 @@ class ScolariteService extends BaseService
     }
 
     /**
+     * Efface le reliquat d'années antérieures d'un élève — décision de
+     * l'économe (créance jugée irrécouvrable, geste commercial) plutôt
+     * qu'une correction de saisie. `dossier()` matérialise le dossier de
+     * l'année active au besoin : c'est lui qui reprend le reliquat, qu'il
+     * vienne de l'année précédente ou de dettes non encore imputées, et le
+     * regrouper avant de l'effacer couvre les deux origines d'un seul geste.
+     *
+     * Le `report_dette` est ramené à ce qui est déjà réglé dessus — jamais en
+     * dessous — pour ne pas transformer un versement déjà encaissé en avance
+     * fictive. Les versements passés ne sont pas touchés : seul ce qui restait
+     * dû s'annule.
+     */
+    public function oublierDetteAnterieure(Eleve $eleve, ?int $accordePar): DossierScolarite
+    {
+        return $this->transaction(function () use ($eleve, $accordePar) {
+            $anneeActive = AnneeScolaire::where('school_id', $eleve->school_id)->where('is_active', true)->first();
+            if (! $anneeActive) {
+                throw new RuntimeException("Aucune année scolaire active pour l'école de cet élève.");
+            }
+
+            $dossier = $this->dossier($eleve, $anneeActive);
+
+            $reliquat = collect($dossier->rubriques)->firstWhere('cle', 'report_dette');
+            if (! $reliquat || $reliquat['reste'] <= 0) {
+                throw new RuntimeException("Cet élève n'a aucun reliquat d'année antérieure en attente.");
+            }
+
+            $auteur = $accordePar ? User::find($accordePar)?->name : null;
+            $note = 'Reliquat de ' . number_format($reliquat['reste'], 0, ',', ' ') . ' F effacé le ' . now()->format('d/m/Y')
+                . ($auteur ? ' par ' . $auteur : '') . '.';
+
+            $dossier->update([
+                'report_dette' => $reliquat['montant_paye'],
+                'observation' => trim(($dossier->observation ? $dossier->observation."\n" : '').$note),
+            ]);
+
+            return $dossier;
+        });
+    }
+
+    /**
      * Tarif applicable : celui de la classe si elle en a un, sinon le tarif par
      * défaut de l'école (ligne sans classe).
      */
@@ -324,6 +367,99 @@ class ScolariteService extends BaseService
                 }
             })
             ->get();
+    }
+
+    /**
+     * Répercute sur les dossiers déjà ouverts de son année un changement
+     * d'applicabilité d'un frais annexe — le pendant de `synchroniserTarifs()`
+     * pour les frais annexes plutôt que la scolarité. « Applicable » signifie
+     * actif ET obligatoire : un frais désactivé, ou rendu facultatif, cesse
+     * d'être dû et se retire des dossiers qui le portaient ; un frais
+     * réactivé ou rendu obligatoire s'y ajoute.
+     *
+     * Le retrait épargne les dossiers où un versement a déjà été reçu sur ce
+     * poste — un encaissement ne se supprime jamais, seul ce qui restait dû
+     * s'annule. Chaque dossier touché en avertit le tuteur par SMS.
+     *
+     * @return array{ajoutes: int, retires: int}
+     */
+    public function synchroniserFraisAnnexe(FraisAnnexe $frais, bool $etaitApplicable): array
+    {
+        $estApplicable = $frais->is_active && $frais->obligatoire;
+
+        if ($etaitApplicable === $estApplicable) {
+            return ['ajoutes' => 0, 'retires' => 0];
+        }
+
+        $frais->loadMissing('classes');
+
+        $dossiers = DossierScolarite::where('school_id', $frais->school_id)
+            ->where('annee_scolaire_id', $frais->annee_scolaire_id)
+            ->with(['eleve.tuteurs', 'fraisAnnexes'])
+            ->get()
+            ->filter(fn(DossierScolarite $d) => $d->eleve && $this->fraisConcerneClasse($frais, $d->eleve->classe_id));
+
+        $ajoutes = 0;
+        $retires = 0;
+
+        foreach ($dossiers as $dossier) {
+            $existant = $dossier->fraisAnnexes->firstWhere('frais_annexe_id', $frais->id);
+
+            if ($estApplicable && ! $existant) {
+                $dossier->fraisAnnexes()->create([
+                    'frais_annexe_id' => $frais->id,
+                    'libelle' => $frais->libelle,
+                    'montant' => $frais->montant,
+                ]);
+                $ajoutes++;
+                $this->notifierFraisAnnexe($dossier->eleve, $frais, true);
+            } elseif (! $estApplicable && $existant && ! $this->fraisAnnexeRegle($existant)) {
+                $existant->delete();
+                $retires++;
+                $this->notifierFraisAnnexe($dossier->eleve, $frais, false);
+            }
+        }
+
+        return ['ajoutes' => $ajoutes, 'retires' => $retires];
+    }
+
+    /** Un frais sans classe rattachée s'applique à toute l'école ; sinon seulement aux classes listées. */
+    private function fraisConcerneClasse(FraisAnnexe $frais, ?int $classeId): bool
+    {
+        if ($frais->classes->isEmpty()) {
+            return true;
+        }
+
+        return $classeId !== null && $frais->classes->contains('id', $classeId);
+    }
+
+    /** Un versement valide a déjà été reçu sur ce poste : il ne se retire plus du dossier. */
+    private function fraisAnnexeRegle(DossierFraisAnnexe $ligne): bool
+    {
+        return VersementLigne::where('dossier_frais_annexe_id', $ligne->id)
+            ->whereHas('versement', fn($q) => $q->whereNull('annule_le'))
+            ->exists();
+    }
+
+    /** Avertit le tuteur principal (ou à défaut le premier) qu'un frais annexe vient d'être ajouté ou retiré du dossier. */
+    private function notifierFraisAnnexe(Eleve $eleve, FraisAnnexe $frais, bool $ajoute): void
+    {
+        $tuteur = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+        if (! $tuteur?->telephone) {
+            return;
+        }
+
+        $message = $ajoute
+            ? sprintf(
+                'Un frais a été ajouté au dossier de %s : %s (%s F CFA).',
+                $eleve->nom_complet,
+                $frais->libelle,
+                number_format($frais->montant, 0, ',', ' '),
+            )
+            : sprintf('Le frais « %s » a été retiré du dossier de %s.', $frais->libelle, $eleve->nom_complet);
+
+        $this->sms->envoyer($tuteur->telephone, $message);
     }
 
     /**

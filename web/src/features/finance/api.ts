@@ -902,12 +902,25 @@ export async function modifierFraisAnnexe(
     classe_ids: number[];
   }>,
   schoolId?: number | null,
-): Promise<void> {
-  await http.put(`/tarifs/frais-annexes/${id}`, payload, enTeteEcole(schoolId));
+): Promise<{ message: string }> {
+  const { data } = await http.put<ApiResponse<never>>(
+    `/tarifs/frais-annexes/${id}`,
+    payload,
+    enTeteEcole(schoolId),
+  );
+  return { message: data.message ?? "Frais annexe mis à jour." };
 }
 
-export async function desactiverFraisAnnexe(id: number, schoolId?: number | null): Promise<void> {
-  await http.delete(`/tarifs/frais-annexes/${id}`, enTeteEcole(schoolId));
+/** Désactivation plutôt que suppression : le frais reste lisible sur les reçus déjà émis, et peut être réactivé via `modifierFraisAnnexe`. */
+export async function desactiverFraisAnnexe(
+  id: number,
+  schoolId?: number | null,
+): Promise<{ message: string }> {
+  const { data } = await http.delete<ApiResponse<never>>(
+    `/tarifs/frais-annexes/${id}`,
+    enTeteEcole(schoolId),
+  );
+  return { message: data.message ?? "Frais annexe désactivé." };
 }
 
 // ---------------------------------------------------------------- Rapports
@@ -1188,6 +1201,11 @@ export async function creerDetteAnterieure(
 
 export async function supprimerDetteAnterieure(id: number): Promise<void> {
   await http.delete(`/dettes-anterieures/${id}`);
+}
+
+/** Dédouane l'élève de tout reliquat d'années antérieures déjà repris dans son dossier de l'année active. */
+export async function oublierDetteAnterieure(eleveId: number): Promise<void> {
+  await http.post(`/eleves/${eleveId}/dettes-anterieures/oublier`);
 }
 
 export interface LigneDetteAnterieure {

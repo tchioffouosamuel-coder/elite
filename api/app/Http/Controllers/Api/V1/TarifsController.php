@@ -160,24 +160,45 @@ class TarifsController extends Controller
             'classe_ids.*' => ['integer', Rule::exists('classes', 'id')->where('school_id', $schoolId)],
         ]);
 
+        $etaitApplicable = $frais->is_active && $frais->obligatoire;
+
         $frais->update(collect($donnees)->except('classe_ids')->all());
 
         if (array_key_exists('classe_ids', $donnees)) {
             $frais->synchroniserClasses($donnees['classe_ids']);
         }
 
-        return ApiResponse::success($frais->fresh()->load('classes:id,nom'), 'Frais annexe mis à jour.');
+        $sync = $this->scolarite->synchroniserFraisAnnexe($frais, $etaitApplicable);
+        $message = 'Frais annexe mis à jour.';
+        if ($sync['ajoutes'] > 0) {
+            $message .= " Ajouté à {$sync['ajoutes']} dossier(s).";
+        }
+        if ($sync['retires'] > 0) {
+            $message .= " Retiré de {$sync['retires']} dossier(s).";
+        }
+
+        return ApiResponse::success($frais->fresh()->load('classes:id,nom'), $message);
     }
 
     /**
      * Désactivation plutôt que suppression : le frais figure peut-être déjà sur
-     * des dossiers, et son libellé doit rester lisible sur les reçus émis.
+     * des dossiers, et son libellé doit rester lisible sur les reçus émis. Un
+     * frais désactivé se retire aussitôt des dossiers où il n'a encore rien
+     * reçu — il ne doit plus apparaître dans un dossier financier ni pouvoir y
+     * recevoir de versement.
      */
     public function desactiverFraisAnnexe(int $id): JsonResponse
     {
-        FraisAnnexe::forSchool(app('tenant.school_id'))->findOrFail($id)->update(['is_active' => false]);
+        $frais = FraisAnnexe::forSchool(app('tenant.school_id'))->findOrFail($id);
+        $etaitApplicable = $frais->is_active && $frais->obligatoire;
 
-        return ApiResponse::success(null, 'Frais annexe désactivé.');
+        $frais->update(['is_active' => false]);
+        $sync = $this->scolarite->synchroniserFraisAnnexe($frais, $etaitApplicable);
+
+        return ApiResponse::success(
+            null,
+            'Frais annexe désactivé.'.($sync['retires'] > 0 ? " Retiré de {$sync['retires']} dossier(s)." : ''),
+        );
     }
 
     private function dossiersOuverts(int $classeId, int $anneeId): int

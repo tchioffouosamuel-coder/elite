@@ -114,4 +114,23 @@ class DetteAnterieureController extends Controller
 
         return ApiResponse::success(null, 'Dette antérieure retirée.');
     }
+
+    /**
+     * Efface le reliquat d'années antérieures de l'élève — geste distinct de
+     * `destroy()` : celui-ci ne retire qu'une dette isolée pas encore
+     * imputée, `oublier()` dédouane l'élève de tout reliquat déjà repris
+     * dans son dossier de l'année active.
+     */
+    public function oublier(Request $request, int $eleveId): JsonResponse
+    {
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+
+        try {
+            $this->service->oublierDetteAnterieure($eleve, $request->user()?->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(null, 'Reliquat effacé.');
+    }
 }

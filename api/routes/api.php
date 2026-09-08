@@ -852,6 +852,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store');
                 Route::delete('dettes-anterieures/{id}', [DetteAnterieureController::class, 'destroy'])->name('dettes-anterieures.destroy');
+                Route::post('eleves/{eleveId}/dettes-anterieures/oublier', [DetteAnterieureController::class, 'oublier'])->name('dettes-anterieures.oublier');
             });
 
             /*
