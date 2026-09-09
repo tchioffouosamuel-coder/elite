@@ -88,22 +88,24 @@ class PreinscriptionAdminTest extends TestCase
         ]);
     }
 
-    public function test_endpoint_verifie_si_une_classe_est_dans_les_preinscriptions(): void
+    public function test_endpoint_renvoie_le_schema_complet_des_tables(): void
     {
         $admin = $this->admin();
-        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
-        $preinscription = $this->soumettrePreinscriptionNouvel();
-        $preinscription->update(['classe_id' => $classe->id]);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson("/api/v1/preinscriptions/classe/{$classe->id}/existe")
+            ->getJson('/api/v1/database/schema')
             ->assertOk()
-            ->assertJsonPath('data.exists', true);
-
-        $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/v1/preinscriptions/classe/999999/existe')
-            ->assertOk()
-            ->assertJsonPath('data.exists', false);
+            ->assertJsonStructure([
+                'data' => [
+                    'tables' => [
+                        'schools' => ['columns', 'indexes', 'foreign_keys'],
+                        'users' => ['columns', 'indexes', 'foreign_keys'],
+                        'eleves' => ['columns', 'indexes', 'foreign_keys'],
+                        'preinscriptions' => ['columns', 'indexes', 'foreign_keys'],
+                    ],
+                ],
+            ])
+            ->assertJsonPath('data.tables.preinscriptions.columns.0.name', 'id');
     }
 
     public function test_admin_peut_corriger_puis_valider_une_preinscription(): void

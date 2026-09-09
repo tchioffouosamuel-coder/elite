@@ -15,6 +15,7 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -35,12 +36,31 @@ class PreinscriptionAdminController extends Controller
         return ApiResponse::success($preinscriptions->map(fn(Preinscription $p) => $this->resume($p)));
     }
 
-    public function classeExiste(int $classId): JsonResponse
+    public function schema(): JsonResponse
     {
+        $tables = [];
+
+        foreach (Schema::getTables() as $table) {
+            $tableName = is_array($table) ? $table['name'] : $table->name;
+
+            $tables[$tableName] = [
+                'columns' => array_map(
+                    static fn(mixed $column): array => (array) $column,
+                    Schema::getColumns($tableName),
+                ),
+                'indexes' => array_map(
+                    static fn(mixed $index): array => (array) $index,
+                    Schema::getIndexes($tableName),
+                ),
+                'foreign_keys' => array_map(
+                    static fn(mixed $foreignKey): array => (array) $foreignKey,
+                    Schema::getForeignKeys($tableName),
+                ),
+            ];
+        }
+
         return ApiResponse::success([
-            'exists' => Preinscription::forSchool(Tenant::schoolIds())
-                ->where('classe_id', $classId)
-                ->exists(),
+            'tables' => $tables,
         ]);
     }
 
