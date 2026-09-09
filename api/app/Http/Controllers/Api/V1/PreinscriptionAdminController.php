@@ -15,6 +15,7 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -400,6 +401,26 @@ class PreinscriptionAdminController extends Controller
         }
 
         return ApiResponse::success($this->resume($p), 'Préinscription rejetée.');
+    }
+
+    public function supprimer(Request $request, int $id): JsonResponse
+    {
+        $p = Preinscription::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validate([
+            'mot_de_passe' => ['required', 'string'],
+        ]);
+
+        if (! Hash::check($data['mot_de_passe'], (string) $request->user()->password)) {
+            return ApiResponse::error('Mot de passe incorrect.', 422);
+        }
+
+        try {
+            $this->service->supprimerValidee($p);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(null, 'Préinscription validée supprimée.');
     }
 
     public function rejeterEnMasse(Request $request): JsonResponse

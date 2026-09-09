@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\AnciensReinscritsExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\EleveResource;
@@ -10,6 +11,8 @@ use App\Services\PilotageService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DashboardController extends Controller
 {
@@ -37,9 +40,18 @@ class DashboardController extends Controller
     public function anciensReinscrits(): JsonResponse
     {
         $eleves = $this->service->listeAnciensReinscrits(Tenant::schoolIds());
+        $eleves = $eleves->sortBy(fn($eleve) => mb_strtolower($eleve->nom_complet))->values();
         $eleves->load(['school', 'classe.niveau']);
 
         return ApiResponse::success(EleveResource::collection($eleves));
+    }
+
+    public function exportAnciensReinscrits(): BinaryFileResponse
+    {
+        return Excel::download(
+            new AnciensReinscritsExport(Tenant::schoolIds(), app(\App\Services\PreinscriptionService::class)),
+            'anciens-reinscrits.xlsx',
+        );
     }
 
     /**

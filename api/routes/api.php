@@ -289,6 +289,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
                 Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
                 Route::get('dashboard/anciens-reinscrits', [DashboardController::class, 'anciensReinscrits'])->name('dashboard.anciens-reinscrits');
+                Route::get('dashboard/anciens-reinscrits/export', [DashboardController::class, 'exportAnciensReinscrits'])->name('dashboard.anciens-reinscrits.export');
             });
 
             // Journal complet des connexions/actions : réservé au super admin,
@@ -491,6 +492,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');
                 Route::post('preinscriptions/{id}/rejeter', [PreinscriptionAdminController::class, 'rejeter'])->name('preinscriptions.rejeter');
+                Route::delete('preinscriptions/{id}', [PreinscriptionAdminController::class, 'supprimer'])->name('preinscriptions.supprimer');
 
                 Route::get('modifications-eleves', [ModificationEleveAdminController::class, 'index'])->name('modifications-eleves.index');
                 Route::get('modifications-eleves/{id}', [ModificationEleveAdminController::class, 'show'])->name('modifications-eleves.show');

@@ -587,6 +587,26 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertFalse($reinscrits->contains('id', $eleve->id));
     }
 
+    public function test_un_admin_peut_supprimer_une_preinscription_validee_avec_son_mot_de_passe(): void
+    {
+        $preinscription = $this->soumettrePreinscriptionNouvel();
+        $admin = $this->admin();
+        $service = app(PreinscriptionService::class);
+        $service->valider($preinscription, $admin->id);
+
+        $mauvaisMotDePasse = $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->deleteJson("/api/v1/preinscriptions/{$preinscription->id}", ['mot_de_passe' => 'incorrect']);
+        $mauvaisMotDePasse->assertStatus(422);
+        $this->assertDatabaseHas('preinscriptions', ['id' => $preinscription->id, 'statut' => 'validee']);
+
+        $suppression = $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->deleteJson("/api/v1/preinscriptions/{$preinscription->id}", ['mot_de_passe' => 'password']);
+        $suppression->assertOk();
+        $this->assertDatabaseMissing('preinscriptions', ['id' => $preinscription->id]);
+    }
+
     // --------------------------------------------------------- Import massif
 
     public function test_import_xlsx_traite_ancien_et_nouvel_eleve_et_rapporte_les_erreurs(): void

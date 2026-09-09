@@ -207,6 +207,28 @@ export async function demanderTexte({
   return isConfirmed ? String(value ?? "").trim() : null;
 }
 
+export async function demanderMotDePasse({ titre, message }: { titre: string; message: string }): Promise<string | null> {
+  const { isConfirmed, value } = await Swal.fire({
+    ...base,
+    icon: "warning",
+    iconColor: "#ba2e2c",
+    title: titre,
+    text: message,
+    input: "password",
+    inputAttributes: { autocomplete: "current-password", "aria-label": "Mot de passe" },
+    showCancelButton: true,
+    confirmButtonText: "Supprimer",
+    cancelButtonText: i18n.t("common.cancel"),
+    customClass: {
+      ...base.customClass,
+      confirmButton: (base.customClass as Record<string, string>).denyButton,
+    },
+    inputValidator: (valeur) => String(valeur).trim() ? null : "Le mot de passe est obligatoire.",
+  });
+
+  return isConfirmed ? String(value ?? "") : null;
+}
+
 /**
  * Identifiants provisoires d'un compte fraîchement ouvert (parent, agent…) —
  * fenêtre modale plutôt qu'un toast : l'administrateur doit avoir le temps de

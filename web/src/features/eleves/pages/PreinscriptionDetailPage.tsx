@@ -12,7 +12,7 @@ import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Input, Textarea } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
-import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, demanderMotDePasse, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { completerTelephones, telephonesParDefaut, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
@@ -198,6 +198,25 @@ export function PreinscriptionDetailPage() {
     try {
       await http.post(`/preinscriptions/${id}/rejeter`, { motif: motifRejet })
       succes('Préinscription rejetée.')
+      retourListe()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setTraitement(false)
+    }
+  }
+
+  const supprimer = async () => {
+    const motDePasse = await demanderMotDePasse({
+      titre: 'Supprimer cette préinscription validée ?',
+      message: "L'élève, son dossier et ses versements seront conservés. Seule la préinscription sera supprimée.",
+    })
+    if (motDePasse === null) return
+
+    setTraitement(true)
+    try {
+      await http.delete(`/preinscriptions/${id}`, { data: { mot_de_passe: motDePasse } })
+      succes('Préinscription supprimée.')
       retourListe()
     } catch (err) {
       erreur((err as ApiError).message)
@@ -460,6 +479,14 @@ export function PreinscriptionDetailPage() {
                   </div>
                 )}
               </>
+            )}
+            {p.statut === 'validee' && !editionOuverte && (
+              <div className="flex justify-end">
+                <Button variant="danger" onClick={() => void supprimer()} disabled={traitement}>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer la préinscription
+                </Button>
+              </div>
             )}
           </div>
         )}

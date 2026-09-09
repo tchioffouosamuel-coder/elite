@@ -5,9 +5,14 @@ import { fetchAnciensReinscrits } from '@/features/dashboard/api'
 import { Card } from '@/shared/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+import { fetchAnneesScolaires } from '@/features/session/api'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function AnciensReinscritsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { data: anneesScolaires } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
   const { data: eleves = [], isLoading, isError } = useQuery({
     queryKey: ['dashboard', 'anciens-reinscrits'],
     queryFn: fetchAnciensReinscrits,
@@ -28,6 +33,26 @@ export function AnciensReinscritsPage() {
         titre="Anciens élèves réinscrits"
         sousTitre="Élèves déjà scolarisés qui ont confirmé leur présence pour l'année scolaire active."
         icon={ClipboardCheck}
+        actions={
+          <ImportExportBar
+            titreImport="Importer des préinscriptions"
+            importUrl="preinscriptions/import"
+            decoupe={{ preparerUrl: 'preinscriptions/import/preparer', traiterUrl: 'preinscriptions/import/traiter' }}
+            anneesScolaires={anneesScolaires}
+            exportUrl="dashboard/anciens-reinscrits/export"
+            modeleUrl="preinscriptions/modele"
+            colonnes={[
+              'IDEleves', 'nom_eleves', 'sexe_eleves', 'ddn_eleves', 'Nom_classe', 'nationalité',
+              'lieu_naiss', 'nom_parents', 'tel_pere', 'nom_mere', 'tel_mere', 'tel_autre',
+              'frais_scolarite', 'MONTANT_SCOLARITE', 'remise_scol', 'DEBTS',
+            ]}
+            nomFichier="anciens-reinscrits"
+            onImported={() => {
+              queryClient.invalidateQueries({ queryKey: ['dashboard', 'anciens-reinscrits'] })
+              queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+            }}
+          />
+        }
       />
 
       {isLoading ? (
@@ -54,7 +79,7 @@ export function AnciensReinscritsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
-                {eleves.map((eleve) => (
+                {[...eleves].sort((a, b) => a.nom_complet.localeCompare(b.nom_complet, 'fr', { sensitivity: 'base' })).map((eleve) => (
                   <tr
                     key={eleve.id}
                     onClick={() => navigate(`/eleves/${eleve.id}`)}

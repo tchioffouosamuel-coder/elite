@@ -859,6 +859,15 @@ class PreinscriptionService extends BaseService
         return $preinscription->fresh();
     }
 
+    public function supprimerValidee(Preinscription $preinscription): void
+    {
+        if ($preinscription->statut !== 'validee') {
+            throw new RuntimeException('Seule une préinscription validée peut être supprimée.');
+        }
+
+        $preinscription->delete();
+    }
+
     /**
      * La classe ne suit jamais `donnees_eleve` ici, même si le parent en a
      * proposé une : ce n'est qu'une note à son attention (`note_admin`), pas
