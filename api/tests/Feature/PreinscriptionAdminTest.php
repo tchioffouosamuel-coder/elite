@@ -633,6 +633,44 @@ class PreinscriptionAdminTest extends TestCase
         $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
     }
 
+    public function test_import_ignorer_un_eleve_deja_preinscrit_dans_le_fichier(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => 'IMP-DEJA',
+            'nom_complet' => 'Eleve Deja Preinscrit',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $service = app(PreinscriptionService::class);
+        $service->soumettre($this->tuteur, [
+            'type' => 'existant',
+            'eleve_id' => $eleve->id,
+            'donnees_eleve' => ['nom_complet' => $eleve->nom_complet, 'sexe' => 'M', 'date_naissance' => '2015-01-01'],
+            'donnees_tuteurs' => [['nom_complet' => $this->tuteur->nom_complet]],
+        ]);
+
+        $import = new PreinscriptionImport($this->school->id, $service, $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'ideleves' => 'IMP-DEJA',
+                'nom_eleves' => 'Eleve Deja Preinscrit',
+                'sexe_eleves' => 'M',
+                'ddn_eleves' => '2015-01-01',
+                'nom_classe' => 'CM2',
+            ]),
+        ]));
+
+        $this->assertSame(0, $import->importees);
+        $this->assertCount(1, $import->erreurs);
+        $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
+    }
+
     public function test_import_valide_directement_un_nouvel_eleve_complet(): void
     {
         $this->anneeActive();
@@ -662,7 +700,7 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertSame('Nouvel Eleve Valide', $preinscription->donnees_eleve['nom_complet']);
     }
 
-    public function test_import_accepte_un_nom_paye_comme_preinscription_incomplete(): void
+    public function test_import_refuse_un_nouvel_eleve_incomplet_sans_creer_de_preinscription(): void
     {
         $this->anneeActive();
 
@@ -674,12 +712,9 @@ class PreinscriptionAdminTest extends TestCase
             ]),
         ]));
 
-        $this->assertSame(1, $import->importees);
-        $this->assertCount(0, $import->erreurs);
-        $preinscription = Preinscription::where('type', 'nouveau')->latest('id')->firstOrFail();
-        $this->assertSame('en_attente', $preinscription->statut);
-        $this->assertSame('Eleve Sans Dossier', $preinscription->donnees_eleve['nom_complet']);
-        $this->assertStringContainsString('25 000 FCFA', $preinscription->note_admin);
+        $this->assertSame(0, $import->importees);
+        $this->assertCount(1, $import->erreurs);
+        $this->assertSame(0, Preinscription::where('type', 'nouveau')->count());
     }
 
     /**

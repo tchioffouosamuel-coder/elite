@@ -175,6 +175,38 @@ export async function confirmer({
   return isConfirmed;
 }
 
+export async function demanderTexte({
+  titre,
+  message,
+  placeholder,
+  validation,
+}: {
+  titre: string;
+  message: string;
+  placeholder?: string;
+  validation?: (valeur: string) => string | undefined;
+}): Promise<string | null> {
+  const { isConfirmed, value } = await Swal.fire({
+    ...base,
+    icon: "question",
+    title: titre,
+    text: message,
+    input: "textarea",
+    inputPlaceholder: placeholder,
+    inputAttributes: { "aria-label": message },
+    showCancelButton: true,
+    confirmButtonText: "Continuer",
+    cancelButtonText: i18n.t("common.cancel"),
+    customClass: {
+      ...base.customClass,
+      confirmButton: (base.customClass as Record<string, string>).confirmButton,
+    },
+    inputValidator: (valeur) => validation?.(String(valeur).trim()) ?? null,
+  });
+
+  return isConfirmed ? String(value ?? "").trim() : null;
+}
+
 /**
  * Identifiants provisoires d'un compte fraîchement ouvert (parent, agent…) —
  * fenêtre modale plutôt qu'un toast : l'administrateur doit avoir le temps de

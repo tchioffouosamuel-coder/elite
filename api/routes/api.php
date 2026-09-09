@@ -485,6 +485,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('preinscriptions/import', [PreinscriptionAdminController::class, 'import'])->name('preinscriptions.import');
                 Route::post('preinscriptions/import/preparer', [PreinscriptionAdminController::class, 'importPreparer'])->name('preinscriptions.import-preparer');
                 Route::post('preinscriptions/import/traiter/{token}', [PreinscriptionAdminController::class, 'importerLot'])->name('preinscriptions.import-traiter');
+                Route::post('preinscriptions/bulk-valider', [PreinscriptionAdminController::class, 'validerEnMasse'])->name('preinscriptions.bulk-valider');
+                Route::post('preinscriptions/bulk-rejeter', [PreinscriptionAdminController::class, 'rejeterEnMasse'])->name('preinscriptions.bulk-rejeter');
                 Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
                 Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
                 Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');

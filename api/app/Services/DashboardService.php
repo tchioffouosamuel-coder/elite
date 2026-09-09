@@ -66,7 +66,7 @@ class DashboardService extends BaseService
         $totalClasses = (clone $classesQuery)->count();
         $totalPersonnel = Personnel::forSchool($schoolId)->where('statut', 'actif')->count();
         $totalEnseignants = Personnel::forSchool($schoolId)->where('statut', 'actif')
-            ->whereHas('fonctionReference', fn ($q) => $q
+            ->whereHas('fonctionReference', fn($q) => $q
                 ->whereRaw('LOWER(label_fr) = ?', ['enseignant'])
                 ->orWhereRaw('LOWER(label_en) = ?', ['teacher']))
             ->count();
@@ -78,14 +78,14 @@ class DashboardService extends BaseService
 
         $topClasses = (clone $classesQuery)->withCount('eleves')
             ->orderByDesc('eleves_count')->limit(5)->get(['id', 'nom'])
-            ->map(fn ($c) => ['classe' => $c->nom, 'effectif' => $c->eleves_count]);
+            ->map(fn($c) => ['classe' => $c->nom, 'effectif' => $c->eleves_count]);
 
         // Journal réel des connexions et actions marquantes (qui a fait quoi),
         // pas une reconstruction a posteriori à partir des dates de création —
         // cf. cahier des charges §5.5.
         $activiteRecente = ActivityLog::forSchool($schoolId)
             ->latest('created_at')->limit(6)->get()
-            ->map(fn (ActivityLog $log) => $this->formaterLogActivite($log));
+            ->map(fn(ActivityLog $log) => $this->formaterLogActivite($log));
 
         // Confirmation de présence pour l'année en cours : combien d'anciens
         // élèves se sont déjà réinscrits, et combien de nouveaux ont rejoint —
@@ -95,7 +95,7 @@ class DashboardService extends BaseService
         $ancienesReinscrits = $anciensTotal - $ancienesNonReinscrits;
         $nouveauxEleves = Preinscription::forSchool($schoolId)
             ->where('type', 'nouveau')->where('statut', 'validee')
-            ->whereHas('anneeScolaire', fn ($q) => $q->where('is_active', true))
+            ->whereHas('anneeScolaire', fn($q) => $q->where('is_active', true))
             ->count();
 
         return [
@@ -142,7 +142,7 @@ class DashboardService extends BaseService
         $totalMatieres = ClasseMatiere::whereIn('classe_id', $classeIds)->where('statut', 'actif')->count();
 
         $activiteRecente = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->latest()->limit(5)->get()
-            ->map(fn ($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
+            ->map(fn($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
             ->values();
 
         [$tauxRemplissageNotes, $tauxProgression] = $this->indicateursPedagogiques($schoolId, $classeIds, $user);
@@ -188,20 +188,20 @@ class DashboardService extends BaseService
 
         $mesAffectations = ClasseMatiere::whereIn('classe_id', $classeIds)
             ->where('statut', 'actif')
-            ->where(fn ($q) => $q
+            ->where(fn($q) => $q
                 ->where('personnel_id', $personnelId)
-                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
+                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)))
             ->get();
 
         if ($mesAffectations->isEmpty()) {
             return [null, null];
         }
 
-        $tauxProgression = (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->progression->tauxAffectation($cm)['taux']));
+        $tauxProgression = (int) round($mesAffectations->avg(fn(ClasseMatiere $cm) => $this->progression->tauxAffectation($cm)['taux']));
 
         $sequenceActive = Sequence::whereHas(
             'trimestre',
-            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', (array) $schoolId))
+            fn($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn($aq) => $aq->whereIn('school_id', (array) $schoolId))
         )->first();
 
         if ($sequenceActive === null) {
@@ -219,14 +219,14 @@ class DashboardService extends BaseService
             // n'existe plus (l'enseignant vit désormais sur `classe_matieres`).
             $mesCompetences = ClasseCompetence::whereIn('classe_id', $classeIds)
                 ->where('statut', 'actif')
-                ->whereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId))
+                ->whereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId))
                 ->get();
 
             $tauxRemplissageNotes = $mesCompetences->isEmpty()
                 ? null
-                : (int) round($mesCompetences->avg(fn (ClasseCompetence $cc) => $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive)));
+                : (int) round($mesCompetences->avg(fn(ClasseCompetence $cc) => $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive)));
         } else {
-            $tauxRemplissageNotes = (int) round($mesAffectations->avg(fn (ClasseMatiere $cm) => $this->notes->tauxRemplissage($cm, $sequenceActive->id)));
+            $tauxRemplissageNotes = (int) round($mesAffectations->avg(fn(ClasseMatiere $cm) => $this->notes->tauxRemplissage($cm, $sequenceActive->id)));
         }
 
         return [$tauxRemplissageNotes, $tauxProgression];
@@ -241,6 +241,17 @@ class DashboardService extends BaseService
     }
 
     /**
+     * Liste les anciens élèves qui ont confirmé leur présence pour l'année active.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return Collection<int, Eleve>
+     */
+    public function listeAnciensReinscrits(int|array $schoolId): Collection
+    {
+        return $this->preinscriptions->listeAnciensReinscrits($schoolId);
+    }
+
+    /**
      * Journal complet, paginé — derrière le « Voir plus » de la carte
      * Activité récente qui n'en affiche qu'un aperçu.
      *
@@ -251,6 +262,6 @@ class DashboardService extends BaseService
         return ActivityLog::forSchool($schoolId)
             ->latest('created_at')
             ->paginate(max(1, min($perPage, 100)))
-            ->through(fn (ActivityLog $log) => $this->formaterLogActivite($log));
+            ->through(fn(ActivityLog $log) => $this->formaterLogActivite($log));
     }
 }

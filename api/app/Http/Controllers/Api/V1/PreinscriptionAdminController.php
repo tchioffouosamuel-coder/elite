@@ -264,6 +264,31 @@ class PreinscriptionAdminController extends Controller
         return ApiResponse::success($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription validée.');
     }
 
+    public function validerEnMasse(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $preinscriptions = Preinscription::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->get();
+        $traitees = [];
+        $erreurs = [];
+
+        foreach ($preinscriptions as $preinscription) {
+            try {
+                $traitees[] = $this->service->valider($preinscription, $request->user()?->id)->id;
+            } catch (RuntimeException $e) {
+                $erreurs[] = ['id' => $preinscription->id, 'message' => $e->getMessage()];
+            }
+        }
+
+        return ApiResponse::success([
+            'traitees' => $traitees,
+            'erreurs' => $erreurs,
+        ], count($traitees) . ' préinscription(s) validée(s).');
+    }
+
     /** Anciens élèves qui ne se sont pas encore réinscrits pour l'année scolaire active. */
     public function nonInscrits(): JsonResponse
     {
@@ -299,7 +324,7 @@ class PreinscriptionAdminController extends Controller
     {
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annee_scolaires,id'],
         ]);
 
         $schoolId = Tenant::schoolId();
@@ -329,7 +354,7 @@ class PreinscriptionAdminController extends Controller
     {
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annee_scolaires,id'],
         ]);
 
         $this->service->verifierAnneeScolaire(Tenant::schoolId(), $data['annee_scolaire_id'] ?? null);
@@ -343,7 +368,7 @@ class PreinscriptionAdminController extends Controller
     {
         $data = $request->validate([
             'index' => ['required', 'integer', 'min:0'],
-            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annee_scolaires,id'],
         ]);
 
         try {
@@ -375,6 +400,32 @@ class PreinscriptionAdminController extends Controller
         }
 
         return ApiResponse::success($this->resume($p), 'Préinscription rejetée.');
+    }
+
+    public function rejeterEnMasse(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'distinct'],
+            'motif' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        $preinscriptions = Preinscription::forSchool(Tenant::schoolIds())->whereIn('id', $data['ids'])->get();
+        $traitees = [];
+        $erreurs = [];
+
+        foreach ($preinscriptions as $preinscription) {
+            try {
+                $traitees[] = $this->service->rejeter($preinscription, $data['motif'], $request->user()?->id)->id;
+            } catch (RuntimeException $e) {
+                $erreurs[] = ['id' => $preinscription->id, 'message' => $e->getMessage()];
+            }
+        }
+
+        return ApiResponse::success([
+            'traitees' => $traitees,
+            'erreurs' => $erreurs,
+        ], count($traitees) . ' préinscription(s) rejetée(s).');
     }
 
     private function resume(Preinscription $p): array

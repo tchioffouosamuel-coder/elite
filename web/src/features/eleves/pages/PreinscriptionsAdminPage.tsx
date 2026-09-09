@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardCheck, Search, Plus, UserX } from 'lucide-react'
+import { ClipboardCheck, Search, Plus, UserX, Check, X } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs } from '@/features/finance/api'
@@ -14,6 +14,7 @@ import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Tabs } from '@/shared/ui/Tabs'
 import { fetchAnneesScolaires } from '@/features/session/api'
+import { confirmer, demanderTexte, erreur, succes } from '@/shared/lib/alertes'
 
 type Statut = 'en_attente' | 'validee' | 'rejetee'
 type Type = 'existant' | 'nouveau'
@@ -69,6 +70,16 @@ export const CHAMPS_ELEVE: [string, string][] = [
   ['situation_sanitaire', 'Situation sanitaire'],
 ]
 
+const TAILLE_LOT_PREINSCRIPTIONS = 100
+
+function decouper<T>(valeurs: T[], taille: number): T[][] {
+  const lots: T[][] = []
+  for (let index = 0; index < valeurs.length; index += taille) {
+    lots.push(valeurs.slice(index, index + taille))
+  }
+  return lots
+}
+
 /** File d'attente des préinscriptions déposées par les parents — à examiner, valider ou rejeter (détail sur sa propre page, cf. `PreinscriptionDetailPage`). */
 export function PreinscriptionsAdminPage() {
   const navigate = useNavigate()
@@ -76,6 +87,8 @@ export function PreinscriptionsAdminPage() {
   const [onglet, setOnglet] = useState<'preinscriptions' | 'non-inscrits'>('preinscriptions')
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
+  const [selection, setSelection] = useState<Set<number>>(new Set())
+  const [traitement, setTraitement] = useState(false)
 
   const { data: anneesScolaires } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
 
@@ -105,6 +118,97 @@ export function PreinscriptionsAdminPage() {
     return [e.nom_complet, e.matricule, e.tuteur, e.telephone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
   })
 
+  const idsVisibles = donneesFiltrees.filter((p) => p.statut === 'en_attente').map((p) => p.id)
+  const toutSelectionne = idsVisibles.length > 0 && idsVisibles.every((id) => selection.has(id))
+
+  const basculerSelection = (id: number) => {
+    setSelection((actuelle) => {
+      const prochaine = new Set(actuelle)
+      if (prochaine.has(id)) prochaine.delete(id)
+      else prochaine.add(id)
+      return prochaine
+    })
+  }
+
+  const basculerTout = () => {
+    setSelection((actuelle) => {
+      const prochaine = new Set(actuelle)
+      if (toutSelectionne) idsVisibles.forEach((id) => prochaine.delete(id))
+      else idsVisibles.forEach((id) => prochaine.add(id))
+      return prochaine
+    })
+  }
+
+  const validerSelection = async () => {
+    const ids = [...selection]
+    const ok = await confirmer({
+      titre: `Valider ${ids.length} préinscription(s) ?`,
+      message: 'Les élèves seront créés ou mis à jour et les versements proposés seront traités.',
+      action: 'Valider en masse',
+      destructif: false,
+    })
+    if (!ok) return
+
+    setTraitement(true)
+    try {
+      let traitees = 0
+      let erreurs = 0
+      for (const lot of decouper(ids, TAILLE_LOT_PREINSCRIPTIONS)) {
+        const { data: reponse } = await http.post<ApiResponse<{ traitees: number[]; erreurs: { id: number; message: string }[] }>>(
+          '/preinscriptions/bulk-valider',
+          { ids: lot },
+        )
+        traitees += reponse.data.traitees.length
+        erreurs += reponse.data.erreurs.length
+      }
+      succes(`${traitees} préinscription(s) validée(s)${erreurs ? `, ${erreurs} en erreur` : ''}.`)
+      setSelection(new Set())
+      await queryClient.invalidateQueries({ queryKey: ['preinscriptions-admin'] })
+    } catch (err) {
+      erreur((err as { message?: string }).message ?? 'La validation groupée a échoué.')
+    } finally {
+      setTraitement(false)
+    }
+  }
+
+  const rejeterSelection = async () => {
+    const motif = await demanderTexte({
+      titre: `Motif du rejet de ${selection.size} préinscription(s)`,
+      message: 'Saisissez le motif commun qui sera enregistré pour chaque dossier.',
+      placeholder: 'Ex. Dossier incomplet ou pièces manquantes',
+      validation: (valeur) => valeur.length < 3 ? 'Le motif doit contenir au moins 3 caractères.' : undefined,
+    })
+    if (!motif) return
+
+    const ok = await confirmer({
+      titre: `Rejeter ${selection.size} préinscription(s) ?`,
+      message: `Motif : ${motif}`,
+      action: 'Rejeter en masse',
+    })
+    if (!ok) return
+
+    setTraitement(true)
+    try {
+      let traitees = 0
+      let erreurs = 0
+      for (const lot of decouper([...selection], TAILLE_LOT_PREINSCRIPTIONS)) {
+        const { data: reponse } = await http.post<ApiResponse<{ traitees: number[]; erreurs: { id: number; message: string }[] }>>(
+          '/preinscriptions/bulk-rejeter',
+          { ids: lot, motif },
+        )
+        traitees += reponse.data.traitees.length
+        erreurs += reponse.data.erreurs.length
+      }
+      succes(`${traitees} préinscription(s) rejetée(s)${erreurs ? `, ${erreurs} en erreur` : ''}.`)
+      setSelection(new Set())
+      await queryClient.invalidateQueries({ queryKey: ['preinscriptions-admin'] })
+    } catch (err) {
+      erreur((err as { message?: string }).message ?? 'Le rejet groupé a échoué.')
+    } finally {
+      setTraitement(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -127,6 +231,18 @@ export function PreinscriptionsAdminPage() {
                 <option value="rejetee">Rejetées</option>
                 <option value="">Toutes</option>
               </Select>
+            )}
+            {onglet === 'preinscriptions' && selection.size > 0 && (
+              <>
+                <Button type="button" size="sm" onClick={() => void validerSelection()} disabled={traitement}>
+                  <Check className="h-4 w-4" />
+                  Valider ({selection.size})
+                </Button>
+                <Button type="button" size="sm" variant="danger" onClick={() => void rejeterSelection()} disabled={traitement}>
+                  <X className="h-4 w-4" />
+                  Rejeter ({selection.size})
+                </Button>
+              </>
             )}
             <ImportExportBar
               titreImport="Importer des préinscriptions"
@@ -217,17 +333,32 @@ export function PreinscriptionsAdminPage() {
         <EmptyState label="Aucune préinscription ne correspond à cette recherche." />
       ) : (
         <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-2 px-2 text-sm font-semibold text-navy-600">
+            <input type="checkbox" checked={toutSelectionne} onChange={basculerTout} className="h-4 w-4 accent-navy-700" />
+            Sélectionner les préinscriptions affichées
+          </label>
           {donneesFiltrees.map((p) => (
             <div key={p.id} onClick={() => navigate(`/preinscriptions/${p.id}`)} className="cursor-pointer">
               <Card className="transition-shadow hover:shadow-lifted">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-display text-base font-bold text-navy-900">{p.eleve?.nom_complet || p.nom_propose}</p>
-                    <p className="mt-0.5 text-xs text-navy-400">
-                      {p.type === 'nouveau' ? 'Nouvelle inscription' : 'Révision de fiche'} · {p.tuteur?.nom_complet} (
-                      {p.tuteur?.telephone || p.tuteur?.email}) · {new Date(p.created_at).toLocaleDateString('fr-FR')}
-                    </p>
-                    {p.montant_verser ? <p className="mt-1 text-xs text-navy-500">Versement proposé : {francs(p.montant_verser)}</p> : null}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selection.has(p.id)}
+                      onChange={() => basculerSelection(p.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      disabled={p.statut !== 'en_attente'}
+                      aria-label={`Sélectionner ${p.eleve?.nom_complet || p.nom_propose || 'cette préinscription'}`}
+                      className="mt-1 h-4 w-4 shrink-0 accent-navy-700 disabled:opacity-40"
+                    />
+                    <div>
+                      <p className="font-display text-base font-bold text-navy-900">{p.eleve?.nom_complet || p.nom_propose}</p>
+                      <p className="mt-0.5 text-xs text-navy-400">
+                        {p.type === 'nouveau' ? 'Nouvelle inscription' : 'Révision de fiche'} · {p.tuteur?.nom_complet} (
+                        {p.tuteur?.telephone || p.tuteur?.email}) · {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                      </p>
+                      {p.montant_verser ? <p className="mt-1 text-xs text-navy-500">Versement proposé : {francs(p.montant_verser)}</p> : null}
+                    </div>
                   </div>
                   <Badge tone={STATUT_TONE[p.statut]}>{STATUT_LABEL[p.statut]}</Badge>
                 </div>

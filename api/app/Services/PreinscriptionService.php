@@ -442,16 +442,7 @@ class PreinscriptionService extends BaseService
             && (($ligne['scolarite_payee'] ?? 0) > 0)
             && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])
         ) {
-            $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donneesEleve, $annee);
-
-            return $this->creerPreinscriptionImportIncomplete(
-                $schoolId,
-                $classeId,
-                $donneesEleve,
-                $donneesTuteurs,
-                $ligne,
-                $annee,
-            );
+            throw new RuntimeException('Import impossible : les informations obligatoires du nouvel élève sont incomplètes.');
         }
 
         if ($donneesTuteurs === []) {

@@ -46,7 +46,12 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
       cle: 'nom',
       entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,
-      cellule: (e) => <span className="font-semibold text-navy-900">{e.nom_complet}</span>,
+      cellule: (e) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`font-semibold ${e.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>{e.nom_complet}</span>
+          {e.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
+        </div>
+      ),
     },
     {
       cle: 'sexe',

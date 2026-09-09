@@ -18,6 +18,7 @@ use App\Models\Setting;
 use App\Services\AuthService;
 use App\Services\CompteEleveService;
 use App\Services\EleveService;
+use App\Services\PreinscriptionService;
 use App\Services\SettingsCatalog;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Tenant;
@@ -35,6 +36,7 @@ class EleveController extends Controller
 {
     public function __construct(
         private readonly EleveService $service,
+        private readonly PreinscriptionService $preinscriptions,
         private readonly CompteEleveService $comptes,
         private readonly AuthService $auth,
     ) {}
@@ -47,6 +49,8 @@ class EleveController extends Controller
             $request->only(['search', 'classe_id', 'sexe', 'statut']),
             (int) $request->integer('per_page', 20),
         );
+
+        $this->marquerNonReinscrits($paginator->getCollection());
 
         return ApiResponse::paginated($paginator, EleveResource::class);
     }
@@ -66,7 +70,20 @@ class EleveController extends Controller
 
         $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q']);
 
+        $this->marquerNonReinscrits($eleves);
+
         return ApiResponse::success(EleveResource::collection($eleves));
+    }
+
+    private function marquerNonReinscrits(\Illuminate\Support\Collection $eleves): void
+    {
+        $ids = $this->preinscriptions->listeAnciensNonReinscrits(Tenant::schoolIds())->pluck('id')->all();
+        $idsNonReinscrits = array_fill_keys($ids, true);
+
+        $eleves->each(fn(Eleve $eleve) => $eleve->setAttribute(
+            'non_reinscrit_annee_active',
+            isset($idsNonReinscrits[$eleve->id]),
+        ));
     }
 
     /**
@@ -106,7 +123,7 @@ class EleveController extends Controller
             ->with('anneeScolaire')
             ->orderByDesc('annee_scolaire_id')
             ->get()
-            ->map(fn (HistoriqueScolariteEleve $h) => [
+            ->map(fn(HistoriqueScolariteEleve $h) => [
                 'annee_scolaire' => ['id' => $h->annee_scolaire_id, 'libelle' => $h->anneeScolaire->libelle],
                 'classe_nom' => $h->classe_nom,
                 'niveau_libelle' => $h->niveau_libelle,
@@ -220,7 +237,10 @@ class EleveController extends Controller
 
         try {
             ['resultat' => $result, 'dernier' => $dernier] = $this->service->importerChunk(
-                $schoolId, $token, $data['index'], $request->user()?->id,
+                $schoolId,
+                $token,
+                $data['index'],
+                $request->user()?->id,
             );
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -440,7 +460,7 @@ class EleveController extends Controller
         $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get();
 
         if (Tenant::isAggregate()) {
-            $documents = $schools->map(fn (School $school) => [
+            $documents = $schools->map(fn(School $school) => [
                 'donnees' => $this->comptes->identifiants($school->id),
                 'school' => $school,
             ])->all();

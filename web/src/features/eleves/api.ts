@@ -51,6 +51,7 @@ export interface Eleve {
   allergies: string | null;
   redoublant: boolean;
   statut: "actif" | "parti" | "exclu";
+  non_reinscrit_annee_active: boolean;
   school_id: number | null;
   school: {
     id: number;
@@ -108,7 +109,10 @@ export async function fetchEleves(params: {
  * pour remplacer la liste filtrée de `fetchEleves`.
  */
 export async function rechercheGlobaleEleves(q: string): Promise<Eleve[]> {
-  const { data } = await http.get<ApiResponse<Eleve[]>>("/eleves/recherche-globale", { params: { q } });
+  const { data } = await http.get<ApiResponse<Eleve[]>>(
+    "/eleves/recherche-globale",
+    { params: { q } },
+  );
   return data.data;
 }
 
@@ -118,7 +122,10 @@ export async function rechercheGlobaleEleves(q: string): Promise<Eleve[]> {
  * ressaisir un parent qui a déjà un autre enfant inscrit.
  */
 export async function rechercheTuteurs(q: string): Promise<TuteurSuggestion[]> {
-  const { data } = await http.get<ApiResponse<TuteurSuggestion[]>>("/tuteurs/recherche", { params: { q } });
+  const { data } = await http.get<ApiResponse<TuteurSuggestion[]>>(
+    "/tuteurs/recherche",
+    { params: { q } },
+  );
   return data.data;
 }
 
@@ -140,7 +147,9 @@ export interface ParcoursAnnee {
 
 /** Parcours scolaire de l'élève, une ligne par année — alimenté à chaque conseil de classe validé. */
 export async function fetchParcoursEleve(id: number): Promise<ParcoursAnnee[]> {
-  const { data } = await http.get<ApiResponse<ParcoursAnnee[]>>(`/eleves/${id}/parcours`);
+  const { data } = await http.get<ApiResponse<ParcoursAnnee[]>>(
+    `/eleves/${id}/parcours`,
+  );
   return data.data;
 }
 

@@ -144,6 +144,25 @@ function Sync-SousProjet {
         Write-Erreur "Dépôt source introuvable : $RepoSource"
         throw "Dépôt source introuvable."
     }
+
+    # Vérifier le dépôt cible avant de créer une branche temporaire dans le
+    # monorepo : un merge interrompu rend le `git pull` impossible.
+    if (-not (Test-Path $CheminCible)) {
+        Write-Erreur "Dépôt cible introuvable : $CheminCible (clonez-le avant de lancer ce script)."
+        throw "Dépôt cible introuvable."
+    }
+    Set-Location $CheminCible
+    $fichiersNonFusionnes = @(git diff --name-only --diff-filter=U)
+    if ($LASTEXITCODE -ne 0) {
+        Write-Erreur "Impossible de vérifier l'état Git du dépôt cible '$CheminCible'."
+        throw "Vérification Git impossible dans '$CheminCible'."
+    }
+    if ($fichiersNonFusionnes.Count -gt 0) {
+        Write-Erreur "Le dépôt cible '$CheminCible' contient un conflit Git non résolu."
+        Write-Avertissement "Résolvez les fichiers listés, ou annulez le merge avec 'git merge --abort', puis relancez le script."
+        $fichiersNonFusionnes | ForEach-Object { Write-Host "  - $_" }
+        throw "Synchronisation impossible tant que le dépôt cible contient des conflits."
+    }
     Set-Location $RepoSource
 
     # 2. Supprimer l'éventuelle branche split-<projet> d'un run précédent,
