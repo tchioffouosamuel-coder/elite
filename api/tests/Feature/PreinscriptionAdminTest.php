@@ -88,6 +88,24 @@ class PreinscriptionAdminTest extends TestCase
         ]);
     }
 
+    public function test_endpoint_verifie_si_une_classe_est_dans_les_preinscriptions(): void
+    {
+        $admin = $this->admin();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $preinscription = $this->soumettrePreinscriptionNouvel();
+        $preinscription->update(['classe_id' => $classe->id]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/v1/preinscriptions/classe/{$classe->id}/existe")
+            ->assertOk()
+            ->assertJsonPath('data.exists', true);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/preinscriptions/classe/999999/existe')
+            ->assertOk()
+            ->assertJsonPath('data.exists', false);
+    }
+
     public function test_admin_peut_corriger_puis_valider_une_preinscription(): void
     {
         $preinscription = $this->soumettrePreinscriptionNouvel();

@@ -35,6 +35,15 @@ class PreinscriptionAdminController extends Controller
         return ApiResponse::success($preinscriptions->map(fn(Preinscription $p) => $this->resume($p)));
     }
 
+    public function classeExiste(int $classId): JsonResponse
+    {
+        return ApiResponse::success([
+            'exists' => Preinscription::forSchool(Tenant::schoolIds())
+                ->where('classe_id', $classId)
+                ->exists(),
+        ]);
+    }
+
     public function show(int $id): JsonResponse
     {
         $p = Preinscription::forSchool(Tenant::schoolIds())
