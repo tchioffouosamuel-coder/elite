@@ -146,7 +146,9 @@ export function CaissePage() {
       valeur: (d) => `${d.eleve.nom_complet} ${d.eleve.matricule ?? ''}`,
       cellule: (d) => (
         <div className="min-w-0">
-          <div className="truncate font-semibold text-navy-900">{d.eleve.nom_complet}</div>
+          <div className="break-words font-semibold leading-tight text-navy-900" title={d.eleve.nom_complet}>
+            {d.eleve.nom_complet}
+          </div>
           <div className="text-xs text-navy-400">
             {d.eleve.matricule ?? '—'} · {d.eleve.classe ?? 'Sans classe'}
           </div>
