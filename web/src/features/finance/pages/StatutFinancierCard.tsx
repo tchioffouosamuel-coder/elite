@@ -54,6 +54,12 @@ export function StatutFinancierCard({ eleveId }: { eleveId: number }) {
               <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{t('eleves.financier.reste_a_payer')}</p>
               <p className="text-lg font-bold tabular-nums text-navy-900">{francs(dossier.reste_a_payer)}</p>
             </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{t('eleves.financier.dette')}</p>
+              <p className={`text-lg font-bold tabular-nums ${dossier.report_dette > 0 ? 'text-red-500' : 'text-navy-300'}`}>
+                {francs(dossier.report_dette)}
+              </p>
+            </div>
             {dossier.avance > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{t('eleves.financier.avance')}</p>

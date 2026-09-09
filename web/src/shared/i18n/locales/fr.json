@@ -620,6 +620,7 @@
       "total_du": "Total dû",
       "total_paye": "Total payé",
       "reste_a_payer": "Reste à payer",
+      "dette": "Dette",
       "avance": "Avance",
       "taux_recouvrement": "Taux de recouvrement",
       "versements_recents": "Derniers versements",

@@ -476,6 +476,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // Laravel les fait matcher par le paramètre `{id}` (ex.
                 // "export" essaierait de charger la préinscription n°"export").
                 Route::get('database/schema', [PreinscriptionAdminController::class, 'schema'])->name('database.schema');
+                Route::get('database/migrations', [PreinscriptionAdminController::class, 'migrations'])->name('database.migrations');
                 Route::get('preinscriptions/non-inscrits', [PreinscriptionAdminController::class, 'nonInscrits'])->name('preinscriptions.non-inscrits');
                 Route::get('preinscriptions/export', [PreinscriptionAdminController::class, 'export'])->name('preinscriptions.export');
                 Route::get('preinscriptions/non-inscrits/export', [PreinscriptionAdminController::class, 'exportNonInscrits'])->name('preinscriptions.non-inscrits.export');

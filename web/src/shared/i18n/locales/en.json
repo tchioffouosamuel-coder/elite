@@ -620,6 +620,7 @@
       "total_du": "Total due",
       "total_paye": "Total paid",
       "reste_a_payer": "Balance due",
+      "dette": "Debt",
       "avance": "Advance",
       "taux_recouvrement": "Recovery rate",
       "versements_recents": "Recent payments",

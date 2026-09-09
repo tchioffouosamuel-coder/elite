@@ -112,8 +112,8 @@ function EleveAutocomplete({ onChoisir, onNouveau }: { onChoisir: (eleve: Eleve)
             <li className="border-t border-navy-50 px-3 py-2">
               <button
                 type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
+                onMouseDown={(e) => {
+                  e.preventDefault()
                   onNouveau(terme.trim())
                   setOuvert(false)
                 }}

@@ -131,6 +131,7 @@ class RecuVersementGenerator
 
         $html .= '</table><div class="sep"></div><table>'
             . $this->ligneMontant($libelleDu, $montantDu)
+            . ($dossier->remise > 0 ? $this->ligneMontant('Remise accordée / Discount', (int) $dossier->remise) : '')
             . $this->ligneMontant('Montant perçu / Amount paid', $montantPaye, true)
             . $this->ligneMontant('Reste à payer / Balance due', max(0, $montantDu - $montantPaye), true)
             . '</table>';

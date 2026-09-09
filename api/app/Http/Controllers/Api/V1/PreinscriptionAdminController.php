@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -61,6 +62,20 @@ class PreinscriptionAdminController extends Controller
 
         return ApiResponse::success([
             'tables' => $tables,
+        ]);
+    }
+
+    public function migrations(): JsonResponse
+    {
+        $migrations = DB::table('migrations')
+            ->orderBy('batch')
+            ->orderBy('migration')
+            ->get(['migration', 'batch']);
+
+        return ApiResponse::success([
+            'migrations' => $migrations,
+            'total' => $migrations->count(),
+            'dernier_batch' => $migrations->max('batch'),
         ]);
     }
 

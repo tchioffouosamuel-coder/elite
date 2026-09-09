@@ -418,7 +418,11 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
             {[
               ['Total dû / Total due', francs(finance.total_du), 'text-navy-700'],
               ['Déjà versé / Already paid', francs(finance.total_paye), 'text-green-600'],
-              ['Reste à payer / Remaining', francs(finance.reste_a_payer), 'text-red-500'],
+              [
+                'Dette / Debt',
+                finance.reste_a_payer > 0 ? `Oui / Yes : ${francs(finance.reste_a_payer)}` : 'Non / No',
+                finance.reste_a_payer > 0 ? 'text-red-500' : 'text-green-600',
+              ],
               ['Statut / Status', finance.statut_paiement, 'text-navy-700'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>

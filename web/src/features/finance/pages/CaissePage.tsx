@@ -114,6 +114,17 @@ export function CaissePage() {
       masquerMobile: true,
     },
     {
+      cle: 'remise',
+      entete: 'Remise',
+      valeur: (d) => d.remise,
+      cellule: (d) => (
+        <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
+          {d.remise > 0 ? francs(d.remise) : '—'}
+        </span>
+      ),
+      masquerMobile: true,
+    },
+    {
       cle: 'paye',
       entete: 'Versé',
       valeur: (d) => d.total_paye,
