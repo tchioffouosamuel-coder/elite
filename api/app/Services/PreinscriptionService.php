@@ -211,9 +211,9 @@ class PreinscriptionService extends BaseService
 
     /**
      * Anciens élèves (déjà présents avant le début de l'année active) qui ne
-    * se sont pas encore réinscrits pour cette année via une
-    * préinscription `existant` validée. Un dossier de scolarité seul ne
-    * compte pas dans les statistiques de préinscription.
+     * se sont pas encore réinscrits pour cette année via une
+     * préinscription `existant` validée. Un dossier de scolarité seul ne
+     * compte pas dans les statistiques de préinscription.
      *
      * @param  int|array<int>  $schoolId
      * @return Collection<int, Eleve>
@@ -438,7 +438,7 @@ class PreinscriptionService extends BaseService
         if (
             ! empty($donneesEleve['nom_complet'])
             && (($ligne['scolarite_payee'] ?? 0) > 0)
-            && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])
+            && ($classeId === null || $donneesTuteurs === [])
         ) {
             throw new RuntimeException('Import impossible : les informations obligatoires du nouvel élève sont incomplètes.');
         }
@@ -447,8 +447,8 @@ class PreinscriptionService extends BaseService
             throw new RuntimeException("Aucun élève existant ne correspond (nom + date de naissance) : un nouvel élève doit avoir au moins un contact (père, mère ou autre).");
         }
 
-        if (empty($donneesEleve['nom_complet']) || empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance'])) {
-            throw new RuntimeException("Un nouvel élève doit avoir un nom, un sexe et une date de naissance.");
+        if (empty($donneesEleve['nom_complet'])) {
+            throw new RuntimeException("Un nouvel élève doit avoir un nom.");
         }
 
         if ($classeId === null) {
