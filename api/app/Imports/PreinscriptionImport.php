@@ -119,7 +119,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
 
     public int $importees = 0;
 
-    /** @var list<array{ligne: int, message: string}> */
+    /** @var list<array{ligne: int, message: string, nom: ?string, donnees: array<string, mixed>}> */
     public array $erreurs = [];
 
     public function __construct(
@@ -139,7 +139,12 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
                 $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId, $this->anneeScolaireId);
                 $this->importees++;
             } catch (RuntimeException $e) {
-                $this->erreurs[] = ['ligne' => $numeroLigne, 'message' => self::messageCourt($e)];
+                $this->erreurs[] = [
+                    'ligne' => $numeroLigne,
+                    'message' => self::messageCourt($e),
+                    'nom' => $ligne['nom_complet'] ?? null,
+                    'donnees' => $row instanceof Collection ? $row->all() : $row,
+                ];
             }
         }
     }

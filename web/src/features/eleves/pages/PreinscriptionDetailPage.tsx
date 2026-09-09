@@ -171,8 +171,8 @@ export function PreinscriptionDetailPage() {
         p?.type === 'nouveau'
           ? "L'élève sera créé avec les informations proposées."
           : "La fiche de l'élève sera mise à jour" +
-            (p?.classe_id ? `, sa classe changée pour ${classes?.find((c) => c.id === p.classe_id)?.nom ?? 'la classe choisie'}` : '') +
-            (p?.montant_verser ? ` et ${francs(p.montant_verser)} seront encaissés avec délivrance d'un reçu.` : '.'),
+          (p?.classe_id ? `, sa classe changée pour ${classes?.find((c) => c.id === p.classe_id)?.nom ?? 'la classe choisie'}` : '') +
+          (p?.montant_verser ? ` et ${francs(p.montant_verser)} seront encaissés avec délivrance d'un reçu.` : '.'),
       action: 'Valider',
     })
     if (!ok) return

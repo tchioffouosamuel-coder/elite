@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Upload } from 'lucide-react'
+import { Download, Eye, Upload } from 'lucide-react'
 import { http } from '@/shared/lib/http'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
@@ -35,7 +35,7 @@ interface ImportResult {
    * renvoyée — sans `lot`, un même numéro de ligne réapparaîtrait
    * identique à chaque lot puisque chacun est un petit fichier à part.
    */
-  erreurs?: { ligne: number; lot?: number; message: string }[]
+  erreurs?: { ligne: number; lot?: number; message: string; nom?: string | null; donnees?: Record<string, unknown> }[]
 }
 
 interface ImportProgress {
@@ -118,6 +118,32 @@ export function ImportModal({
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [progressToken, setProgressToken] = useState<string | null>(null)
+  const [erreurSelectionnee, setErreurSelectionnee] = useState<{
+    message: string
+    erreurs: NonNullable<ImportResult['erreurs']>
+  } | null>(null)
+
+  const exporterErreurs = (erreurs: NonNullable<ImportResult['erreurs']>, nomFichier: string) => {
+    const lignes: Record<string, unknown>[] = erreurs.map((erreur) => ({
+      Ligne: erreur.ligne,
+      Nom: erreur.nom ?? '',
+      Erreur: erreur.message,
+      ...erreur.donnees,
+    }))
+    const colonnes = [...new Set(lignes.flatMap((ligne) => Object.keys(ligne)))]
+    const csv = [
+      colonnes.join(';'),
+      ...lignes.map((ligne) => colonnes.map((colonne) => {
+        const valeur = String(ligne[colonne] ?? '').replace(/"/g, '""')
+        return `"${valeur}"`
+      }).join(';')),
+    ].join('\r\n')
+    const lien = document.createElement('a')
+    lien.href = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+    lien.download = `${nomFichier}.csv`
+    lien.click()
+    URL.revokeObjectURL(lien.href)
+  }
 
   useEffect(() => {
     if (!submitting || !progressUrl || !progressToken) return
@@ -327,17 +353,26 @@ export function ImportModal({
               <div className="mt-1 flex flex-col gap-1 rounded-lg border border-red-100 bg-red-50 p-2.5">
                 <p className="text-xs font-semibold text-red-600">{t('import.erreurs_detail')}</p>
                 {Object.entries(
-                  result.erreurs.reduce<Record<string, number>>((acc, e) => {
-                    acc[e.message] = (acc[e.message] ?? 0) + 1
+                  result.erreurs.reduce<Record<string, NonNullable<ImportResult['erreurs']>>>((acc, e) => {
+                    acc[e.message] = [...(acc[e.message] ?? []), e]
                     return acc
                   }, {}),
                 )
-                  .sort(([, a], [, b]) => b - a)
-                  .slice(0, 8)
-                  .map(([message, count]) => (
-                    <p key={message} className="text-xs text-red-500">
-                      <span className="font-semibold">{count}×</span> {message}
-                    </p>
+                  .sort(([, a], [, b]) => b.length - a.length)
+                  .map(([message, erreurs]) => (
+                    <div key={message} className="flex items-center justify-between gap-3 text-xs text-red-500">
+                      <span><span className="font-semibold">{erreurs.length}×</span> {message}</span>
+                      <div className="flex flex-none gap-1">
+                        <Button type="button" size="sm" variant="secondary" onClick={() => setErreurSelectionnee({ message, erreurs })}>
+                          <Eye className="h-3.5 w-3.5" />
+                          Noms
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => exporterErreurs(erreurs, 'lignes-en-erreur')}>
+                          <Download className="h-3.5 w-3.5" />
+                          Exporter
+                        </Button>
+                      </div>
+                    </div>
                   ))}
               </div>
             )}
@@ -356,6 +391,28 @@ export function ImportModal({
           )}
         </div>
       </div>
+      {erreurSelectionnee && (
+        <Modal title="Lignes concernées" onClose={() => setErreurSelectionnee(null)}>
+          <div className="flex flex-col gap-3">
+            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurSelectionnee.message}</p>
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
+              {erreurSelectionnee.erreurs.map((erreur) => (
+                <div key={`${erreur.lot ?? 0}-${erreur.ligne}`} className="flex justify-between border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+                  <span className="font-semibold text-navy-800">{erreur.nom || 'Nom non renseigné'}</span>
+                  <span className="text-navy-400">Ligne {erreur.ligne}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => exporterErreurs(erreurSelectionnee.erreurs, 'lignes-en-erreur')}>
+                <Download className="h-4 w-4" />
+                Exporter ces lignes
+              </Button>
+              <Button type="button" onClick={() => setErreurSelectionnee(null)}>Fermer</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Modal>
   )
 }

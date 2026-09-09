@@ -438,13 +438,9 @@ class PreinscriptionService extends BaseService
         if (
             ! empty($donneesEleve['nom_complet'])
             && (($ligne['scolarite_payee'] ?? 0) > 0)
-            && ($classeId === null || $donneesTuteurs === [])
+            && $classeId === null
         ) {
             throw new RuntimeException('Import impossible : les informations obligatoires du nouvel élève sont incomplètes.');
-        }
-
-        if ($donneesTuteurs === []) {
-            throw new RuntimeException("Aucun élève existant ne correspond (nom + date de naissance) : un nouvel élève doit avoir au moins un contact (père, mère ou autre).");
         }
 
         if (empty($donneesEleve['nom_complet'])) {
@@ -457,13 +453,13 @@ class PreinscriptionService extends BaseService
 
         $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donneesEleve, $annee);
 
-        $tuteur = $this->resoudreOuCreerTuteur($schoolId, $donneesTuteurs[0]);
+        $tuteur = $donneesTuteurs === [] ? null : $this->resoudreOuCreerTuteur($schoolId, $donneesTuteurs[0]);
 
         return $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId, $annee) {
             $preinscription = Preinscription::create([
                 'school_id' => $schoolId,
                 'annee_scolaire_id' => $annee?->id,
-                'tuteur_id' => $tuteur->id,
+                'tuteur_id' => $tuteur?->id,
                 'eleve_id' => null,
                 'type' => 'nouveau',
                 'statut' => 'en_attente',

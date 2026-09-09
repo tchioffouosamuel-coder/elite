@@ -768,6 +768,26 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertNull($eleve->date_naissance);
     }
 
+    public function test_import_accepte_un_nouvel_eleve_sans_tuteur_et_laisse_le_tuteur_vide(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'nom_eleves' => 'Eleve Sans Tuteur',
+                'nom_classe' => 'CM2',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+        $this->assertCount(0, $import->erreurs);
+        $preinscription = Preinscription::latest('id')->firstOrFail();
+        $this->assertNull($preinscription->tuteur_id);
+        $this->assertSame('validee', $preinscription->statut);
+    }
+
     public function test_import_refuse_un_nouvel_eleve_incomplet_sans_creer_de_preinscription(): void
     {
         $this->anneeActive();
