@@ -67,6 +67,7 @@ export interface DossierScolarite {
     id: number;
     numero_recu: string;
     date_versement: string;
+    heure_versement?: string | null;
     montant: number;
     mode: ModePaiement;
     annule: boolean;
@@ -1185,6 +1186,14 @@ export async function creerRemise(
 
 export async function supprimerRemise(id: number): Promise<void> {
   await http.delete(`/remises/${id}`);
+}
+
+export async function modifierRemise(
+  id: number,
+  payload: { montant: number; motif?: string },
+): Promise<RemiseIndividuelle> {
+  const { data } = await http.put<ApiResponse<RemiseIndividuelle>>(`/remises/${id}`, payload);
+  return data.data;
 }
 
 // --------------------------------------------------------- Dettes antérieures

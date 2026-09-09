@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\EleveResource;
 use App\Services\DashboardService;
 use App\Services\PilotageService;
 use App\Support\Tenant;
@@ -30,6 +31,15 @@ class DashboardController extends Controller
     public function pilotage(): JsonResponse
     {
         return ApiResponse::success($this->pilotage->pilotage(Tenant::schoolIds()));
+    }
+
+    /** Liste détaillée des anciens élèves réinscrits pour l'année active. */
+    public function anciensReinscrits(): JsonResponse
+    {
+        $eleves = $this->service->listeAnciensReinscrits(Tenant::schoolIds());
+        $eleves->load(['school', 'classe.niveau']);
+
+        return ApiResponse::success(EleveResource::collection($eleves));
     }
 
     /**

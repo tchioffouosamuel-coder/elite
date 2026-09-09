@@ -1,5 +1,6 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse, Pagination } from "@/shared/types/api";
+import type { Eleve } from "@/features/eleves/api";
 
 export interface ActiviteLog {
   type: string;
@@ -50,6 +51,11 @@ export type DashboardStats = DashboardStatsEcole | DashboardStatsClasse;
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
   const { data } = await http.get<ApiResponse<DashboardStats>>("/dashboard");
+  return data.data;
+}
+
+export async function fetchAnciensReinscrits(): Promise<Eleve[]> {
+  const { data } = await http.get<ApiResponse<Eleve[]>>("/dashboard/anciens-reinscrits");
   return data.data;
 }
 

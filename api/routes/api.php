@@ -288,6 +288,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
                 Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
+                Route::get('dashboard/anciens-reinscrits', [DashboardController::class, 'anciensReinscrits'])->name('dashboard.anciens-reinscrits');
             });
 
             // Journal complet des connexions/actions : réservé au super admin,
@@ -851,6 +852,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('moratoires/{id}', [MoratoireController::class, 'destroy'])->name('moratoires.destroy');
 
                 Route::post('eleves/{eleveId}/remises', [RemiseController::class, 'store'])->name('remises.store');
+                Route::put('remises/{id}', [RemiseController::class, 'update'])->name('remises.update');
                 Route::delete('remises/{id}', [RemiseController::class, 'destroy'])->name('remises.destroy');
 
                 Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store');

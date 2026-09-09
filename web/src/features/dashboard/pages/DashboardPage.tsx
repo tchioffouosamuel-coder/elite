@@ -390,6 +390,7 @@ function PilotagePanel() {
 
 function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'ecole' }> }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
@@ -417,6 +418,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
           hint={`${reinscription.anciens_reinscrits} / ${reinscription.anciens_total}`}
           icon={ClipboardCheck}
           accent="gold"
+          onClick={() => navigate('/anciens-reinscrits')}
         />
         <StatCard label={t('dashboard.new_students')} value={reinscription.nouveaux_eleves} icon={UserPlus} accent="navy" />
       </div>

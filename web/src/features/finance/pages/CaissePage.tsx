@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History } from 'lucide-react'
+import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History, Settings2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -15,6 +15,7 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
+import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
@@ -59,6 +60,7 @@ export function CaissePage() {
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [remiseEleve, setRemiseEleve] = useState<{ id: number; nom: string } | null>(null)
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -163,9 +165,24 @@ export function CaissePage() {
       entete: 'Remise',
       valeur: (d) => d.remise,
       cellule: (d) => (
-        <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
-          {d.remise > 0 ? francs(d.remise) : '—'}
-        </span>
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
+            {d.remise > 0 ? francs(d.remise) : '—'}
+          </span>
+          {d.remise > 0 && can('finance.manage') && (
+            <button
+              type="button"
+              title="Modifier ou supprimer la remise"
+              onClick={(event) => {
+                event.stopPropagation()
+                setRemiseEleve({ id: d.eleve.id, nom: d.eleve.nom_complet })
+              }}
+              className="rounded-lg p-1 text-navy-400 hover:bg-cream-100 hover:text-navy-800"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       ),
       masquerMobile: true,
     },
@@ -201,13 +218,16 @@ export function CaissePage() {
     {
       cle: 'actions',
       entete: '',
+      largeur: '310px',
+      sticky: 'right',
+      className: 'whitespace-nowrap',
       cellule: (d) => {
         if (selectedIds.size > 0) return <div className="w-0" />
 
         const dernier = d.versements?.filter((v) => !v.annule).at(-1)
 
         return (
-          <div className="flex justify-end gap-1.5">
+          <div className="flex min-w-max justify-end gap-1.5">
             {can('finance.encaisser') && (
               <Button size="sm" onClick={() => navigate(`/caisse/encaisser/${d.eleve.id}`)}>
                 <Wallet className="h-3.5 w-3.5" />
@@ -296,7 +316,7 @@ export function CaissePage() {
             cleLigne={(d) => d.eleve.id}
             placeholderRecherche={t('finance.search_caisse')}
             messageVide={t('finance.empty_caisse')}
-            largeurMin={900}
+            largeurMin={1250}
             outils={
               <div className="flex flex-wrap gap-2">
                 <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutPaiement | '')}>
@@ -318,6 +338,14 @@ export function CaissePage() {
             }
           />
         </>
+      )}
+      {remiseEleve && (
+        <GestionRemiseModal
+          eleveId={remiseEleve.id}
+          eleveNom={remiseEleve.nom}
+          onClose={() => setRemiseEleve(null)}
+          onChange={rafraichir}
+        />
       )}
     </div>
   )

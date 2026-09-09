@@ -8,6 +8,7 @@ import { ReinitialiserMotDePassePage } from '@/features/auth/pages/Reinitialiser
 import { UserProfilePage } from '@/features/auth/pages/UserProfilePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { JournalActivitePage } from '@/features/dashboard/pages/JournalActivitePage'
+import { AnciensReinscritsPage } from '@/features/dashboard/pages/AnciensReinscritsPage'
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
 import { PersonnelDetailPage } from '@/features/personnel/pages/PersonnelDetailPage'
@@ -156,6 +157,7 @@ export const router = createHashRouter([
     ),
     children: [
       { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
+      { path: 'anciens-reinscrits', element: <ProtectedRoute permission="dashboard.view"><AnciensReinscritsPage /></ProtectedRoute> },
       { path: 'journal-activite', element: <ProtectedRoute permission="dashboard.view" superAdminOnly><JournalActivitePage /></ProtectedRoute> },
       { path: 'profil', element: <ProtectedRoute><UserProfilePage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },

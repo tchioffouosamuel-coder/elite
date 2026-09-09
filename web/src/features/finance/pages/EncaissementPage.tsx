@@ -80,6 +80,7 @@ export function EncaissementPage() {
 
   const montant = Number(watch('montant') || 0)
   const resteApres = (dossier?.reste_a_payer ?? 0) - montant
+  const versements = (dossier?.versements ?? []).filter((v) => !v.annule).sort((a, b) => new Date(b.date_versement + 'T' + (b.heure_versement ?? '00:00:00')).getTime() - new Date(a.date_versement + 'T' + (a.heure_versement ?? '00:00:00')).getTime())
 
   // La répartition suggérée suit le montant saisi tant que l'utilisateur n'a
   // pas encore touché aux champs — dès qu'il en modifie un, on ne l'écrase
@@ -168,6 +169,43 @@ export function EncaissementPage() {
               </div>
             ))}
           </dl>
+
+          {versements.length > 0 && (
+            <div className="rounded-xl border border-navy-100 bg-white p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Historique des versements</span>
+                <span className="text-[11px] text-navy-400">{versements.length} reçu{versements.length > 1 ? 's' : ''}</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[500px] text-left text-xs">
+                  <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                    <tr>
+                      <th className="px-2 py-2">Date</th>
+                      <th className="px-2 py-2">Heure</th>
+                      <th className="px-2 py-2 text-right">Montant</th>
+                      <th className="px-2 py-2">Mode</th>
+                      <th className="px-2 py-2">Reçu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100">
+                    {versements.map((v) => {
+                      const date = v.date_versement ? new Date(`${v.date_versement}T${v.heure_versement ?? '00:00:00'}`) : null
+                      return (
+                        <tr key={v.id} className="align-middle text-navy-700">
+                          <td className="px-2 py-2">{date ? date.toLocaleDateString('fr-FR') : '—'}</td>
+                          <td className="px-2 py-2">{v.heure_versement ? v.heure_versement.slice(0, 5) : '—'}</td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums text-green-600">{francs(v.montant)}</td>
+                          <td className="px-2 py-2">{v.mode}</td>
+                          <td className="px-2 py-2 font-medium text-navy-800">{v.numero_recu}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <Controller
             name="montant"

@@ -66,4 +66,26 @@ class RemiseController extends Controller
 
         return ApiResponse::success(null, 'Remise retirée.');
     }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $remise = Remise::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validate([
+            'montant' => ['required', 'integer', 'min:1'],
+            'motif' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $remise->update([
+                'montant' => $data['montant'],
+                'motif' => $data['motif'] ?? null,
+            ]);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        $remise->load(['anneeScolaire:id,libelle', 'accordePar:id,name']);
+
+        return ApiResponse::success(new RemiseResource($remise), 'Remise modifiée.');
+    }
 }

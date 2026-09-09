@@ -225,6 +225,21 @@ class PreinscriptionService extends BaseService
     }
 
     /**
+     * Anciens élèves qui ont confirmé leur présence pour l'année active.
+     * Cette liste reprend exactement la base utilisée par le taux de
+     * réinscription affiché sur le tableau de bord.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return Collection<int, Eleve>
+     */
+    public function listeAnciensReinscrits(int|array $schoolId): Collection
+    {
+        return $this->anciensEleves($schoolId)
+            ->filter(fn(Eleve $e) => $this->estReinscritAnneeActive($e))
+            ->values();
+    }
+
+    /**
      * Anciens élèves de l'école : actifs, déjà présents avant le début de
      * l'année scolaire active — base commune au compte total (dashboard) et
      * à la liste des non-réinscrits.

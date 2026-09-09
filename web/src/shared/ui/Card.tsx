@@ -1,4 +1,4 @@
-import { type ComponentType, type ReactNode } from 'react'
+import { type ComponentType, type KeyboardEvent, type ReactNode } from 'react'
 import { clsx } from 'clsx'
 
 /**
@@ -6,9 +6,27 @@ import { clsx } from 'clsx'
  * filigrane de l'établissement posé sous la zone de travail (cf. AppLayout).
  * Les repasser en blanc opaque le masquerait partout où il compte.
  */
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className,
+  onClick,
+  onKeyDown,
+  role,
+  tabIndex,
+}: {
+  children: ReactNode
+  className?: string
+  onClick?: () => void
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void
+  role?: string
+  tabIndex?: number
+}) {
   return (
     <div
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      role={role}
+      tabIndex={tabIndex}
       className={clsx(
         'rounded-2xl border border-navy-100/70 bg-white/75 p-4 shadow-card transition-shadow duration-200 sm:p-5',
         className,
@@ -34,17 +52,30 @@ export function StatCard({
   accent = 'navy',
   icon: Icon,
   hint,
+  onClick,
 }: {
   label: string
   value: string | number
   accent?: Accent
   icon?: ComponentType<{ className?: string }>
   hint?: string
+  onClick?: () => void
 }) {
   const tone = accentClasses[accent]
 
   return (
-    <Card className="relative overflow-hidden hover:shadow-lifted">
+    <Card
+      className={clsx('relative overflow-hidden hover:shadow-lifted', onClick && 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-navy-300')}
+      onClick={onClick}
+      onKeyDown={onClick ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onClick()
+        }
+      } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       {/* Filet coloré : donne à la tuile une identité lisible en un coup d'œil. */}
       <span className={clsx('absolute inset-y-0 left-0 w-1', tone.bar)} />
       <div className="flex items-start justify-between gap-3 pl-2">
