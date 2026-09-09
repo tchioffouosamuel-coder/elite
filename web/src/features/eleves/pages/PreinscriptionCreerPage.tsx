@@ -139,11 +139,11 @@ function EleveAutocomplete({ onChoisir, onNouveau }: { onChoisir: (eleve: Eleve)
 export function PreinscriptionCreerPage() {
   const navigate = useNavigate()
   const [eleve, setEleve] = useState<Eleve | null>(null)
-  const [mode, setMode] = useState<'recherche' | 'nouveau'>('recherche')
+  const [modeSaisie, setModeSaisie] = useState<'recherche' | 'nouveau'>('recherche')
   const [champs, setChamps] = useState<Record<string, string>>({})
   const [tuteurs, setTuteurs] = useState<TuteurForm[]>([])
   const [montant, setMontant] = useState(0)
-  const [mode, setMode] = useState<ModePaiement>('especes')
+  const [modePaiement, setModePaiement] = useState<ModePaiement>('especes')
   const [reference, setReference] = useState('')
   const [classeId, setClasseId] = useState<number | null>(null)
   const [niveauId, setNiveauId] = useState<number | undefined>(undefined)
@@ -154,7 +154,7 @@ export function PreinscriptionCreerPage() {
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
   const choisirEleve = (choix: Eleve) => {
-    setMode('recherche')
+    setModeSaisie('recherche')
     setEleve(choix)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String((choix as unknown as Record<string, unknown>)[cle] ?? '')])))
     setTuteurs(choix.tuteurs.length > 0 ? choix.tuteurs.map(tuteurDepuisEleve) : [])
@@ -164,7 +164,7 @@ export function PreinscriptionCreerPage() {
   }
 
   const commencerNouveau = (nom: string) => {
-    setMode('nouveau')
+    setModeSaisie('nouveau')
     setEleve(null)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, cle === 'nom_complet' ? nom : ''])))
     setTuteurs([])
@@ -200,7 +200,7 @@ export function PreinscriptionCreerPage() {
   }
 
   const enregistrer = async () => {
-    if (!eleve && mode !== 'nouveau') return
+    if (!eleve && modeSaisie !== 'nouveau') return
     setEnvoi(true)
     setErreurMsg(null)
     try {
@@ -220,7 +220,7 @@ export function PreinscriptionCreerPage() {
           })),
         classe_id: classeId ?? undefined,
         montant_verser: montantNombre > 0 ? montantNombre : undefined,
-        mode_versement: montantNombre > 0 ? mode : undefined,
+        mode_versement: montantNombre > 0 ? modePaiement : undefined,
         reference_externe: reference || undefined,
       })
 
@@ -390,7 +390,7 @@ export function PreinscriptionCreerPage() {
 
                 <div className="grid grid-cols-3 gap-2.5">
                   <MontantInput label="Montant à encaisser" value={montant} onChange={setMontant} />
-                  <Select label="Mode" value={mode} onChange={(e) => setMode(e.target.value as ModePaiement)}>
+                  <Select label="Mode" value={modePaiement} onChange={(e) => setModePaiement(e.target.value as ModePaiement)}>
                     {MODES.map((m) => (
                       <option key={m.valeur} value={m.valeur}>
                         {m.libelle}

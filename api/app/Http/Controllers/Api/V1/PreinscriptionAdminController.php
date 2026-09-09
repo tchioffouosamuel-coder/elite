@@ -28,11 +28,11 @@ class PreinscriptionAdminController extends Controller
     {
         $preinscriptions = Preinscription::forSchool(Tenant::schoolIds())
             ->with(['tuteur:id,nom_complet,telephone,email', 'eleve:id,nom_complet,matricule'])
-            ->when($request->string('statut')->toString(), fn ($q, $s) => $q->where('statut', $s))
+            ->when($request->string('statut')->toString(), fn($q, $s) => $q->where('statut', $s))
             ->latest()
             ->get();
 
-        return ApiResponse::success($preinscriptions->map(fn (Preinscription $p) => $this->resume($p)));
+        return ApiResponse::success($preinscriptions->map(fn(Preinscription $p) => $this->resume($p)));
     }
 
     public function show(int $id): JsonResponse
@@ -225,7 +225,7 @@ class PreinscriptionAdminController extends Controller
     {
         $eleves = $this->service->listeAnciensNonReinscrits(Tenant::schoolIds())->load(['classe', 'tuteurs']);
 
-        return ApiResponse::success($eleves->map(fn (Eleve $e) => [
+        return ApiResponse::success($eleves->map(fn(Eleve $e) => [
             'id' => $e->id,
             'matricule' => $e->matricule,
             'nom_complet' => $e->nom_complet,
@@ -293,7 +293,10 @@ class PreinscriptionAdminController extends Controller
 
         try {
             ['resultat' => $resultat, 'dernier' => $dernier] = $this->service->importerChunk(
-                Tenant::schoolId(), $token, $data['index'], $request->user()->id,
+                Tenant::schoolId(),
+                $token,
+                $data['index'],
+                $request->user()->id,
             );
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
