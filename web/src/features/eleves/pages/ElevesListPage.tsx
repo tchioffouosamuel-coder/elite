@@ -470,6 +470,9 @@ export function ElevesListPage() {
               <BarChart3 className="h-4 w-4" />
               Rapports
             </Button>
+            <Button variant="secondary" onClick={() => navigate('/eleves/sans-classe')}>
+              Élèves sans classe
+            </Button>
             {can('eleves.manage') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>
                 <Upload className="h-4 w-4" />

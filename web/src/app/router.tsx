@@ -32,6 +32,7 @@ import { MaClassePage } from '@/features/classes/pages/MaClassePage'
 import { MesAttributionsPage } from '@/features/classes/pages/MesAttributionsPage'
 import { SousSystemesListPage } from '@/features/classes/sous-systemes/SousSystemesListPage'
 import { ElevesListPage } from '@/features/eleves/pages/ElevesListPage'
+import { ElevesSansClassePage } from '@/features/eleves/pages/ElevesSansClassePage'
 import { EleveRapportsPage } from '@/features/eleves/pages/EleveRapportsPage'
 import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
 import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
@@ -184,6 +185,7 @@ export const router = createHashRouter([
       { path: 'mes-attributions', element: <ProtectedRoute><MesAttributionsPage /></ProtectedRoute> },
       { path: 'sous-systemes', element: <ProtectedRoute permission="classes.manage"><SousSystemesListPage /></ProtectedRoute> },
       { path: 'eleves', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><ElevesListPage /></ProtectedRoute> },
+      { path: 'eleves/sans-classe', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><ElevesSansClassePage /></ProtectedRoute> },
       { path: 'eleves/rapports', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><EleveRapportsPage /></ProtectedRoute> },
       { path: 'eleves/:id', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><EleveDetailPage /></ProtectedRoute> },
       { path: 'eleves/nouveau', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
