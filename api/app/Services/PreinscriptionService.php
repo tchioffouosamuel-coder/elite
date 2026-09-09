@@ -211,10 +211,9 @@ class PreinscriptionService extends BaseService
 
     /**
      * Anciens élèves (déjà présents avant le début de l'année active) qui ne
-     * se sont pas encore réinscrits pour cette année — ni via une
-     * préinscription `existant` validée, ni via un dossier de scolarité déjà
-     * ouvert pour l'année en cours (une réinscription faite hors du circuit
-     * préinscription compte aussi comme réinscrit).
+    * se sont pas encore réinscrits pour cette année via une
+    * préinscription `existant` validée. Un dossier de scolarité seul ne
+    * compte pas dans les statistiques de préinscription.
      *
      * @param  int|array<int>  $schoolId
      * @return Collection<int, Eleve>
@@ -272,8 +271,7 @@ class PreinscriptionService extends BaseService
             ->where('type', 'existant')
             ->where('statut', 'validee')
             ->where('annee_scolaire_id', $annee->id)
-            ->exists()
-            || DossierScolarite::where('eleve_id', $eleve->id)->where('annee_scolaire_id', $annee->id)->exists();
+            ->exists();
     }
 
     /** @param int|array<int> $schoolId */

@@ -561,6 +561,32 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertFalse($nonReinscrits->contains('id', $reinscrit->id));
     }
 
+    public function test_un_dossier_financier_seul_ne_compte_pas_comme_preinscription(): void
+    {
+        $annee = $this->anneeActive();
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => 'DOSSIER-SEUL',
+            'nom_complet' => 'Dossier sans preinscription',
+            'sexe' => 'M',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
+        ]);
+        $eleve->forceFill(['created_at' => '2025-01-01'])->saveQuietly();
+        DossierScolarite::create([
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $annee->id,
+            'eleve_id' => $eleve->id,
+            'montant_scolarite' => 0,
+            'remise' => 0,
+            'report_dette' => 0,
+        ]);
+
+        $reinscrits = app(PreinscriptionService::class)->listeAnciensReinscrits($this->school->id);
+
+        $this->assertFalse($reinscrits->contains('id', $eleve->id));
+    }
+
     // --------------------------------------------------------- Import massif
 
     public function test_import_xlsx_traite_ancien_et_nouvel_eleve_et_rapporte_les_erreurs(): void
