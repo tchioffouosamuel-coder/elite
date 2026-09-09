@@ -252,7 +252,7 @@ export function PreinscriptionCreerPage() {
 
       <Card>
         <div className="flex flex-col gap-4">
-          {!eleve ? (
+          {!eleve && modeSaisie === 'recherche' ? (
             <>
               <p className="rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">
                 Recherchez l'élève à réinscrire : ses informations et ses tuteurs se rechargeront automatiquement, prêts à être
@@ -263,12 +263,23 @@ export function PreinscriptionCreerPage() {
           ) : (
             <>
               <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2">
-                <div>
-                  <p className="text-sm font-semibold text-navy-900">{eleve.nom_complet}</p>
-                  <p className="text-xs text-navy-500">{[eleve.matricule, eleve.classe?.nom].filter(Boolean).join(' · ')}</p>
-                </div>
-                <button type="button" onClick={() => setEleve(null)} className="text-xs font-medium text-navy-500 hover:text-navy-800">
-                  Changer d'élève
+                {eleve ? (
+                  <div>
+                    <p className="text-sm font-semibold text-navy-900">{eleve.nom_complet}</p>
+                    <p className="text-xs text-navy-500">{[eleve.matricule, eleve.classe?.nom].filter(Boolean).join(' · ')}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-navy-900">Nouvel élève</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEleve(null)
+                    setModeSaisie('recherche')
+                  }}
+                  className="text-xs font-medium text-navy-500 hover:text-navy-800"
+                >
+                  {eleve ? "Changer d'élève" : 'Rechercher un élève existant'}
                 </button>
               </div>
 
