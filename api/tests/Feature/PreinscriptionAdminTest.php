@@ -679,6 +679,44 @@ class PreinscriptionAdminTest extends TestCase
         $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
     }
 
+    public function test_import_reinscrit_un_eleve_avec_dossier_financier_sans_le_traiter_comme_doublon(): void
+    {
+        $annee = $this->anneeActive();
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => 'IMP-DOSSIER',
+            'nom_complet' => 'Eleve Dossier',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'statut' => 'actif',
+        ]);
+        DossierScolarite::create([
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $annee->id,
+            'eleve_id' => $eleve->id,
+            'montant_scolarite' => 0,
+            'remise' => 0,
+            'report_dette' => 0,
+        ]);
+
+        app(PreinscriptionService::class)->importerLigne($this->school->id, [
+            'matricule' => 'IMP-DOSSIER',
+            'nom_complet' => 'Eleve Dossier',
+            'classe' => 'CM2',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'tuteurs' => [],
+        ], $this->admin()->id);
+
+        $this->assertDatabaseHas('preinscriptions', [
+            'eleve_id' => $eleve->id,
+            'statut' => 'validee',
+            'tuteur_id' => null,
+        ]);
+        $this->assertSame($classe->id, $eleve->fresh()->classe_id);
+    }
+
     public function test_import_ignorer_un_eleve_deja_preinscrit_dans_le_fichier(): void
     {
         $this->anneeActive();
@@ -725,6 +763,7 @@ class PreinscriptionAdminTest extends TestCase
         $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
         $import->collection(collect([
             collect([
+                'ideleves' => 'IMP-NOUVEAU-001',
                 'nom_eleves' => 'Nouvel Eleve Valide',
                 'sexe_eleves' => 'M',
                 'ddn_eleves' => '2018-01-01',
@@ -744,6 +783,7 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertSame('validee', $preinscription->statut);
         $this->assertNotNull($preinscription->eleve_id);
         $this->assertSame('Nouvel Eleve Valide', $preinscription->donnees_eleve['nom_complet']);
+        $this->assertSame('IMP-NOUVEAU-001', $preinscription->eleve->matricule);
     }
 
     public function test_import_accepte_un_nouvel_eleve_sans_sexe_ni_date_de_naissance(): void

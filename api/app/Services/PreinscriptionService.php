@@ -53,7 +53,7 @@ class PreinscriptionService extends BaseService
                 throw new RuntimeException("Cet élève n'est pas rattaché à votre compte.");
             }
 
-            $this->verifierPasDePreinscriptionAnnee($eleve, $this->anneeActive($eleve->school_id));
+            $this->verifierPasDePreinscriptionAnnee($eleve, $this->anneeActive($eleve->school_id), true);
 
             $schoolId = $eleve->school_id;
         } else {
@@ -292,10 +292,10 @@ class PreinscriptionService extends BaseService
      * de la file d'attente n'existe que pour l'historique, déjà `validee` à
      * la création.
      *
-     * `tuteur_id` est une colonne obligatoire de la table (l'auteur de la
-     * demande, côté parent) : ici, il n'y a pas de demandeur, donc on y met
-     * le tuteur principal de l'élève — celui qu'un dossier existant porte
-     * forcément, sans quoi il n'aurait pas pu être inscrit la première fois.
+     * Il n'y a pas de demandeur côté admin. Le tuteur principal est repris
+     * quand il existe, mais une fiche élève incomplète peut désormais être
+     * réinscrite avec `tuteur_id` nul : la fiche pourra être complétée après
+     * l'import ou la réinscription.
      *
      * @param  array{
      *   donnees_eleve: array, donnees_tuteurs: array, classe_id?: ?int,
@@ -309,12 +309,6 @@ class PreinscriptionService extends BaseService
 
         $tuteurId = $eleve->tuteurs()->wherePivot('is_principal', true)->value('tuteurs.id')
             ?? $eleve->tuteurs()->value('tuteurs.id');
-
-        if ($tuteurId === null) {
-            throw new RuntimeException(
-                "Cet élève n'a aucun tuteur enregistré : ajoutez-en un depuis sa fiche avant de le réinscrire."
-            );
-        }
 
         return $this->transaction(function () use ($eleve, $tuteurId, $donnees, $adminUserId, $annee) {
             $preinscription = Preinscription::create([
@@ -396,6 +390,7 @@ class PreinscriptionService extends BaseService
         $classeId = $this->resoudreClasse($schoolId, [$ligne['classe'] ?? null, $ligne['niveau_classe'] ?? null]);
 
         $donneesEleve = array_filter([
+            'matricule' => ! empty($ligne['matricule']) ? trim((string) $ligne['matricule']) : null,
             'nom_complet' => $ligne['nom_complet'] ?? null,
             'sexe' => $ligne['sexe'] ?? null,
             'date_naissance' => $ligne['date_naissance'] ?? null,
@@ -537,20 +532,18 @@ class PreinscriptionService extends BaseService
     }
 
     /** Une seule préinscription active par élève et par année scolaire. */
-    private function verifierPasDePreinscriptionAnnee(Eleve $eleve, ?AnneeScolaire $anneeActive): void
+    private function verifierPasDePreinscriptionAnnee(Eleve $eleve, ?AnneeScolaire $anneeActive, bool $inclureDossier = false): void
     {
-        if ($anneeActive === null) {
-            return;
-        }
-
         $dejaPreinscrit = Preinscription::where('eleve_id', $eleve->id)
-            ->where('annee_scolaire_id', $anneeActive->id)
             ->whereIn('statut', ['en_attente', 'validee'])
+            ->when($anneeActive !== null, fn($query) => $query->where('annee_scolaire_id', $anneeActive->id))
             ->exists();
 
-        $dejaDossier = DossierScolarite::where('eleve_id', $eleve->id)
+        $dejaDossier = $inclureDossier && $anneeActive !== null
+            ? DossierScolarite::where('eleve_id', $eleve->id)
             ->where('annee_scolaire_id', $anneeActive->id)
-            ->exists();
+            ->exists()
+            : false;
 
         if ($dejaPreinscrit || $dejaDossier) {
             throw new RuntimeException(
@@ -906,7 +899,7 @@ class PreinscriptionService extends BaseService
         return Eleve::create([
             ...$donnees,
             'school_id' => $preinscription->school_id,
-            'matricule' => Eleve::genererMatricule($preinscription->school_id),
+            'matricule' => $donnees['matricule'] ?? Eleve::genererMatricule($preinscription->school_id),
             'statut' => 'actif',
         ]);
     }
