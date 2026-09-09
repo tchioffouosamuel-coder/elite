@@ -297,10 +297,14 @@ class PreinscriptionAdminController extends Controller
     /** Import massif d'une campagne de réinscription — chaque ligne validée immédiatement, cf. `PreinscriptionService::importerLigne()`. */
     public function import(Request $request): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+        ]);
 
         $schoolId = Tenant::schoolId();
-        $import = new PreinscriptionImport($schoolId, $this->service, $request->user()->id);
+        $this->service->verifierAnneeScolaire($schoolId, $data['annee_scolaire_id'] ?? null);
+        $import = new PreinscriptionImport($schoolId, $this->service, $request->user()->id, $data['annee_scolaire_id'] ?? null);
         Excel::import($import, $request->file('file'));
 
         // `imported`/`failed` : mêmes clés que les autres imports de l'appli
@@ -323,8 +327,12 @@ class PreinscriptionAdminController extends Controller
      */
     public function importPreparer(Request $request): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+        ]);
 
+        $this->service->verifierAnneeScolaire(Tenant::schoolId(), $data['annee_scolaire_id'] ?? null);
         $token = (string) Str::uuid();
         $lots = $this->service->preparerImportDecoupe($request->file('file'), $token);
 
@@ -333,14 +341,20 @@ class PreinscriptionAdminController extends Controller
 
     public function importerLot(Request $request, string $token): JsonResponse
     {
-        $data = $request->validate(['index' => ['required', 'integer', 'min:0']]);
+        $data = $request->validate([
+            'index' => ['required', 'integer', 'min:0'],
+            'annee_scolaire_id' => ['nullable', 'integer', 'exists:annees_scolaires,id'],
+        ]);
 
         try {
+            $schoolId = Tenant::schoolId();
+            $this->service->verifierAnneeScolaire($schoolId, $data['annee_scolaire_id'] ?? null);
             ['resultat' => $resultat, 'dernier' => $dernier] = $this->service->importerChunk(
-                Tenant::schoolId(),
+                $schoolId,
                 $token,
                 $data['index'],
                 $request->user()->id,
+                $data['annee_scolaire_id'] ?? null,
             );
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);

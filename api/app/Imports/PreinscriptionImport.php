@@ -89,10 +89,31 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
     public static function enTetes(): array
     {
         return [
-            'IDEleves', 'nom_eleves', 'sexe_eleves', 'ddn_eleves', 'Nom_classe', 'niveau_classe',
-            'nationalité', 'lieu_naiss', 'numero_acte_naissance', 'redoublant', 'refugies', 'deplace_interne',
-            'adresse_parent', 'nom_parents', 'tel_pere', 'fonction_pere', 'nom_mere', 'tel_mere', 'fonction_mere',
-            'tel_autre', 'frais_scolarite', 'MONTANT_SCOLARITE', 'remise_scol', 'annee_scol', 'DEBTS',
+            'IDEleves',
+            'nom_eleves',
+            'sexe_eleves',
+            'ddn_eleves',
+            'Nom_classe',
+            'niveau_classe',
+            'nationalité',
+            'lieu_naiss',
+            'numero_acte_naissance',
+            'redoublant',
+            'refugies',
+            'deplace_interne',
+            'adresse_parent',
+            'nom_parents',
+            'tel_pere',
+            'fonction_pere',
+            'nom_mere',
+            'tel_mere',
+            'fonction_mere',
+            'tel_autre',
+            'frais_scolarite',
+            'MONTANT_SCOLARITE',
+            'remise_scol',
+            'annee_scol',
+            'DEBTS',
         ];
     }
 
@@ -105,6 +126,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
         private readonly int $schoolId,
         private readonly PreinscriptionService $service,
         private readonly int $adminUserId,
+        private readonly ?int $anneeScolaireId = null,
     ) {}
 
     public function collection(Collection $rows): void
@@ -114,7 +136,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
             $ligne = $this->normaliser($row instanceof Collection ? $row->all() : $row);
 
             try {
-                $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId);
+                $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId, $this->anneeScolaireId);
                 $this->importees++;
             } catch (RuntimeException $e) {
                 $this->erreurs[] = ['ligne' => $numeroLigne, 'message' => self::messageCourt($e)];
@@ -179,7 +201,7 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
             'deplace_interne' => self::ouiNon($ligne['deplace_interne'] ?? null),
             'classe' => isset($ligne['classe']) ? self::texte($ligne['classe']) : null,
             'niveau_classe' => isset($ligne['niveau_classe']) ? self::texte($ligne['niveau_classe']) : null,
-            'tuteurs' => array_filter($contacts, fn ($c) => $c['nom'] !== null || $c['telephone'] !== null),
+            'tuteurs' => array_filter($contacts, fn($c) => $c['nom'] !== null || $c['telephone'] !== null),
             'scolarite_due' => self::montant($ligne['scolarite_due'] ?? null),
             'scolarite_payee' => self::montant($ligne['scolarite_payee'] ?? null),
             'scolarite_remise' => self::montant($ligne['scolarite_remise'] ?? null),

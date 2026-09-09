@@ -13,6 +13,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Tabs } from '@/shared/ui/Tabs'
+import { fetchAnneesScolaires } from '@/features/session/api'
 
 type Statut = 'en_attente' | 'validee' | 'rejetee'
 type Type = 'existant' | 'nouveau'
@@ -76,6 +77,8 @@ export function PreinscriptionsAdminPage() {
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
 
+  const { data: anneesScolaires } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['preinscriptions-admin', statut],
     queryFn: () => fetchPreinscriptions(statut),
@@ -129,6 +132,7 @@ export function PreinscriptionsAdminPage() {
               titreImport="Importer des préinscriptions"
               importUrl="preinscriptions/import"
               decoupe={{ preparerUrl: 'preinscriptions/import/preparer', traiterUrl: 'preinscriptions/import/traiter' }}
+              anneesScolaires={anneesScolaires}
               exportUrl={onglet === 'non-inscrits' ? 'preinscriptions/non-inscrits/export' : 'preinscriptions/export'}
               modeleUrl="preinscriptions/modele"
               colonnes={[
@@ -186,15 +190,15 @@ export function PreinscriptionsAdminPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {nonInscritsFiltres.map((e) => (
-              <Card key={e.id}>
+              <Card key={e.id} className="border-red-200 bg-red-50">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="font-display text-base font-bold text-navy-900">{e.nom_complet}</p>
-                    <p className="mt-0.5 text-xs text-navy-400">
+                    <p className="font-display text-base font-bold text-red-800">{e.nom_complet}</p>
+                    <p className="mt-0.5 text-xs text-red-700">
                       {e.matricule} · {e.classe ?? 'Sans classe'} · {e.tuteur ?? 'Aucun tuteur'} {e.telephone ? `(${e.telephone})` : ''}
                     </p>
                   </div>
-                  <Badge tone="gold">
+                  <Badge tone="red">
                     <UserX className="h-3.5 w-3.5" />
                     Non réinscrit
                   </Badge>

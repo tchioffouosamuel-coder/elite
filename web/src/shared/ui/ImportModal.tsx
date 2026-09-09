@@ -71,11 +71,19 @@ export interface ImportDecoupe {
   traiterUrl: string
 }
 
+export interface ImportAnneeScolaire {
+  id: number
+  libelle: string
+  is_active: boolean
+}
+
 export function ImportModal({
   title,
   url,
   columns,
   choix,
+  anneesScolaires,
+  anneeScolaireId,
   extraFields,
   progressUrl,
   decoupe,
@@ -88,6 +96,8 @@ export function ImportModal({
   url: string
   columns: string[]
   choix?: ChoixImport
+  anneesScolaires?: ImportAnneeScolaire[]
+  anneeScolaireId?: number
   extraFields?: Record<string, string | number>
   progressUrl?: string
   /** Bascule l'envoi en petits lots successifs — voir `ImportDecoupe`. Incompatible avec `progressUrl`, sans objet ici. */
@@ -102,6 +112,7 @@ export function ImportModal({
   const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
   const [choisi, setChoisi] = useState(choix?.defaut ?? '')
+  const [anneeChoisie, setAnneeChoisie] = useState(String(anneeScolaireId ?? ''))
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -122,12 +133,16 @@ export function ImportModal({
   // Les colonnes attendues dépendent du choix : afficher celles du primaire à
   // qui importe un fichier de secondaire l'enverrait corriger le mauvais.
   const colonnesAttendues = choix?.options.find((o) => o.valeur === choisi)?.colonnes ?? columns
+  const champsSupplementaires = {
+    ...extraFields,
+    ...(anneeChoisie ? { annee_scolaire_id: anneeChoisie } : {}),
+  }
 
   const handleSubmitDecoupe = async (decoupeConfig: ImportDecoupe, fichier: File) => {
     const formData = new FormData()
     formData.append('file', fichier)
     if (choix) formData.append(choix.nom, choisi)
-    Object.entries(extraFields ?? {}).forEach(([key, value]) => formData.append(key, String(value)))
+    Object.entries(champsSupplementaires).forEach(([key, value]) => formData.append(key, String(value)))
 
     const { data: prepare } = await http.post<{ data: { token: string; lots: number } }>(
       decoupeConfig.preparerUrl,
@@ -145,7 +160,7 @@ export function ImportModal({
     for (let i = 0; i < lots; i++) {
       const { data: lot } = await http.post<{ data: ImportResult }>(`${decoupeConfig.traiterUrl}/${lotToken}`, {
         index: i,
-        ...(extraFields ?? {}),
+        ...champsSupplementaires,
       })
       const r = lot.data
 
@@ -157,7 +172,7 @@ export function ImportModal({
         if (!libelles) continue
         const courant = (agrege[cle] as Record<string, number> | undefined) ?? {}
         for (const [nom, n] of Object.entries(libelles)) courant[nom] = (courant[nom] ?? 0) + n
-        ;(agrege[cle] as Record<string, number>) = courant
+          ; (agrege[cle] as Record<string, number>) = courant
       }
       if (r.erreurs && r.erreurs.length > 0) {
         agrege.erreurs = [...(agrege.erreurs ?? []), ...r.erreurs.map((e) => ({ ...e, lot: i + 1 }))]
@@ -186,7 +201,7 @@ export function ImportModal({
       const formData = new FormData()
       formData.append('file', file)
       if (choix) formData.append(choix.nom, choisi)
-      Object.entries(extraFields ?? {}).forEach(([key, value]) => formData.append(key, String(value)))
+      Object.entries(champsSupplementaires).forEach(([key, value]) => formData.append(key, String(value)))
       if (token) formData.append('progress_token', token)
 
       const { data } = await http.post<{ data: ImportResult }>(url, formData, {
@@ -216,6 +231,20 @@ export function ImportModal({
             {choix.options.map((option) => (
               <option key={option.valeur} value={option.valeur}>
                 {option.libelle}
+              </option>
+            ))}
+          </Select>
+        )}
+
+        {anneesScolaires && anneesScolaires.length > 0 && (
+          <Select
+            label="Année scolaire de l'import"
+            value={anneeChoisie}
+            onChange={(e) => setAnneeChoisie(e.target.value)}
+          >
+            {anneesScolaires.map((annee) => (
+              <option key={annee.id} value={annee.id}>
+                {annee.libelle}{annee.is_active ? ' (active)' : ''}
               </option>
             ))}
           </Select>

@@ -32,9 +32,9 @@ class EleveRepository extends BaseRepository
                         ->orWhere('matricule', 'like', "%{$search}%");
                 });
             })
-            ->when($filters['classe_id'] ?? null, fn ($query, $id) => $query->where('classe_id', $id))
-            ->when($filters['sexe'] ?? null, fn ($query, $sexe) => $query->where('sexe', $sexe))
-            ->when($filters['statut'] ?? null, fn ($query, $statut) => $query->where('statut', $statut))
+            ->when($filters['classe_id'] ?? null, fn($query, $id) => $query->where('classe_id', $id))
+            ->when($filters['sexe'] ?? null, fn($query, $sexe) => $query->where('sexe', $sexe))
+            ->when($filters['statut'] ?? null, fn($query, $statut) => $query->where('statut', $statut))
             ->orderBy('nom_complet')
             ->paginate($perPage);
     }

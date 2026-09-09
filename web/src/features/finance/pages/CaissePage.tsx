@@ -58,6 +58,7 @@ export function CaissePage() {
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -70,6 +71,27 @@ export function CaissePage() {
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] })
+
+  const toggleSelect = (eleveId: number) => {
+    setSelectedIds((actuels) => {
+      const prochain = new Set(actuels)
+      if (prochain.has(eleveId)) {
+        prochain.delete(eleveId)
+      } else {
+        prochain.add(eleveId)
+      }
+      return prochain
+    })
+  }
+
+  const toggleSelectAll = (dossiers: DossierScolarite[]) => {
+    if (selectedIds.size === dossiers.length && dossiers.length > 0) {
+      setSelectedIds(new Set())
+      return
+    }
+
+    setSelectedIds(new Set(dossiers.map((d) => d.eleve.id)))
+  }
 
   const annuler = async (dossier: DossierScolarite) => {
     const dernier = dossier.versements?.filter((v) => !v.annule).at(-1)
@@ -93,6 +115,29 @@ export function CaissePage() {
   }
 
   const colonnes: Colonne<DossierScolarite>[] = [
+    {
+      cle: 'selection',
+      entete: data?.dossiers ? (
+        <input
+          type="checkbox"
+          checked={selectedIds.size === data.dossiers.length && data.dossiers.length > 0}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => toggleSelectAll(data.dossiers)}
+          className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+        />
+      ) : null,
+      cellule: (d) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(d.eleve.id)}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => toggleSelect(d.eleve.id)}
+          className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+        />
+      ),
+      largeur: '48px',
+      sticky: 'left',
+    },
     {
       cle: 'eleve',
       entete: 'Élève',
@@ -157,6 +202,8 @@ export function CaissePage() {
       cle: 'actions',
       entete: '',
       cellule: (d) => {
+        if (selectedIds.size > 0) return <div className="w-0" />
+
         const dernier = d.versements?.filter((v) => !v.annule).at(-1)
 
         return (
@@ -214,6 +261,16 @@ export function CaissePage() {
         <ErrorState />
       ) : (
         <>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between rounded-2xl border border-navy-200 bg-navy-50 px-4 py-2.5 text-sm text-navy-700">
+              <span>
+                {selectedIds.size} élève{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+              </span>
+              <Button size="sm" variant="secondary" onClick={() => setSelectedIds(new Set())}>
+                Tout déselectionner
+              </Button>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Attendu" value={francs(data.totaux.attendu)} icon={Users} accent="navy" />
             <StatCard

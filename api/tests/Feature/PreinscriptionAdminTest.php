@@ -385,6 +385,31 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertSame(25000, Versement::findOrFail($versementId)->montant);
     }
 
+    public function test_admin_ne_peut_pas_creer_deux_preinscriptions_pour_la_meme_annee_active(): void
+    {
+        $this->anneeActive();
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC5',
+            'nom_complet' => 'Doublon Annee',
+            'sexe' => 'F',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $service = app(PreinscriptionService::class);
+        $donnees = [
+            'donnees_eleve' => ['nom_complet' => 'Doublon Annee', 'sexe' => 'F', 'date_naissance' => '2016-01-01'],
+            'donnees_tuteurs' => [['nom_complet' => 'Mballa Jean', 'telephone' => '699000000']],
+        ];
+
+        $service->creerEtValiderParAdmin($eleve, $donnees, $this->admin()->id);
+
+        $this->expectException(\RuntimeException::class);
+        $service->creerEtValiderParAdmin($eleve, $donnees, $this->admin()->id);
+    }
+
     /** Sans tuteur au dossier, il n'y a personne à qui rattacher la demande : refusé plutôt que planté sur une contrainte de base. */
     public function test_admin_ne_peut_pas_reinscrire_un_eleve_sans_tuteur(): void
     {
@@ -407,6 +432,23 @@ class PreinscriptionAdminTest extends TestCase
 
         $reponse->assertStatus(422);
         $this->assertSame(0, Preinscription::where('eleve_id', $eleve->id)->count());
+    }
+
+    public function test_admin_ne_peut_pas_creer_deux_preinscriptions_nouvelles_pour_le_meme_enfant(): void
+    {
+        $this->anneeActive();
+        $donnees = [
+            'donnees_eleve' => ['nom_complet' => 'Nouvel Enfant', 'sexe' => 'F', 'date_naissance' => '2017-04-12'],
+            'donnees_tuteurs' => [['nom_complet' => 'Un Parent', 'telephone' => '699000001']],
+        ];
+
+        $service = app(PreinscriptionService::class);
+        $service->creerEtValiderNouveauParAdmin($this->school->id, $donnees, $this->admin()->id);
+
+        $this->expectException(
+            \RuntimeException::class,
+        );
+        $service->creerEtValiderNouveauParAdmin($this->school->id, $donnees, $this->admin()->id);
     }
 
     // ----------------------------------------- Confirmation de présence (année)
@@ -559,6 +601,65 @@ class PreinscriptionAdminTest extends TestCase
 
         $this->assertSame($classe->id, $ancien->fresh()->classe_id);
         $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel Eleve')->first());
+    }
+
+    public function test_import_ne_peut_pas_reinscrire_un_eleve_deja_preinscrit_cette_annee(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => 'IMP-DUP',
+            'nom_complet' => 'Import Doublon',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        $service = app(PreinscriptionService::class);
+        $ligne = [
+            'matricule' => 'IMP-DUP',
+            'nom_complet' => 'Import Doublon',
+            'classe' => 'CM2',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'tuteurs' => [],
+        ];
+
+        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+
+        $this->expectException(\RuntimeException::class);
+        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+    }
+
+    public function test_import_valide_directement_un_nouvel_eleve_complet(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $import = new PreinscriptionImport($this->school->id, app(PreinscriptionService::class), $this->admin()->id);
+        $import->collection(collect([
+            collect([
+                'nom_eleves' => 'Nouvel Eleve Valide',
+                'sexe_eleves' => 'M',
+                'ddn_eleves' => '2018-01-01',
+                'nom_classe' => 'CM2',
+                'nom_parents' => 'Un Tuteur',
+                'tel_pere' => '698000001',
+                'frais_scolarite' => '25000',
+                'MONTANT_SCOLARITE' => '5000',
+                'remise_scol' => '0',
+            ]),
+        ]));
+
+        $this->assertSame(1, $import->importees);
+        $this->assertCount(0, $import->erreurs);
+
+        $preinscription = Preinscription::where('type', 'nouveau')->latest('id')->firstOrFail();
+        $this->assertSame('validee', $preinscription->statut);
+        $this->assertNotNull($preinscription->eleve_id);
+        $this->assertSame('Nouvel Eleve Valide', $preinscription->donnees_eleve['nom_complet']);
     }
 
     public function test_import_accepte_un_nom_paye_comme_preinscription_incomplete(): void

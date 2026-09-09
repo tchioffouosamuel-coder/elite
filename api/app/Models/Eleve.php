@@ -77,16 +77,16 @@ class Eleve extends Model
     {
         $codes = ['maternelle' => 'MAT', 'primaire' => 'PRIM', 'secondaire' => 'SEC'];
         $code = $codes[School::find($schoolId)?->type] ?? 'SEC';
-        $prefixe = now()->format('y').$code;
+        $prefixe = now()->format('y') . $code;
 
         $dernier = static::where('school_id', $schoolId)
-            ->where('matricule', 'like', $prefixe.'%')
+            ->where('matricule', 'like', $prefixe . '%')
             ->orderByDesc('matricule')
             ->value('matricule');
 
         $prochain = $dernier ? ((int) substr($dernier, strlen($prefixe)) + 1) : 1;
 
-        return $prefixe.str_pad((string) $prochain, 3, '0', STR_PAD_LEFT);
+        return $prefixe . str_pad((string) $prochain, 3, '0', STR_PAD_LEFT);
     }
 
     public function school(): BelongsTo

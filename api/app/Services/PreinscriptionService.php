@@ -53,15 +53,7 @@ class PreinscriptionService extends BaseService
                 throw new RuntimeException("Cet élève n'est pas rattaché à votre compte.");
             }
 
-            // Une demande en attente vaut déjà pour cet élève : en déposer une
-            // seconde ne ferait que dupliquer la file d'attente de l'admin.
-            // Le parent doit corriger celle qui existe déjà, pas en ouvrir
-            // une autre.
-            if (Preinscription::where('eleve_id', $eleve->id)->where('statut', 'en_attente')->exists()) {
-                throw new RuntimeException(
-                    "Une préinscription est déjà en attente de validation pour cet élève. Vous pouvez la modifier tant qu'elle n'a pas été traitée."
-                );
-            }
+            $this->verifierPasDePreinscriptionAnnee($eleve, $this->anneeActive($eleve->school_id));
 
             $schoolId = $eleve->school_id;
         } else {
@@ -75,23 +67,7 @@ class PreinscriptionService extends BaseService
                 throw new RuntimeException("Cet établissement n'appartient pas au même complexe.");
             }
 
-            // Même garde-fou que ci-dessus, pour un enfant pas encore
-            // scolarisé : sans identifiant d'élève à comparer, on rapproche
-            // sur nom + date de naissance parmi les demandes du même tuteur.
-            $doublon = Preinscription::where('tuteur_id', $tuteur->id)
-                ->where('type', 'nouveau')
-                ->where('statut', 'en_attente')
-                ->get()
-                ->contains(
-                    fn(Preinscription $p) => ($p->donnees_eleve['nom_complet'] ?? null) === ($donnees['donnees_eleve']['nom_complet'] ?? null)
-                        && ($p->donnees_eleve['date_naissance'] ?? null) === ($donnees['donnees_eleve']['date_naissance'] ?? null)
-                );
-
-            if ($doublon) {
-                throw new RuntimeException(
-                    "Une préinscription est déjà en attente de validation pour cet enfant. Vous pouvez la modifier tant qu'elle n'a pas été traitée."
-                );
-            }
+            $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donnees['donnees_eleve'], $this->anneeActive($schoolId));
 
             $eleve = null;
         }
@@ -313,8 +289,11 @@ class PreinscriptionService extends BaseService
      *   montant_verser?: ?int, mode_versement?: ?string, reference_externe?: ?string, rubriques_versement?: ?array,
      * }  $donnees
      */
-    public function creerEtValiderParAdmin(Eleve $eleve, array $donnees, int $adminUserId): Preinscription
+    public function creerEtValiderParAdmin(Eleve $eleve, array $donnees, int $adminUserId, ?AnneeScolaire $annee = null): Preinscription
     {
+        $annee ??= $this->anneeActive($eleve->school_id);
+        $this->verifierPasDePreinscriptionAnnee($eleve, $annee);
+
         $tuteurId = $eleve->tuteurs()->wherePivot('is_principal', true)->value('tuteurs.id')
             ?? $eleve->tuteurs()->value('tuteurs.id');
 
@@ -324,10 +303,10 @@ class PreinscriptionService extends BaseService
             );
         }
 
-        return $this->transaction(function () use ($eleve, $tuteurId, $donnees, $adminUserId) {
+        return $this->transaction(function () use ($eleve, $tuteurId, $donnees, $adminUserId, $annee) {
             $preinscription = Preinscription::create([
                 'school_id' => $eleve->school_id,
-                'annee_scolaire_id' => $this->anneeActive($eleve->school_id)?->id,
+                'annee_scolaire_id' => $annee?->id,
                 'tuteur_id' => $tuteurId,
                 'eleve_id' => $eleve->id,
                 'type' => 'existant',
@@ -346,9 +325,12 @@ class PreinscriptionService extends BaseService
     }
 
     /** Crée et valide directement une préinscription admin pour un nouvel élève. */
-    public function creerEtValiderNouveauParAdmin(int $schoolId, array $donnees, int $adminUserId): Preinscription
+    public function creerEtValiderNouveauParAdmin(int $schoolId, array $donnees, int $adminUserId, ?AnneeScolaire $annee = null): Preinscription
     {
-        return $this->transaction(function () use ($schoolId, $donnees, $adminUserId) {
+        $annee ??= $this->anneeActive($schoolId);
+        $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donnees['donnees_eleve'], $annee);
+
+        return $this->transaction(function () use ($schoolId, $donnees, $adminUserId, $annee) {
             $tuteurData = $donnees['donnees_tuteurs'][0] ?? null;
             if ($tuteurData === null) {
                 throw new RuntimeException('Ajoutez au moins un tuteur pour ce nouvel élève.');
@@ -361,7 +343,7 @@ class PreinscriptionService extends BaseService
 
             $preinscription = Preinscription::create([
                 'school_id' => $schoolId,
-                'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+                'annee_scolaire_id' => $annee?->id,
                 'tuteur_id' => $tuteur->id,
                 'type' => 'nouveau',
                 'statut' => 'en_attente',
@@ -395,8 +377,9 @@ class PreinscriptionService extends BaseService
      *   scolarite_due?: ?int, scolarite_payee?: ?int, scolarite_remise?: ?int, dette_declaree?: ?int, annee_source?: ?string,
      * }  $ligne
      */
-    public function importerLigne(int $schoolId, array $ligne, int $adminUserId): Preinscription
+    public function importerLigne(int $schoolId, array $ligne, int $adminUserId, ?int $anneeScolaireId = null): Preinscription
     {
+        $annee = $this->verifierAnneeScolaire($schoolId, $anneeScolaireId);
         $classeId = $this->resoudreClasse($schoolId, [$ligne['classe'] ?? null, $ligne['niveau_classe'] ?? null]);
 
         $donneesEleve = array_filter([
@@ -425,6 +408,7 @@ class PreinscriptionService extends BaseService
         $eleve = $this->rapprocherEleveExistant($schoolId, $ligne);
 
         if ($eleve !== null) {
+            $this->verifierPasDePreinscriptionAnnee($eleve, $annee);
             $this->enregistrerDetteImport($eleve, $ligne);
 
             return $this->creerEtValiderParAdmin($eleve, [
@@ -433,7 +417,7 @@ class PreinscriptionService extends BaseService
                 'classe_id' => $classeId,
                 'montant_verser' => max(0, (int) ($ligne['scolarite_payee'] ?? 0)) ?: null,
                 'mode_versement' => 'especes',
-            ], $adminUserId);
+            ], $adminUserId, $annee);
         }
 
         $donneesEleve = $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne);
@@ -443,12 +427,15 @@ class PreinscriptionService extends BaseService
             && (($ligne['scolarite_payee'] ?? 0) > 0)
             && (empty($donneesEleve['sexe']) || empty($donneesEleve['date_naissance']) || $classeId === null || $donneesTuteurs === [])
         ) {
+            $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donneesEleve, $annee);
+
             return $this->creerPreinscriptionImportIncomplete(
                 $schoolId,
                 $classeId,
                 $donneesEleve,
                 $donneesTuteurs,
                 $ligne,
+                $annee,
             );
         }
 
@@ -464,12 +451,14 @@ class PreinscriptionService extends BaseService
             throw new RuntimeException("Classe introuvable pour un nouvel élève.");
         }
 
+        $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donneesEleve, $annee);
+
         $tuteur = $this->resoudreOuCreerTuteur($schoolId, $donneesTuteurs[0]);
 
-        return $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId) {
+        return $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId, $annee) {
             $preinscription = Preinscription::create([
                 'school_id' => $schoolId,
-                'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+                'annee_scolaire_id' => $annee?->id,
                 'tuteur_id' => $tuteur->id,
                 'eleve_id' => null,
                 'type' => 'nouveau',
@@ -492,6 +481,7 @@ class PreinscriptionService extends BaseService
         array $donneesEleve,
         array $donneesTuteurs,
         array $ligne,
+        ?AnneeScolaire $annee,
     ): Preinscription {
         if ($donneesTuteurs === []) {
             $nomContact = 'Contact à compléter - ' . ($donneesEleve['nom_complet'] ?? 'Import');
@@ -518,7 +508,7 @@ class PreinscriptionService extends BaseService
 
         return Preinscription::create([
             'school_id' => $schoolId,
-            'annee_scolaire_id' => $this->anneeActive($schoolId)?->id,
+            'annee_scolaire_id' => $annee?->id,
             'tuteur_id' => $tuteur->id,
             'eleve_id' => null,
             'type' => 'nouveau',
@@ -530,6 +520,77 @@ class PreinscriptionService extends BaseService
             'montant_verser' => $montantPaye > 0 ? $montantPaye : null,
             'mode_versement' => 'especes',
         ]);
+    }
+
+    public function verifierAnneeScolaire(int $schoolId, ?int $anneeScolaireId): ?AnneeScolaire
+    {
+        if ($anneeScolaireId === null) {
+            return $this->anneeActive($schoolId);
+        }
+
+        $annee = AnneeScolaire::where('school_id', $schoolId)->find($anneeScolaireId);
+        if ($annee === null) {
+            throw new RuntimeException("L'année scolaire sélectionnée n'appartient pas à cet établissement.");
+        }
+
+        return $annee;
+    }
+
+    /** Une seule préinscription active par élève et par année scolaire. */
+    private function verifierPasDePreinscriptionAnnee(Eleve $eleve, ?AnneeScolaire $anneeActive): void
+    {
+        if ($anneeActive === null) {
+            return;
+        }
+
+        $dejaPreinscrit = Preinscription::where('eleve_id', $eleve->id)
+            ->where('annee_scolaire_id', $anneeActive->id)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->exists();
+
+        $dejaDossier = DossierScolarite::where('eleve_id', $eleve->id)
+            ->where('annee_scolaire_id', $anneeActive->id)
+            ->exists();
+
+        if ($dejaPreinscrit || $dejaDossier) {
+            throw new RuntimeException(
+                "Cet enfant a déjà une préinscription pour l'année scolaire active. La demande existante doit être modifiée ou traitée, pas recréée."
+            );
+        }
+    }
+
+    /** Une seule préinscription d'un nouvel enfant identifié par nom et date, par école et année. */
+    private function verifierPasDePreinscriptionNouvelEleveAnnee(int $schoolId, array $donneesEleve, ?AnneeScolaire $anneeActive): void
+    {
+        $nom = $this->normaliserIdentite($donneesEleve['nom_complet'] ?? null);
+        $dateNaissance = $donneesEleve['date_naissance'] ?? null;
+
+        if ($anneeActive === null || $nom === '' || empty($dateNaissance)) {
+            return;
+        }
+
+        $doublon = Preinscription::where('school_id', $schoolId)
+            ->where('annee_scolaire_id', $anneeActive->id)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->where('type', 'nouveau')
+            ->get()
+            ->contains(function (Preinscription $preinscription) use ($nom, $dateNaissance): bool {
+                $donnees = $preinscription->donnees_eleve ?? [];
+
+                return $this->normaliserIdentite($donnees['nom_complet'] ?? null) === $nom
+                    && ($donnees['date_naissance'] ?? null) === $dateNaissance;
+            });
+
+        if ($doublon) {
+            throw new RuntimeException(
+                "Cet enfant a déjà une préinscription pour l'année scolaire active. La demande existante doit être modifiée ou traitée, pas recréée."
+            );
+        }
+    }
+
+    private function normaliserIdentite(?string $valeur): string
+    {
+        return mb_strtolower(trim((string) $valeur));
     }
 
     /** Conserve les montants du fichier dans la préinscription sans les envoyer dans `eleves`. */
@@ -606,7 +667,7 @@ class PreinscriptionService extends BaseService
      *
      * @return array{resultat: array{imported: int, failed: int, erreurs: array}, dernier: bool}
      */
-    public function importerChunk(int $schoolId, string $token, int $index, int $adminUserId): array
+    public function importerChunk(int $schoolId, string $token, int $index, int $adminUserId, ?int $anneeScolaireId = null): array
     {
         $dossier = $this->dossierImportDecoupe($token);
         $chemin = "{$dossier}/{$index}.xlsx";
@@ -615,7 +676,7 @@ class PreinscriptionService extends BaseService
             throw new RuntimeException("Ce lot est introuvable — il a peut-être déjà été traité, ou l'import a expiré.");
         }
 
-        $import = new PreinscriptionImport($schoolId, $this, $adminUserId);
+        $import = new PreinscriptionImport($schoolId, $this, $adminUserId, $anneeScolaireId);
         Excel::import($import, $chemin);
 
         @unlink($chemin);

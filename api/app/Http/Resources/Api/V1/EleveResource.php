@@ -22,7 +22,7 @@ class EleveResource extends JsonResource
             'numero_acte_naissance' => $this->numero_acte_naissance,
             'refugie' => $this->refugie,
             'deplace_interne' => $this->deplace_interne,
-            'photo_url' => $this->photo_path ? asset('storage/'.$this->photo_path) : null,
+            'photo_url' => $this->photo_path ? asset('storage/' . $this->photo_path) : null,
             'groupe_sanguin' => $this->groupe_sanguin,
             'situation_sanitaire' => $this->situation_sanitaire,
             'aptitude' => $this->aptitude,
@@ -30,13 +30,13 @@ class EleveResource extends JsonResource
             'redoublant' => (bool) $this->redoublant,
             'statut' => $this->statut,
             'school_id' => $this->school_id,
-            'school' => $this->whenLoaded('school', fn () => $this->school ? [
+            'school' => $this->whenLoaded('school', fn() => $this->school ? [
                 'id' => $this->school->id,
                 'name' => $this->school->name,
                 'code' => $this->school->code,
                 'type' => $this->school->type,
             ] : null),
-            'classe' => $this->whenLoaded('classe', fn () => $this->classe ? [
+            'classe' => $this->whenLoaded('classe', fn() => $this->classe ? [
                 'id' => $this->classe->id,
                 'nom' => $this->classe->nom,
                 'niveau' => $this->classe->relationLoaded('niveau') ? $this->classe->niveau?->name_fr : null,
