@@ -1,6 +1,6 @@
 {
   "name": "elites-school-desktop",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "Elites School — client desktop offline",
   "author": "Artiscode Agency",
   "private": true,
@@ -30,12 +30,31 @@
       "package.json"
     ],
     "extraResources": [
-      { "from": "../dist", "to": "web-dist" },
-      { "from": "../../api", "to": "api", "filter": ["**/*", "!tests/**", "!.git/**", "!vendor/**", "!node_modules/**", "!storage/**", "!database/*.sqlite"] },
-      { "from": "resources/php", "to": "php" }
+      {
+        "from": "../dist",
+        "to": "web-dist"
+      },
+      {
+        "from": "../../api",
+        "to": "api",
+        "filter": [
+          "**/*",
+          "!tests/**",
+          "!.git/**",
+          "!vendor/**",
+          "!node_modules/**",
+          "!storage/**",
+          "!database/*.sqlite"
+        ]
+      },
+      {
+        "from": "resources/php",
+        "to": "php"
+      }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "Elites-School-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
