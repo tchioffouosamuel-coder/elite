@@ -104,19 +104,24 @@ class BusAffectation extends Model
             ->map(fn ($groupe) => (int) $groupe->sum('montant'));
 
         $tarif = (int) ($this->tarif_mensuel ?? 0);
+        $remiseParMois = $this->versements
+            ->whereNull('annule_le')
+            ->groupBy(fn (BusVersement $v) => $v->mois->format('Y-m'))
+            ->map(fn ($groupe) => (int) $groupe->sum('remise'));
 
-        return $this->mois_couverture->map(function (Carbon $mois) use ($payeParMois, $tarif) {
-            $paye = min($tarif, $payeParMois->get($mois->format('Y-m'), 0));
+        return $this->mois_couverture->map(function (Carbon $mois) use ($payeParMois, $remiseParMois, $tarif) {
+            $du = max(0, $tarif - $remiseParMois->get($mois->format('Y-m'), 0));
+            $paye = min($du, $payeParMois->get($mois->format('Y-m'), 0));
 
             return [
                 'mois' => $mois->format('Y-m-d'),
-                'du' => $tarif,
+                'du' => $du,
                 'paye' => $paye,
-                'reste' => max(0, $tarif - $paye),
+                'reste' => max(0, $du - $paye),
                 'statut' => match (true) {
-                    $tarif === 0 => 'sans_frais',
+                    $du === 0 => 'sans_frais',
                     $paye <= 0 => 'impaye',
-                    $paye >= $tarif => 'solde',
+                    $paye >= $du => 'solde',
                     default => 'partiel',
                 },
             ];
@@ -125,7 +130,7 @@ class BusAffectation extends Model
 
     public function getTotalDuAttribute(): int
     {
-        return (int) ($this->tarif_mensuel ?? 0) * $this->mois_couverture->count();
+        return (int) collect($this->situation_mensuelle)->sum('du');
     }
 
     public function getTotalPayeAttribute(): int

@@ -29,7 +29,9 @@ class Preinscription extends Model
         'mode_versement',
         'reference_externe',
         'rubriques_versement',
+        'bus',
         'versement_id',
+        'bus_versement_id',
         'motif_rejet',
         'traite_par',
         'traite_le',
@@ -41,6 +43,7 @@ class Preinscription extends Model
             'donnees_eleve' => 'array',
             'donnees_tuteurs' => 'array',
             'rubriques_versement' => 'array',
+            'bus' => 'array',
             'traite_le' => 'datetime',
         ];
     }

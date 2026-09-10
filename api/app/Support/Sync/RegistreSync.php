@@ -693,7 +693,7 @@ class RegistreSync
             ],
             'bus_versements' => [
                 'modele' => BusVersement::class,
-                'colonnes' => ['id', 'school_id', 'bus_affectation_id', 'mois', 'numero_recu', 'date_versement', 'montant', 'mode', 'reference_externe', 'encaisse_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
+                'colonnes' => ['id', 'school_id', 'bus_affectation_id', 'mois', 'numero_recu', 'date_versement', 'montant', 'remise', 'mode', 'reference_externe', 'encaisse_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
                 'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'bus.view',
             ],

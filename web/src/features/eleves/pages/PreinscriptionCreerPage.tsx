@@ -7,6 +7,7 @@ import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
 import { rechercheGlobaleEleves, type Eleve } from '@/features/eleves/api'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
+import { fetchTrajets, tarifPourOption, LIBELLES_OPTION_TRAJET, type OptionTrajet } from '@/features/bus/api'
 import { CHAMPS_ELEVE, type PreinscriptionResume } from '@/features/eleves/pages/PreinscriptionsAdminPage'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
@@ -147,11 +148,18 @@ export function PreinscriptionCreerPage() {
   const [reference, setReference] = useState('')
   const [classeId, setClasseId] = useState<number | null>(null)
   const [niveauId, setNiveauId] = useState<number | undefined>(undefined)
+  const [busActif, setBusActif] = useState(false)
+  const [busTrajetId, setBusTrajetId] = useState<number | null>(null)
+  const [busArretId, setBusArretId] = useState<number | null>(null)
+  const [busOption, setBusOption] = useState<OptionTrajet>('aller_retour')
+  const [busMontant, setBusMontant] = useState(0)
   const [envoi, setEnvoi] = useState(false)
   const [erreurMsg, setErreurMsg] = useState<string | null>(null)
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
+  const { data: trajets } = useQuery({ queryKey: ['bus-trajets', 'preinscription'], queryFn: fetchTrajets, enabled: busActif })
+  const busTrajet = trajets?.find((trajet) => trajet.id === busTrajetId)
 
   const choisirEleve = (choix: Eleve) => {
     setModeSaisie('recherche')
@@ -222,11 +230,19 @@ export function PreinscriptionCreerPage() {
         montant_verser: montantNombre > 0 ? montantNombre : undefined,
         mode_versement: montantNombre > 0 ? modePaiement : undefined,
         reference_externe: reference || undefined,
+        bus: busActif && busTrajetId
+          ? {
+            trajet_id: busTrajetId,
+            arret_id: busArretId ?? undefined,
+            option_trajet: busOption,
+            montant: busMontant > 0 ? busMontant : undefined,
+          }
+          : undefined,
       })
 
       succes('Préinscription enregistrée et validée.')
-      if (data.data.versement_id) {
-        ouvrirDocument(`/versements/${data.data.versement_id}/recu`)
+      if (data.data.id && (data.data.versement_id || data.data.bus_versement_id)) {
+        ouvrirDocument(`/preinscriptions/${data.data.id}/recu`)
       }
       navigate('/preinscriptions')
     } catch (err) {
@@ -422,6 +438,41 @@ export function PreinscriptionCreerPage() {
                     )}
                     {' '}Un reçu sera généré et affiché à l'impression dès l'enregistrement.
                   </p>
+                )}
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-navy-700">
+                  <input type="checkbox" checked={busActif} onChange={(e) => setBusActif(e.target.checked)} className="rounded border-navy-300" />
+                  Souscrire au transport scolaire
+                </label>
+                {busActif && (
+                  <div className="mt-3 grid grid-cols-2 gap-2.5 rounded-lg bg-blue-50 p-3">
+                    <Select
+                      label="Trajet"
+                      value={busTrajetId ?? ''}
+                      onChange={(e) => {
+                        const id = Number(e.target.value) || null
+                        setBusTrajetId(id)
+                        setBusArretId(null)
+                      }}
+                    >
+                      <option value="">Sélectionner un trajet</option>
+                      {trajets?.map((trajet) => <option key={trajet.id} value={trajet.id}>{trajet.nom}</option>)}
+                    </Select>
+                    <Select label="Option" value={busOption} onChange={(e) => setBusOption(e.target.value as OptionTrajet)}>
+                      {Object.entries(LIBELLES_OPTION_TRAJET).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </Select>
+                    <Select label="Arrêt" value={busArretId ?? ''} onChange={(e) => setBusArretId(Number(e.target.value) || null)}>
+                      <option value="">Aucun arrêt précisé</option>
+                      {busTrajet?.arrets.map((arret) => <option key={arret.id} value={arret.id}>{arret.nom}</option>)}
+                    </Select>
+                    <MontantInput
+                      label={`Paiement bus (${busTrajet ? `${francs(tarifPourOption(busTrajet, busOption) ?? 0)} / mois` : 'tarif du trajet'})`}
+                      value={busMontant}
+                      onChange={setBusMontant}
+                    />
+                  </div>
                 )}
               </div>
 

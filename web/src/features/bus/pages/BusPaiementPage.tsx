@@ -37,8 +37,9 @@ const LIBELLE_STATUT: Record<string, string> = {
 }
 
 interface FormValues {
-  mois: string
+  mois: string[]
   montant: number
+  remise: number
   mode: ModePaiementBus
   date_versement: string
 }
@@ -70,23 +71,25 @@ export function BusPaiementPage() {
   const { register, handleSubmit, control, watch, setValue } = useForm<FormValues>({
     values: premierMoisImpaye
       ? {
-          mois: premierMoisImpaye.mois,
+          mois: [premierMoisImpaye.mois],
           montant: premierMoisImpaye.reste,
+          remise: 0,
           mode: 'especes',
           date_versement: new Date().toISOString().slice(0, 10),
         }
       : undefined,
   })
 
-  const moisChoisi = watch('mois')
+  const moisChoisis = watch('mois') ?? []
 
   // Changer de mois recharge le montant suggéré (le reste dû sur ce mois),
   // sans écraser une saisie manuelle du montant lui-même.
   useEffect(() => {
-    const ligne = situation?.situation_mensuelle.find((m) => m.mois === moisChoisi)
-    if (ligne) setValue('montant', ligne.reste)
+    const lignes = situation?.situation_mensuelle.filter((m) => moisChoisis.includes(m.mois)) ?? []
+    setValue('montant', lignes.reduce((total, ligne) => total + ligne.reste, 0))
+    setValue('remise', 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moisChoisi])
+  }, [moisChoisis.join('|')])
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['bus-paiement', affectationId] })
 
@@ -96,15 +99,16 @@ export function BusPaiementPage() {
     setSubmitting(true)
 
     try {
-      const { versement_id, numero_recu } = await encaisserBus(Number(affectationId), {
+      const { versement_ids, numeros_recu } = await encaisserBus(Number(affectationId), {
         mois: valeurs.mois,
         montant: Number(valeurs.montant),
+        remise: Number(valeurs.remise || 0),
         mode: valeurs.mode,
         date_versement: valeurs.date_versement || undefined,
       })
 
-      succes(`Encaissement enregistré — reçu ${numero_recu}.`)
-      ouvrirDocument(`/bus/versements/${versement_id}/recu`)
+      succes(`Encaissement enregistré — ${numeros_recu.length} reçu(s).`)
+      ouvrirDocument(`/bus/versements/${versement_ids[0]}/recu`)
       invalider()
     } catch (e) {
       const err = e as ApiError
@@ -189,16 +193,24 @@ export function BusPaiementPage() {
         </Card>
 
         <Card className="p-5">
-          <h2 className="mb-3 font-display text-sm font-bold text-navy-900">Encaisser un mois</h2>
+          <h2 className="mb-3 font-display text-sm font-bold text-navy-900">Encaisser plusieurs mois</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <Select label="Mois" {...register('mois', { required: true })}>
+            <Select label="Mois à régler" multiple {...register('mois', { required: true })}>
               {situation.situation_mensuelle.map((m) => (
                 <option key={m.mois} value={m.mois}>
                   {libelleMois(m.mois)} — {LIBELLE_STATUT[m.statut] ?? m.statut}
                 </option>
               ))}
             </Select>
+
+            <Controller
+              name="remise"
+              control={control}
+              render={({ field }) => (
+                <MontantInput label="Remise (F CFA)" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+              )}
+            />
 
             <Controller
               name="montant"

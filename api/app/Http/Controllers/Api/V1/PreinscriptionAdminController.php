@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Imports\PreinscriptionImport;
 use App\Models\Eleve;
 use App\Models\Preinscription;
+use App\Models\BusVersement;
 use App\Services\PreinscriptionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
+use App\Support\Pdf\RecuPreinscriptionGenerator;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** File d'attente des préinscriptions déposées par les parents, à valider ou rejeter. */
@@ -143,6 +146,11 @@ class PreinscriptionAdminController extends Controller
             'montant_verser' => ['nullable', 'integer', 'min:1'],
             'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'reference_externe' => ['nullable', 'string', 'max:100'],
+            'bus' => ['nullable', 'array'],
+            'bus.trajet_id' => ['required_with:bus', 'integer'],
+            'bus.arret_id' => ['nullable', 'integer'],
+            'bus.option_trajet' => ['required_with:bus', 'in:aller_simple,retour_simple,aller_retour'],
+            'bus.montant' => ['required_with:bus', 'integer', 'min:1'],
             'rubriques_versement' => ['nullable', 'array', 'min:1'],
             'rubriques_versement.*.affectation' => ['required_with:rubriques_versement', 'in:scolarite,frais_annexe,report_dette'],
             'rubriques_versement.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
@@ -185,6 +193,11 @@ class PreinscriptionAdminController extends Controller
             'montant_verser' => ['nullable', 'integer', 'min:1'],
             'mode_versement' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'reference_externe' => ['nullable', 'string', 'max:100'],
+            'bus' => ['nullable', 'array'],
+            'bus.trajet_id' => ['required_with:bus', 'integer'],
+            'bus.arret_id' => ['nullable', 'integer'],
+            'bus.option_trajet' => ['required_with:bus', 'in:aller_simple,retour_simple,aller_retour'],
+            'bus.montant' => ['required_with:bus', 'integer', 'min:1'],
         ]);
 
         try {
@@ -194,6 +207,22 @@ class PreinscriptionAdminController extends Controller
         }
 
         return ApiResponse::created($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription enregistrée et validée.');
+    }
+
+    public function recu(int $id): Response
+    {
+        $preinscription = Preinscription::forSchool(Tenant::schoolIds())->with(['versement', 'eleve'])->findOrFail($id);
+
+        abort_unless($preinscription->versement_id || $preinscription->bus_versement_id, 404);
+
+        $busVersement = $preinscription->bus_versement_id
+            ? BusVersement::forSchool(Tenant::schoolIds())->with('affectation.trajet')->findOrFail($preinscription->bus_versement_id)
+            : null;
+
+        return response((new RecuPreinscriptionGenerator)->build($preinscription->versement, $busVersement), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="recu-preinscription-' . $id . '.pdf"',
+        ]);
     }
 
     /** Corrige les informations proposées par le parent avant validation (coquille, champ oublié…). */
@@ -460,6 +489,7 @@ class PreinscriptionAdminController extends Controller
             'nom_propose' => $p->donnees_eleve['nom_complet'] ?? null,
             'montant_verser' => $p->montant_verser,
             'versement_id' => $p->versement_id,
+            'bus_versement_id' => $p->bus_versement_id,
             'motif_rejet' => $p->motif_rejet,
             'created_at' => $p->created_at->format('Y-m-d H:i'),
             'traite_le' => $p->traite_le?->format('Y-m-d H:i'),

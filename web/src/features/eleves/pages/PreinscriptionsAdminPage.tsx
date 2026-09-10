@@ -28,6 +28,7 @@ export interface PreinscriptionResume {
   nom_propose: string | null
   montant_verser: number | null
   versement_id: number | null
+  bus_versement_id: number | null
   motif_rejet: string | null
   created_at: string
   traite_le: string | null

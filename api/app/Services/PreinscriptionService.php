@@ -33,6 +33,8 @@ class PreinscriptionService extends BaseService
     public function __construct(
         private readonly ScolariteService $scolarite,
         private readonly NotificationService $notifications,
+        private readonly BusService $bus,
+        private readonly BusPaiementService $busPaiements,
     ) {}
 
     /**
@@ -129,6 +131,7 @@ class PreinscriptionService extends BaseService
             $this->synchroniserTuteurs($eleve, $preinscription->school_id, $preinscription->donnees_tuteurs);
 
             $versementId = null;
+            $busVersementId = null;
 
             // Confirmer sa présence pour l'année, pour un élève déjà scolarisé,
             // doit garantir un dossier financier à jour dès la validation — pas
@@ -165,10 +168,35 @@ class PreinscriptionService extends BaseService
                 }
             }
 
+            if (! empty($preinscription->bus)) {
+                $bus = $preinscription->bus;
+                $affectation = $this->bus->affecterEleve($eleve->school_id, [
+                    'eleve_id' => $eleve->id,
+                    'trajet_id' => $bus['trajet_id'],
+                    'arret_id' => $bus['arret_id'] ?? null,
+                    'option_trajet' => $bus['option_trajet'] ?? 'aller_retour',
+                    'annee_scolaire_id' => $preinscription->annee_scolaire_id,
+                ]);
+
+                if ((int) ($bus['montant'] ?? 0) > 0) {
+                    $busVersement = $this->busPaiements->encaisser($affectation, [
+                        'mois' => now()->startOfMonth()->toDateString(),
+                        'montant' => (int) $bus['montant'],
+                        'mode' => $preinscription->mode_versement ?? 'especes',
+                        'reference_externe' => $preinscription->reference_externe,
+                        'note' => 'Souscription et règlement initiés au guichet.',
+                    ], $adminUserId);
+                    $busVersementId = is_array($busVersement)
+                        ? ($busVersement[0]->id ?? null)
+                        : $busVersement->id;
+                }
+            }
+
             $preinscription->update([
                 'eleve_id' => $eleve->id,
                 'statut' => 'validee',
                 'versement_id' => $versementId,
+                'bus_versement_id' => $busVersementId,
                 'traite_par' => $adminUserId,
                 'traite_le' => now(),
             ]);
@@ -325,6 +353,7 @@ class PreinscriptionService extends BaseService
                 'mode_versement' => $donnees['mode_versement'] ?? null,
                 'reference_externe' => $donnees['reference_externe'] ?? null,
                 'rubriques_versement' => $donnees['rubriques_versement'] ?? null,
+                'bus' => $donnees['bus'] ?? null,
             ]);
 
             return $this->valider($preinscription, $adminUserId);
@@ -360,6 +389,7 @@ class PreinscriptionService extends BaseService
                 'montant_verser' => $donnees['montant_verser'] ?? null,
                 'mode_versement' => $donnees['mode_versement'] ?? null,
                 'reference_externe' => $donnees['reference_externe'] ?? null,
+                'bus' => $donnees['bus'] ?? null,
             ]);
 
             return $this->valider($preinscription, $adminUserId);

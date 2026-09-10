@@ -34,47 +34,87 @@ class BusPaiementService extends BaseService
     public function __construct(private readonly NumeroRecuService $numeros) {}
 
     /**
-     * Enregistre le règlement d'un mois de transport et rend le versement,
-     * reçu numéroté à l'appui.
+    * Enregistre le règlement d'un ou plusieurs mois et rend les versements,
+    * chacun avec son reçu numéroté.
      *
-     * @param  array{mois: string, montant: int, date_versement?: string, mode?: string, reference_externe?: ?string, note?: ?string}  $donnees
+    * @param  array{mois: list<string>|string, montant: int, remise?: int, date_versement?: string, mode?: string, reference_externe?: ?string, note?: ?string}  $donnees
      */
-    public function encaisser(BusAffectation $affectation, array $donnees, ?int $encaissePar = null): BusVersement
+    public function encaisser(BusAffectation $affectation, array $donnees, ?int $encaissePar = null): BusVersement|array
     {
+        $formatMultiple = is_array($donnees['mois']);
         $montant = (int) $donnees['montant'];
+        $remise = (int) ($donnees['remise'] ?? 0);
 
         if ($montant <= 0) {
             throw new RuntimeException('Le montant encaissé doit être supérieur à zéro.');
         }
 
-        $mois = Carbon::parse($donnees['mois'])->startOfMonth();
-
         $couverture = $affectation->mois_couverture;
-        if (! $couverture->contains(fn (Carbon $m) => $m->isSameMonth($mois))) {
-            throw new RuntimeException("Ce mois n'est pas couvert par cette souscription.");
+        $mois = collect((array) $donnees['mois'])
+            ->map(fn (string $date) => Carbon::parse($date)->startOfMonth())
+            ->unique(fn (Carbon $date) => $date->format('Y-m'))
+            ->values();
+        if ($mois->isEmpty() || $mois->contains(fn (Carbon $m) => ! $couverture->contains(fn (Carbon $couvert) => $couvert->isSameMonth($m)))) {
+            throw new RuntimeException("Un des mois sélectionnés n'est pas couvert par cette souscription.");
         }
 
-        $affectation->loadMissing('trajet.school');
+        $affectation->loadMissing('versements', 'trajet.school');
+        $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+        $resteParMois = $mois->mapWithKeys(function (Carbon $mois) use ($affectation, $tarif) {
+            $paye = (int) $affectation->versements
+                ->whereNull('annule_le')
+                ->filter(fn (BusVersement $versement) => $versement->mois->isSameMonth($mois))
+                ->sum('montant');
+            return [$mois->format('Y-m') => max(0, $tarif - $paye)];
+        });
+        $totalDu = (int) $resteParMois->sum();
+        if ($remise > $totalDu) {
+            throw new RuntimeException('La remise ne peut pas dépasser le total dû.');
+        }
+        if ($montant !== $totalDu - $remise) {
+            throw new RuntimeException('Le montant encaissé doit correspondre au total dû après remise.');
+        }
+
         $school = $affectation->trajet->school;
 
-        return $this->transaction(function () use ($affectation, $donnees, $montant, $mois, $encaissePar, $school) {
-            $versement = BusVersement::create([
-                'school_id' => $school->id,
-                'bus_affectation_id' => $affectation->id,
-                'mois' => $mois,
-                'numero_recu' => $this->numeros->attribuerBus($school, $affectation->annee_scolaire_id, $encaissePar),
-                'date_versement' => $donnees['date_versement'] ?? Carbon::today()->toDateString(),
-                'montant' => $montant,
-                'mode' => $donnees['mode'] ?? 'especes',
-                'reference_externe' => $donnees['reference_externe'] ?? null,
-                'encaisse_par' => $encaissePar,
-                'note' => $donnees['note'] ?? null,
-            ]);
+        $versements = $this->transaction(function () use ($affectation, $donnees, $montant, $remise, $mois, $resteParMois, $totalDu, $encaissePar, $school) {
+            $versements = [];
+            $montantRestant = $montant;
+            $remiseRestante = $remise;
+            foreach ($mois as $index => $moisCourant) {
+                $reste = (int) $resteParMois->get($moisCourant->format('Y-m'), 0);
+                $remiseMois = $index === $mois->count() - 1
+                    ? $remiseRestante
+                    : (int) floor($remise * $reste / max(1, $totalDu));
+                $remiseMois = min($remiseMois, $reste);
+                $remiseRestante -= $remiseMois;
+                $montantMois = min($montantRestant, max(0, $reste - $remiseMois));
+                $montantRestant -= $montantMois;
+                if ($montantMois <= 0) {
+                    continue;
+                }
 
-            $this->comptabiliser($versement, $mois);
+                $versement = BusVersement::create([
+                    'school_id' => $school->id,
+                    'bus_affectation_id' => $affectation->id,
+                    'mois' => $moisCourant,
+                    'numero_recu' => $this->numeros->attribuerBus($school, $affectation->annee_scolaire_id, $encaissePar),
+                    'date_versement' => $donnees['date_versement'] ?? Carbon::today()->toDateString(),
+                    'montant' => $montantMois,
+                    'remise' => $remiseMois,
+                    'mode' => $donnees['mode'] ?? 'especes',
+                    'reference_externe' => $donnees['reference_externe'] ?? null,
+                    'encaisse_par' => $encaissePar,
+                    'note' => $donnees['note'] ?? null,
+                ]);
+                $this->comptabiliser($versement, $moisCourant);
+                $versements[] = $versement;
+            }
 
-            return $versement;
+            return $versements;
         });
+
+        return $formatMultiple ? $versements : $versements[0];
     }
 
     public function annuler(BusVersement $versement, string $motif, ?int $annulePar = null): BusVersement

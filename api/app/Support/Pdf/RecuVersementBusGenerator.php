@@ -104,6 +104,7 @@ class RecuVersementBusGenerator
         }
 
         $html .= '</table><div class="sep"></div><table>'
+            .'<tr><td class="cle">Remise / Discount</td><td class="montant">'.$this->francs($versement->remise).'</td></tr>'
             .'<tr><td class="cle total">Montant réglé / Amount paid</td><td class="montant total">'.$this->francs($versement->montant).'</td></tr>'
             .'</table>';
 

@@ -59,8 +59,10 @@ class BusPaiementController extends Controller
         $affectation = $this->affectation($affectationId);
 
         $donnees = $request->validate([
-            'mois' => ['required', 'date_format:Y-m-d'],
+            'mois' => ['required', 'array', 'min:1'],
+            'mois.*' => ['date_format:Y-m-d'],
             'montant' => ['required', 'integer', 'min:1'],
+            'remise' => ['nullable', 'integer', 'min:0'],
             'date_versement' => ['nullable', 'date'],
             'mode' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'reference_externe' => ['nullable', 'string', 'max:100'],
@@ -68,16 +70,22 @@ class BusPaiementController extends Controller
         ]);
 
         try {
-            $versement = $this->service->encaisser($affectation, $donnees, $request->user()?->id);
+            $resultat = $this->service->encaisser($affectation, $donnees, $request->user()?->id);
+            $versements = is_array($resultat) ? $resultat : [$resultat];
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
 
-        $this->confirmerParSms($affectation->fresh(['eleve.tuteurs']), $versement);
+        foreach ($versements as $versement) {
+            $this->confirmerParSms($affectation->fresh(['eleve.tuteurs']), $versement);
+        }
 
         return ApiResponse::created(
-            ['versement_id' => $versement->id, 'numero_recu' => $versement->numero_recu],
-            "Encaissement enregistré — reçu {$versement->numero_recu}.",
+            [
+                'versement_ids' => collect($versements)->pluck('id')->values(),
+                'numeros_recu' => collect($versements)->pluck('numero_recu')->values(),
+            ],
+            'Encaissement enregistré.',
         );
     }
 
@@ -140,6 +148,7 @@ class BusPaiementController extends Controller
             'mois' => $v->mois->format('Y-m-d'),
             'date_versement' => $v->date_versement->format('Y-m-d'),
             'montant' => $v->montant,
+            'remise' => $v->remise,
             'mode' => $v->mode,
             'annule' => $v->estAnnule(),
         ];

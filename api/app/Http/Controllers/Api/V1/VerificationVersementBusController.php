@@ -40,6 +40,7 @@ class VerificationVersementBusController extends Controller
             'trajet' => $affectation->trajet->nom,
             'mois' => $versement->mois->format('Y-m-d'),
             'montant' => $versement->montant,
+            'remise' => $versement->remise,
             'date_versement' => $versement->date_versement->format('Y-m-d'),
             'mode' => $versement->mode,
             'annule' => $versement->annule_le !== null,

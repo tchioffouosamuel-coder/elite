@@ -340,9 +340,17 @@ export async function retirerAffectation(id: number): Promise<void> {
 
 // ---- Paiement mensuel -----------------------------------------------------
 
-export type ModePaiementBus = "especes" | "mobile_money" | "virement" | "cheque" | "depot_bancaire";
+export type ModePaiementBus =
+  | "especes"
+  | "mobile_money"
+  | "virement"
+  | "cheque"
+  | "depot_bancaire";
 
-export const MODES_PAIEMENT_BUS: { valeur: ModePaiementBus; libelle: string }[] = [
+export const MODES_PAIEMENT_BUS: {
+  valeur: ModePaiementBus;
+  libelle: string;
+}[] = [
   { valeur: "especes", libelle: "Espèces" },
   { valeur: "mobile_money", libelle: "Mobile Money" },
   { valeur: "virement", libelle: "Virement" },
@@ -373,7 +381,12 @@ export interface SituationPaiementBus {
   affectation: {
     id: number;
     tarif_mensuel: number | null;
-    eleve: { id: number; nom_complet: string; matricule: string | null; classe: string | null };
+    eleve: {
+      id: number;
+      nom_complet: string;
+      matricule: string | null;
+      classe: string | null;
+    };
     trajet: string;
   };
   situation_mensuelle: MoisPaiementBus[];
@@ -384,14 +397,19 @@ export interface SituationPaiementBus {
   versements: VersementBus[];
 }
 
-export async function fetchSituationPaiementBus(affectationId: number): Promise<SituationPaiementBus> {
-  const { data } = await http.get<ApiResponse<SituationPaiementBus>>(`/bus/affectations/${affectationId}/versements`);
+export async function fetchSituationPaiementBus(
+  affectationId: number,
+): Promise<SituationPaiementBus> {
+  const { data } = await http.get<ApiResponse<SituationPaiementBus>>(
+    `/bus/affectations/${affectationId}/versements`,
+  );
   return data.data;
 }
 
 export interface EncaissementBusPayload {
-  mois: string;
+  mois: string[];
   montant: number;
+  remise?: number;
   date_versement?: string;
   mode?: ModePaiementBus;
   reference_externe?: string;
@@ -401,15 +419,17 @@ export interface EncaissementBusPayload {
 export async function encaisserBus(
   affectationId: number,
   payload: EncaissementBusPayload,
-): Promise<{ versement_id: number; numero_recu: string }> {
-  const { data } = await http.post<ApiResponse<{ versement_id: number; numero_recu: string }>>(
-    `/bus/affectations/${affectationId}/versements`,
-    payload,
-  );
+): Promise<{ versement_ids: number[]; numeros_recu: string[] }> {
+  const { data } = await http.post<
+    ApiResponse<{ versement_ids: number[]; numeros_recu: string[] }>
+  >(`/bus/affectations/${affectationId}/versements`, payload);
   return data.data;
 }
 
-export async function annulerVersementBus(versementId: number, motif: string): Promise<void> {
+export async function annulerVersementBus(
+  versementId: number,
+  motif: string,
+): Promise<void> {
   await http.post(`/bus/versements/${versementId}/annuler`, { motif });
 }
 
@@ -421,12 +441,16 @@ export interface VerificationVersementBus {
   trajet: string;
   mois: string;
   montant: number;
+  remise: number;
   date_versement: string;
   mode: ModePaiementBus;
   annule: boolean;
 }
 
-export async function fetchVerificationVersementBus(versementId: number, signature: string): Promise<VerificationVersementBus> {
+export async function fetchVerificationVersementBus(
+  versementId: number,
+  signature: string,
+): Promise<VerificationVersementBus> {
   const { data } = await http.get<ApiResponse<VerificationVersementBus>>(
     `/verification-versement-bus/${versementId}/${signature}`,
   );

@@ -119,8 +119,11 @@ export function BusSouscriptionPage() {
         await modifierAffectation(modification, payload)
         succes(t('bus.affectation_updated'))
       } else if (eleveIds.length === 1) {
-        await souscrireEleve(eleveIds[0], payload)
+        const affectation = await souscrireEleve(eleveIds[0], payload)
         succes(t('bus.souscription_created'))
+        queryClient.invalidateQueries({ queryKey: ['bus-eleves'] })
+        navigate(`/bus/affectations/${affectation.id}/paiements`)
+        return
       } else {
         const { souscrits, ignores } = await souscrireLot(eleveIds, payload)
         succes(t('bus.souscriptions_lot_created', { count: souscrits }))

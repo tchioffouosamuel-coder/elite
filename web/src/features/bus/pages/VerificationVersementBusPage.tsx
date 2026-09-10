@@ -91,6 +91,7 @@ export function VerificationVersementBusPage() {
               {versement.classe && <Ligne label="Classe" valeur={versement.classe} />}
               <Ligne label="Trajet" valeur={versement.trajet} />
               <Ligne label="Mois" valeur={libelleMois(versement.mois)} />
+              <Ligne label="Remise" valeur={francs(versement.remise)} />
               <Ligne label="Montant" valeur={francs(versement.montant)} />
               <Ligne label="Date" valeur={new Date(versement.date_versement).toLocaleDateString('fr-FR')} />
               <Ligne label="Mode" valeur={LIBELLES_MODE[versement.mode]} />
