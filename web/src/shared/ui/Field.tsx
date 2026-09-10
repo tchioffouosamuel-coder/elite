@@ -254,11 +254,26 @@ export function Select({ label, error, className, id, children, ref, value, onCh
   }, [value, multiple])
 
   const valeursCourantes = multiple
-    ? (Array.isArray(value) ? value.map(String) : Array.isArray(affichage) ? affichage.map(String) : [])
+    ? Array.isArray(value)
+      ? value.map(String)
+      : Array.isArray(affichage)
+        ? affichage.map(String)
+        : []
     : [value !== undefined ? String(value) : typeof affichage === 'string' ? affichage : '']
+
   const valeurCourante = valeursCourantes[0] ?? ''
   const optionsCourantes = options.filter((o) => valeursCourantes.includes(o.value))
-  const valeurNatveSelect = multiple ? valeursCourantes : value ?? ''
+  const valeurNativeSelect = multiple
+    ? Array.isArray(value)
+      ? value.map(String)
+      : Array.isArray(affichage)
+        ? affichage.map(String)
+        : []
+    : value !== undefined
+      ? String(value)
+      : typeof affichage === 'string'
+        ? affichage
+        : ''
 
   const filtres = useMemo(() => {
     const q = recherche.trim().toLowerCase()
@@ -372,7 +387,7 @@ export function Select({ label, error, className, id, children, ref, value, onCh
           tabIndex={-1}
           aria-hidden="true"
           className="sr-only"
-          value={valeurNatveSelect}
+          value={valeurNativeSelect}
           onChange={onChange}
           disabled={disabled}
           multiple={multiple}
