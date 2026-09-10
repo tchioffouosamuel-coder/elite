@@ -65,6 +65,7 @@ interface TuteurFormData {
  */
 interface EleveFormValues {
     nom_complet: string
+    matricule_national?: string
     sexe: 'M' | 'F' | ''
     date_naissance?: string
     lieu_naissance?: string
@@ -374,6 +375,8 @@ export function EleveInscriptionPage() {
     const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
     const tuteurs = watch('tuteurs')
     const can = useAuthStore((s) => s.can)
+    const ecoleActive = useAuthStore((s) => s.activeSchool())
+    const matriculeNationalDisponible = eleve?.school?.type === 'secondaire' || (!eleve && ecoleActive?.type === 'secondaire')
 
     // Un tarif existe déjà pour la classe choisie : proposer l'encaissement
     // immédiat plutôt que de renvoyer l'utilisateur vers la caisse ensuite.
@@ -444,6 +447,7 @@ export function EleveInscriptionPage() {
 
         return {
             nom_complet: values.nom_complet,
+            matricule_national: matriculeNationalDisponible ? (values.matricule_national?.trim() || null) : null,
             sexe: values.sexe as 'M' | 'F',
             date_naissance: values.date_naissance,
             lieu_naissance: values.lieu_naissance,
@@ -594,6 +598,13 @@ export function EleveInscriptionPage() {
                                         {...register('nom_complet', { required: t('eleves.inscription.nom_complet_required') })}
                                         placeholder={t('eleves.inscription.nom_complet_placeholder')}
                                     />
+                                    {matriculeNationalDisponible && (
+                                        <Input
+                                            label={t('eleves.matricule_national')}
+                                            placeholder={t('eleves.matricule_national_placeholder')}
+                                            {...register('matricule_national')}
+                                        />
+                                    )}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select
                                             label={t('eleves.sexe')}

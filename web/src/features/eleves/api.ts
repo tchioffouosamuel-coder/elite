@@ -77,6 +77,7 @@ export interface EleveTuteurInput {
 export interface ElevePayload {
   classe_id?: number | null;
   nom_complet: string;
+  matricule_national?: string | null;
   sexe: "M" | "F";
   date_naissance?: string | null;
   lieu_naissance?: string | null;

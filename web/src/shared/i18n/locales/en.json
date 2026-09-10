@@ -446,6 +446,8 @@
     "feminin": "Female",
     "classe": "Class",
     "matricule": "Student ID",
+    "matricule_national": "National student ID",
+    "matricule_national_placeholder": "Official secondary-school identifier",
     "date_naissance": "Date of birth",
     "tuteur": "Guardian",
     "tuteur_nom": "Guardian name",

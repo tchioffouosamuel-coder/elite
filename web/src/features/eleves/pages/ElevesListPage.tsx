@@ -320,6 +320,12 @@ export function ElevesListPage() {
       cellule: (e) => <span className="font-mono text-xs">{e.matricule ?? '—'}</span>,
     },
     {
+      cle: 'matricule_national',
+      entete: t('eleves.matricule_national'),
+      valeur: (e) => e.matricule_national,
+      cellule: (e) => <span className="font-mono text-xs">{e.matricule_national ?? '—'}</span>,
+    },
+    {
       cle: 'nom',
       entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,

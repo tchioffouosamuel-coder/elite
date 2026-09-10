@@ -232,12 +232,12 @@ export function EleveDetailPage() {
           onClick: () => setTransfertClasse(true),
         },
         can('eleves.manage') &&
-          isSuperAdmin && {
-            label: t('eleves.transferer_ecole'),
-            icon: Building2,
-            aide: eleve.school?.name ?? undefined,
-            onClick: () => setTransfertEcole(true),
-          },
+        isSuperAdmin && {
+          label: t('eleves.transferer_ecole'),
+          icon: Building2,
+          aide: eleve.school?.name ?? undefined,
+          onClick: () => setTransfertEcole(true),
+        },
         can('eleves.manage') && {
           label: t('hub.eleve.acces_eleve'),
           icon: KeyRound,
@@ -260,11 +260,11 @@ export function EleveDetailPage() {
           onClick: nouvelleVisite,
         },
         secondaire &&
-          can('discipline.manage') && {
-            label: t('hub.eleve.nouvelle_sanction'),
-            icon: ShieldAlert,
-            onClick: () => setSanctionOuverte(true),
-          },
+        can('discipline.manage') && {
+          label: t('hub.eleve.nouvelle_sanction'),
+          icon: ShieldAlert,
+          onClick: () => setSanctionOuverte(true),
+        },
         can('bus.manage') && {
           label: t('hub.eleve.souscrire_bus'),
           icon: Bus,
@@ -286,19 +286,19 @@ export function EleveDetailPage() {
           onClick: () => telechargerFichier(`/eleves/${eleve.id}/attestation-scolarite`, undefined, 'attestation.docx'),
         },
         !!eleve.classe &&
-          can('eleves.view') && {
-            label: t('hub.eleve.carte_classe'),
-            icon: IdCard,
-            aide: eleve.classe.nom,
-            onClick: () => ouvrirDocument(`/classes/${eleve.classe?.id}/cartes-scolaires`),
-          },
+        can('eleves.view') && {
+          label: t('hub.eleve.carte_classe'),
+          icon: IdCard,
+          aide: eleve.classe.nom,
+          onClick: () => ouvrirDocument(`/classes/${eleve.classe?.id}/cartes-scolaires`),
+        },
         !!eleve.classe &&
-          can('classes.view') && {
-            label: t('hub.eleve.voir_classe'),
-            icon: BookOpen,
-            aide: eleve.classe.nom,
-            onClick: () => navigate(`/classes/${eleve.classe?.id}`),
-          },
+        can('classes.view') && {
+          label: t('hub.eleve.voir_classe'),
+          icon: BookOpen,
+          aide: eleve.classe.nom,
+          onClick: () => navigate(`/classes/${eleve.classe?.id}`),
+        },
       ],
     },
     {
@@ -366,6 +366,7 @@ export function EleveDetailPage() {
             </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Champ label={t('eleves.matricule')} valeur={eleve.matricule} />
+              {secondaire && <Champ label={t('eleves.matricule_national')} valeur={eleve.matricule_national} />}
               <Champ label={t('eleves.date_naissance')} valeur={eleve.date_naissance} />
               <Champ label={t('eleves.lieu_naissance')} valeur={eleve.lieu_naissance} />
               <Champ label={t('eleves.nationalite')} valeur={eleve.nationalite} />
