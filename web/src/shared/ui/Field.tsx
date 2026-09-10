@@ -374,6 +374,7 @@ export function Select({ label, error, className, id, children, ref, value, onCh
           value={value}
           onChange={onChange}
           disabled={disabled}
+          multiple={multiple}
           {...props}
         >
           {children}
