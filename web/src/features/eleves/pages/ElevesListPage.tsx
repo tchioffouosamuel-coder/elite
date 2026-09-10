@@ -20,8 +20,9 @@ import {
   Repeat,
   BarChart3,
   ListOrdered,
+  Search,
 } from 'lucide-react'
-import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, type Eleve } from '@/features/eleves/api'
+import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -39,6 +40,8 @@ import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { Select } from '@/shared/ui/Select'
 import type { ApiError } from '@/shared/types/api'
+import { Modal } from '@/shared/ui/Modal'
+import { Input } from '@/shared/ui/Field'
 
 function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: string; photo_url: string | null }; canManage: boolean }) {
   const { t } = useTranslation()
@@ -180,6 +183,11 @@ export function ElevesListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [transfertClasseEleve, setTransfertClasseEleve] = useState<Eleve | null>(null)
   const [transfertEcoleEleve, setTransfertEcoleEleve] = useState<Eleve | null>(null)
+  const [matriculeNationalEleve, setMatriculeNationalEleve] = useState<Eleve | null>(null)
+  const [matriculeNationalRecherche, setMatriculeNationalRecherche] = useState('')
+  const [matriculeNationalResultats, setMatriculeNationalResultats] = useState<MatriculeNationalResult[]>([])
+  const [matriculeNationalErreur, setMatriculeNationalErreur] = useState<string | null>(null)
+  const [matriculeNationalEnCours, setMatriculeNationalEnCours] = useState(false)
   // La fiche classe renvoie ici avec `?classe=` : arriver sur la liste déjà
   // filtrée évite de rechercher la classe une seconde fois dans le sélecteur.
   const [searchParams] = useSearchParams()
@@ -210,6 +218,50 @@ export function ElevesListPage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['eleves'] })
     queryClient.invalidateQueries({ queryKey: ['classes'] })
+  }
+
+  const ouvrirRechercheMatricule = (eleve: Eleve) => {
+    setMatriculeNationalEleve(eleve)
+    setMatriculeNationalRecherche(eleve.nom_complet)
+    setMatriculeNationalResultats([])
+    setMatriculeNationalErreur(null)
+  }
+
+  const rechercherMatricule = async () => {
+    const nom = matriculeNationalRecherche.trim()
+    if (!nom) {
+      setMatriculeNationalErreur(t('eleves.matricule_national_nom_requis'))
+      return
+    }
+
+    setMatriculeNationalErreur(null)
+    setMatriculeNationalEnCours(true)
+    try {
+      const resultats = await rechercherMatriculeNational(nom)
+      setMatriculeNationalResultats(resultats)
+      if (resultats.length === 0) setMatriculeNationalErreur(t('eleves.matricule_national_aucun_resultat'))
+    } catch (err) {
+      setMatriculeNationalResultats([])
+      setMatriculeNationalErreur((err as ApiError).message || t('eleves.matricule_national_erreur'))
+    } finally {
+      setMatriculeNationalEnCours(false)
+    }
+  }
+
+  const appliquerMatricule = async (resultat: MatriculeNationalResult) => {
+    if (!matriculeNationalEleve || !resultat.matricule_national) return
+    try {
+      await updateEleve(matriculeNationalEleve.id, {
+        nom_complet: matriculeNationalEleve.nom_complet,
+        matricule_national: resultat.matricule_national,
+        sexe: matriculeNationalEleve.sexe,
+      })
+      setMatriculeNationalEleve(null)
+      invalidate()
+      succes(t('eleves.matricule_national_enregistre'))
+    } catch (err) {
+      setMatriculeNationalErreur((err as ApiError).message)
+    }
   }
 
   const handleToggleSelect = (id: number) => {
@@ -398,6 +450,13 @@ export function ElevesListPage() {
                 onClick: () => telechargerFichier(`/eleves/${e.id}/attestation-scolarite`, undefined, 'attestation.docx'),
               },
             ] satisfies DropdownMenuItem[])
+            : []),
+          ...(e.school?.type === 'secondaire'
+            ? [{
+              label: t('eleves.matricule_national_rechercher'),
+              icon: Search,
+              onClick: () => ouvrirRechercheMatricule(e),
+            } satisfies DropdownMenuItem]
             : []),
           ...(can('eleves.manage')
             ? ([
@@ -636,6 +695,49 @@ export function ElevesListPage() {
             invalidate()
           }}
         />
+      )}
+
+      {matriculeNationalEleve && (
+        <Modal title={t('eleves.matricule_national_rechercher')} onClose={() => setMatriculeNationalEleve(null)}>
+          <div className="space-y-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label={t('eleves.nom_complet')}
+                  icon={Search}
+                  value={matriculeNationalRecherche}
+                  onChange={(event) => setMatriculeNationalRecherche(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void rechercherMatricule()
+                  }}
+                />
+              </div>
+              <Button type="button" onClick={() => void rechercherMatricule()} disabled={matriculeNationalEnCours}>
+                {matriculeNationalEnCours ? t('common.loading') : t('common.search')}
+              </Button>
+            </div>
+            {matriculeNationalErreur && <p className="text-xs font-medium text-red-500">{matriculeNationalErreur}</p>}
+            {matriculeNationalResultats.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('eleves.matricule_national_resultats')}</p>
+                {matriculeNationalResultats.map((resultat, index) => (
+                  <button
+                    type="button"
+                    key={`${resultat.matricule_national ?? 'sans-matricule'}-${index}`}
+                    onClick={() => void appliquerMatricule(resultat)}
+                    className="flex w-full items-start justify-between gap-3 rounded-lg border border-navy-200 bg-white px-3 py-2 text-left hover:bg-cream-100"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium text-navy-900">{resultat.fullname || resultat.etablissement || t('eleves.matricule_national_resultat')}</span>
+                      <span className="mt-1 block text-xs text-navy-500">{[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">{resultat.matricule_national || '—'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   )
