@@ -380,7 +380,7 @@ export function EleveInscriptionPage() {
     const tuteurs = watch('tuteurs')
     const can = useAuthStore((s) => s.can)
     const ecoleActive = useAuthStore((s) => s.activeSchool())
-    const matriculeNationalDisponible = eleve?.school?.type === 'secondaire' || (!eleve && ecoleActive?.type === 'secondaire')
+    const matriculeNationalDisponible = eleve?.school?.type === 'secondaire' || (!eleve && (!ecoleActive || ecoleActive.type === 'secondaire'))
 
     const rechercherMatriculeNationalActuel = async () => {
         if (!matriculeNationalDisponible) return

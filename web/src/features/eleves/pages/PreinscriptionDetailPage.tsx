@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Check, X, Pencil, Plus, Trash2, ClipboardCheck } from 'lucide-react'
@@ -83,6 +83,12 @@ export function PreinscriptionDetailPage() {
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
 
   const { data: p, isLoading } = useQuery({ queryKey: ['preinscription-admin', id], queryFn: () => fetchPreinscription(id) })
+
+  useEffect(() => {
+    if (p?.statut === 'validee' && p.eleve?.id) {
+      navigate(`/caisse/encaisser/${p.eleve.id}`, { replace: true })
+    }
+  }, [navigate, p])
 
   // Le montant réellement dû, pas seulement ce que le parent a pu proposer :
   // utile quand ce n'est pas lui-même mais quelqu'un envoyé au guichet qui

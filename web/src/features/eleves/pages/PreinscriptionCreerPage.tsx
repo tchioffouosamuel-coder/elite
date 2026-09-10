@@ -5,7 +5,7 @@ import { ArrowLeft, Search, Receipt, UserPlus, Plus, Trash2 } from 'lucide-react
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
-import { rechercheGlobaleEleves, type Eleve } from '@/features/eleves/api'
+import { rechercheGlobaleEleves, rechercherMatriculeNational, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { fetchTrajets, tarifPourOption, LIBELLES_OPTION_TRAJET, type OptionTrajet } from '@/features/bus/api'
 import { CHAMPS_ELEVE, type PreinscriptionResume } from '@/features/eleves/pages/PreinscriptionsAdminPage'
@@ -19,6 +19,7 @@ import type { ApiError } from '@/shared/types/api'
 import { completerTelephones, telephonesParDefaut, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { TelephonesEditor } from '@/features/eleves/components/TelephonesEditor'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
+import { useAuthStore } from '@/shared/store/authStore'
 
 interface TuteurForm {
   nom_complet: string
@@ -155,6 +156,10 @@ export function PreinscriptionCreerPage() {
   const [busMontant, setBusMontant] = useState(0)
   const [envoi, setEnvoi] = useState(false)
   const [erreurMsg, setErreurMsg] = useState<string | null>(null)
+  const [matriculeNationalResultats, setMatriculeNationalResultats] = useState<MatriculeNationalResult[]>([])
+  const [matriculeNationalErreur, setMatriculeNationalErreur] = useState<string | null>(null)
+  const [matriculeNationalRechercheEnCours, setMatriculeNationalRechercheEnCours] = useState(false)
+  const ecoleActive = useAuthStore((state) => state.activeSchool())
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
   const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
@@ -169,6 +174,8 @@ export function PreinscriptionCreerPage() {
     setClasseId(choix.classe?.id ?? null)
     setNiveauId(choix.classe ? classes?.find((c) => c.id === choix.classe!.id)?.niveau_id : undefined)
     setErreurMsg(null)
+    setMatriculeNationalResultats([])
+    setMatriculeNationalErreur(null)
   }
 
   const commencerNouveau = (nom: string) => {
@@ -179,6 +186,38 @@ export function PreinscriptionCreerPage() {
     setClasseId(null)
     setNiveauId(undefined)
     setErreurMsg(null)
+    setMatriculeNationalResultats([])
+    setMatriculeNationalErreur(null)
+  }
+
+  const matriculeNationalDisponible = eleve?.school?.type === 'secondaire' || (!eleve && (!ecoleActive || ecoleActive.type === 'secondaire'))
+
+  const rechercherMatriculeNationalActuel = async () => {
+    const nom = (champs.nom_complet ?? '').trim()
+    if (!nom) {
+      setMatriculeNationalErreur("Saisissez le nom complet de l'élève pour lancer la recherche.")
+      return
+    }
+
+    setMatriculeNationalErreur(null)
+    setMatriculeNationalRechercheEnCours(true)
+    try {
+      const resultats = await rechercherMatriculeNational(nom)
+      setMatriculeNationalResultats(resultats)
+      if (resultats.length === 0) setMatriculeNationalErreur('Aucun résultat trouvé pour ce nom.')
+    } catch (err) {
+      setMatriculeNationalResultats([])
+      setMatriculeNationalErreur((err as ApiError).message || 'Impossible de rechercher le matricule national.')
+    } finally {
+      setMatriculeNationalRechercheEnCours(false)
+    }
+  }
+
+  const appliquerMatriculeNational = (resultat: MatriculeNationalResult) => {
+    if (!resultat.matricule_national) return
+    setChamps((valeurs) => ({ ...valeurs, matricule_national: resultat.matricule_national ?? '' }))
+    setMatriculeNationalResultats([])
+    setMatriculeNationalErreur(null)
   }
 
   // Ce qui est réellement dû, pas seulement ce que le parent a annoncé — pour
@@ -320,6 +359,55 @@ export function PreinscriptionCreerPage() {
                     />
                   ))}
                 </div>
+                {matriculeNationalDisponible && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Input
+                          label="Matricule national"
+                          placeholder="Identifiant officiel du secondaire"
+                          value={champs.matricule_national ?? ''}
+                          onChange={(e) => setChamps((c) => ({ ...c, matricule_national: e.target.value }))}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={rechercherMatriculeNationalActuel}
+                        disabled={matriculeNationalRechercheEnCours}
+                        className="shrink-0"
+                      >
+                        {matriculeNationalRechercheEnCours ? 'Recherche…' : 'Rechercher le matricule national'}
+                      </Button>
+                    </div>
+                    {matriculeNationalErreur && <p className="text-xs font-medium text-red-500">{matriculeNationalErreur}</p>}
+                    {matriculeNationalResultats.length > 0 && (
+                      <div className="rounded-xl border border-navy-200 bg-cream-50 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">Résultats trouvés</p>
+                        <div className="space-y-2">
+                          {matriculeNationalResultats.map((resultat, index) => (
+                            <button
+                              type="button"
+                              key={`${resultat.matricule_national ?? 'sans-matricule'}-${index}`}
+                              onClick={() => appliquerMatriculeNational(resultat)}
+                              className="flex w-full items-start justify-between gap-3 rounded-lg border border-navy-200 bg-white px-3 py-2 text-left hover:bg-cream-100"
+                            >
+                              <span className="min-w-0">
+                                <span className="block font-medium text-navy-900">{resultat.fullname || resultat.etablissement || 'Résultat'}</span>
+                                <span className="mt-1 block text-xs text-navy-500">
+                                  {[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}
+                                </span>
+                              </span>
+                              <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                                {resultat.matricule_national || '—'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="mt-3">
                   <ClasseNiveauPicker
                     niveaux={niveaux}
