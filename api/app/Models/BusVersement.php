@@ -15,9 +15,20 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class BusVersement extends Model
 {
     protected $fillable = [
-        'school_id', 'bus_affectation_id', 'mois', 'numero_recu', 'date_versement', 'montant', 'remise',
-        'mode', 'reference_externe', 'encaisse_par', 'note',
-        'annule_le', 'annule_par', 'motif_annulation',
+        'school_id',
+        'bus_affectation_id',
+        'mois',
+        'numero_recu',
+        'date_versement',
+        'montant',
+        'remise',
+        'mode',
+        'reference_externe',
+        'encaisse_par',
+        'note',
+        'annule_le',
+        'annule_par',
+        'motif_annulation',
     ];
 
     protected function casts(): array

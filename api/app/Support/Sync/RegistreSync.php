@@ -127,19 +127,19 @@ class RegistreSync
             'annee_scolaires' => [
                 'modele' => AnneeScolaire::class,
                 'colonnes' => ['id', 'school_id', 'libelle', 'date_debut', 'date_fin', 'is_active'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => null,
             ],
             'trimestres' => [
                 'modele' => Trimestre::class,
                 'colonnes' => ['id', 'annee_scolaire_id', 'libelle', 'ordre', 'date_debut', 'date_fin', 'is_active'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('anneeScolaire', fn ($a) => $a->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('anneeScolaire', fn($a) => $a->where('school_id', $s)),
                 'permission' => null,
             ],
             'sequences' => [
                 'modele' => Sequence::class,
                 'colonnes' => ['id', 'trimestre_id', 'ordre', 'libelle'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('trimestre.anneeScolaire', fn ($a) => $a->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('trimestre.anneeScolaire', fn($a) => $a->where('school_id', $s)),
                 'permission' => null,
             ],
             'niveaux' => [
@@ -147,7 +147,7 @@ class RegistreSync
                 'colonnes' => ['id', 'code', 'name_fr', 'name_en', 'sous_system_id', 'school_id', 'ordre'],
                 // Référentiel partiellement global : certaines lignes n'ont pas
                 // d'école (cf. NiveauController, hors du groupe `tenant`).
-                'portee' => fn (Builder $q, int $s) => $q->where(fn ($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
+                'portee' => fn(Builder $q, int $s) => $q->where(fn($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => null,
             ],
             // FK obligatoire de `niveaux.sous_system_id`/`classes.sous_systeme_id` :
@@ -158,20 +158,20 @@ class RegistreSync
             'sous_systemes' => [
                 'modele' => SousSysteme::class,
                 'colonnes' => ['id', 'school_id', 'code', 'nom', 'description'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => null,
             ],
             // FK de `matieres.departement_id` — même raison que ci-dessus.
             'departements' => [
                 'modele' => Departement::class,
                 'colonnes' => ['id', 'school_id', 'nom', 'head_personnel_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
             ],
             'matieres' => [
                 'modele' => Matiere::class,
                 'colonnes' => ['id', 'school_id', 'departement_id', 'competence_id', 'nom', 'nom_en', 'abbreviation', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
             // Le barème et les volets du primaire vivent désormais ici : sans
@@ -179,7 +179,7 @@ class RegistreSync
             'competences' => [
                 'modele' => Competence::class,
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'abbreviation', 'notation', 'evalue_pratique', 'repartition_volets', 'ordre', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
             // Attribution d'une compétence à une classe — sans elle, le poste
@@ -191,9 +191,9 @@ class RegistreSync
             'classe_competences' => [
                 'modele' => ClasseCompetence::class,
                 'colonnes' => ['id', 'classe_id', 'competence_id', 'groupe', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q
-                    ->whereHas('classe', fn ($c) => $c->where('school_id', $s))
-                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                'portee' => fn(Builder $q, int $s) => $q
+                    ->whereHas('classe', fn($c) => $c->where('school_id', $s))
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'pedagogie.view',
             ],
             // Référentiel d'appréciations de la maternelle (cf.
@@ -203,7 +203,7 @@ class RegistreSync
             'appreciations' => [
                 'modele' => Appreciation::class,
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'emoji', 'couleur', 'ordre', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
 
@@ -218,22 +218,22 @@ class RegistreSync
             'classes' => [
                 'modele' => Classe::class,
                 'colonnes' => ['id', 'school_id', 'niveau_id', 'niveau_scolaire_id', 'professeur_principal_id', 'titulaire_id', 'surveillant_general_id', 'nom', 'sigle', 'sous_systeme_id', 'niveau_classe', 'filiere', 'capacite', 'qr_token'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('id', $classesPerimetre)),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('id', $classesPerimetre)),
                 'permission' => 'classes.view',
             ],
             'classe_matieres' => [
                 'modele' => ClasseMatiere::class,
                 'colonnes' => ['id', 'classe_id', 'matiere_id', 'personnel_id', 'coefficient', 'quota_horaire', 'groupe', 'competences', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q
-                    ->whereHas('classe', fn ($c) => $c->where('school_id', $s))
-                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                'portee' => fn(Builder $q, int $s) => $q
+                    ->whereHas('classe', fn($c) => $c->where('school_id', $s))
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'pedagogie.view',
             ],
             'emplois_du_temps' => [
                 'modele' => EmploiDuTemps::class,
                 'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'jour', 'heure_debut', 'heure_fin', 'salle'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'emploi_du_temps.view',
             ],
             'progression_items' => [
@@ -244,14 +244,36 @@ class RegistreSync
                 // references, research_questions, introduction, presentation,
                 // conclusion...) n'existent plus depuis ce changement de forme.
                 'colonnes' => [
-                    'id', 'classe_matiere_id', 'parent_id', 'type', 'titre', 'description', 'ordre', 'sequence_id', 'duree_prevue',
-                    'topic', 'sous_topic', 'competence', 'expected_learning_outcomes', 'entry_behaviour', 'teaching_aids', 'teaching_learning_strategies',
-                    'learners_activities', 'facilitators_activities', 'assessment', 'assignment', 'remarks',
-                    'semaine', 'date_prevue', 'date_realisee', 'duree', 'colonnes_libres',
+                    'id',
+                    'classe_matiere_id',
+                    'parent_id',
+                    'type',
+                    'titre',
+                    'description',
+                    'ordre',
+                    'sequence_id',
+                    'duree_prevue',
+                    'topic',
+                    'sous_topic',
+                    'competence',
+                    'expected_learning_outcomes',
+                    'entry_behaviour',
+                    'teaching_aids',
+                    'teaching_learning_strategies',
+                    'learners_activities',
+                    'facilitators_activities',
+                    'assessment',
+                    'assignment',
+                    'remarks',
+                    'semaine',
+                    'date_prevue',
+                    'date_realisee',
+                    'duree',
+                    'colonnes_libres',
                 ],
-                'portee' => fn (Builder $q, int $s) => $q
-                    ->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)
-                        ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classes.id', $classesPerimetre))),
+                'portee' => fn(Builder $q, int $s) => $q
+                    ->whereHas('classeMatiere.classe', fn($c) => $c->where('school_id', $s)
+                        ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classes.id', $classesPerimetre))),
                 'permission' => 'pedagogie.view',
             ],
             // Niveau interne au primaire/maternelle (SIL, CP, CE1… — page
@@ -260,31 +282,31 @@ class RegistreSync
             'niveaux_scolaires' => [
                 'modele' => NiveauScolaire::class,
                 'colonnes' => ['id', 'school_id', 'code', 'libelle', 'ordre', 'animateur_personnel_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
             'champs_personnalises' => [
                 'modele' => ChampPersonnalise::class,
                 'colonnes' => ['id', 'classe_matiere_id', 'libelle', 'type', 'ordre'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn($c) => $c->where('school_id', $s)),
                 'permission' => 'pedagogie.view',
             ],
             'progression_colonnes' => [
                 'modele' => ProgressionColonne::class,
                 'colonnes' => ['id', 'classe_matiere_id', 'libelle', 'ordre'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn ($c) => $c->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('classeMatiere.classe', fn($c) => $c->where('school_id', $s)),
                 'permission' => 'pedagogie.view',
             ],
             'evaluations' => [
                 'modele' => Evaluation::class,
                 'colonnes' => ['id', 'school_id', 'classe_matiere_id', 'progression_item_id', 'titre', 'type', 'date_prevue', 'bareme', 'competences', 'cree_par'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
             'evaluation_questions' => [
                 'modele' => EvaluationQuestion::class,
                 'colonnes' => ['id', 'evaluation_id', 'enonce', 'bareme_question', 'ordre'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('evaluation', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('evaluation', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'pedagogie.view',
             ],
 
@@ -292,8 +314,8 @@ class RegistreSync
             'eleves' => [
                 'modele' => Eleve::class,
                 'colonnes' => ['id', 'school_id', 'classe_id', 'matricule', 'nom_complet', 'sexe', 'date_naissance', 'lieu_naissance', 'nationalite', 'redoublant', 'statut', 'photo_path'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'eleves.view',
             ],
             'personnels' => [
@@ -303,7 +325,7 @@ class RegistreSync
                 // CNPS, salaire, situation matrimoniale) n'a rien à faire
                 // répliqué sur le téléphone de chaque enseignant.
                 'colonnes' => ['id', 'school_id', 'departement_id', 'fonction_id', 'matricule', 'nom_complet', 'civilite', 'sexe', 'telephone', 'email', 'statut', 'photo_path'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
             ],
             // Référentiel dont dépend `personnels.fonction_id` — sans lui, la
@@ -318,7 +340,7 @@ class RegistreSync
             'fonction_referentiel' => [
                 'modele' => FonctionReferentiel::class,
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
             ],
 
@@ -329,19 +351,19 @@ class RegistreSync
             'tuteurs' => [
                 'modele' => Tuteur::class,
                 'colonnes' => ['id', 'school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'lieu_service', 'adresse'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'eleves.manage',
             ],
             'eleve_tuteurs' => [
                 'modele' => EleveTuteur::class,
                 'colonnes' => ['id', 'eleve_id', 'tuteur_id', 'lien_parente', 'is_principal'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'eleves.manage',
             ],
             'tuteur_telephones' => [
                 'modele' => TuteurTelephone::class,
                 'colonnes' => ['id', 'tuteur_id', 'numero', 'is_principal'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('tuteur', fn ($t) => $t->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('tuteur', fn($t) => $t->where('school_id', $s)),
                 'permission' => 'eleves.manage',
             ],
 
@@ -349,31 +371,31 @@ class RegistreSync
             'preinscriptions' => [
                 'modele' => Preinscription::class,
                 'colonnes' => ['id', 'school_id', 'tuteur_id', 'eleve_id', 'type', 'statut', 'donnees_eleve', 'donnees_tuteurs', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement', 'versement_id', 'motif_rejet', 'traite_par', 'traite_le'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'eleves.manage',
             ],
             'modifications_eleves' => [
                 'modele' => ModificationEleve::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'tuteur_id', 'donnees', 'statut', 'motif_rejet', 'traite_par', 'traite_le'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'eleves.manage',
             ],
             'observations' => [
                 'modele' => Observation::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'user_id', 'contenu'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'eleves.view',
             ],
             'justifications_absences' => [
                 'modele' => JustificationAbsence::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'tuteur_id', 'date_debut', 'date_fin', 'motif', 'description', 'statut', 'presence_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'emploi_du_temps.view',
             ],
             'absences_trimestre' => [
                 'modele' => AbsenceTrimestre::class,
                 'colonnes' => ['id', 'eleve_id', 'trimestre_id', 'heures_justifiees', 'heures_non_justifiees', 'mis_a_jour_par'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'notes.view',
             ],
 
@@ -381,15 +403,15 @@ class RegistreSync
             'seances' => [
                 'modele' => Seance::class,
                 'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id', 'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'observations', 'donnees_personnalisees', 'statut', 'appel_verrouille_le'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'emploi_du_temps.view',
             ],
             'presences' => [
                 'modele' => Presence::class,
                 'colonnes' => ['id', 'seance_id', 'eleve_id', 'statut', 'motif', 'justifie', 'remarque'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('seance', fn ($e) => $e->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('seance', fn($e) => $e->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
                 'permission' => 'emploi_du_temps.view',
             ],
             'notes' => [
@@ -400,27 +422,27 @@ class RegistreSync
                 // renseigné au secondaire, les deux couples sont mutuellement
                 // exclusifs sur une même ligne.
                 'colonnes' => ['id', 'eleve_id', 'classe_matiere_id', 'classe_competence_id', 'sequence_id', 'composante', 'valeur', 'appreciation_id', 'saisi_par'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
                 'permission' => 'notes.view',
             ],
             'sanctions' => [
                 'modele' => Sanction::class,
                 'colonnes' => ['id', 'eleve_id', 'classe_id', 'trimestre_id', 'type', 'duree_jours', 'date_debut', 'date_fin', 'motif', 'commentaire', 'date_sanction', 'statut', 'impacte_bulletin', 'enregistre_par'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn (Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)
+                    ->when($classesPerimetre !== null, fn(Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
                 'permission' => 'discipline.view',
             ],
             'revendications' => [
                 'modele' => Revendication::class,
                 'colonnes' => ['id', 'eleve_id', 'classe_matiere_id', 'trimestre_id', 'type', 'objet', 'motif', 'statut', 'decision', 'date_reception', 'date_traitement', 'enregistre_par', 'traite_par'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'revendications.view',
             ],
             'bulletin_publications' => [
                 'modele' => BulletinPublication::class,
                 'colonnes' => ['id', 'school_id', 'trimestre_id', 'classe_id', 'publie_par', 'publie_le'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'bulletins.view',
             ],
 
@@ -428,7 +450,7 @@ class RegistreSync
             'annonces' => [
                 'modele' => Annonce::class,
                 'colonnes' => ['id', 'school_id', 'titre', 'contenu', 'publie_par', 'publiee_le', 'cible_type'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'annonces.view',
             ],
             'notifications_internes' => [
@@ -437,7 +459,7 @@ class RegistreSync
                 // Filtré sur le destinataire en plus de l'école : une
                 // notification est nominative, personne n'a à répliquer celles
                 // des autres sur son téléphone.
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
                     ->where('user_id', auth()->id()),
                 'permission' => null,
             ],
@@ -449,61 +471,61 @@ class RegistreSync
             'grilles_frais' => [
                 'modele' => GrilleFrais::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'classe_id', 'montant'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'frais_annexes' => [
                 'modele' => FraisAnnexe::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'libelle', 'montant', 'obligatoire', 'is_active'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'dossiers_scolarite' => [
                 'modele' => DossierScolarite::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'eleve_id', 'montant_scolarite', 'remise', 'report_dette', 'observation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'dossier_frais_annexes' => [
                 'modele' => DossierFraisAnnexe::class,
                 'colonnes' => ['id', 'dossier_scolarite_id', 'frais_annexe_id', 'libelle', 'montant'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('dossier', fn ($d) => $d->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('dossier', fn($d) => $d->where('school_id', $s)),
                 'permission' => 'finance.view',
             ],
             'versements' => [
                 'modele' => Versement::class,
                 'colonnes' => ['id', 'school_id', 'dossier_scolarite_id', 'numero_recu', 'date_versement', 'montant', 'mode', 'reference_externe', 'encaisse_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'versement_lignes' => [
                 'modele' => VersementLigne::class,
                 'colonnes' => ['id', 'versement_id', 'affectation', 'dossier_frais_annexe_id', 'libelle', 'montant'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('versement', fn ($v) => $v->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('versement', fn($v) => $v->where('school_id', $s)),
                 'permission' => 'finance.view',
             ],
             'moratoires' => [
                 'modele' => Moratoire::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'date_delivrance', 'date_expiration', 'motif', 'accorde_par'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'remises' => [
                 'modele' => Remise::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'annee_scolaire_id', 'montant', 'motif', 'accorde_par'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'dettes_anterieures' => [
                 'modele' => DetteAnterieure::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'montant', 'motif', 'accorde_par', 'imputee_dossier_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
             'tranches_scolarite' => [
                 'modele' => TrancheScolarite::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'libelle', 'pourcentage', 'date_echeance', 'ordre'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.view',
             ],
 
@@ -513,13 +535,13 @@ class RegistreSync
                 'colonnes' => ['id', 'code', 'libelle', 'libelle_en', 'classe', 'sens', 'is_active', 'nature', 'assiette', 'montant_unitaire', 'ordre'],
                 // Référentiel commun au complexe, comme `niveaux` : aucune
                 // colonne d'école à filtrer.
-                'portee' => fn (Builder $q, int $s) => $q,
+                'portee' => fn(Builder $q, int $s) => $q,
                 'permission' => 'finance.view',
             ],
             'ecritures_comptables' => [
                 'modele' => EcritureComptable::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'date_ecriture', 'libelle', 'montant', 'sens', 'compte_comptable_id', 'origine_type', 'origine_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 // Pas de `xxx.view` propre au journal (alimenté automatiquement,
                 // jamais saisi) : on réutilise le privilège de ses rapports.
                 'permission' => 'finance.rapports',
@@ -527,25 +549,25 @@ class RegistreSync
             'budgets_fonctionnement' => [
                 'modele' => BudgetFonctionnement::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'rubrique', 'montant_percu', 'observations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
             ],
             'depenses' => [
                 'modele' => Depense::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'compte_comptable_id', 'rubrique_budget_fonctionnement', 'vehicule_id', 'budget_personnel_id', 'date_depense', 'libelle', 'montant', 'source', 'mode', 'beneficiaire', 'reference_facture', 'responsable', 'saisi_par', 'justificatif_path', 'statut', 'annule_le', 'annule_par', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.depenses',
             ],
             'immobilisations' => [
                 'modele' => Immobilisation::class,
                 'colonnes' => ['id', 'school_id', 'depense_id', 'compte_comptable_id', 'libelle', 'montant', 'date_mise_en_service', 'duree_annees', 'cede_le'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
             ],
             'amortissements' => [
                 'modele' => Amortissement::class,
                 'colonnes' => ['id', 'immobilisation_id', 'annee_scolaire_id', 'montant', 'date_dotation'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('immobilisation', fn ($i) => $i->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('immobilisation', fn($i) => $i->where('school_id', $s)),
                 'permission' => 'finance.rapports',
             ],
 
@@ -553,49 +575,49 @@ class RegistreSync
             'conseils_ecole' => [
                 'modele' => ConseilEcole::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'existe', 'date_ag_elective', 'duree_mandat', 'fin_mandat', 'president_nom', 'president_fonction', 'president_telephone', 'statut_projet_ecole', 'observations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
             ],
             'apee' => [
                 'modele' => Apee::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'legalisee', 'date_legalisation', 'numero_recepisse', 'banque', 'numero_compte', 'president_nom', 'president_fonction', 'president_telephone', 'date_ag_elective', 'fin_mandat', 'taux_par_eleve', 'montant_percu', 'montant_depense', 'realisations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
             ],
             'assurances_scolaires' => [
                 'modele' => AssuranceScolaire::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'libelle', 'effectif', 'nom_assureur', 'numero_police'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'finance.rapports',
             ],
             'visites_autorites' => [
                 'modele' => VisiteAutorite::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'date_visite', 'qualite_autorite', 'nature_visite', 'objectifs', 'observations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'rapport_rentree.view',
             ],
             'activites_rentree' => [
                 'modele' => ActiviteRentree::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'categorie', 'activite', 'periode', 'objectifs_vises', 'prevues', 'faites', 'taux_realisation', 'observations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'rapport_rentree.view',
             ],
             'ventes_denrees' => [
                 'modele' => VenteDenree::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'nature', 'vendeur_nom', 'dossier_medical_ok', 'frais_verses', 'gestion_frais'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'rapport_rentree.view',
             ],
             'rapport_rentree_textes' => [
                 'modele' => RapportRentreeTexte::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'rubrique', 'contenu'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'rapport_rentree.view',
             ],
             'rapport_trimestre_textes' => [
                 'modele' => RapportTrimestreTexte::class,
                 'colonnes' => ['id', 'school_id', 'trimestre_id', 'rubrique', 'contenu'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'rapport_trimestre.view',
             ],
 
@@ -603,19 +625,19 @@ class RegistreSync
             'ventes_fournitures' => [
                 'modele' => VenteFourniture::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'numero_facture', 'date_vente', 'montant', 'mode', 'eleve_id', 'client', 'vendu_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'point_de_vente.view',
             ],
             'vente_fourniture_lignes' => [
                 'modele' => VenteFournitureLigne::class,
                 'colonnes' => ['id', 'vente_fourniture_id', 'inventaire_article_id', 'libelle', 'quantite', 'prix_unitaire', 'cout_unitaire'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('vente', fn ($v) => $v->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('vente', fn($v) => $v->where('school_id', $s)),
                 'permission' => 'point_de_vente.view',
             ],
             'entrees_stock' => [
                 'modele' => EntreeStock::class,
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'inventaire_article_id', 'date_entree', 'quantite', 'cout_unitaire', 'fournisseur', 'reference', 'enregistre_par', 'note'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'point_de_vente.view',
             ],
 
@@ -623,7 +645,7 @@ class RegistreSync
             'malaises_referentiel' => [
                 'modele' => MalaiseReferentiel::class,
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'infirmerie.view',
             ],
 
@@ -633,7 +655,7 @@ class RegistreSync
             'document_references' => [
                 'modele' => DocumentReference::class,
                 'colonnes' => ['id', 'school_id', 'type', 'annee_scolaire_id', 'numero', 'genere_par'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => null,
             ],
 
@@ -647,22 +669,22 @@ class RegistreSync
             'avances_salaire' => [
                 'modele' => AvanceSalaire::class,
                 'colonnes' => ['id', 'school_id', 'personnel_id', 'montant', 'nombre_mois', 'mensualite', 'mois_debut_remboursement', 'date_avance', 'motif', 'annule_le', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when(! ($user?->can('finance.paie') ?? false), fn (Builder $q2) => $q2->whereHas('personnel', fn ($p) => $p->where('user_id', $user?->id))),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when(! ($user?->can('finance.paie') ?? false), fn(Builder $q2) => $q2->whereHas('personnel', fn($p) => $p->where('user_id', $user?->id))),
                 'permission' => null,
             ],
             'demandes_avance_salaire' => [
                 'modele' => DemandeAvanceSalaire::class,
                 'colonnes' => ['id', 'school_id', 'personnel_id', 'montant', 'nombre_mois', 'mensualite', 'mois_debut_remboursement', 'motif', 'statut', 'motif_rejet', 'avance_salaire_id'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when(! ($user?->can('finance.paie') ?? false), fn (Builder $q2) => $q2->whereHas('personnel', fn ($p) => $p->where('user_id', $user?->id))),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when(! ($user?->can('finance.paie') ?? false), fn(Builder $q2) => $q2->whereHas('personnel', fn($p) => $p->where('user_id', $user?->id))),
                 'permission' => null,
             ],
             'budgets_personnel' => [
                 'modele' => BudgetPersonnel::class,
                 'colonnes' => ['id', 'school_id', 'personnel_id', 'annee_scolaire_id', 'libelle', 'montant_alloue', 'date_allocation', 'note_gestion', 'annule_le', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when(! ($user?->can('finance.budget') ?? false), fn (Builder $q2) => $q2->whereHas('personnel', fn ($p) => $p->where('user_id', $user?->id))),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->when(! ($user?->can('finance.budget') ?? false), fn(Builder $q2) => $q2->whereHas('personnel', fn($p) => $p->where('user_id', $user?->id))),
                 'permission' => null,
             ],
 
@@ -670,31 +692,31 @@ class RegistreSync
             'bus_vehicules' => [
                 'modele' => BusVehicule::class,
                 'colonnes' => ['id', 'school_id', 'immatriculation', 'marque', 'couleur', 'capacite', 'chauffeur_id', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'bus.view',
             ],
             'bus_trajets' => [
                 'modele' => BusTrajet::class,
                 'colonnes' => ['id', 'school_id', 'vehicule_id', 'nom', 'description', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'bus.view',
             ],
             'bus_arrets' => [
                 'modele' => BusArret::class,
                 'colonnes' => ['id', 'trajet_id', 'nom', 'lieu_dit', 'ordre', 'heure_passage'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('trajet', fn ($t) => $t->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('trajet', fn($t) => $t->where('school_id', $s)),
                 'permission' => 'bus.view',
             ],
             'bus_affectations' => [
                 'modele' => BusAffectation::class,
                 'colonnes' => ['id', 'eleve_id', 'trajet_id', 'arret_id', 'annee_scolaire_id', 'tarif_mensuel', 'option_trajet', 'statut'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'bus.view',
             ],
             'bus_versements' => [
                 'modele' => BusVersement::class,
                 'colonnes' => ['id', 'school_id', 'bus_affectation_id', 'mois', 'numero_recu', 'date_versement', 'montant', 'remise', 'mode', 'reference_externe', 'encaisse_par', 'note', 'annule_le', 'annule_par', 'motif_annulation'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'bus.view',
             ],
 
@@ -702,13 +724,13 @@ class RegistreSync
             'visites_infirmerie' => [
                 'modele' => VisiteInfirmerie::class,
                 'colonnes' => ['id', 'eleve_id', 'classe_id', 'date_visite', 'raison', 'soins_prodiges', 'type_traitement', 'structure_externe', 'cout_soins', 'autre_materiel', 'cout_autre_materiel', 'cout_materiels', 'cout_total', 'observations', 'enregistre_par'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'infirmerie.view',
             ],
             'visite_infirmerie_materiels' => [
                 'modele' => VisiteInfirmerieMateriel::class,
                 'colonnes' => ['id', 'visite_infirmerie_id', 'inventaire_article_id', 'nom', 'quantite', 'cout_unitaire', 'cout'],
-                'portee' => fn (Builder $q, int $s) => $q->whereHas('visite.eleve', fn ($e) => $e->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('visite.eleve', fn($e) => $e->where('school_id', $s)),
                 'permission' => 'infirmerie.view',
             ],
 
@@ -718,19 +740,19 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'nom', 'code_barre', 'categorie', 'quantite', 'etat', 'localisation', 'valeur_unitaire', 'prix_vente', 'date_acquisition', 'notes'],
                 // Un article sans école (`school_id` NULL) est partagé par tout
                 // le complexe — même règle que `InventaireArticle::scopeForSchool()`.
-                'portee' => fn (Builder $q, int $s) => $q->where(fn ($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
+                'portee' => fn(Builder $q, int $s) => $q->where(fn($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => 'inventaire.view',
             ],
             'infrastructures' => [
                 'modele' => Infrastructure::class,
                 'colonnes' => ['id', 'school_id', 'type', 'libelle', 'materiau', 'etat', 'quantite', 'besoin_quantite', 'observations'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'infrastructures.view',
             ],
             'equipements_mobiliers' => [
                 'modele' => EquipementMobilier::class,
                 'colonnes' => ['id', 'school_id', 'nature', 'quantite', 'besoin_quantite'],
-                'portee' => fn (Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'infrastructures.view',
             ],
         ];

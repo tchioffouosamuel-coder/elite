@@ -35,18 +35,18 @@ class RecuVersementBusGenerator
             'margin_top' => 4,
             'margin_bottom' => 4,
         ], $school);
-        $mpdf->SetTitle('Reçu '.$versement->numero_recu);
+        $mpdf->SetTitle('Reçu ' . $versement->numero_recu);
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
-                .$this->styles()
-                .'</style></head><body>'
-                .$this->enTete($school)
-                .$this->titre()
-                .$this->mentions($versement, $affectation)
-                .$this->pied($versement)
-                .$this->qrCode($versement)
-                .'</body></html>'
+                . $this->styles()
+                . '</style></head><body>'
+                . $this->enTete($school)
+                . $this->titre()
+                . $this->mentions($versement, $affectation)
+                . $this->pied($versement)
+                . $this->qrCode($versement)
+                . '</body></html>'
         );
 
         return $mpdf->Output('', Destination::STRING_RETURN);
@@ -55,17 +55,17 @@ class RecuVersementBusGenerator
     private function styles(): string
     {
         return 'body{font-family:montserrat,sans-serif;font-size:2.4mm;color:#000;margin:0}'
-            .'.centre{text-align:center}'
-            .'.ecole{font-weight:bold;font-size:2.7mm;line-height:1.2}'
-            .'.titre{font-weight:bold;font-size:3mm;text-align:center;text-decoration:underline;margin:2mm 0}'
-            .'table{width:100%;border-collapse:collapse}'
-            .'td{padding:0.4mm 0;vertical-align:top;font-size:2.4mm}'
-            .'.cle{font-weight:bold;width:46%}'
-            .'.sep{border-top:0.4mm dashed #000;margin:2mm 0}'
-            .'.montant{text-align:right;font-weight:bold}'
-            .'.total{font-weight:bold;font-size:2.7mm}'
-            .'.pied{font-size:2.1mm;margin-top:2.5mm}'
-            .'.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:3mm;margin:1.5mm 0}';
+            . '.centre{text-align:center}'
+            . '.ecole{font-weight:bold;font-size:2.7mm;line-height:1.2}'
+            . '.titre{font-weight:bold;font-size:3mm;text-align:center;text-decoration:underline;margin:2mm 0}'
+            . 'table{width:100%;border-collapse:collapse}'
+            . 'td{padding:0.4mm 0;vertical-align:top;font-size:2.4mm}'
+            . '.cle{font-weight:bold;width:46%}'
+            . '.sep{border-top:0.4mm dashed #000;margin:2mm 0}'
+            . '.montant{text-align:right;font-weight:bold}'
+            . '.total{font-weight:bold;font-size:2.7mm}'
+            . '.pied{font-size:2.1mm;margin-top:2.5mm}'
+            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:3mm;margin:1.5mm 0}';
     }
 
     private function enTete(School $school): string
@@ -73,9 +73,9 @@ class RecuVersementBusGenerator
         $logo = $this->cheminImage($school->logo_path);
 
         return '<div class="centre">'
-            .($logo ? '<img src="'.$this->e($logo).'" style="width:16mm"><br>' : '')
-            .'<span class="ecole">'.$this->e(mb_strtoupper($school->name)).'</span>'
-            .'</div>';
+            . ($logo ? '<img src="' . $this->e($logo) . '" style="width:16mm"><br>' : '')
+            . '<span class="ecole">' . $this->e(mb_strtoupper($school->name)) . '</span>'
+            . '</div>';
     }
 
     private function titre(): string
@@ -100,13 +100,13 @@ class RecuVersementBusGenerator
 
         $html = '<table>';
         foreach ($lignes as [$cle, $valeur]) {
-            $html .= '<tr><td class="cle">'.$this->e($cle).'</td><td>'.$this->e((string) $valeur).'</td></tr>';
+            $html .= '<tr><td class="cle">' . $this->e($cle) . '</td><td>' . $this->e((string) $valeur) . '</td></tr>';
         }
 
         $html .= '</table><div class="sep"></div><table>'
-            .'<tr><td class="cle">Remise / Discount</td><td class="montant">'.$this->francs($versement->remise).'</td></tr>'
-            .'<tr><td class="cle total">Montant réglé / Amount paid</td><td class="montant total">'.$this->francs($versement->montant).'</td></tr>'
-            .'</table>';
+            . '<tr><td class="cle">Remise / Discount</td><td class="montant">' . $this->francs($versement->remise) . '</td></tr>'
+            . '<tr><td class="cle total">Montant réglé / Amount paid</td><td class="montant total">' . $this->francs($versement->montant) . '</td></tr>'
+            . '</table>';
 
         if ($versement->estAnnule()) {
             $html .= '<div class="annule">*** REÇU ANNULÉ / RECEIPT CANCELLED ***</div>';
@@ -125,9 +125,9 @@ class RecuVersementBusGenerator
             );
 
             return '<div class="sep"></div><div style="text-align:center">'
-                .'<img src="'.$qr->getDataUri().'" style="width:20mm;height:20mm">'
-                .'<div class="pied">Authenticité / Authenticity : scannez / scan to verify this receipt.</div>'
-                .'</div>';
+                . '<img src="' . $qr->getDataUri() . '" style="width:20mm;height:20mm">'
+                . '<div class="pied">Authenticité / Authenticity : scannez / scan to verify this receipt.</div>'
+                . '</div>';
         } catch (\Throwable) {
             return '';
         }
@@ -136,10 +136,10 @@ class RecuVersementBusGenerator
     private function pied(BusVersement $versement): string
     {
         return '<div class="sep"></div><div class="pied">'
-            .'Reçu N° / Receipt No. <b>'.$this->e($versement->numero_recu).'</b><br>'
-            .'Encaissé par / Collected by : '.$this->e($versement->encaisseur?->name ?? '—').'<br>'
-            .'<i>Conservez ce reçu / Keep this receipt.</i>'
-            .'</div>';
+            . 'Reçu N° / Receipt No. <b>' . $this->e($versement->numero_recu) . '</b><br>'
+            . 'Encaissé par / Collected by : ' . $this->e($versement->encaisseur?->name ?? '—') . '<br>'
+            . '<i>Conservez ce reçu / Keep this receipt.</i>'
+            . '</div>';
     }
 
     private function libelleMode(string $mode): string
@@ -155,6 +155,6 @@ class RecuVersementBusGenerator
 
     private function francs(int $montant): string
     {
-        return number_format($montant, 0, ',', ' ').' F';
+        return number_format($montant, 0, ',', ' ') . ' F';
     }
 }

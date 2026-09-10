@@ -71,12 +71,12 @@ export function BusPaiementPage() {
   const { register, handleSubmit, control, watch, setValue } = useForm<FormValues>({
     values: premierMoisImpaye
       ? {
-          mois: [premierMoisImpaye.mois],
-          montant: premierMoisImpaye.reste,
-          remise: 0,
-          mode: 'especes',
-          date_versement: new Date().toISOString().slice(0, 10),
-        }
+        mois: [premierMoisImpaye.mois],
+        montant: premierMoisImpaye.reste,
+        remise: 0,
+        mode: 'especes',
+        date_versement: new Date().toISOString().slice(0, 10),
+      }
       : undefined,
   })
 

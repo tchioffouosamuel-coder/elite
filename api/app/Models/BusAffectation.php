@@ -14,7 +14,13 @@ class BusAffectation extends Model
     public const OPTIONS_TRAJET = ['aller_simple', 'retour_simple', 'aller_retour'];
 
     protected $fillable = [
-        'eleve_id', 'trajet_id', 'arret_id', 'annee_scolaire_id', 'tarif_mensuel', 'option_trajet', 'statut',
+        'eleve_id',
+        'trajet_id',
+        'arret_id',
+        'annee_scolaire_id',
+        'tarif_mensuel',
+        'option_trajet',
+        'statut',
     ];
 
     protected function casts(): array
@@ -100,14 +106,14 @@ class BusAffectation extends Model
 
         $payeParMois = $this->versements
             ->whereNull('annule_le')
-            ->groupBy(fn (BusVersement $v) => $v->mois->format('Y-m'))
-            ->map(fn ($groupe) => (int) $groupe->sum('montant'));
+            ->groupBy(fn(BusVersement $v) => $v->mois->format('Y-m'))
+            ->map(fn($groupe) => (int) $groupe->sum('montant'));
 
         $tarif = (int) ($this->tarif_mensuel ?? 0);
         $remiseParMois = $this->versements
             ->whereNull('annule_le')
-            ->groupBy(fn (BusVersement $v) => $v->mois->format('Y-m'))
-            ->map(fn ($groupe) => (int) $groupe->sum('remise'));
+            ->groupBy(fn(BusVersement $v) => $v->mois->format('Y-m'))
+            ->map(fn($groupe) => (int) $groupe->sum('remise'));
 
         return $this->mois_couverture->map(function (Carbon $mois) use ($payeParMois, $remiseParMois, $tarif) {
             $du = max(0, $tarif - $remiseParMois->get($mois->format('Y-m'), 0));

@@ -31,7 +31,7 @@ class BusPaiementController extends Controller
     public function situation(int $affectationId): JsonResponse
     {
         $affectation = $this->affectation($affectationId);
-        $affectation->load(['eleve.classe', 'trajet', 'versements' => fn ($q) => $q->orderByDesc('mois')]);
+        $affectation->load(['eleve.classe', 'trajet', 'versements' => fn($q) => $q->orderByDesc('mois')]);
 
         return ApiResponse::success([
             'affectation' => [
@@ -50,7 +50,7 @@ class BusPaiementController extends Controller
             'total_paye' => $affectation->total_paye,
             'reste_a_payer' => $affectation->reste_a_payer,
             'statut_paiement' => $affectation->statut_paiement,
-            'versements' => $affectation->versements->map(fn (BusVersement $v) => $this->resumerVersement($v))->values(),
+            'versements' => $affectation->versements->map(fn(BusVersement $v) => $this->resumerVersement($v))->values(),
         ]);
     }
 
@@ -110,7 +110,7 @@ class BusPaiementController extends Controller
 
         return response((new RecuVersementBusGenerator)->build($versement), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-bus-'.Str::slug($versement->numero_recu).'.pdf"',
+            'Content-Disposition' => 'inline; filename="recu-bus-' . Str::slug($versement->numero_recu) . '.pdf"',
         ]);
     }
 
@@ -129,14 +129,14 @@ class BusPaiementController extends Controller
 
         $mois = $versement->mois->translatedFormat('F Y');
         $message = "Paiement du transport scolaire de {$affectation->eleve->nom_complet} pour {$mois} : "
-            ."{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
+            . "{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
 
         $this->sms->envoyer($tuteur->telephone, $message);
     }
 
     private function francs(int $montant): string
     {
-        return number_format($montant, 0, ',', ' ').' F';
+        return number_format($montant, 0, ',', ' ') . ' F';
     }
 
     /** @return array<string, mixed> */
@@ -156,7 +156,7 @@ class BusPaiementController extends Controller
 
     private function affectation(int $id): BusAffectation
     {
-        return BusAffectation::whereHas('trajet', fn ($q) => $q->forSchool(Tenant::schoolIds()))
+        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool(Tenant::schoolIds()))
             ->with('anneeScolaire')
             ->findOrFail($id);
     }

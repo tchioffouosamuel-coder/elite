@@ -34,10 +34,10 @@ class BusPaiementService extends BaseService
     public function __construct(private readonly NumeroRecuService $numeros) {}
 
     /**
-    * Enregistre le règlement d'un ou plusieurs mois et rend les versements,
-    * chacun avec son reçu numéroté.
+     * Enregistre le règlement d'un ou plusieurs mois et rend les versements,
+     * chacun avec son reçu numéroté.
      *
-    * @param  array{mois: list<string>|string, montant: int, remise?: int, date_versement?: string, mode?: string, reference_externe?: ?string, note?: ?string}  $donnees
+     * @param  array{mois: list<string>|string, montant: int, remise?: int, date_versement?: string, mode?: string, reference_externe?: ?string, note?: ?string}  $donnees
      */
     public function encaisser(BusAffectation $affectation, array $donnees, ?int $encaissePar = null): BusVersement|array
     {
@@ -51,10 +51,10 @@ class BusPaiementService extends BaseService
 
         $couverture = $affectation->mois_couverture;
         $mois = collect((array) $donnees['mois'])
-            ->map(fn (string $date) => Carbon::parse($date)->startOfMonth())
-            ->unique(fn (Carbon $date) => $date->format('Y-m'))
+            ->map(fn(string $date) => Carbon::parse($date)->startOfMonth())
+            ->unique(fn(Carbon $date) => $date->format('Y-m'))
             ->values();
-        if ($mois->isEmpty() || $mois->contains(fn (Carbon $m) => ! $couverture->contains(fn (Carbon $couvert) => $couvert->isSameMonth($m)))) {
+        if ($mois->isEmpty() || $mois->contains(fn(Carbon $m) => ! $couverture->contains(fn(Carbon $couvert) => $couvert->isSameMonth($m)))) {
             throw new RuntimeException("Un des mois sélectionnés n'est pas couvert par cette souscription.");
         }
 
@@ -63,7 +63,7 @@ class BusPaiementService extends BaseService
         $resteParMois = $mois->mapWithKeys(function (Carbon $mois) use ($affectation, $tarif) {
             $paye = (int) $affectation->versements
                 ->whereNull('annule_le')
-                ->filter(fn (BusVersement $versement) => $versement->mois->isSameMonth($mois))
+                ->filter(fn(BusVersement $versement) => $versement->mois->isSameMonth($mois))
                 ->sum('montant');
             return [$mois->format('Y-m') => max(0, $tarif - $paye)];
         });
@@ -135,7 +135,7 @@ class BusPaiementService extends BaseService
                     'school_id' => $ecriture->school_id,
                     'annee_scolaire_id' => $ecriture->annee_scolaire_id,
                     'date_ecriture' => now()->toDateString(),
-                    'libelle' => 'Annulation — '.$ecriture->libelle,
+                    'libelle' => 'Annulation — ' . $ecriture->libelle,
                     'montant' => $ecriture->montant,
                     'sens' => $ecriture->sens === 'debit' ? 'credit' : 'debit',
                     'compte_comptable_id' => $ecriture->compte_comptable_id,
@@ -160,14 +160,14 @@ class BusPaiementService extends BaseService
         ];
 
         EcritureComptable::create($commun + [
-            'libelle' => 'Encaissement transport scolaire — reçu '.$versement->numero_recu,
+            'libelle' => 'Encaissement transport scolaire — reçu ' . $versement->numero_recu,
             'montant' => $versement->montant,
             'sens' => 'debit',
             'compte_comptable_id' => $this->compte(self::COMPTE_TRESORERIE[$versement->mode] ?? '571'),
         ]);
 
         EcritureComptable::create($commun + [
-            'libelle' => 'Transport scolaire ('.$mois->translatedFormat('F Y').') — reçu '.$versement->numero_recu,
+            'libelle' => 'Transport scolaire (' . $mois->translatedFormat('F Y') . ') — reçu ' . $versement->numero_recu,
             'montant' => $versement->montant,
             'sens' => 'credit',
             'compte_comptable_id' => $this->compte(self::COMPTE_TRANSPORT),
