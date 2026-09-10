@@ -246,7 +246,16 @@ export function PreinscriptionCreerPage() {
       }
       navigate('/preinscriptions')
     } catch (err) {
-      setErreurMsg((err as ApiError).message)
+      const apiError = err as ApiError
+      const eleveDejaPreinscrit = apiError.errors?.eleve_id?.[0]
+
+      if (eleveDejaPreinscrit) {
+        succes('Cet enfant est déjà préinscrit pour l’année active. Redirection vers le paiement des frais.')
+        navigate(`/caisse/encaisser/${eleveDejaPreinscrit}`)
+        return
+      }
+
+      setErreurMsg(apiError.message)
     } finally {
       setEnvoi(false)
     }

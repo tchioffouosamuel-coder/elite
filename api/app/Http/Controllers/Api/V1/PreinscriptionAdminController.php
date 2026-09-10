@@ -9,6 +9,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Imports\PreinscriptionImport;
 use App\Models\Eleve;
+use App\Models\AnneeScolaire;
 use App\Models\Preinscription;
 use App\Models\BusVersement;
 use App\Services\PreinscriptionService;
@@ -203,7 +204,16 @@ class PreinscriptionAdminController extends Controller
         try {
             $p = $this->service->creerEtValiderNouveauParAdmin(app('tenant.school_id'), $data, $request->user()->id);
         } catch (RuntimeException $e) {
-            return ApiResponse::error($e->getMessage(), 422);
+            $eleveId = $this->eleveIdPreinscrit(
+                app('tenant.school_id'),
+                $data['donnees_eleve'],
+            );
+
+            return ApiResponse::error(
+                $e->getMessage(),
+                422,
+                $eleveId === null ? null : ['eleve_id' => [(string) $eleveId]],
+            );
         }
 
         return ApiResponse::created($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription enregistrée et validée.');
@@ -223,6 +233,33 @@ class PreinscriptionAdminController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="recu-preinscription-' . $id . '.pdf"',
         ]);
+    }
+
+    private function eleveIdPreinscrit(int $schoolId, array $donneesEleve): ?int
+    {
+        $anneeId = AnneeScolaire::where('school_id', $schoolId)
+            ->where('is_active', true)
+            ->value('id');
+
+        if ($anneeId === null) {
+            return null;
+        }
+
+        $nom = mb_strtolower(trim((string) ($donneesEleve['nom_complet'] ?? '')));
+        $dateNaissance = $donneesEleve['date_naissance'] ?? null;
+
+        return Preinscription::where('school_id', $schoolId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->where('type', 'nouveau')
+            ->whereNotNull('eleve_id')
+            ->get(['eleve_id', 'donnees_eleve'])
+            ->first(function (Preinscription $preinscription) use ($nom, $dateNaissance): bool {
+                $donnees = $preinscription->donnees_eleve ?? [];
+
+                return mb_strtolower(trim((string) ($donnees['nom_complet'] ?? ''))) === $nom
+                    && ($donnees['date_naissance'] ?? null) === $dateNaissance;
+            })?->eleve_id;
     }
 
     /** Corrige les informations proposées par le parent avant validation (coquille, champ oublié…). */
