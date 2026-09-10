@@ -66,17 +66,17 @@ class Eleve extends Model
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
-    /** Format AA### : année sur deux chiffres puis numéro d'ordre dans l'école. */
+    /** Format YYELITES-NNNN : année sur deux chiffres puis ordre global. */
     public static function genererMatricule(int $schoolId): string
     {
         $annee = now()->format('y');
-        $plusGrandNumero = static::where('school_id', $schoolId)
-            ->where('matricule', 'like', $annee . '%')
+        $plusGrandNumero = static::query()
+            ->where('matricule', 'like', $annee . 'ELITES-%')
             ->pluck('matricule')
-            ->map(fn (?string $matricule) => preg_match('/^\d{2}(\d+)$/', (string) $matricule, $matches) ? (int) $matches[1] : 0)
+            ->map(fn(?string $matricule) => preg_match('/^\d{2}ELITES-(\d{4})$/', (string) $matricule, $matches) ? (int) $matches[1] : 0)
             ->max();
 
-        return $annee . str_pad((string) ($plusGrandNumero + 1), 3, '0', STR_PAD_LEFT);
+        return $annee . 'ELITES-' . str_pad((string) ($plusGrandNumero + 1), 4, '0', STR_PAD_LEFT);
     }
 
     public function school(): BelongsTo

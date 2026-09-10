@@ -66,34 +66,35 @@ class EleveService extends BaseService
     /** @param int|array<int> $schoolIds */
     public function normaliserMatricules(int|array $schoolIds): int
     {
-        $total = 0;
+        return $this->transaction(function () use ($schoolIds): int {
+            $eleves = Eleve::whereIn('school_id', (array) $schoolIds)
+                ->get(['id', 'nom_complet', 'matricule'])
+                ->groupBy(fn(Eleve $eleve) => preg_match('/^(\d{2})ELITES-/', (string) $eleve->matricule, $matches)
+                    ? $matches[1]
+                    : '25');
 
-        foreach ((array) $schoolIds as $schoolId) {
-            $total += $this->transaction(function () use ($schoolId): int {
-                $eleves = Eleve::where('school_id', $schoolId)
-                    ->get(['id', 'nom_complet'])
-                    ->sortBy(fn (Eleve $eleve) => [
-                        Str::ascii(mb_strtolower(trim($eleve->nom_complet))),
-                        $eleve->id,
-                    ])
-                    ->values();
+            $total = 0;
+            foreach ($eleves as $annee => $cohorte) {
+                $cohorte = $cohorte->sortBy(fn(Eleve $eleve) => [
+                    Str::ascii(mb_strtolower(trim($eleve->nom_complet))),
+                    $eleve->id,
+                ])->values();
 
-                foreach ($eleves as $eleve) {
-                    $eleve->updateQuietly(['matricule' => "__normalisation_{$schoolId}_{$eleve->id}"]);
+                foreach ($cohorte as $eleve) {
+                    $eleve->updateQuietly(['matricule' => "__normalisation_{$annee}_{$eleve->id}"]);
                 }
 
-                $annee = now()->format('y');
-                foreach ($eleves as $index => $eleve) {
+                foreach ($cohorte as $index => $eleve) {
                     $eleve->updateQuietly([
-                        'matricule' => $annee . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                        'matricule' => $annee . 'ELITES-' . str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
                     ]);
                 }
 
-                return $eleves->count();
-            });
-        }
+                $total += $cohorte->count();
+            }
 
-        return $total;
+            return $total;
+        });
     }
 
     public function update(Eleve $eleve, array $attributes): Eleve
@@ -608,7 +609,7 @@ class EleveService extends BaseService
         // (calculé depuis `date_naissance`, absente de ce `selectRaw`)
         // intercepterait sinon l'accès à `->age` et renverrait toujours `null`.
         $lignes = $query
-            ->selectRaw($this->expressionAgeMois().' as age_mois_total, eleves.sexe as sexe, COUNT(*) as total')
+            ->selectRaw($this->expressionAgeMois() . ' as age_mois_total, eleves.sexe as sexe, COUNT(*) as total')
             ->groupBy('age_mois_total', 'eleves.sexe')
             ->get();
 
@@ -649,7 +650,7 @@ class EleveService extends BaseService
         // doit pas réapparaître dans le détail.
         $eleves = $requeteNominative
             ->with('classe:id,nom')
-            ->selectRaw('eleves.*, '.$this->expressionAgeMois().' as age_mois_total')
+            ->selectRaw('eleves.*, ' . $this->expressionAgeMois() . ' as age_mois_total')
             ->orderBy('eleves.nom_complet')
             ->get();
 
@@ -685,7 +686,7 @@ class EleveService extends BaseService
      */
     public function rapportMinorites(array $schoolIds): array
     {
-        $vide = fn () => ['garcons' => 0, 'filles' => 0, 'total' => 0];
+        $vide = fn() => ['garcons' => 0, 'filles' => 0, 'total' => 0];
         $resultat = ['bororo' => $vide(), 'baka' => $vide(), 'deplaces_internes' => $vide(), 'total' => $vide()];
 
         $lignes = Eleve::query()
@@ -741,7 +742,7 @@ class EleveService extends BaseService
             ->groupBy('eleves.classe_id', 'eleves.sexe')
             ->get();
 
-        $vide = fn () => ['total' => 0, 'camerounais' => 0, 'non_camerounais' => 0, 'refugies' => 0, 'redoublants' => 0, 'sans_acte_naissance' => 0];
+        $vide = fn() => ['total' => 0, 'camerounais' => 0, 'non_camerounais' => 0, 'refugies' => 0, 'redoublants' => 0, 'sans_acte_naissance' => 0];
 
         $parClasse = [];
         foreach ($classes as $classe) {
@@ -787,7 +788,7 @@ class EleveService extends BaseService
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
             return "((CAST(strftime('%Y','now') AS INTEGER) - CAST(strftime('%Y', eleves.date_naissance) AS INTEGER)) * 12"
-                ." + (CAST(strftime('%m','now') AS INTEGER) - CAST(strftime('%m', eleves.date_naissance) AS INTEGER)))";
+                . " + (CAST(strftime('%m','now') AS INTEGER) - CAST(strftime('%m', eleves.date_naissance) AS INTEGER)))";
         }
 
         return 'TIMESTAMPDIFF(MONTH, eleves.date_naissance, CURDATE())';
@@ -846,7 +847,7 @@ class EleveService extends BaseService
         $telephones = $data['telephones'] ?? [];
 
         if ($telephones !== []) {
-            $principal = collect($telephones)->first(fn ($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
+            $principal = collect($telephones)->first(fn($tel) => ! empty($tel['is_principal'])) ?? $telephones[0];
 
             return $principal['numero'] ?? null;
         }
@@ -874,7 +875,7 @@ class EleveService extends BaseService
 
         $tuteur->telephones()->delete();
 
-        $aUnPrincipal = collect($telephones)->contains(fn ($tel) => ! empty($tel['is_principal']));
+        $aUnPrincipal = collect($telephones)->contains(fn($tel) => ! empty($tel['is_principal']));
 
         foreach ($telephones as $index => $tel) {
             TuteurTelephone::create([

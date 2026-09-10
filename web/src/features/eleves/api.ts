@@ -388,6 +388,25 @@ export async function fetchTuteurs(params: {
   return { items: data.data, pagination: data.meta!.pagination! };
 }
 
+export async function reinitialiserMotDePasseParent(
+  tuteurId: number,
+): Promise<void> {
+  await http.post(`/tuteurs/${tuteurId}/reinitialiser-mot-de-passe`);
+}
+
+export async function rattacherEnfantsParent(
+  tuteurId: number,
+  eleveIds: number[],
+): Promise<{ total: number }> {
+  const { data } = await http.post<ApiResponse<{ total: number }>>(
+    `/tuteurs/${tuteurId}/enfants`,
+    {
+      eleve_ids: eleveIds,
+    },
+  );
+  return data.data;
+}
+
 /** Ouvre l'accès de tous les tuteurs de l'école qui n'en ont pas encore, en un seul appel — réservé aux petits effectifs, cf. `fetchTuteursSansCompte`/`assurerComptesParentChunk`. */
 export async function creerComptesParentLot(): Promise<{
   crees: number;

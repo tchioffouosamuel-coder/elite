@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\TuteurResource;
 use App\Models\School;
 use App\Models\Setting;
+use App\Models\Eleve;
 use App\Models\Tuteur;
 use App\Services\AuthService;
 use App\Services\CompteParentService;
@@ -186,6 +187,40 @@ class TuteurController extends Controller
         }
 
         return ApiResponse::success(null, $tuteur->user->is_active ? 'Accès parent débloqué.' : 'Accès parent bloqué.');
+    }
+
+    public function reinitialiserMotDePasse(int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+
+        if (! $tuteur->user) {
+            return ApiResponse::error("Ce tuteur n'a pas encore de compte parent.", 422);
+        }
+
+        $motDePasse = Setting::get(
+            $tuteur->school_id,
+            'mot_de_passe_defaut',
+            SettingsCatalog::default('mot_de_passe_defaut'),
+        );
+        $this->auth->reinitialiserMotDePasse($tuteur->user, $motDePasse);
+
+        return ApiResponse::success(null, 'Mot de passe parent réinitialisé.');
+    }
+
+    public function rattacherEnfants(Request $request, int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $data = $request->validate([
+            'eleve_ids' => ['required', 'array', 'min:1'],
+            'eleve_ids.*' => ['integer'],
+        ]);
+
+        $eleves = Eleve::forSchool(Tenant::schoolIds())->whereIn('id', $data['eleve_ids'])->get();
+        $tuteur->eleves()->syncWithoutDetaching($eleves->mapWithKeys(fn(Eleve $eleve) => [
+            $eleve->id => ['is_principal' => false],
+        ])->all());
+
+        return ApiResponse::success(['total' => $eleves->count()], 'Enfant(s) rattaché(s) au parent.');
     }
 
     public function supprimerCompteParent(int $id): JsonResponse

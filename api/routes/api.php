@@ -454,6 +454,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
                 Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
                 Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces');
+                Route::post('tuteurs/{id}/reinitialiser-mot-de-passe', [TuteurController::class, 'reinitialiserMotDePasse'])->name('tuteurs.reinitialiser-mot-de-passe');
+                Route::post('tuteurs/{id}/enfants', [TuteurController::class, 'rattacherEnfants'])->name('tuteurs.rattacher-enfants');
                 Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent');
                 Route::post('tuteurs/{id}/supprimer-compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent-post');
                 Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');

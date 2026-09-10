@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, type TuteurCompte } from '@/features/eleves/api'
+import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus } from 'lucide-react'
+import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Modal } from '@/shared/ui/Modal'
 import { confirmer, erreur, identifiantsOuverts, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -25,33 +26,40 @@ export function ComptesParentsPage() {
   const [page, setPage] = useState(1)
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
   const [recherche, setRecherche] = useState('')
-  const [rechercheDebounced, setRechercheDebounced] = useState('')
+  const [rechercheActive, setRechercheActive] = useState('')
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
+  const [reinitialisationEnCours, setReinitialisationEnCours] = useState<number | null>(null)
+  const [tuteurEnfants, setTuteurEnfants] = useState<TuteurCompte | null>(null)
+  const [rechercheEnfant, setRechercheEnfant] = useState('')
+  const [rechercheEnfantDebounced, setRechercheEnfantDebounced] = useState('')
+  const [enfantsSelectionnes, setEnfantsSelectionnes] = useState<Set<number>>(new Set())
+  const [rattachementEnCours, setRattachementEnCours] = useState(false)
   const [lotEnCours, setLotEnCours] = useState(false)
   const [lotProgres, setLotProgres] = useState<{ traites: number; total: number } | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
-  // La recherche doit porter sur tous les tuteurs de l'établissement, pas
-  // seulement sur la page de 50 déjà chargée — elle part donc au serveur
-  // (`GET /tuteurs?search=`), avec un court débounce pour ne pas déclencher
-  // une requête à chaque frappe.
   useEffect(() => {
     const id = setTimeout(() => {
-      setRechercheDebounced(recherche)
-      setPage(1)
-    }, 300)
+      setRechercheEnfantDebounced(rechercheEnfant)
+    }, 250)
     return () => clearTimeout(id)
-  }, [recherche])
+  }, [rechercheEnfant])
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['tuteurs', { page, sansCompteSeulement, rechercheDebounced }],
+    queryKey: ['tuteurs', { page, sansCompteSeulement, rechercheActive }],
     queryFn: () =>
       fetchTuteurs({
         page,
         sans_compte: sansCompteSeulement || undefined,
-        search: rechercheDebounced || undefined,
+        search: rechercheActive || undefined,
         per_page: 50,
       }),
+  })
+
+  const enfantsQuery = useQuery({
+    queryKey: ['eleves-rattachement-parent', rechercheEnfantDebounced],
+    queryFn: () => fetchEleves({ search: rechercheEnfantDebounced || undefined, page: 1, per_page: 50 }),
+    enabled: tuteurEnfants !== null && rechercheEnfantDebounced.trim().length >= 2,
   })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['tuteurs'] })
@@ -118,6 +126,52 @@ export function ComptesParentsPage() {
       erreur((err as ApiError).message)
     } finally {
       setOuvertureEnCours(null)
+    }
+  }
+
+  const rechercher = () => {
+    setRechercheActive(recherche.trim())
+    setPage(1)
+    setSelectedIds(new Set())
+  }
+
+  const reinitialiser = async (tuteur: TuteurCompte) => {
+    const ok = await confirmer({
+      titre: `Réinitialiser le mot de passe de ${tuteur.nom_complet} ?`,
+      message: 'Le mot de passe par défaut de son école sera rétabli et ses sessions ouvertes seront fermées.',
+      action: 'Réinitialiser',
+    })
+    if (!ok) return
+    setReinitialisationEnCours(tuteur.id)
+    try {
+      await reinitialiserMotDePasseParent(tuteur.id)
+      succes('Mot de passe parent réinitialisé.')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setReinitialisationEnCours(null)
+    }
+  }
+
+  const ouvrirRattachement = (tuteur: TuteurCompte) => {
+    setTuteurEnfants(tuteur)
+    setRechercheEnfant('')
+    setRechercheEnfantDebounced('')
+    setEnfantsSelectionnes(new Set())
+  }
+
+  const rattacherEnfants = async () => {
+    if (!tuteurEnfants || enfantsSelectionnes.size === 0) return
+    setRattachementEnCours(true)
+    try {
+      await rattacherEnfantsParent(tuteurEnfants.id, Array.from(enfantsSelectionnes))
+      setTuteurEnfants(null)
+      invalider()
+      succes('Les enfants sélectionnés ont été rattachés à ce parent.')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setRattachementEnCours(false)
     }
   }
 
@@ -253,6 +307,25 @@ export function ComptesParentsPage() {
               <Ban className="h-4 w-4" />
             </button>
           )}
+          {t.a_compte && (
+            <button
+              type="button"
+              title="Réinitialiser le mot de passe"
+              onClick={() => reinitialiser(t)}
+              disabled={reinitialisationEnCours === t.id}
+              className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700 disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            title="Rattacher des enfants"
+            onClick={() => ouvrirRattachement(t)}
+            className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+          >
+            <UserPlus className="h-4 w-4" />
+          </button>
           <button
             type="button"
             title="Supprimer ce tuteur"
@@ -299,9 +372,10 @@ export function ComptesParentsPage() {
           colonnes={colonnes}
           lignes={data.items}
           cleLigne={(t) => t.id}
-          placeholderRecherche="Rechercher un tuteur, un numéro…"
+          placeholderRecherche="Rechercher un tuteur, un numéro… puis Entrée"
           terme={recherche}
           onTermeChange={setRecherche}
+          onTermeSubmit={rechercher}
           messageVide="Aucun tuteur pour cet établissement."
           largeurMin={760}
           // La pagination se fait déjà côté serveur (Précédent/Suivant plus
@@ -338,6 +412,47 @@ export function ComptesParentsPage() {
             </div>
           }
         />
+      )}
+
+      {tuteurEnfants && (
+        <Modal title={`Rattacher des enfants — ${tuteurEnfants.nom_complet}`} onClose={() => setTuteurEnfants(null)}>
+          <p className="mb-4 text-sm text-navy-500">Recherchez un ou plusieurs élèves, puis cochez ceux à rattacher à ce parent.</p>
+          <input
+            autoFocus
+            value={rechercheEnfant}
+            onChange={(e) => setRechercheEnfant(e.target.value)}
+            placeholder="Nom ou matricule de l'enfant…"
+            className="mb-4 w-full rounded-xl border border-navy-200 px-3 py-2.5 text-sm focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+          />
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-navy-100">
+            {enfantsQuery.isFetching ? <div className="p-4"><Spinner /></div> : enfantsQuery.data?.items.length ? enfantsQuery.data.items.map((eleve) => (
+              <label key={eleve.id} className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-3 py-3 last:border-0 hover:bg-cream-50">
+                <input
+                  type="checkbox"
+                  checked={enfantsSelectionnes.has(eleve.id)}
+                  onChange={() => setEnfantsSelectionnes((actuels) => {
+                    const suivants = new Set(actuels)
+                    if (suivants.has(eleve.id)) suivants.delete(eleve.id)
+                    else suivants.add(eleve.id)
+                    return suivants
+                  })}
+                  className="h-4 w-4 rounded border-navy-300"
+                />
+                <span className="min-w-0 text-sm text-navy-800">
+                  <span className="block font-semibold">{eleve.nom_complet}</span>
+                  <span className="text-xs text-navy-400">{eleve.matricule ?? 'Sans matricule'}{eleve.school ? ` · ${eleve.school.name}` : ''}</span>
+                </span>
+              </label>
+            )) : <p className="p-4 text-sm text-navy-400">Saisissez au moins deux caractères pour rechercher un élève.</p>}
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setTuteurEnfants(null)}>Annuler</Button>
+            <Button type="button" onClick={rattacherEnfants} disabled={rattachementEnCours || enfantsSelectionnes.size === 0}>
+              <UserPlus className="h-4 w-4" />
+              {rattachementEnCours ? 'Rattachement…' : `Rattacher (${enfantsSelectionnes.size})`}
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {data && data.pagination.last_page > 1 && (

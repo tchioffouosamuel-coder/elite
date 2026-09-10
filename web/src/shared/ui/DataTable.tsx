@@ -47,6 +47,7 @@ interface DataTableProps<T> {
    */
   terme?: string
   onTermeChange?: (terme: string) => void
+  onTermeSubmit?: () => void
   /** Pagination : 0 désactive le découpage. */
   parPage?: number
   messageVide?: string
@@ -71,6 +72,7 @@ export function DataTable<T>({
   placeholderRecherche = 'Rechercher…',
   terme: termeControle,
   onTermeChange,
+  onTermeSubmit,
   parPage = 15,
   messageVide,
   onLigneClick,
@@ -139,6 +141,9 @@ export function DataTable<T>({
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
               <input
                 value={terme}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onTermeSubmit?.()
+                }}
                 onChange={(e) => {
                   setTerme(e.target.value)
                   setPage(1)
