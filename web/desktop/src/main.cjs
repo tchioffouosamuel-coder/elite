@@ -1,4 +1,11 @@
-const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  dialog,
+  session,
+  ipcMain,
+} = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
@@ -54,16 +61,20 @@ function resolvePhpArgsCommuns() {
   if (!fs.existsSync(ini)) return [];
 
   const args = [
-    "-c", ini,
-    "-d", `extension_dir=${path.join(bundle, "ext")}`,
+    "-c",
+    ini,
+    "-d",
+    `extension_dir=${path.join(bundle, "ext")}`,
     // Sans limite : c'est un serveur local de confiance, pas un hôte web
     // partagé. La limite par défaut (30s) coupait en plein milieu la toute
     // première synchronisation d'un compte accédant à plusieurs écoles
     // (chacune tirée intégralement l'une après l'autre dans la même requête
     // HTTP de provisioning) — observé en conditions réelles : deuxième école
     // interrompue à la moitié, troisième jamais atteinte.
-    "-d", "max_execution_time=0",
-    "-d", "max_input_time=-1",
+    "-d",
+    "max_execution_time=0",
+    "-d",
+    "max_input_time=-1",
   ];
 
   // Sans bundle de certificats explicite, `curl`/`openssl` sous Windows ne
@@ -178,7 +189,9 @@ function demarrerServeurPhp() {
   } catch (erreur) {
     // Non bloquant : mieux vaut démarrer avec des images cassées qu'un
     // écran d'erreur au tout premier lancement pour un souci de stockage.
-    console.error(`[storage] jonction public/storage impossible : ${erreur.message}`);
+    console.error(
+      `[storage] jonction public/storage impossible : ${erreur.message}`,
+    );
   }
 
   // Toujours migrer, jamais seulement « si le fichier vient d'être créé » :
@@ -189,7 +202,10 @@ function demarrerServeurPhp() {
   // sans être migré pour autant, et la vérification passerait à côté.
   // Synchrone à dessein — la fenêtre n'a rien d'utile à montrer avant que
   // le schéma soit à jour.
-  execFileSync(phpBinary, [...phpArgs, "artisan", "migrate", "--force"], { cwd: apiDir, env });
+  execFileSync(phpBinary, [...phpArgs, "artisan", "migrate", "--force"], {
+    cwd: apiDir,
+    env,
+  });
 
   phpProcess = spawn(
     phpBinary,
@@ -204,7 +220,8 @@ function demarrerServeurPhp() {
   });
 
   phpProcess.on("exit", (code) => {
-    if (code !== null && code !== 0) console.error(`[php] serveur arrêté (code ${code})`);
+    if (code !== null && code !== 0)
+      console.error(`[php] serveur arrêté (code ${code})`);
   });
 }
 
@@ -221,11 +238,16 @@ function executerArtisan(commande) {
   const { env } = envInstanceLocale();
 
   return new Promise((resolve) => {
-    const proc = spawn(phpBinary, [...phpArgs, "artisan", commande], { cwd: apiDir, env, stdio: "pipe" });
+    const proc = spawn(phpBinary, [...phpArgs, "artisan", commande], {
+      cwd: apiDir,
+      env,
+      stdio: "pipe",
+    });
 
     proc.stderr.on("data", (chunk) => console.error(`[${commande}] ${chunk}`));
     proc.on("exit", (code) => {
-      if (code !== 0) console.error(`[${commande}] terminé avec le code ${code}`);
+      if (code !== 0)
+        console.error(`[${commande}] terminé avec le code ${code}`);
       resolve();
     });
     proc.on("error", (erreur) => {
@@ -252,29 +274,82 @@ function executerArtisan(commande) {
  * soit connecté.
  */
 async function lancerSyncPeriodique() {
-  const executer = async () => {
-    if (syncEnCours) return;
-    syncEnCours = true;
-
-    try {
-      // Toujours dans cet ordre : un push après un pull rejoue sur une base
-      // déjà à jour, l'inverse risquerait de pousser une écriture locale
-      // qu'un pull imminent aurait de toute façon dû arbitrer en premier
-      // (le plus récent gagne, cf. `SyncPull::appliquerLigne()`).
-      await executerArtisan("sync:pull");
-      await executerArtisan("sync:push");
-    } finally {
-      syncEnCours = false;
-    }
-  };
-
-  await executer();
-  intervalleSyncId = setInterval(executer, INTERVALLE_SYNC_MS);
+  await synchroniserMaintenant();
+  intervalleSyncId = setInterval(synchroniserMaintenant, INTERVALLE_SYNC_MS);
 }
 
 function arreterSyncPeriodique() {
   if (intervalleSyncId) clearInterval(intervalleSyncId);
   intervalleSyncId = null;
+}
+
+async function synchroniserMaintenant() {
+  if (syncEnCours) return false;
+  syncEnCours = true;
+
+  try {
+    await executerArtisan("sync:pull");
+    await executerArtisan("sync:push");
+    return true;
+  } finally {
+    syncEnCours = false;
+  }
+}
+
+function creerMenuNatif() {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: "Elites School",
+      submenu: [
+        { role: "about", label: "À propos d'Elites School" },
+        { type: "separator" },
+        { role: "quit", label: "Quitter" },
+      ],
+    },
+    {
+      label: "Actions",
+      submenu: [
+        {
+          label: "Synchroniser maintenant",
+          click: async () => {
+            const lancee = await synchroniserMaintenant();
+            if (lancee) {
+              dialog.showMessageBox({
+                type: "info",
+                title: "Synchronisation",
+                message: "La synchronisation est terminée.",
+              });
+            }
+          },
+        },
+        {
+          label: "Rechercher des mises à jour",
+          click: async () => {
+            if (!app.isPackaged) {
+              dialog.showMessageBox({
+                type: "info",
+                title: "Mise à jour",
+                message:
+                  "La recherche de mises à jour est disponible dans la version installée.",
+              });
+              return;
+            }
+
+            try {
+              await autoUpdater.checkForUpdates();
+            } catch (erreur) {
+              dialog.showErrorBox(
+                "Mise à jour",
+                `La vérification a échoué.\n\n${erreur.message}`,
+              );
+            }
+          },
+        },
+      ],
+    },
+  ]);
+
+  Menu.setApplicationMenu(menu);
 }
 
 /**
@@ -384,11 +459,17 @@ function configurerAutoUpdate() {
   });
 
   autoUpdater.on("download-progress", (progres) => {
-    envoyerStatutMiseAJour({ etat: "telechargement", pourcentage: Math.round(progres.percent) });
+    envoyerStatutMiseAJour({
+      etat: "telechargement",
+      pourcentage: Math.round(progres.percent),
+    });
   });
 
   autoUpdater.on("error", (erreur) => {
-    console.error("[update] échec de la vérification/du téléchargement", erreur);
+    console.error(
+      "[update] échec de la vérification/du téléchargement",
+      erreur,
+    );
     envoyerStatutMiseAJour({ etat: "erreur", message: erreur.message });
   });
 
@@ -400,23 +481,26 @@ function configurerAutoUpdate() {
   autoUpdater.on("update-downloaded", (info) => {
     envoyerStatutMiseAJour({ etat: "telechargee", version: info.version });
 
-    dialog.showMessageBox({
-      type: "info",
-      title: "Mise à jour disponible",
-      message: `Une nouvelle version d'Elites School (${info.version}) a été téléchargée.`,
-      detail: "Elle sera installée au prochain redémarrage de l'application.",
-      buttons: ["Redémarrer maintenant", "Plus tard"],
-      defaultId: 0,
-      cancelId: 1,
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
-    });
+    dialog
+      .showMessageBox({
+        type: "info",
+        title: "Mise à jour disponible",
+        message: `Une nouvelle version d'Elites School (${info.version}) a été téléchargée.`,
+        detail: "Elle sera installée au prochain redémarrage de l'application.",
+        buttons: ["Redémarrer maintenant", "Plus tard"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
   });
 
-  const verifier = () => autoUpdater.checkForUpdates().catch((erreur) => {
-    console.error("[update] vérification impossible", erreur);
-    envoyerStatutMiseAJour({ etat: "erreur", message: erreur.message });
-  });
+  const verifier = () =>
+    autoUpdater.checkForUpdates().catch((erreur) => {
+      console.error("[update] vérification impossible", erreur);
+      envoyerStatutMiseAJour({ etat: "erreur", message: erreur.message });
+    });
 
   verifier();
   // Poste desktop d'école : l'appli reste souvent ouverte toute la journée
@@ -475,15 +559,16 @@ app.whenReady().then(async () => {
     // usage normal) sans aucun indice sur ce qui a échoué.
     dialog.showErrorBox(
       "Elites School — démarrage impossible",
-      "Le serveur local n'a pas pu démarrer.\n\n"
-        + "Cause fréquente : un antivirus qui analyse encore les fichiers de l'application "
-        + "lors de sa toute première exécution. Fermez cette fenêtre et relancez Elites School — "
-        + "les lancements suivants sont nettement plus rapides.\n\n"
-        + `Détail technique : ${erreur.message}`,
+      "Le serveur local n'a pas pu démarrer.\n\n" +
+        "Cause fréquente : un antivirus qui analyse encore les fichiers de l'application " +
+        "lors de sa toute première exécution. Fermez cette fenêtre et relancez Elites School — " +
+        "les lancements suivants sont nettement plus rapides.\n\n" +
+        `Détail technique : ${erreur.message}`,
     );
   }
 
   createWindow();
+  creerMenuNatif();
   configurerAutoUpdate();
   // Ni attendu ni dans le bloc try/catch ci-dessus : un aléa réseau au tout
   // premier cycle ne doit pas empêcher la fenêtre de s'ouvrir, et chaque

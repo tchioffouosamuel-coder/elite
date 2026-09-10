@@ -29,14 +29,14 @@ class ScolariteController extends Controller
     /** Situation de recouvrement, et liste des insolvables via `?statut=impaye|partiel`. */
     public function situation(Request $request): JsonResponse
     {
-        $situation = $this->service->situation(
-            app('tenant.school_id'),
-            $this->annee($request)->id,
-            [
-                'classe_id' => $request->integer('classe_id') ?: null,
-                'statut' => $request->string('statut')->toString() ?: null,
-            ],
-        );
+        $filtres = [
+            'classe_id' => $request->integer('classe_id') ?: null,
+            'statut' => $request->string('statut')->toString() ?: null,
+        ];
+        $schoolIds = Tenant::schoolIds();
+        $situation = count($schoolIds) > 1
+            ? $this->service->situationAgregee($schoolIds, $filtres)
+            : $this->service->situation($schoolIds[0], $this->annee($request, $schoolIds[0])->id, $filtres);
 
         return ApiResponse::success([
             'dossiers' => DossierScolariteResource::collection($situation['dossiers']),
@@ -60,7 +60,7 @@ class ScolariteController extends Controller
 
         $dossier = $this->service->dossier($eleve, $this->annee($request, $eleve->school_id));
         $dossier->load('eleve.classe');
-        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn ($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
+        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
 
         return ApiResponse::success(new DossierScolariteResource($dossier, avecRubriques: true));
     }
@@ -111,14 +111,14 @@ class ScolariteController extends Controller
 
         $reste = $dossier->fresh()?->reste_a_payer ?? 0;
         $message = "Paiement de {$this->francs($versement->montant)} reçu pour {$dossier->eleve->nom_complet} (reçu {$versement->numero_recu}). "
-            .($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
+            . ($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
 
         $this->sms->envoyer($tuteur->telephone, $message);
     }
 
     private function francs(int $montant): string
     {
-        return number_format($montant, 0, ',', ' ').' F';
+        return number_format($montant, 0, ',', ' ') . ' F';
     }
 
     public function annuler(Request $request, int $versementId): JsonResponse
@@ -143,7 +143,7 @@ class ScolariteController extends Controller
 
         return response((new RecuVersementGenerator)->build($versement), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-'.Str::slug($versement->numero_recu).'.pdf"',
+            'Content-Disposition' => 'inline; filename="recu-' . Str::slug($versement->numero_recu) . '.pdf"',
         ]);
     }
 

@@ -439,6 +439,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
                 Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');
                 Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete');
+                Route::post('eleves/normaliser-matricules', [EleveController::class, 'normaliserMatricules'])->name('eleves.normaliser-matricules');
                 Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe');
                 Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');

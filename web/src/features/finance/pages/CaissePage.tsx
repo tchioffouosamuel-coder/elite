@@ -315,6 +315,7 @@ export function CaissePage() {
           <DataTable
             colonnes={colonnes}
             lignes={data.dossiers}
+            parPage={0}
             cleLigne={(d) => d.eleve.id}
             placeholderRecherche={t('finance.search_caisse')}
             messageVide={t('finance.empty_caisse')}

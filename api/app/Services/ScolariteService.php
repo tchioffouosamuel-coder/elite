@@ -742,6 +742,44 @@ class ScolariteService extends BaseService
     }
 
     /**
+     * Situation agrégée pour le mode « toutes les écoles » : chaque école
+     * garde son année active, puis les lignes et les totaux sont réunis.
+     *
+     * @param list<int> $schoolIds
+     * @param array{classe_id?: ?int, statut?: ?string} $filtres
+     * @return array{dossiers: Collection, totaux: array<string, int|float>}
+     */
+    public function situationAgregee(array $schoolIds, array $filtres = []): array
+    {
+        $dossiers = collect();
+
+        foreach ($schoolIds as $schoolId) {
+            $annee = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+            if ($annee === null) {
+                continue;
+            }
+
+            $dossiers = $dossiers->merge($this->situation($schoolId, $annee->id, $filtres)['dossiers']);
+        }
+
+        $attendu = (int) $dossiers->sum('total_du');
+        $recouvre = (int) $dossiers->sum('total_paye');
+
+        return [
+            'dossiers' => $dossiers->values(),
+            'totaux' => [
+                'effectif' => $dossiers->count(),
+                'attendu' => $attendu,
+                'recouvre' => $recouvre,
+                'reste' => (int) $dossiers->sum('reste_a_payer'),
+                'avances' => (int) $dossiers->sum('avance'),
+                'taux_recouvrement' => $attendu > 0 ? round($recouvre * 100 / $attendu, 2) : 0.0,
+                'insolvables' => $dossiers->whereIn('statut_paiement', ['impaye', 'partiel'])->count(),
+            ],
+        ];
+    }
+
+    /**
      * Liste des insolvables, un ou plusieurs établissements à la fois — c'est
      * ce qui change par rapport à `situation()` (une seule école, un statut
      * binaire) : ici le seuil est un pourcentage de la scolarité, propre à

@@ -19,8 +19,9 @@ import {
   Building2,
   Repeat,
   BarChart3,
+  ListOrdered,
 } from 'lucide-react'
-import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, changerClasseEleve, type Eleve } from '@/features/eleves/api'
+import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, type Eleve } from '@/features/eleves/api'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -250,6 +251,24 @@ export function ElevesListPage() {
     }
   }
 
+  const handleNormaliserMatricules = async () => {
+    const confirme = await confirmer({
+      titre: 'Normaliser les matricules ?',
+      message: 'Les élèves seront renumérotés par ordre alphabétique dans chaque école au format année + numéro d’ordre (ex. 26001).',
+      action: 'Normaliser',
+    })
+    if (!confirme) return
+
+    try {
+      const resultat = await normaliserMatricules()
+      invalidate()
+      setSelectedIds(new Set())
+      succes(`${resultat.normalises} matricule(s) normalisé(s).`)
+    } catch (error) {
+      erreur((error as ApiError).message)
+    }
+  }
+
   const handleDeleteSingle = async (eleve: Eleve) => {
     const confirme = await confirmer({
       titre: t('eleves.delete_title', { nom: eleve.nom_complet }),
@@ -473,6 +492,12 @@ export function ElevesListPage() {
             <Button variant="secondary" onClick={() => navigate('/eleves/sans-classe')}>
               Élèves sans classe
             </Button>
+            {can('eleves.manage') && (
+              <Button variant="secondary" onClick={handleNormaliserMatricules}>
+                <ListOrdered className="h-4 w-4" />
+                Normaliser les matricules
+              </Button>
+            )}
             {can('eleves.manage') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>
                 <Upload className="h-4 w-4" />

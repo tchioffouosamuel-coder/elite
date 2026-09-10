@@ -201,6 +201,13 @@ export async function batchDeleteEleves(
   return data.data;
 }
 
+export async function normaliserMatricules(): Promise<{ normalises: number }> {
+  const { data } = await http.post<ApiResponse<{ normalises: number }>>(
+    "/eleves/normaliser-matricules",
+  );
+  return data.data;
+}
+
 /** Change la classe d'un élève au sein de la même école. */
 export async function changerClasseEleve(
   id: number,

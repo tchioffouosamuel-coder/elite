@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Closure;
 use Maatwebsite\Excel\Facades\Excel;
@@ -60,6 +61,39 @@ class EleveService extends BaseService
 
             return $eleve->load('tuteurs.telephones');
         });
+    }
+
+    /** @param int|array<int> $schoolIds */
+    public function normaliserMatricules(int|array $schoolIds): int
+    {
+        $total = 0;
+
+        foreach ((array) $schoolIds as $schoolId) {
+            $total += $this->transaction(function () use ($schoolId): int {
+                $eleves = Eleve::where('school_id', $schoolId)
+                    ->get(['id', 'nom_complet'])
+                    ->sortBy(fn (Eleve $eleve) => [
+                        Str::ascii(mb_strtolower(trim($eleve->nom_complet))),
+                        $eleve->id,
+                    ])
+                    ->values();
+
+                foreach ($eleves as $eleve) {
+                    $eleve->updateQuietly(['matricule' => "__normalisation_{$schoolId}_{$eleve->id}"]);
+                }
+
+                $annee = now()->format('y');
+                foreach ($eleves as $index => $eleve) {
+                    $eleve->updateQuietly([
+                        'matricule' => $annee . str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                    ]);
+                }
+
+                return $eleves->count();
+            });
+        }
+
+        return $total;
     }
 
     public function update(Eleve $eleve, array $attributes): Eleve

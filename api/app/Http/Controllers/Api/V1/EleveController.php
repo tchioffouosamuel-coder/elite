@@ -323,6 +323,13 @@ class EleveController extends Controller
         return ApiResponse::success(['deleted' => $deleted], "{$deleted} élève(s) supprimé(s).");
     }
 
+    public function normaliserMatricules(): JsonResponse
+    {
+        $total = $this->service->normaliserMatricules(Tenant::schoolIds());
+
+        return ApiResponse::success(['normalises' => $total], "{$total} matricule(s) normalisé(s).");
+    }
+
     /** Bascule un lot d'élèves vers une autre classe de la même école. */
     public function batchTransfertClasse(Request $request): JsonResponse
     {

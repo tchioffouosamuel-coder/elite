@@ -66,27 +66,17 @@ class Eleve extends Model
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
-    /**
-     * Format YYCDXXX : année d'inscription sur 2 chiffres, cycle de
-     * l'établissement (MAT/PRIM/SEC), puis un compteur séquentiel sur 3
-     * chiffres — repris du dernier matricule attribué à ce cycle cette
-     * année-là plutôt que d'un COUNT, pour ne pas réutiliser un numéro après
-     * suppression d'un élève.
-     */
+    /** Format AA### : année sur deux chiffres puis numéro d'ordre dans l'école. */
     public static function genererMatricule(int $schoolId): string
     {
-        $codes = ['maternelle' => 'MAT', 'primaire' => 'PRIM', 'secondaire' => 'SEC'];
-        $code = $codes[School::find($schoolId)?->type] ?? 'SEC';
-        $prefixe = now()->format('y') . $code;
+        $annee = now()->format('y');
+        $plusGrandNumero = static::where('school_id', $schoolId)
+            ->where('matricule', 'like', $annee . '%')
+            ->pluck('matricule')
+            ->map(fn (?string $matricule) => preg_match('/^\d{2}(\d+)$/', (string) $matricule, $matches) ? (int) $matches[1] : 0)
+            ->max();
 
-        $dernier = static::where('school_id', $schoolId)
-            ->where('matricule', 'like', $prefixe . '%')
-            ->orderByDesc('matricule')
-            ->value('matricule');
-
-        $prochain = $dernier ? ((int) substr($dernier, strlen($prefixe)) + 1) : 1;
-
-        return $prefixe . str_pad((string) $prochain, 3, '0', STR_PAD_LEFT);
+        return $annee . str_pad((string) ($plusGrandNumero + 1), 3, '0', STR_PAD_LEFT);
     }
 
     public function school(): BelongsTo
