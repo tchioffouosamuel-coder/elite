@@ -454,6 +454,7 @@
     "matricule_national_nom_requis": "Saisissez le nom complet de l'élève pour lancer la recherche.",
     "matricule_national_aucun_resultat": "Aucun résultat trouvé pour ce nom.",
     "matricule_national_erreur": "Impossible de rechercher le matricule national pour le moment.",
+    "matricule_national_enregistre": "Matricule national enregistré.",
     "date_naissance": "Date de naissance",
     "tuteur": "Tuteur / Parent",
     "tuteur_nom": "Nom du tuteur",

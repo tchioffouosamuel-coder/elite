@@ -53,6 +53,7 @@ export interface Eleve {
   redoublant: boolean;
   statut: "actif" | "parti" | "exclu";
   non_reinscrit_annee_active: boolean;
+  preinscription_active?: boolean;
   school_id: number | null;
   school: {
     id: number;

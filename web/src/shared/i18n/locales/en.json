@@ -454,6 +454,7 @@
     "matricule_national_nom_requis": "Enter the student's full name to search.",
     "matricule_national_aucun_resultat": "No results found for this name.",
     "matricule_national_erreur": "Unable to search for the national student ID right now.",
+    "matricule_national_enregistre": "National student ID saved.",
     "date_naissance": "Date of birth",
     "tuteur": "Guardian",
     "tuteur_nom": "Guardian name",

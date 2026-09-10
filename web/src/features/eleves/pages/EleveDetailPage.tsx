@@ -23,9 +23,12 @@ import {
   Trash2,
   IdCard,
   BookOpen,
+  Search,
 } from 'lucide-react'
 import {
   fetchEleve,
+  rechercherMatriculeNational,
+  updateEleve,
   creerCompteParent,
   creerCompteEleve,
   archiveEleve,
@@ -34,6 +37,7 @@ import {
   uploadElevePhoto,
   fetchParcoursEleve,
   type ParcoursAnnee,
+  type MatriculeNationalResult,
 } from '@/features/eleves/api'
 import { identifiantsOuverts, erreur, succes, confirmer } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -55,6 +59,8 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { EntityHeader, Avatar } from '@/shared/ui/EntityHeader'
 import type { ActionGroup } from '@/shared/ui/ActionsMenu'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Modal } from '@/shared/ui/Modal'
+import { Input } from '@/shared/ui/Field'
 
 function Champ({ label, valeur }: { label: string; valeur: string | null | undefined }) {
   return (
@@ -92,6 +98,11 @@ export function EleveDetailPage() {
   const [transfertClasse, setTransfertClasse] = useState(false)
   const [transfertEcole, setTransfertEcole] = useState(false)
   const [sanctionOuverte, setSanctionOuverte] = useState(false)
+  const [rechercheMatriculeOuverte, setRechercheMatriculeOuverte] = useState(false)
+  const [rechercheMatricule, setRechercheMatricule] = useState('')
+  const [resultatsMatricule, setResultatsMatricule] = useState<MatriculeNationalResult[]>([])
+  const [erreurMatricule, setErreurMatricule] = useState<string | null>(null)
+  const [rechercheMatriculeEnCours, setRechercheMatriculeEnCours] = useState(false)
   const [photoEnCours, setPhotoEnCours] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -175,6 +186,50 @@ export function EleveDetailPage() {
     navigate(`/infirmerie/nouvelle?eleve_id=${eleveId}&retour=${encodeURIComponent(retourVers('sante'))}`)
   const souscrireBus = () => navigate(`/bus/souscription/${eleveId}`, { state: { retour: retourVers('transport') } })
 
+  const ouvrirRechercheMatricule = () => {
+    setRechercheMatricule(eleve.nom_complet)
+    setResultatsMatricule([])
+    setErreurMatricule(null)
+    setRechercheMatriculeOuverte(true)
+  }
+
+  const rechercherMatricule = async () => {
+    const nom = rechercheMatricule.trim()
+    if (!nom) {
+      setErreurMatricule(t('eleves.matricule_national_nom_requis'))
+      return
+    }
+
+    setErreurMatricule(null)
+    setRechercheMatriculeEnCours(true)
+    try {
+      const resultats = await rechercherMatriculeNational(nom)
+      setResultatsMatricule(resultats)
+      if (resultats.length === 0) setErreurMatricule(t('eleves.matricule_national_aucun_resultat'))
+    } catch (err) {
+      setResultatsMatricule([])
+      setErreurMatricule((err as ApiError).message || t('eleves.matricule_national_erreur'))
+    } finally {
+      setRechercheMatriculeEnCours(false)
+    }
+  }
+
+  const appliquerMatricule = async (resultat: MatriculeNationalResult) => {
+    if (!resultat.matricule_national) return
+    try {
+      await updateEleve(eleve.id, {
+        nom_complet: eleve.nom_complet,
+        matricule_national: resultat.matricule_national,
+        sexe: eleve.sexe,
+      })
+      setRechercheMatriculeOuverte(false)
+      rafraichir()
+      succes(t('eleves.matricule_national_enregistre'))
+    } catch (err) {
+      setErreurMatricule((err as ApiError).message)
+    }
+  }
+
   const archiverOuReactiver = async () => {
     if (eleve.statut === 'actif') {
       const confirme = await confirmer({
@@ -243,6 +298,12 @@ export function EleveDetailPage() {
           icon: KeyRound,
           onClick: ouvrirAccesEleve,
           disabled: ouvertureCompteEleveEnCours,
+        },
+        secondaire &&
+        can('eleves.view') && {
+          label: t('eleves.matricule_national_rechercher'),
+          icon: Search,
+          onClick: ouvrirRechercheMatricule,
         },
       ],
     },
@@ -355,6 +416,55 @@ export function EleveDetailPage() {
         className="hidden"
         onChange={(e) => changerPhoto(e.target.files?.[0])}
       />
+
+      {rechercheMatriculeOuverte && (
+        <Modal title={t('eleves.matricule_national_rechercher')} onClose={() => setRechercheMatriculeOuverte(false)}>
+          <div className="space-y-4">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  label={t('eleves.nom_complet')}
+                  icon={Search}
+                  value={rechercheMatricule}
+                  onChange={(event) => setRechercheMatricule(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void rechercherMatricule()
+                  }}
+                />
+              </div>
+              <Button type="button" onClick={() => void rechercherMatricule()} disabled={rechercheMatriculeEnCours}>
+                {rechercheMatriculeEnCours ? t('common.loading') : t('common.search')}
+              </Button>
+            </div>
+
+            {erreurMatricule && <p className="text-xs font-medium text-red-500">{erreurMatricule}</p>}
+
+            {resultatsMatricule.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-500">{t('eleves.matricule_national_resultats')}</p>
+                {resultatsMatricule.map((resultat, index) => (
+                  <button
+                    type="button"
+                    key={`${resultat.matricule_national ?? 'sans-matricule'}-${index}`}
+                    onClick={() => void appliquerMatricule(resultat)}
+                    className="flex w-full items-start justify-between gap-3 rounded-lg border border-navy-200 bg-white px-3 py-2 text-left hover:bg-cream-100"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium text-navy-900">{resultat.fullname || resultat.etablissement || t('eleves.matricule_national_resultat')}</span>
+                      <span className="mt-1 block text-xs text-navy-500">
+                        {[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}
+                      </span>
+                    </span>
+                    <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                      {resultat.matricule_national || '—'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
 
       <Tabs tabs={onglets} active={onglet} onChange={changerOnglet} />
 

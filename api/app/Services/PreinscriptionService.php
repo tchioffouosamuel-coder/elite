@@ -302,6 +302,17 @@ class PreinscriptionService extends BaseService
             ->exists();
     }
 
+    /** Une préinscription en attente ou validée existe-t-elle pour l'année active ? */
+    public function estPreinscritAnneeActive(Eleve $eleve): bool
+    {
+        $annee = $this->anneeActive($eleve->school_id);
+
+        return $annee !== null && Preinscription::where('eleve_id', $eleve->id)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->where('annee_scolaire_id', $annee->id)
+            ->exists();
+    }
+
     /** @param int|array<int> $schoolId */
     public function listeInscritsAnneeActive(int|array $schoolId): Collection
     {

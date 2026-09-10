@@ -31,6 +31,7 @@ class EleveResource extends JsonResource
             'redoublant' => (bool) $this->redoublant,
             'statut' => $this->statut,
             'non_reinscrit_annee_active' => (bool) ($this->non_reinscrit_annee_active ?? false),
+            'preinscription_active' => (bool) ($this->preinscription_active ?? false),
             'school_id' => $this->school_id,
             'school' => $this->whenLoaded('school', fn() => $this->school ? [
                 'id' => $this->school->id,

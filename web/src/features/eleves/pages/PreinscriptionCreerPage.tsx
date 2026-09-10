@@ -167,6 +167,11 @@ export function PreinscriptionCreerPage() {
   const busTrajet = trajets?.find((trajet) => trajet.id === busTrajetId)
 
   const choisirEleve = (choix: Eleve) => {
+    if (choix.preinscription_active) {
+      navigate(`/caisse/encaisser/${choix.id}`)
+      return
+    }
+
     setModeSaisie('recherche')
     setEleve(choix)
     setChamps(Object.fromEntries(CHAMPS_ELEVE.map(([cle]) => [cle, String((choix as unknown as Record<string, unknown>)[cle] ?? '')])))

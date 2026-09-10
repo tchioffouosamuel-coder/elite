@@ -71,6 +71,10 @@ class EleveController extends Controller
         $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q']);
 
         $this->marquerNonReinscrits($eleves);
+        $eleves->each(fn(Eleve $eleve) => $eleve->setAttribute(
+            'preinscription_active',
+            $this->preinscriptions->estPreinscritAnneeActive($eleve),
+        ));
 
         return ApiResponse::success(EleveResource::collection($eleves));
     }
