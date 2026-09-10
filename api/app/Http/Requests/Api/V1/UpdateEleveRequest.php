@@ -19,6 +19,7 @@ class UpdateEleveRequest extends FormRequest
         return [
             'classe_id' => ['nullable', $this->scopedExists('classes')],
             'matricule' => ['nullable', 'string', 'max:50'],
+            'matricule_national' => ['nullable', 'string', 'max:50', 'unique:eleves,matricule_national,' . $this->route('id')],
             'nom_complet' => ['sometimes', 'required', 'string', 'max:200'],
             'sexe' => ['sometimes', 'required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],

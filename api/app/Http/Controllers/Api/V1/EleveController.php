@@ -100,6 +100,10 @@ class EleveController extends Controller
             ? Classe::forSchool(Tenant::schoolIds())->findOrFail($data['classe_id'])->school_id
             : Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
 
+        if (! empty($data['matricule_national']) && ! School::findOrFail($schoolId)->estSecondaire()) {
+            return ApiResponse::error('Le matricule national est réservé aux élèves du secondaire.', 422);
+        }
+
         $eleve = $this->service->create($schoolId, $data);
 
         ActivityLog::enregistrer($request->user(), 'eleve.cree', "Inscription de {$eleve->nom_complet}.", $eleve);
@@ -140,7 +144,13 @@ class EleveController extends Controller
     public function update(UpdateEleveRequest $request, int $id): JsonResponse
     {
         $eleve = $this->service->find(Tenant::schoolIds(), $id);
-        $eleve = $this->service->update($eleve, $request->validated());
+        $data = $request->validated();
+
+        if (array_key_exists('matricule_national', $data) && $data['matricule_national'] !== null && ! $eleve->school->estSecondaire()) {
+            return ApiResponse::error('Le matricule national est réservé aux élèves du secondaire.', 422);
+        }
+
+        $eleve = $this->service->update($eleve, $data);
 
         return ApiResponse::success(new EleveResource($eleve), 'Élève mis à jour.');
     }

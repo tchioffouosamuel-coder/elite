@@ -12,6 +12,7 @@ class EleveResource extends JsonResource
         return [
             'id' => $this->id,
             'matricule' => $this->matricule,
+            'matricule_national' => $this->matricule_national,
             'nom_complet' => $this->nom_complet,
             'sexe' => $this->sexe,
             'date_naissance' => $this->date_naissance?->format('Y-m-d'),

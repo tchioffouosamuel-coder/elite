@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
@@ -68,17 +68,29 @@ export function BusPaiementPage() {
 
   const premierMoisImpaye = situation?.situation_mensuelle.find((m) => m.reste > 0)
 
-  const { register, handleSubmit, control, watch, setValue } = useForm<FormValues>({
-    values: premierMoisImpaye
-      ? {
-        mois: [premierMoisImpaye.mois],
-        montant: premierMoisImpaye.reste,
-        remise: 0,
-        mode: 'especes',
-        date_versement: new Date().toISOString().slice(0, 10),
-      }
-      : undefined,
+  const formulaireInitialise = useRef(false)
+  const { register, handleSubmit, control, watch, setValue, reset } = useForm<FormValues>({
+    defaultValues: {
+      mois: [],
+      montant: 0,
+      remise: 0,
+      mode: 'especes',
+      date_versement: new Date().toISOString().slice(0, 10),
+    },
   })
+
+  useEffect(() => {
+    if (!premierMoisImpaye || formulaireInitialise.current) return
+
+    reset({
+      mois: [premierMoisImpaye.mois],
+      montant: premierMoisImpaye.reste,
+      remise: 0,
+      mode: 'especes',
+      date_versement: new Date().toISOString().slice(0, 10),
+    })
+    formulaireInitialise.current = true
+  }, [premierMoisImpaye, reset])
 
   const moisChoisis = watch('mois') ?? []
 

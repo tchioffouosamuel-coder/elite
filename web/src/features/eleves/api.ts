@@ -32,6 +32,7 @@ export interface TuteurSuggestion {
 export interface Eleve {
   id: number;
   matricule: string | null;
+  matricule_national: string | null;
   nom_complet: string;
   sexe: "M" | "F";
   date_naissance: string | null;

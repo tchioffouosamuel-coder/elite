@@ -164,7 +164,7 @@ class PreinscriptionAdminController extends Controller
         try {
             $p = $this->service->creerEtValiderParAdmin($eleve, $data, $request->user()->id);
         } catch (RuntimeException $e) {
-            return ApiResponse::error($e->getMessage(), 422);
+            return ApiResponse::error($e->getMessage(), 422, ['eleve_id' => [(string) $eleve->id]]);
         }
 
         return ApiResponse::created(

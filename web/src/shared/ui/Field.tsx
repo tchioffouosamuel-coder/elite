@@ -226,13 +226,13 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
  * interface personnalisée avec recherche. Le menu est porté dans <body> pour
  * échapper au `overflow-hidden` des modales.
  */
-export function Select({ label, error, className, id, children, ref, value, onChange, onBlur, disabled, ...props }: SelectProps) {
+export function Select({ label, error, className, id, children, ref, value, onChange, onBlur, disabled, multiple, ...props }: SelectProps) {
   const options = useMemo(() => extraireOptions(children), [children])
 
   const [ouvert, setOuvert] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [survol, setSurvol] = useState(0)
-  const [affichage, setAffichage] = useState('')
+  const [affichage, setAffichage] = useState<string | string[]>(multiple ? [] : '')
   const [position, setPosition] = useState<{ top: number; left: number; width: number; ouvreVersLeHaut: boolean } | null>(null)
 
   const selectRef = useRef<HTMLSelectElement>(null)
@@ -248,11 +248,16 @@ export function Select({ label, error, className, id, children, ref, value, onCh
   // <select> caché, dont react-hook-form définit lui-même la valeur initiale
   // (defaultValues) au montage, avant que cet effet ne s'exécute.
   useEffect(() => {
-    if (value === undefined) setAffichage(selectRef.current?.value ?? '')
-  }, [value])
+    if (value === undefined) {
+      setAffichage(multiple ? Array.from(selectRef.current?.selectedOptions ?? []).map((option) => option.value) : selectRef.current?.value ?? '')
+    }
+  }, [value, multiple])
 
-  const valeurCourante = value !== undefined ? String(value) : affichage
-  const optionCourante = options.find((o) => o.value === valeurCourante)
+  const valeursCourantes = multiple
+    ? (Array.isArray(value) ? value.map(String) : Array.isArray(affichage) ? affichage : [])
+    : [value !== undefined ? String(value) : typeof affichage === 'string' ? affichage : '']
+  const valeurCourante = valeursCourantes[0] ?? ''
+  const optionsCourantes = options.filter((o) => valeursCourantes.includes(o.value))
 
   const filtres = useMemo(() => {
     const q = recherche.trim().toLowerCase()
@@ -313,12 +318,22 @@ export function Select({ label, error, className, id, children, ref, value, onCh
       // Déclenche le vrai setter natif puis un événement 'change' réel :
       // c'est ainsi que React (et donc onChange fourni par register()) détecte
       // un changement de valeur programmatique sur un <select>.
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
-      setter?.call(noeud, option.value)
+      if (multiple) {
+        const selection = new Set(valeursCourantes)
+        if (selection.has(option.value)) selection.delete(option.value)
+        else selection.add(option.value)
+        Array.from(noeud.options).forEach((optionNoeud) => {
+          optionNoeud.selected = selection.has(optionNoeud.value)
+        })
+        setAffichage(Array.from(selection))
+      } else {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
+        setter?.call(noeud, option.value)
+        setAffichage(option.value)
+      }
       noeud.dispatchEvent(new Event('change', { bubbles: true }))
     }
-    setAffichage(option.value)
-    fermer(true)
+    if (!multiple) fermer(true)
   }
 
   const surClavierDeclencheur = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
@@ -378,8 +393,8 @@ export function Select({ label, error, className, id, children, ref, value, onCh
             className,
           )}
         >
-          <span className={clsx('truncate', !optionCourante?.label && 'text-navy-300')}>
-            {optionCourante?.label || '—'}
+          <span className={clsx('truncate', optionsCourantes.length === 0 && 'text-navy-300')}>
+            {multiple ? optionsCourantes.map((option) => option.label).join(', ') || '—' : optionsCourantes[0]?.label || '—'}
           </span>
           <ChevronDown className={clsx('h-4 w-4 flex-none text-navy-400 transition-transform', ouvert && 'rotate-180')} />
         </button>
@@ -419,7 +434,7 @@ export function Select({ label, error, className, id, children, ref, value, onCh
                     <li
                       key={option.value}
                       role="option"
-                      aria-selected={option.value === valeurCourante}
+                      aria-selected={valeursCourantes.includes(option.value)}
                       onMouseDown={(e) => e.preventDefault()}
                       onMouseEnter={() => setSurvol(i)}
                       onClick={() => choisir(option)}
@@ -427,11 +442,11 @@ export function Select({ label, error, className, id, children, ref, value, onCh
                         'flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm text-navy-700',
                         option.disabled && 'cursor-not-allowed text-navy-300',
                         !option.disabled && i === survol && 'bg-cream-100',
-                        option.value === valeurCourante && 'font-semibold text-navy-900',
+                        valeursCourantes.includes(option.value) && 'font-semibold text-navy-900',
                       )}
                     >
                       <span className="truncate">{option.label || '—'}</span>
-                      {option.value === valeurCourante && <Check className="h-3.5 w-3.5 flex-none text-gold-500" />}
+                      {valeursCourantes.includes(option.value) && <Check className="h-3.5 w-3.5 flex-none text-gold-500" />}
                     </li>
                   ))
                 )}

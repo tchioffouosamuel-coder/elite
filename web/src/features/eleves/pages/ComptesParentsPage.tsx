@@ -33,6 +33,7 @@ export function ComptesParentsPage() {
   const [rechercheEnfant, setRechercheEnfant] = useState('')
   const [rechercheEnfantDebounced, setRechercheEnfantDebounced] = useState('')
   const [enfantsSelectionnes, setEnfantsSelectionnes] = useState<Set<number>>(new Set())
+  const [enfantsSelectionnesDetails, setEnfantsSelectionnesDetails] = useState<Map<number, { id: number; nom_complet: string; matricule: string | null }>>(new Map())
   const [rattachementEnCours, setRattachementEnCours] = useState(false)
   const [lotEnCours, setLotEnCours] = useState(false)
   const [lotProgres, setLotProgres] = useState<{ traites: number; total: number } | null>(null)
@@ -158,6 +159,7 @@ export function ComptesParentsPage() {
     setRechercheEnfant('')
     setRechercheEnfantDebounced('')
     setEnfantsSelectionnes(new Set())
+    setEnfantsSelectionnesDetails(new Map())
   }
 
   const rattacherEnfants = async () => {
@@ -424,18 +426,72 @@ export function ComptesParentsPage() {
             placeholder="Nom ou matricule de l'enfant…"
             className="mb-4 w-full rounded-xl border border-navy-200 px-3 py-2.5 text-sm focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
           />
+          {enfantsSelectionnesDetails.size > 0 && (
+            <div className="mb-4 rounded-xl border border-purple-100 bg-purple-50/60 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-purple-900">
+                  Enfants sélectionnés ({enfantsSelectionnesDetails.size})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnfantsSelectionnes(new Set())
+                    setEnfantsSelectionnesDetails(new Map())
+                  }}
+                  className="text-xs font-semibold text-purple-700 hover:text-purple-900"
+                >
+                  Tout retirer
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Array.from(enfantsSelectionnesDetails.values()).map((eleve) => (
+                  <span key={eleve.id} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-navy-800 ring-1 ring-purple-100">
+                    <span className="max-w-[220px] truncate">{eleve.nom_complet}</span>
+                    <button
+                      type="button"
+                      title={`Retirer ${eleve.nom_complet}`}
+                      aria-label={`Retirer ${eleve.nom_complet}`}
+                      onClick={() => {
+                        setEnfantsSelectionnes((actuels) => {
+                          const suivants = new Set(actuels)
+                          suivants.delete(eleve.id)
+                          return suivants
+                        })
+                        setEnfantsSelectionnesDetails((actuels) => {
+                          const suivants = new Map(actuels)
+                          suivants.delete(eleve.id)
+                          return suivants
+                        })
+                      }}
+                      className="rounded-full p-0.5 text-navy-400 hover:bg-purple-100 hover:text-purple-800"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="max-h-72 overflow-y-auto rounded-xl border border-navy-100">
             {enfantsQuery.isFetching ? <div className="p-4"><Spinner /></div> : enfantsQuery.data?.items.length ? enfantsQuery.data.items.map((eleve) => (
               <label key={eleve.id} className="flex cursor-pointer items-center gap-3 border-b border-navy-50 px-3 py-3 last:border-0 hover:bg-cream-50">
                 <input
                   type="checkbox"
                   checked={enfantsSelectionnes.has(eleve.id)}
-                  onChange={() => setEnfantsSelectionnes((actuels) => {
-                    const suivants = new Set(actuels)
-                    if (suivants.has(eleve.id)) suivants.delete(eleve.id)
-                    else suivants.add(eleve.id)
-                    return suivants
-                  })}
+                  onChange={() => {
+                    setEnfantsSelectionnes((actuels) => {
+                      const suivants = new Set(actuels)
+                      if (suivants.has(eleve.id)) suivants.delete(eleve.id)
+                      else suivants.add(eleve.id)
+                      return suivants
+                    })
+                    setEnfantsSelectionnesDetails((actuels) => {
+                      const suivants = new Map(actuels)
+                      if (suivants.has(eleve.id)) suivants.delete(eleve.id)
+                      else suivants.set(eleve.id, { id: eleve.id, nom_complet: eleve.nom_complet, matricule: eleve.matricule })
+                      return suivants
+                    })
+                  }}
                   className="h-4 w-4 rounded border-navy-300"
                 />
                 <span className="min-w-0 text-sm text-navy-800">

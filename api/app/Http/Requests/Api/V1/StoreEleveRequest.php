@@ -19,6 +19,7 @@ class StoreEleveRequest extends FormRequest
         return [
             'classe_id' => ['nullable', $this->scopedExists('classes')],
             'matricule' => ['nullable', 'string', 'max:50'],
+            'matricule_national' => ['nullable', 'string', 'max:50', 'unique:eleves,matricule_national'],
             'nom_complet' => ['required', 'string', 'max:200'],
             'sexe' => ['required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],

@@ -18,6 +18,7 @@ class Eleve extends Model
         'user_id',
         'classe_id',
         'matricule',
+        'matricule_national',
         'nom_complet',
         'sexe',
         'date_naissance',
