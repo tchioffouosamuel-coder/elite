@@ -8,11 +8,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { StepForm } from '@/shared/ui/StepForm'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
+import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
-import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, type ElevePayload, type TuteurSuggestion } from '@/features/eleves/api'
+import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, rechercherMatriculeNational, type ElevePayload, type TuteurSuggestion, type MatriculeNationalResult } from '@/features/eleves/api'
 import { NB_TELEPHONES_MIN, telephonesParDefaut, completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 import {
@@ -278,6 +279,9 @@ export function EleveInscriptionPage() {
     const queryClient = useQueryClient()
     const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
     const { data: niveaux } = useQuery({ queryKey: ['niveaux'], queryFn: () => fetchNiveaux() })
+    const [matriculeNationalResultats, setMatriculeNationalResultats] = useState<MatriculeNationalResult[]>([])
+    const [matriculeNationalErreur, setMatriculeNationalErreur] = useState<string | null>(null)
+    const [matriculeNationalRechercheEnCours, setMatriculeNationalRechercheEnCours] = useState(false)
 
     // Récupérer l'élève si on est en édition
     const { data: elevesData, isLoading } = useQuery({
@@ -377,6 +381,38 @@ export function EleveInscriptionPage() {
     const can = useAuthStore((s) => s.can)
     const ecoleActive = useAuthStore((s) => s.activeSchool())
     const matriculeNationalDisponible = eleve?.school?.type === 'secondaire' || (!eleve && ecoleActive?.type === 'secondaire')
+
+    const rechercherMatriculeNationalActuel = async () => {
+        if (!matriculeNationalDisponible) return
+
+        const nom = (watch('nom_complet') ?? '').trim()
+        if (!nom) {
+            setMatriculeNationalErreur(t('eleves.matricule_national_nom_requis'))
+            return
+        }
+
+        setMatriculeNationalErreur(null)
+        setMatriculeNationalRechercheEnCours(true)
+        try {
+            const resultats = await rechercherMatriculeNational(nom)
+            setMatriculeNationalResultats(resultats)
+            if (resultats.length === 0) {
+                setMatriculeNationalErreur(t('eleves.matricule_national_aucun_resultat'))
+            }
+        } catch (err) {
+            setMatriculeNationalResultats([])
+            setMatriculeNationalErreur((err as ApiError).message || t('eleves.matricule_national_erreur'))
+        } finally {
+            setMatriculeNationalRechercheEnCours(false)
+        }
+    }
+
+    const appliquerMatriculeNational = (resultat: MatriculeNationalResult) => {
+        if (!resultat.matricule_national) return
+        setValue('matricule_national', resultat.matricule_national, { shouldDirty: true })
+        setMatriculeNationalResultats([])
+        setMatriculeNationalErreur(null)
+    }
 
     // Un tarif existe déjà pour la classe choisie : proposer l'encaissement
     // immédiat plutôt que de renvoyer l'utilisateur vers la caisse ensuite.
@@ -599,11 +635,61 @@ export function EleveInscriptionPage() {
                                         placeholder={t('eleves.inscription.nom_complet_placeholder')}
                                     />
                                     {matriculeNationalDisponible && (
-                                        <Input
-                                            label={t('eleves.matricule_national')}
-                                            placeholder={t('eleves.matricule_national_placeholder')}
-                                            {...register('matricule_national')}
-                                        />
+                                        <div className="space-y-2">
+                                            <div className="flex items-end gap-2">
+                                                <div className="flex-1">
+                                                    <Input
+                                                        label={t('eleves.matricule_national')}
+                                                        placeholder={t('eleves.matricule_national_placeholder')}
+                                                        {...register('matricule_national')}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="md"
+                                                    onClick={rechercherMatriculeNationalActuel}
+                                                    disabled={matriculeNationalRechercheEnCours}
+                                                    className="shrink-0"
+                                                >
+                                                    {matriculeNationalRechercheEnCours ? t('common.loading') : t('eleves.matricule_national_rechercher')}
+                                                </Button>
+                                            </div>
+
+                                            {matriculeNationalErreur && (
+                                                <p className="text-xs font-medium text-red-500">{matriculeNationalErreur}</p>
+                                            )}
+
+                                            {matriculeNationalResultats.length > 0 && (
+                                                <div className="rounded-xl border border-navy-200 bg-cream-50 p-3">
+                                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                                                        {t('eleves.matricule_national_resultats')}
+                                                    </p>
+                                                    <div className="space-y-2">
+                                                        {matriculeNationalResultats.map((resultat, index) => (
+                                                            <button
+                                                                type="button"
+                                                                key={`${resultat.matricule_national ?? 'sans-matricule'}-${index}`}
+                                                                onClick={() => appliquerMatriculeNational(resultat)}
+                                                                className="flex w-full items-start justify-between gap-3 rounded-lg border border-navy-200 bg-white px-3 py-2 text-left transition-colors hover:border-navy-300 hover:bg-cream-100"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <div className="font-medium text-navy-900">{resultat.fullname || resultat.etablissement || t('eleves.matricule_national_resultat')}</div>
+                                                                    <div className="mt-1 text-xs text-navy-500">
+                                                                        {resultat.classe && <span>{resultat.classe}</span>}
+                                                                        {resultat.date_naissance && <span className="ml-2">{resultat.date_naissance}</span>}
+                                                                        {resultat.sexe && <span className="ml-2">{resultat.sexe}</span>}
+                                                                    </div>
+                                                                </div>
+                                                                <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                                                                    {resultat.matricule_national || '—'}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select

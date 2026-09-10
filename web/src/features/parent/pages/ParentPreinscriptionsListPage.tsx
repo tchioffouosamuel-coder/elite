@@ -32,17 +32,16 @@ export function ParentPreinscriptionsListPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {data.map((p) => {
-            // Une demande déjà déposée ne se re-dépose pas : tant qu'elle est
-            // en attente, la seule action possible est de la corriger — le
-            // clic renvoie donc vers le même formulaire, en mode modification.
             const modifiable = p.statut === 'en_attente'
-            const cible = p.type === 'existant' && p.eleve?.id
-              ? `/parent/preinscription/existant/${p.eleve.id}`
-              : `/parent/preinscription/nouveau?id=${p.id}`
+            const cible = p.statut === 'validee' && p.eleve?.id
+              ? `/caisse/encaisser/${p.eleve.id}`
+              : p.type === 'existant' && p.eleve?.id
+                ? `/parent/preinscription/existant/${p.eleve.id}`
+                : `/parent/preinscription/nouveau?id=${p.id}`
 
             return (
-              <div key={p.id} onClick={() => modifiable && navigate(cible)} className={modifiable ? 'cursor-pointer' : undefined}>
-                <Card className={modifiable ? 'transition-shadow hover:shadow-lifted' : undefined}>
+              <div key={p.id} onClick={() => navigate(cible)} className="cursor-pointer">
+                <Card className="transition-shadow hover:shadow-lifted">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-display text-base font-bold text-navy-900">{p.eleve?.nom_complet || p.nom_propose}</p>

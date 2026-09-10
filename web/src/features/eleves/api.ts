@@ -131,6 +131,25 @@ export async function rechercheTuteurs(q: string): Promise<TuteurSuggestion[]> {
   return data.data;
 }
 
+export interface MatriculeNationalResult {
+  etablissement: string | null;
+  fullname: string | null;
+  classe: string | null;
+  date_naissance: string | null;
+  sexe: string | null;
+  matricule_national: string | null;
+}
+
+export async function rechercherMatriculeNational(
+  studentName: string,
+): Promise<MatriculeNationalResult[]> {
+  const { data } = await http.get<ApiResponse<MatriculeNationalResult[]>>(
+    "/matricule-national/recherche",
+    { params: { student_name: studentName.trim() } },
+  );
+  return data.data;
+}
+
 export async function fetchEleve(id: number): Promise<Eleve> {
   const { data } = await http.get<ApiResponse<Eleve>>(`/eleves/${id}`);
   return data.data;

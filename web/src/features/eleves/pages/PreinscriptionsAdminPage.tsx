@@ -338,34 +338,44 @@ export function PreinscriptionsAdminPage() {
             <input type="checkbox" checked={toutSelectionne} onChange={basculerTout} className="h-4 w-4 accent-navy-700" />
             Sélectionner les préinscriptions affichées
           </label>
-          {donneesFiltrees.map((p) => (
-            <div key={p.id} onClick={() => navigate(`/preinscriptions/${p.id}`)} className="cursor-pointer">
-              <Card className="transition-shadow hover:shadow-lifted">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selection.has(p.id)}
-                      onChange={() => basculerSelection(p.id)}
-                      onClick={(event) => event.stopPropagation()}
-                      disabled={p.statut !== 'en_attente'}
-                      aria-label={`Sélectionner ${p.eleve?.nom_complet || p.nom_propose || 'cette préinscription'}`}
-                      className="mt-1 h-4 w-4 shrink-0 accent-navy-700 disabled:opacity-40"
-                    />
-                    <div>
-                      <p className="font-display text-base font-bold text-navy-900">{p.eleve?.nom_complet || p.nom_propose}</p>
-                      <p className="mt-0.5 text-xs text-navy-400">
-                        {p.type === 'nouveau' ? 'Nouvelle inscription' : 'Révision de fiche'} · {p.tuteur?.nom_complet} (
-                        {p.tuteur?.telephone || p.tuteur?.email}) · {new Date(p.created_at).toLocaleDateString('fr-FR')}
-                      </p>
-                      {p.montant_verser ? <p className="mt-1 text-xs text-navy-500">Versement proposé : {francs(p.montant_verser)}</p> : null}
+          {donneesFiltrees.map((p) => {
+            const ouvrir = () => {
+              if (p.eleve?.id && p.statut === 'validee') {
+                navigate(`/caisse/encaisser/${p.eleve.id}`)
+                return
+              }
+              navigate(`/preinscriptions/${p.id}`)
+            }
+
+            return (
+              <div key={p.id} onClick={ouvrir} className="cursor-pointer">
+                <Card className="transition-shadow hover:shadow-lifted">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selection.has(p.id)}
+                        onChange={() => basculerSelection(p.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        disabled={p.statut !== 'en_attente'}
+                        aria-label={`Sélectionner ${p.eleve?.nom_complet || p.nom_propose || 'cette préinscription'}`}
+                        className="mt-1 h-4 w-4 shrink-0 accent-navy-700 disabled:opacity-40"
+                      />
+                      <div>
+                        <p className="font-display text-base font-bold text-navy-900">{p.eleve?.nom_complet || p.nom_propose}</p>
+                        <p className="mt-0.5 text-xs text-navy-400">
+                          {p.type === 'nouveau' ? 'Nouvelle inscription' : 'Révision de fiche'} · {p.tuteur?.nom_complet} (
+                          {p.tuteur?.telephone || p.tuteur?.email}) · {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                        </p>
+                        {p.montant_verser ? <p className="mt-1 text-xs text-navy-500">Versement proposé : {francs(p.montant_verser)}</p> : null}
+                      </div>
                     </div>
+                    <Badge tone={STATUT_TONE[p.statut]}>{STATUT_LABEL[p.statut]}</Badge>
                   </div>
-                  <Badge tone={STATUT_TONE[p.statut]}>{STATUT_LABEL[p.statut]}</Badge>
-                </div>
-              </Card>
-            </div>
-          ))}
+                </Card>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
