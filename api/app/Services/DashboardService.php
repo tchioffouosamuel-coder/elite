@@ -62,7 +62,26 @@ class DashboardService extends BaseService
         $anneeActive = AnneeScolaire::whereIn('school_id', (array) $schoolId)->where('is_active', true)->first();
         $classesQuery = Classe::forSchool($schoolId);
 
-        $totalEleves = Eleve::forSchool($schoolId)->where('statut', 'actif')->count();
+        // Les indicateurs d'effectifs portent uniquement sur les élèves ayant
+        // confirmé leur inscription pour l'année active.
+        $anciensTotal = $this->preinscriptions->anciensEleves($schoolId)->count();
+        $ancienesNonReinscrits = $this->preinscriptions->listeAnciensNonReinscrits($schoolId)->count();
+        $ancienesReinscrits = $anciensTotal - $ancienesNonReinscrits;
+        $nouveauxEleves = Preinscription::forSchool($schoolId)
+            ->where('type', 'nouveau')->where('statut', 'validee')
+            ->whereHas('anneeScolaire', fn($q) => $q->where('is_active', true))
+            ->pluck('eleve_id');
+        $elevesInscritsIds = $this->preinscriptions->listeAnciensReinscrits($schoolId)
+            ->pluck('id')
+            ->merge($nouveauxEleves)
+            ->filter()
+            ->unique()
+            ->values();
+        $elevesInscrits = Eleve::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->whereIn('id', $elevesInscritsIds);
+
+        $totalEleves = (clone $elevesInscrits)->count();
         $totalClasses = (clone $classesQuery)->count();
         $totalPersonnel = Personnel::forSchool($schoolId)->where('statut', 'actif')->count();
         $totalEnseignants = Personnel::forSchool($schoolId)->where('statut', 'actif')
@@ -71,14 +90,19 @@ class DashboardService extends BaseService
                 ->orWhereRaw('LOWER(label_en) = ?', ['teacher']))
             ->count();
 
-        $parGenre = Eleve::forSchool($schoolId)->where('statut', 'actif')
+        $parGenre = (clone $elevesInscrits)
             ->selectRaw('sexe, count(*) as total')->groupBy('sexe')->pluck('total', 'sexe');
         $filles = (int) ($parGenre['F'] ?? 0);
         $garcons = (int) ($parGenre['M'] ?? 0);
 
-        $topClasses = (clone $classesQuery)->withCount('eleves')
-            ->orderByDesc('eleves_count')->limit(5)->get(['id', 'nom'])
-            ->map(fn($c) => ['classe' => $c->nom, 'effectif' => $c->eleves_count]);
+        $effectifsParClasse = (clone $elevesInscrits)
+            ->selectRaw('classe_id, count(*) as total')
+            ->groupBy('classe_id')
+            ->pluck('total', 'classe_id');
+        $topClasses = (clone $classesQuery)->whereIn('id', $effectifsParClasse->keys())
+            ->get(['id', 'nom'])
+            ->map(fn($c) => ['classe' => $c->nom, 'effectif' => (int) $effectifsParClasse[$c->id]])
+            ->sortByDesc('effectif')->take(5)->values();
 
         // Journal réel des connexions et actions marquantes (qui a fait quoi),
         // pas une reconstruction a posteriori à partir des dates de création —
@@ -86,17 +110,6 @@ class DashboardService extends BaseService
         $activiteRecente = ActivityLog::forSchool($schoolId)
             ->latest('created_at')->limit(6)->get()
             ->map(fn(ActivityLog $log) => $this->formaterLogActivite($log));
-
-        // Confirmation de présence pour l'année en cours : combien d'anciens
-        // élèves se sont déjà réinscrits, et combien de nouveaux ont rejoint —
-        // cf. PreinscriptionService pour la définition exacte d'« ancien ».
-        $anciensTotal = $this->preinscriptions->anciensEleves($schoolId)->count();
-        $ancienesNonReinscrits = $this->preinscriptions->listeAnciensNonReinscrits($schoolId)->count();
-        $ancienesReinscrits = $anciensTotal - $ancienesNonReinscrits;
-        $nouveauxEleves = Preinscription::forSchool($schoolId)
-            ->where('type', 'nouveau')->where('statut', 'validee')
-            ->whereHas('anneeScolaire', fn($q) => $q->where('is_active', true))
-            ->count();
 
         return [
             'scope' => 'ecole',
