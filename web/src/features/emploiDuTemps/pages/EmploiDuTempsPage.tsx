@@ -17,6 +17,7 @@ import {
   createCreneau,
   updateCreneau,
   deleteCreneau,
+  batchDeleteCreneaux,
   copierCreneaux,
   fetchEmploiDuTemps,
   fetchSalles,
@@ -117,6 +118,24 @@ export function EmploiDuTempsPage() {
       t('emploiDuTemps.creneau_delete_precision'),
     )
     if (confirme) suppression.mutate(creneau.id)
+  }
+
+  const suppressionMultiple = useMutation({
+    mutationFn: (ids: number[]) => batchDeleteCreneaux(classeActive!, ids),
+    onSuccess: (resultat) => {
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
+      succes(t('emploiDuTemps.creneaux_supprimes', { count: resultat.deleted }))
+      quitterSelection()
+    },
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.deletion_failed')),
+  })
+
+  const supprimerSelection = async () => {
+    const confirme = await confirmerSuppression(
+      t('emploiDuTemps.creneaux_delete_quoi', { count: selectedIds.size }),
+      t('emploiDuTemps.creneau_delete_precision'),
+    )
+    if (confirme) suppressionMultiple.mutate(Array.from(selectedIds))
   }
 
   // Changer de classe (ou fermer la sélection) vide le panier : une
@@ -247,6 +266,15 @@ export function EmploiDuTempsPage() {
             <Button size="sm" variant="secondary" onClick={() => setCopieOuverte(true)}>
               <Copy className="h-4 w-4" />
               {t('emploiDuTemps.copier_vers_classe', { count: selectedIds.size })}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={supprimerSelection}
+              disabled={suppressionMultiple.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t('emploiDuTemps.supprimer_selection', { count: selectedIds.size })}
             </Button>
           </div>
         </div>

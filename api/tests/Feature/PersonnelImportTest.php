@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exports\ModeleGenerique;
 use App\Imports\PersonnelImport;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
@@ -10,6 +11,7 @@ use App\Models\School;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx as XlsxReader;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
@@ -238,5 +240,53 @@ class PersonnelImportTest extends TestCase
         Excel::import(new PersonnelImport($this->school->id), $this->fichierAvecChampsAdministratifs());
 
         $this->assertSame(1, \App\Models\Departement::where('school_id', $this->school->id)->where('nom', 'Pédagogie')->count());
+    }
+
+    /**
+     * Le modèle téléchargeable doit se réimporter tel quel : en-têtes à la
+     * ligne attendue par `headingRow()`, et chaque libellé reconnu par
+     * `COLONNES` — y compris ceux avec une précision entre parenthèses
+     * (« Civilité (Mr/Mrs/Mlle) », « Type contrat (CDI/CDD) »…).
+     */
+    public function test_le_modele_telecharge_se_reimporte_correctement(): void
+    {
+        $contenu = Excel::raw(new ModeleGenerique(PersonnelImport::enTetes(), 3), \Maatwebsite\Excel\Excel::XLSX);
+
+        $chemin = tempnam(sys_get_temp_dir(), 'modele-pers').'.xlsx';
+        file_put_contents($chemin, $contenu);
+
+        $spreadsheet = (new XlsxReader)->load($chemin);
+        $feuille = $spreadsheet->getActiveSheet();
+
+        $this->assertSame([null], $feuille->rangeToArray('A1:A2')[0]);
+        $this->assertSame(PersonnelImport::enTetes(), array_values($feuille->rangeToArray('A3:AJ3')[0]));
+
+        $feuille->fromArray([
+            'ABENA CLAIRE', 'Mrs', 'MOD001', 'CNI999', '330-9999999',
+            '1990-01-01', '2020-01-01', null, null, null,
+            null, null, null, 'Married', 2, null,
+            null, null, null, null,
+            'CDI', 'Essai', null, null,
+            null, null, 'Non', null,
+            null, null, null, null,
+            null, null, null, null,
+        ], null, 'A5');
+
+        $chemin = tempnam(sys_get_temp_dir(), 'rempli-pers').'.xlsx';
+        (new Xlsx($spreadsheet))->save($chemin);
+
+        $import = new PersonnelImport($this->school->id);
+        Excel::import($import, new UploadedFile($chemin, 'modele.xlsx', null, null, true));
+
+        $this->assertCount(0, $import->failures());
+
+        $agent = Personnel::where('matricule', 'MOD001')->firstOrFail();
+
+        $this->assertSame('ABENA CLAIRE', $agent->nom_complet);
+        $this->assertSame('Mrs', $agent->civilite);
+        $this->assertSame('CNI999', $agent->numero_cni);
+        $this->assertSame('CDI', $agent->type_contrat);
+        $this->assertSame('essai', $agent->statut_contrat);
+        $this->assertFalse($agent->dossier_disciplinaire);
     }
 }

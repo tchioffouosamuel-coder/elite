@@ -811,6 +811,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store');
                 Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
+                Route::post('classes/{classeId}/emploi-du-temps/batch-delete', [EmploiDuTempsController::class, 'batchDelete'])->name('edt.batch-delete');
                 Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
                 Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier');
                 Route::post('classes/{classeId}/emploi-du-temps/import', [EmploiDuTempsController::class, 'import'])->name('edt.import');

@@ -160,6 +160,17 @@ export async function deleteCreneau(
   await http.delete(`/classes/${classeId}/emploi-du-temps/${id}`);
 }
 
+export async function batchDeleteCreneaux(
+  classeId: number,
+  creneauIds: number[],
+): Promise<{ deleted: number }> {
+  const { data } = await http.post<ApiResponse<{ deleted: number }>>(
+    `/classes/${classeId}/emploi-du-temps/batch-delete`,
+    { creneau_ids: creneauIds },
+  );
+  return data.data;
+}
+
 export async function copierCreneaux(
   classeId: number,
   payload: { creneau_ids: number[]; classe_id: number },

@@ -15,7 +15,7 @@ use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithColumnLimit;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithGroupedHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
@@ -33,7 +33,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
  * traduits, de sorte que les deux formats — et leurs variantes de casse,
  * d'accents ou de ponctuation — tombent sur les mêmes champs.
  */
-class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithColumnLimit, WithHeadingRow, WithValidation
+class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithColumnLimit, WithGroupedHeadingRow, WithValidation
 {
     use SkipsFailures;
 
@@ -46,9 +46,42 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
     public static function enTetes(): array
     {
         return [
-            'Nom complet', 'Civilité', 'Matricule', 'Numéro CNI', 'Numéro CNPS',
-            'Date de naissance', "Date d'embauche", 'Date de fin', 'Téléphone', 'Email',
-            'Fonction', 'Département',
+            'Teachers name / NOMS DES ENSEIGNANTS',
+            'Civilité (Mr/Mrs/Mlle)',
+            'Matricules',
+            'Numéro unique (CNI)',
+            'N°CNPS',
+            'Births',
+            'Date Start',
+            'Date end',
+            'Date retraite',
+            'Division of Origine',
+            'Residence',
+            'ORANGE',
+            'MTN',
+            'Married?',
+            'NB children <21yrs',
+            'Diplôme Prof',
+            'Diplôme Academic',
+            'Affectations / Duty post',
+            'Département',
+            'N° Permis',
+            'Type contrat (CDI/CDD)',
+            'Statut contrat (Essai/Permanent/Vacataire)',
+            'Catégorie/Échelon',
+            'Grade MINEDUB',
+            'Absent depuis',
+            'Motif absence',
+            'Dossier disciplinaire (Oui/Non)',
+            'Date décès',
+            'Banque',
+            'N° Compte',
+            'Nom du père',
+            'Statut père (Vivant/Décédé)',
+            'Téléphone père',
+            'Nom de la mère',
+            'Statut mère (Vivant/Décédé)',
+            'Téléphone mère',
         ];
     }
 
@@ -63,9 +96,11 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         'nomcomplet' => 'nom_complet',
         'noms' => 'nom_complet',
         'civilite' => 'civilite',
+        'civilitemrmrsmlle' => 'civilite',
         'matricules' => 'matricule',
         'matricule' => 'matricule',
         'numerounique' => 'numero_cni',
+        'numerouniquecni' => 'numero_cni',
         'cni' => 'numero_cni',
         'ncnps' => 'numero_cnps',
         'numerocnps' => 'numero_cnps',
@@ -99,7 +134,9 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         'npermis' => 'numero_permis',
         'numeropermis' => 'numero_permis',
         'typecontrat' => 'type_contrat',
+        'typecontratcdicdd' => 'type_contrat',
         'statutcontrat' => 'statut_contrat',
+        'statutcontratessaipermanentvacataire' => 'statut_contrat',
         'categorieechelon' => 'categorie_echelon',
         'categorie' => 'categorie_echelon',
         'echelon' => 'categorie_echelon',
@@ -108,6 +145,7 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         'absentdepuis' => 'absent_depuis',
         'motifabsence' => 'motif_absence',
         'dossierdisciplinaire' => 'dossier_disciplinaire',
+        'dossierdisciplinaireouinon' => 'dossier_disciplinaire',
         'datedeces' => 'date_deces',
         'banque' => 'banque',
         'ncompte' => 'numero_compte',
@@ -115,10 +153,12 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         'nomdupere' => 'pere_nom_complet',
         'perenomcomplet' => 'pere_nom_complet',
         'statutpere' => 'pere_statut',
+        'statutperevivantdecede' => 'pere_statut',
         'telephonepere' => 'pere_telephone',
         'nomdelamere' => 'mere_nom_complet',
         'merenomcomplet' => 'mere_nom_complet',
         'statutmere' => 'mere_statut',
+        'statutmerevivantdecede' => 'mere_statut',
         'telephonemere' => 'mere_telephone',
     ];
 
@@ -153,17 +193,19 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
     }
 
     /**
-     * Le dossier administratif tient dans les colonnes A à T ; au-delà commence
-     * la paie, découpée en quatre blocs qui répètent chacun les colonnes
-     * d'identité — mais sous forme de formules (`=C5`).
+     * AJ couvre les 36 champs canoniques de {@see self::enTetes()} — le modèle
+     * téléchargeable en a besoin en entier, sans répéter un seul en-tête.
      *
-     * Ces répétitions ne sont pas anodines : les en-têtes étant identiques,
-     * maatwebsite ne garde que la dernière occurrence, si bien que sans cette
-     * borne chaque agent s'importait avec « =C5 » pour nom.
+     * Le tableau de mise en place, lui, ne va que jusqu'à T avant de répéter
+     * ses colonnes d'identité en tête de chaque bloc de paie (mais sous forme
+     * de formules, `=C5`) : au-delà, ces répétitions arrivent groupées grâce à
+     * {@see WithGroupedHeadingRow} plutôt que de s'écraser les unes les
+     * autres — {@see self::prepareForValidation()} n'en retient que la
+     * première valeur, celle qui précède les formules.
      */
     public function endColumn(): string
     {
-        return 'T';
+        return 'AJ';
     }
 
     /**
@@ -176,6 +218,8 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
     public function isEmptyWhen(array $row): bool
     {
         foreach ($row as $entete => $valeur) {
+            $valeur = is_array($valeur) ? ($valeur[0] ?? null) : $valeur;
+
             if ((self::COLONNES[self::cle($entete)] ?? null) === 'nom_complet' && trim((string) $valeur) !== '') {
                 return false;
             }
@@ -194,7 +238,11 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
 
         foreach ($data as $entete => $valeur) {
             $cle = self::COLONNES[self::cle($entete)] ?? null;
-            $valeur = self::nettoyer($valeur);
+
+            // Un en-tête répété (les blocs de paie de « GLOBAL STAFF STATUS »)
+            // arrive groupé en tableau : la première colonne porte la vraie
+            // valeur, les suivantes des formules (`=C5`) qui recopient l'identité.
+            $valeur = self::nettoyer(is_array($valeur) ? ($valeur[0] ?? null) : $valeur);
 
             if ($cle !== null && $valeur !== null && ! isset($ligne[$cle])) {
                 $ligne[$cle] = $valeur;

@@ -133,6 +133,27 @@ class EmploiDuTempsController extends Controller
         return ApiResponse::success(message: 'Créneau supprimé.');
     }
 
+    /**
+     * Supprime une sélection de créneaux d'un coup. Bornée aux créneaux
+     * portés par cette classe, comme copier() : un créneau de tronc commun
+     * venu d'ailleurs ne se supprime pas depuis ici.
+     */
+    public function batchDelete(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+
+        $data = $request->validate([
+            'creneau_ids' => ['required', 'array', 'min:1'],
+            'creneau_ids.*' => ['integer'],
+        ]);
+
+        $deleted = EmploiDuTemps::where('classe_id', $classe->id)
+            ->whereIn('id', $data['creneau_ids'])
+            ->delete();
+
+        return ApiResponse::success(['deleted' => $deleted], "{$deleted} créneau(x) supprimé(s).");
+    }
+
     /** Matérialise les créneaux en séances datées sur une période. */
     public function genererSeances(Request $request, int $classeId): JsonResponse
     {

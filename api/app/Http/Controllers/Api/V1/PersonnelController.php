@@ -250,7 +250,12 @@ class PersonnelController extends Controller
 
     public function modele(): BinaryFileResponse
     {
-        return Excel::download(new ModeleGenerique(\App\Imports\PersonnelImport::enTetes()), 'modele-personnel.xlsx');
+        // Ligne 3 : les deux premières portent le titre et les totaux, comme dans le
+        // tableau de mise en place du personnel attendu par PersonnelImport::headingRow().
+        return Excel::download(
+            new ModeleGenerique(\App\Imports\PersonnelImport::enTetes(), 3),
+            'modele-personnel.xlsx',
+        );
     }
 
     /**
