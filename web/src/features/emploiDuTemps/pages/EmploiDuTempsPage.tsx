@@ -588,13 +588,27 @@ function CreneauModal({
 
   const enseignantId = affectationChoisie?.enseignant?.id ?? null
 
+  /*
+   * Même enseignant ne suffit pas : un professeur peut donner la même matière
+   * à des niveaux différents sans qu'ils partagent le créneau. Le nom de
+   * classe porte le niveau en dernier mot (« ACT 1 », « ACC 1 », « ACT US »,
+   * « ACC US »…) — deux classes de départements différents mais du même
+   * niveau le partagent, et c'est ce dernier mot qu'on compare plutôt que le
+   * nom entier.
+   */
+  const suffixeNiveau = (nom: string) => nom.trim().split(/\s+/).pop()?.toUpperCase() ?? ''
+  const classeActuelle = classes?.find((c) => c.id === classeId)
+  const suffixeActuel = classeActuelle ? suffixeNiveau(classeActuelle.nom) : ''
+
   const suggerees = useMemo(() => {
-    if (enseignantId === null) return []
+    if (enseignantId === null || suffixeActuel === '') return []
 
     return (classesDeLaMatiere ?? [])
       .filter((ligne) => ligne.enseignant?.id === enseignantId && ligne.classe && ligne.classe.id !== classeId)
+      .filter((ligne) => suffixeNiveau(ligne.classe!.nom) === suffixeActuel)
       .map((ligne) => ligne.classe!.id)
-  }, [classesDeLaMatiere, enseignantId, classeId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classesDeLaMatiere, enseignantId, classeId, suffixeActuel])
 
   // La suggestion se recalcule à chaque changement de matière : garder les
   // cases d'une matière précédente donnerait un regroupement faux. Tant que

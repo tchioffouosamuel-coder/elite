@@ -1381,7 +1381,7 @@
     "tronc_commun_appel": "Shared lesson — {{count}} classes together. The roll call covers all their students.",
     "classe_colonne": "Class",
     "tronc_commun_recherche": "Search a class…",
-    "tronc_commun_suggere": "{{count}} class(es) pre-ticked: {{enseignant}} already teaches the same subject there. Untick any that do not join this lesson.",
+    "tronc_commun_suggere": "{{count}} class(es) pre-ticked: {{enseignant}} already teaches the same subject at the same level there. Untick any that do not join this lesson.",
     "tronc_commun_meme_enseignant": "same teacher",
     "seances_col": "Sessions",
     "telecharger_fiche_hebdo": "Weekly roll sheet",

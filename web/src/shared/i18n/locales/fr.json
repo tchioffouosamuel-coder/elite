@@ -1381,7 +1381,7 @@
     "tronc_commun_appel": "Cours en tronc commun — {{count}} classes réunies. L'appel porte sur tous leurs élèves.",
     "classe_colonne": "Classe",
     "tronc_commun_recherche": "Rechercher une classe…",
-    "tronc_commun_suggere": "{{count}} classe(s) pré-cochée(s) : {{enseignant}} y enseigne déjà la même matière. Décochez celles qui ne suivent pas ce cours.",
+    "tronc_commun_suggere": "{{count}} classe(s) pré-cochée(s) : {{enseignant}} y enseigne déjà la même matière au même niveau. Décochez celles qui ne suivent pas ce cours.",
     "tronc_commun_meme_enseignant": "même enseignant",
     "seances_col": "Séances",
     "telecharger_fiche_hebdo": "Fiche d'appel hebdo.",
