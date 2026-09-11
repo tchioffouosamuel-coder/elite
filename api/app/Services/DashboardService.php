@@ -67,13 +67,13 @@ class DashboardService extends BaseService
         $anciensTotal = $this->preinscriptions->anciensEleves($schoolId)->count();
         $ancienesNonReinscrits = $this->preinscriptions->listeAnciensNonReinscrits($schoolId)->count();
         $ancienesReinscrits = $anciensTotal - $ancienesNonReinscrits;
-        $nouveauxEleves = Preinscription::forSchool($schoolId)
+        $nouveauxElevesIds = Preinscription::forSchool($schoolId)
             ->where('type', 'nouveau')->where('statut', 'validee')
             ->whereHas('anneeScolaire', fn($q) => $q->where('is_active', true))
             ->pluck('eleve_id');
         $elevesInscritsIds = $this->preinscriptions->listeAnciensReinscrits($schoolId)
             ->pluck('id')
-            ->merge($nouveauxEleves)
+            ->merge($nouveauxElevesIds)
             ->filter()
             ->unique()
             ->values();
@@ -131,7 +131,7 @@ class DashboardService extends BaseService
                 'anciens_total' => $anciensTotal,
                 'anciens_reinscrits' => $ancienesReinscrits,
                 'taux_reinscription' => $anciensTotal > 0 ? round($ancienesReinscrits / $anciensTotal * 100, 1) : 0,
-                'nouveaux_eleves' => $nouveauxEleves,
+                'nouveaux_eleves' => $nouveauxElevesIds->filter()->unique()->count(),
             ],
         ];
     }
