@@ -75,7 +75,7 @@ class ParentEspaceController extends Controller
 
         $documents = $this->bibliotheque->lister($ecoleIds);
 
-        return ApiResponse::success($documents->map(fn (BibliothequeDocument $d) => [
+        return ApiResponse::success($documents->map(fn(BibliothequeDocument $d) => [
             'id' => $d->id,
             'titre' => $d->titre,
             'description' => $d->description,
@@ -92,12 +92,12 @@ class ParentEspaceController extends Controller
     {
         $enfants = ParentAccess::enfants($request->user());
 
-        return ApiResponse::success($enfants->map(fn (Eleve $e) => [
+        return ApiResponse::success($enfants->map(fn(Eleve $e) => [
             'id' => $e->id,
             'matricule' => $e->matricule,
             'nom_complet' => $e->nom_complet,
             'sexe' => $e->sexe,
-            'photo_url' => $e->photo_path ? asset('storage/'.$e->photo_path) : null,
+            'photo_url' => $e->photo_path ? asset('storage/' . $e->photo_path) : null,
             'classe' => $e->classe ? ['id' => $e->classe->id, 'nom' => $e->classe->nom] : null,
             'school' => $e->school ? ['id' => $e->school->id, 'name' => $e->school->name] : null,
         ]));
@@ -117,8 +117,8 @@ class ParentEspaceController extends Controller
             'lieu_naissance' => $e->lieu_naissance,
             'nationalite' => $e->nationalite,
             'adresse' => $e->adresse,
-            'photo_url' => $e->photo_path ? asset('storage/'.$e->photo_path) : null,
-            'photo_tenue_url' => $e->photo_tenue_path ? asset('storage/'.$e->photo_tenue_path) : null,
+            'photo_url' => $e->photo_path ? asset('storage/' . $e->photo_path) : null,
+            'photo_tenue_url' => $e->photo_tenue_path ? asset('storage/' . $e->photo_tenue_path) : null,
             'redoublant' => (bool) $e->redoublant,
             'statut' => $e->statut,
             'classe' => $e->classe ? ['id' => $e->classe->id, 'nom' => $e->classe->nom, 'sous_systeme' => $e->classe->sousSysteme?->nom] : null,
@@ -134,11 +134,11 @@ class ParentEspaceController extends Controller
                 'aptitude' => $e->aptitude,
                 'allergies' => $e->allergies,
             ],
-            'tuteurs' => $e->tuteurs->map(fn (Tuteur $t) => [
+            'tuteurs' => $e->tuteurs->map(fn(Tuteur $t) => [
                 'id' => $t->id,
                 'nom_complet' => $t->nom_complet,
                 'telephone' => $t->telephone,
-                'telephones' => $t->telephones->map(fn ($tel) => ['numero' => $tel->numero, 'is_principal' => (bool) $tel->is_principal])->values(),
+                'telephones' => $t->telephones->map(fn($tel) => ['numero' => $tel->numero, 'is_principal' => (bool) $tel->is_principal])->values(),
                 'email' => $t->email,
                 'profession' => $t->profession,
                 'lieu_service' => $t->lieu_service,
@@ -160,7 +160,7 @@ class ParentEspaceController extends Controller
         }
 
         $dossier = $this->scolarite->dossier($e, $annee);
-        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn ($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
+        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
 
         // Un moratoire valide est l'échéance qui concerne réellement cette
         // famille ; la date d'exclusion générale de l'école n'est affichée en
@@ -180,7 +180,7 @@ class ParentEspaceController extends Controller
             // qui reste sur chaque tranche. `actif` à faux quand l'école n'a
             // pas découpé son année — l'écran affiche alors la seule date limite.
             'echeancier' => $this->echeancier->pourDossier($dossier),
-            'versements' => $dossier->versements->whereNull('annule_le')->map(fn ($v) => [
+            'versements' => $dossier->versements->whereNull('annule_le')->map(fn($v) => [
                 'numero_recu' => $v->numero_recu,
                 'date_versement' => $v->date_versement?->format('Y-m-d'),
                 'montant' => $v->montant,
@@ -216,7 +216,7 @@ class ParentEspaceController extends Controller
 
         return response($this->emploiDuTempsPdf->build($e->classe, $annee, $this->emploiDuTemps->grille($e->classe)), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="emploi-du-temps-'.$e->classe->id.'.pdf"',
+            'Content-Disposition' => 'attachment; filename="emploi-du-temps-' . $e->classe->id . '.pdf"',
         ]);
     }
 
@@ -280,8 +280,8 @@ class ParentEspaceController extends Controller
         }
 
         $trimestre = $request->integer('trimestre_id')
-            ? Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $e->school_id))->findOrFail($request->integer('trimestre_id'))
-            : Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $e->school_id))->where('is_active', true)->firstOrFail();
+            ? Trimestre::whereHas('anneeScolaire', fn($q) => $q->where('school_id', $e->school_id))->findOrFail($request->integer('trimestre_id'))
+            : Trimestre::whereHas('anneeScolaire', fn($q) => $q->where('school_id', $e->school_id))->where('is_active', true)->firstOrFail();
 
         // Un parent ne voit un bulletin qu'une fois le conseil de classe tenu
         // et la classe publiée par le personnel (cf. BulletinController::publier) —
@@ -308,7 +308,7 @@ class ParentEspaceController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="bulletin-'.Str::slug($e->nom_complet).'.pdf"',
+            'Content-Disposition' => 'inline; filename="bulletin-' . Str::slug($e->nom_complet) . '.pdf"',
         ]);
     }
 
@@ -383,11 +383,11 @@ class ParentEspaceController extends Controller
         $absences = Presence::where('eleve_id', $e->id)
             ->whereIn('statut', ['absent', 'retard'])
             ->with('seance:id,date_seance,heure_debut,classe_id')
-            ->whereHas('seance', fn ($q) => $q->orderByDesc('date_seance'))
+            ->whereHas('seance', fn($q) => $q->orderByDesc('date_seance'))
             ->get()
-            ->sortByDesc(fn ($p) => $p->seance->date_seance)
+            ->sortByDesc(fn($p) => $p->seance->date_seance)
             ->values()
-            ->map(fn (Presence $p) => [
+            ->map(fn(Presence $p) => [
                 'date' => $p->seance->date_seance?->format('Y-m-d'),
                 'statut' => $p->statut,
                 'motif' => $p->motif,
@@ -403,7 +403,7 @@ class ParentEspaceController extends Controller
     {
         $e = ParentAccess::assertEnfant($request->user(), $eleveId);
 
-        return ApiResponse::success($this->justifications->pourEnfant($e->id)->map(fn ($j) => [
+        return ApiResponse::success($this->justifications->pourEnfant($e->id)->map(fn($j) => [
             'id' => $j->id,
             'date_debut' => $j->date_debut->format('Y-m-d'),
             'date_fin' => $j->date_fin->format('Y-m-d'),
@@ -443,7 +443,7 @@ class ParentEspaceController extends Controller
             ->with('user:id,name')
             ->latest()
             ->get()
-            ->map(fn (Observation $o) => [
+            ->map(fn(Observation $o) => [
                 'id' => $o->id,
                 'contenu' => $o->contenu,
                 'auteur' => $o->user?->name,

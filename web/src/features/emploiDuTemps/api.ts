@@ -1,5 +1,5 @@
-import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
+import { http } from "@/shared/lib/http";
+import type { ApiResponse } from "@/shared/types/api";
 
 /**
  * `libelle` est une clé de traduction (`emploiDuTemps.jours.*`), pas le texte
@@ -7,109 +7,131 @@ import type { ApiResponse } from '@/shared/types/api'
  * réactif à un changement de langue en cours de session.
  */
 export const JOURS = [
-  { valeur: 1, libelle: 'lundi' },
-  { valeur: 2, libelle: 'mardi' },
-  { valeur: 3, libelle: 'mercredi' },
-  { valeur: 4, libelle: 'jeudi' },
-  { valeur: 5, libelle: 'vendredi' },
-  { valeur: 6, libelle: 'samedi' },
-] as const
+  { valeur: 1, libelle: "lundi" },
+  { valeur: 2, libelle: "mardi" },
+  { valeur: 3, libelle: "mercredi" },
+  { valeur: 4, libelle: "jeudi" },
+  { valeur: 5, libelle: "vendredi" },
+  { valeur: 6, libelle: "samedi" },
+] as const;
 
 export interface ClasseAssociee {
-  id: number
-  nom: string
+  id: number;
+  nom: string;
 }
 
 export interface Creneau {
-  id: number
-  jour: number
-  heure_debut: string
-  heure_fin: string
-  salle: string | null
-  classe_matiere_id: number
-  matiere: string | null
-  enseignant: string | null
+  id: number;
+  jour: number;
+  heure_debut: string;
+  heure_fin: string;
+  salle: string | null;
+  classe_matiere_id: number;
+  matiere: string | null;
+  enseignant: string | null;
   /** Classe porteuse du créneau : sur la grille d'une classe associée, le cours vient d'ailleurs. */
-  classe_id: number
-  classe: string | null
+  classe_id: number;
+  classe: string | null;
   /** Classes qui rejoignent la porteuse. Non vide = tronc commun. */
-  classes_associees: ClasseAssociee[]
-  tronc_commun: boolean
+  classes_associees: ClasseAssociee[];
+  tronc_commun: boolean;
 }
 
 export interface CreneauPayload {
-  classe_matiere_id: number
-  jour: number
-  heure_debut: string
-  heure_fin: string
-  salle?: string | null
-  classes_associees?: number[]
+  classe_matiere_id: number;
+  jour: number;
+  heure_debut: string;
+  heure_fin: string;
+  salle?: string | null;
+  classes_associees?: number[];
 }
 
 export interface Seance {
-  id: number
-  classe_id: number
-  classe_matiere_id: number
-  matiere: string | null
-  enseignant: string | null
-  date_seance: string
-  heure_debut: string
-  heure_fin: string
-  salle: string | null
-  contenu: string | null
-  statut: 'prevue' | 'effectuee' | 'annulee'
-  absents: number
+  id: number;
+  classe_id: number;
+  classe_matiere_id: number;
+  matiere: string | null;
+  enseignant: string | null;
+  date_seance: string;
+  heure_debut: string;
+  heure_fin: string;
+  salle: string | null;
+  contenu: string | null;
+  statut: "prevue" | "effectuee" | "annulee";
+  absents: number;
   /** Plus de 15 minutes se sont écoulées depuis le premier enregistrement de l'appel. */
-  verrouille: boolean
+  verrouille: boolean;
   /** Faux tant que l'heure de début n'est pas arrivée — l'appel ne peut pas encore être fait. */
-  demarree: boolean
+  demarree: boolean;
 }
 
-export type MotifAbsence = 'maladie' | 'inconnu' | 'scolarite' | 'permission'
+export type MotifAbsence = "maladie" | "inconnu" | "scolarite" | "permission";
 
 /** Codes des motifs d'absence ; le libellé affiché vient de `emploiDuTemps.motifs.*` via `t()`. */
-export const MOTIFS: MotifAbsence[] = ['maladie', 'inconnu', 'scolarite', 'permission']
+export const MOTIFS: MotifAbsence[] = [
+  "maladie",
+  "inconnu",
+  "scolarite",
+  "permission",
+];
 
 export interface LigneAppel {
-  eleve_id: number
-  nom_complet: string
-  matricule: string | null
+  eleve_id: number;
+  nom_complet: string;
+  matricule: string | null;
   /** Renseignée sur un tronc commun : sans elle, l'enseignant ne sait plus qui il pointe. */
-  classe: string | null
-  statut: 'present' | 'absent'
-  motif: MotifAbsence | null
-  remarque: string | null
-  pointe: boolean
+  classe: string | null;
+  statut: "present" | "absent";
+  motif: MotifAbsence | null;
+  remarque: string | null;
+  pointe: boolean;
 }
 
 export async function fetchEmploiDuTemps(classeId: number): Promise<Creneau[]> {
-  const { data } = await http.get<ApiResponse<Creneau[]>>(`/classes/${classeId}/emploi-du-temps`)
-  return data.data
+  const { data } = await http.get<ApiResponse<Creneau[]>>(
+    `/classes/${classeId}/emploi-du-temps`,
+  );
+  return data.data;
 }
 
-export async function createCreneau(classeId: number, payload: CreneauPayload): Promise<Creneau> {
-  const { data } = await http.post<ApiResponse<Creneau>>(`/classes/${classeId}/emploi-du-temps`, payload)
-  return data.data
+export async function createCreneau(
+  classeId: number,
+  payload: CreneauPayload,
+): Promise<Creneau> {
+  const { data } = await http.post<ApiResponse<Creneau>>(
+    `/classes/${classeId}/emploi-du-temps`,
+    payload,
+  );
+  return data.data;
 }
 
-export async function updateCreneau(classeId: number, id: number, payload: CreneauPayload): Promise<Creneau> {
-  const { data } = await http.put<ApiResponse<Creneau>>(`/classes/${classeId}/emploi-du-temps/${id}`, payload)
-  return data.data
+export async function updateCreneau(
+  classeId: number,
+  id: number,
+  payload: CreneauPayload,
+): Promise<Creneau> {
+  const { data } = await http.put<ApiResponse<Creneau>>(
+    `/classes/${classeId}/emploi-du-temps/${id}`,
+    payload,
+  );
+  return data.data;
 }
 
-export async function deleteCreneau(classeId: number, id: number): Promise<void> {
-  await http.delete(`/classes/${classeId}/emploi-du-temps/${id}`)
+export async function deleteCreneau(
+  classeId: number,
+  id: number,
+): Promise<void> {
+  await http.delete(`/classes/${classeId}/emploi-du-temps/${id}`);
 }
 
 export async function copierCreneaux(
   classeId: number,
   payload: { creneau_ids: number[]; classe_id: number },
 ): Promise<{ copies: number; ignores: number }> {
-  const { data } = await http.post<ApiResponse<{ copies: number; ignores: number }>>(
-    `/classes/${classeId}/emploi-du-temps/copier`,
-    payload,
-  )
-  return data.data
+  const { data } = await http.post<
+    ApiResponse<{ copies: number; ignores: number }>
+  >(`/classes/${classeId}/emploi-du-temps/copier`, payload);
+  return data.data;
 }
 
 export async function genererSeances(
@@ -119,70 +141,95 @@ export async function genererSeances(
   const { data } = await http.post<ApiResponse<{ creees: number }>>(
     `/classes/${classeId}/emploi-du-temps/generer-seances`,
     payload,
-  )
-  return data.data
+  );
+  return data.data;
 }
 
 /** Excel produit par l'export — `telechargerFichier` s'en sert directement, cf. EmploiDuTempsPage. */
-export const EXPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/export`
-export const EXPORT_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/export-pdf`
-export const PUBLIER_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/publier-pdf`
-export const IMPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/import`
+export const EXPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) =>
+  `/classes/${classeId}/emploi-du-temps/export`;
+export const EXPORT_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) =>
+  `/classes/${classeId}/emploi-du-temps/export-pdf`;
+export const PUBLIER_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) =>
+  `/classes/${classeId}/emploi-du-temps/publier-pdf`;
+export const IMPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) =>
+  `/classes/${classeId}/emploi-du-temps/import`;
 
 export async function publierEmploiDuTempsPdf(classeId: number): Promise<void> {
-  await http.post(PUBLIER_EMPLOI_DU_TEMPS_PDF_URL(classeId))
+  await http.post(PUBLIER_EMPLOI_DU_TEMPS_PDF_URL(classeId));
 }
 
 export interface VerificationEmploiDuTemps {
-  valide: boolean
-  classe: string
-  ecole: string | null
-  annee_scolaire: string
-  message: string
+  valide: boolean;
+  classe: string;
+  ecole: string | null;
+  annee_scolaire: string;
+  message: string;
 }
 
-export async function fetchVerificationEmploiDuTemps(classeId: number, anneeId: number, signature: string): Promise<VerificationEmploiDuTemps> {
-  const { data } = await http.get<ApiResponse<VerificationEmploiDuTemps>>(`/verification-emploi-du-temps/${classeId}/${anneeId}/${signature}`)
-  return data.data
+export async function fetchVerificationEmploiDuTemps(
+  classeId: number,
+  anneeId: number,
+  signature: string,
+): Promise<VerificationEmploiDuTemps> {
+  const { data } = await http.get<ApiResponse<VerificationEmploiDuTemps>>(
+    `/verification-emploi-du-temps/${classeId}/${anneeId}/${signature}`,
+  );
+  return data.data;
 }
 
 export async function fetchSeances(
   classeId: number,
   params?: { date_debut?: string; date_fin?: string; trimestre_id?: number },
 ): Promise<Seance[]> {
-  const { data } = await http.get<ApiResponse<Seance[]>>(`/classes/${classeId}/seances`, { params })
-  return data.data
+  const { data } = await http.get<ApiResponse<Seance[]>>(
+    `/classes/${classeId}/seances`,
+    { params },
+  );
+  return data.data;
 }
 
 export interface FeuilleAppel {
-  seance: Seance
+  seance: Seance;
   /** Vrai quand la séance réunit plusieurs classes. */
-  tronc_commun: boolean
-  classes: ClasseAssociee[]
-  lignes: LigneAppel[]
+  tronc_commun: boolean;
+  classes: ClasseAssociee[];
+  lignes: LigneAppel[];
   /** Plus de 15 minutes depuis le premier enregistrement : l'appel n'est plus modifiable. */
-  verrouille: boolean
+  verrouille: boolean;
   /** Jusqu'à quand la correction reste possible, si l'appel a déjà été enregistré une fois. */
-  modifiable_jusqua: string | null
+  modifiable_jusqua: string | null;
 }
 
 export async function fetchAppel(seanceId: number): Promise<FeuilleAppel> {
-  const { data } = await http.get<ApiResponse<FeuilleAppel>>(`/seances/${seanceId}/appel`)
-  return data.data
+  const { data } = await http.get<ApiResponse<FeuilleAppel>>(
+    `/seances/${seanceId}/appel`,
+  );
+  return data.data;
 }
 
 export async function enregistrerAppel(
   seanceId: number,
-  lignes: Pick<LigneAppel, 'eleve_id' | 'statut' | 'motif' | 'remarque'>[],
+  lignes: Pick<LigneAppel, "eleve_id" | "statut" | "motif" | "remarque">[],
 ): Promise<{ enregistres: number }> {
-  const { data } = await http.post<ApiResponse<{ enregistres: number }>>(`/seances/${seanceId}/appel`, { lignes })
-  return data.data
+  const { data } = await http.post<ApiResponse<{ enregistres: number }>>(
+    `/seances/${seanceId}/appel`,
+    { lignes },
+  );
+  return data.data;
 }
 
 export async function updateSeance(
   seanceId: number,
-  payload: { contenu?: string | null; salle?: string | null; statut?: Seance['statut'] },
+  payload: {
+    contenu?: string | null;
+    salle?: string | null;
+    statut?: Seance["statut"];
+  },
 ): Promise<Seance> {
-  const { data } = await http.put<ApiResponse<Seance>>(`/seances/${seanceId}`, payload)
-  return data.data
+  const { data } = await http.put<ApiResponse<Seance>>(
+    `/seances/${seanceId}`,
+    payload,
+  );
+  return data.data;
 }

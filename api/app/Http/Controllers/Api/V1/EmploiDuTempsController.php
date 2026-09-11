@@ -142,8 +142,8 @@ class EmploiDuTempsController extends Controller
         ]);
 
         $trimestre = $data['trimestre_id'] ?? null
-            ? Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $classe->school_id))
-                ->find($data['trimestre_id'])
+            ? Trimestre::whereHas('anneeScolaire', fn($q) => $q->where('school_id', $classe->school_id))
+            ->find($data['trimestre_id'])
             : null;
 
         $creees = $this->service->genererSeances(
@@ -178,7 +178,7 @@ class EmploiDuTempsController extends Controller
             'matieres_introuvables' => $import->matieresIntrouvables,
             'enseignants_introuvables' => $import->enseignantsIntrouvables,
             'classes_introuvables' => $import->classesIntrouvables,
-        ], $import->importedCount.' créneau(x) importé(s).');
+        ], $import->importedCount . ' créneau(x) importé(s).');
     }
 
     /** Export au format relu par import() : même fichier pour sauvegarder, corriger en masse et réimporter. */
@@ -188,7 +188,7 @@ class EmploiDuTempsController extends Controller
 
         return Excel::download(
             new EmploiDuTempsExport($classe),
-            'emploi-du-temps-'.Str::slug($classe->nom).'.xlsx',
+            'emploi-du-temps-' . Str::slug($classe->nom) . '.xlsx',
         );
     }
 
@@ -196,11 +196,11 @@ class EmploiDuTempsController extends Controller
     {
         $classe = $this->classe($classeId);
         [$annee, $creneaux] = $this->donneesPdf($classe);
-        $filename = 'emploi-du-temps-'.Str::slug($classe->nom).'.pdf';
+        $filename = 'emploi-du-temps-' . Str::slug($classe->nom) . '.pdf';
 
         return response($this->pdf->build($classe, $annee, $creneaux), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
     }
 
@@ -209,13 +209,13 @@ class EmploiDuTempsController extends Controller
     {
         $classe = $this->classe($classeId);
         [$annee, $creneaux] = $this->donneesPdf($classe);
-        $filename = 'emploi-du-temps-'.Str::slug($classe->nom).'.pdf';
-        $chemin = storage_path('app/'.$filename);
+        $filename = 'emploi-du-temps-' . Str::slug($classe->nom) . '.pdf';
+        $chemin = storage_path('app/' . $filename);
 
         file_put_contents($chemin, $this->pdf->build($classe, $annee, $creneaux));
         try {
             $document = $this->bibliotheque->uploader(
-                ['titre' => 'Emploi du temps / Timetable - '.$classe->nom.' - '.$annee->libelle, 'description' => 'Document généré automatiquement / Automatically generated document', 'school_ids' => [$classe->school_id]],
+                ['titre' => 'Emploi du temps / Timetable - ' . $classe->nom . ' - ' . $annee->libelle, 'description' => 'Document généré automatiquement / Automatically generated document', 'school_ids' => [$classe->school_id]],
                 new UploadedFile($chemin, $filename, 'application/pdf', null, true),
                 $request->user()?->id,
             );
@@ -248,10 +248,10 @@ class EmploiDuTempsController extends Controller
         ]);
 
         $associees = collect($data['classes_associees'] ?? [])
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             // La classe porteuse n'a pas à figurer parmi celles qui la
             // rejoignent : elle y serait comptée deux fois à l'appel.
-            ->reject(fn (int $id) => $id === $classe->id)
+            ->reject(fn(int $id) => $id === $classe->id)
             ->unique()
             ->values();
 

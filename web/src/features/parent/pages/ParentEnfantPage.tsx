@@ -955,8 +955,8 @@ function EmploiDuTempsCard({ eleveId }: { eleveId: number }) {
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
-        <CalendarClock className="h-4 w-4" />
-        Emploi du temps / Timetable
+          <CalendarClock className="h-4 w-4" />
+          Emploi du temps / Timetable
         </h2>
         <Button size="sm" variant="secondary" onClick={() => ouvrirDocument(emploiDuTempsPdfEnfantUrl(eleveId), undefined, undefined, 'Emploi du temps / Timetable')}>
           <FileDown className="h-4 w-4" />

@@ -434,9 +434,8 @@ function CelluleCreneau({
 
   return (
     <div
-      className={`group relative mb-1 rounded-lg bg-gold-50 px-2 py-1.5 ring-1 ring-gold-200 ${
-        modeSelection && gerable ? 'cursor-pointer pl-7' : ''
-      } ${selectionne ? 'bg-gold-100 ring-2 ring-gold-400' : ''}`}
+      className={`group relative mb-1 rounded-lg bg-gold-50 px-2 py-1.5 ring-1 ring-gold-200 ${modeSelection && gerable ? 'cursor-pointer pl-7' : ''
+        } ${selectionne ? 'bg-gold-100 ring-2 ring-gold-400' : ''}`}
       onClick={modeSelection && gerable ? onBasculerSelection : undefined}
     >
       {modeSelection && gerable && (

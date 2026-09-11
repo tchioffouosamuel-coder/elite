@@ -327,9 +327,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:bibliotheque.manage')->group(function () {
                 Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store');
                 Route::post('bibliotheque/import', [BibliothequeController::class, 'importer'])->name('bibliotheque.import');
-                    Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
-                    Route::post('classes/{classeId}/emploi-du-temps/publier-pdf', [EmploiDuTempsController::class, 'publierPdf'])
-                        ->name('edt.publier-pdf')->middleware('permission:emploi_du_temps.view');
+                Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
+                Route::post('classes/{classeId}/emploi-du-temps/publier-pdf', [EmploiDuTempsController::class, 'publierPdf'])
+                    ->name('edt.publier-pdf')->middleware('permission:emploi_du_temps.view');
             });
 
             Route::middleware('permission:ecoles.manage')->group(function () {
