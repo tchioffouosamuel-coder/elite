@@ -34,6 +34,7 @@ use App\Services\ScolariteService;
 use App\Support\ParentAccess;
 use App\Support\Pdf\BulletinGenerator;
 use App\Support\Pdf\BulletinPrimaireGenerator;
+use App\Support\Pdf\EmploiDuTempsGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -60,6 +61,7 @@ class ParentEspaceController extends Controller
         private readonly EmploiDuTempsService $emploiDuTemps,
         private readonly EcheancierService $echeancier,
         private readonly BibliothequeService $bibliotheque,
+        private readonly EmploiDuTempsGenerator $emploiDuTempsPdf,
     ) {}
 
     /** Documents de la bibliothèque numérique visibles pour les écoles des enfants du compte connecté. */
@@ -203,6 +205,19 @@ class ParentEspaceController extends Controller
         }
 
         return ApiResponse::success($this->emploiDuTemps->grille($e->classe)->map(EmploiDuTempsService::presenter(...)));
+    }
+
+    /** PDF de l'emploi du temps de la classe de l'enfant, borné par ParentAccess. */
+    public function emploiDuTempsPdf(Request $request, int $eleveId)
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+        abort_if(! $e->classe, 404, "Cet élève n'a pas de classe.");
+        $annee = AnneeScolaire::where('school_id', $e->classe->school_id)->where('is_active', true)->firstOrFail();
+
+        return response($this->emploiDuTempsPdf->build($e->classe, $annee, $this->emploiDuTemps->grille($e->classe)), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="emploi-du-temps-'.$e->classe->id.'.pdf"',
+        ]);
     }
 
     /** Visites à l'infirmerie de cet enfant, les plus récentes en tête. */

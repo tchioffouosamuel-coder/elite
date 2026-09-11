@@ -138,6 +138,8 @@ export async function fetchEmploiDuTempsEnfant(eleveId: number): Promise<Creneau
   return data.data
 }
 
+export const emploiDuTempsPdfEnfantUrl = (eleveId: number) => `/parent/enfants/${eleveId}/emploi-du-temps/pdf`
+
 // ---------------------------------------------------------------- Assiduité
 
 export interface AbsenceEnfant {

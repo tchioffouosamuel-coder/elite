@@ -98,6 +98,7 @@ use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\TuteurController;
 use App\Http\Controllers\Api\V1\VenteDenreeController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
+use App\Http\Controllers\Api\V1\VerificationEmploiDuTempsController;
 use App\Http\Controllers\Api\V1\VerificationVersementBusController;
 use App\Http\Controllers\Api\V1\VerificationVersementController;
 use App\Http\Controllers\Api\V1\VisiteAutoriteController;
@@ -130,6 +131,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // sans authentification, un tiers externe scanne depuis son téléphone.
     Route::get('verification-bulletin/{eleveId}/{trimestreId}/{signature}', [VerificationBulletinController::class, 'show'])
         ->name('verification-bulletin.show');
+
+    Route::get('verification-emploi-du-temps/{classeId}/{anneeId}/{signature}', [VerificationEmploiDuTempsController::class, 'show'])
+        ->name('verification-emploi-du-temps.show');
 
     // Vérification publique d'authenticité d'un reçu de versement (QR code) :
     // même principe que ci-dessus, appliqué au reçu de paiement.
@@ -323,7 +327,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:bibliotheque.manage')->group(function () {
                 Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store');
                 Route::post('bibliotheque/import', [BibliothequeController::class, 'importer'])->name('bibliotheque.import');
-                Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
+                    Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
+                    Route::post('classes/{classeId}/emploi-du-temps/publier-pdf', [EmploiDuTempsController::class, 'publierPdf'])
+                        ->name('edt.publier-pdf')->middleware('permission:emploi_du_temps.view');
             });
 
             Route::middleware('permission:ecoles.manage')->group(function () {
@@ -529,6 +535,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('enfants/{eleveId}/absences', [ParentEspaceController::class, 'absences'])->name('enfants.absences');
                 Route::get('enfants/{eleveId}/assiduite', [ParentEspaceController::class, 'assiduite'])->name('enfants.assiduite');
                 Route::get('enfants/{eleveId}/emploi-du-temps', [ParentEspaceController::class, 'emploiDuTemps'])->name('enfants.emploi-du-temps');
+                Route::get('enfants/{eleveId}/emploi-du-temps/pdf', [ParentEspaceController::class, 'emploiDuTempsPdf'])->name('enfants.emploi-du-temps.pdf');
                 Route::get('enfants/{eleveId}/visites-infirmerie', [ParentEspaceController::class, 'visitesInfirmerie'])->name('enfants.visites-infirmerie');
                 Route::get('enfants/{eleveId}/sanctions', [ParentEspaceController::class, 'sanctions'])->name('enfants.sanctions');
                 Route::get('enfants/{eleveId}/justifications', [ParentEspaceController::class, 'justifications'])->name('enfants.justifications.index');
@@ -790,6 +797,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
                 Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
                 Route::get('classes/{classeId}/emploi-du-temps/export', [EmploiDuTempsController::class, 'export'])->name('edt.export');
+                Route::get('classes/{classeId}/emploi-du-temps/export-pdf', [EmploiDuTempsController::class, 'exportPdf'])->name('edt.export-pdf');
                 Route::get('classes/{classeId}/seances', [SeanceController::class, 'index'])->name('seances.index');
                 Route::get('seances/{id}/appel', [SeanceController::class, 'appel'])->name('seances.appel');
             });

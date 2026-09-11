@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Copy, Download, ListChecks, Pencil, Plus, Search, Trash2, Upload, UserCog, Wand2, X } from 'lucide-react'
+import { CalendarClock, Copy, Download, FileDown, ListChecks, Pencil, Plus, Search, Trash2, Upload, UserCog, Wand2, X } from 'lucide-react'
 import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
 import {
   fetchClasseMatieres,
@@ -20,7 +20,9 @@ import {
   copierCreneaux,
   fetchEmploiDuTemps,
   genererSeances,
+  publierEmploiDuTempsPdf,
   EXPORT_EMPLOI_DU_TEMPS_URL,
+  EXPORT_EMPLOI_DU_TEMPS_PDF_URL,
   IMPORT_EMPLOI_DU_TEMPS_URL,
   type Creneau,
 } from '@/features/emploiDuTemps/api'
@@ -32,7 +34,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
-import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
 
@@ -50,6 +52,7 @@ export function EmploiDuTempsPage() {
   const can = useAuthStore((s) => s.can)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const peutGerer = can('emploi_du_temps.manage')
+  const peutPublierBibliotheque = can('bibliotheque.manage')
   const queryClient = useQueryClient()
 
   // Au primaire et à la maternelle, un enseignant est titulaire d'une seule
@@ -165,6 +168,30 @@ export function EmploiDuTempsPage() {
     }
   }
 
+  const exporterPdf = async () => {
+    if (!classeActive) return
+    setExportEnCours(true)
+    try {
+      if (peutPublierBibliotheque) {
+        const ajouter = await confirmer({
+          titre: 'Ajouter à la bibliothèque ? / Add to the library?',
+          message: "Voulez-vous ajouter cet emploi du temps à la bibliothèque de l'école ? / Add this timetable to the school's library?",
+          action: 'Oui / Yes',
+          destructif: false,
+        })
+        if (ajouter) {
+          await publierEmploiDuTempsPdf(classeActive)
+          succes('Emploi du temps ajouté à la bibliothèque. / Timetable added to the library.')
+        }
+      }
+      await telechargerFichier(EXPORT_EMPLOI_DU_TEMPS_PDF_URL(classeActive), undefined, 'emploi-du-temps.pdf')
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -183,6 +210,10 @@ export function EmploiDuTempsPage() {
             <Button variant="secondary" onClick={exporter} disabled={exportEnCours}>
               <Download className="h-4 w-4" />
               {t('export.excel')}
+            </Button>
+            <Button variant="secondary" onClick={exporterPdf} disabled={exportEnCours}>
+              <FileDown className="h-4 w-4" />
+              {t('export.pdf')}
             </Button>
             {peutGerer && (
               <>

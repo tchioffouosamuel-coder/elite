@@ -6,14 +6,18 @@ use App\Exports\EmploiDuTempsExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Imports\EmploiDuTempsImport;
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\Trimestre;
+use App\Services\BibliothequeService;
 use App\Services\EmploiDuTempsService;
+use App\Support\Pdf\EmploiDuTempsGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -21,7 +25,11 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EmploiDuTempsController extends Controller
 {
-    public function __construct(private readonly EmploiDuTempsService $service) {}
+    public function __construct(
+        private readonly EmploiDuTempsService $service,
+        private readonly EmploiDuTempsGenerator $pdf,
+        private readonly BibliothequeService $bibliotheque,
+    ) {}
 
     public function index(int $classeId): JsonResponse
     {
@@ -182,6 +190,48 @@ class EmploiDuTempsController extends Controller
             new EmploiDuTempsExport($classe),
             'emploi-du-temps-'.Str::slug($classe->nom).'.xlsx',
         );
+    }
+
+    public function exportPdf(int $classeId)
+    {
+        $classe = $this->classe($classeId);
+        [$annee, $creneaux] = $this->donneesPdf($classe);
+        $filename = 'emploi-du-temps-'.Str::slug($classe->nom).'.pdf';
+
+        return response($this->pdf->build($classe, $annee, $creneaux), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    /** Génère puis archive le PDF dans la bibliothèque de l'école de la classe. */
+    public function publierPdf(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+        [$annee, $creneaux] = $this->donneesPdf($classe);
+        $filename = 'emploi-du-temps-'.Str::slug($classe->nom).'.pdf';
+        $chemin = storage_path('app/'.$filename);
+
+        file_put_contents($chemin, $this->pdf->build($classe, $annee, $creneaux));
+        try {
+            $document = $this->bibliotheque->uploader(
+                ['titre' => 'Emploi du temps / Timetable - '.$classe->nom.' - '.$annee->libelle, 'description' => 'Document généré automatiquement / Automatically generated document', 'school_ids' => [$classe->school_id]],
+                new UploadedFile($chemin, $filename, 'application/pdf', null, true),
+                $request->user()?->id,
+            );
+        } finally {
+            @unlink($chemin);
+        }
+
+        return ApiResponse::created(['id' => $document->id], 'Emploi du temps ajouté à la bibliothèque.');
+    }
+
+    /** @return array{0: AnneeScolaire, 1: \Illuminate\Support\Collection} */
+    private function donneesPdf(Classe $classe): array
+    {
+        $annee = AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->firstOrFail();
+
+        return [$annee, $this->service->grille($classe)];
     }
 
     private function valider(Request $request, Classe $classe): array

@@ -125,7 +125,26 @@ export async function genererSeances(
 
 /** Excel produit par l'export — `telechargerFichier` s'en sert directement, cf. EmploiDuTempsPage. */
 export const EXPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/export`
+export const EXPORT_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/export-pdf`
+export const PUBLIER_EMPLOI_DU_TEMPS_PDF_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/publier-pdf`
 export const IMPORT_EMPLOI_DU_TEMPS_URL = (classeId: number) => `/classes/${classeId}/emploi-du-temps/import`
+
+export async function publierEmploiDuTempsPdf(classeId: number): Promise<void> {
+  await http.post(PUBLIER_EMPLOI_DU_TEMPS_PDF_URL(classeId))
+}
+
+export interface VerificationEmploiDuTemps {
+  valide: boolean
+  classe: string
+  ecole: string | null
+  annee_scolaire: string
+  message: string
+}
+
+export async function fetchVerificationEmploiDuTemps(classeId: number, anneeId: number, signature: string): Promise<VerificationEmploiDuTemps> {
+  const { data } = await http.get<ApiResponse<VerificationEmploiDuTemps>>(`/verification-emploi-du-temps/${classeId}/${anneeId}/${signature}`)
+  return data.data
+}
 
 export async function fetchSeances(
   classeId: number,

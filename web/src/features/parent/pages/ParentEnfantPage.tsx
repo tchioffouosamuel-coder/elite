@@ -40,6 +40,7 @@ import {
   fetchHistoriqueModifications,
   soumettreModification,
   fetchEmploiDuTempsEnfant,
+  emploiDuTempsPdfEnfantUrl,
   fetchVisitesInfirmerieEnfant,
   fetchSanctionsEnfant,
   type MotifJustification,
@@ -952,10 +953,16 @@ function EmploiDuTempsCard({ eleveId }: { eleveId: number }) {
 
   return (
     <Card>
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
         <CalendarClock className="h-4 w-4" />
         Emploi du temps / Timetable
-      </h2>
+        </h2>
+        <Button size="sm" variant="secondary" onClick={() => ouvrirDocument(emploiDuTempsPdfEnfantUrl(eleveId), undefined, undefined, 'Emploi du temps / Timetable')}>
+          <FileDown className="h-4 w-4" />
+          Télécharger / Download
+        </Button>
+      </div>
       {isLoading ? (
         <Spinner />
       ) : !creneaux || creneaux.length === 0 ? (

@@ -64,6 +64,7 @@ import { VerificationVersementPage } from '@/features/finance/pages/Verification
 import { VerificationVersementBusPage } from '@/features/bus/pages/VerificationVersementBusPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
+import { VerificationEmploiDuTempsPage } from '@/features/emploiDuTemps/pages/VerificationEmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
 import { AppelPage } from '@/features/emploiDuTemps/pages/AppelPage'
 import { IdentificationPage } from '@/features/identification/pages/IdentificationPage'
@@ -138,6 +139,10 @@ export const router = createHashRouter([
   {
     path: '/verification-bulletin/:eleveId/:trimestreId/:signature',
     element: <VerificationBulletinPage />,
+  },
+  {
+    path: '/verification-emploi-du-temps/:classeId/:anneeId/:signature',
+    element: <VerificationEmploiDuTempsPage />,
   },
   // Ouverte en scannant le QR code d'un reçu de versement : même principe.
   {
