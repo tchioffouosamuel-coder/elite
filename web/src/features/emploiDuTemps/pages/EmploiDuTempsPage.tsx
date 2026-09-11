@@ -19,6 +19,7 @@ import {
   deleteCreneau,
   copierCreneaux,
   fetchEmploiDuTemps,
+  fetchSalles,
   genererSeances,
   publierEmploiDuTempsPdf,
   EXPORT_EMPLOI_DU_TEMPS_URL,
@@ -517,6 +518,7 @@ function CreneauModal({
     heure_debut: creneau?.heure_debut ?? '08:00',
     heure_fin: creneau?.heure_fin ?? '10:00',
     salle: creneau?.salle ?? '',
+    salle_id: creneau?.salle_id ?? null,
   })
   const [rechercheClasse, setRechercheClasse] = useState('')
 
@@ -533,6 +535,7 @@ function CreneauModal({
   const matiereInitiale = useRef(form.classe_matiere_id)
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const { data: salles } = useQuery({ queryKey: ['salles'], queryFn: fetchSalles })
 
   const affectationChoisie = matieres.find((m) => m.id === form.classe_matiere_id)
 
@@ -646,7 +649,20 @@ function CreneauModal({
           />
         </div>
 
-        <Input label={t('emploiDuTemps.salle_label')} value={form.salle} onChange={(e) => setForm({ ...form, salle: e.target.value })} />
+        <Select
+          label={t('emploiDuTemps.salle_label')}
+          value={form.salle_id ?? ''}
+          onChange={(e) => {
+            const salleId = e.target.value ? Number(e.target.value) : null
+            const salle = salles?.find((item) => item.id === salleId)
+            setForm({ ...form, salle_id: salleId, salle: salle?.nom ?? '' })
+          }}
+        >
+          <option value="">{t('emploiDuTemps.salle_aucune')}</option>
+          {salles?.filter((salle) => salle.active || salle.id === form.salle_id).map((salle) => (
+            <option key={salle.id} value={salle.id}>{salle.nom}</option>
+          ))}
+        </Select>
 
         {autresClasses.length > 0 && (
           <div className="flex flex-col gap-2">

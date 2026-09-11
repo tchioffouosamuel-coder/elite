@@ -16,9 +16,22 @@ class Seance extends Model
     public const MINUTES_VERROUILLAGE_APPEL = 15;
 
     protected $fillable = [
-        'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id',
-        'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'statut',
-        'observations', 'donnees_personnalisees', 'appel_verrouille_le', 'qr_verifie_le',
+        'school_id',
+        'classe_id',
+        'classe_matiere_id',
+        'trimestre_id',
+        'emploi_du_temps_id',
+        'date_seance',
+        'heure_debut',
+        'heure_fin',
+        'salle',
+        'salle_id',
+        'contenu',
+        'statut',
+        'observations',
+        'donnees_personnalisees',
+        'appel_verrouille_le',
+        'qr_verifie_le',
     ];
 
     protected function casts(): array
@@ -63,7 +76,7 @@ class Seance extends Model
 
     public function debutPrevu(): Carbon
     {
-        return Carbon::parse($this->date_seance->toDateString().' '.$this->heure_debut);
+        return Carbon::parse($this->date_seance->toDateString() . ' ' . $this->heure_debut);
     }
 
     /** Un appel pris avant l'heure de la séance pointerait des élèves pas encore en cours. */
@@ -85,6 +98,11 @@ class Seance extends Model
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    public function salleReference(): BelongsTo
+    {
+        return $this->belongsTo(Salle::class);
     }
 
     public function trimestre(): BelongsTo

@@ -7,6 +7,7 @@ use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\Salle;
 use App\Services\EmploiDuTempsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -62,13 +63,31 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
     private const SEPARATEURS = [';', '|', "\n", "\r"];
 
     private const JOURS = [
-        'LUNDI' => 1, 'MARDI' => 2, 'MERCREDI' => 3, 'JEUDI' => 4, 'VENDREDI' => 5, 'SAMEDI' => 6, 'DIMANCHE' => 7,
-        'MONDAY' => 1, 'TUESDAY' => 2, 'WEDNESDAY' => 3, 'THURSDAY' => 4, 'FRIDAY' => 5, 'SATURDAY' => 6, 'SUNDAY' => 7,
+        'LUNDI' => 1,
+        'MARDI' => 2,
+        'MERCREDI' => 3,
+        'JEUDI' => 4,
+        'VENDREDI' => 5,
+        'SAMEDI' => 6,
+        'DIMANCHE' => 7,
+        'MONDAY' => 1,
+        'TUESDAY' => 2,
+        'WEDNESDAY' => 3,
+        'THURSDAY' => 4,
+        'FRIDAY' => 5,
+        'SATURDAY' => 6,
+        'SUNDAY' => 7,
     ];
 
     /** Libellés français, pour les messages d'erreur — {@see jourLibelle()}. */
     private const LIBELLES_JOURS = [
-        1 => 'lundi', 2 => 'mardi', 3 => 'mercredi', 4 => 'jeudi', 5 => 'vendredi', 6 => 'samedi', 7 => 'dimanche',
+        1 => 'lundi',
+        2 => 'mardi',
+        3 => 'mercredi',
+        4 => 'jeudi',
+        5 => 'vendredi',
+        6 => 'samedi',
+        7 => 'dimanche',
     ];
 
     public int $importedCount = 0;
@@ -147,6 +166,10 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
             $associees = $this->classesAssociees((string) ($ligne['classes_associees'] ?? ''));
             $salle = trim((string) ($ligne['salle'] ?? '')) ?: null;
+            $salleId = $salle === null ? null : Salle::firstOrCreate(
+                ['school_id' => $this->classe->school_id, 'nom' => $salle],
+                ['active' => true],
+            )->id;
 
             if ($this->service->chevauche($this->classe, $jour, $heureDebut, $heureFin, null, $associees)) {
                 $this->erreurs[] = "{$nomMatiere} ({$this->jourLibelle($jour)} {$heureDebut}) : chevauche un créneau existant.";
@@ -169,6 +192,7 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
                     'heure_debut' => $heureDebut,
                     'heure_fin' => $heureFin,
                     'salle' => $salle,
+                    'salle_id' => $salleId,
                 ]);
                 $creneau->classesAssociees()->sync($associees);
 

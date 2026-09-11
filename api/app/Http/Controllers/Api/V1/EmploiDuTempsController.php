@@ -10,6 +10,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
+use App\Models\Salle;
 use App\Models\Trimestre;
 use App\Services\BibliothequeService;
 use App\Services\EmploiDuTempsService;
@@ -45,6 +46,7 @@ class EmploiDuTempsController extends Controller
 
         $associees = $data['classes_associees'];
         unset($data['classes_associees']);
+        $data = $this->resoudreSalle($data, $classe);
 
         if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], null, $associees)) {
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
@@ -73,6 +75,7 @@ class EmploiDuTempsController extends Controller
 
         $associees = $data['classes_associees'];
         unset($data['classes_associees']);
+        $data = $this->resoudreSalle($data, $classe);
 
         if ($this->service->chevauche($classe, $data['jour'], $data['heure_debut'], $data['heure_fin'], $creneau->id, $associees)) {
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
@@ -242,6 +245,7 @@ class EmploiDuTempsController extends Controller
             'heure_debut' => ['required', 'date_format:H:i'],
             'heure_fin' => ['required', 'date_format:H:i', 'after:heure_debut'],
             'salle' => ['nullable', 'string', 'max:50'],
+            'salle_id' => ['nullable', 'integer'],
             // Tronc commun : les classes qui rejoignent celle-ci sur ce créneau.
             'classes_associees' => ['sometimes', 'array'],
             'classes_associees.*' => ['integer', 'distinct'],
@@ -274,6 +278,34 @@ class EmploiDuTempsController extends Controller
         );
 
         $data['classes_associees'] = $associees->all();
+
+        return $data;
+    }
+
+    private function resoudreSalle(array $data, Classe $classe): array
+    {
+        if (! empty($data['salle_id'])) {
+            $salle = Salle::forSchool($classe->school_id)->findOrFail($data['salle_id']);
+            $data['salle_id'] = $salle->id;
+            $data['salle'] = $salle->nom;
+
+            return $data;
+        }
+
+        $nom = trim((string) ($data['salle'] ?? ''));
+        if ($nom === '') {
+            $data['salle'] = null;
+            $data['salle_id'] = null;
+
+            return $data;
+        }
+
+        $salle = Salle::firstOrCreate(
+            ['school_id' => $classe->school_id, 'nom' => $nom],
+            ['active' => true],
+        );
+        $data['salle'] = $salle->nom;
+        $data['salle_id'] = $salle->id;
 
         return $data;
     }

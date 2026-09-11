@@ -78,6 +78,7 @@ use App\Http\Controllers\Api\V1\RapportRentreeTexteController;
 use App\Http\Controllers\Api\V1\RapportTrimestreExportController;
 use App\Http\Controllers\Api\V1\RapportTrimestreTexteController;
 use App\Http\Controllers\Api\V1\RemiseController;
+use App\Http\Controllers\Api\V1\SalleController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
@@ -795,6 +796,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
+                Route::get('salles', [SalleController::class, 'index'])->name('salles.index');
                 Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
                 Route::get('classes/{classeId}/emploi-du-temps/export', [EmploiDuTempsController::class, 'export'])->name('edt.export');
                 Route::get('classes/{classeId}/emploi-du-temps/export-pdf', [EmploiDuTempsController::class, 'exportPdf'])->name('edt.export-pdf');
@@ -803,6 +805,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:emploi_du_temps.manage')->group(function () {
+                Route::post('salles', [SalleController::class, 'store'])->name('salles.store');
+                Route::put('salles/{id}', [SalleController::class, 'update'])->name('salles.update');
+                Route::delete('salles/{id}', [SalleController::class, 'destroy'])->name('salles.destroy');
                 Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store');
                 Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');

@@ -28,9 +28,9 @@ class EmploiDuTempsService extends BaseService
      */
     public function grille(Classe $classe): Collection
     {
-        return EmploiDuTemps::where(fn ($q) => $q
+        return EmploiDuTemps::where(fn($q) => $q
             ->where('classe_id', $classe->id)
-            ->orWhereHas('classesAssociees', fn ($c) => $c->where('classes.id', $classe->id)))
+            ->orWhereHas('classesAssociees', fn($c) => $c->where('classes.id', $classe->id)))
             ->with(['classe', 'classesAssociees', 'classeMatiere.matiere', 'classeMatiere.enseignant'])
             ->orderBy('jour')->orderBy('heure_debut')
             ->get();
@@ -44,7 +44,7 @@ class EmploiDuTempsService extends BaseService
      */
     public static function presenter(EmploiDuTemps $creneau): array
     {
-        $creneau->loadMissing('classe', 'classesAssociees');
+        $creneau->loadMissing('classe', 'classesAssociees', 'salleReference');
 
         return [
             'id' => $creneau->id,
@@ -52,6 +52,12 @@ class EmploiDuTempsService extends BaseService
             'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
             'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
             'salle' => $creneau->salle,
+            'salle_id' => $creneau->salle_id,
+            'salle_details' => $creneau->salleReference ? [
+                'id' => $creneau->salleReference->id,
+                'nom' => $creneau->salleReference->nom,
+                'capacite' => $creneau->salleReference->capacite,
+            ] : null,
             'classe_matiere_id' => $creneau->classe_matiere_id,
             'matiere' => $creneau->classeMatiere?->matiere?->nom,
             'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
@@ -60,7 +66,7 @@ class EmploiDuTempsService extends BaseService
             'classe_id' => $creneau->classe_id,
             'classe' => $creneau->classe?->nom,
             'classes_associees' => $creneau->classesAssociees
-                ->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+                ->map(fn($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
             'tronc_commun' => $creneau->classesAssociees->isNotEmpty(),
         ];
     }
@@ -113,6 +119,7 @@ class EmploiDuTempsService extends BaseService
                 'heure_debut' => $source->heure_debut,
                 'heure_fin' => $source->heure_fin,
                 'salle' => $source->salle,
+                'salle_id' => $source->salle_id,
             ]);
             $copies++;
         }
@@ -142,10 +149,10 @@ class EmploiDuTempsService extends BaseService
         $ids = collect([$classe->id])->concat($classesAssociees)->unique()->all();
 
         return EmploiDuTemps::where('jour', $jour)
-            ->where(fn ($q) => $q
+            ->where(fn($q) => $q
                 ->whereIn('classe_id', $ids)
-                ->orWhereHas('classesAssociees', fn ($c) => $c->whereIn('classes.id', $ids)))
-            ->when($ignorerId, fn ($q, $id) => $q->where('id', '!=', $id))
+                ->orWhereHas('classesAssociees', fn($c) => $c->whereIn('classes.id', $ids)))
+            ->when($ignorerId, fn($q, $id) => $q->where('id', '!=', $id))
             ->where('heure_debut', '<', $fin)
             ->where('heure_fin', '>', $debut)
             ->exists();
@@ -169,9 +176,9 @@ class EmploiDuTempsService extends BaseService
         }
 
         $heuresExistantes = EmploiDuTemps::where('classe_matiere_id', $classeMatiere->id)
-            ->when($ignorerId, fn ($q, $id) => $q->where('id', '!=', $id))
+            ->when($ignorerId, fn($q, $id) => $q->where('id', '!=', $id))
             ->get()
-            ->sum(fn (EmploiDuTemps $c) => $this->dureeHeures((string) $c->heure_debut, (string) $c->heure_fin));
+            ->sum(fn(EmploiDuTemps $c) => $this->dureeHeures((string) $c->heure_debut, (string) $c->heure_fin));
 
         $total = $heuresExistantes + $this->dureeHeures($debut, $fin);
 
@@ -234,6 +241,7 @@ class EmploiDuTempsService extends BaseService
                     'heure_debut' => $creneau->heure_debut,
                     'heure_fin' => $creneau->heure_fin,
                     'salle' => $creneau->salle,
+                    'salle_id' => $creneau->salle_id,
                     'statut' => 'prevue',
                 ]);
 
@@ -279,7 +287,7 @@ class EmploiDuTempsService extends BaseService
 
         return $seance->elevesAttendus()
             ->load('classe')
-            ->map(fn ($eleve) => [
+            ->map(fn($eleve) => [
                 'classe' => $eleve->classe?->only(['id', 'nom']),
                 'eleve' => $eleve,
                 // Tous présents par défaut : l'appel ne relève que les écarts.
@@ -341,8 +349,8 @@ class EmploiDuTempsService extends BaseService
                     if ($justificationParent) {
                         $motif = $justificationParent->motif;
                         $remarque = trim('Justifiée par le parent'
-                            .($justificationParent->description ? ' — '.$justificationParent->description : '')
-                            .($remarque ? ' · '.$remarque : ''));
+                            . ($justificationParent->description ? ' — ' . $justificationParent->description : '')
+                            . ($remarque ? ' · ' . $remarque : ''));
                     }
                 }
 
@@ -417,7 +425,7 @@ class EmploiDuTempsService extends BaseService
             'Absence non justifiée',
             $eleves->count() === 1
                 ? "{$eleves->first()->nom_complet} est absent(e) sans motif connu en {$classe->nom}."
-                : "{$eleves->count()} élèves sont absents sans motif connu en {$classe->nom} : ".$eleves->pluck('nom_complet')->implode(', ').'.',
+                : "{$eleves->count()} élèves sont absents sans motif connu en {$classe->nom} : " . $eleves->pluck('nom_complet')->implode(', ') . '.',
         );
 
         foreach ($eleves as $eleve) {
@@ -462,7 +470,7 @@ class EmploiDuTempsService extends BaseService
             }
         }
 
-        return collect($cumuls)->map(fn ($valeurs, $eleveId) => [
+        return collect($cumuls)->map(fn($valeurs, $eleveId) => [
             'eleve_id' => $eleveId,
             'heures_justifiees' => round($valeurs['heures_justifiees'], 2),
             'heures_non_justifiees' => round($valeurs['heures_non_justifiees'], 2),
@@ -491,7 +499,7 @@ class EmploiDuTempsService extends BaseService
             ->with('presences')
             ->orderBy('heure_debut')
             ->get()
-            ->groupBy(fn (Seance $s) => $s->date_seance->toDateString());
+            ->groupBy(fn(Seance $s) => $s->date_seance->toDateString());
 
         $jours = [];
         for ($i = 0; $i < 5; $i++) {

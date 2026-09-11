@@ -13,7 +13,14 @@ class EmploiDuTemps extends Model
     protected $table = 'emplois_du_temps';
 
     protected $fillable = [
-        'school_id', 'classe_id', 'classe_matiere_id', 'jour', 'heure_debut', 'heure_fin', 'salle',
+        'school_id',
+        'classe_id',
+        'classe_matiere_id',
+        'jour',
+        'heure_debut',
+        'heure_fin',
+        'salle',
+        'salle_id',
     ];
 
     protected function casts(): array
@@ -34,6 +41,11 @@ class EmploiDuTemps extends Model
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    public function salleReference(): BelongsTo
+    {
+        return $this->belongsTo(Salle::class);
     }
 
     /**

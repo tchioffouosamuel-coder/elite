@@ -20,12 +20,22 @@ export interface ClasseAssociee {
   nom: string;
 }
 
+export interface Salle {
+  id: number;
+  nom: string;
+  description: string | null;
+  capacite: number | null;
+  active: boolean;
+}
+
 export interface Creneau {
   id: number;
   jour: number;
   heure_debut: string;
   heure_fin: string;
   salle: string | null;
+  salle_id: number | null;
+  salle_details: Pick<Salle, "id" | "nom" | "capacite"> | null;
   classe_matiere_id: number;
   matiere: string | null;
   enseignant: string | null;
@@ -43,6 +53,7 @@ export interface CreneauPayload {
   heure_debut: string;
   heure_fin: string;
   salle?: string | null;
+  salle_id?: number | null;
   classes_associees?: number[];
 }
 
@@ -56,6 +67,7 @@ export interface Seance {
   heure_debut: string;
   heure_fin: string;
   salle: string | null;
+  salle_id: number | null;
   contenu: string | null;
   statut: "prevue" | "effectuee" | "annulee";
   absents: number;
@@ -92,6 +104,30 @@ export async function fetchEmploiDuTemps(classeId: number): Promise<Creneau[]> {
     `/classes/${classeId}/emploi-du-temps`,
   );
   return data.data;
+}
+
+export async function fetchSalles(): Promise<Salle[]> {
+  const { data } = await http.get<ApiResponse<Salle[]>>("/salles");
+  return data.data;
+}
+
+export async function createSalle(
+  payload: Pick<Salle, "nom" | "description" | "capacite">,
+): Promise<Salle> {
+  const { data } = await http.post<ApiResponse<Salle>>("/salles", payload);
+  return data.data;
+}
+
+export async function updateSalle(
+  id: number,
+  payload: Partial<Pick<Salle, "nom" | "description" | "capacite" | "active">>,
+): Promise<Salle> {
+  const { data } = await http.put<ApiResponse<Salle>>(`/salles/${id}`, payload);
+  return data.data;
+}
+
+export async function deactivateSalle(id: number): Promise<void> {
+  await http.delete(`/salles/${id}`);
 }
 
 export async function createCreneau(
