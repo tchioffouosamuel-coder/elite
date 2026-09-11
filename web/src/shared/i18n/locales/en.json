@@ -665,7 +665,13 @@
     "cycle_primaire": "Primary",
     "cycle_maternelle": "Nursery",
     "import_ecole_visee": "Target school:",
-    "import_choisir_ecole": "Pick a school in the list filter before importing."
+    "import_choisir_ecole": "Pick a school in the list filter before importing.",
+    "fusionner": "Merge",
+    "fusionner_titre": "Merge two subjects",
+    "fusionner_hint": "The two selected subjects will be merged into one. Choose which one to keep: its classes, marks, progression and sessions absorb the other's, which is then removed.",
+    "fusionner_conserver": "Subject to keep",
+    "fusionner_supprimer_qui_disparait": "will be removed",
+    "fusionner_confirmer": "Merge"
   },
   "pedagogie": {
     "title": "Subjects & assignments",

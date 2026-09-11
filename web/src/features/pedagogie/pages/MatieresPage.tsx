@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Download, ListChecks, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
+import { BookOpen, Download, GitMerge, ListChecks, Pencil, Plus, School, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
 import {
   fetchMatieres,
@@ -10,6 +10,7 @@ import {
   deleteMatiere,
   batchDeleteMatieres,
   batchCompetenceMatieres,
+  fusionnerMatieres,
 } from '@/features/pedagogie/api'
 import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -50,6 +51,7 @@ export function MatieresPage() {
   const [matiereClasses, setMatiereClasses] = useState<Matiere | null>(null)
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
   const [showCompetenceEnMasse, setShowCompetenceEnMasse] = useState(false)
+  const [showFusion, setShowFusion] = useState(false)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
@@ -271,6 +273,12 @@ export function MatieresPage() {
                 {t('competences.attribuer_en_masse', { count: selectedIds.size })}
               </Button>
             )}
+            {selectedIds.size === 2 && can('pedagogie.manage') && (
+              <Button variant="secondary" onClick={() => setShowFusion(true)}>
+                <GitMerge className="h-4 w-4" />
+                {t('matieres.fusionner')}
+              </Button>
+            )}
             {selectedIds.size > 0 && can('pedagogie.manage') && (
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
@@ -396,7 +404,103 @@ export function MatieresPage() {
           }}
         />
       )}
+
+      {showFusion && selectedIds.size === 2 && (
+        <FusionModal
+          matieres={matieresFiltrees.filter((m) => selectedIds.has(m.id))}
+          onClose={() => setShowFusion(false)}
+          onDone={() => {
+            setShowFusion(false)
+            setSelectedIds(new Set())
+            queryClient.invalidateQueries({ queryKey: ['matieres'] })
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Fusionne deux matières en doublon : celle qui n'est pas conservée disparaît,
+ * ses classes/notes/progression rejoignant celle gardée. Les deux candidates
+ * viennent de la sélection de la liste — inutile de les rechercher ici.
+ */
+function FusionModal({
+  matieres,
+  onClose,
+  onDone,
+}: {
+  /** Toujours deux éléments : la sélection est bornée à 2 avant d'ouvrir cette modale. */
+  matieres: Matiere[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const { t } = useTranslation()
+  const [conserveeId, setConserveeId] = useState<number>(matieres[0].id)
+  const [envoi, setEnvoi] = useState(false)
+
+  const supprimee = matieres.find((m) => m.id !== conserveeId) ?? matieres[1]
+
+  const valider = async () => {
+    setEnvoi(true)
+    try {
+      await fusionnerMatieres(conserveeId, supprimee.id)
+      succes(`« ${supprimee.nom} » fusionnée avec succès.`)
+      onDone()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={t('matieres.fusionner_titre')} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-navy-600">{t('matieres.fusionner_hint')}</p>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">
+            {t('matieres.fusionner_conserver')}
+          </span>
+          {matieres.map((m) => (
+            <label
+              key={m.id}
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+                conserveeId === m.id
+                  ? 'border-gold-400 bg-gold-50'
+                  : 'border-navy-100 hover:bg-cream-50'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="matiere-conservee"
+                  checked={conserveeId === m.id}
+                  onChange={() => setConserveeId(m.id)}
+                  className="h-4 w-4 border-navy-300 text-gold-600 focus:ring-gold-500"
+                />
+                <span className="font-medium text-navy-900">{m.nom}</span>
+              </span>
+              {conserveeId !== m.id && (
+                <span className="text-xs font-medium text-red-500">
+                  {t('matieres.fusionner_supprimer_qui_disparait')}
+                </span>
+              )}
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="danger" disabled={envoi} onClick={valider}>
+            {t('matieres.fusionner_confirmer')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -12,6 +12,7 @@ use App\Models\Classe;
 use App\Models\Competence;
 use App\Models\Matiere;
 use App\Services\CompetenceAttributionService;
+use App\Services\MatiereFusionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MatiereController extends Controller
 {
-    public function __construct(private readonly CompetenceAttributionService $attribution) {}
+    public function __construct(
+        private readonly CompetenceAttributionService $attribution,
+        private readonly MatiereFusionService $fusion,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -111,6 +115,47 @@ class MatiereController extends Controller
         Matiere::forSchool(Tenant::schoolIds())->whereIn('id', $ids)->delete();
 
         return ApiResponse::success(message: count($ids) . ' matière(s) supprimée(s).');
+    }
+
+    /**
+     * Fusionne deux matières en doublon : les affectations de classe de
+     * `supprimee_id` rejoignent celles de `conservee_id` (notes, progression,
+     * séances comprises), puis la matière en trop disparaît.
+     */
+    public function fusionner(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'conservee_id' => ['required', 'integer', 'different:supprimee_id'],
+            'supprimee_id' => ['required', 'integer'],
+        ]);
+
+        $matieres = Matiere::forSchool(Tenant::schoolIds())
+            ->whereIn('id', [$data['conservee_id'], $data['supprimee_id']])
+            ->get()
+            ->keyBy('id');
+
+        $conservee = $matieres->get($data['conservee_id']);
+        $supprimee = $matieres->get($data['supprimee_id']);
+
+        if ($conservee === null || $supprimee === null) {
+            return ApiResponse::notFound();
+        }
+
+        if ($conservee->school_id !== $supprimee->school_id) {
+            return ApiResponse::error("Ces deux matières n'appartiennent pas au même établissement.", 422);
+        }
+
+        $resultat = $this->fusion->fusionner($conservee, $supprimee);
+
+        $parties = ["« {$supprimee->nom} » fusionnée dans « {$conservee->nom} »"];
+        if ($resultat['classes_fusionnees'] > 0) {
+            $parties[] = "{$resultat['classes_fusionnees']} affectation(s) de classe réconciliée(s)";
+        }
+        if ($resultat['notes_ignorees'] > 0) {
+            $parties[] = "{$resultat['notes_ignorees']} note(s) en double abandonnée(s)";
+        }
+
+        return ApiResponse::success($resultat, implode(', ', $parties) . '.');
     }
 
     /**

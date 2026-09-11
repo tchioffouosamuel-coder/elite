@@ -650,6 +650,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy');
                 Route::post('matieres/batch-delete', [MatiereController::class, 'batchDestroy'])->name('matieres.batch-destroy');
                 Route::post('matieres/batch-competence', [MatiereController::class, 'batchCompetence'])->name('matieres.batch-competence');
+                Route::post('matieres/fusionner', [MatiereController::class, 'fusionner'])->name('matieres.fusionner');
                 Route::post('matieres/import', [MatiereController::class, 'import'])->name('matieres.import');
 
                 Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');

@@ -167,6 +167,21 @@ export async function batchCompetenceMatieres(
   return data.data;
 }
 
+/**
+ * Fusionne deux matières en doublon : les affectations de classe de
+ * `supprimeeId` rejoignent celles de `conserveeId` (notes, progression,
+ * séances comprises), puis la matière en trop disparaît.
+ */
+export async function fusionnerMatieres(
+  conserveeId: number,
+  supprimeeId: number,
+): Promise<{ classes_deplacees: number; classes_fusionnees: number; notes_ignorees: number }> {
+  const { data } = await http.post<
+    ApiResponse<{ classes_deplacees: number; classes_fusionnees: number; notes_ignorees: number }>
+  >("/matieres/fusionner", { conservee_id: conserveeId, supprimee_id: supprimeeId });
+  return data.data;
+}
+
 export async function fetchClasseMatieres(
   classeId: number,
 ): Promise<ClasseMatiere[]> {

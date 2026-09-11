@@ -34,14 +34,20 @@ class EmploiDuTempsGenerator
     private function html(Classe $classe, AnneeScolaire $annee, $creneaux): string
     {
         $jours = [1 => ['Lundi', 'Monday'], 2 => ['Mardi', 'Tuesday'], 3 => ['Mercredi', 'Wednesday'], 4 => ['Jeudi', 'Thursday'], 5 => ['Vendredi', 'Friday'], 6 => ['Samedi', 'Saturday']];
+        // Le samedi n'est pas travaillé dans tous les établissements : sa colonne
+        // n'apparaît que si la classe y a au moins un cours, pour ne pas gaspiller
+        // de largeur — et donc de hauteur de ligne — sur une colonne vide.
+        if (! $creneaux->contains(fn($c) => (int) $c->jour === 6)) {
+            unset($jours[6]);
+        }
         $lignes = $creneaux->map(fn($c) => substr((string) $c->heure_debut, 0, 5) . '|' . substr((string) $c->heure_fin, 0, 5))->unique()->sort()->values();
         $qr = (new Builder)->build(data: SignatureEmploiDuTemps::lienVerification($classe->id, $annee->id), size: 140, margin: 2);
 
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
             . $this->stylesBase()
-            . 'body{font-size:3mm}.edt th{background:#24557c;color:#fff;font-size:3.2mm;padding:2mm}.edt td{height:13mm;vertical-align:middle;padding:1mm}.cours{background:#dbe8f3}.matiere{font-weight:bold;font-size:3.2mm}.enseignant{font-size:2.7mm}.heure{font-style:italic;font-size:2.5mm}.vide{color:#888}.qr{width:16mm;height:16mm}</style></head><body>'
+            . 'body{font-size:2.8mm}.edt th{background:' . self::ACCENT . ';color:#fff;font-size:2.8mm;padding:1mm}.edt td{height:9mm;vertical-align:middle;padding:0.5mm}.cours{background:#e3f5e6}.matiere{font-weight:bold;font-size:2.8mm}.enseignant{font-size:2.4mm}.heure{font-style:italic;font-size:2.2mm}.vide{color:#888}.qr{width:16mm;height:16mm}</style></head><body>'
             . $this->enTeteEcole($classe->school)
-            . '<div style="text-align:center;margin:1mm 0 3mm"><span class="titre">Emploi du temps - ' . $this->e($classe->nom) . '</span><br><span class="titre-en">Timetable - ' . $this->e($classe->nom) . '</span><br>Année scolaire / Academic year : <b>' . $this->e($annee->libelle) . '</b></div>'
+            . '<div style="text-align:center;margin:1mm 0 2mm"><span class="titre">Emploi du temps - ' . $this->e($classe->nom) . '</span><br><span class="titre-en">Timetable - ' . $this->e($classe->nom) . '</span><br>Année scolaire / Academic year : <b>' . $this->e($annee->libelle) . '</b></div>'
             . '<table class="edt"><thead><tr><th>Heures<br><i>Time</i></th>';
         foreach ($jours as $jour) {
             $html .= '<th>' . $jour[0] . '<br><i>' . $jour[1] . '</i></th>';
@@ -58,7 +64,7 @@ class EmploiDuTempsGenerator
             }
             $html .= '</tr>';
         }
-        $html .= '</tbody></table><table class="no-border" style="margin-top:2mm"><tr><td style="text-align:left;border:none;color:#666;font-style:italic">Case bleue / blue cell = cours programme / scheduled class &nbsp; | &nbsp; Case vide / empty cell = aucun cours / no class</td><td style="width:22%;border:none;text-align:right"><img class="qr" src="' . $qr->getDataUri() . '" /></td><td style="width:18%;border:none;text-align:left;font-size:2.3mm">Authenticité / Authenticity<br>Scannez pour vérifier<br>Scan to verify</td></tr></table></body></html>';
+        $html .= '</tbody></table><table class="no-border" style="margin-top:1mm"><tr><td style="text-align:left;border:none;color:#666;font-style:italic">Case verte / green cell = cours programme / scheduled class &nbsp; | &nbsp; Case vide / empty cell = aucun cours / no class</td><td style="width:22%;border:none;text-align:right"><img class="qr" src="' . $qr->getDataUri() . '" /></td><td style="width:18%;border:none;text-align:left;font-size:2.3mm">Authenticité / Authenticity<br>Scannez pour vérifier<br>Scan to verify</td></tr></table></body></html>';
 
         return $html;
     }

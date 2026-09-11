@@ -665,7 +665,13 @@
     "cycle_primaire": "Primaire",
     "cycle_maternelle": "Maternelle",
     "import_ecole_visee": "École visée :",
-    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer."
+    "import_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer.",
+    "fusionner": "Fusionner",
+    "fusionner_titre": "Fusionner deux matières",
+    "fusionner_hint": "Les deux matières sélectionnées seront réunies en une seule. Choisissez celle à conserver : ses classes, notes, progression et séances reprennent celles de l'autre, qui disparaît ensuite.",
+    "fusionner_conserver": "Matière à conserver",
+    "fusionner_supprimer_qui_disparait": "sera supprimée",
+    "fusionner_confirmer": "Fusionner"
   },
   "pedagogie": {
     "title": "Matières & affectations",
