@@ -405,7 +405,12 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label={t('dashboard.students')} value={effectifs.eleves} icon={UserRound} accent="navy" />
+        <StatCard
+          label={t('dashboard.enrolled_students')}
+          value={reinscription.anciens_reinscrits + reinscription.nouveaux_eleves}
+          icon={UserRound}
+          accent="navy"
+        />
         <StatCard label={t('dashboard.staff')} value={effectifs.personnel} icon={Users} accent="green" />
         <StatCard label={t('dashboard.teachers')} value={effectifs.enseignants} icon={GraduationCap} accent="green" />
         <StatCard label={t('dashboard.classes')} value={effectifs.classes} icon={School} accent="gold" />
