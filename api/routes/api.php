@@ -99,6 +99,7 @@ use App\Http\Controllers\Api\V1\TrimestreController;
 use App\Http\Controllers\Api\V1\TuteurController;
 use App\Http\Controllers\Api\V1\VenteDenreeController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
+use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\VerificationEmploiDuTempsController;
 use App\Http\Controllers\Api\V1\VerificationVersementBusController;
 use App\Http\Controllers\Api\V1\VerificationVersementController;
@@ -144,6 +145,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // Même principe pour un reçu de transport scolaire — registre séparé, donc route séparée.
     Route::get('verification-versement-bus/{versementId}/{signature}', [VerificationVersementBusController::class, 'show'])
         ->name('verification-versement-bus.show');
+
+    // Point d'entrée unique pour l'app mobile (scan QR) : reçoit tel quel le
+    // chemin de vérification encodé dans le QR (ex.
+    // "verification-bulletin/42/3/<signature>") et délègue au bon type de
+    // document ci-dessus, en aplatissant la réponse dans une forme commune —
+    // voir VerificationController.
+    Route::get('verify/{path}', [VerificationController::class, 'show'])
+        ->where('path', '.*')
+        ->name('verify.show');
 
     // Callback DLR d'Orange (delivery report) : Orange n'authentifie pas cet
     // appel ("No authentication" côté portail Orange), donc pas de

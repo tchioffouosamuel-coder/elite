@@ -174,6 +174,8 @@ interface Option {
   value: string
   label: string
   disabled?: boolean
+  /** Signalée via `data-attention` sur l'<option> : mise en évidence (rouge) dans le menu déroulant. */
+  attention?: boolean
 }
 
 /** Concatène les enfants texte/nombre d'un nœud, en ignorant le reste (ex: {a} ({b}) → "a (b)"). */
@@ -188,7 +190,7 @@ function extraireOptions(children: ReactNode): Option[] {
   const options: Option[] = []
 
   Children.forEach(children, (enfant) => {
-    if (!isValidElement<{ value?: string | number; children?: ReactNode; disabled?: boolean }>(enfant)) return
+    if (!isValidElement<{ value?: string | number; children?: ReactNode; disabled?: boolean; 'data-attention'?: string }>(enfant)) return
     if (enfant.type !== 'option') return
 
     const { value, children: libelle, disabled } = enfant.props
@@ -196,6 +198,7 @@ function extraireOptions(children: ReactNode): Option[] {
       value: value === undefined ? '' : String(value),
       label: texteEnfants(libelle),
       disabled,
+      attention: enfant.props['data-attention'] === 'true',
     })
   })
 
@@ -460,6 +463,7 @@ export function Select({ label, error, className, id, children, ref, value, onCh
                         option.disabled && 'cursor-not-allowed text-navy-300',
                         !option.disabled && i === survol && 'bg-cream-100',
                         valeursCourantes.includes(option.value) && 'font-semibold text-navy-900',
+                        option.attention && !option.disabled && 'text-red-600',
                       )}
                     >
                       <span className="truncate">{option.label || '—'}</span>

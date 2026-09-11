@@ -9,6 +9,7 @@ import {
   fetchMatiereClasses,
   fetchTrimestres,
   batchEnseignantAffectations,
+  modifierAffectation,
   type ClasseMatiere,
 } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
@@ -539,6 +540,7 @@ function CreneauModal({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const estSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const enEdition = !!creneau
   const [form, setForm] = useState({
     classe_matiere_id: creneau?.classe_matiere_id ?? matieres[0]?.id ?? 0,
@@ -549,6 +551,24 @@ function CreneauModal({
     salle_id: creneau?.salle_id ?? null,
   })
   const [rechercheClasse, setRechercheClasse] = useState('')
+  const [modifierEnseignant, setModifierEnseignant] = useState(false)
+  const [nouvelEnseignantId, setNouvelEnseignantId] = useState<number | '' | 'aucun'>('')
+
+  // Grille déjà chargée par la page : réutilisée ici (même clé de requête,
+  // servie depuis le cache) pour savoir quelles matières occupent déjà le
+  // jour choisi, sans refaire l'appel.
+  const { data: creneauxClasse } = useQuery({
+    queryKey: ['emploi-du-temps', classeId],
+    queryFn: () => fetchEmploiDuTemps(classeId),
+  })
+
+  const matieresPlanifieesCeJour = useMemo(() => {
+    const ids = new Set<number>()
+    creneauxClasse?.forEach((c) => {
+      if (c.jour === form.jour && c.id !== creneau?.id) ids.add(c.classe_matiere_id)
+    })
+    return ids
+  }, [creneauxClasse, form.jour, creneau?.id])
 
   /*
    * Tronc commun : les classes qui rejoignent celle-ci sur ce créneau. Rien
@@ -566,6 +586,27 @@ function CreneauModal({
   const { data: salles } = useQuery({ queryKey: ['salles'], queryFn: fetchSalles })
 
   const affectationChoisie = matieres.find((m) => m.id === form.classe_matiere_id)
+
+  const { data: personnels, isLoading: personnelsEnChargement } = useQuery({
+    queryKey: ['personnels', 'creneau-enseignant'],
+    queryFn: () => fetchPersonnels({ per_page: 500 }),
+    enabled: modifierEnseignant,
+  })
+
+  // Modifiée à la volée dès la sélection d'un nouveau professeur, plutôt que
+  // reportée à l'enregistrement du créneau : l'affectation matière-classe
+  // est une ressource distincte, revue ici quand le créneau le révèle
+  // nécessaire (ex. professeur remplacé) sans bloquer le reste du formulaire.
+  const majEnseignant = useMutation({
+    mutationFn: (personnelId: number | null) => modifierAffectation(affectationChoisie!.id, { personnel_id: personnelId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['classe-matieres', classeId] })
+      succes(t('emploiDuTemps.enseignant_mis_a_jour'))
+      setModifierEnseignant(false)
+      setNouvelEnseignantId('')
+    },
+    onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.enseignant_maj_impossible')),
+  })
 
   /*
    * Tronc commun prévisionnel.
@@ -622,9 +663,15 @@ function CreneauModal({
 
   const autresClasses = (classes ?? []).filter((c) => c.id !== classeId)
   const terme = rechercheClasse.trim().toLowerCase()
-  const classesAffichees = terme === ''
+  // Les classes déjà cochées (sélection ou suggestion) remontent en tête de
+  // liste : pas besoin de les chercher au milieu d'une longue liste pour
+  // vérifier ou décocher ce qui est déjà retenu.
+  const classesAffichees = (terme === ''
     ? autresClasses
     : autresClasses.filter((c) => c.nom.toLowerCase().includes(terme))
+  )
+    .slice()
+    .sort((a, b) => Number(associees.includes(b.id)) - Number(associees.includes(a.id)))
 
   const basculer = (id: number) =>
     setAssociees((actuelles) =>
@@ -653,19 +700,6 @@ function CreneauModal({
           creation.mutate()
         }}
       >
-        <Select
-          label={t('emploiDuTemps.matiere_label')}
-          value={form.classe_matiere_id}
-          onChange={(e) => setForm({ ...form, classe_matiere_id: Number(e.target.value) })}
-          required
-        >
-          {matieres.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.matiere.nom_en ? `${m.matiere.nom} / ${m.matiere.nom_en}` : m.matiere.nom}
-            </option>
-          ))}
-        </Select>
-
         <Select label={t('emploiDuTemps.jour_label')} value={form.jour} onChange={(e) => setForm({ ...form, jour: Number(e.target.value) })}>
           {JOURS.map((j) => (
             <option key={j.valeur} value={j.valeur}>
@@ -673,6 +707,81 @@ function CreneauModal({
             </option>
           ))}
         </Select>
+
+        <Select
+          label={t('emploiDuTemps.matiere_label')}
+          value={form.classe_matiere_id}
+          onChange={(e) => setForm({ ...form, classe_matiere_id: Number(e.target.value) })}
+          required
+        >
+          {matieres.map((m) => {
+            const dejaPlanifiee = matieresPlanifieesCeJour.has(m.id)
+            const libelle = m.matiere.nom_en ? `${m.matiere.nom} / ${m.matiere.nom_en}` : m.matiere.nom
+            return (
+              <option key={m.id} value={m.id} data-attention={dejaPlanifiee ? 'true' : undefined}>
+                {dejaPlanifiee ? `${libelle} — ${t('emploiDuTemps.matiere_deja_planifiee')}` : libelle}
+              </option>
+            )
+          })}
+        </Select>
+
+        {affectationChoisie && estSuperAdmin && (
+          <Card className="!p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
+                  {t('emploiDuTemps.enseignant_affecte_titre')}
+                </span>
+                <p className="text-sm font-semibold text-navy-800">
+                  {affectationChoisie.enseignant?.nom_complet ?? t('emploiDuTemps.enseignant_affecte_aucun')}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setModifierEnseignant((actuel) => !actuel)}
+              >
+                {t('common.edit')}
+              </Button>
+            </div>
+
+            {modifierEnseignant && (
+              <div className="mt-3 flex items-center gap-2">
+                {personnelsEnChargement ? (
+                  <Spinner />
+                ) : (
+                  <>
+                    <Select
+                      value={nouvelEnseignantId}
+                      onChange={(e) => {
+                        const brut = e.target.value
+                        setNouvelEnseignantId(brut === '' ? '' : brut === 'aucun' ? 'aucun' : Number(brut))
+                      }}
+                      className="flex-1"
+                    >
+                      <option value="">—</option>
+                      <option value="aucun">{t('emploiDuTemps.aucun_enseignant_option')}</option>
+                      {personnels?.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nom_complet}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={nouvelEnseignantId === '' || majEnseignant.isPending}
+                      onClick={() => majEnseignant.mutate(nouvelEnseignantId === 'aucun' ? null : Number(nouvelEnseignantId))}
+                    >
+                      {t('common.save')}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Input
