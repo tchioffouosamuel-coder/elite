@@ -147,7 +147,12 @@ export function ElevesDoublonsPage() {
                                 {groupe.eleves.map((eleve) => (
                                     <div key={eleve.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                                         <div className="min-w-0">
-                                            <p className="font-semibold text-navy-900">{eleve.nom_complet}</p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className={`font-semibold ${eleve.preinscription_active ? 'text-green-700' : 'text-navy-900'}`}>
+                                                    {eleve.nom_complet}
+                                                </p>
+                                                {eleve.preinscription_active && <Badge tone="green">Déjà inscrit</Badge>}
+                                            </div>
                                             <p className="text-xs text-navy-500">
                                                 Matricule : {eleve.matricule ?? '—'} · Né(e) le : {eleve.date_naissance ?? '—'} · Classe : {eleve.classe?.nom ?? 'Sans classe'}
                                             </p>
