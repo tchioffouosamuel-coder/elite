@@ -93,6 +93,30 @@ function copierApi(destination) {
     throw new Error("composer install a échoué pour la copie embarquée de l'API.");
   }
 
+  // `composer install` peut sortir en succès (code 0) tout en ayant produit
+  // un `vendor/` incomplet — observé en conditions réelles sur un runner
+  // GitHub Actions Windows : un fichier de `laravel/framework` manquait
+  // silencieusement (probable corruption réseau pendant l'extraction du
+  // paquet), et l'installeur packagé plantait au tout premier lancement
+  // de chaque poste avec une erreur d'autoload, sans que rien ne l'ait
+  // détecté avant publication. `artisan --version` force à charger
+  // entièrement le framework (autoload de toutes les classes du noyau) :
+  // un vendor tronqué y échoue immédiatement, un vendor complet répond en
+  // une fraction de seconde.
+  console.log("[desktop] vérification du vendor embarqué (artisan --version)");
+  const verification = spawnSync("php", ["artisan", "--version"], {
+    cwd: destination,
+    stdio: "inherit",
+    shell: true,
+  });
+  if (verification.status !== 0) {
+    throw new Error(
+      "Le vendor composé pour l'API embarquée est corrompu ou incomplet " +
+      "(`artisan --version` a échoué juste après `composer install` réussi) — " +
+      "build interrompu plutôt que de publier un installeur cassé.",
+    );
+  }
+
   // Pas de `config:cache`/`route:cache` ici : la configuration (DB_DATABASE,
   // APP_KEY...) est injectée par variables d'environnement à chaque
   // lancement par `main.cjs`, propres à CE poste — la figer au moment du
