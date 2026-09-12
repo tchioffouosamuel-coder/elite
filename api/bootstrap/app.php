@@ -124,6 +124,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
+            // Le super admin est un compte de confiance (souvent en train de
+            // déboguer) : lui seul voit le message réel de l'exception, le
+            // reste du guichet garde le message générique de l'incident
+            // décrit ci-dessus.
+            $user = $request->user();
+            if ($user && method_exists($user, 'estSuperAdmin') && $user->estSuperAdmin()) {
+                return ApiResponse::error($e->getMessage() ?: $e::class, 500, [
+                    'exception' => $e::class,
+                    'file' => $e->getFile().':'.$e->getLine(),
+                ]);
+            }
+
             return ApiResponse::error(
                 "Une erreur inattendue est survenue. Veuillez réessayer, ou contacter le support si le problème persiste.",
                 500,
