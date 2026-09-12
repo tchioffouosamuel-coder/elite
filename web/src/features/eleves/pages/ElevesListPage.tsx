@@ -21,6 +21,7 @@ import {
   BarChart3,
   ListOrdered,
   Search,
+  GitMerge,
 } from 'lucide-react'
 import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
@@ -557,6 +558,12 @@ export function ElevesListPage() {
             <Button variant="secondary" onClick={() => navigate('/eleves/sans-classe')}>
               Élèves sans classe
             </Button>
+            {can('eleves.manage') && (
+              <Button variant="secondary" onClick={() => navigate('/eleves/doublons')}>
+                <GitMerge className="h-4 w-4" />
+                Gestion des doublons
+              </Button>
+            )}
             {can('eleves.manage') && (
               <Button variant="secondary" onClick={handleNormaliserMatricules}>
                 <ListOrdered className="h-4 w-4" />

@@ -667,9 +667,22 @@ class ScolariteService extends BaseService
          * indéfiniment — on ne pouvait jamais encaisser un premier versement.
          * Les élèves sans dossier apparaissent avec le montant projeté depuis
          * la grille tarifaire, et leur dossier s'ouvrira au comptoir.
+         *
+         * Seuls les élèves préinscrits pour CETTE année comptent : la
+         * préinscription (validée) est la confirmation de présence pour
+         * l'année, qu'il s'agisse d'un nouvel élève ou d'un ancien réinscrit
+         * — un élève « actif » qui n'a pas encore été préinscrit pour
+         * l'année en cours n'a pas sa place dans le recouvrement de cette
+         * année.
          */
+        $eleveIdsPreinscrits = Preinscription::where('annee_scolaire_id', $anneeScolaireId)
+            ->where('statut', 'validee')
+            ->whereNotNull('eleve_id')
+            ->pluck('eleve_id');
+
         $eleves = Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
+            ->whereIn('id', $eleveIdsPreinscrits)
             ->when($filtres['classe_id'] ?? null, fn($q, $classeId) => $q->where('classe_id', $classeId))
             ->with(['classe', 'tuteurs'])
             ->orderBy('nom_complet')
