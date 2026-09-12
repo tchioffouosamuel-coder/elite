@@ -51,6 +51,10 @@ class EleveController extends Controller
         );
 
         $this->marquerNonReinscrits($paginator->getCollection());
+        $paginator->getCollection()->each(fn(Eleve $eleve) => $eleve->setAttribute(
+            'preinscription_active',
+            $this->preinscriptions->estPreinscritAnneeActive($eleve),
+        ));
 
         return ApiResponse::paginated($paginator, EleveResource::class);
     }
