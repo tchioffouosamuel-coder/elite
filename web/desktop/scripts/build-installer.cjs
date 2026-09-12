@@ -82,39 +82,61 @@ function copierApi(destination) {
     mkdirSync(path.join(destination, "storage", sous), { recursive: true });
   }
 
-  console.log("[desktop] composer install --no-dev dans la copie embarquée");
-  const composer = process.platform === "win32" ? "composer.bat" : "composer";
-  const install = spawnSync(
-    composer,
-    ["install", "--no-dev", "--optimize-autoloader", "--no-interaction"],
-    { cwd: destination, stdio: "inherit", shell: true },
-  );
-  if (install.status !== 0) {
-    throw new Error("composer install a échoué pour la copie embarquée de l'API.");
-  }
-
   // `composer install` peut sortir en succès (code 0) tout en ayant produit
-  // un `vendor/` incomplet — observé en conditions réelles sur un runner
-  // GitHub Actions Windows : un fichier de `laravel/framework` manquait
-  // silencieusement (probable corruption réseau pendant l'extraction du
-  // paquet), et l'installeur packagé plantait au tout premier lancement
-  // de chaque poste avec une erreur d'autoload, sans que rien ne l'ait
-  // détecté avant publication. `artisan --version` force à charger
-  // entièrement le framework (autoload de toutes les classes du noyau) :
-  // un vendor tronqué y échoue immédiatement, un vendor complet répond en
-  // une fraction de seconde.
-  console.log("[desktop] vérification du vendor embarqué (artisan --version)");
-  const verification = spawnSync("php", ["artisan", "--version"], {
-    cwd: destination,
-    stdio: "inherit",
-    shell: true,
-  });
-  if (verification.status !== 0) {
-    throw new Error(
-      "Le vendor composé pour l'API embarquée est corrompu ou incomplet " +
-      "(`artisan --version` a échoué juste après `composer install` réussi) — " +
-      "build interrompu plutôt que de publier un installeur cassé.",
+  // un `vendor/` incomplet — observé en conditions réelles, deux fois de
+  // suite, sur un runner GitHub Actions Windows : un fichier de
+  // `laravel/framework` manquait silencieusement à la sortie de l'archive
+  // ZIP (le paquet upstream, lui, le contient bel et bien — vérifié), et
+  // l'installeur packagé plantait au tout premier lancement de chaque poste
+  // avec une erreur d'autoload, sans que rien ne l'ait détecté avant
+  // publication. Récurrent plutôt qu'un simple coup de malchance réseau
+  // isolé : probablement une course avec l'antivirus temps réel du runner
+  // (verrou de fichier pendant l'extraction) plutôt qu'une corruption de
+  // téléchargement — recommencer l'extraction quelques instants plus tard
+  // suffit en pratique à s'en sortir, d'où la boucle ci-dessous plutôt qu'un
+  // unique essai.
+  const composer = process.platform === "win32" ? "composer.bat" : "composer";
+  const TENTATIVES_MAX = 3;
+
+  for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
+    console.log(`[desktop] composer install --no-dev dans la copie embarquée (tentative ${tentative}/${TENTATIVES_MAX})`);
+    rmSync(path.join(destination, "vendor"), { recursive: true, force: true });
+    const install = spawnSync(
+      composer,
+      ["install", "--no-dev", "--optimize-autoloader", "--no-interaction"],
+      { cwd: destination, stdio: "inherit", shell: true },
     );
+    if (install.status !== 0) {
+      if (tentative === TENTATIVES_MAX) {
+        throw new Error("composer install a échoué pour la copie embarquée de l'API.");
+      }
+      continue;
+    }
+
+    // `artisan --version` force à charger entièrement le framework (autoload
+    // de toutes les classes du noyau) : un vendor tronqué y échoue
+    // immédiatement, un vendor complet répond en une fraction de seconde.
+    console.log("[desktop] vérification du vendor embarqué (artisan --version)");
+    const verification = spawnSync("php", ["artisan", "--version"], {
+      cwd: destination,
+      stdio: "inherit",
+      shell: true,
+    });
+
+    if (verification.status === 0) {
+      break;
+    }
+
+    if (tentative === TENTATIVES_MAX) {
+      throw new Error(
+        "Le vendor composé pour l'API embarquée reste corrompu ou incomplet " +
+        `après ${TENTATIVES_MAX} tentatives (\`artisan --version\` échoue juste après ` +
+        "un `composer install` pourtant réussi) — build interrompu plutôt que de " +
+        "publier un installeur cassé.",
+      );
+    }
+
+    console.warn(`[desktop] vendor incomplet à la tentative ${tentative}, nouvel essai...`);
   }
 
   // Pas de `config:cache`/`route:cache` ici : la configuration (DB_DATABASE,
