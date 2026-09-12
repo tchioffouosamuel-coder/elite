@@ -30,6 +30,7 @@ return new class extends Migration
         Schema::table('emplois_du_temps', function (Blueprint $table) {
             $table->dropForeign(['classe_matiere_id']);
             $table->foreignId('classe_matiere_id')->nullable()->change();
+            $table->foreign('classe_matiere_id')->references('id')->on('classe_matieres')->nullOnDelete();
             $table->string('type', 20)->default('cours')->after('classe_matiere_id');
             $table->string('libelle')->nullable()->after('type');
             $table->foreignId('emploi_du_temps_element_id')->nullable()->after('libelle')->constrained('emploi_du_temps_elements')->nullOnDelete();
@@ -42,7 +43,8 @@ return new class extends Migration
             $table->dropForeign(['emploi_du_temps_element_id']);
             $table->dropColumn(['emploi_du_temps_element_id', 'libelle', 'type']);
             $table->dropForeign(['classe_matiere_id']);
-            $table->foreignId('classe_matiere_id')->nullable(false)->constrained('classe_matieres')->change();
+            $table->foreignId('classe_matiere_id')->nullable(false)->change();
+            $table->foreign('classe_matiere_id')->references('id')->on('classe_matieres')->cascadeOnDelete();
         });
 
         Schema::dropIfExists('emploi_du_temps_element_classe');

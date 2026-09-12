@@ -36,7 +36,7 @@ export interface Creneau {
   salle: string | null;
   salle_id: number | null;
   salle_details: Pick<Salle, "id" | "nom" | "capacite"> | null;
-  classe_matiere_id: number;
+  classe_matiere_id: number | null;
   matiere: string | null;
   enseignant: string | null;
   /** Classe porteuse du créneau : sur la grille d'une classe associée, le cours vient d'ailleurs. */

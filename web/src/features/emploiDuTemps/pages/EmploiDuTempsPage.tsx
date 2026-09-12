@@ -563,7 +563,7 @@ function CreneauModal({
   const matieresPlanifieesCeJour = useMemo(() => {
     const ids = new Set<number>()
     creneauxClasse?.forEach((c) => {
-      if (c.jour === form.jour && c.id !== creneau?.id) ids.add(c.classe_matiere_id)
+      if (c.jour === form.jour && c.id !== creneau?.id && c.classe_matiere_id !== null) ids.add(c.classe_matiere_id)
     })
     return ids
   }, [creneauxClasse, form.jour, creneau?.id])
