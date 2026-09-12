@@ -1,6 +1,6 @@
 <#
-Diagnostic du blocage "Le serveur local n'a pas démarré à temps" au premier
-lancement d'Elites School Desktop. À exécuter sur le poste concerné, dans un
+Diagnostic du blocage "Le serveur local n'a pas demarre a temps" au premier
+lancement d'Elites School Desktop. A executer sur le poste concerne, dans un
 PowerShell normal (pas besoin d'administrateur), puis coller toute la sortie.
 #>
 $ErrorActionPreference = "Continue"
@@ -15,7 +15,7 @@ $candidats = @(
 
 if (-not $candidats) {
     Write-Host "Introuvable aux emplacements habituels. Indique le chemin d'installation choisi lors du setup." -ForegroundColor Yellow
-    $installDir = Read-Host "Chemin d'installation (dossier contenant 'Elites School.exe')"
+    $installDir = Read-Host "Chemin d'installation (dossier contenant Elites School.exe)"
 } else {
     $installDir = $candidats[0]
 }
@@ -33,7 +33,7 @@ Write-Host "`n== 3. php.exe s'execute-t-il ? ==" -ForegroundColor Cyan
 if (Test-Path $phpExe) {
     & $phpExe -v
 } else {
-    Write-Host "php.exe absent — probablement supprime/mis en quarantaine par l'antivirus." -ForegroundColor Red
+    Write-Host "php.exe absent : probablement supprime ou mis en quarantaine par l'antivirus." -ForegroundColor Red
 }
 
 Write-Host "`n== 4. Port 8973 deja utilise par autre chose ? ==" -ForegroundColor Cyan

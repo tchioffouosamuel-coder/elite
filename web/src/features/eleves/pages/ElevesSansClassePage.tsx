@@ -8,41 +8,38 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { Select } from '@/shared/ui/Select'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {
     const queryClient = useQueryClient()
     const classesDeLEcole = classes.filter((classe) => (classe.school_id ?? classe.school?.id) === eleve.school_id)
+    const options = classesDeLEcole.map((classe) => ({ value: classe.id, label: classe.nom }))
 
     return (
-        <select
-            defaultValue=""
-            onClick={(event) => event.stopPropagation()}
-            onChange={async (event) => {
-                const classeId = Number(event.target.value)
-                if (!classeId) return
+        <div className="min-w-52" onClick={(event) => event.stopPropagation()}>
+            <Select
+                options={options}
+                placeholder="Définir la classe..."
+                isClearable={false}
+                isSearchable
+                onChange={async (option) => {
+                    if (!option) return
+                    const classeId = Number(option.value)
 
-                try {
-                    await changerClasseEleve(eleve.id, classeId)
-                    succes(`${eleve.nom_complet} a été affecté à la classe sélectionnée.`)
-                    await queryClient.invalidateQueries({ queryKey: ['eleves', 'sans-classe'] })
-                    queryClient.invalidateQueries({ queryKey: ['eleves'] })
-                    queryClient.invalidateQueries({ queryKey: ['classes'] })
-                } catch (err) {
-                    erreur((err as ApiError).message)
-                    event.target.value = ''
-                }
-            }}
-            className="rounded-md border border-navy-200 bg-white px-2 py-1 text-sm focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
-        >
-            <option value="">Définir la classe…</option>
-            {classesDeLEcole.map((classe) => (
-                <option key={classe.id} value={classe.id}>
-                    {classe.nom}
-                </option>
-            ))}
-        </select>
+                    try {
+                        await changerClasseEleve(eleve.id, classeId)
+                        succes(`${eleve.nom_complet} a été affecté à la classe sélectionnée.`)
+                        await queryClient.invalidateQueries({ queryKey: ['eleves', 'sans-classe'] })
+                        queryClient.invalidateQueries({ queryKey: ['eleves'] })
+                        queryClient.invalidateQueries({ queryKey: ['classes'] })
+                    } catch (err) {
+                        erreur((err as ApiError).message)
+                    }
+                }}
+            />
+        </div>
     )
 }
 
