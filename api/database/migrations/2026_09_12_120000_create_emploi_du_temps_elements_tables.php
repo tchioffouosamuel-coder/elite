@@ -22,8 +22,12 @@ return new class extends Migration
         });
 
         Schema::create('emploi_du_temps_element_classe', function (Blueprint $table) {
-            $table->foreignId('emploi_du_temps_element_id')->constrained('emploi_du_temps_elements')->cascadeOnDelete();
-            $table->foreignId('classe_id')->constrained('classes')->cascadeOnDelete();
+            $table->foreignId('emploi_du_temps_element_id');
+            $table->foreign('emploi_du_temps_element_id', 'edt_elem_classe_element_fk')
+                ->references('id')->on('emploi_du_temps_elements')->cascadeOnDelete();
+            $table->foreignId('classe_id');
+            $table->foreign('classe_id', 'edt_elem_classe_classe_fk')
+                ->references('id')->on('classes')->cascadeOnDelete();
             $table->primary(['emploi_du_temps_element_id', 'classe_id']);
         });
 
@@ -33,14 +37,16 @@ return new class extends Migration
             $table->foreign('classe_matiere_id')->references('id')->on('classe_matieres')->nullOnDelete();
             $table->string('type', 20)->default('cours')->after('classe_matiere_id');
             $table->string('libelle')->nullable()->after('type');
-            $table->foreignId('emploi_du_temps_element_id')->nullable()->after('libelle')->constrained('emploi_du_temps_elements')->nullOnDelete();
+            $table->foreignId('emploi_du_temps_element_id')->nullable()->after('libelle');
+            $table->foreign('emploi_du_temps_element_id', 'edt_element_fk')
+                ->references('id')->on('emploi_du_temps_elements')->nullOnDelete();
         });
     }
 
     public function down(): void
     {
         Schema::table('emplois_du_temps', function (Blueprint $table) {
-            $table->dropForeign(['emploi_du_temps_element_id']);
+            $table->dropForeign('edt_element_fk');
             $table->dropColumn(['emploi_du_temps_element_id', 'libelle', 'type']);
             $table->dropForeign(['classe_matiere_id']);
             $table->foreignId('classe_matiere_id')->nullable(false)->change();
