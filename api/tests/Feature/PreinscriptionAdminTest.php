@@ -410,6 +410,28 @@ class PreinscriptionAdminTest extends TestCase
         $service->creerEtValiderParAdmin($eleve, $donnees, $this->admin()->id);
     }
 
+    public function test_import_refuse_un_nouvel_eleve_du_meme_nom_meme_si_la_date_de_naissance_differe(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+
+        $service = app(PreinscriptionService::class);
+        $ligne = [
+            'nom_complet' => 'Nom Déjà Utilisé',
+            'classe' => 'CM2',
+            'sexe' => 'M',
+            'date_naissance' => '2015-01-01',
+            'tuteurs' => [],
+        ];
+
+        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+
+        $ligne['date_naissance'] = '2016-02-02';
+
+        $this->expectException(\RuntimeException::class);
+        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+    }
+
     /** Sans tuteur au dossier, il n'y a personne à qui rattacher la demande : refusé plutôt que planté sur une contrainte de base. */
     public function test_admin_ne_peut_pas_reinscrire_un_eleve_sans_tuteur(): void
     {

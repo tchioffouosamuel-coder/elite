@@ -612,13 +612,12 @@ class PreinscriptionService extends BaseService
         }
     }
 
-    /** Une seule préinscription d'un nouvel enfant identifié par nom et date, par école et année. */
+    /** Une seule préinscription d'un nouvel enfant identifié par nom, par école et année. */
     private function verifierPasDePreinscriptionNouvelEleveAnnee(int $schoolId, array $donneesEleve, ?AnneeScolaire $anneeActive): void
     {
         $nom = $this->normaliserIdentite($donneesEleve['nom_complet'] ?? null);
-        $dateNaissance = $donneesEleve['date_naissance'] ?? null;
 
-        if ($anneeActive === null || $nom === '' || empty($dateNaissance)) {
+        if ($anneeActive === null || $nom === '') {
             return;
         }
 
@@ -627,11 +626,10 @@ class PreinscriptionService extends BaseService
             ->whereIn('statut', ['en_attente', 'validee'])
             ->where('type', 'nouveau')
             ->get()
-            ->contains(function (Preinscription $preinscription) use ($nom, $dateNaissance): bool {
+            ->contains(function (Preinscription $preinscription) use ($nom): bool {
                 $donnees = $preinscription->donnees_eleve ?? [];
 
-                return $this->normaliserIdentite($donnees['nom_complet'] ?? null) === $nom
-                    && ($donnees['date_naissance'] ?? null) === $dateNaissance;
+                return $this->normaliserIdentite($donnees['nom_complet'] ?? null) === $nom;
             });
 
         if ($doublon) {
