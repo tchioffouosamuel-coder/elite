@@ -13,6 +13,7 @@ use App\Models\Eleve;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
 use App\Models\Moratoire;
+use App\Models\Preinscription;
 use App\Models\Remise;
 use App\Models\School;
 use App\Models\Setting;

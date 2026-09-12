@@ -10,7 +10,9 @@ use App\Models\EcritureComptable;
 use App\Models\Eleve;
 use App\Models\FraisAnnexe;
 use App\Models\GrilleFrais;
+use App\Models\Preinscription;
 use App\Models\School;
+use App\Models\Tuteur;
 use App\Models\User;
 use App\Services\ScolariteService;
 use Database\Seeders\PlanComptableSeeder;
@@ -363,5 +365,75 @@ class ScolariteTest extends TestCase
             ->getJson("/api/v1/eleves/{$eleveAutreEcole->id}/scolarite");
 
         $reponse->assertOk()->assertJsonPath('data.montant_scolarite', 90000);
+    }
+
+    /** Vérifie le contrat complet de la route affichée par la caisse. */
+    public function test_la_situation_financiere_est_chargeable_pour_un_eleve_preinscrit(): void
+    {
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $eleve = $this->eleve();
+        $tuteur = Tuteur::create([
+            'school_id' => $this->school->id,
+            'nom_complet' => 'Parent Test',
+            'telephone' => '699000000',
+        ]);
+        $eleve->tuteurs()->attach($tuteur->id, ['lien_parente' => 'pere', 'is_principal' => true]);
+        Preinscription::create([
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'tuteur_id' => $tuteur->id,
+            'eleve_id' => $eleve->id,
+            'type' => 'existant',
+            'statut' => 'validee',
+            'donnees_eleve' => [],
+            'donnees_tuteurs' => [],
+        ]);
+
+        $user = User::create([
+            'name' => 'Root',
+            'email' => 'root-situation@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
+        ]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson('/api/v1/scolarite/situation');
+
+        $reponse->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'dossiers',
+                    'totaux' => ['effectif', 'attendu', 'recouvre', 'reste', 'avances', 'taux_recouvrement', 'insolvables'],
+                ],
+            ])
+            ->assertJsonPath('data.totaux.effectif', 1)
+            ->assertJsonPath('data.dossiers.0.eleve.id', $eleve->id)
+            ->assertJsonPath('data.dossiers.0.total_du', 359000);
+    }
+
+    /** Une configuration sans année active doit être signalée comme indisponible, pas devenir une erreur 500 opaque. */
+    public function test_la_situation_sans_annee_active_retourne_une_erreur_json(): void
+    {
+        $this->annee->update(['is_active' => false]);
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $user = User::create([
+            'name' => 'Root',
+            'email' => 'root-situation-sans-annee@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
+        ]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson('/api/v1/scolarite/situation');
+
+        $reponse->assertNotFound()->assertJsonStructure(['message']);
     }
 }
