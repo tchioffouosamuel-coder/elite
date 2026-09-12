@@ -92,9 +92,9 @@ const navGroups = [
   {
     label: 'nav.group.overview',
     items: [
-      { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
-      { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view' },
-      { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view' },
+      { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view', keywords: ['accueil', 'home', 'statistiques'] },
+      { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view', keywords: ['actualites', 'news', 'communication', 'information'] },
+      { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view', keywords: ['livres', 'books', 'library', 'documents', 'emprunt'] },
       {
         to: '/enseignant/mes-informations',
         label: 'nav.mesInformations',
@@ -144,9 +144,9 @@ const navGroups = [
   {
     label: 'nav.group.staff',
     items: [
-      { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view' },
-      { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view' },
-      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true },
+      { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
+      { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
+      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
       {
         to: '/departements',
         label: 'nav.departements',
@@ -179,6 +179,7 @@ const navGroups = [
         permission: 'pedagogie.view',
         // La maternelle ne s'organise pas en degrés : l'entrée ne la concerne pas.
         types: ['primaire'] as TypeEcole[],
+        keywords: ['degres', 'cycles', 'levels'],
       },
     ],
   },
@@ -215,27 +216,27 @@ const navGroups = [
         // conseiller d'orientation ou chef de département.
         avecAttribution: true,
       },
-      { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true },
-      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true },
-      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true },
+      { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['salles de classe'] },
+      { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['students', 'inscriptions', 'fiche eleve'] },
+      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['changement de classe', 'transfer'] },
+      { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true, keywords: ['conseil de classe', 'historique'] },
     ],
   },
   {
     label: 'nav.group.parents',
     items: [
-      { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true },
-      { to: '/statistiques-parent', label: 'nav.statsPortailParent', icon: TrendingUp, permission: 'eleves.manage', masquerPourTitulaire: true },
+      { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['inscriptions', 'admissions', 'demandes'] },
+      { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['demandes de modification', 'corrections'] },
+      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
+      { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['remarques', 'notes de vie scolaire', 'commentaires', 'messages'] },
+      { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['acces parent', 'identifiants', 'mot de passe', 'login'] },
+      { to: '/statistiques-parent', label: 'nav.statsPortailParent', icon: TrendingUp, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['portail parent', 'connexions', 'usage'] },
     ],
   },
   {
     label: 'nav.group.pedagogie',
     items: [
-      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true },
+      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true, keywords: ['subjects', 'coefficients'] },
       {
         to: '/progression',
         label: 'nav.progression',
@@ -302,9 +303,9 @@ const navGroups = [
         // l'enseignant en début de cours, pas un écran d'administration.
         estEnseignant: true,
       },
-      { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view' },
-      { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view' },
-      { to: '/codes-qr', label: 'nav.codesQr', icon: QrCode, permission: 'emploi_du_temps.manage' },
+      { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view', keywords: ['horaire', 'planning', 'timetable', 'creneaux'] },
+      { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view', keywords: ['appel', 'cours', 'presence'] },
+      { to: '/codes-qr', label: 'nav.codesQr', icon: QrCode, permission: 'emploi_du_temps.manage', keywords: ['qr code', 'scan'] },
     ],
   },
   {
@@ -319,6 +320,7 @@ const navGroups = [
         // prononce pas contre de jeunes enfants. Le primaire et la maternelle
         // suivent l'assiduité par l'appel, sans sanctionner.
         types: ['secondaire'] as TypeEcole[],
+        keywords: ['exclusion', 'corvee', 'blame', 'discipline'],
       },
       // Classée ici plutôt que sous « Résultats » : c'est un suivi de la
       // discipline (sanctions, exclusions), pas des notes — même si la
@@ -334,42 +336,42 @@ const navGroups = [
   {
     label: 'nav.group.sante',
     items: [
-      { to: '/infirmerie', label: 'nav.infirmerie', icon: HeartPulse, permission: 'infirmerie.view', masquerPourTitulaire: true },
+      { to: '/infirmerie', label: 'nav.infirmerie', icon: HeartPulse, permission: 'infirmerie.view', masquerPourTitulaire: true, keywords: ['sante', 'medical', 'consultation', 'maladie'] },
     ],
   },
   {
     label: 'nav.group.transport',
     items: [
-      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true },
-      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true },
-      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true },
-      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true },
+      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
+      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['itineraires', 'routes'] },
+      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['stops', 'points de ramassage'] },
+      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['eleves transport', 'affectation bus'] },
     ],
   },
   {
     label: 'nav.group.inventaire',
     items: [
-      { to: '/inventaire', label: 'nav.inventaire', icon: Boxes, permission: 'inventaire.view', masquerPourTitulaire: true },
+      { to: '/inventaire', label: 'nav.inventaire', icon: Boxes, permission: 'inventaire.view', masquerPourTitulaire: true, keywords: ['stock', 'materiel', 'fournitures'] },
       // Le comptoir vit à côté de l'inventaire : c'est le même stock, vu
       // depuis la caisse plutôt que depuis le registre du matériel.
-      { to: '/point-de-vente', label: 'nav.pointDeVente', icon: Store, permission: 'point_de_vente.view', masquerPourTitulaire: true },
-      { to: '/infrastructures', label: 'nav.infrastructures', icon: Building2, permission: 'infrastructures.view', masquerPourTitulaire: true },
+      { to: '/point-de-vente', label: 'nav.pointDeVente', icon: Store, permission: 'point_de_vente.view', masquerPourTitulaire: true, keywords: ['comptoir', 'vente', 'boutique', 'pos'] },
+      { to: '/infrastructures', label: 'nav.infrastructures', icon: Building2, permission: 'infrastructures.view', masquerPourTitulaire: true, keywords: ['salles', 'batiments', 'locaux'] },
     ],
   },
   {
     label: 'nav.group.resultats',
     items: [
-      { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view' },
-      { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view' },
-      { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view' },
-      { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view' },
-      { to: '/revendications', label: 'nav.revendications', icon: Gavel, permission: 'revendications.view' },
+      { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view', keywords: ['notes', 'report card', 'releve'] },
+      { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view', keywords: ['saisie des notes', 'grades'] },
+      { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view', keywords: ['classement', 'ranking', 'meilleurs eleves'] },
+      { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
+      { to: '/revendications', label: 'nav.revendications', icon: Gavel, permission: 'revendications.view', keywords: ['reclamations', 'contestations', 'notes contestees'] },
     ],
   },
   {
     label: 'nav.group.identification',
     items: [
-      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true },
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['carte scolaire', 'badge', 'id card'] },
       {
         to: '/photos-examen',
         label: 'nav.photosExamen',
@@ -379,6 +381,7 @@ const navGroups = [
         // primaire ne prépare que le CEP (DECC), la maternelle aucun examen.
         types: ['secondaire'] as TypeEcole[],
         masquerPourVendeur: true,
+        keywords: ['bepc', 'probatoire', 'bac', 'obc'],
       },
       {
         to: '/photos-examen',
@@ -388,34 +391,35 @@ const navGroups = [
         types: ['primaire'] as TypeEcole[],
         masquerPourTitulaire: true,
         masquerPourVendeur: true,
+        keywords: ['cep', 'decc'],
       },
     ],
   },
   {
     label: 'nav.group.finance',
     items: [
-      { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view' },
-      { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view' },
-      { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view' },
-      { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie' },
-      { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie' },
-      { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie' },
-      { to: '/budgets-personnel', label: 'nav.budgetsPersonnel', icon: Landmark, permission: 'finance.budget' },
-      { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports' },
-      { to: '/etat-synthese', label: 'nav.etatSynthese', icon: Calculator, permission: 'finance.rapports' },
-      { to: '/rentree-scolaire', label: 'nav.rentreeScolaire', icon: ClipboardCheck, permission: 'finance.rapports' },
+      { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view', keywords: ['paiement', 'encaissement', 'payment', 'frais de scolarite'] },
+      { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view', keywords: ['prix', 'frais', 'pricing'] },
+      { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view', keywords: ['charges', 'expenses', 'factures'] },
+      { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie', keywords: ['salary', 'remuneration'] },
+      { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie', keywords: ['payroll', 'fiche de paie', 'bulletin de salaire'] },
+      { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie', keywords: ['acompte', 'advance'] },
+      { to: '/budgets-personnel', label: 'nav.budgetsPersonnel', icon: Landmark, permission: 'finance.budget', keywords: ['budget'] },
+      { to: '/rapports-financiers', label: 'nav.rapportsFinanciers', icon: BarChart3, permission: 'finance.rapports', keywords: ['bilan', 'reports'] },
+      { to: '/etat-synthese', label: 'nav.etatSynthese', icon: Calculator, permission: 'finance.rapports', keywords: ['synthese', 'recapitulatif'] },
+      { to: '/rentree-scolaire', label: 'nav.rentreeScolaire', icon: ClipboardCheck, permission: 'finance.rapports', keywords: ['back to school', 'preparation rentree'] },
     ],
   },
   {
     label: 'nav.group.admin',
     items: [
-      { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view' },
-      { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true },
-      { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true },
-      { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage' },
-      { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage' },
-      { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view' },
-      { to: '/rapport-trimestre', label: 'nav.rapportTrimestre', icon: ClipboardList, permission: 'rapport_trimestre.view' },
+      { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view', keywords: ['cycles', 'degres'] },
+      { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true, keywords: ['roles', 'droits', 'access'] },
+      { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true, keywords: ['utilisateurs', 'users', 'accounts', 'connexions'] },
+      { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage', keywords: ['annee scolaire', 'trimestres', 'periodes'] },
+      { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage', keywords: ['settings', 'configuration', 'ecole'] },
+      { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view', keywords: ['back to school report'] },
+      { to: '/rapport-trimestre', label: 'nav.rapportTrimestre', icon: ClipboardList, permission: 'rapport_trimestre.view', keywords: ['bilan trimestre'] },
     ],
   },
 ] as const
@@ -546,7 +550,13 @@ export function AppLayout() {
               (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur),
           )
           const items = requeteMenu
-            ? itemsAutorises.filter((item) => groupeCorrespond || normaliserRecherche(t(item.label)).includes(requeteMenu))
+            ? itemsAutorises.filter(
+                (item) =>
+                  groupeCorrespond ||
+                  normaliserRecherche(t(item.label)).includes(requeteMenu) ||
+                  ('keywords' in item &&
+                    item.keywords?.some((motCle) => normaliserRecherche(motCle).includes(requeteMenu))),
+              )
             : itemsAutorises
 
           // En mode agrégé (super admin, pas de `typeEcole`), le filtre `types`
