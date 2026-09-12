@@ -145,6 +145,29 @@ export async function deleteClasse(id: number): Promise<void> {
   await http.delete(`/classes/${id}`);
 }
 
+export async function fusionnerClasses(
+  conserveeId: number,
+  supprimeeId: number,
+): Promise<{
+  eleves: number;
+  affectations: number;
+  affectations_fusionnees: number;
+  creneaux: number;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{
+      eleves: number;
+      affectations: number;
+      affectations_fusionnees: number;
+      creneaux: number;
+    }>
+  >("/classes/fusionner", {
+    conservee_id: conserveeId,
+    supprimee_id: supprimeeId,
+  });
+  return data.data;
+}
+
 export async function fetchSousSystemes(): Promise<
   Array<{ id: number; code: string; nom: string; school_id: number }>
 > {
@@ -157,7 +180,9 @@ export async function fetchSousSystemes(): Promise<
   return data.data;
 }
 
-export async function fetchSchools(options?: { silent403?: boolean }): Promise<School[]> {
+export async function fetchSchools(options?: {
+  silent403?: boolean;
+}): Promise<School[]> {
   const { data } = await http.get<ApiResponse<School[]>>("/schools", {
     silent403: options?.silent403,
   });

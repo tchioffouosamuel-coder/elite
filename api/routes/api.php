@@ -412,6 +412,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:classes.manage')->group(function () {
+                Route::post('classes/fusionner', [ClasseController::class, 'fusionner'])->name('classes.fusionner');
                 Route::post('classes', [ClasseController::class, 'store'])->name('classes.store');
                 Route::post('classes/import', [ClasseController::class, 'import'])->name('classes.import');
                 Route::put('classes/bulk-update', [ClasseController::class, 'bulkUpdate'])->name('classes.bulk-update');
@@ -454,6 +455,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:eleves.manage')->group(function () {
+                Route::post('eleves/doublons/traitement-automatique', [EleveController::class, 'traitementAutomatiqueDoublons'])->name('eleves.doublons.automatique');
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
                 Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');

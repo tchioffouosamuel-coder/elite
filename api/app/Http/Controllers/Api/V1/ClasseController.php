@@ -9,7 +9,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreClasseRequest;
 use App\Http\Resources\Api\V1\ClasseResource;
 use App\Imports\ClasseImport;
+use App\Models\Classe;
 use App\Services\ClasseService;
+use App\Services\ClasseFusionService;
 use App\Support\Attributions;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +21,24 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ClasseController extends Controller
 {
-    public function __construct(private readonly ClasseService $service) {}
+    public function __construct(
+        private readonly ClasseService $service,
+        private readonly ClasseFusionService $fusion,
+    ) {}
+
+    public function fusionner(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'conservee_id' => ['required', 'integer', 'different:supprimee_id'],
+            'supprimee_id' => ['required', 'integer'],
+        ]);
+        $classes = Classe::forSchool(Tenant::schoolIds())->whereIn('id', [$data['conservee_id'], $data['supprimee_id']])->get()->keyBy('id');
+        abort_unless($classes->count() === 2, 404);
+
+        $resultat = $this->fusion->fusionner($classes[$data['conservee_id']], $classes[$data['supprimee_id']]);
+
+        return ApiResponse::success($resultat, 'Classes fusionnées avec succès.');
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -68,7 +87,7 @@ class ClasseController extends Controller
     public function mesAttributions(Request $request): JsonResponse
     {
         $attributions = $this->service->mesAttributions($request->user(), Tenant::schoolIds())
-            ->map(fn (array $attribution) => [
+            ->map(fn(array $attribution) => [
                 ...$attribution,
                 'permissions' => Attributions::permissions($attribution['code']),
                 'classes' => ClasseResource::collection($attribution['classes']),

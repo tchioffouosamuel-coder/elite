@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArrowLeft, Eye, GitMerge, Pencil, RotateCcw, Trash2, UserRound } from 'lucide-react'
-import { archiveEleve, deleteEleve, fetchEleves, reactivateEleve, type Eleve } from '@/features/eleves/api'
+import { Archive, ArrowLeft, Eye, GitMerge, Pencil, RotateCcw, Trash2, UserRound, WandSparkles } from 'lucide-react'
+import { archiveEleve, deleteEleve, fetchEleves, reactivateEleve, traitementAutomatiqueDoublons, type Eleve } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -18,6 +18,8 @@ interface GroupeDoublon {
     ecole: string
     eleves: Eleve[]
 }
+
+const formatMontant = (montant: number) => `${new Intl.NumberFormat('fr-FR').format(montant)} FCFA`
 
 function normaliserNom(nom: string): string {
     return nom
@@ -60,6 +62,23 @@ export function ElevesDoublonsPage() {
 
     const rafraichir = () => {
         queryClient.invalidateQueries({ queryKey: ['eleves'] })
+    }
+
+    const traiterAutomatiquement = async () => {
+        const confirme = await confirmer({
+            titre: 'Supprimer les doublons certains ?',
+            message: 'Seuls les groupes de exactement deux élèves déjà inscrits seront traités : même nom, même total de versements, une seule date de naissance manquante. La fiche sans date sera supprimée.',
+            action: 'Traiter automatiquement',
+        })
+        if (!confirme) return
+
+        try {
+            const resultat = await traitementAutomatiqueDoublons()
+            rafraichir()
+            succes(`${resultat.supprimes} doublon(s) supprimé(s). Montant conservé : ${formatMontant(resultat.montant_conserve)}.`)
+        } catch (err) {
+            erreur((err as ApiError).message)
+        }
     }
 
     const changerStatut = async (eleve: Eleve) => {
@@ -111,10 +130,16 @@ export function ElevesDoublonsPage() {
                 sousTitre="Fiches élèves portant le même nom dans une même école. Vérifiez chaque fiche avant de l'archiver ou de la supprimer."
                 icon={GitMerge}
                 actions={
-                    <Button type="button" variant="secondary" onClick={() => navigate('/eleves')}>
-                        <ArrowLeft className="h-4 w-4" />
-                        Retour aux élèves
-                    </Button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <Button type="button" variant="secondary" onClick={() => void traiterAutomatiquement()}>
+                            <WandSparkles className="h-4 w-4" />
+                            Nettoyage automatique
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => navigate('/eleves')}>
+                            <ArrowLeft className="h-4 w-4" />
+                            Retour aux élèves
+                        </Button>
+                    </div>
                 }
             />
 
@@ -130,7 +155,7 @@ export function ElevesDoublonsPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2 text-sm text-navy-600">
                         <UserRound className="h-4 w-4" />
-                        {groupes.length} groupe(s) de doublons, {groupes.reduce((total, groupe) => total + groupe.eleves.length, 0)} fiche(s) à vérifier.
+                        {groupes.length} groupe(s) de doublons, {groupes.reduce((total, groupe) => total + groupe.eleves.length, 0)} fiche(s) à vérifier · Total versé : {formatMontant(groupes.reduce((total, groupe) => total + groupe.eleves.reduce((somme, eleve) => somme + (eleve.total_versements ?? 0), 0), 0))}
                     </div>
 
                     {groupes.map((groupe) => (
@@ -140,7 +165,10 @@ export function ElevesDoublonsPage() {
                                     <h2 className="font-bold text-navy-900">{groupe.nom}</h2>
                                     <p className="text-xs text-navy-500">{groupe.ecole}</p>
                                 </div>
-                                <Badge tone="red">{groupe.eleves.length} fiches</Badge>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <span className="text-xs font-semibold text-navy-500">Versé : {formatMontant(groupe.eleves.reduce((total, eleve) => total + (eleve.total_versements ?? 0), 0))}</span>
+                                    <Badge tone="red">{groupe.eleves.length} fiches</Badge>
+                                </div>
                             </div>
 
                             <div className="flex flex-col divide-y divide-navy-100">
@@ -154,7 +182,7 @@ export function ElevesDoublonsPage() {
                                                 {eleve.preinscription_active && <Badge tone="green">Déjà inscrit</Badge>}
                                             </div>
                                             <p className="text-xs text-navy-500">
-                                                Matricule : {eleve.matricule ?? '—'} · Né(e) le : {eleve.date_naissance ?? '—'} · Classe : {eleve.classe?.nom ?? 'Sans classe'}
+                                                Matricule : {eleve.matricule ?? '—'} · Né(e) le : {eleve.date_naissance ?? '—'} · Classe : {eleve.classe?.nom ?? 'Sans classe'} · Versé : {formatMontant(eleve.total_versements ?? 0)}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1">

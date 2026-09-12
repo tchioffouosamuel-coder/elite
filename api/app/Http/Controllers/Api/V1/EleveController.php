@@ -10,9 +10,12 @@ use App\Http\Requests\Api\V1\StoreEleveRequest;
 use App\Http\Requests\Api\V1\UpdateEleveRequest;
 use App\Http\Resources\Api\V1\EleveResource;
 use App\Models\ActivityLog;
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\HistoriqueScolariteEleve;
+use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Setting;
 use App\Services\AuthService;
@@ -51,6 +54,7 @@ class EleveController extends Controller
         );
 
         $this->marquerNonReinscrits($paginator->getCollection());
+        $this->marquerTotalVersements($paginator->getCollection());
         $paginator->getCollection()->each(fn(Eleve $eleve) => $eleve->setAttribute(
             'preinscription_active',
             $this->preinscriptions->estPreinscritAnneeActive($eleve),
@@ -59,12 +63,51 @@ class EleveController extends Controller
         return ApiResponse::paginated($paginator, EleveResource::class);
     }
 
+    /** Supprime uniquement le doublon sans date quand deux fiches inscrites ont le même montant encaissé. */
+    public function traitementAutomatiqueDoublons(): JsonResponse
+    {
+        $anneesActives = AnneeScolaire::whereIn('school_id', Tenant::schoolIds())
+            ->where('is_active', true)->pluck('id');
+        $eleveIds = Preinscription::forSchool(Tenant::schoolIds())
+            ->whereIn('annee_scolaire_id', $anneesActives)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->whereNotNull('eleve_id')
+            ->pluck('eleve_id')->unique();
+
+        $eleves = Eleve::forSchool(Tenant::schoolIds())->whereIn('id', $eleveIds)->get();
+        $totaux = $this->totauxVersements($eleves->pluck('id'));
+        $groupes = $eleves->groupBy(fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet));
+        $supprimes = 0;
+        $montantConserve = 0;
+        $details = [];
+
+        foreach ($groupes as $groupe) {
+            if ($groupe->count() !== 2) continue;
+
+            [$premier, $second] = $groupe->values()->all();
+            $unSeulSansDate = ($premier->date_naissance === null) xor ($second->date_naissance === null);
+            $montantPremier = $totaux[$premier->id] ?? 0;
+            $montantSecond = $totaux[$second->id] ?? 0;
+            if (! $unSeulSansDate || $montantPremier !== $montantSecond) continue;
+
+            $aSupprimer = $premier->date_naissance === null ? $premier : $second;
+            $aConserver = $aSupprimer->id === $premier->id ? $second : $premier;
+            $this->service->delete($aSupprimer);
+            $supprimes++;
+            $montantConserve += $totaux[$aConserver->id] ?? 0;
+            $details[] = ['supprime_id' => $aSupprimer->id, 'conserve_id' => $aConserver->id, 'montant' => $montantPremier];
+        }
+
+        return ApiResponse::success(
+            ['supprimes' => $supprimes, 'montant_conserve' => $montantConserve, 'details' => $details],
+            "{$supprimes} doublon(s) supprimé(s) automatiquement.",
+        );
+    }
+
     /**
      * Recherche transverse d'élèves, tous critères confondus : nom de
      * l'élève, matricule, ou nom/téléphone d'un de ses tuteurs. Pensée pour
-     * une barre de recherche rapide (ex. un appel entrant dont on n'a que le
-     * numéro), pas pour remplacer la liste filtrée — d'où la réponse en
-     * liste simple, non paginée, plutôt qu'un LengthAwarePaginator.
+     * une barre de recherche rapide, pas pour remplacer la liste filtrée.
      */
     public function rechercheGlobale(Request $request): JsonResponse
     {
@@ -92,6 +135,27 @@ class EleveController extends Controller
             'non_reinscrit_annee_active',
             isset($idsNonReinscrits[$eleve->id]),
         ));
+    }
+
+    private function marquerTotalVersements(\Illuminate\Support\Collection $eleves): void
+    {
+        $totaux = $this->totauxVersements($eleves->pluck('id'));
+        $eleves->each(fn(Eleve $eleve) => $eleve->setAttribute('total_versements', $totaux[$eleve->id] ?? 0));
+    }
+
+    private function totauxVersements(\Illuminate\Support\Collection $eleveIds): \Illuminate\Support\Collection
+    {
+        if ($eleveIds->isEmpty()) return collect();
+
+        return DossierScolarite::whereIn('eleve_id', $eleveIds)
+            ->withSum(['versements as total_versements' => fn($query) => $query->valides()], 'montant')
+            ->get()->groupBy('eleve_id')
+            ->map(fn($dossiers) => (int) $dossiers->sum('total_versements'));
+    }
+
+    private function nomDoublon(string $nom): string
+    {
+        return Str::lower(Str::ascii(trim((string) preg_replace('/\s+/', ' ', $nom))));
     }
 
     /**

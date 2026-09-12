@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
-import { Plus, Pencil, Trash2, School, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, School, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown, GitMerge } from 'lucide-react'
 import {
   fetchClasses,
   deleteClasse,
@@ -11,6 +11,7 @@ import {
   fetchSousSystemes,
   fetchSchools,
   bulkUpdateClasses,
+  fusionnerClasses,
   fetchNiveaux,
   type Classe,
 } from '@/features/classes/api'
@@ -24,6 +25,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Select } from '@/shared/ui/Select'
 import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
+import { Modal } from '@/shared/ui/Modal'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
@@ -37,6 +39,7 @@ export function ClassesListPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingClasse, setEditingClasse] = useState<Classe | null>(null)
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
+  const [classesAFusionner, setClassesAFusionner] = useState<Classe[] | null>(null)
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
   const secondaire = estSecondaire()
 
@@ -369,6 +372,13 @@ export function ClassesListPage() {
                 {t('common.delete')}
               </Button>
 
+              {selectedClasses.size === 2 && (
+                <Button variant="secondary" onClick={() => setClassesAFusionner((data ?? []).filter((classe) => selectedClasses.has(classe.id)))}>
+                  <GitMerge className="h-4 w-4" />
+                  Fusionner les classes
+                </Button>
+              )}
+
               <button
                 onClick={() => setSelectedClasses(new Set())}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
@@ -433,6 +443,58 @@ export function ClassesListPage() {
         />
       )}
 
+      {classesAFusionner && (
+        <FusionClassesModal
+          classes={classesAFusionner}
+          onClose={() => setClassesAFusionner(null)}
+          onDone={() => {
+            setClassesAFusionner(null)
+            setSelectedClasses(new Set())
+            invalidate()
+          }}
+        />
+      )}
+
     </div>
+  )
+}
+
+function FusionClassesModal({ classes, onClose, onDone }: { classes: Classe[]; onClose: () => void; onDone: () => void }) {
+  const [conserveeId, setConserveeId] = useState(classes[0].id)
+  const [envoi, setEnvoi] = useState(false)
+  const supprimee = classes.find((classe) => classe.id !== conserveeId) ?? classes[1]
+
+  const valider = async () => {
+    setEnvoi(true)
+    try {
+      const resultat = await fusionnerClasses(conserveeId, supprimee.id)
+      succes(`Classe fusionnée. ${resultat.eleves} élève(s), ${resultat.creneaux} créneau(x) transféré(s).`)
+      onDone()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title="Fusionner deux classes" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-navy-600">Choisissez la classe à conserver. Les élèves, affectations, notes et emplois du temps de l’autre classe seront rattachés à celle-ci.</p>
+        {classes.map((classe) => (
+          <label key={classe.id} className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${conserveeId === classe.id ? 'border-gold-400 bg-gold-50' : 'border-navy-100'}`}>
+            <span className="flex items-center gap-2">
+              <input type="radio" name="classe-conservee" checked={conserveeId === classe.id} onChange={() => setConserveeId(classe.id)} className="h-4 w-4 text-gold-600" />
+              <span className="font-medium text-navy-900">{classe.nom}</span>
+            </span>
+            <span className="text-xs text-navy-500">{classe.effectif ?? 0} élève(s)</span>
+          </label>
+        ))}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button variant="danger" disabled={envoi} onClick={() => void valider()}>Fusionner</Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

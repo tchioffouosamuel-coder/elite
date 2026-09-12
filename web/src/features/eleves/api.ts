@@ -54,6 +54,7 @@ export interface Eleve {
   statut: "actif" | "parti" | "exclu";
   non_reinscrit_annee_active: boolean;
   preinscription_active?: boolean;
+  total_versements?: number;
   school_id: number | null;
   school: {
     id: number;
@@ -220,6 +221,16 @@ export async function batchDeleteEleves(
     "/eleves/batch-delete",
     { ids },
   );
+  return data.data;
+}
+
+export async function traitementAutomatiqueDoublons(): Promise<{
+  supprimes: number;
+  montant_conserve: number;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{ supprimes: number; montant_conserve: number }>
+  >("/eleves/doublons/traitement-automatique");
   return data.data;
 }
 
