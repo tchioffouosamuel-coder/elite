@@ -37,18 +37,30 @@ export interface InfrastructurePayload {
   school_id?: number | null
 }
 
+export type StatutEquipement = 'bon' | 'assez_bon' | 'mauvais'
+
 export interface EquipementMobilier {
   id: number
   nature: string
+  date_acquisition: string | null
   quantite: number
   besoin_quantite: number | null
+  /** Quantité en stock + besoin restant, calculée côté serveur. */
+  quantite_totale: number
+  prix_unitaire: number | null
+  /** Quantité × prix unitaire, calculé côté serveur ; `null` tant qu'aucun prix n'est renseigné. */
+  prix_total: number | null
+  statut: StatutEquipement | null
   school_id: number
 }
 
 export interface EquipementMobilierPayload {
   nature: string
+  date_acquisition?: string | null
   quantite: number
   besoin_quantite?: number | null
+  prix_unitaire?: number | null
+  statut?: StatutEquipement | null
   school_id?: number | null
 }
 

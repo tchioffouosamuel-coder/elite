@@ -561,6 +561,34 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertFalse($nonReinscrits->contains('id', $reinscrit->id));
     }
 
+    public function test_eleve_importe_apres_le_debut_de_lannee_active_compte_quand_meme_comme_ancien(): void
+    {
+        $annee = $this->anneeActive();
+
+        // Migration de données en cours d'année : l'élève existait déjà dans
+        // la vraie vie, mais son enregistrement `eleves` n'est créé
+        // qu'aujourd'hui, après `date_debut`.
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => '26SECC',
+            'nom_complet' => 'Importé tardivement',
+            'sexe' => 'M',
+            'date_naissance' => '2016-01-01',
+            'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+
+        app(PreinscriptionService::class)->creerEtValiderParAdmin($eleve, [
+            'donnees_eleve' => ['nom_complet' => 'Importé tardivement', 'sexe' => 'M', 'date_naissance' => '2016-01-01'],
+            'donnees_tuteurs' => [],
+        ], $this->admin()->id);
+
+        $service = app(PreinscriptionService::class);
+
+        $this->assertTrue($service->anciensEleves($this->school->id)->contains('id', $eleve->id));
+        $this->assertTrue($service->listeAnciensReinscrits($this->school->id)->contains('id', $eleve->id));
+    }
+
     public function test_un_dossier_financier_seul_ne_compte_pas_comme_preinscription(): void
     {
         $annee = $this->anneeActive();

@@ -1,15 +1,57 @@
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, UserRound } from 'lucide-react'
-import { fetchEleves, type Eleve } from '@/features/eleves/api'
+import { changerClasseEleve, fetchEleves, type Eleve } from '@/features/eleves/api'
+import { fetchClasses, type Classe } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { erreur, succes } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
+
+function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {
+    const queryClient = useQueryClient()
+    const classesDeLEcole = classes.filter((classe) => (classe.school_id ?? classe.school?.id) === eleve.school_id)
+
+    return (
+        <select
+            defaultValue=""
+            onClick={(event) => event.stopPropagation()}
+            onChange={async (event) => {
+                const classeId = Number(event.target.value)
+                if (!classeId) return
+
+                try {
+                    await changerClasseEleve(eleve.id, classeId)
+                    succes(`${eleve.nom_complet} a été affecté à la classe sélectionnée.`)
+                    await queryClient.invalidateQueries({ queryKey: ['eleves', 'sans-classe'] })
+                    queryClient.invalidateQueries({ queryKey: ['eleves'] })
+                    queryClient.invalidateQueries({ queryKey: ['classes'] })
+                } catch (err) {
+                    erreur((err as ApiError).message)
+                    event.target.value = ''
+                }
+            }}
+            className="rounded-md border border-navy-200 bg-white px-2 py-1 text-sm focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+        >
+            <option value="">Définir la classe…</option>
+            {classesDeLEcole.map((classe) => (
+                <option key={classe.id} value={classe.id}>
+                    {classe.nom}
+                </option>
+            ))}
+        </select>
+    )
+}
 
 export function ElevesSansClassePage() {
     const navigate = useNavigate()
+    const { data: classes = [], isLoading: classesLoading } = useQuery({
+        queryKey: ['classes'],
+        queryFn: () => fetchClasses(),
+    })
     const { data, isLoading, isError } = useQuery({
         queryKey: ['eleves', 'sans-classe'],
         queryFn: () => fetchEleves({ per_page: 1000 }),
@@ -33,6 +75,7 @@ export function ElevesSansClassePage() {
                     <span className={`font-semibold ${eleve.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>
                         {eleve.nom_complet}
                     </span>
+                    <ClasseSelect eleve={eleve} classes={classes} />
                     {eleve.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
                 </div>
             ),
@@ -71,7 +114,7 @@ export function ElevesSansClassePage() {
                 }
             />
 
-            {isLoading ? (
+            {isLoading || classesLoading ? (
                 <Spinner />
             ) : isError || !data ? (
                 <ErrorState />

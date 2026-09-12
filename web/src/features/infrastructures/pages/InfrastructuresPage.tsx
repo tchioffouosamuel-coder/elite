@@ -18,8 +18,10 @@ import {
   type Infrastructure,
   type InfrastructurePayload,
   type MateriauInfrastructure,
+  type StatutEquipement,
   type TypeInfrastructure,
 } from '@/features/infrastructures/api'
+import { francs } from '@/features/finance/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -27,7 +29,7 @@ import { Card } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
@@ -38,6 +40,7 @@ const TYPES: TypeInfrastructure[] = [
 ]
 const MATERIAUX: MateriauInfrastructure[] = ['dur', 'semi_dur', 'provisoire']
 const ETATS: EtatInfrastructure[] = ['bon', 'assez_bon', 'mauvais']
+const STATUTS: StatutEquipement[] = ['bon', 'assez_bon', 'mauvais']
 
 const TONE_ETAT: Record<EtatInfrastructure, 'green' | 'gold' | 'red'> = {
   bon: 'green',
@@ -170,6 +173,13 @@ export function InfrastructuresPage() {
       cellule: (e) => <span className="font-semibold text-navy-900">{e.nature}</span>,
     },
     {
+      cle: 'date_acquisition',
+      entete: t('infrastructures.date_acquisition_label'),
+      valeur: (e) => e.date_acquisition,
+      cellule: (e) => e.date_acquisition ?? '—',
+      masquerMobile: true,
+    },
+    {
       cle: 'quantite',
       entete: t('infrastructures.quantite_col'),
       valeur: (e) => e.quantite,
@@ -180,6 +190,32 @@ export function InfrastructuresPage() {
       entete: t('infrastructures.besoin_col'),
       valeur: (e) => e.besoin_quantite,
       cellule: (e) => (e.besoin_quantite ? <span className="tabular-nums text-gold-600">{e.besoin_quantite}</span> : '—'),
+    },
+    {
+      cle: 'quantite_totale',
+      entete: t('infrastructures.quantite_totale_col'),
+      valeur: (e) => e.quantite_totale,
+      cellule: (e) => <span className="tabular-nums">{e.quantite_totale}</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'prix_unitaire',
+      entete: t('infrastructures.prix_unitaire_label'),
+      valeur: (e) => e.prix_unitaire,
+      cellule: (e) => (e.prix_unitaire === null ? '—' : <span className="tabular-nums">{francs(e.prix_unitaire)}</span>),
+      masquerMobile: true,
+    },
+    {
+      cle: 'prix_total',
+      entete: t('infrastructures.prix_total_col'),
+      valeur: (e) => e.prix_total,
+      cellule: (e) => (e.prix_total === null ? '—' : <span className="tabular-nums font-semibold text-gold-600">{francs(e.prix_total)}</span>),
+    },
+    {
+      cle: 'statut',
+      entete: t('infrastructures.statut_col'),
+      valeur: (e) => e.statut,
+      cellule: (e) => (e.statut ? <Badge tone={TONE_ETAT[e.statut]}>{t(`infrastructures.etat_${e.statut}`)}</Badge> : '—'),
     },
     ...(can('infrastructures.manage')
       ? [
@@ -275,7 +311,16 @@ export function InfrastructuresPage() {
               importUrl="/infrastructures/equipements/import"
               exportUrl="/infrastructures/equipements/export"
               modeleUrl="/infrastructures/equipements/modele"
-              colonnes={['Nature', 'Quantité', 'Besoin (quantité)']}
+              colonnes={[
+                'Nature',
+                'Date',
+                'Quantité',
+                'Besoin (quantité)',
+                'Prix unitaire',
+                'Statut (bon, assez_bon, mauvais)',
+                'Prix total (calculé)',
+                'Quantité totale (calculée)',
+              ]}
               nomFichier="equipements"
               onImported={invalidateEquipements}
             />
@@ -468,10 +513,19 @@ function EquipementFormModal({
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { isSubmitting, errors },
   } = useForm<EquipementMobilierPayload>({
     defaultValues: equipement
-      ? { nature: equipement.nature, quantite: equipement.quantite, besoin_quantite: equipement.besoin_quantite ?? undefined }
+      ? {
+        nature: equipement.nature,
+        date_acquisition: equipement.date_acquisition ?? '',
+        quantite: equipement.quantite,
+        besoin_quantite: equipement.besoin_quantite ?? undefined,
+        prix_unitaire: equipement.prix_unitaire ?? undefined,
+        statut: equipement.statut ?? undefined,
+      }
       : { quantite: 0 },
   })
 
@@ -479,8 +533,11 @@ function EquipementFormModal({
     setServerError(null)
     const payload: EquipementMobilierPayload = {
       ...values,
+      date_acquisition: values.date_acquisition || null,
       quantite: Number(values.quantite),
       besoin_quantite: values.besoin_quantite ? Number(values.besoin_quantite) : null,
+      prix_unitaire: values.prix_unitaire ? Number(values.prix_unitaire) : null,
+      statut: values.statut || null,
     }
 
     try {
@@ -516,6 +573,24 @@ function EquipementFormModal({
           />
           <Input label={t('infrastructures.besoin_col')} type="number" min={0} {...register('besoin_quantite')} />
         </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input label={t('infrastructures.date_acquisition_label')} type="date" {...register('date_acquisition')} />
+          <MontantInput
+            label={t('infrastructures.prix_unitaire_label')}
+            value={watch('prix_unitaire')}
+            onChange={(v) => setValue('prix_unitaire', v)}
+          />
+        </div>
+
+        <Select label={t('infrastructures.statut_col')} {...register('statut')}>
+          <option value="">—</option>
+          {STATUTS.map((valeur) => (
+            <option key={valeur} value={valeur}>
+              {t(`infrastructures.etat_${valeur}`)}
+            </option>
+          ))}
+        </Select>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

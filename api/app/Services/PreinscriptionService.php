@@ -271,6 +271,14 @@ class PreinscriptionService extends BaseService
      * l'année scolaire active — base commune au compte total (dashboard) et
      * à la liste des non-réinscrits.
      *
+     * `created_at` ne suffit pas seul : un élève déjà scolarisé mais importé
+     * tardivement (après le début de l'année active, ex. migration de
+     * données en cours d'année) a un `created_at` postérieur à
+     * `date_debut` alors qu'il n'est pas un nouvel arrivant. Une
+     * préinscription de type `existant` pour l'année active — déclaration
+     * explicite qu'il s'agit d'un enfant déjà scolarisé — vaut donc aussi
+     * comme signal d'ancienneté.
+     *
      * @param  int|array<int>  $schoolId
      * @return Collection<int, Eleve>
      */
@@ -282,7 +290,18 @@ class PreinscriptionService extends BaseService
             ->filter(function (Eleve $eleve) {
                 $annee = $this->anneeActive($eleve->school_id);
 
-                return $annee !== null && $eleve->created_at->lessThan($annee->date_debut);
+                if ($annee === null) {
+                    return false;
+                }
+
+                if ($eleve->created_at->lessThan($annee->date_debut)) {
+                    return true;
+                }
+
+                return Preinscription::where('eleve_id', $eleve->id)
+                    ->where('type', 'existant')
+                    ->where('annee_scolaire_id', $annee->id)
+                    ->exists();
             })
             ->values();
     }
