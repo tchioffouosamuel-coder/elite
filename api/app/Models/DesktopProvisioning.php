@@ -19,7 +19,7 @@ class DesktopProvisioning extends Model
 
     protected $fillable = [
         'user_id', 'password', 'serveur_url', 'token', 'refresh_token',
-        'dernier_push_le', 'provisionne_le',
+        'dernier_push_le', 'provisionne_le', 'clonage_initial_complet',
     ];
 
     protected $hidden = ['password'];
@@ -29,6 +29,7 @@ class DesktopProvisioning extends Model
         return [
             'dernier_push_le' => 'datetime',
             'provisionne_le' => 'datetime',
+            'clonage_initial_complet' => 'boolean',
         ];
     }
 

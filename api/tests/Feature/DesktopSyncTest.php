@@ -41,7 +41,15 @@ class DesktopSyncTest extends TestCase
 
     // ----------------------------------------------------------- Provisioning
 
-    public function test_provisionne_un_poste_et_tire_les_donnees_initiales(): void
+    /**
+     * `provisionner()` ne tire plus lui-même les données (cf. son
+     * commentaire) : exécuter la même requête HTTP entière que le premier
+     * clonage complet — plusieurs minutes sur un grand établissement avec
+     * les photos — bloquait l'écran de connexion sans aucun retour visuel.
+     * C'est désormais `main.cjs` qui lance `sync:pull --json` juste après,
+     * simulé ici par un appel explicite à `Artisan::call('sync:pull')`.
+     */
+    public function test_provisionne_un_poste_puis_le_premier_clonage_tire_les_donnees(): void
     {
         Http::fake([
             '*/api/v1/sync*' => Http::response([
@@ -86,24 +94,33 @@ class DesktopSyncTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => 42, 'name' => 'Titulaire Poste']);
         $this->assertDatabaseHas('desktop_provisioning', ['user_id' => 42, 'serveur_url' => 'https://distant.test']);
+        // Le provisioning lui-même ne tire rien : la ligne n'existe pas tant
+        // que le premier clonage n'a pas tourné.
+        $this->assertDatabaseMissing('eleves', ['id' => 501]);
+
+        $this->assertTrue(User::find(42)->hasRole('admin_college'));
+        $this->assertTrue(User::find(42)->can('eleves.view'));
+
+        Artisan::call('sync:pull');
+
         $this->assertDatabaseHas('eleves', ['id' => 501, 'nom_complet' => 'ELEVE DISTANT']);
 
         $provisioning = DesktopProvisioning::pourUtilisateur(42);
         $ecole = $provisioning->ecoles()->where('school_id', 9)->firstOrFail();
         $this->assertNotNull($ecole->dernier_pull_le);
-        $this->assertSame('2026-01-01T00:00:00Z', $ecole->curseur_sync);
-
-        $this->assertTrue(User::find(42)->hasRole('admin_college'));
-        $this->assertTrue(User::find(42)->can('eleves.view'));
     }
 
     /** Un compte non borné à une seule école (super admin) réplique chacune de ses écoles, avec un curseur propre à chacune. */
     public function test_provisionne_plusieurs_ecoles_avec_un_curseur_chacune(): void
     {
         Http::fake([
-            '*/api/v1/sync*' => Http::sequence()
-                ->push($this->reponseSyncAvecUnEleve(id: 701, nom: 'ELEVE ECOLE 1', updatedAt: now(), schoolId: 11), 200)
-                ->push($this->reponseSyncAvecUnEleve(id: 702, nom: 'ELEVE ECOLE 2', updatedAt: now(), schoolId: 12), 200),
+            '*/api/v1/sync*' => function ($request) {
+                $ecoleId = (int) ($request->header('X-School-Id')[0] ?? 0);
+
+                return $ecoleId === 11
+                    ? Http::response($this->reponseSyncAvecUnEleve(id: 701, nom: 'ELEVE ECOLE 1', updatedAt: now(), schoolId: 11), 200)
+                    : Http::response($this->reponseSyncAvecUnEleve(id: 702, nom: 'ELEVE ECOLE 2', updatedAt: now(), schoolId: 12), 200);
+            },
         ]);
 
         $this->postJson('/api/v1/desktop/provisionner', [
@@ -123,6 +140,9 @@ class DesktopSyncTest extends TestCase
 
         $this->assertDatabaseHas('schools', ['id' => 11, 'name' => 'École Un']);
         $this->assertDatabaseHas('schools', ['id' => 12, 'name' => 'École Deux']);
+
+        Artisan::call('sync:pull');
+
         $this->assertDatabaseHas('eleves', ['id' => 701, 'nom_complet' => 'ELEVE ECOLE 1']);
         $this->assertDatabaseHas('eleves', ['id' => 702, 'nom_complet' => 'ELEVE ECOLE 2']);
 
@@ -193,6 +213,87 @@ class DesktopSyncTest extends TestCase
             ->assertJsonPath('data.id', $user->id);
     }
 
+    /**
+     * Cœur de la garantie « pas d'accès local sans clonage complet » : un mot
+     * de passe local valide ne suffit pas si le premier `sync:pull` n'a
+     * jamais tourné avec succès pour ce compte — sans quoi un clonage
+     * interrompu (réseau coupé, application fermée en plein milieu) laisse
+     * entrer dans l'application un poste sans la moindre donnée réelle.
+     */
+    public function test_connexion_signale_un_clonage_initial_incomplet(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email' => 'agent3@test.local']);
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('motdepasse-local'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+
+        $this->postJson('/api/v1/desktop/connexion', [
+            'identifiant' => 'agent3@test.local', 'password' => 'motdepasse-local',
+        ])->assertOk()->assertJsonPath('data.clonage_initial_complet', false);
+    }
+
+    /** Une fois `sync:pull` passé sans erreur sur toutes les écoles du compte, la connexion locale signale le clonage complet. */
+    public function test_connexion_signale_un_clonage_initial_complet_apres_un_sync_pull_reussi(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'email' => 'agent4@test.local']);
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('motdepasse-local'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecole->id]);
+
+        Http::fake(['*/api/v1/sync*' => Http::response([
+            'success' => true,
+            'data' => ['curseur' => now()->toIso8601ZuluString(), 'complet' => true, 'donnees' => [], 'suppressions' => []],
+        ], 200)]);
+
+        Artisan::call('sync:pull');
+
+        $this->assertTrue($provisioning->fresh()->clonage_initial_complet);
+
+        $this->postJson('/api/v1/desktop/connexion', [
+            'identifiant' => 'agent4@test.local', 'password' => 'motdepasse-local',
+        ])->assertOk()->assertJsonPath('data.clonage_initial_complet', true);
+    }
+
+    /** Une école en échec empêche d'armer le drapeau, même si les autres écoles du même compte ont parfaitement réussi. */
+    public function test_le_clonage_initial_reste_incomplet_si_une_seule_ecole_echoue(): void
+    {
+        $ecoleSaine = School::create(['name' => 'Saine', 'code' => 'S', 'type' => 'secondaire', 'is_active' => true]);
+        $ecoleEnEchec = School::create(['name' => 'En échec', 'code' => 'E', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create();
+        $provisioning = DesktopProvisioning::create([
+            'user_id' => $user->id, 'password' => bcrypt('x'), 'serveur_url' => 'https://distant.test',
+            'token' => 't', 'refresh_token' => 'r', 'provisionne_le' => now(),
+        ]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecoleSaine->id]);
+        DesktopProvisioningEcole::create(['desktop_provisioning_id' => $provisioning->id, 'school_id' => $ecoleEnEchec->id]);
+
+        $reponse401 = ['success' => false, 'data' => null, 'message' => 'Authentification requise.', 'errors' => null, 'meta' => null];
+
+        Http::fake([
+            '*/api/v1/auth/refresh*' => Http::response($reponse401, 401),
+            '*/api/v1/sync*' => function ($request) use ($reponse401, $ecoleEnEchec) {
+                $ecoleId = (int) ($request->header('X-School-Id')[0] ?? 0);
+
+                return $ecoleId === $ecoleEnEchec->id
+                    ? Http::response($reponse401, 401)
+                    : Http::response([
+                        'success' => true,
+                        'data' => ['curseur' => now()->toIso8601ZuluString(), 'complet' => true, 'donnees' => [], 'suppressions' => []],
+                    ], 200);
+            },
+        ]);
+
+        Artisan::call('sync:pull');
+
+        $this->assertFalse($provisioning->fresh()->clonage_initial_complet);
+    }
+
     public function test_connexion_refuse_un_mauvais_mot_de_passe(): void
     {
         $user = User::factory()->create(['is_active' => true, 'email' => 'agent2@test.local']);
@@ -238,19 +339,31 @@ class DesktopSyncTest extends TestCase
         $provisioning = $this->provisionnerSansHttp($ecole);
 
         $reponse401 = ['success' => false, 'data' => null, 'message' => 'Authentification requise.', 'errors' => null, 'meta' => null];
+        $appelsSync = 0;
 
+        // `sync:pull` interroge désormais chaque entité du registre
+        // séparément (cf. `SyncPull::tirerEntite()`) : seuls les 3 tout
+        // premiers appels HTTP (ceux de la toute première entité, avant que
+        // `retry(3, 3000)` n'épuise ses tentatives) doivent échouer en 401 —
+        // tous les suivants, qu'ils portent sur cette même entité une fois le
+        // jeton rafraîchi ou sur n'importe quelle autre ensuite, doivent
+        // réussir.
         Http::fake([
             '*/api/v1/auth/refresh*' => Http::response([
                 'success' => true,
                 'data' => ['token' => 'nouveau-jeton-acces', 'refresh_token' => 'nouveau-jeton-refresh'],
             ], 200),
-            '*/api/v1/sync*' => Http::sequence()
-                ->push($reponse401, 401)
-                ->push($reponse401, 401)
-                ->push($reponse401, 401)
-                ->push($this->reponseSyncAvecUnEleve(
+            '*/api/v1/sync*' => function () use (&$appelsSync, $reponse401, $ecole) {
+                $appelsSync++;
+
+                if ($appelsSync <= 3) {
+                    return Http::response($reponse401, 401);
+                }
+
+                return Http::response($this->reponseSyncAvecUnEleve(
                     id: 604, nom: 'ELEVE APRES RAFRAICHISSEMENT', updatedAt: now(), schoolId: $ecole->id,
-                ), 200),
+                ), 200);
+            },
         ]);
 
         $statut = Artisan::call('sync:pull');
@@ -334,6 +447,47 @@ class DesktopSyncTest extends TestCase
         Artisan::call('sync:pull');
 
         $this->assertDatabaseHas('eleves', ['id' => 603, 'nom_complet' => 'VERSION A JOUR']);
+    }
+
+    /**
+     * `--json` est le contrat consommé par `main.cjs` (`lancerCloneInitial`)
+     * pour relayer la progression du premier clonage à
+     * `PremiereSynchronisationModal` — une ligne JSON par évènement, jamais
+     * mêlée aux messages `$this->info()`/`$this->error()` habituels.
+     */
+    public function test_sync_pull_json_emet_une_progression_structuree(): void
+    {
+        $ecole = School::create(['name' => 'École Test', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $this->provisionnerSansHttp($ecole);
+
+        Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
+            id: 901, nom: 'ELEVE JSON', updatedAt: now(), schoolId: $ecole->id,
+        ), 200)]);
+
+        Artisan::call('sync:pull', ['--json' => true]);
+
+        $evenements = collect(explode("\n", trim(Artisan::output())))
+            ->filter()
+            ->map(fn (string $ligne) => json_decode($ligne, true))
+            ->values();
+
+        $this->assertNotNull($evenements->first());
+        $this->assertSame('debut', $evenements->first()['type']);
+        $this->assertSame('fin', $evenements->last()['type']);
+        $this->assertFalse($evenements->last()['echec']);
+
+        $debutEcole = $evenements->firstWhere('type', 'ecole_debut');
+        $this->assertNotNull($debutEcole);
+        $this->assertSame($ecole->id, $debutEcole['school_id']);
+        $this->assertSame('École Test', $debutEcole['nom']);
+
+        $debutEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_debut' && $e['cle'] === 'eleves');
+        $this->assertNotNull($debutEleves);
+        $finEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_fin' && $e['cle'] === 'eleves');
+        $this->assertNotNull($finEleves);
+        $this->assertSame(1, $finEleves['lignes']);
+
+        $this->assertDatabaseHas('eleves', ['id' => 901, 'nom_complet' => 'ELEVE JSON']);
     }
 
     // --------------------------------------------------------------- sync:push

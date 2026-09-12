@@ -296,6 +296,78 @@ async function synchroniserMaintenant() {
   }
 }
 
+/**
+ * Premier clonage complet, juste après `POST /desktop/provisionner` (lequel
+ * ne fait plus lui-même que créer la ligne `desktop_provisioning`, cf.
+ * `DesktopProvisioningController::provisionner()`) : lance `sync:pull --json`
+ * en processus séparé plutôt que via une requête HTTP au serveur PHP
+ * embarqué, pour deux raisons — le serveur intégré de PHP (`php -S`) ne sert
+ * qu'une requête à la fois, et une requête HTTP classique ne permettrait pas
+ * de relayer une progression ligne par ligne au fil de l'eau. Chaque ligne
+ * stdout est une des évènements JSON émis par `SyncPull::emettre()`
+ * (`entite_debut`, `entite_fin`, `ecole_erreur`, `fin`…), relayée telle
+ * quelle au renderer pour la modale de premier clonage.
+ *
+ * Partage `syncEnCours` avec la boucle périodique (`lancerSyncPeriodique`) :
+ * les deux invoquent le même artisan sur la même base SQLite, un
+ * chevauchement provoquerait des « database is locked » sporadiques.
+ */
+function lancerCloneInitial() {
+  return new Promise((resolve, reject) => {
+    if (syncEnCours) {
+      reject(new Error("Une synchronisation est déjà en cours."));
+      return;
+    }
+
+    syncEnCours = true;
+
+    const apiDir = resolveApiDir();
+    const phpBinary = resolvePhpBinary();
+    const phpArgs = resolvePhpArgsCommuns();
+    const { env } = envInstanceLocale();
+
+    const proc = spawn(
+      phpBinary,
+      [...phpArgs, "artisan", "sync:pull", "--json"],
+      { cwd: apiDir, env, stdio: "pipe" },
+    );
+
+    let resteStdout = "";
+
+    proc.stdout.on("data", (chunk) => {
+      resteStdout += chunk.toString("utf8");
+      const lignes = resteStdout.split("\n");
+      resteStdout = lignes.pop() ?? "";
+
+      for (const ligne of lignes) {
+        const texte = ligne.trim();
+        if (!texte) continue;
+
+        try {
+          mainWindow?.webContents.send("desktop:sync-progress", JSON.parse(texte));
+        } catch {
+          // Une ligne de sortie non-JSON (avertissement PHP, etc.) : sans
+          // intérêt pour la modale, mais ne doit pas interrompre le flux.
+        }
+      }
+    });
+
+    proc.stderr.on("data", (chunk) => console.error(`[sync:pull] ${chunk}`));
+
+    proc.on("error", (erreur) => {
+      syncEnCours = false;
+      reject(erreur);
+    });
+
+    proc.on("exit", (code) => {
+      syncEnCours = false;
+      resolve({ succes: code === 0 });
+    });
+  });
+}
+
+ipcMain.handle("desktop:run-initial-sync", () => lancerCloneInitial());
+
 function creerMenuNatif() {
   const menu = Menu.buildFromTemplate([
     {

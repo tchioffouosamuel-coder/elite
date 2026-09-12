@@ -6,7 +6,8 @@ import { Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
-import { connecterSessionDesktop, provisionnerPoste } from '@/features/auth/desktopProvisioning'
+import { connecterSessionDesktop, lierPoste } from '@/features/auth/desktopProvisioning'
+import { PremiereSynchronisationModal } from '@/features/desktop/PremiereSynchronisationModal'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { Input } from '@/shared/ui/Field'
@@ -41,12 +42,55 @@ export function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [identifiantsEnAttente, setIdentifiantsEnAttente] = useState<LoginForm | null>(null)
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginForm>()
+
+  /**
+   * Ouvre la session UNIQUEMENT si le clonage initial de ce compte est
+   * complet — sinon affiche la modale bloquante à la place. Appelée à la
+   * fois pour une reconnexion locale (compte déjà lié, mais dont un premier
+   * clonage précédent a pu être interrompu) et juste après avoir lié ce
+   * poste pour la première fois : dans les deux cas, aucun accès à
+   * l'application tant que la réplique locale n'est pas complète.
+   */
+  const ouvrirSessionOuExigerClonage = (session: NonNullable<Awaited<ReturnType<typeof connecterSessionDesktop>>>, form: LoginForm) => {
+    if (!session.clonageInitialComplet) {
+      setIdentifiantsEnAttente(form)
+      return
+    }
+
+    setSession(session.token, session.user)
+    navigate(destinationApresConnexion(session.user.roles), { replace: true })
+  }
+
+  /**
+   * Le clonage initial vient de se terminer avec succès (cf.
+   * `PremiereSynchronisationModal`, qui ne referme jamais la modale
+   * autrement) : la session peut désormais s'ouvrir, `clonage_initial_complet`
+   * étant maintenant vrai côté serveur.
+   */
+  const apresPremiereSynchronisation = async () => {
+    const form = identifiantsEnAttente
+    setIdentifiantsEnAttente(null)
+    if (!form) return
+
+    try {
+      const session = await connecterSessionDesktop({ identifiant: form.identifiant, password: form.password })
+      if (!session) throw new Error('Le poste vient d’être lié mais aucune session locale n’a pu être ouverte.')
+
+      setSession(session.token, session.user)
+      navigate(destinationApresConnexion(session.user.roles), { replace: true })
+    } catch (err) {
+      setServerError((err as ApiError).message || t('auth.error_invalid'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const onSubmit = async (form: LoginForm) => {
     setServerError(null)
@@ -55,14 +99,22 @@ export function LoginPage() {
       if (estDesktop) {
         // Plusieurs comptes peuvent partager ce poste : on tente d'abord une
         // connexion locale (ce compte y a déjà été provisionné), et on ne
-        // bascule sur le provisioning (première fois de CE compte sur CE
-        // poste) que si elle échoue — jamais l'inverse, un compte déjà connu
-        // localement ne doit pas retourner interroger le serveur distant.
-        const session = await connecterSessionDesktop({ identifiant: form.identifiant, password: form.password })
-          ?? await provisionnerPoste({ serveurUrl: SERVEUR_URL_DESKTOP, identifiant: form.identifiant, password: form.password })
+        // bascule sur le lien avec le serveur distant (première fois de CE
+        // compte sur CE poste) que si elle échoue — jamais l'inverse, un
+        // compte déjà connu localement ne doit pas retourner interroger le
+        // serveur distant.
+        const dejaLie = await connecterSessionDesktop({ identifiant: form.identifiant, password: form.password })
+        if (dejaLie) {
+          ouvrirSessionOuExigerClonage(dejaLie, form)
+          return
+        }
 
-        setSession(session.token, session.user)
-        navigate(destinationApresConnexion(session.user.roles), { replace: true })
+        await lierPoste({ serveurUrl: SERVEUR_URL_DESKTOP, identifiant: form.identifiant, password: form.password })
+        // Affiche la modale de premier clonage, qui masque le formulaire en
+        // plein écran — peu importe que `submitting` retombe à faux juste
+        // après (cf. `finally` ci-dessous), le formulaire n'est plus
+        // cliquable tant que la modale est affichée.
+        setIdentifiantsEnAttente(form)
         return
       }
 
@@ -180,6 +232,16 @@ export function LoginPage() {
           </div>
         </div>
       </div>
+
+      {identifiantsEnAttente && (
+        <PremiereSynchronisationModal
+          onTermine={apresPremiereSynchronisation}
+          onAnnuler={() => {
+            setIdentifiantsEnAttente(null)
+            setSubmitting(false)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -6,6 +6,19 @@ import type { ApiResponse } from '@/shared/types/api'
 interface SessionDesktop {
   token: string
   user: AuthUser
+  /**
+   * Faux tant que ce compte n'a pas, au moins une fois, intégralement
+   * répliqué ses données depuis le provisioning (cf.
+   * `DesktopProvisioningController::connexion()` et `SyncPull::handle()`) —
+   * un jeton valide ne suffit pas à entrer dans l'application : un premier
+   * clonage interrompu (réseau coupé, application fermée en plein milieu)
+   * laisserait sinon le poste « déjà lié », avec un mot de passe local
+   * valide, mais sans la moindre donnée réellement disponible hors-ligne.
+   * `LoginPage` doit forcer `PremiereSynchronisationModal` tant que ce
+   * drapeau reste faux, quel que soit le chemin qui a mené à cette session
+   * (première liaison ou reconnexion locale).
+   */
+  clonageInitialComplet: boolean
 }
 
 /**
@@ -14,16 +27,21 @@ interface SessionDesktop {
  * identifiant/mot de passe ne correspond à aucun compte provisionné ICI —
  * pas forcément une erreur, ça peut être le tout premier lancement de ce
  * compte sur ce poste (plusieurs comptes pouvant s'y relayer), auquel cas
- * `provisionnerPoste()` prend le relais.
+ * `lierPoste()` prend le relais.
  */
 export async function connecterSessionDesktop(params: {
   identifiant: string
   password: string
 }): Promise<SessionDesktop | null> {
   let token: string
+  let clonageInitialComplet: boolean
   try {
-    const reponse = await http.post<ApiResponse<{ token: string }>>('/desktop/connexion', params)
+    const reponse = await http.post<ApiResponse<{ token: string; clonage_initial_complet: boolean }>>(
+      '/desktop/connexion',
+      params,
+    )
     token = reponse.data.data.token
+    clonageInitialComplet = reponse.data.data.clonage_initial_complet
   } catch (err) {
     if (axios.isAxiosError(err) && (err.response?.status === 404 || err.response?.status === 401)) return null
     throw err
@@ -36,24 +54,35 @@ export async function connecterSessionDesktop(params: {
     headers: { Authorization: `Bearer ${token}` },
   })
 
-  return { token, user: data.data }
+  return { token, user: data.data, clonageInitialComplet }
 }
 
 /**
  * Première connexion de CE compte sur CE poste : authentifie l'utilisateur
  * sur le serveur distant de son établissement, puis lie ce poste à son
  * compte en transmettant les jetons obtenus (et le mot de passe qui vient de
- * servir, pour permettre une reconnexion locale future — cf. `connecterSessionDesktop`)
- * à l'instance locale, qui en profite pour tirer un premier jeu de données
- * (cf. DesktopProvisioningController::provisionner()). Un poste desktop
- * accueille plusieurs comptes : provisionner un second compte n'efface pas
- * le premier.
+ * servir, pour permettre une reconnexion locale future — cf.
+ * `connecterSessionDesktop`) à l'instance locale.
+ *
+ * Ne déclenche PLUS elle-même le premier clonage complet des données :
+ * `POST /desktop/provisionner` ne fait plus que créer la ligne
+ * `desktop_provisioning` (cf. `DesktopProvisioningController::provisionner()`)
+ * et répond en un instant. C'est à l'appelant (`LoginPage`) de lancer
+ * ensuite `window.desktop.runInitialSync()` — via
+ * `PremiereSynchronisationModal` — avant d'ouvrir une session locale : lancer
+ * ce clonage ICI, dans la même requête HTTP que le provisioning, bloquait
+ * l'écran de connexion sans le moindre retour visuel pendant toute sa durée
+ * (plusieurs minutes sur un grand établissement, avec les photos) — ce qui
+ * se lisait, pour l'utilisateur, comme une connexion qui ne « passe » pas.
+ *
+ * Un poste desktop accueille plusieurs comptes : provisionner un second
+ * compte n'efface pas le premier.
  */
-export async function provisionnerPoste(params: {
+export async function lierPoste(params: {
   serveurUrl: string
   identifiant: string
   password: string
-}): Promise<SessionDesktop> {
+}): Promise<void> {
   const baseUrl = `${params.serveurUrl.replace(/\/+$/, '')}/api/v1`
   const distant = axios.create({ baseURL: baseUrl, headers: { Accept: 'application/json' } })
 
@@ -85,9 +114,4 @@ export async function provisionnerPoste(params: {
     },
     schools: ecoles.map((e) => ({ id: e.id, name: e.name, code: e.code, type: e.type })),
   })
-
-  const session = await connecterSessionDesktop({ identifiant: params.identifiant, password: params.password })
-  if (!session) throw new Error('Le poste vient d’être provisionné mais aucune session locale n’a pu être ouverte.')
-
-  return session
 }

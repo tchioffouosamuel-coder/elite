@@ -174,24 +174,20 @@ class DesktopProvisioningController extends Controller
             return $utilisateur;
         });
 
-        // Hors transaction et non bloquant : le poste est déjà lié avec
-        // succès à ce stade (ligne `desktop_provisioning` commitée), donc un
-        // premier pull en échec (jeton rejeté, réseau, timeout...) ne doit
-        // jamais faire échouer le provisioning lui-même — la boucle
-        // périodique (`lancerSyncPeriodique`, cf. main.cjs) retentera d'elle-même.
-        $pull = '';
-        try {
-            Artisan::call('sync:pull');
-            $pull = trim(Artisan::output());
-        } catch (\Throwable $erreur) {
-            report($erreur);
-            $pull = 'Échec du premier pull, nouvelle tentative automatique à venir.';
-        }
-
+        // Le premier clonage complet n'est PLUS déclenché ici : `sync:pull`
+        // télécharge le registre entier (une centaine d'entités, plus les
+        // photos élève par élève) et peut prendre de longues minutes sur un
+        // grand établissement — l'exécuter dans cette même requête HTTP
+        // bloquait tout l'écran de connexion sans le moindre retour visuel
+        // (observé en conditions réelles : la connexion « ne passait pas »,
+        // alors qu'elle attendait simplement, en silence, la fin du clonage).
+        // C'est désormais `main.cjs` (processus Electron) qui lance
+        // `sync:pull --json` en tâche de fond juste après cet appel, et
+        // relaie sa progression à une modale dédiée — cf.
+        // `desktop:run-initial-sync` et `PremiereSynchronisationModal`.
         return ApiResponse::created([
             'provisionne' => true,
             'utilisateur' => ['id' => $utilisateur->id, 'name' => $utilisateur->name],
-            'pull' => $pull,
         ], 'Poste lié avec succès.');
     }
 
@@ -230,6 +226,16 @@ class DesktopProvisioningController extends Controller
         return ApiResponse::success([
             'user' => $utilisateur,
             'token' => $jeton->plainTextToken,
+            // Un jeton valide n'autorise PAS à entrer dans l'application tant
+            // que ce compte n'a pas, au moins une fois, intégralement répliqué
+            // ses données (cf. `SyncPull::handle()`) — sans quoi un premier
+            // clonage interrompu (réseau coupé, application fermée en plein
+            // milieu) laisserait le poste « déjà lié » à la connexion
+            // suivante, avec un mot de passe local valide, mais sans la
+            // moindre donnée réellement téléchargée. `LoginPage` garde ce
+            // jeton de côté et force la modale de clonage tant que ce
+            // drapeau reste faux.
+            'clonage_initial_complet' => $provisioning->clonage_initial_complet,
         ]);
     }
 

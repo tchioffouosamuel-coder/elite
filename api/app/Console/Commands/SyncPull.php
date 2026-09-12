@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\DesktopProvisioning;
 use App\Models\DesktopProvisioningEcole;
-use App\Models\SyncTombstone;
 use App\Support\Sync\RafraichitJetonDesktop;
 use App\Support\Sync\RegistreSync;
 use Illuminate\Console\Command;
@@ -19,13 +18,14 @@ use Illuminate\Support\Facades\Log;
  * mobile ({@see \App\Http\Controllers\Api\V1\SyncController::pull()}) :
  * cette instance locale se comporte ici comme n'importe quel client sync.
  *
- * Un appel par (compte, école) — {@see DesktopProvisioningEcole} — avec son
- * propre curseur : `SyncController::pull()` ne résout jamais qu'une seule
- * école à la fois (`X-School-Id`, ou l'école par défaut du compte à défaut
- * d'en-tête), donc il faut boucler, aussi bien sur les écoles d'un compte
- * non borné à une seule (super admin, direction transverse) que sur les
- * comptes eux-mêmes : plusieurs comptes peuvent désormais être provisionnés
- * sur le même poste, chacun avec son propre jeton et ses propres écoles.
+ * Un appel par (compte, école, entité) — {@see DesktopProvisioningEcole} —
+ * plutôt qu'un unique appel par (compte, école) qui recevrait toutes les
+ * entités entremêlées sur les mêmes pages : boucler entité par entité (le
+ * serveur distant accepte déjà `?entites=` pour n'en réclamer qu'une, cf.
+ * `SyncController::entitesDemandees()`) permet de savoir, à tout instant,
+ * QUELLE table est en cours de téléchargement — indispensable à la modale de
+ * premier clonage (cf. `--json`) — sans rien changer côté serveur distant, le
+ * mobile continuant de tout demander en une fois.
  *
  * Résolution de conflit : le plus récent gagne. Une ligne locale plus
  * récente que la ligne distante reçue n'est PAS écrasée — elle n'a pas
@@ -36,12 +36,16 @@ class SyncPull extends Command
 {
     use RafraichitJetonDesktop;
 
-    protected $signature = 'sync:pull';
+    protected $signature = 'sync:pull {--json : Émet une ligne JSON par évènement sur la sortie standard, pour une modale de progression}';
 
     protected $description = "Tire les données du serveur distant vers la base locale (client desktop)";
 
+    private bool $json = false;
+
     public function handle(): int
     {
+        $this->json = (bool) $this->option('json');
+
         $provisionings = DesktopProvisioning::all();
 
         if ($provisionings->isEmpty()) {
@@ -64,13 +68,37 @@ class SyncPull extends Command
 
         $echec = false;
 
+        $ecolesTotal = $provisionings->sum(fn (DesktopProvisioning $p) => $p->ecoles->count());
+        $this->emettre(['type' => 'debut', 'ecoles' => $ecolesTotal, 'entites_par_ecole' => count(RegistreSync::cles())]);
+
         try {
+            $ecoleIndex = 0;
+
             foreach ($provisionings as $provisioning) {
+                // Porte `DesktopProvisioningController::connexion()` :
+                // l'accès local à l'application reste bloqué tant que ce
+                // compte n'a pas, au moins une fois, répliqué la TOTALITÉ de
+                // ses écoles sans le moindre échec — une seule école en
+                // erreur suffit à ne pas armer le drapeau à ce passage,
+                // même si les autres ont parfaitement réussi.
+                $echecProvisioning = false;
+
                 foreach ($provisioning->ecoles as $ecoleProvisioning) {
+                    $ecoleIndex++;
+                    $this->emettre([
+                        'type' => 'ecole_debut',
+                        'school_id' => $ecoleProvisioning->school_id,
+                        'nom' => $ecoleProvisioning->school?->name,
+                        'index' => $ecoleIndex,
+                        'total' => $ecolesTotal,
+                    ]);
+
                     try {
                         if (! $this->tirerEcole($provisioning, $ecoleProvisioning)) {
                             $echec = true;
+                            $echecProvisioning = true;
                         }
+                        $this->emettre(['type' => 'ecole_fin', 'school_id' => $ecoleProvisioning->school_id, 'index' => $ecoleIndex, 'total' => $ecolesTotal]);
                     } catch (\Illuminate\Http\Client\ConnectionException $e) {
                         // Un aléa réseau (coupure, DNS, timeout) sur UNE école ne
                         // doit pas priver les écoles suivantes de la boucle de
@@ -84,29 +112,39 @@ class SyncPull extends Command
                             'erreur' => $e->getMessage(),
                         ]);
                         $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
+                        $this->emettre(['type' => 'ecole_erreur', 'school_id' => $ecoleProvisioning->school_id, 'message' => 'Erreur réseau, nouvelle tentative au prochain cycle.']);
                         $echec = true;
+                        $echecProvisioning = true;
                     } catch (\Illuminate\Http\Client\RequestException $e) {
-                        // `retry()` (cf. `tirerEcole()`) relance cette exception,
-                        // par défaut, après épuisement de ses tentatives sur
-                        // toute réponse en échec (jeton d'accès expiré — TTL de
-                        // 24h, cf. `AuthService::ACCESS_TOKEN_TTL_MINUTES` —
-                        // rejeté même après rafraîchissement, compte désactivé
-                        // côté serveur distant...). Sans ce filet, elle
-                        // remontait telle quelle hors de la boucle et
-                        // interrompait `sync:pull` en plein milieu : tout
-                        // compte provisionné APRÈS celui en défaut sur ce même
-                        // poste perdait alors sa propre chance de se
-                        // synchroniser à ce passage — observé en conditions
-                        // réelles avec un jeton expiré sur le premier compte
-                        // provisionné, qui privait silencieusement les autres.
+                        // `retry()` (cf. `executerRequete()`) relance cette
+                        // exception, par défaut, après épuisement de ses
+                        // tentatives sur toute réponse en échec (jeton d'accès
+                        // expiré — TTL de 24h, cf.
+                        // `AuthService::ACCESS_TOKEN_TTL_MINUTES` — rejeté même
+                        // après rafraîchissement, compte désactivé côté serveur
+                        // distant...). Sans ce filet, elle remontait telle
+                        // quelle hors de la boucle et interrompait `sync:pull`
+                        // en plein milieu : tout compte provisionné APRÈS celui
+                        // en défaut sur ce même poste perdait alors sa propre
+                        // chance de se synchroniser à ce passage — observé en
+                        // conditions réelles avec un jeton expiré sur le
+                        // premier compte provisionné, qui privait
+                        // silencieusement les autres.
                         Log::warning('sync:pull requête refusée', [
                             'user_id' => $provisioning->user_id,
                             'school_id' => $ecoleProvisioning->school_id,
                             'statut' => $e->response?->status(),
                         ]);
                         $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : le serveur distant a refusé la requête ({$e->response?->status()}).");
+                        $this->emettre(['type' => 'ecole_erreur', 'school_id' => $ecoleProvisioning->school_id, 'message' => 'Le serveur distant a refusé la requête.']);
                         $echec = true;
+                        $echecProvisioning = true;
                     }
+                }
+
+                if (! $echecProvisioning && ! $provisioning->clonage_initial_complet) {
+                    $provisioning->update(['clonage_initial_complet' => true]);
+                    $this->emettre(['type' => 'clonage_initial_complet', 'user_id' => $provisioning->user_id]);
                 }
             }
         } finally {
@@ -117,133 +155,200 @@ class SyncPull extends Command
             DB::statement('PRAGMA foreign_keys = ON');
         }
 
+        $this->emettre(['type' => 'fin', 'echec' => $echec]);
+
         return $echec ? self::FAILURE : self::SUCCESS;
     }
 
     /**
-     * Pull complet d'une seule école, jusqu'à épuisement de ses pages.
-     *
-     * @param  bool  $jetonDejaRafraichi  Empêche une boucle infinie : si le
-     *                                    jeton tout juste rafraîchi se fait
-     *                                    encore rejeter, inutile de
-     *                                    réessayer indéfiniment — l'échec
-     *                                    remonte alors normalement à
-     *                                    `handle()`.
+     * Pull complet d'une seule école : chaque entité du registre, l'une
+     * après l'autre, jusqu'à épuisement de ses propres pages.
      */
-    private function tirerEcole(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, bool $jetonDejaRafraichi = false): bool
+    private function tirerEcole(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning): bool
     {
-        $entitesParCle = RegistreSync::entites();
+        $cles = RegistreSync::cles();
+        $curseurDepart = $ecoleProvisioning->curseur_sync;
+        $curseursObtenus = [];
+        $totalLignes = 0;
+        $totalSuppressions = 0;
+
+        foreach ($cles as $index => $cle) {
+            $this->emettre([
+                'type' => 'entite_debut',
+                'school_id' => $ecoleProvisioning->school_id,
+                'cle' => $cle,
+                'etape' => $index + 1,
+                'total_etapes' => count($cles),
+            ]);
+
+            [$lignes, $suppressions, $curseur] = $this->tirerEntite($provisioning, $ecoleProvisioning, $cle, $curseurDepart);
+
+            $totalLignes += $lignes;
+            $totalSuppressions += $suppressions;
+            if ($curseur !== null) {
+                $curseursObtenus[] = $curseur;
+            }
+
+            $this->emettre([
+                'type' => 'entite_fin',
+                'school_id' => $ecoleProvisioning->school_id,
+                'cle' => $cle,
+                'etape' => $index + 1,
+                'total_etapes' => count($cles),
+                'lignes' => $lignes,
+            ]);
+        }
+
+        // Le plus ancien curseur obtenu parmi toutes les entités : chacune a
+        // été interrogée à un instant légèrement différent (autant d'appels
+        // HTTP séparés), retenir le plus récent ferait passer à la trappe
+        // une écriture survenue côté serveur entre deux entités. Une entité
+        // sans aucune ligne ni suppression renvoie `now()` au moment de son
+        // propre appel : l'inclure reste sûr, juste conservateur.
+        $ecoleProvisioning->update([
+            'curseur_sync' => $curseursObtenus !== [] ? min($curseursObtenus) : $curseurDepart,
+            'dernier_pull_le' => now(),
+        ]);
+
+        $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
+
+        return true;
+    }
+
+    /**
+     * Pull complet d'une seule entité pour une école, jusqu'à épuisement de
+     * ses pages.
+     *
+     * @return array{0: int, 1: int, 2: ?string} Lignes appliquées,
+     *                                            suppressions rejouées, et le
+     *                                            dernier curseur renvoyé par
+     *                                            le serveur distant pour
+     *                                            cette entité (`null` si
+     *                                            aucun appel n'a abouti).
+     */
+    private function tirerEntite(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, string $cle, ?string $curseurDepart): array
+    {
+        $modele = RegistreSync::entites()[$cle]['modele'];
         $complet = false;
-        $curseur = $ecoleProvisioning->curseur_sync;
+        $curseur = $curseurDepart;
+        $dernierCurseurRecu = null;
         $totalLignes = 0;
         $totalSuppressions = 0;
 
         while (! $complet) {
-            try {
-                $reponse = Http::withToken($provisioning->token)
-                    ->withHeaders(['X-School-Id' => $ecoleProvisioning->school_id])
-                    ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
-                    ->acceptJson()
-                    // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
-                    // parfois trop court pour une page pleine (jusqu'à 500 lignes
-                    // par entité du registre) : observé en conditions réelles à
-                    // 17s de réponse normale, et jusqu'à un échec à 30s sous une
-                    // latence réseau moins favorable. `connectTimeout` séparé de
-                    // `timeout` : un aléa sur la connexion elle-même (DNS/TLS) ne
-                    // doit pas se cacher derrière un délai pensé pour la réponse.
-                    ->connectTimeout(30)
-                    ->timeout(180)
-                    // Une page qui échoue (réseau instable, coupure momentanée)
-                    // se retente seule, 3 fois avec un délai croissant, avant de
-                    // remonter l'échec au niveau de l'école : beaucoup moins
-                    // coûteux qu'un ré-essai de la commande entière, qui reprend
-                    // certes désormais à la bonne page (curseur persisté après
-                    // chaque page ci-dessous) mais reperd quand même la page en
-                    // cours d'échec. Par défaut, Laravel relance l'exception une
-                    // fois les tentatives épuisées (`retryThrow`) plutôt que de
-                    // renvoyer simplement la réponse en échec — c'est ce qui
-                    // permet d'intercepter un 401 ci-dessous pour rafraîchir le
-                    // jeton avant d'abandonner.
-                    ->retry(3, 3000)
-                    ->get('sync', array_filter(['depuis' => $curseur]));
-            } catch (\Illuminate\Http\Client\RequestException $e) {
-                // Le jeton d'accès n'est valable que 24h (cf.
-                // `AuthService::ACCESS_TOKEN_TTL_MINUTES`) et rien ne le
-                // renouvelait jamais ici avant ce correctif : un poste
-                // resté ouvert, ou simplement pas relancé depuis la veille,
-                // voyait alors TOUTE synchronisation échouer en silence dès
-                // le lendemain de la connexion — observé en conditions
-                // réelles (compte provisionné le 01/09, plus aucune donnée
-                // reçue depuis). On tente donc un rafraîchissement via le
-                // jeton de rafraîchissement (30 jours) avant d'abandonner,
-                // une seule fois par appel pour ne jamais boucler si le
-                // rafraîchissement lui-même est refusé.
-                if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
-                    return $this->tirerEcole($provisioning, $ecoleProvisioning, jetonDejaRafraichi: true);
-                }
+            $payload = $this->executerRequete($provisioning, $ecoleProvisioning->school_id, $cle, $curseur);
 
-                throw $e;
-            }
-
-            $payload = $reponse->json('data') ?? [];
-
-            foreach ((array) ($payload['donnees'] ?? []) as $cle => $lignes) {
-                if (! isset($entitesParCle[$cle])) {
-                    continue;
-                }
-
-                $modele = $entitesParCle[$cle]['modele'];
-
-                foreach ($lignes as $ligne) {
-                    // Une ligne isolée qui viole une contrainte (ex. deux
-                    // comptes comptables distincts partageant le même code,
-                    // une incohérence déjà présente côté serveur) ne doit pas
-                    // priver l'utilisateur de tout le reste du lot — des
-                    // milliers de lignes saines à côté d'une poignée déjà en
-                    // défaut ailleurs.
-                    try {
-                        if ($this->appliquerLigne($modele, $ligne)) {
-                            $this->telechargerFichiers($provisioning, $ligne);
-                        }
-                        $totalLignes++;
-                    } catch (QueryException $e) {
-                        Log::warning('sync:pull ligne ignorée', [
-                            'school_id' => $ecoleProvisioning->school_id,
-                            'entite' => $cle,
-                            'id' => $ligne['id'] ?? null,
-                            'erreur' => $e->getMessage(),
-                        ]);
+            foreach ((array) ($payload['donnees'][$cle] ?? []) as $ligne) {
+                // Une ligne isolée qui viole une contrainte (ex. deux
+                // comptes comptables distincts partageant le même code,
+                // une incohérence déjà présente côté serveur) ne doit pas
+                // priver l'utilisateur de tout le reste du lot — des
+                // milliers de lignes saines à côté d'une poignée déjà en
+                // défaut ailleurs.
+                try {
+                    if ($this->appliquerLigne($modele, $ligne)) {
+                        $this->telechargerFichiers($provisioning, $ligne);
                     }
+                    $totalLignes++;
+                } catch (QueryException $e) {
+                    Log::warning('sync:pull ligne ignorée', [
+                        'school_id' => $ecoleProvisioning->school_id,
+                        'entite' => $cle,
+                        'id' => $ligne['id'] ?? null,
+                        'erreur' => $e->getMessage(),
+                    ]);
                 }
             }
 
             foreach ((array) ($payload['suppressions'] ?? []) as $suppression) {
-                $cle = $suppression['entite'] ?? null;
-
-                if ($cle !== null && isset($entitesParCle[$cle])) {
-                    $entitesParCle[$cle]['modele']::query()->whereKey($suppression['id'])->delete();
+                if (($suppression['entite'] ?? null) === $cle) {
+                    $modele::query()->whereKey($suppression['id'])->delete();
                     $totalSuppressions++;
                 }
             }
 
             $curseur = $payload['curseur'] ?? $curseur;
+            $dernierCurseurRecu = $curseur;
             $complet = (bool) ($payload['complet'] ?? true);
 
-            // Persisté après CHAQUE page, pas seulement à la fin : un
-            // établissement volumineux peut demander des dizaines de pages
-            // (chacune plafonnée à 500 lignes par entité), donc autant
-            // d'allers-retours réseau successifs — un aléa isolé sur l'un
-            // d'eux ne doit pas effacer la progression déjà appliquée en
-            // local et forcer à tout retélécharger depuis le début au
+            // Persisté après CHAQUE page, pas seulement à la fin de
+            // l'entité : un établissement volumineux peut demander des
+            // dizaines de pages (chacune plafonnée à 500 lignes), donc
+            // autant d'allers-retours réseau successifs — un aléa isolé sur
+            // l'un d'eux ne doit pas effacer la progression déjà appliquée
+            // en local et forcer à tout retélécharger depuis le début au
             // prochain essai. Observé en conditions réelles : un timeout au
             // bout d'1h30 de pagination faisait systématiquement repartir de
             // zéro l'école la plus volumineuse.
-            $ecoleProvisioning->update(['curseur_sync' => $curseur, 'dernier_pull_le' => now()]);
+            $ecoleProvisioning->update(['curseur_sync' => $curseur]);
+
+            if (! $complet) {
+                $this->emettre([
+                    'type' => 'entite_progres',
+                    'school_id' => $ecoleProvisioning->school_id,
+                    'cle' => $cle,
+                    'lignes' => $totalLignes,
+                ]);
+            }
         }
 
-        $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
+        return [$totalLignes, $totalSuppressions, $dernierCurseurRecu];
+    }
 
-        return true;
+    /**
+     * Une page pour une entité donnée, avec rafraîchissement du jeton
+     * d'accès sur un 401 (une seule tentative, pour ne jamais boucler si le
+     * rafraîchissement lui-même est refusé).
+     *
+     * @return array{donnees?: array, suppressions?: array, curseur?: string, complet?: bool}
+     */
+    private function executerRequete(DesktopProvisioning $provisioning, int $schoolId, string $cle, ?string $depuis, bool $jetonDejaRafraichi = false): array
+    {
+        try {
+            $reponse = Http::withToken($provisioning->token)
+                ->withHeaders(['X-School-Id' => $schoolId])
+                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                ->acceptJson()
+                // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
+                // parfois trop court pour une page pleine (jusqu'à 500 lignes) :
+                // observé en conditions réelles à 17s de réponse normale, et
+                // jusqu'à un échec à 30s sous une latence réseau moins
+                // favorable. `connectTimeout` séparé de `timeout` : un aléa sur
+                // la connexion elle-même (DNS/TLS) ne doit pas se cacher
+                // derrière un délai pensé pour la réponse.
+                ->connectTimeout(30)
+                ->timeout(180)
+                // Une page qui échoue (réseau instable, coupure momentanée)
+                // se retente seule, 3 fois avec un délai croissant, avant de
+                // remonter l'échec au niveau de l'école : beaucoup moins
+                // coûteux qu'un ré-essai de la commande entière, qui reprend
+                // certes désormais à la bonne page (curseur persisté après
+                // chaque page) mais reperd quand même la page en cours d'échec.
+                // Par défaut, Laravel relance l'exception une fois les
+                // tentatives épuisées (`retryThrow`) plutôt que de renvoyer
+                // simplement la réponse en échec — c'est ce qui permet
+                // d'intercepter un 401 ci-dessous pour rafraîchir le jeton
+                // avant d'abandonner.
+                ->retry(3, 3000)
+                ->get('sync', array_filter(['depuis' => $depuis, 'entites' => $cle]));
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            // Le jeton d'accès n'est valable que 24h (cf.
+            // `AuthService::ACCESS_TOKEN_TTL_MINUTES`) et rien ne le
+            // renouvelait jamais ici avant ce correctif : un poste resté
+            // ouvert, ou simplement pas relancé depuis la veille, voyait
+            // alors TOUTE synchronisation échouer en silence dès le
+            // lendemain de la connexion — observé en conditions réelles
+            // (compte provisionné le 01/09, plus aucune donnée reçue
+            // depuis). On tente donc un rafraîchissement via le jeton de
+            // rafraîchissement (30 jours) avant d'abandonner.
+            if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
+                return $this->executerRequete($provisioning, $schoolId, $cle, $depuis, jetonDejaRafraichi: true);
+            }
+
+            throw $e;
+        }
+
+        return (array) ($reponse->json('data') ?? []);
     }
 
     /**
@@ -338,5 +443,14 @@ class SyncPull extends Command
                 ]);
             }
         }
+    }
+
+    private function emettre(array $evenement): void
+    {
+        if (! $this->json) {
+            return;
+        }
+
+        $this->output->writeln(json_encode($evenement, JSON_UNESCAPED_UNICODE));
     }
 }

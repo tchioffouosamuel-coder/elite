@@ -36,4 +36,21 @@ contextBridge.exposeInMainWorld("desktop", {
     ipcRenderer.on("desktop:update-status", listener);
     return () => ipcRenderer.removeListener("desktop:update-status", listener);
   },
+
+  /**
+   * Premier clonage complet de la base distante, déclenché juste après
+   * `POST /desktop/provisionner` (cf. `desktopProvisioning.ts`). Résout une
+   * fois `sync:pull --json` terminé (cf. `lancerCloneInitial` dans
+   * main.cjs) ; la progression, elle, arrive au fil de l'eau via
+   * `onSyncProgress` — à brancher AVANT d'appeler cette méthode, sans quoi
+   * les tout premiers évènements seraient perdus.
+   */
+  runInitialSync: () => ipcRenderer.invoke("desktop:run-initial-sync"),
+
+  /** Abonnement aux évènements de progression émis par `sync:pull --json` (cf. `SyncPull::emettre()`). */
+  onSyncProgress: (callback) => {
+    const listener = (_event, evenement) => callback(evenement);
+    ipcRenderer.on("desktop:sync-progress", listener);
+    return () => ipcRenderer.removeListener("desktop:sync-progress", listener);
+  },
 });

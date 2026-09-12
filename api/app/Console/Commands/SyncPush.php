@@ -57,7 +57,7 @@ class SyncPush extends Command
         $rienATraiter = true;
 
         foreach ($provisionings as $provisioning) {
-            $lot = SyncOutbox::query()->enAttente()
+            $requeteLot = fn () => SyncOutbox::query()->enAttente()
                 ->where(function ($q) use ($provisioning, $parDefaut) {
                     $q->where('desktop_provisioning_id', $provisioning->id);
                     if ($provisioning->is($parDefaut)) {
@@ -66,39 +66,72 @@ class SyncPush extends Command
                 })
                 ->limit(self::LOT_MAX)->get();
 
+            $lot = $requeteLot();
+
             if ($lot->isEmpty()) {
                 continue;
             }
 
             $rienATraiter = false;
+            $totalTraitees = 0;
+            $totalReussies = 0;
 
-            $reponse = $this->envoyerLot($provisioning, $lot);
-
-            if ($reponse === null) {
-                $echec = true;
-
-                continue;
-            }
-
-            $resultats = collect($reponse['resultats'] ?? []);
-            $reussies = 0;
-
-            foreach ($resultats as $resultat) {
-                // Chaque opération réussit ou échoue indépendamment côté serveur
-                // (cf. SyncController::rejouer()) : une opération refusée reste
-                // dans l'outbox — elle sera signalée à l'utilisateur plutôt que
-                // silencieusement perdue — les autres avancent normalement.
-                if (($resultat['statut'] ?? 500) < 300) {
-                    SyncOutbox::whereKey($resultat['id'])->update(['pushed_at' => now()]);
-                    $reussies++;
-                } else {
-                    SyncOutbox::whereKey($resultat['id'])->increment('tentatives');
+            // Plusieurs lots successifs, pas un seul : une écriture hors-ligne
+            // prolongée (panne réseau de plusieurs jours, gros import fait
+            // localement) peut laisser des milliers d'opérations en attente —
+            // n'en pousser que les 50 premières par passage de la boucle
+            // périodique (toutes les 5 minutes) prendrait des heures à
+            // rattraper. On draine ici tout ce qui est en attente au moment du
+            // lancement, avec un plafond de sécurité pour ne jamais tourner
+            // indéfiniment si le serveur distant se met à tout refuser (une
+            // opération refusée n'obtient jamais `pushed_at`, donc resterait
+            // "en attente" et referait indéfiniment partie du prochain lot).
+            for ($passage = 0; $passage < 500; $passage++) {
+                if ($lot->isEmpty()) {
+                    break;
                 }
+
+                $reponse = $this->envoyerLot($provisioning, $lot);
+
+                if ($reponse === null) {
+                    $echec = true;
+
+                    break;
+                }
+
+                $resultats = collect($reponse['resultats'] ?? []);
+                $reussiesCePassage = 0;
+
+                foreach ($resultats as $resultat) {
+                    // Chaque opération réussit ou échoue indépendamment côté
+                    // serveur (cf. SyncController::rejouer()) : une opération
+                    // refusée reste dans l'outbox — elle sera signalée à
+                    // l'utilisateur plutôt que silencieusement perdue — les
+                    // autres avancent normalement.
+                    if (($resultat['statut'] ?? 500) < 300) {
+                        SyncOutbox::whereKey($resultat['id'])->update(['pushed_at' => now()]);
+                        $reussiesCePassage++;
+                    } else {
+                        SyncOutbox::whereKey($resultat['id'])->increment('tentatives');
+                    }
+                }
+
+                $totalTraitees += $lot->count();
+                $totalReussies += $reussiesCePassage;
+
+                // Un lot entièrement refusé (0 succès) n'avancerait jamais :
+                // reprendre la même requête renverrait exactement les mêmes
+                // lignes, encore en attente, à l'infini.
+                if ($reussiesCePassage === 0) {
+                    break;
+                }
+
+                $lot = $requeteLot();
             }
 
             $provisioning->update(['dernier_push_le' => now()]);
 
-            $this->info("Compte #{$provisioning->user_id} : {$reussies}/{$lot->count()} opération(s) acceptée(s).");
+            $this->info("Compte #{$provisioning->user_id} : {$totalReussies}/{$totalTraitees} opération(s) acceptée(s).");
         }
 
         if ($rienATraiter) {
