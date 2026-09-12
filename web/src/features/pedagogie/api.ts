@@ -23,9 +23,19 @@ export interface Competence {
   statut: string;
   matieres_count?: number;
   classes_count?: number;
-  matieres?: { id: number; nom: string; nom_en: string | null; abbreviation: string | null }[];
+  matieres?: {
+    id: number;
+    nom: string;
+    nom_en: string | null;
+    abbreviation: string | null;
+  }[];
   school_id?: number;
-  school?: { id: number; name: string; code: string; type: "maternelle" | "primaire" | "secondaire" } | null;
+  school?: {
+    id: number;
+    name: string;
+    code: string;
+    type: "maternelle" | "primaire" | "secondaire";
+  } | null;
 }
 
 export interface CompetencePayload {
@@ -50,12 +60,22 @@ export interface Matiere {
   statut: string;
   /** Renseignée au primaire et en maternelle ; nulle au secondaire. */
   competence_id: number | null;
-  competence?: { id: number; label_fr: string; label_en: string | null; notation: number } | null;
+  competence?: {
+    id: number;
+    label_fr: string;
+    label_en: string | null;
+    notation: number;
+  } | null;
   /** Absent des réponses de création/modification, qui ne comptent pas les classes. */
   classes_count?: number;
   departement: Departement | null;
   school_id?: number;
-  school?: { id: number; name: string; code: string; type: "maternelle" | "primaire" | "secondaire" } | null;
+  school?: {
+    id: number;
+    name: string;
+    code: string;
+    type: "maternelle" | "primaire" | "secondaire";
+  } | null;
 }
 
 export interface ClasseEnseignantMatiere {
@@ -63,6 +83,16 @@ export interface ClasseEnseignantMatiere {
   classe: { id: number; nom: string } | null;
   enseignant: { id: number; nom_complet: string } | null;
   coefficient: number;
+}
+
+export interface TroncCommunGroupe {
+  id: number;
+  nom: string;
+  matiere_id: number;
+  matiere: string | null;
+  personnel_id: number;
+  enseignant: string | null;
+  classes: { id: number; nom: string }[];
 }
 
 export interface MatierePayload {
@@ -86,7 +116,12 @@ export interface ClasseCompetence {
 
 export interface ClasseMatiere {
   id: number;
-  matiere: { id: number; nom: string; nom_en: string | null; abbreviation: string | null };
+  matiere: {
+    id: number;
+    nom: string;
+    nom_en: string | null;
+    abbreviation: string | null;
+  };
   enseignant: { id: number; nom_complet: string } | null;
   coefficient: number;
   quota_horaire: number | null;
@@ -126,8 +161,32 @@ export async function fetchMatieres(): Promise<Matiere[]> {
 }
 
 /** Classes où cette matière est enseignée, pour la modale « Enseignée dans X classe(s) ». */
-export async function fetchMatiereClasses(id: number): Promise<ClasseEnseignantMatiere[]> {
-  const { data } = await http.get<ApiResponse<ClasseEnseignantMatiere[]>>(`/matieres/${id}/classes`);
+export async function fetchMatiereClasses(
+  id: number,
+): Promise<ClasseEnseignantMatiere[]> {
+  const { data } = await http.get<ApiResponse<ClasseEnseignantMatiere[]>>(
+    `/matieres/${id}/classes`,
+  );
+  return data.data;
+}
+
+export async function fetchTroncCommunGroupes(): Promise<TroncCommunGroupe[]> {
+  const { data } = await http.get<ApiResponse<TroncCommunGroupe[]>>(
+    "/tronc-commun-groupes",
+  );
+  return data.data;
+}
+
+export async function creerTroncCommunGroupe(payload: {
+  matiere_id: number;
+  personnel_id: number;
+  nom: string;
+  classe_ids: number[];
+}): Promise<TroncCommunGroupe> {
+  const { data } = await http.post<ApiResponse<TroncCommunGroupe>>(
+    "/tronc-commun-groupes",
+    payload,
+  );
   return data.data;
 }
 
@@ -160,10 +219,9 @@ export async function batchCompetenceMatieres(
   ids: number[],
   competenceId: number | null,
 ): Promise<{ modifiees: number; installees: number }> {
-  const { data } = await http.post<ApiResponse<{ modifiees: number; installees: number }>>(
-    "/matieres/batch-competence",
-    { ids, competence_id: competenceId },
-  );
+  const { data } = await http.post<
+    ApiResponse<{ modifiees: number; installees: number }>
+  >("/matieres/batch-competence", { ids, competence_id: competenceId });
   return data.data;
 }
 
@@ -175,10 +233,21 @@ export async function batchCompetenceMatieres(
 export async function fusionnerMatieres(
   conserveeId: number,
   supprimeeId: number,
-): Promise<{ classes_deplacees: number; classes_fusionnees: number; notes_ignorees: number }> {
+): Promise<{
+  classes_deplacees: number;
+  classes_fusionnees: number;
+  notes_ignorees: number;
+}> {
   const { data } = await http.post<
-    ApiResponse<{ classes_deplacees: number; classes_fusionnees: number; notes_ignorees: number }>
-  >("/matieres/fusionner", { conservee_id: conserveeId, supprimee_id: supprimeeId });
+    ApiResponse<{
+      classes_deplacees: number;
+      classes_fusionnees: number;
+      notes_ignorees: number;
+    }>
+  >("/matieres/fusionner", {
+    conservee_id: conserveeId,
+    supprimee_id: supprimeeId,
+  });
   return data.data;
 }
 
@@ -227,10 +296,9 @@ export async function copierAffectations(payload: {
   affectation_ids: number[];
   classe_ids: number[];
 }): Promise<{ copiees: number; ignorees: number }> {
-  const { data } = await http.post<ApiResponse<{ copiees: number; ignorees: number }>>(
-    "/classe-matieres/copier",
-    payload,
-  );
+  const { data } = await http.post<
+    ApiResponse<{ copiees: number; ignorees: number }>
+  >("/classe-matieres/copier", payload);
   return data.data;
 }
 
@@ -254,7 +322,9 @@ export interface MonAffectation {
  * les créneaux prévus le jour même.
  */
 export async function fetchMesAffectationsActives(): Promise<MonAffectation[]> {
-  const { data } = await http.get<ApiResponse<MonAffectation[]>>("/classe-matieres/mes-affectations");
+  const { data } = await http.get<ApiResponse<MonAffectation[]>>(
+    "/classe-matieres/mes-affectations",
+  );
   return data.data;
 }
 
@@ -267,13 +337,24 @@ export async function fetchCompetences(): Promise<Competence[]> {
   return data.data;
 }
 
-export async function creerCompetence(payload: CompetencePayload): Promise<Competence> {
-  const { data } = await http.post<ApiResponse<Competence>>("/competences", payload);
+export async function creerCompetence(
+  payload: CompetencePayload,
+): Promise<Competence> {
+  const { data } = await http.post<ApiResponse<Competence>>(
+    "/competences",
+    payload,
+  );
   return data.data;
 }
 
-export async function modifierCompetence(id: number, payload: CompetencePayload): Promise<Competence> {
-  const { data } = await http.put<ApiResponse<Competence>>(`/competences/${id}`, payload);
+export async function modifierCompetence(
+  id: number,
+  payload: CompetencePayload,
+): Promise<Competence> {
+  const { data } = await http.put<ApiResponse<Competence>>(
+    `/competences/${id}`,
+    payload,
+  );
   return data.data;
 }
 
@@ -282,8 +363,14 @@ export async function modifierCompetence(id: number, payload: CompetencePayload)
  * que `motDePasse` n'est pas fourni — voir `CompetenceController::destroy()`
  * côté API pour la logique complète.
  */
-export async function supprimerCompetence(id: number, motDePasse?: string): Promise<void> {
-  await http.delete(`/competences/${id}`, motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined);
+export async function supprimerCompetence(
+  id: number,
+  motDePasse?: string,
+): Promise<void> {
+  await http.delete(
+    `/competences/${id}`,
+    motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined,
+  );
 }
 
 /**
@@ -303,8 +390,12 @@ export async function batchDeleteCompetences(
 }
 
 /** Compétences attribuées à une classe. */
-export async function fetchCompetencesClasse(classeId: number): Promise<ClasseCompetence[]> {
-  const { data } = await http.get<ApiResponse<ClasseCompetence[]>>(`/classes/${classeId}/competences`);
+export async function fetchCompetencesClasse(
+  classeId: number,
+): Promise<ClasseCompetence[]> {
+  const { data } = await http.get<ApiResponse<ClasseCompetence[]>>(
+    `/classes/${classeId}/competences`,
+  );
   return data.data;
 }
 
@@ -317,10 +408,12 @@ export async function attribuerCompetences(
   competenceIds: number[],
   personnelId?: number | null,
 ): Promise<{ attribuees: number; matieres: number }> {
-  const { data } = await http.post<ApiResponse<{ attribuees: number; matieres: number }>>(
-    `/classes/${classeId}/competences`,
-    { competence_ids: competenceIds, personnel_id: personnelId ?? null },
-  );
+  const { data } = await http.post<
+    ApiResponse<{ attribuees: number; matieres: number }>
+  >(`/classes/${classeId}/competences`, {
+    competence_ids: competenceIds,
+    personnel_id: personnelId ?? null,
+  });
   return data.data;
 }
 
@@ -336,8 +429,14 @@ export async function modifierAttributionCompetence(
  * répond 409 tant que `motDePasse` n'est pas fourni — voir
  * `CompetenceController::retirer()` côté API pour la logique complète.
  */
-export async function retirerCompetenceClasse(classeCompetenceId: number, motDePasse?: string): Promise<void> {
-  await http.delete(`/classe-competences/${classeCompetenceId}`, motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined);
+export async function retirerCompetenceClasse(
+  classeCompetenceId: number,
+  motDePasse?: string,
+): Promise<void> {
+  await http.delete(
+    `/classe-competences/${classeCompetenceId}`,
+    motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined,
+  );
 }
 
 /**
@@ -352,9 +451,8 @@ export async function batchEnseignantAffectations(
   ids: number[],
   personnelId: number | null,
 ): Promise<{ modifiees: number; ignorees: number }> {
-  const { data } = await http.post<ApiResponse<{ modifiees: number; ignorees: number }>>(
-    "/classe-matieres/batch-enseignant",
-    { ids, personnel_id: personnelId },
-  );
+  const { data } = await http.post<
+    ApiResponse<{ modifiees: number; ignorees: number }>
+  >("/classe-matieres/batch-enseignant", { ids, personnel_id: personnelId });
   return data.data;
 }

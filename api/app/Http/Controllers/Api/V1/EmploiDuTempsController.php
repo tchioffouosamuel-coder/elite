@@ -12,6 +12,7 @@ use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\Salle;
 use App\Models\Trimestre;
+use App\Models\TroncCommunGroupe;
 use App\Services\BibliothequeService;
 use App\Services\EmploiDuTempsService;
 use App\Support\Pdf\EmploiDuTempsGenerator;
@@ -43,6 +44,7 @@ class EmploiDuTempsController extends Controller
     {
         $classe = $this->classe($classeId);
         $data = $this->valider($request, $classe);
+        $data['classes_associees'] = $this->ajouterClassesDuTroncCommun($data, $classe);
 
         $associees = $data['classes_associees'];
         unset($data['classes_associees']);
@@ -74,6 +76,7 @@ class EmploiDuTempsController extends Controller
         $classe = $this->classe($classeId);
         $creneau = EmploiDuTemps::where('classe_id', $classe->id)->findOrFail($id);
         $data = $this->valider($request, $classe);
+        $data['classes_associees'] = $this->ajouterClassesDuTroncCommun($data, $classe);
 
         $associees = $data['classes_associees'];
         unset($data['classes_associees']);
@@ -345,6 +348,31 @@ class EmploiDuTempsController extends Controller
         $data['salle_id'] = $salle->id;
 
         return $data;
+    }
+
+    /** Les groupes confirmés lors de la création des affectations alimentent automatiquement le tronc commun horaire. */
+    private function ajouterClassesDuTroncCommun(array $data, Classe $classe): array
+    {
+        if ($data['type'] !== 'cours' || empty($data['classe_matiere_id'])) {
+            return $data['classes_associees'];
+        }
+
+        $affectation = ClasseMatiere::with('enseignant')->find($data['classe_matiere_id']);
+        if ($affectation?->personnel_id === null) {
+            return $data['classes_associees'];
+        }
+
+        $classesDuGroupe = TroncCommunGroupe::forSchool($classe->school_id)
+            ->where('matiere_id', $affectation->matiere_id)
+            ->where('personnel_id', $affectation->personnel_id)
+            ->whereHas('classes', fn($query) => $query->where('classes.id', $classe->id))
+            ->with('classes:id')
+            ->get()
+            ->flatMap(fn(TroncCommunGroupe $groupe) => $groupe->classes->pluck('id'))
+            ->reject(fn(int $id) => $id === $classe->id)
+            ->values();
+
+        return collect($data['classes_associees'])->concat($classesDuGroupe)->unique()->values()->all();
     }
 
     private function classe(int $id): Classe

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Archive, ArchiveRestore, Copy, Download, Pencil, Plus, Search, Target, Trash2, Upload, UserCog } from 'lucide-react'
 import {
   fetchClasseMatieres,
+  fetchMatiereClasses,
   affecterMatiere,
   modifierAffectation,
   retirerMatiere,
@@ -34,6 +35,11 @@ import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
 import type { ApiError } from '@/shared/types/api'
+import { TroncCommunApresAffectationModal, type PropositionTroncCommun } from '@/features/pedagogie/pages/TroncCommunApresAffectationModal'
+
+function suffixeNiveauClasse(nom: string): string {
+  return nom.trim().split(/\s+/).pop()?.toUpperCase() ?? ''
+}
 
 export function AffectationsTab({
   classeId,
@@ -60,6 +66,7 @@ export function AffectationsTab({
   // le modal de confirmation par mot de passe prend le relai plutôt que le
   // toast d'erreur générique.
   const [competenceASupprimerAvecMotDePasse, setCompetenceASupprimerAvecMotDePasse] = useState<ClasseCompetence | null>(null)
+  const [propositionsTroncCommun, setPropositionsTroncCommun] = useState<PropositionTroncCommun[]>([])
 
   // Le primaire et la maternelle ne pondèrent pas les matières : la moyenne se
   // calcule sur les barèmes des volets, pas sur des coefficients. On garde la
@@ -191,7 +198,7 @@ export function AffectationsTab({
   }
 
   const onSubmit = async (values: ClasseMatierePayload) => {
-    await affecterMatiere(classeId, {
+    const affectation = await affecterMatiere(classeId, {
       ...values,
       matiere_id: Number(values.matiere_id),
       personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
@@ -200,6 +207,28 @@ export function AffectationsTab({
       groupe: Number(values.groupe) || 1,
     })
     succes('Matière affectée à la classe.')
+
+    if (affectation.enseignant?.id) {
+      const affectationsMatiere = await fetchMatiereClasses(affectation.matiere.id)
+      const classeActuelle = affectationsMatiere.find((item) => item.classe?.id === classeId)?.classe
+      const suffixeActuel = classeActuelle ? suffixeNiveauClasse(classeActuelle.nom) : ''
+      const eligibles = affectationsMatiere.filter((item) =>
+        item.enseignant?.id === affectation.enseignant?.id
+        && item.classe
+        && suffixeNiveauClasse(item.classe.nom) === suffixeActuel,
+      )
+
+      if (eligibles.length >= 2) {
+        setPropositionsTroncCommun([{
+          id: `${affectation.matiere.id}-${affectation.enseignant.id}`,
+          matiereId: affectation.matiere.id,
+          matiere: affectation.matiere.nom,
+          personnelId: affectation.enseignant.id,
+          enseignant: affectation.enseignant.nom_complet,
+          classes: eligibles,
+        }])
+      }
+    }
 
     reset()
     setShowForm(false)
@@ -606,6 +635,14 @@ export function AffectationsTab({
             setShowCopyModal(false)
             setSelectedIds(new Set())
           }}
+        />
+      )}
+
+      {propositionsTroncCommun.length > 0 && (
+        <TroncCommunApresAffectationModal
+          propositions={propositionsTroncCommun}
+          onClose={() => setPropositionsTroncCommun([])}
+          onDone={() => setPropositionsTroncCommun([])}
         />
       )}
     </div>

@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\EleveEspaceController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsElementController;
+use App\Http\Controllers\Api\V1\TroncCommunGroupeController;
 use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
@@ -815,6 +816,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/emploi-du-temps/export-pdf', [EmploiDuTempsController::class, 'exportPdf'])->name('edt.export-pdf');
                 Route::get('classes/{classeId}/seances', [SeanceController::class, 'index'])->name('seances.index');
                 Route::get('seances/{id}/appel', [SeanceController::class, 'appel'])->name('seances.appel');
+            });
+
+            Route::middleware('permission:pedagogie.view')->group(function () {
+                Route::get('tronc-commun-groupes', [TroncCommunGroupeController::class, 'index'])->name('tronc-commun.index');
+            });
+
+            Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('tronc-commun-groupes', [TroncCommunGroupeController::class, 'store'])->name('tronc-commun.store');
+                Route::delete('tronc-commun-groupes/{id}', [TroncCommunGroupeController::class, 'destroy'])->name('tronc-commun.destroy');
             });
 
             Route::middleware('permission:emploi_du_temps.manage')->group(function () {
