@@ -16,6 +16,9 @@ class EmploiDuTemps extends Model
         'school_id',
         'classe_id',
         'classe_matiere_id',
+        'type',
+        'libelle',
+        'emploi_du_temps_element_id',
         'jour',
         'heure_debut',
         'heure_fin',
@@ -41,6 +44,11 @@ class EmploiDuTemps extends Model
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    public function element(): BelongsTo
+    {
+        return $this->belongsTo(EmploiDuTempsElement::class, 'emploi_du_temps_element_id');
     }
 
     public function salleReference(): BelongsTo

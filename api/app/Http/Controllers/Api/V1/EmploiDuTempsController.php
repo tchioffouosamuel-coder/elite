@@ -52,10 +52,12 @@ class EmploiDuTempsController extends Controller
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
         }
 
-        $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
+        if ($data['type'] === 'cours') {
+            $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
 
-        if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'])) {
-            return ApiResponse::error($erreurQuota, 422);
+            if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'])) {
+                return ApiResponse::error($erreurQuota, 422);
+            }
         }
 
         $creneau = EmploiDuTemps::create([...$data, 'classe_id' => $classe->id, 'school_id' => $classe->school_id]);
@@ -81,10 +83,12 @@ class EmploiDuTempsController extends Controller
             return ApiResponse::error("Ce créneau en chevauche un autre pour l'une des classes concernées.", 422);
         }
 
-        $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
+        if ($data['type'] === 'cours') {
+            $classeMatiere = ClasseMatiere::findOrFail($data['classe_matiere_id']);
 
-        if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'], $creneau->id)) {
-            return ApiResponse::error($erreurQuota, 422);
+            if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $data['heure_debut'], $data['heure_fin'], $creneau->id)) {
+                return ApiResponse::error($erreurQuota, 422);
+            }
         }
 
         $creneau->update($data);
@@ -261,7 +265,9 @@ class EmploiDuTempsController extends Controller
     private function valider(Request $request, Classe $classe): array
     {
         $data = $request->validate([
-            'classe_matiere_id' => ['required', 'integer'],
+            'classe_matiere_id' => ['nullable', 'integer'],
+            'type' => ['sometimes', 'in:cours,pause,activite'],
+            'libelle' => ['nullable', 'string', 'max:150'],
             'jour' => ['required', 'integer', 'min:1', 'max:7'],
             'heure_debut' => ['required', 'date_format:H:i'],
             'heure_fin' => ['required', 'date_format:H:i', 'after:heure_debut'],
@@ -271,6 +277,14 @@ class EmploiDuTempsController extends Controller
             'classes_associees' => ['sometimes', 'array'],
             'classes_associees.*' => ['integer', 'distinct'],
         ]);
+
+        $data['type'] ??= 'cours';
+        if ($data['type'] === 'cours') {
+            abort_unless(isset($data['classe_matiere_id']), 422, 'Une matière est obligatoire pour un cours.');
+        } else {
+            $data['classe_matiere_id'] = null;
+            abort_unless(trim((string) ($data['libelle'] ?? '')) !== '', 422, 'Un libellé est obligatoire pour une pause ou une activité.');
+        }
 
         $associees = collect($data['classes_associees'] ?? [])
             ->map(fn($id) => (int) $id)
@@ -292,11 +306,13 @@ class EmploiDuTempsController extends Controller
             );
         }
 
-        abort_unless(
-            ClasseMatiere::where('classe_id', $classe->id)->whereKey($data['classe_matiere_id'])->exists(),
-            422,
-            "Cette matière n'est pas affectée à la classe."
-        );
+        if ($data['type'] === 'cours') {
+            abort_unless(
+                ClasseMatiere::where('classe_id', $classe->id)->whereKey($data['classe_matiere_id'])->exists(),
+                422,
+                "Cette matière n'est pas affectée à la classe."
+            );
+        }
 
         $data['classes_associees'] = $associees->all();
 

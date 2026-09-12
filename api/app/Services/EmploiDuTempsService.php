@@ -44,7 +44,7 @@ class EmploiDuTempsService extends BaseService
      */
     public static function presenter(EmploiDuTemps $creneau): array
     {
-        $creneau->loadMissing('classe', 'classesAssociees', 'salleReference');
+        $creneau->loadMissing('classe', 'classesAssociees', 'salleReference', 'classeMatiere.matiere', 'classeMatiere.enseignant');
 
         return [
             'id' => $creneau->id,
@@ -61,6 +61,8 @@ class EmploiDuTempsService extends BaseService
             'classe_matiere_id' => $creneau->classe_matiere_id,
             'matiere' => $creneau->classeMatiere?->matiere?->nom,
             'enseignant' => $creneau->classeMatiere?->enseignant?->nom_complet,
+            'type' => $creneau->type ?? 'cours',
+            'libelle' => $creneau->libelle,
             // La classe porteuse : sur la grille d'une classe associée, le
             // créneau vient d'ailleurs et l'écran doit pouvoir le dire.
             'classe_id' => $creneau->classe_id,

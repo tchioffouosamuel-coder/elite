@@ -45,16 +45,31 @@ export interface Creneau {
   /** Classes qui rejoignent la porteuse. Non vide = tronc commun. */
   classes_associees: ClasseAssociee[];
   tronc_commun: boolean;
+  type: "cours" | "pause" | "activite";
+  libelle: string | null;
 }
 
 export interface CreneauPayload {
-  classe_matiere_id: number;
+  classe_matiere_id?: number | null;
+  type?: "cours" | "pause" | "activite";
+  libelle?: string | null;
   jour: number;
   heure_debut: string;
   heure_fin: string;
   salle?: string | null;
   salle_id?: number | null;
   classes_associees?: number[];
+}
+
+export interface EmploiDuTempsElement {
+  id: number;
+  type: "pause" | "activite";
+  nom: string;
+  heure_debut: string;
+  heure_fin: string;
+  jours: number[];
+  actif: boolean;
+  classes: { id: number; nom: string }[];
 }
 
 export interface Seance {
@@ -102,6 +117,53 @@ export interface LigneAppel {
 export async function fetchEmploiDuTemps(classeId: number): Promise<Creneau[]> {
   const { data } = await http.get<ApiResponse<Creneau[]>>(
     `/classes/${classeId}/emploi-du-temps`,
+  );
+  return data.data;
+}
+
+export async function fetchEmploiDuTempsElements(): Promise<
+  EmploiDuTempsElement[]
+> {
+  const { data } = await http.get<ApiResponse<EmploiDuTempsElement[]>>(
+    "/emploi-du-temps/elements",
+  );
+  return data.data;
+}
+
+export async function createEmploiDuTempsElement(
+  payload: Omit<EmploiDuTempsElement, "id" | "actif" | "classes"> & {
+    classe_ids: number[];
+  },
+): Promise<EmploiDuTempsElement> {
+  const { data } = await http.post<ApiResponse<EmploiDuTempsElement>>(
+    "/emploi-du-temps/elements",
+    payload,
+  );
+  return data.data;
+}
+
+export async function updateEmploiDuTempsElement(
+  id: number,
+  payload: Omit<EmploiDuTempsElement, "id" | "actif" | "classes"> & {
+    classe_ids: number[];
+  },
+): Promise<EmploiDuTempsElement> {
+  const { data } = await http.put<ApiResponse<EmploiDuTempsElement>>(
+    `/emploi-du-temps/elements/${id}`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function deleteEmploiDuTempsElement(id: number): Promise<void> {
+  await http.delete(`/emploi-du-temps/elements/${id}`);
+}
+
+export async function appliquerEmploiDuTempsElement(
+  id: number,
+): Promise<{ creees: number }> {
+  const { data } = await http.post<ApiResponse<{ creees: number }>>(
+    `/emploi-du-temps/elements/${id}/appliquer`,
   );
   return data.data;
 }

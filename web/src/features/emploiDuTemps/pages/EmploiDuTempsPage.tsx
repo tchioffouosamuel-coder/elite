@@ -29,6 +29,7 @@ import {
   IMPORT_EMPLOI_DU_TEMPS_URL,
   type Creneau,
 } from '@/features/emploiDuTemps/api'
+import { ElementsEmploiDuTempsModal } from '@/features/emploiDuTemps/pages/ElementsEmploiDuTempsModal'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
@@ -40,10 +41,6 @@ import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
-
-/** Bornes de la grille : la journée scolaire va de 7 h à 18 h. */
-const HEURE_MIN = 7
-const HEURE_MAX = 18
 
 function enMinutes(heure: string): number {
   const [h, m] = heure.split(':').map(Number)
@@ -75,6 +72,7 @@ export function EmploiDuTempsPage() {
   const [copieOuverte, setCopieOuverte] = useState(false)
   const [assignationOuverte, setAssignationOuverte] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [elementsOuverts, setElementsOuverts] = useState(false)
   const [exportEnCours, setExportEnCours] = useState(false)
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !restreintATitulaire })
@@ -163,18 +161,21 @@ export function EmploiDuTempsPage() {
   const classeMatiereIdsSelectionnes = useMemo(() => {
     const ids = new Set<number>()
     creneaux?.forEach((c) => {
-      if (selectedIds.has(c.id)) ids.add(c.classe_matiere_id)
+      if (selectedIds.has(c.id) && c.classe_matiere_id !== null) ids.add(c.classe_matiere_id)
     })
     return Array.from(ids)
   }, [creneaux, selectedIds])
 
-  // La grille se cale sur les heures réellement utilisées, arrondies à l'heure,
-  // pour ne pas afficher une colonne de créneaux vides toute la journée.
-  const plage = useMemo(() => {
-    if (!creneaux?.length) return [] as number[]
-    const debut = Math.min(...creneaux.map((c) => Math.floor(enMinutes(c.heure_debut) / 60)), HEURE_MAX)
-    const fin = Math.max(...creneaux.map((c) => Math.ceil(enMinutes(c.heure_fin) / 60)), HEURE_MIN)
-    return Array.from({ length: Math.max(fin - debut, 1) }, (_, i) => debut + i)
+  // Les créneaux de chaque jour sont triés une bonne fois pour toutes : la
+  // grille les empile ensuite dans cet ordre sans se soucier de l'heure
+  // exacte, donc un cours qui ne débute pas pile à l'heure ronde ne laisse
+  // plus de case vide au-dessus de lui.
+  const creneauxParJour = useMemo(() => {
+    const map = new Map<number, Creneau[]>()
+    JOURS.forEach((jour) => map.set(jour.valeur, []))
+    creneaux?.forEach((c) => map.get(c.jour)?.push(c))
+    map.forEach((liste) => liste.sort((a, b) => enMinutes(a.heure_debut) - enMinutes(b.heure_debut)))
+    return map
   }, [creneaux])
 
   const exporter = async () => {
@@ -250,6 +251,9 @@ export function EmploiDuTempsPage() {
                   <Plus className="h-4 w-4" />
                   {t('emploiDuTemps.ajouter_creneau')}
                 </Button>
+                <Button variant="secondary" onClick={() => setElementsOuverts(true)}>
+                  Pauses & activités
+                </Button>
               </>
             )}
           </div>
@@ -322,61 +326,44 @@ export function EmploiDuTempsPage() {
         </Card>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-navy-100 bg-white">
-          <table className="w-full min-w-[820px] border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="w-20 border-b border-navy-100 px-2 py-2.5 text-xs font-bold uppercase tracking-wide text-navy-400">
-                  {t('emploiDuTemps.heure_col')}
-                </th>
-                {JOURS.map((jour) => (
-                  <th
-                    key={jour.valeur}
-                    className="border-b border-l border-navy-100 px-2 py-2.5 text-xs font-bold uppercase tracking-wide text-navy-500"
-                  >
-                    {t(`emploiDuTemps.jours.${jour.libelle}`)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {plage.map((heure) => (
-                <tr key={heure}>
-                  <td className="border-b border-navy-50 px-2 py-1.5 text-center text-xs font-semibold text-navy-400">
-                    {String(heure).padStart(2, '0')}:00
-                  </td>
-                  {JOURS.map((jour) => {
-                    // Le créneau n'est dessiné que sur sa ligne de début : le
-                    // répéter sur chaque heure couverte le ferait apparaître en
-                    // double pour un cours de deux heures.
-                    const duCreneau = creneaux.filter(
-                      (c) =>
-                        c.jour === jour.valeur &&
-                        enMinutes(c.heure_debut) >= heure * 60 &&
-                        enMinutes(c.heure_debut) < (heure + 1) * 60,
-                    )
-
-                    return (
-                      <td key={jour.valeur} className="border-b border-l border-navy-50 p-1 align-top">
-                        {duCreneau.map((c) => (
-                          <CelluleCreneau
-                            key={c.id}
-                            creneau={c}
-                            classeId={Number(classeId)}
-                            peutGerer={peutGerer}
-                            modeSelection={modeSelection}
-                            selectionne={selectedIds.has(c.id)}
-                            onBasculerSelection={() => basculerSelection(c.id)}
-                            onModifier={() => setCreneauEnEdition(c)}
-                            onSupprimer={() => supprimerCreneau(c)}
-                          />
-                        ))}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Chaque jour empile ses créneaux à la suite les uns des autres,
+              dans l'ordre chronologique, plutôt que de les caler sur une
+              grille d'heures communes : un cours qui démarre à 08h20 ne
+              laisse plus de case vide sous celui qui le précède. */}
+          <div className="grid min-w-[820px]" style={{ gridTemplateColumns: `repeat(${JOURS.length}, minmax(0, 1fr))` }}>
+            {JOURS.map((jour) => (
+              <div
+                key={jour.valeur}
+                className="border-b border-l border-navy-100 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wide text-navy-500 first:border-l-0"
+              >
+                {t(`emploiDuTemps.jours.${jour.libelle}`)}
+              </div>
+            ))}
+            {JOURS.map((jour) => {
+              const duJour = creneauxParJour.get(jour.valeur) ?? []
+              return (
+                <div key={jour.valeur} className="flex flex-col gap-1 border-l border-navy-50 p-1.5 first:border-l-0">
+                  {duJour.length === 0 ? (
+                    <p className="px-1 py-2 text-center text-xs text-navy-300">—</p>
+                  ) : (
+                    duJour.map((c) => (
+                      <CelluleCreneau
+                        key={c.id}
+                        creneau={c}
+                        classeId={Number(classeId)}
+                        peutGerer={peutGerer}
+                        modeSelection={modeSelection}
+                        selectionne={selectedIds.has(c.id)}
+                        onBasculerSelection={() => basculerSelection(c.id)}
+                        onModifier={() => setCreneauEnEdition(c)}
+                        onSupprimer={() => supprimerCreneau(c)}
+                      />
+                    ))
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -434,6 +421,13 @@ export function EmploiDuTempsPage() {
           onImported={() => queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })}
         />
       )}
+
+      {elementsOuverts && (
+        <ElementsEmploiDuTempsModal
+          onClose={() => setElementsOuverts(false)}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })}
+        />
+      )}
     </div>
   )
 }
@@ -464,7 +458,7 @@ function CelluleCreneau({
 
   return (
     <div
-      className={`group relative mb-1 rounded-lg bg-gold-50 px-2 py-1.5 ring-1 ring-gold-200 ${modeSelection && gerable ? 'cursor-pointer pl-7' : ''
+      className={`group relative mb-1 rounded-lg px-2 py-1.5 ring-1 ${creneau.type === 'pause' ? 'bg-blue-50 ring-blue-200' : creneau.type === 'activite' ? 'bg-yellow-50 ring-yellow-200' : 'bg-gold-50 ring-gold-200'} ${modeSelection && gerable ? 'cursor-pointer pl-7' : ''
         } ${selectionne ? 'bg-gold-100 ring-2 ring-gold-400' : ''}`}
       onClick={modeSelection && gerable ? onBasculerSelection : undefined}
     >
@@ -478,7 +472,9 @@ function CelluleCreneau({
         />
       )}
 
-      <p className="truncate text-xs font-bold text-navy-800">{creneau.matiere}</p>
+      <p className={`truncate text-xs font-bold ${creneau.type === 'pause' ? 'text-blue-800' : creneau.type === 'activite' ? 'text-yellow-800' : 'text-navy-800'}`}>
+        {creneau.type === 'cours' ? creneau.matiere : creneau.libelle}
+      </p>
       <p className="truncate text-[11px] text-navy-500">
         {creneau.heure_debut}–{creneau.heure_fin}
         {creneau.salle ? ` · ${creneau.salle}` : ''}
@@ -543,6 +539,8 @@ function CreneauModal({
   const estSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const enEdition = !!creneau
   const [form, setForm] = useState({
+    type: creneau?.type ?? 'cours' as Creneau['type'],
+    libelle: creneau?.libelle ?? '',
     classe_matiere_id: creneau?.classe_matiere_id ?? matieres[0]?.id ?? 0,
     jour: creneau?.jour ?? 1,
     heure_debut: creneau?.heure_debut ?? '08:00',
@@ -708,22 +706,26 @@ function CreneauModal({
           ))}
         </Select>
 
-        <Select
-          label={t('emploiDuTemps.matiere_label')}
-          value={form.classe_matiere_id}
-          onChange={(e) => setForm({ ...form, classe_matiere_id: Number(e.target.value) })}
-          required
-        >
-          {matieres.map((m) => {
-            const dejaPlanifiee = matieresPlanifieesCeJour.has(m.id)
-            const libelle = m.matiere.nom_en ? `${m.matiere.nom} / ${m.matiere.nom_en}` : m.matiere.nom
-            return (
-              <option key={m.id} value={m.id} data-attention={dejaPlanifiee ? 'true' : undefined}>
-                {dejaPlanifiee ? `${libelle} — ${t('emploiDuTemps.matiere_deja_planifiee')}` : libelle}
-              </option>
-            )
-          })}
-        </Select>
+        {form.type === 'cours' ? (
+          <Select
+            label={t('emploiDuTemps.matiere_label')}
+            value={form.classe_matiere_id ?? ''}
+            onChange={(e) => setForm({ ...form, classe_matiere_id: Number(e.target.value) })}
+            required
+          >
+            {matieres.map((m) => {
+              const dejaPlanifiee = matieresPlanifieesCeJour.has(m.id)
+              const libelle = m.matiere.nom_en ? `${m.matiere.nom} / ${m.matiere.nom_en}` : m.matiere.nom
+              return (
+                <option key={m.id} value={m.id} data-attention={dejaPlanifiee ? 'true' : undefined}>
+                  {dejaPlanifiee ? `${libelle} — ${t('emploiDuTemps.matiere_deja_planifiee')}` : libelle}
+                </option>
+              )
+            })}
+          </Select>
+        ) : (
+          <Input label="Nom de l'activité" value={form.libelle} onChange={(e) => setForm({ ...form, libelle: e.target.value })} required />
+        )}
 
         {affectationChoisie && estSuperAdmin && (
           <Card className="!p-3">
@@ -758,7 +760,7 @@ function CreneauModal({
                         const brut = e.target.value
                         setNouvelEnseignantId(brut === '' ? '' : brut === 'aucun' ? 'aucun' : Number(brut))
                       }}
-                      className="flex-1"
+                      className="min-w-[240px] flex-1"
                     >
                       <option value="">—</option>
                       <option value="aucun">{t('emploiDuTemps.aucun_enseignant_option')}</option>

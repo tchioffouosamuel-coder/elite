@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EleveEspaceController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
+use App\Http\Controllers\Api\V1\EmploiDuTempsElementController;
 use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
@@ -808,6 +809,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
                 Route::get('salles', [SalleController::class, 'index'])->name('salles.index');
+                Route::get('emploi-du-temps/elements', [EmploiDuTempsElementController::class, 'index'])->name('edt.elements.index');
                 Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
                 Route::get('classes/{classeId}/emploi-du-temps/export', [EmploiDuTempsController::class, 'export'])->name('edt.export');
                 Route::get('classes/{classeId}/emploi-du-temps/export-pdf', [EmploiDuTempsController::class, 'exportPdf'])->name('edt.export-pdf');
@@ -819,6 +821,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('salles', [SalleController::class, 'store'])->name('salles.store');
                 Route::put('salles/{id}', [SalleController::class, 'update'])->name('salles.update');
                 Route::delete('salles/{id}', [SalleController::class, 'destroy'])->name('salles.destroy');
+                Route::post('emploi-du-temps/elements', [EmploiDuTempsElementController::class, 'store'])->name('edt.elements.store');
+                Route::put('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'update'])->name('edt.elements.update');
+                Route::delete('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'destroy'])->name('edt.elements.destroy');
+                Route::post('emploi-du-temps/elements/{id}/appliquer', [EmploiDuTempsElementController::class, 'apply'])->name('edt.elements.apply');
                 Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store');
                 Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
