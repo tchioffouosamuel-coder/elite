@@ -392,15 +392,17 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
   const { t } = useTranslation()
   const navigate = useNavigate()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
+  const nomEcoleActive = useAuthStore((s) => s.activeSchool()?.name)
   const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
   const partGarcons = Math.round((repartition_genre.garcons / totalGenre) * 100)
+  const titreTableauDeBord = nomEcoleActive ? `${t('dashboard.title')} ${nomEcoleActive}` : t('dashboard.title')
 
   return (
     <div className="flex flex-col gap-6">
       <EnTete
-        titre={t('dashboard.title')}
+        titre={titreTableauDeBord}
         sousTitre={annee_scolaire_active ? `${t('dashboard.active_year')} : ${annee_scolaire_active}` : undefined}
       />
 
