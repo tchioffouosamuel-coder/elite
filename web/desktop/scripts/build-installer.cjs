@@ -139,6 +139,37 @@ function copierApi(destination) {
     console.warn(`[desktop] vendor incomplet à la tentative ${tentative}, nouvel essai...`);
   }
 
+  // Le `vendor` composé pèse plusieurs milliers de petits fichiers PHP —
+  // exactement le genre de motif (un très grand nombre de fichiers texte
+  // fraîchement écrits par un process inconnu) que certaines protections
+  // temps réel traitent en priorité, silencieusement, sans que ça remonte
+  // dans un historique de détection consultable. Un utilisateur a vu
+  // `vendor/` disparaître intégralement après une installation par ailleurs
+  // "réussie", sans la moindre trace côté Windows Defender. Le compresser en
+  // une seule archive ici, et la décompresser au tout premier lancement
+  // (cf. `assurerVendorExtrait()` dans `main.cjs`) réduit l'empreinte de
+  // l'installeur à UN fichier au lieu de milliers, et déplace leur création
+  // réelle du processus d'installation (NSIS) vers l'application elle-même —
+  // un changement de méthode d'écriture, pas une garantie, mais le seul
+  // levier disponible tant que la cause exacte reste non confirmée.
+  console.log("[desktop] compression du vendor en une seule archive");
+  const vendorDir = path.join(destination, "vendor");
+  const vendorZip = path.join(destination, "vendor.zip");
+  rmSync(vendorZip, { force: true });
+  const compression = spawnSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      `Compress-Archive -Path '${vendorDir}\\*' -DestinationPath '${vendorZip}' -CompressionLevel Optimal`,
+    ],
+    { stdio: "inherit" },
+  );
+  if (compression.status !== 0 || !existsSync(vendorZip)) {
+    throw new Error("La compression du vendor en vendor.zip a échoué.");
+  }
+  rmSync(vendorDir, { recursive: true, force: true });
+
   // Pas de `config:cache`/`route:cache` ici : la configuration (DB_DATABASE,
   // APP_KEY...) est injectée par variables d'environnement à chaque
   // lancement par `main.cjs`, propres à CE poste — la figer au moment du

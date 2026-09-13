@@ -9,6 +9,9 @@ use App\Services\Paie\BaremePaie;
 use App\Models\User;
 use App\Observers\TombstoneObserver;
 use App\Support\Sync\RegistreSync;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\Generator\OpenApi;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -43,6 +46,17 @@ class AppServiceProvider extends ServiceProvider
         foreach (RegistreSync::entites() as $definition) {
             $definition['modele']::observe(TombstoneObserver::class);
         }
+
+        /*
+         * L'API n'authentifie qu'en Bearer token (Sanctum) mais Scramble ne le
+         * devine pas tout seul : sans schéma de sécurité déclaré, sa doc
+         * interactive n'affiche aucun champ pour saisir un token, et « Send
+         * API Request » part donc sans en-tête Authorization — 401 garanti
+         * même avec des identifiants valides.
+         */
+        Scramble::configure()->withDocumentTransformers(function (OpenApi $openApi) {
+            $openApi->secure(SecurityScheme::http('bearer'));
+        });
 
         Gate::before(function ($user, string $ability) {
             if (! $user instanceof User) {

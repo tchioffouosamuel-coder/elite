@@ -221,11 +221,41 @@ function detailErreurCommande(erreur) {
 
 let phpProcess = null;
 
+/**
+ * Le `vendor` Composer de l'API embarquée (plusieurs milliers de fichiers)
+ * est livré compressé en une seule archive (`vendor.zip`, cf.
+ * `scripts/build-installer.cjs`) plutôt qu'en clair — un poste a vu ce
+ * dossier disparaître intégralement après une installation par ailleurs
+ * réussie, sans la moindre trace côté Windows Defender ; livrer UN fichier
+ * plutôt que des milliers déplace au moins le risque du processus
+ * d'installation (NSIS) vers l'application elle-même. Décompressé une seule
+ * fois via `Expand-Archive` (natif Windows, aucune dépendance à embarquer) —
+ * les lancements suivants trouvent `vendor/autoload.php` déjà en place et ne
+ * font rien.
+ */
+function assurerVendorExtrait(apiDir) {
+  const vendorDir = path.join(apiDir, "vendor");
+  const vendorZip = path.join(apiDir, "vendor.zip");
+
+  if (fs.existsSync(path.join(vendorDir, "autoload.php"))) return;
+  // Absent en développement (le vendor y est déjà en clair, cf.
+  // `resolveApiDir()` qui pointe alors sur le dépôt source) : rien à faire.
+  if (!fs.existsSync(vendorZip)) return;
+
+  execFileSync("powershell", [
+    "-NoProfile",
+    "-Command",
+    `Expand-Archive -Path '${vendorZip}' -DestinationPath '${vendorDir}' -Force`,
+  ]);
+}
+
 function demarrerServeurPhp() {
   const apiDir = resolveApiDir();
   const phpBinary = resolvePhpBinary();
   const phpArgs = resolvePhpArgsCommuns();
   const { env } = envInstanceLocale();
+
+  assurerVendorExtrait(apiDir);
 
   try {
     assurerLienStorage(apiDir);
