@@ -81,7 +81,18 @@ function resolvePhpArgsCommuns() {
     "-c",
     ini,
     "-d",
-    `extension_dir=${path.join(bundle, "ext")}`,
+    // Une valeur `-d` est analysée par PHP avec la même grammaire qu'une
+    // ligne de php.ini : non protégée par des guillemets, elle passe par
+    // l'évaluateur de constantes de l'ini (`~`, `!`, `|`, `&`, parenthèses
+    // significatifs, utilisés pour des réglages comme `error_reporting =
+    // E_ALL & ~E_NOTICE`). Sur un poste installé dans « Program Files
+    // (x86) » (choix « pour tous les utilisateurs » de l'installeur), la
+    // parenthèse de « (x86) » finissait droit dans cette grammaire et
+    // faisait échouer PHP dès le démarrage avec « syntax error, unexpected
+    // '(' » — observé en conditions réelles, toutes les valeurs de chemin
+    // ci-dessous en étaient au même risque. Entre guillemets, la valeur est
+    // prise telle quelle, sans interprétation.
+    `extension_dir="${path.join(bundle, "ext")}"`,
     // Sans limite : c'est un serveur local de confiance, pas un hôte web
     // partagé. La limite par défaut (30s) coupait en plein milieu la toute
     // première synchronisation d'un compte accédant à plusieurs écoles
@@ -101,7 +112,7 @@ function resolvePhpArgsCommuns() {
   // silencieusement inopérante sans jamais faire échouer le démarrage.
   const cacert = path.join(bundle, "cacert.pem");
   if (fs.existsSync(cacert)) {
-    args.push("-d", `curl.cainfo=${cacert}`, "-d", `openssl.cafile=${cacert}`);
+    args.push("-d", `curl.cainfo="${cacert}"`, "-d", `openssl.cafile="${cacert}"`);
   }
 
   return args;
