@@ -14,6 +14,7 @@ use App\Services\BusService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
@@ -225,6 +226,10 @@ class BusAffectationController extends Controller
                 'option_trajet' => $affectation->option_trajet,
                 'tarif_mensuel' => $affectation->tarif_mensuel,
                 'statut_paiement' => $affectation->statut_paiement,
+            ] : null,
+            'moratoire' => $eleve->moratoire_valide ? [
+                'date_expiration' => $eleve->moratoire_valide->date_expiration->format('Y-m-d'),
+                'jours_restants' => (int) Carbon::today()->diffInDays($eleve->moratoire_valide->date_expiration, false),
             ] : null,
         ];
     }

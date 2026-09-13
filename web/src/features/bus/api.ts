@@ -157,6 +157,7 @@ export interface EleveTransport {
     tarif_mensuel: number | null;
     statut_paiement: StatutPaiementBus;
   } | null;
+  moratoire?: { date_expiration: string; jours_restants: number } | null;
 }
 
 // ---- Véhicules ---------------------------------------------------------

@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button'
 import { Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { ExportButton } from '@/shared/ui/ExportButton'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchInsolvables, francs, type Insolvable } from '@/features/finance/api'
 import { GestionInsolvableModal } from '@/features/finance/GestionInsolvableModal'
@@ -50,10 +51,13 @@ export function InsolvablesPage() {
         sousTitre="Reste à payer au-delà du seuil réglé par école, détaillé par rubrique."
         icon={AlertTriangle}
         actions={
-          <Button variant="secondary" onClick={() => ouvrirDocument('/finance/insolvables/pdf', pdfParams)}>
-            <FileDown className="h-4 w-4" />
-            PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => ouvrirDocument('/finance/insolvables/pdf', pdfParams)}>
+              <FileDown className="h-4 w-4" />
+              PDF
+            </Button>
+            <ExportButton url="finance/insolvables/excel" params={pdfParams} nomFichier="liste-insolvables.xlsx" label="Excel" />
+          </div>
         }
       />
 

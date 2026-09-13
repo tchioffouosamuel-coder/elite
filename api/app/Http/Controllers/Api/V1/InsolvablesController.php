@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\InsolvablesExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\School;
@@ -10,6 +11,8 @@ use App\Support\Pdf\InsolvablesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class InsolvablesController extends Controller
@@ -42,6 +45,14 @@ class InsolvablesController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="liste-insolvables.pdf"',
         ]);
+    }
+
+    public function excel(Request $request): BinaryFileResponse
+    {
+        $schoolIds = $this->schoolIds($request);
+        $classeId = $request->integer('classe_id') ?: null;
+
+        return Excel::download(new InsolvablesExport($schoolIds, $classeId, $this->service), 'liste-insolvables.xlsx');
     }
 
     /** @return list<int> */

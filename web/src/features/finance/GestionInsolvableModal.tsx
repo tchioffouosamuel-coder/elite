@@ -48,7 +48,7 @@ export function GestionInsolvableModal({
   )
 }
 
-function SectionMoratoires({ eleveId, onChange }: { eleveId: number; onChange: () => void }) {
+export function SectionMoratoires({ eleveId, onChange }: { eleveId: number; onChange: () => void }) {
   const queryClient = useQueryClient()
   const [ouvert, setOuvert] = useState(false)
   const [dateDelivrance, setDateDelivrance] = useState(new Date().toISOString().slice(0, 10))

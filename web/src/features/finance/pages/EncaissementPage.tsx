@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { ArrowLeft, Receipt, Wallet } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, Receipt, Wallet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
@@ -12,6 +12,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
+import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
 import type { ApiError } from '@/shared/types/api'
 
 interface FormValues {
@@ -45,6 +46,7 @@ export function EncaissementPage() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [allocations, setAllocations] = useState<number[]>([])
   const [allocationsModifiees, setAllocationsModifiees] = useState(false)
+  const [moratoireOuvert, setMoratoireOuvert] = useState(false)
 
   const {
     data: dossier,
@@ -334,6 +336,25 @@ export function EncaissementPage() {
             </Button>
           </div>
         </form>
+      </Card>
+
+      <Card className="max-w-2xl p-5">
+        <button
+          type="button"
+          onClick={() => setMoratoireOuvert((v) => !v)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-navy-700"
+        >
+          <span className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Moratoire
+          </span>
+          {moratoireOuvert ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {moratoireOuvert && (
+          <div className="mt-4">
+            <SectionMoratoires eleveId={dossier.eleve.id} onChange={() => {}} />
+          </div>
+        )}
       </Card>
     </div>
   )

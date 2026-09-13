@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, MapPin, Trash2, UserPlus, Wallet } from 'lucide-react'
+import { Bus, Clock, MapPin, Trash2, UserPlus, Wallet } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
   fetchElevesTransport,
@@ -148,6 +148,12 @@ export function BusAffectationsPage() {
           <div className="truncate text-xs text-navy-400">
             {e.matricule ?? '—'} · {e.classe?.nom ?? '—'}
           </div>
+          {e.moratoire && (
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gold-600">
+              <Clock className="h-3 w-3" />
+              Moratoire — expire dans {e.moratoire.jours_restants} j
+            </div>
+          )}
         </div>
       ),
     },

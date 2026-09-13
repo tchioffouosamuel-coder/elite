@@ -16,6 +16,7 @@ class Moratoire extends Model
         'date_expiration',
         'motif',
         'accorde_par',
+        'notifie_expiration_le',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class Moratoire extends Model
         return [
             'date_delivrance' => 'date',
             'date_expiration' => 'date',
+            'notifie_expiration_le' => 'date',
         ];
     }
 

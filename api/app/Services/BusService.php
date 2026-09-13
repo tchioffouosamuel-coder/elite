@@ -10,6 +10,7 @@ use App\Models\BusVehicule;
 use App\Models\BusVersement;
 use App\Models\Depense;
 use App\Models\Eleve;
+use App\Models\Moratoire;
 use App\Services\Sms\SmsService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -380,7 +381,7 @@ class BusService extends BaseService
     /** @param int|array<int> $schoolId */
     public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId): Collection
     {
-        return Eleve::forSchool($schoolId)
+        $eleves = Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
             ->when($classeId, fn($q, $id) => $q->where('classe_id', $id))
             ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn($q) => $q
@@ -389,6 +390,14 @@ class BusService extends BaseService
                 ->with(['trajet', 'arret'])])
             ->orderBy('nom_complet')
             ->get();
+
+        // Une précision affichée à côté du nom, pas un statut à part : un
+        // moratoire valide n'exclut pas l'élève de la liste — cf. le même
+        // choix dans ScolariteService::insolvables().
+        $moratoires = Moratoire::whereIn('eleve_id', $eleves->pluck('id'))->valides()->get()->keyBy('eleve_id');
+        $eleves->each(fn(Eleve $e) => $e->moratoire_valide = $moratoires->get($e->id));
+
+        return $eleves;
     }
 
     // ---- Notifications ------------------------------------------------

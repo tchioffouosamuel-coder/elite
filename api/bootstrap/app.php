@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\AlerteAbsenceNonEnregistreeCommand;
+use App\Console\Commands\AlerteMoratoireExpireCommand;
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
@@ -44,6 +45,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // enregistré : un élève sans le moindre pointage depuis plusieurs
         // jours doit être signalé avant le lendemain, pas après.
         $schedule->command(AlerteAbsenceNonEnregistreeCommand::class)->dailyAt('17:30');
+
+        // Chaque matin : un moratoire qui expire aujourd'hui doit être
+        // signalé aux parents avant qu'ils ne découvrent le retard autrement.
+        $schedule->command(AlerteMoratoireExpireCommand::class)->dailyAt('07:15');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Render (comme tout hébergeur derrière un load balancer) termine le
