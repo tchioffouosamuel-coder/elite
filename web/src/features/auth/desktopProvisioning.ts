@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { http } from '@/shared/lib/http'
 import type { AuthUser } from '@/shared/store/authStore'
-import type { ApiResponse } from '@/shared/types/api'
+import type { ApiError, ApiResponse } from '@/shared/types/api'
 
 interface SessionDesktop {
   token: string
@@ -43,7 +43,18 @@ export async function connecterSessionDesktop(params: {
     token = reponse.data.data.token
     clonageInitialComplet = reponse.data.data.clonage_initial_complet
   } catch (err) {
-    if (axios.isAxiosError(err) && (err.response?.status === 404 || err.response?.status === 401)) return null
+    // L'intercepteur de réponse (`shared/lib/http.ts`) transforme déjà toute
+    // erreur HTTP en `ApiError` brut ({message, status, errors}) avant
+    // qu'elle n'atteigne ce `catch` — ce n'est donc plus une vraie
+    // `AxiosError` à ce stade, et `axios.isAxiosError(err)` y est toujours
+    // faux. Vérifier `err.status` directement (la forme réellement produite
+    // par l'intercepteur) au lieu de `err.response?.status` : sans ce
+    // correctif, cette fonction relançait systématiquement, y compris pour
+    // le 404/401 parfaitement normal d'un compte pas encore lié à CE poste —
+    // `lierPoste()` n'était alors jamais atteint, bloquant tout premier
+    // login desktop quel que soit le compte utilisé.
+    const statut = (err as ApiError).status
+    if (statut === 404 || statut === 401) return null
     throw err
   }
 
