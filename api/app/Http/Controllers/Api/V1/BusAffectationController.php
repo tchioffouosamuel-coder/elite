@@ -149,11 +149,13 @@ class BusAffectationController extends Controller
     {
         return $request->validate([
             // Scopé aux écoles accessibles (et non à l'école ambiante du
-            // tenant) : en mode agrégé, l'élève ou le trajet visé peut
-            // appartenir à n'importe laquelle d'entre elles, pas seulement à
-            // celle retenue par défaut pour le compte.
+            // tenant) : en mode agrégé, l'élève visé peut appartenir à
+            // n'importe laquelle d'entre elles, pas seulement à celle retenue
+            // par défaut pour le compte.
             'eleve_id' => ['required_without:eleve_ids', 'integer', Rule::exists('eleves', 'id')->whereIn('school_id', Tenant::schoolIds())],
-            'trajet_id' => ['required', 'integer', Rule::exists('bus_trajets', 'id')->whereIn('school_id', Tenant::schoolIds())],
+            // Un trajet dessert souvent plusieurs écoles du même complexe sur
+            // le même circuit : pas de filtre d'école ici, cf. BusTrajet::scopeForSchool.
+            'trajet_id' => ['required', 'integer', Rule::exists('bus_trajets', 'id')],
             // Un arrêt n'appartenant pas au trajet choisi n'a pas de sens :
             // le champ « ramassera » un enfant sur un circuit qu'il ne suit pas.
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $request->integer('trajet_id'))],

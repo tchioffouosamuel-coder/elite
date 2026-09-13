@@ -25,7 +25,12 @@ class BusTrajet extends Model
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
+        // Un trajet dessert souvent des élèves de plusieurs écoles du complexe
+        // sur le même circuit : le rattacher à une seule école le rendait
+        // invisible (404 « No query results ») dès qu'un compte consultait le
+        // trajet depuis une autre école que celle enregistrée à sa création.
+        // Même traitement que la flotte de véhicules (cf. BusVehicule).
+        return $query;
     }
 
     /** Tarif du trajet pour l'option choisie — figé sur la souscription à sa création. */
