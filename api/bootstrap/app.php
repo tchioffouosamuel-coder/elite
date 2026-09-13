@@ -124,12 +124,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            // Le super admin est un compte de confiance (souvent en train de
-            // déboguer) : lui seul voit le message réel de l'exception, le
-            // reste du guichet garde le message générique de l'incident
-            // décrit ci-dessus.
-            $user = $request->user();
-            if ($user && method_exists($user, 'estSuperAdmin') && $user->estSuperAdmin()) {
+            // DEBUG TEMPORAIRE : le message réel est renvoyé à tout
+            // utilisateur authentifié le temps d'investiguer un bug en prod.
+            // À REVERT dès le débogage terminé — cf. l'incident décrit
+            // ci-dessus (fuite d'hôte/port MySQL) que ce filet protège.
+            if ($request->user()) {
                 return ApiResponse::error($e->getMessage() ?: $e::class, 500, [
                     'exception' => $e::class,
                     'file' => $e->getFile().':'.$e->getLine(),
