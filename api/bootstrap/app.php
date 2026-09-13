@@ -124,20 +124,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            // DEBUG TEMPORAIRE : le message réel est renvoyé à tout
-            // utilisateur authentifié le temps d'investiguer un bug en prod.
+            // DEBUG TEMPORAIRE : le message réel est renvoyé à tout appelant,
+            // authentifié ou non, le temps d'investiguer un bug en prod.
             // À REVERT dès le débogage terminé — cf. l'incident décrit
             // ci-dessus (fuite d'hôte/port MySQL) que ce filet protège.
-            if ($request->user()) {
-                return ApiResponse::error($e->getMessage() ?: $e::class, 500, [
-                    'exception' => $e::class,
-                    'file' => $e->getFile().':'.$e->getLine(),
-                ]);
-            }
-
-            return ApiResponse::error(
-                "Une erreur inattendue est survenue. Veuillez réessayer, ou contacter le support si le problème persiste.",
-                500,
-            );
+            return ApiResponse::error($e->getMessage() ?: $e::class, 500, [
+                'exception' => $e::class,
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
         });
     })->create();
