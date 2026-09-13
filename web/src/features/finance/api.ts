@@ -147,6 +147,49 @@ export async function annulerVersement(
   await http.post(`/versements/${versementId}/annuler`, { motif });
 }
 
+export interface VersementDoublonItem {
+  id: number;
+  numero_recu: string;
+  date_versement: string;
+  mode: ModePaiement;
+  reference_externe: string | null;
+  note: string | null;
+  encaisse_par: string | null;
+  cree_le: string | null;
+}
+
+export interface GroupeVersementDoublon {
+  dossier_id: number;
+  eleve: {
+    id: number;
+    nom_complet: string;
+    matricule: string | null;
+    classe: string | null;
+  };
+  montant: number;
+  versements: VersementDoublonItem[];
+}
+
+export async function fetchVersementsDoublons(): Promise<{
+  groupes: GroupeVersementDoublon[];
+  total_montant: number;
+}> {
+  const { data } = await http.get<
+    ApiResponse<{ groupes: GroupeVersementDoublon[]; total_montant: number }>
+  >("/finance/versements/doublons");
+  return data.data;
+}
+
+export async function traitementAutomatiqueVersementsDoublons(): Promise<{
+  annules: number;
+  montant_annule: number;
+}> {
+  const { data } = await http.post<
+    ApiResponse<{ annules: number; montant_annule: number }>
+  >("/finance/versements/doublons/traitement-automatique");
+  return data.data;
+}
+
 export interface VerificationVersement {
   numero_recu: string;
   eleve: { nom_complet: string; matricule: string | null };

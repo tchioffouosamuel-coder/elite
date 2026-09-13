@@ -136,6 +136,97 @@ class ScolariteController extends Controller
         return ApiResponse::success(null, "Reçu {$versement->numero_recu} annulé.");
     }
 
+    /**
+     * Versements suspects d'avoir été encaissés plusieurs fois pour le même
+     * élève : même dossier, même montant — peu importe la date ou le mode,
+     * une ressaisie pouvant survenir un autre jour. Regroupés pour
+     * vérification manuelle avant annulation — un versement ne se supprime
+     * jamais.
+     */
+    public function versementsDoublons(): JsonResponse
+    {
+        $versements = Versement::forSchool(Tenant::schoolIds())
+            ->valides()
+            ->with(['dossier.eleve.classe', 'encaisseur:id,name'])
+            ->orderBy('date_versement')
+            ->orderBy('id')
+            ->get();
+
+        $groupes = $versements
+            ->groupBy(fn(Versement $v) => "{$v->dossier_scolarite_id}:{$v->montant}")
+            ->filter(fn($groupe) => $groupe->count() > 1)
+            ->values()
+            ->map(function ($groupe) {
+                $premier = $groupe->first();
+                $dossier = $premier->dossier;
+
+                return [
+                    'dossier_id' => $dossier->id,
+                    'eleve' => [
+                        'id' => $dossier->eleve->id,
+                        'nom_complet' => $dossier->eleve->nom_complet,
+                        'matricule' => $dossier->eleve->matricule,
+                        'classe' => $dossier->eleve->classe?->nom,
+                    ],
+                    'montant' => $premier->montant,
+                    'versements' => $groupe->map(fn(Versement $v) => [
+                        'id' => $v->id,
+                        'numero_recu' => $v->numero_recu,
+                        'date_versement' => $v->date_versement->toDateString(),
+                        'mode' => $v->mode,
+                        'reference_externe' => $v->reference_externe,
+                        'note' => $v->note,
+                        'encaisse_par' => $v->encaisseur?->name,
+                        'cree_le' => $v->created_at?->toIso8601String(),
+                    ])->values(),
+                ];
+            });
+
+        return ApiResponse::success([
+            'groupes' => $groupes,
+            'total_montant' => $groupes->sum(fn($g) => $g['montant'] * (count($g['versements']) - 1)),
+        ]);
+    }
+
+    /**
+     * Annule automatiquement le doublon le plus récent d'une paire de
+     * versements identiques encaissés à quelques minutes d'intervalle — le
+     * signe d'un double clic ou d'une double saisie au comptoir. Les
+     * groupes plus ambigus (plus de deux versements, ou écart de temps
+     * important) restent à traiter manuellement.
+     */
+    public function versementsDoublonsTraitementAutomatique(Request $request): JsonResponse
+    {
+        $versements = Versement::forSchool(Tenant::schoolIds())->valides()->orderBy('id')->get();
+
+        $groupes = $versements
+            ->groupBy(fn(Versement $v) => "{$v->dossier_scolarite_id}:{$v->montant}")
+            ->filter(fn($groupe) => $groupe->count() === 2);
+
+        $annules = 0;
+        $montantAnnule = 0;
+        $details = [];
+
+        foreach ($groupes as $groupe) {
+            [$premier, $second] = $groupe->sortBy('id')->values()->all();
+            if ($premier->created_at->diffInMinutes($second->created_at) > 30) continue;
+
+            $this->service->annuler(
+                $second,
+                'Doublon de paiement détecté automatiquement : même élève, même montant, encaissé deux fois à quelques minutes d\'intervalle.',
+                $request->user()?->id,
+            );
+            $annules++;
+            $montantAnnule += $second->montant;
+            $details[] = ['conserve_id' => $premier->id, 'annule_id' => $second->id, 'montant' => $second->montant];
+        }
+
+        return ApiResponse::success(
+            ['annules' => $annules, 'montant_annule' => $montantAnnule, 'details' => $details],
+            "{$annules} doublon(s) de paiement annulé(s) automatiquement.",
+        );
+    }
+
     /** Reçu au format du ticket de caisse (rouleau 80 mm). */
     public function recu(int $versementId): Response
     {
