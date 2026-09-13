@@ -53,9 +53,26 @@ function resolvePhpBinary() {
   return fs.existsSync(bundle) ? bundle : "php";
 }
 
-/** `-c`/`-d` explicites : ne jamais dépendre d'un php.ini système que le poste utilisateur peut ne pas avoir. */
+/**
+ * `-c`/`-d` explicites : ne jamais dépendre d'un php.ini système que le poste
+ * utilisateur peut ne pas avoir.
+ *
+ * Ne s'applique QUE si `resolvePhpBinary()` a effectivement choisi le PHP du
+ * bundle : un PHP système visé par `ELITES_PHP_BINARY` (ou par repli sur le
+ * `PATH` quand l'antivirus a supprimé `php.exe` du bundle sans forcément
+ * avoir touché au reste du dossier) a son propre `php.ini` et ses propres
+ * extensions, compilées pour SA version — lui imposer l'`extension_dir` du
+ * bundle (compilé pour une autre version/ABI) ferait échouer le chargement
+ * de toutes les extensions au lieu de servir de filet de secours.
+ */
 function resolvePhpArgsCommuns() {
+  if (process.env.ELITES_PHP_BINARY) return [];
+
   const bundle = resolvePhpBundleDir();
+  const bundleBinaire = path.join(bundle, "php.exe");
+
+  if (!fs.existsSync(bundleBinaire)) return [];
+
   const ini = path.join(bundle, "php.ini");
 
   if (!fs.existsSync(ini)) return [];
