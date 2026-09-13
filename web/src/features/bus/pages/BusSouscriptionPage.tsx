@@ -59,7 +59,10 @@ export function BusSouscriptionPage() {
 
   const { data: elevesRecherche } = useQuery({
     queryKey: ['eleves', 'bus-souscription', rechercheEleve],
-    queryFn: () => fetchEleves({ search: rechercheEleve || undefined, per_page: 20 }),
+    // Le choix d'un élève doit afficher une liste exploitable dès l'ouverture
+    // de l'écran; la recherche serveur reste disponible pour les grands
+    // établissements.
+    queryFn: () => fetchEleves({ search: rechercheEleve || undefined, per_page: 100 }),
     enabled: choixEleveRequis,
   })
 
