@@ -142,6 +142,7 @@ export interface EleveTransport {
   id: number;
   nom_complet: string;
   matricule: string | null;
+  school: { id: number; name: string; code: string; type: string } | null;
   classe: { id: number; nom: string } | null;
   bus: {
     affectation_id: number;

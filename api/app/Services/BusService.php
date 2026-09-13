@@ -216,7 +216,10 @@ class BusService extends BaseService
     public function affecterEleve(int $schoolId, array $donnees): BusAffectation
     {
         $eleve = Eleve::forSchool($schoolId)->findOrFail($donnees['eleve_id']);
-        $trajet = BusTrajet::forSchool($schoolId)->findOrFail($donnees['trajet_id']);
+        $trajet = BusTrajet::forSchool($schoolId)->find($donnees['trajet_id']);
+        if ($trajet === null) {
+            throw new RuntimeException('Ce trajet appartient à un autre établissement et ne peut pas être attribué à cet élève.');
+        }
 
         $dejaAffecte = BusAffectation::where('eleve_id', $eleve->id)->actives()->exists();
         if ($dejaAffecte) {

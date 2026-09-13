@@ -74,6 +74,7 @@ export function BusAffectationsPage() {
       state: {
         eleveIds: [eleve.id],
         eleveNoms: [eleve.nom_complet],
+        schoolId: eleve.school?.id ?? undefined,
         affectationId: eleve.bus?.affectation_id,
         affectationActuelle: eleve.bus
           ? {
@@ -93,6 +94,7 @@ export function BusAffectationsPage() {
       state: {
         eleveIds: lignes.map((e) => e.id),
         eleveNoms: lignes.map((e) => e.nom_complet),
+        schoolId: lignes.length === 1 ? lignes[0].school?.id : undefined,
         retour: '/bus/eleves',
       },
     })

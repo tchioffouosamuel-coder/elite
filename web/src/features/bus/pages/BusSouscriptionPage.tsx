@@ -25,6 +25,7 @@ import type { ApiError } from '@/shared/types/api'
 interface EtatNavigation {
   eleveIds: number[]
   eleveNoms: string[]
+  schoolId?: number
   /** Modification d'une souscription existante plutôt qu'une nouvelle. */
   affectationId?: number
   affectationActuelle?: { trajet_id: number; arret_id: number | null; option_trajet: OptionTrajet }
@@ -82,6 +83,9 @@ export function BusSouscriptionPage() {
 
   const trajetId = watch('trajet_id')
   const optionChoisie = watch('option_trajet')
+  const trajetsDisponibles = etat?.schoolId
+    ? trajets?.filter((trajet) => trajet.school?.id === etat.schoolId)
+    : trajets
 
   const { data: trajetDetail } = useQuery({
     queryKey: ['bus-trajet', trajetId],
@@ -89,7 +93,7 @@ export function BusSouscriptionPage() {
     enabled: !!trajetId,
   })
 
-  const trajetSelectionne = trajets?.find((tr) => tr.id === Number(trajetId))
+  const trajetSelectionne = trajetsDisponibles?.find((tr) => tr.id === Number(trajetId))
   const tarifApercu = useMemo(
     () => (trajetSelectionne && optionChoisie ? tarifPourOption(trajetSelectionne, optionChoisie) : null),
     [trajetSelectionne, optionChoisie],
@@ -203,7 +207,7 @@ export function BusSouscriptionPage() {
             {...register('trajet_id', { required: t('bus.field_required') as string })}
           >
             <option value="">—</option>
-            {trajets?.map((tr) => (
+            {trajetsDisponibles?.map((tr) => (
               <option key={tr.id} value={tr.id}>
                 {tr.nom}
               </option>
