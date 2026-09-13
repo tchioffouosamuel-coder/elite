@@ -73,16 +73,32 @@
   FunctionEnd
 !endif
 
-; Écrit la variable d'environnement UTILISATEUR (l'installation elle-même
-; est `perMachine: false`, cf. package.json) une fois les fichiers copiés —
-; validation minimale (le fichier existe et se nomme bien php.exe) : une
-; valeur invalide n'a pas à faire échouer toute l'installation, elle ferait
-; simplement retomber `resolvePhpBinary()` sur son comportement normal
-; (PHP embarqué, ou système via le PATH).
 !macro customInstall
+  ; Écrit la variable d'environnement UTILISATEUR (l'installation elle-même
+  ; peut être per-user ou per-machine, cf. package.json/allowElevation) une
+  ; fois les fichiers copiés — validation minimale (le fichier existe et se
+  ; nomme bien php.exe) : une valeur invalide n'a pas à faire échouer toute
+  ; l'installation, elle ferait simplement retomber `resolvePhpBinary()` sur
+  ; son comportement normal (PHP embarqué, ou système via le PATH).
   ${If} $EliteCheminPhpChoisi != ""
   ${AndIf} ${FileExists} "$EliteCheminPhpChoisi"
     WriteRegExpandStr HKCU "Environment" "ELITES_PHP_BINARY" "$EliteCheminPhpChoisi"
     SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
   ${EndIf}
+
+  ; Décompresse ICI, pendant l'installation, plutôt qu'au premier lancement
+  ; de l'application (cf. `assurerVendorExtrait()` dans `main.cjs`) : une
+  ; installation « pour tous les utilisateurs » place `$INSTDIR` sous
+  ; `Program Files`, protégé en écriture pour tout process non élevé —
+  ; exactement ce qu'est l'application à l'usage normal. Le tenter au
+  ; lancement échouait alors avec `PermissionDenied` sur chaque poste installé
+  ; ainsi (observé en conditions réelles), quel que soit l'antivirus.
+  ; L'installeur, lui, a toujours les droits nécessaires sur le dossier qu'il
+  ; vient de créer, qu'il tourne élevé (per-machine) ou non (per-user, où
+  ; `$INSTDIR` appartient déjà à l'utilisateur courant).
+  IfFileExists "$INSTDIR\resources\api\vendor.zip" 0 +5
+    ExecWait 'powershell -NoProfile -Command "Expand-Archive -Path \"$INSTDIR\resources\api\vendor.zip\" -DestinationPath \"$INSTDIR\resources\api\vendor\" -Force"' $0
+    ${If} $0 == 0
+      Delete "$INSTDIR\resources\api\vendor.zip"
+    ${EndIf}
 !macroend
