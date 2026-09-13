@@ -383,10 +383,41 @@ class SyncPull extends Command
         // colonne.
         $instance = $existante ?? new $modele();
         $instance->id = $ligne['id'];
-        // `updated_at` a servi à l'arbitrage ci-dessus ; Eloquent le régénère
-        // de toute façon à l'enregistrement — inutile et pas nécessairement
-        // `fillable` de le repasser en attribut.
         $instance->fill(collect($ligne)->except(['id', 'updated_at'])->all());
+
+        // `$instance->timestamps = false` : sans ça, Eloquent réécrit
+        // `updated_at` à l'heure de CETTE sauvegarde locale à chaque appel —
+        // y compris pour une ligne qui n'a fait que traverser la synchro sans
+        // la moindre modification réelle. Le prochain arbitrage ci-dessus
+        // (ligne 373) comparerait alors « il y a quelques secondes » (l'heure
+        // de sauvegarde locale) à l'`updated_at` réel, potentiellement bien
+        // plus ancien, du serveur distant — et gagnerait à tort, bloquant
+        // pour toujours toute mise à jour future de cette ligne, y compris
+        // celle d'une colonne ajoutée après coup au registre et retéléchargée
+        // via un curseur remis à zéro. Observé en conditions réelles :
+        // `preinscriptions.annee_scolaire_id`, ajoutée au registre après que
+        // des milliers de lignes avaient déjà été synchronisées une première
+        // fois, restait `null` indéfiniment malgré plusieurs reclonages
+        // complets — le serveur distant renvoyait pourtant bien la valeur à
+        // chaque appel, seule son application était silencieusement rejetée
+        // ligne par ligne. On préserve donc le VRAI `updated_at` distant,
+        // pour que l'arbitrage compare toujours deux dates de modification
+        // réelles, jamais une date de sauvegarde locale.
+        $instance->timestamps = false;
+        if (isset($ligne['updated_at'])) {
+            $instance->updated_at = $ligne['updated_at'];
+        }
+        // `timestamps = false` désactive aussi la gestion automatique de
+        // `created_at` pour une création : sans ce repli, une ligne jamais
+        // vue localement se serait retrouvée avec `created_at` à `null` —
+        // fatal pour le moindre code qui l'utilise sans vérification (ex.
+        // `PreinscriptionService::anciensEleves()`, `$eleve->created_at->lessThan(...)`).
+        // Le registre ne projette de toute façon jamais le vrai `created_at`
+        // distant (cf. `RegistreSync`) : la valeur de `updated_at` de cette
+        // même ligne reste le repli le plus proche de la réalité.
+        if ($existante === null) {
+            $instance->created_at = $instance->updated_at ?? now();
+        }
         $instance->save();
 
         return true;

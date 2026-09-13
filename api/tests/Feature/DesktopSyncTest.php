@@ -450,6 +450,51 @@ class DesktopSyncTest extends TestCase
     }
 
     /**
+     * Non-régression réelle : le registre a gagné une colonne
+     * (`preinscriptions.annee_scolaire_id`) après que des milliers de lignes
+     * avaient déjà été synchronisées une première fois — le serveur distant
+     * la renvoyait pourtant bien, mais sa valeur restait `null` en local
+     * indéfiniment, y compris après un reclonage complet (curseur remis à
+     * zéro). Cause : `appliquerLigne()` laissait Eloquent réécrire
+     * `updated_at` à l'heure de CETTE sauvegarde locale à chaque appel — dès
+     * la synchronisation suivante, l'arbitrage « le plus récent gagne »
+     * comparait cette heure de sauvegarde locale (toujours postérieure) à
+     * l'`updated_at` réel, plus ancien, du serveur distant, et rejetait la
+     * mise à jour à tort, pour toujours.
+     *
+     * Ce test simule exactement ce scénario : une ligne déjà présente en
+     * local avec un `updated_at` ANCIEN (comme après un premier sync réel,
+     * jamais retouchée depuis), une valeur DISTANTE inchangée pour ce même
+     * `updated_at` mais un champ différent — la mise à jour doit s'appliquer,
+     * pas être bloquée par un `updated_at` local plus récent que le distant.
+     */
+    public function test_sync_pull_reapplique_une_ligne_si_lupdated_at_distant_est_identique(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $this->provisionnerSansHttp($ecole);
+        $this->creerEleveAvecId(701, $ecole->id, 'ANCIEN NOM');
+        $memeInstant = now()->subDays(10);
+        \DB::table('eleves')->where('id', 701)->update(['updated_at' => $memeInstant]);
+
+        Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
+            id: 701, nom: 'NOM CORRIGE', updatedAt: $memeInstant, schoolId: $ecole->id,
+        ), 200)]);
+
+        Artisan::call('sync:pull');
+
+        $this->assertDatabaseHas('eleves', ['id' => 701, 'nom_complet' => 'NOM CORRIGE']);
+        // L'`updated_at` local doit rester (à la seconde près — la sérialisation
+        // JSON de la fixture tronque les microsecondes) celui, réel, du
+        // serveur distant : jamais avancé à l'heure de cette sauvegarde
+        // locale (qui daterait, elle, de maintenant — à 10 jours de distance).
+        $this->assertLessThan(
+            2,
+            \App\Models\Eleve::find(701)->updated_at->diffInSeconds($memeInstant),
+            'updated_at local ne doit pas dériver vers l’heure de sauvegarde locale.',
+        );
+    }
+
+    /**
      * `--json` est le contrat consommé par `main.cjs` (`lancerCloneInitial`)
      * pour relayer la progression du premier clonage à
      * `PremiereSynchronisationModal` — une ligne JSON par évènement, jamais
