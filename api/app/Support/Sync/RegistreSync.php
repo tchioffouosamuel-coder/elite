@@ -313,7 +313,7 @@ class RegistreSync
             // --- Personnes.
             'eleves' => [
                 'modele' => Eleve::class,
-                'colonnes' => ['id', 'school_id', 'classe_id', 'matricule', 'nom_complet', 'sexe', 'date_naissance', 'lieu_naissance', 'nationalite', 'redoublant', 'statut', 'photo_path'],
+                'colonnes' => ['id', 'school_id', 'user_id', 'classe_id', 'matricule', 'nom_complet', 'sexe', 'date_naissance', 'lieu_naissance', 'nationalite', 'redoublant', 'statut', 'photo_path'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
                     ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'eleves.view',
@@ -370,7 +370,18 @@ class RegistreSync
             // --- Dossier élève : dépôts et échanges avec la famille.
             'preinscriptions' => [
                 'modele' => Preinscription::class,
-                'colonnes' => ['id', 'school_id', 'tuteur_id', 'eleve_id', 'type', 'statut', 'donnees_eleve', 'donnees_tuteurs', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement', 'versement_id', 'motif_rejet', 'traite_par', 'traite_le'],
+                // `annee_scolaire_id` : ajoutée par une migration (2026-09-07)
+                // postérieure à cette entrée, jamais reportée ici — sans elle,
+                // toute ligne synchronisée arrive avec cette colonne à `null`,
+                // et le tableau de bord (qui ne compte les élèves « inscrits »
+                // qu'à travers une préinscription validée `whereHas('anneeScolaire',
+                // fn($q) => $q->where('is_active', true))`, cf. `DashboardService`)
+                // affiche silencieusement zéro élève, zéro nouvel élève et un
+                // taux de réinscription à 0 % sur tout poste desktop — observé
+                // en conditions réelles : 3996 élèves et 1580 préinscriptions
+                // bel et bien présents en local, mais tous invisibles du
+                // tableau de bord faute de ce seul FK.
+                'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'tuteur_id', 'eleve_id', 'classe_id', 'type', 'statut', 'donnees_eleve', 'donnees_tuteurs', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement', 'versement_id', 'motif_rejet', 'traite_par', 'traite_le'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'eleves.manage',
             ],
