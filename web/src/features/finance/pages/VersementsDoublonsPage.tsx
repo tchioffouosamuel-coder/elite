@@ -91,7 +91,7 @@ export function VersementsDoublonsPage() {
         <div className="flex flex-col gap-5">
             <PageHeader
                 titre="Doublons de paiement"
-                sousTitre="Versements portant le même montant, pour le même élève, à la même date. Vérifiez chaque reçu avant de l'annuler."
+                sousTitre="Versements portant le même montant, pour le même élève. Vérifiez chaque reçu avant de l'annuler."
                 icon={GitMerge}
                 actions={
                     <div className="flex flex-wrap justify-end gap-2">

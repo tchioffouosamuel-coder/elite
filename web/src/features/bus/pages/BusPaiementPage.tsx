@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { ArrowLeft, Bus, Receipt } from 'lucide-react'
+import { ArrowLeft, Bus, ChevronDown, ChevronUp, Clock, Receipt } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
@@ -13,6 +13,7 @@ import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/Can
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { francs } from '@/features/finance/api'
+import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
 import {
   fetchSituationPaiementBus,
   encaisserBus,
@@ -61,6 +62,7 @@ export function BusPaiementPage() {
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [canaux, setCanaux] = useState<CanalNotification[]>(['sms'])
+  const [moratoireOuvert, setMoratoireOuvert] = useState(false)
 
   const { data: situation, isLoading, isError } = useQuery({
     queryKey: ['bus-paiement', affectationId],
@@ -322,6 +324,25 @@ export function BusPaiementPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </Card>
+
+      <Card className="max-w-2xl p-5">
+        <button
+          type="button"
+          onClick={() => setMoratoireOuvert((v) => !v)}
+          className="flex w-full items-center justify-between text-sm font-semibold text-navy-700"
+        >
+          <span className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Moratoire
+          </span>
+          {moratoireOuvert ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {moratoireOuvert && (
+          <div className="mt-4">
+            <SectionMoratoires eleveId={affectation.eleve.id} onChange={() => {}} />
           </div>
         )}
       </Card>
