@@ -21,8 +21,6 @@ Var EliteCheminPhpChoisi
 !macroend
 
 Function ElitePagePhpCreation
-  !insertmacro MUI_HEADER_TEXT "PHP existant (facultatif)" "Utiliser un PHP déjà installé sur ce poste plutôt que celui fourni avec Elites School."
-
   nsDialogs::Create 1018
   Pop $EliteDialog
 
