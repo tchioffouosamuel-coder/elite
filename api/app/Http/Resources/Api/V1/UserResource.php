@@ -29,6 +29,10 @@ class UserResource extends JsonResource
             // Distingue un enseignant d'un censeur/économe qui partage pourtant
             // certains privilèges (ex : appel.manage) — cf. User::estEnseignant.
             'est_enseignant' => $this->estEnseignant(),
+            // Comment ce compte prouve sa présence pour valider une séance —
+            // guide l'écran « Ma journée » vers le scan, la saisie du code de
+            // salle, ou aucune des deux — cf. User::methodeValidationSeance().
+            'methode_validation_seance' => $this->methodeValidationSeance(),
             // Distingue le vendeur/caissier d'un compte qui porte les mêmes
             // privilèges point_de_vente.* sans exercer ce métier (ex : super
             // admin) — cf. User::estVendeur.

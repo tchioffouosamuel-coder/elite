@@ -31,6 +31,8 @@ export interface Classe {
   code_examen: string | null;
   capacite: number | null;
   qr_token: string | null;
+  /** Version courte du QR, saisissable à la main quand le scan n'est pas possible. */
+  code_salle: string | null;
   effectif?: number;
   garcons?: number;
   filles?: number;

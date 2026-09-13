@@ -32,6 +32,7 @@ trait ReglesDossierPersonnel
             'numero_permis' => ['nullable', 'string', 'max:50'],
             'banque' => ['nullable', 'string', 'max:150'],
             'numero_compte' => ['nullable', 'string', 'max:100'],
+            'methode_validation_seance' => ['nullable', 'in:qr,code,libre'],
             'situation_matrimoniale' => ['nullable', 'in:celibataire,marie,divorce,veuf'],
             'nombre_enfants' => ['nullable', 'integer', 'min:0', 'max:30'],
             'diplome_professionnel' => ['nullable', 'string', 'max:100'],

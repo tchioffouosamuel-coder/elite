@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Line, Bar } from 'react-chartjs-2'
@@ -13,12 +13,21 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
-import { Activity, AlertTriangle, Clock, KeyRound, LogIn, Moon, RefreshCw, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
-import { fetchParentUsageStats, type EtatComptes, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
+import { Activity, AlertTriangle, Clock, KeyRound, LogIn, Mail, Moon, Phone, RefreshCw, Search, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
+import {
+  fetchComptesListe,
+  fetchParentUsageStats,
+  type CategorieComptes,
+  type EtatComptes,
+  type SegmentComptes,
+  type VolumeDemandesAvecStatut,
+} from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
-import { Select } from '@/shared/ui/Field'
-import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Badge } from '@/shared/ui/Badge'
+import { Input, Select } from '@/shared/ui/Field'
+import { EmptyState, ErrorState, Spinner } from '@/shared/ui/Feedback'
+import { Modal } from '@/shared/ui/Modal'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend)
 
@@ -93,17 +102,139 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
   )
 }
 
-function BlocComptes({ titre, donnees }: { titre: string; donnees: EtatComptes }) {
+interface SelectionCompte {
+  segment: SegmentComptes
+  categorie: CategorieComptes
+  titre: string
+}
+
+function BlocComptes({
+  titre,
+  donnees,
+  segment,
+  onSelectionner,
+}: {
+  titre: string
+  donnees: EtatComptes
+  segment: SegmentComptes
+  onSelectionner: (selection: SelectionCompte) => void
+}) {
   return (
     <div className="flex flex-col gap-3">
       <h2 className="font-display text-base font-bold text-navy-900">{titre}</h2>
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Comptes ouverts" value={donnees.total} icon={KeyRound} accent="navy" hint={`${donnees.ouverts_dans_periode} sur la période`} />
-        <StatCard label="Actifs" value={`${donnees.taux_actifs} %`} icon={UserCheck} accent="green" hint={`${donnees.actifs} connecté(s) sur la période`} />
-        <StatCard label="Dormants" value={`${donnees.taux_dormants} %`} icon={Moon} accent="gold" hint={`${donnees.dormants} compte(s) actif(s) sans connexion`} />
-        <StatCard label="Jamais connectés" value={donnees.jamais_connectes} icon={UserPlus} accent="navy" hint={`${donnees.desactives} désactivé(s)`} />
+        <StatCard
+          label="Comptes ouverts"
+          value={donnees.total}
+          icon={KeyRound}
+          accent="navy"
+          hint={`${donnees.ouverts_dans_periode} sur la période`}
+          onClick={() => onSelectionner({ segment, categorie: 'total', titre: `${titre} — Comptes ouverts` })}
+        />
+        <StatCard
+          label="Actifs"
+          value={`${donnees.taux_actifs} %`}
+          icon={UserCheck}
+          accent="green"
+          hint={`${donnees.actifs} connecté(s) sur la période`}
+          onClick={() => onSelectionner({ segment, categorie: 'actifs', titre: `${titre} — Actifs` })}
+        />
+        <StatCard
+          label="Dormants"
+          value={`${donnees.taux_dormants} %`}
+          icon={Moon}
+          accent="gold"
+          hint={`${donnees.dormants} compte(s) actif(s) sans connexion`}
+          onClick={() => onSelectionner({ segment, categorie: 'dormants', titre: `${titre} — Dormants` })}
+        />
+        <StatCard
+          label="Jamais connectés"
+          value={donnees.jamais_connectes}
+          icon={UserPlus}
+          accent="navy"
+          hint={`${donnees.desactives} désactivé(s)`}
+          onClick={() => onSelectionner({ segment, categorie: 'jamais_connectes', titre: `${titre} — Jamais connectés` })}
+        />
       </div>
     </div>
+  )
+}
+
+function formaterDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+/** Liste nominative derrière une carte cliquée — chargée pour la catégorie exacte, filtrée localement par la recherche. */
+function CompteListeModal({ selection, jours, onClose }: { selection: SelectionCompte; jours: 7 | 30 | 90; onClose: () => void }) {
+  const [recherche, setRecherche] = useState('')
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['comptes-liste', selection.segment, selection.categorie, jours],
+    queryFn: () => fetchComptesListe(selection.segment, selection.categorie, jours),
+  })
+
+  const filtres = useMemo(() => {
+    const q = recherche.trim().toLocaleLowerCase('fr')
+    if (!q) return data ?? []
+    return (data ?? []).filter((c) =>
+      [c.nom, c.email, c.telephone].some((valeur) => valeur?.toLocaleLowerCase('fr').includes(q)),
+    )
+  }, [data, recherche])
+
+  return (
+    <Modal title={selection.titre} onClose={onClose} taille="lg">
+      <div className="flex flex-col gap-4">
+        <Input
+          icon={Search}
+          placeholder="Rechercher un nom, un email, un téléphone…"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          autoFocus
+        />
+
+        {isLoading ? (
+          <Spinner />
+        ) : isError || !data ? (
+          <ErrorState />
+        ) : filtres.length === 0 ? (
+          <EmptyState label={recherche ? 'Aucun compte ne correspond à cette recherche.' : 'Aucun compte dans cette catégorie.'} />
+        ) : (
+          <div className="flex flex-col gap-1">
+            <p className="pb-1 text-xs text-navy-400">
+              {filtres.length} compte(s) {recherche ? `sur ${data.length}` : ''}
+            </p>
+            <div className="max-h-[60vh] divide-y divide-navy-100 overflow-y-auto rounded-xl border border-navy-100">
+              {filtres.map((compte) => (
+                <div key={compte.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-navy-900">{compte.nom}</p>
+                    <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-navy-500">
+                      {compte.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {compte.email}
+                        </span>
+                      )}
+                      {compte.telephone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {compte.telephone}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-none flex-col items-end gap-1">
+                    <Badge tone={compte.actif ? 'green' : 'neutral'}>{compte.actif ? 'Actif' : 'Désactivé'}</Badge>
+                    <span className="text-[11px] text-navy-400">
+                      {compte.derniere_connexion ? `Connecté le ${formaterDate(compte.derniere_connexion)}` : 'Jamais connecté'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   )
 }
 
@@ -120,6 +251,7 @@ const PAGES_DEMARCHES = ['/preinscriptions', '/modifications-eleves', '/justific
 export function AdminParentStatsPage() {
   const navigate = useNavigate()
   const [jours, setJours] = useState<7 | 30 | 90>(7)
+  const [selection, setSelection] = useState<SelectionCompte | null>(null)
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['parent-usage-stats', jours],
@@ -200,8 +332,8 @@ export function AdminParentStatsPage() {
 
       {comptes ? (
         <div className="grid gap-5 lg:grid-cols-2">
-          <BlocComptes titre="Comptes parents" donnees={comptes.parents} />
-          <BlocComptes titre="Comptes du personnel" donnees={comptes.personnel} />
+          <BlocComptes titre="Comptes parents" donnees={comptes.parents} segment="parents" onSelectionner={setSelection} />
+          <BlocComptes titre="Comptes du personnel" donnees={comptes.personnel} segment="personnel" onSelectionner={setSelection} />
         </div>
       ) : (
         <Card className="flex items-start gap-3 border-gold-200 bg-gold-50/60">
@@ -294,6 +426,8 @@ export function AdminParentStatsPage() {
         <BarreRepartition titre="Préinscriptions" donnees={data.volumes.preinscriptions} />
         <BarreRepartition titre="Modifications de fiches" donnees={data.volumes.modifications} />
       </Card>
+
+      {selection && <CompteListeModal selection={selection} jours={jours} onClose={() => setSelection(null)} />}
     </div>
   )
 }

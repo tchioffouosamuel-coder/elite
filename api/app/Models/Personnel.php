@@ -18,6 +18,7 @@ class Personnel extends Model
         'matricule',
         'banque',
         'numero_compte',
+        'methode_validation_seance',
         'nom_complet',
         'civilite',
         'sexe',

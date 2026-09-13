@@ -31,6 +31,7 @@ export type StatutParent = "vivant" | "decede" | "";
 export type SexeEnfant = "M" | "F" | "";
 export type TypeContrat = "CDI" | "CDD";
 export type StatutContrat = "essai" | "permanent" | "vacataire";
+export type MethodeValidationSeance = "qr" | "code" | "libre";
 
 export interface PersonnelEnfant {
   nom_complet: string | null;
@@ -46,6 +47,16 @@ export interface DossierPersonnel {
   date_naissance: string | null;
   numero_cni: string | null;
   numero_cnps: string | null;
+  /** Coordonnées bancaires — pour le virement du salaire, cf. bordereau de virement. */
+  banque: string | null;
+  numero_compte: string | null;
+  /**
+   * Comment cet agent prouve sa présence pour valider une séance dans « Ma
+   * journée » : `qr` (scanner le QR de la salle, par défaut), `code`
+   * (saisir à la main le code court affiché à côté du QR), ou `libre`
+   * (aucune preuve exigée).
+   */
+  methode_validation_seance: MethodeValidationSeance | null;
   departement_origine: string | null;
   residence: string | null;
   telephone: string | null;

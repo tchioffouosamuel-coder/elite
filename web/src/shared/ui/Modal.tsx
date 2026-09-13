@@ -2,7 +2,23 @@ import { type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+const LARGEURS = {
+  md: 'max-w-lg',
+  lg: 'max-w-3xl',
+} as const
+
+export function Modal({
+  title,
+  onClose,
+  children,
+  taille = 'md',
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  /** 'lg' pour une modale large — liste avec recherche, tableau, etc. */
+  taille?: keyof typeof LARGEURS
+}) {
   return createPortal(
     <div
       className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 backdrop-blur-sm sm:items-center sm:p-4"
@@ -10,7 +26,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     >
       {/* Feuille ancrée en bas sur mobile, boîte centrée à partir de sm. */}
       <div
-        className="animate-scale-in flex max-h-[92svh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-navy-100/70 bg-white shadow-lifted sm:max-h-[90vh] sm:rounded-2xl"
+        className={`animate-scale-in flex max-h-[92svh] w-full ${LARGEURS[taille]} flex-col overflow-hidden rounded-t-2xl border border-navy-100/70 bg-white shadow-lifted sm:max-h-[90vh] sm:rounded-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-none items-center justify-between gap-3 border-b border-navy-50 px-5 py-4 sm:px-6">

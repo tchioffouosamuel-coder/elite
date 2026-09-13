@@ -42,7 +42,7 @@ type Champ = keyof PersonnelPayload
 
 const ETAPES: { id: string; label: string; description: string; champs: Champ[] }[] = [
   { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
-  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub'] },
+  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub', 'banque', 'numero_compte', 'methode_validation_seance'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
   { id: 'famille', label: 'Famille', description: 'Parents et enfants', champs: ['pere_nom_complet', 'pere_statut', 'pere_telephone', 'mere_nom_complet', 'mere_statut', 'mere_telephone'] },
   { id: 'recap', label: 'Récapitulatif', description: 'Vérification', champs: [] },
@@ -65,6 +65,12 @@ const SITUATIONS = [
   ['marie', 'Marié(e)'],
   ['divorce', 'Divorcé(e)'],
   ['veuf', 'Veuf / Veuve'],
+] as const
+
+const METHODES_VALIDATION_SEANCE = [
+  ['qr', 'Scanner le QR de la salle'],
+  ['code', 'Saisir le code de la salle'],
+  ['libre', 'Libre (aucune preuve exigée)'],
 ] as const
 
 function estVide(valeur: unknown): boolean {
@@ -166,7 +172,7 @@ export function PersonnelFormPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '' } })
+  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '', methode_validation_seance: 'qr' } })
 
   const { fields: enfants, append, remove } = useFieldArray({ control, name: 'enfants' })
 
@@ -231,6 +237,9 @@ export function PersonnelFormPage() {
       statut_contrat: personnel.statut_contrat ?? undefined,
       categorie_echelon: personnel.categorie_echelon ?? '',
       grade_minedub: personnel.grade_minedub ?? '',
+      banque: personnel.banque ?? '',
+      numero_compte: personnel.numero_compte ?? '',
+      methode_validation_seance: personnel.methode_validation_seance ?? 'qr',
       pere_nom_complet: personnel.pere_nom_complet ?? '',
       pere_statut: personnel.pere_statut ?? '',
       pere_telephone: personnel.pere_telephone ?? '',
@@ -324,6 +333,9 @@ export function PersonnelFormPage() {
     ['Statut', valeurs.statut_contrat],
     ['Catégorie / échelon', valeurs.categorie_echelon],
     ['Grade MINEDUB', valeurs.grade_minedub],
+    ['Banque', valeurs.banque],
+    ['N° de compte', valeurs.numero_compte],
+    ['Validation des séances', METHODES_VALIDATION_SEANCE.find(([cle]) => cle === valeurs.methode_validation_seance)?.[1]],
   ]
 
   if (personnelId !== null && isLoading) return <Spinner />
@@ -493,6 +505,21 @@ export function PersonnelFormPage() {
                 <Input label="Catégorie / échelon" placeholder="5C…" {...register('categorie_echelon')} />
                 <Input label="Grade MINEDUB" placeholder="CAPIEMP, Licence, IEG…" {...register('grade_minedub')} />
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input label="Banque" placeholder="Afriland First Bank…" {...register('banque')} />
+                <Input label="N° de compte" {...register('numero_compte')} />
+              </div>
+              <Select label="Validation des séances (« Ma journée »)" {...register('methode_validation_seance')}>
+                {METHODES_VALIDATION_SEANCE.map(([valeur, libelle]) => (
+                  <option key={valeur} value={valeur}>
+                    {libelle}
+                  </option>
+                ))}
+              </Select>
+              <p className="-mt-2 text-xs text-navy-400">
+                Comment cet agent prouve sa présence pour valider une séance : en scannant le QR de la salle, en
+                saisissant son code, ou sans aucune preuve exigée.
+              </p>
             </div>
           )}
 

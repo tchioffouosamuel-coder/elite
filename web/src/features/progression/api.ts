@@ -360,6 +360,8 @@ export async function enregistrerJournee(
     observations?: string | null;
     donnees_personnalisees?: Record<string, string | number | boolean>;
     qr_token?: string | null;
+    /** Code court de la salle, saisi à la main — alternative au scan (cf. Classe::code_salle). */
+    code_salle?: string | null;
   },
 ): Promise<FeuilleJournee> {
   const { data } = await http.post<ApiResponse<FeuilleJournee>>(

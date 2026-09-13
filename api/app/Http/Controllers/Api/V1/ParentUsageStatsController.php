@@ -21,4 +21,24 @@ class ParentUsageStatsController extends Controller
 
         return ApiResponse::success($this->service->resume(Tenant::schoolIds(), $jours));
     }
+
+    /** Détail nominatif derrière une carte « Comptes parents »/« Comptes du personnel » cliquée. */
+    public function comptes(Request $request): JsonResponse
+    {
+        $jours = $request->integer('jours') ?: 30;
+        $jours = in_array($jours, [7, 30, 90], true) ? $jours : 30;
+
+        $segment = $request->string('segment')->toString();
+        if (! in_array($segment, ['parents', 'personnel'], true)) {
+            return ApiResponse::error('Segment de comptes invalide.', 422);
+        }
+
+        $categorie = $request->string('categorie')->toString();
+        $categoriesValides = ['total', 'ouverts_dans_periode', 'actifs', 'dormants', 'jamais_connectes', 'desactives'];
+        if (! in_array($categorie, $categoriesValides, true)) {
+            return ApiResponse::error('Catégorie de comptes invalide.', 422);
+        }
+
+        return ApiResponse::success($this->service->listeComptes(Tenant::schoolIds(), $segment, $categorie, $jours));
+    }
 }

@@ -1,5 +1,6 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse } from "@/shared/types/api";
+import type { CanalNotification } from "@/shared/ui/CanauxNotificationField";
 
 /** Les montants circulent en francs CFA entiers : la devise n'a pas de subdivision. */
 export type ModePaiement =
@@ -132,6 +133,8 @@ export async function encaisser(
     reference_externe?: string;
     note?: string;
     lignes?: LigneVentilation[];
+    /** Canaux sur lesquels confirmer le paiement au tuteur — vide par défaut, aucune notification n'est envoyée. */
+    canaux?: CanalNotification[];
   },
 ): Promise<{ versement_id: number; numero_recu: string }> {
   const { data } = await http.post<

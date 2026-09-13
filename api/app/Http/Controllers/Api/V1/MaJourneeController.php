@@ -79,21 +79,20 @@ class MaJourneeController extends Controller
             'appel.*.motif' => ['nullable', 'required_if:appel.*.statut,absent', Rule::in(Presence::MOTIFS)],
             'observations' => ['nullable', 'string', 'max:2000'],
             'donnees_personnalisees' => ['nullable', 'array'],
-            // Requis pour un enseignant (cf. User::doitScannerQrPourValiderAppel()) :
-            // c'est le token affiché dans la salle, qui prouve qu'il y était au
-            // moment de la validation — comparé tel quel à `Classe::qr_token`,
-            // sans passer par `resoudreQr()` pour rester rejouable hors ligne.
+            // Preuve de présence, selon la méthode assignée à l'agent (cf.
+            // User::methodeValidationSeance()) : le token scanné dans la
+            // salle, comparé tel quel à `Classe::qr_token` — sans passer par
+            // `resoudreQr()` pour rester rejouable hors ligne — ou le code
+            // court affiché à côté du QR, saisi à la main.
             'qr_token' => ['nullable', 'string'],
+            'code_salle' => ['nullable', 'string'],
         ]);
 
-        $qrValide = $data['qr_token'] ?? null;
-        $qrValide = $qrValide !== null
-            && $classeMatiere->classe->qr_token !== null
-            && hash_equals($classeMatiere->classe->qr_token, $qrValide);
+        $preuveFournie = $classeMatiere->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
-        if ($request->user()->doitScannerQrPourValiderAppel() && ! $qrValide) {
+        if ($request->user()->methodeValidationSeance() !== 'libre' && ! $preuveFournie) {
             return ApiResponse::forbidden(
-                "Scannez le QR code de la salle avant de valider — c'est ce qui prouve que vous y étiez."
+                "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
             );
         }
 
@@ -114,8 +113,8 @@ class MaJourneeController extends Controller
         }
 
         // Un enseignant ne déclare que la journée en cours ; la direction, déjà
-        // dispensée du QR (cf. doitScannerQrPourValiderAppel()), l'est aussi de
-        // cette contrainte pour pouvoir corriger une date antérieure.
+        // dispensée de la preuve de présence (cf. methodeValidationSeance()),
+        // l'est aussi de cette contrainte pour pouvoir corriger une date antérieure.
         if (! $seance->estAujourdhui() && ! $request->user()->estPersonnelDirection()) {
             return ApiResponse::error(
                 "Vous ne pouvez déclarer que la journée en cours. Contactez la direction pour une correction sur une autre date.",
@@ -132,7 +131,7 @@ class MaJourneeController extends Controller
             $request->user(),
             $data['observations'] ?? null,
             $data['donnees_personnalisees'] ?? [],
-            $qrValide,
+            $preuveFournie,
         );
 
         return ApiResponse::success(

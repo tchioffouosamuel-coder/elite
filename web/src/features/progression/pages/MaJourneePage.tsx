@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarCheck, Save, Clock } from 'lucide-react'
+import { CalendarCheck, Save, Clock, ScanLine, ShieldCheck } from 'lucide-react'
 import {
   fetchMesAffectations,
   fetchFeuilleJournee,
@@ -68,7 +68,12 @@ function CouvertureStats() {
 export function MaJourneePage() {
   const { t } = useTranslation()
   const location = useLocation()
+  const navigate = useNavigate()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
+  // Comment ce compte prouve sa présence : scanner (par défaut), saisir le
+  // code de la salle, ou aucune preuve exigée — réglé sur sa fiche personnel
+  // (cf. User::methodeValidationSeance côté API).
+  const methodeValidation = useAuthStore((s) => s.user?.methode_validation_seance ?? 'qr')
   // Arrivée depuis le scan d'un QR code de salle : l'affectation résolue est
   // déjà connue, pas besoin de la faire choisir une seconde fois.
   const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
@@ -78,6 +83,7 @@ export function MaJourneePage() {
   const [affectationId, setAffectationId] = useState<number | ''>(preselection ?? '')
   const [date, setDate] = useState(todayIso)
   const [qrToken, setQrToken] = useState<string | null>(tokenScanne)
+  const [codeSalle, setCodeSalle] = useState('')
   const [lecons, setLecons] = useState<Set<number>>(new Set())
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
@@ -138,6 +144,7 @@ export function MaJourneePage() {
     const id = value ? Number(value) : ''
     setAffectationId(id)
     if (id !== preselection) setQrToken(null)
+    setCodeSalle('')
   }
 
   const changerStatut = (eleveId: number, present: boolean) => {
@@ -167,6 +174,7 @@ export function MaJourneePage() {
         date,
         lecons: [...lecons],
         qr_token: qrToken,
+        code_salle: codeSalle || undefined,
         appel: appel.map((l) => ({ eleve_id: l.eleve_id, statut: l.statut, motif: l.motif })),
         observations: observations || null,
         donnees_personnalisees: donneesPersonnalisees,
@@ -229,6 +237,43 @@ export function MaJourneePage() {
                   {feuille.seance.heure_debut.slice(0, 5)} - {feuille.seance.heure_fin.slice(0, 5)}
                 </span>
               </span>
+            </div>
+          )}
+
+          {feuille && methodeValidation !== 'libre' && (
+            <div className="rounded-xl border border-navy-100/70 bg-white p-3.5">
+              {methodeValidation === 'code' ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <Input
+                    label="Code de la salle"
+                    placeholder="123456"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={codeSalle}
+                    onChange={(e) => setCodeSalle(e.target.value)}
+                    className="max-w-[10rem]"
+                  />
+                  <p className="pb-2.5 text-xs text-navy-400">
+                    Saisissez le code affiché à côté du QR de la salle pour prouver votre présence.
+                  </p>
+                </div>
+              ) : qrToken ? (
+                <p className="flex items-center gap-2 text-sm font-medium text-green-600">
+                  <ShieldCheck className="h-4 w-4" />
+                  QR de la salle scanné — présence confirmée.
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm text-navy-500">
+                    <ScanLine className="h-4 w-4 flex-none" />
+                    Scannez le QR de la salle avant d'enregistrer.
+                  </p>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => navigate('/scanner-qr')}>
+                    <ScanLine className="h-4 w-4" />
+                    Scanner
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

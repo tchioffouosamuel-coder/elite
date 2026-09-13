@@ -151,23 +151,23 @@ class SeanceController extends Controller
             // ne saurait pas s'il faut relancer la famille ou classer l'affaire.
             'lignes.*.motif' => ['nullable', 'required_if:lignes.*.statut,absent', Rule::in(Presence::MOTIFS)],
             'lignes.*.remarque' => ['nullable', 'string', 'max:255'],
-            // Requis pour un enseignant (cf. User::doitScannerQrPourValiderAppel()),
-            // même règle que MaJourneeController::enregistrer() : le token affiché
-            // dans la salle, comparé tel quel à Classe::qr_token — pas de passage
-            // par resoudreQr() pour rester rejouable hors ligne (l'appel de cet
-            // écran passe par l'outbox de synchronisation).
+            // Preuve de présence, selon la méthode assignée à l'agent (cf.
+            // User::methodeValidationSeance()), même règle que
+            // MaJourneeController::enregistrer() : le token affiché dans la
+            // salle, comparé tel quel à Classe::qr_token — pas de passage par
+            // resoudreQr() pour rester rejouable hors ligne (l'appel de cet
+            // écran passe par l'outbox de synchronisation) — ou le code court
+            // affiché à côté du QR, saisi à la main.
             'qr_token' => ['nullable', 'string'],
+            'code_salle' => ['nullable', 'string'],
         ]);
 
-        $qrValide = $data['qr_token'] ?? null;
-        $qrValide = $qrValide !== null
-            && $seance->classe->qr_token !== null
-            && hash_equals($seance->classe->qr_token, $qrValide);
+        $preuveFournie = $seance->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
         abort_if(
-            $request->user()->doitScannerQrPourValiderAppel() && ! $qrValide,
+            $request->user()->methodeValidationSeance() !== 'libre' && ! $preuveFournie,
             403,
-            "Scannez le QR code de la salle avant de valider — c'est ce qui prouve que vous y étiez."
+            "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
         );
 
         $total = $this->service->enregistrerAppel($seance, $data['lignes']);

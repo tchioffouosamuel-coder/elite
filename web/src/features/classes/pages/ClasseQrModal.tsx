@@ -37,6 +37,7 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
       <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;gap:16px;">
         <h1 style="font-size:20px;margin:0;">${classe.nom}</h1>
         <img src="${image}" width="320" height="320" />
+        ${classe.code_salle ? `<p style="font-size:15px;margin:0;">Code : <strong style="letter-spacing:3px;">${classe.code_salle}</strong></p>` : ''}
         <p style="font-size:13px;color:#555;">${t('classes.qr_print_hint')}</p>
       </body></html>
     `)
@@ -62,6 +63,13 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
           <div className="flex h-[220px] w-[220px] items-center justify-center">
             <Spinner />
           </div>
+        )}
+
+        {classe.code_salle && (
+          <p className="text-center text-sm text-navy-600">
+            Caméra indisponible ? Code de la salle :{' '}
+            <span className="font-display text-lg font-bold tracking-[0.2em] text-navy-900">{classe.code_salle}</span>
+          </p>
         )}
 
         <Button onClick={imprimer} disabled={!image}>

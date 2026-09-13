@@ -50,6 +50,14 @@ export interface AuthUser {
    */
   est_enseignant?: boolean
   /**
+   * Comment ce compte prouve sa présence pour valider une séance dans « Ma
+   * journée » (cf. User::methodeValidationSeance côté API) : `qr` (scanner
+   * le QR de la salle), `code` (saisir son code court à la main), ou
+   * `libre` (aucune preuve exigée) — réglé agent par agent sur sa fiche
+   * personnel, la direction étant toujours `libre`.
+   */
+  methode_validation_seance?: 'qr' | 'code' | 'libre'
+  /**
    * Vendeur/caissier au comptoir (cf. User::estVendeur côté API) — comme
    * `est_enseignant`, basé sur la fonction du personnel plutôt que sur un
    * rôle Spatie : les comptes du personnel n'en portent jamais (seul le

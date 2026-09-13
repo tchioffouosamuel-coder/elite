@@ -29,6 +29,7 @@ import {
   ScanFace,
   Layers,
   GitBranch,
+  GitMerge,
   CalendarCheck,
   BriefcaseBusiness,
   ChevronDown,
@@ -59,6 +60,7 @@ import {
   Archive,
   CalendarX,
   MessageSquare,
+  Route as RouteIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -340,6 +342,7 @@ const navGroups = [
     label: 'nav.group.transport',
     items: [
       { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
+      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['itineraires', 'routes'] },
       { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['stops', 'points de ramassage'] },
       { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['eleves transport', 'affectation bus'] },
     ],
@@ -395,6 +398,7 @@ const navGroups = [
     label: 'nav.group.finance',
     items: [
       { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view', keywords: ['paiement', 'encaissement', 'payment', 'frais de scolarite'] },
+      { to: '/caisse/doublons', label: 'nav.versementsDoublons', icon: GitMerge, permission: 'finance.view', keywords: ['doublons', 'paiement en double', 'reçu en double'] },
       { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view', keywords: ['prix', 'frais', 'pricing'] },
       { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view', keywords: ['charges', 'expenses', 'factures'] },
       { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie', keywords: ['salary', 'remuneration'] },

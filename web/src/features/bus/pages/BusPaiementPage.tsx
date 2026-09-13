@@ -9,6 +9,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { francs } from '@/features/finance/api'
@@ -59,6 +60,7 @@ export function BusPaiementPage() {
   const { affectationId } = useParams<{ affectationId: string }>()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [canaux, setCanaux] = useState<CanalNotification[]>(['sms'])
 
   const { data: situation, isLoading, isError } = useQuery({
     queryKey: ['bus-paiement', affectationId],
@@ -117,6 +119,7 @@ export function BusPaiementPage() {
         remise: Number(valeurs.remise || 0),
         mode: valeurs.mode,
         date_versement: valeurs.date_versement || undefined,
+        canaux,
       })
 
       succes(`Encaissement enregistré — ${numeros_recu.length} reçu(s).`)
@@ -248,6 +251,8 @@ export function BusPaiementPage() {
               </Select>
               <Input label="Date" type="date" {...register('date_versement')} />
             </div>
+
+            <CanauxNotificationField value={canaux} onChange={setCanaux} />
 
             <p className="flex items-start gap-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
               <Receipt className="mt-0.5 h-3.5 w-3.5 flex-none" />

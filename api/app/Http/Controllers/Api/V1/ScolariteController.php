@@ -9,8 +9,8 @@ use App\Models\AnneeScolaire;
 use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\Versement;
+use App\Services\Notifications\NotificationPaiementService;
 use App\Services\ScolariteService;
-use App\Services\Sms\SmsService;
 use App\Support\Pdf\RecuVersementGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +23,7 @@ class ScolariteController extends Controller
 {
     public function __construct(
         private readonly ScolariteService $service,
-        private readonly SmsService $sms,
+        private readonly NotificationPaiementService $notifications,
     ) {}
 
     /** Situation de recouvrement, et liste des insolvables via `?statut=impaye|partiel`. */
@@ -80,6 +80,8 @@ class ScolariteController extends Controller
             'lignes.*.dossier_frais_annexe_id' => ['nullable', 'integer'],
             'lignes.*.libelle' => ['nullable', 'string', 'max:150'],
             'lignes.*.montant' => ['required_with:lignes', 'integer', 'min:1'],
+            'canaux' => ['nullable', 'array'],
+            'canaux.*' => ['in:sms,whatsapp,email,interne'],
         ]);
 
         try {
@@ -88,7 +90,7 @@ class ScolariteController extends Controller
             return ApiResponse::error($e->getMessage(), 422);
         }
 
-        $this->confirmerParSms($dossier->fresh(['eleve.tuteurs']), $versement);
+        $this->confirmerPaiement($dossier->fresh(['eleve.tuteurs']), $versement, $donnees['canaux'] ?? []);
 
         return ApiResponse::created(
             ['versement_id' => $versement->id, 'numero_recu' => $versement->numero_recu],
@@ -97,23 +99,22 @@ class ScolariteController extends Controller
     }
 
     /**
-     * Confirmation SMS au tuteur principal de l'élève — un échec d'envoi ne
-     * remet jamais en cause l'encaissement, déjà enregistré.
+     * Confirmation du paiement au tuteur principal de l'élève, sur les
+     * canaux choisis au comptoir — un échec d'envoi ne remet jamais en cause
+     * l'encaissement, déjà enregistré.
+     *
+     * @param  list<string>  $canaux
      */
-    private function confirmerParSms(DossierScolarite $dossier, Versement $versement): void
+    private function confirmerPaiement(DossierScolarite $dossier, Versement $versement, array $canaux): void
     {
         $tuteur = $dossier->eleve->tuteurs->firstWhere('pivot.is_principal', true)
             ?? $dossier->eleve->tuteurs->first();
-
-        if (! $tuteur?->telephone) {
-            return;
-        }
 
         $reste = $dossier->fresh()?->reste_a_payer ?? 0;
         $message = "Paiement de {$this->francs($versement->montant)} reçu pour {$dossier->eleve->nom_complet} (reçu {$versement->numero_recu}). "
             . ($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
 
-        $this->sms->envoyer($tuteur->telephone, $message);
+        $this->notifications->notifier($tuteur, $canaux, $dossier->school_id, 'Confirmation de paiement', $message);
     }
 
     private function francs(int $montant): string

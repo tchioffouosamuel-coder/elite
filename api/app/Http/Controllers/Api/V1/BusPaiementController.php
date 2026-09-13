@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BusAffectation;
 use App\Models\BusVersement;
 use App\Services\BusPaiementService;
-use App\Services\Sms\SmsService;
+use App\Services\Notifications\NotificationPaiementService;
 use App\Support\Pdf\RecuVersementBusGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +24,7 @@ class BusPaiementController extends Controller
 {
     public function __construct(
         private readonly BusPaiementService $service,
-        private readonly SmsService $sms,
+        private readonly NotificationPaiementService $notifications,
     ) {}
 
     /** Situation mensuelle de la souscription : dû, réglé et statut mois par mois, plus l'historique des versements. */
@@ -67,6 +67,8 @@ class BusPaiementController extends Controller
             'mode' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
             'reference_externe' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
+            'canaux' => ['nullable', 'array'],
+            'canaux.*' => ['in:sms,whatsapp,email,interne'],
         ]);
 
         try {
@@ -77,7 +79,7 @@ class BusPaiementController extends Controller
         }
 
         foreach ($versements as $versement) {
-            $this->confirmerParSms($affectation->fresh(['eleve.tuteurs']), $versement);
+            $this->confirmerPaiement($affectation->fresh(['eleve.tuteurs']), $versement, $donnees['canaux'] ?? []);
         }
 
         return ApiResponse::created(
@@ -115,23 +117,22 @@ class BusPaiementController extends Controller
     }
 
     /**
-     * Confirmation SMS au tuteur principal — un échec d'envoi ne remet jamais
-     * en cause l'encaissement, déjà enregistré.
+     * Confirmation du paiement au tuteur principal, sur les canaux choisis au
+     * comptoir — un échec d'envoi ne remet jamais en cause l'encaissement,
+     * déjà enregistré.
+     *
+     * @param  list<string>  $canaux
      */
-    private function confirmerParSms(BusAffectation $affectation, BusVersement $versement): void
+    private function confirmerPaiement(BusAffectation $affectation, BusVersement $versement, array $canaux): void
     {
         $tuteur = $affectation->eleve->tuteurs->firstWhere('pivot.is_principal', true)
             ?? $affectation->eleve->tuteurs->first();
-
-        if (! $tuteur?->telephone) {
-            return;
-        }
 
         $mois = $versement->mois->translatedFormat('F Y');
         $message = "Paiement du transport scolaire de {$affectation->eleve->nom_complet} pour {$mois} : "
             . "{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
 
-        $this->sms->envoyer($tuteur->telephone, $message);
+        $this->notifications->notifier($tuteur, $canaux, $affectation->trajet->school_id, 'Confirmation de paiement — transport', $message);
     }
 
     private function francs(int $montant): string

@@ -1,5 +1,6 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse } from "@/shared/types/api";
+import type { CanalNotification } from "@/shared/ui/CanauxNotificationField";
 
 export interface School {
   id: number;
@@ -415,6 +416,8 @@ export interface EncaissementBusPayload {
   mode?: ModePaiementBus;
   reference_externe?: string;
   note?: string;
+  /** Canaux sur lesquels confirmer le paiement au tuteur — vide par défaut, aucune notification n'est envoyée. */
+  canaux?: CanalNotification[];
 }
 
 export async function encaisserBus(

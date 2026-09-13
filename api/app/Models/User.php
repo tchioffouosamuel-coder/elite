@@ -155,14 +155,23 @@ class User extends Authenticatable
     }
 
     /**
-     * Un enseignant doit avoir scanné le QR de la salle avant que son appel
-     * ne soit accepté — preuve qu'il était bien en classe au moment de la
-     * validation. La direction, qui peut remplir l'appel à distance (suivi,
-     * correction), en est dispensée — cf. `MaJourneeController::enregistrer()`.
+     * Comment ce compte prouve sa présence pour valider une séance
+     * (« Ma journée », appel) : `qr` (scanner le QR de la salle), `code`
+     * (saisir son code court à la main) ou `libre` (aucune preuve exigée).
+     *
+     * Réglable agent par agent (cf. `Personnel::methode_validation_seance`,
+     * modifiable depuis sa fiche) — la direction (super_admin, admin_ecole,
+     * admin_college, censeur_sg) reste de toute façon dispensée, qu'elle
+     * porte ou non un dossier personnel, car elle peut remplir l'appel à
+     * distance (suivi, correction) — cf. `MaJourneeController::enregistrer()`.
      */
-    public function doitScannerQrPourValiderAppel(): bool
+    public function methodeValidationSeance(): string
     {
-        return ! $this->estPersonnelDirection();
+        if ($this->estPersonnelDirection()) {
+            return 'libre';
+        }
+
+        return $this->personnel?->methode_validation_seance ?? 'qr';
     }
 
     /**

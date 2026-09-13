@@ -484,6 +484,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter');
                 Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy');
                 Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
+                Route::get('parent-usage-stats/comptes', [ParentUsageStatsController::class, 'comptes'])->name('parent-usage-stats.comptes');
 
                 // Comptes du portail élève — même quatuor d'actions que les
                 // comptes parent ci-dessus (cf. TuteurController), porté par

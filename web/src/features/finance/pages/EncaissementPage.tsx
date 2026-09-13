@@ -9,6 +9,7 @@ import { Card } from '@/shared/ui/Card'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
 import { succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
@@ -47,6 +48,7 @@ export function EncaissementPage() {
   const [allocations, setAllocations] = useState<number[]>([])
   const [allocationsModifiees, setAllocationsModifiees] = useState(false)
   const [moratoireOuvert, setMoratoireOuvert] = useState(false)
+  const [canaux, setCanaux] = useState<CanalNotification[]>(['sms'])
 
   const {
     data: dossier,
@@ -128,6 +130,7 @@ export function EncaissementPage() {
         reference_externe: valeurs.reference_externe || undefined,
         note: valeurs.note || undefined,
         lignes,
+        canaux,
       })
 
       succes(t('finance.receipt_recorded', { numero: numero_recu }))
@@ -318,6 +321,8 @@ export function EncaissementPage() {
             {...register('reference_externe')}
           />
           <Input label="Note" placeholder="Facultatif" {...register('note')} />
+
+          <CanauxNotificationField value={canaux} onChange={setCanaux} />
 
           <p className="flex items-start gap-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
             <Receipt className="mt-0.5 h-3.5 w-3.5 flex-none" />

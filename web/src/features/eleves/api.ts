@@ -553,6 +553,39 @@ export async function fetchParentUsageStats(
   return data.data;
 }
 
+export type SegmentComptes = "parents" | "personnel";
+
+export type CategorieComptes =
+  | "total"
+  | "ouverts_dans_periode"
+  | "actifs"
+  | "dormants"
+  | "jamais_connectes"
+  | "desactives";
+
+export interface CompteIndividu {
+  id: number;
+  nom: string;
+  email: string | null;
+  telephone: string | null;
+  actif: boolean;
+  cree_le: string | null;
+  derniere_connexion: string | null;
+}
+
+/** Détail nominatif derrière une carte « Comptes parents »/« Comptes du personnel » cliquée. */
+export async function fetchComptesListe(
+  segment: SegmentComptes,
+  categorie: CategorieComptes,
+  jours: 7 | 30 | 90,
+): Promise<CompteIndividu[]> {
+  const { data } = await http.get<ApiResponse<CompteIndividu[]>>(
+    "/parent-usage-stats/comptes",
+    { params: { segment, categorie, jours } },
+  );
+  return data.data;
+}
+
 export async function batchTransfererEleveEcole(
   ids: number[],
   schoolId: number,

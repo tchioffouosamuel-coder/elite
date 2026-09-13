@@ -22,10 +22,11 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Un enseignant doit avoir scanné le QR code de la salle pour que sa
- * validation d'appel/leçons passe — la preuve qu'il était en classe. La
- * direction (super_admin, admin_ecole, admin_college, censeur_sg) en est dispensée,
- * cf. `User::doitScannerQrPourValiderAppel()`.
+ * Un enseignant doit prouver sa présence pour que sa validation
+ * d'appel/leçons passe — par défaut en scannant le QR code de la salle,
+ * ou par tout autre moyen assigné sur sa fiche (code, libre). La direction
+ * (super_admin, admin_ecole, admin_college, censeur_sg) en est toujours
+ * dispensée — cf. `User::methodeValidationSeance()`.
  */
 class MaJourneeQrRequisTest extends TestCase
 {
@@ -62,7 +63,8 @@ class MaJourneeQrRequisTest extends TestCase
         ]);
 
         $this->classe = Classe::create([
-            'school_id' => $this->school->id, 'nom' => '6e A', 'qr_token' => 'TOKEN-SALLE-6EA',
+            'school_id' => $this->school->id, 'nom' => '6e A',
+            'qr_token' => 'TOKEN-SALLE-6EA', 'code_salle' => '135790',
         ]);
         Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
@@ -116,6 +118,11 @@ class MaJourneeQrRequisTest extends TestCase
         return User::where('email', 'prof.math@test.local')->firstOrFail();
     }
 
+    private function fixerMethodeValidation(string $methode): void
+    {
+        $this->prof()->personnel->update(['methode_validation_seance' => $methode]);
+    }
+
     private function corpsAppel(array $extra = []): array
     {
         return [
@@ -159,6 +166,45 @@ class MaJourneeQrRequisTest extends TestCase
     public function test_la_direction_n_a_pas_besoin_de_scanner(): void
     {
         $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel())
+            ->assertOk();
+
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->firstOrFail();
+        $this->assertSame('effectuee', $seance->statut);
+        $this->assertNull($seance->qr_verifie_le);
+    }
+
+    public function test_un_enseignant_methode_code_avec_le_bon_code_est_accepte(): void
+    {
+        $this->fixerMethodeValidation('code');
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel([
+                'code_salle' => '135790',
+            ]))
+            ->assertOk();
+
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->firstOrFail();
+        $this->assertSame('effectuee', $seance->statut);
+        $this->assertNotNull($seance->qr_verifie_le);
+    }
+
+    public function test_un_enseignant_methode_code_avec_le_mauvais_code_est_refuse(): void
+    {
+        $this->fixerMethodeValidation('code');
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel([
+                'code_salle' => '000000',
+            ]))
+            ->assertForbidden();
+    }
+
+    public function test_un_enseignant_methode_libre_n_a_pas_besoin_de_preuve(): void
+    {
+        $this->fixerMethodeValidation('libre');
+
+        $this->actingAs($this->prof(), 'sanctum')
             ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel())
             ->assertOk();
 

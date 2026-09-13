@@ -18,6 +18,7 @@ class ClasseResource extends JsonResource
             'code_examen' => $this->code_examen,
             'capacite' => $this->capacite,
             'qr_token' => $this->qr_token,
+            'code_salle' => $this->code_salle,
             'school_id' => $this->school_id,
             'school' => $this->whenLoaded('school', fn () => $this->school ? [
                 'id' => $this->school->id,

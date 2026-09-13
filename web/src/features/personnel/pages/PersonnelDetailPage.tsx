@@ -339,6 +339,20 @@ export function PersonnelDetailPage() {
               <Champ label={t('hub.personnel.statut_contrat')} valeur={personnel.statut_contrat} />
               <Champ label={t('hub.personnel.categorie_echelon')} valeur={personnel.categorie_echelon} />
               <Champ label={t('hub.personnel.grade_minedub')} valeur={personnel.grade_minedub} />
+              <Champ label={t('hub.personnel.banque')} valeur={personnel.banque} />
+              <Champ label={t('hub.personnel.numero_compte')} valeur={personnel.numero_compte} />
+              <Champ
+                label={t('hub.personnel.methode_validation_seance')}
+                valeur={
+                  personnel.methode_validation_seance === 'qr'
+                    ? 'Scanner le QR de la salle'
+                    : personnel.methode_validation_seance === 'code'
+                      ? 'Saisir le code de la salle'
+                      : personnel.methode_validation_seance === 'libre'
+                        ? 'Libre (aucune preuve exigée)'
+                        : null
+                }
+              />
               <Champ label={t('hub.personnel.absent_depuis')} valeur={personnel.absent_depuis} />
               <Champ label={t('hub.personnel.motif_absence')} valeur={personnel.motif_absence} />
               <Champ label={t('hub.personnel.date_deces')} valeur={personnel.date_deces} />

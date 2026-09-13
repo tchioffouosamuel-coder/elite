@@ -23,7 +23,22 @@ class Classe extends Model
     {
         // Chaque classe porte un jeton dès sa création : la salle qu'on lui
         // affecte peut ainsi afficher son QR code sans étape supplémentaire.
-        static::creating(fn (self $classe) => $classe->qr_token ??= (string) Str::uuid());
+        // `code_salle` en est la version courte, saisissable à la main quand
+        // le scan n'est pas possible — cf. MaJourneeController::enregistrer().
+        static::creating(function (self $classe) {
+            $classe->qr_token ??= (string) Str::uuid();
+            $classe->code_salle ??= self::genererCodeSalle();
+        });
+    }
+
+    /** Code à 6 chiffres, jamais réutilisé — pas de confirmation possible entre deux salles. */
+    private static function genererCodeSalle(): string
+    {
+        do {
+            $code = (string) random_int(100000, 999999);
+        } while (self::where('code_salle', $code)->exists());
+
+        return $code;
     }
 
     protected $fillable = [
@@ -43,11 +58,27 @@ class Classe extends Model
         'code_examen',
         'capacite',
         'qr_token',
+        'code_salle',
     ];
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
+    }
+
+    /**
+     * Preuve de présence dans cette salle : le jeton scanné, ou le code
+     * saisi à la main — l'un ou l'autre suffit, quelle que soit la méthode
+     * assignée à l'agent (cf. `User::methodeValidationSeance()`), qui ne fait
+     * que guider l'écran vers l'un ou l'autre plutôt que d'exclure l'autre.
+     * Utilisé par `MaJourneeController` et `SeanceController`.
+     */
+    public function preuvePresenceValide(?string $qrToken, ?string $codeSalle): bool
+    {
+        $qrValide = ! empty($qrToken) && $this->qr_token !== null && hash_equals($this->qr_token, $qrToken);
+        $codeValide = ! empty($codeSalle) && $this->code_salle !== null && hash_equals($this->code_salle, $codeSalle);
+
+        return $qrValide || $codeValide;
     }
 
     public function school(): BelongsTo

@@ -47,6 +47,14 @@ return [
     ],
 
     /*
+     * Confirmations de paiement par WhatsApp. `log` tant qu'aucun compte
+     * WhatsApp Business (Meta Cloud API…) n'est configuré.
+     */
+    'whatsapp' => [
+        'driver' => env('WHATSAPP_DRIVER', 'log'),
+    ],
+
+    /*
      * Notifications push vers l'application mobile. `log` tant qu'aucun projet
      * Firebase n'est créé : les envois s'écrivent dans les logs, ce qui permet
      * de vérifier les déclencheurs sans identifiants.
