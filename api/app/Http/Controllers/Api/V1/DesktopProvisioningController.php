@@ -264,6 +264,13 @@ class DesktopProvisioningController extends Controller
             // retard des autres.
             'dernier_pull_le' => $ecoles->pluck('dernier_pull_le')->filter()->min()?->toIso8601String(),
             'dernier_push_le' => $provisioning->dernier_push_le?->toIso8601String(),
+            // Consulté à chaque ouverture de l'application (cf.
+            // `DesktopClonageGate` côté web) — une session déjà persistée
+            // (jeton conservé entre deux lancements) rouvrait sinon
+            // directement sur le tableau de bord sans jamais revérifier que
+            // le premier clonage avait fini, contrairement à la connexion
+            // via le formulaire qui, elle, le vérifiait déjà.
+            'clonage_initial_complet' => $provisioning->clonage_initial_complet,
             'en_attente_push' => SyncOutbox::query()->enAttente()->where('desktop_provisioning_id', $provisioning->id)->count(),
             'ecoles' => $ecoles->map(fn (DesktopProvisioningEcole $e) => [
                 'school_id' => $e->school_id,

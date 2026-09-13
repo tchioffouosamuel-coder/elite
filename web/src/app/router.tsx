@@ -1,6 +1,7 @@
 import { createHashRouter } from 'react-router-dom'
 import { AppLayout } from '@/app/AppLayout'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
+import { DesktopClonageGate } from '@/features/desktop/DesktopClonageGate'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ChangerMotDePassePage } from '@/features/auth/pages/ChangerMotDePassePage'
 import { MotDePasseOubliePage } from '@/features/auth/pages/MotDePasseOubliePage'
@@ -80,6 +81,7 @@ import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { ComptesPage } from '@/features/comptes/pages/ComptesPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
+import { VersementsDoublonsPage } from '@/features/finance/pages/VersementsDoublonsPage'
 import { InsolvablesPage } from '@/features/finance/pages/InsolvablesPage'
 import { DettesAnterieuresPage } from '@/features/finance/pages/DettesAnterieuresPage'
 import { EncaissementPage } from '@/features/finance/pages/EncaissementPage'
@@ -159,7 +161,9 @@ export const router = createHashRouter([
     path: '/',
     element: (
       <ProtectedRoute>
-        <AppLayout />
+        <DesktopClonageGate>
+          <AppLayout />
+        </DesktopClonageGate>
       </ProtectedRoute>
     ),
     children: [
@@ -245,6 +249,7 @@ export const router = createHashRouter([
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="ecoles.manage"><SessionPage /></ProtectedRoute> },
       { path: 'caisse', element: <ProtectedRoute permission="finance.view"><CaissePage /></ProtectedRoute> },
+      { path: 'caisse/doublons', element: <ProtectedRoute permission="finance.view"><VersementsDoublonsPage /></ProtectedRoute> },
       { path: 'caisse/insolvables', element: <ProtectedRoute permission="finance.view"><InsolvablesPage /></ProtectedRoute> },
       { path: 'caisse/dettes-anterieures', element: <ProtectedRoute permission="finance.view"><DettesAnterieuresPage /></ProtectedRoute> },
       { path: 'caisse/encaisser/:eleveId', element: <ProtectedRoute permission="finance.encaisser"><EncaissementPage /></ProtectedRoute> },

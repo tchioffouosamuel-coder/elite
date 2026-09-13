@@ -37,5 +37,7 @@ interface Window {
     /** Premier clonage complet — cf. `PremiereSynchronisationModal`. Brancher `onSyncProgress` AVANT d'appeler cette méthode. */
     runInitialSync: () => Promise<{ succes: boolean }>;
     onSyncProgress: (callback: (evenement: EvenementSyncProgress) => void) => () => void;
+    /** Bouton « Synchroniser maintenant » — process CLI séparé, sans limite de temps. `false` si une synchronisation était déjà en cours. */
+    syncNow: () => Promise<boolean>;
   };
 }

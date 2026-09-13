@@ -36,8 +36,8 @@ function SectionSynchronisation() {
   const synchroniserMaintenant = async () => {
     setSynchronisationEnCours(true)
     try {
-      await lancerSynchronisation()
-      succes('Synchronisation terminée.')
+      const lancee = await lancerSynchronisation()
+      succes(lancee ? 'Synchronisation terminée.' : 'Une synchronisation était déjà en cours.')
       queryClient.invalidateQueries({ queryKey: ['desktop-statut-sync'] })
     } catch (e) {
       erreur((e as ApiError).message)

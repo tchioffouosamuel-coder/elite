@@ -53,4 +53,14 @@ contextBridge.exposeInMainWorld("desktop", {
     ipcRenderer.on("desktop:sync-progress", listener);
     return () => ipcRenderer.removeListener("desktop:sync-progress", listener);
   },
+
+  /**
+   * Bouton « Synchroniser maintenant » (panneau de statut) : un process CLI
+   * séparé, sans limite de temps — jamais une requête HTTP vers le serveur
+   * PHP intégré, qui heurtait `max_execution_time` sur une synchronisation
+   * volumineuse (cf. `desktop:sync-now` dans main.cjs). Résout `true` si la
+   * synchronisation a bien été lancée (`false` si une autre était déjà en
+   * cours, cf. `syncEnCours`).
+   */
+  syncNow: () => ipcRenderer.invoke("desktop:sync-now"),
 });

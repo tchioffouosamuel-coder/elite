@@ -452,6 +452,20 @@ function lancerCloneInitial() {
 
 ipcMain.handle("desktop:run-initial-sync", () => lancerCloneInitial());
 
+/**
+ * Bouton « Synchroniser maintenant » du panneau de statut (renderer) : lance
+ * le même `synchroniserMaintenant()` que la boucle périodique, un process
+ * CLI séparé sans limite de temps — jamais l'ancienne route REST
+ * `/desktop/synchroniser`, qui exécutait `sync:pull`/`sync:push` en ligne
+ * dans la requête HTTP, à l'intérieur du même process que le serveur PHP
+ * intégré. Une synchronisation volumineuse (plusieurs milliers d'élèves sur
+ * plusieurs écoles) y heurtait la limite `max_execution_time` de ce process
+ * web — observé en conditions réelles : « Maximum execution time of 30
+ * seconds exceeded » — alors que le process CLI dédié, lui, tourne avec
+ * `max_execution_time=0` (cf. `resolvePhpArgsCommuns()`).
+ */
+ipcMain.handle("desktop:sync-now", () => synchroniserMaintenant());
+
 function creerMenuNatif() {
   const menu = Menu.buildFromTemplate([
     {
