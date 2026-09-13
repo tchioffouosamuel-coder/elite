@@ -16,7 +16,8 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 /**
  * Colonnes attendues (en-têtes insensibles à la casse) : trajet, nom,
- * lieu_dit, ordre, heure_passage.
+ * lieu_dit, lieu_ramassage, lieu_depot, ordre, heure_passage,
+ * tarif_aller_simple, tarif_retour_simple, tarif_aller_retour.
  *
  * ToCollection plutôt que ToModel : chaque ligne doit résoudre un trajet par
  * nom (les arrêts n'ont pas de `school_id` propre, cf. RegistreSync) et une
@@ -38,9 +39,7 @@ class BusArretImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wi
     /** @var array<int, int> trajet_id => dernier ordre attribué pendant cet import */
     private array $dernierOrdre = [];
 
-    public function __construct(private readonly int $schoolId)
-    {
-    }
+    public function __construct(private readonly int $schoolId) {}
 
     public function collection(Collection $rows): void
     {
@@ -63,8 +62,13 @@ class BusArretImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wi
                 'trajet_id' => $trajetId,
                 'nom' => $ligne['nom'],
                 'lieu_dit' => $ligne['lieu_dit'] ?? null,
+                'lieu_ramassage' => $ligne['lieu_ramassage'] ?? null,
+                'lieu_depot' => $ligne['lieu_depot'] ?? null,
                 'ordre' => $ordre,
                 'heure_passage' => self::heure($ligne['heure_passage'] ?? null),
+                'tarif_aller_simple' => self::entier($ligne['tarif_aller_simple'] ?? null),
+                'tarif_retour_simple' => self::entier($ligne['tarif_retour_simple'] ?? null),
+                'tarif_aller_retour' => self::entier($ligne['tarif_aller_retour'] ?? null),
             ]);
 
             $this->dernierOrdre[$trajetId] = $ordre;

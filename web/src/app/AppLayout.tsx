@@ -56,7 +56,6 @@ import {
   Gavel,
   UserCog,
   KeyRound,
-  TrendingUp,
   Landmark,
   Archive,
   CalendarX,
@@ -230,7 +229,6 @@ const navGroups = [
       { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
       { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['remarques', 'notes de vie scolaire', 'commentaires', 'messages'] },
       { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['acces parent', 'identifiants', 'mot de passe', 'login'] },
-      { to: '/statistiques-parent', label: 'nav.statsPortailParent', icon: TrendingUp, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['portail parent', 'connexions', 'usage'] },
     ],
   },
   {
@@ -416,6 +414,7 @@ const navGroups = [
       { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view', keywords: ['cycles', 'degres'] },
       { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true, keywords: ['roles', 'droits', 'access'] },
       { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true, keywords: ['utilisateurs', 'users', 'accounts', 'connexions'] },
+      { to: '/utilisation-plateforme', label: 'nav.utilisationPlateforme', icon: BarChart3, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['platform usage', 'parents', 'staff', 'accounts', 'dormant'] },
       { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage', keywords: ['annee scolaire', 'trimestres', 'periodes'] },
       { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage', keywords: ['settings', 'configuration', 'ecole'] },
       { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view', keywords: ['back to school report'] },
@@ -551,12 +550,12 @@ export function AppLayout() {
           )
           const items = requeteMenu
             ? itemsAutorises.filter(
-                (item) =>
-                  groupeCorrespond ||
-                  normaliserRecherche(t(item.label)).includes(requeteMenu) ||
-                  ('keywords' in item &&
-                    item.keywords?.some((motCle) => normaliserRecherche(motCle).includes(requeteMenu))),
-              )
+              (item) =>
+                groupeCorrespond ||
+                normaliserRecherche(t(item.label)).includes(requeteMenu) ||
+                ('keywords' in item &&
+                  item.keywords?.some((motCle) => normaliserRecherche(motCle).includes(requeteMenu))),
+            )
             : itemsAutorises
 
           // En mode agrégé (super admin, pas de `typeEcole`), le filtre `types`

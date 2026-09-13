@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
 use App\Models\BusAffectation;
+use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\Classe;
 use App\Models\EcritureComptable;
@@ -78,6 +79,33 @@ class BusPaiementTest extends TestCase
         }
 
         return $affectation->fresh('anneeScolaire');
+    }
+
+    public function test_le_tarif_de_l_arret_remplace_le_tarif_par_defaut_de_la_ligne(): void
+    {
+        $arret = BusArret::create([
+            'trajet_id' => $this->trajet->id,
+            'nom' => 'Marché central',
+            'lieu_ramassage' => 'Entrée nord',
+            'lieu_depot' => 'Portail école',
+            'ordre' => 1,
+            'tarif_aller_simple' => 6000,
+            'tarif_retour_simple' => 7000,
+            'tarif_aller_retour' => 12000,
+        ]);
+        $eleve = $this->eleve();
+
+        $affectation = app(BusService::class)->affecterEleve($this->school->id, [
+            'eleve_id' => $eleve->id,
+            'trajet_id' => $this->trajet->id,
+            'arret_id' => $arret->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'option_trajet' => 'aller_retour',
+        ]);
+
+        $this->assertSame(12000, $affectation->tarif_mensuel);
+        $this->assertSame('Entrée nord', $affectation->arret->lieu_ramassage);
+        $this->assertSame('Portail école', $affectation->arret->lieu_depot);
     }
 
     private function service(): BusPaiementService

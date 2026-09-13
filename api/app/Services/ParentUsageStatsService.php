@@ -33,6 +33,7 @@ class ParentUsageStatsService extends BaseService
 
         return [
             'periode' => ['jours' => $jours, 'debut' => $debut->toDateString(), 'fin' => $fin->toDateString()],
+            'comptes' => $this->comptes($schoolIds, $debut, $fin),
             'adoption' => $this->adoption($schoolIds, $debut, $fin),
             'activite' => $this->activite($schoolIds, $debut, $fin),
             'volumes' => [
@@ -40,7 +41,7 @@ class ParentUsageStatsService extends BaseService
                 'modifications' => $this->volumeAvecStatut(ModificationEleve::forSchool($schoolIds), $debut, $fin),
                 'justifications' => $this->volume(JustificationAbsence::forSchool($schoolIds), $debut, $fin),
                 'observations' => $this->volume(
-                    Observation::forSchool($schoolIds)->whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'parent'))),
+                    Observation::forSchool($schoolIds)->whereHas('user', fn($q) => $q->whereHas('roles', fn($r) => $r->where('name', 'parent'))),
                     $debut,
                     $fin,
                 ),
@@ -49,6 +50,59 @@ class ParentUsageStatsService extends BaseService
                 'delai_moyen_preinscriptions_heures' => $this->delaiMoyenHeures(Preinscription::forSchool($schoolIds), $debut, $fin),
                 'delai_moyen_modifications_heures' => $this->delaiMoyenHeures(ModificationEleve::forSchool($schoolIds), $debut, $fin),
             ],
+        ];
+    }
+
+    /**
+     * État des comptes du portail parent et des comptes du personnel : une
+     * ouverture est la création du compte, une activité est une connexion
+     * pendant la période sélectionnée, et un dormant est un compte actif sans
+     * connexion dans cette période.
+     */
+    private function comptes(array $schoolIds, Carbon $debut, Carbon $fin): array
+    {
+        $tuteursAvecCompte = Tuteur::forSchool($schoolIds)->whereNotNull('user_id')->pluck('user_id');
+        $parents = User::whereIn('id', $tuteursAvecCompte)->get(['id', 'is_active', 'created_at']);
+        $staff = User::where(
+            fn($q) => $q->whereIn('school_id', $schoolIds)
+                ->orWhereHas('schools', fn($s) => $s->whereIn('schools.id', $schoolIds))
+                ->orWhereHas('roles', fn($r) => $r->where('name', 'super_admin')),
+        )
+            ->whereDoesntHave('roles', fn($q) => $q->where('name', 'parent'))
+            ->get(['id', 'is_active', 'created_at']);
+
+        $ids = $parents->merge($staff)->pluck('id');
+        $dernieresConnexions = ActivityLog::whereIn('user_id', $ids)
+            ->where('action', 'connexion')
+            ->selectRaw('user_id, MAX(created_at) as derniere')
+            ->groupBy('user_id')
+            ->pluck('derniere', 'user_id');
+
+        return [
+            'parents' => $this->etatComptes($parents, $dernieresConnexions, $debut, $fin),
+            'personnel' => $this->etatComptes($staff, $dernieresConnexions, $debut, $fin),
+        ];
+    }
+
+    private function etatComptes($comptes, $dernieresConnexions, Carbon $debut, Carbon $fin): array
+    {
+        $total = $comptes->count();
+        $actifs = $comptes->where('is_active', true);
+        $actifsDansPeriode = $actifs->filter(fn(User $u) => ($derniere = $dernieresConnexions->get($u->id)) !== null
+            && Carbon::parse($derniere)->betweenIncluded($debut, $fin));
+        $jamaisConnectes = $actifs->filter(fn(User $u) => $dernieresConnexions->get($u->id) === null);
+        $dormants = $actifs->reject(fn(User $u) => $actifsDansPeriode->contains('id', $u->id));
+        $ouvertsDansPeriode = $comptes->filter(fn(User $u) => $u->created_at?->betweenIncluded($debut, $fin));
+
+        return [
+            'total' => $total,
+            'ouverts_dans_periode' => $ouvertsDansPeriode->count(),
+            'actifs' => $actifsDansPeriode->count(),
+            'dormants' => $dormants->count(),
+            'jamais_connectes' => $jamaisConnectes->count(),
+            'desactives' => $comptes->where('is_active', false)->count(),
+            'taux_actifs' => $total > 0 ? round($actifsDansPeriode->count() / $total * 100, 1) : 0.0,
+            'taux_dormants' => $total > 0 ? round($dormants->count() / $total * 100, 1) : 0.0,
         ];
     }
 
@@ -65,7 +119,8 @@ class ParentUsageStatsService extends BaseService
         // sur la relation donne le même filtre sans jamais planter :
         // simplement aucune ligne à trouver dans ce cas.
         $comptesParent = User::whereIn('school_id', $schoolIds)
-            ->whereHas('roles', fn (Builder $q) => $q->where('name', 'parent'));
+            ->whereHas('roles', fn(Builder $q) => $q->where('name', 'parent'));
+        /** @var Builder $comptesParent */
 
         return [
             'tuteurs_total' => $total,
@@ -79,7 +134,7 @@ class ParentUsageStatsService extends BaseService
     {
         $connexions = ActivityLog::forSchool($schoolIds)
             ->where('action', 'connexion')
-            ->whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'parent')))
+            ->whereHas('user', fn($q) => $q->whereHas('roles', fn($r) => $r->where('name', 'parent')))
             ->whereBetween('created_at', [$debut, $fin]);
 
         return [
@@ -137,7 +192,7 @@ class ParentUsageStatsService extends BaseService
             return null;
         }
 
-        $heures = $traitees->map(fn ($m) => abs($m->created_at->diffInMinutes($m->traite_le)) / 60);
+        $heures = $traitees->map(fn($m) => abs($m->created_at->diffInMinutes($m->traite_le)) / 60);
 
         return round($heures->avg(), 1);
     }

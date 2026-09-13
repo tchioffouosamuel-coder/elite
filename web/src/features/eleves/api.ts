@@ -504,6 +504,10 @@ export interface VolumeDemandesAvecStatut extends VolumeDemandes {
 
 export interface ParentUsageStats {
   periode: { jours: number; debut: string; fin: string };
+  comptes: {
+    parents: EtatComptes;
+    personnel: EtatComptes;
+  };
   adoption: {
     tuteurs_total: number;
     comptes_parent_total: number;
@@ -526,6 +530,17 @@ export interface ParentUsageStats {
     delai_moyen_preinscriptions_heures: number | null;
     delai_moyen_modifications_heures: number | null;
   };
+}
+
+export interface EtatComptes {
+  total: number;
+  ouverts_dans_periode: number;
+  actifs: number;
+  dormants: number;
+  jamais_connectes: number;
+  desactives: number;
+  taux_actifs: number;
+  taux_dormants: number;
 }
 
 export async function fetchParentUsageStats(

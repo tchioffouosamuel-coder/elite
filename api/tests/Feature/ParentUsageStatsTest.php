@@ -33,8 +33,11 @@ class ParentUsageStatsTest extends TestCase
     private function admin(): User
     {
         $admin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $admin->assignRole('super_admin');
 
@@ -44,8 +47,11 @@ class ParentUsageStatsTest extends TestCase
     private function parentUser(string $email): User
     {
         $user = User::create([
-            'name' => 'Parent', 'email' => $email, 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Parent',
+            'email' => $email,
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $user->assignRole('parent');
 
@@ -55,6 +61,13 @@ class ParentUsageStatsTest extends TestCase
     public function test_le_resume_reflete_adoption_activite_volumes_et_delai(): void
     {
         $admin = $this->admin();
+        User::create([
+            'name' => 'Staff dormant',
+            'email' => 'staff-dormant@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
+        ]);
 
         // Adoption : 2 tuteurs sur 3 ont un compte parent.
         $parent1 = $this->parentUser('p1@test.local');
@@ -71,8 +84,11 @@ class ParentUsageStatsTest extends TestCase
         ActivityLog::enregistrer($admin, 'connexion', 'Connexion.');
 
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'matricule' => '26SEC1', 'nom_complet' => 'Fomesso Mark',
-            'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'matricule' => '26SEC1',
+            'nom_complet' => 'Fomesso Mark',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
         $tuteurEleve = Tuteur::create(['school_id' => $this->school->id, 'nom_complet' => 'Tuteur D']);
 
@@ -81,20 +97,31 @@ class ParentUsageStatsTest extends TestCase
         // mass-assignables (hors `$fillable`) : `forceFill` les impose après
         // coup, sans quoi Eloquent y substituerait l'horodatage réel.
         Preinscription::create([
-            'school_id' => $this->school->id, 'tuteur_id' => $tuteurEleve->id, 'type' => 'nouveau',
-            'statut' => 'validee', 'donnees_eleve' => ['nom_complet' => 'X'], 'donnees_tuteurs' => [],
+            'school_id' => $this->school->id,
+            'tuteur_id' => $tuteurEleve->id,
+            'type' => 'nouveau',
+            'statut' => 'validee',
+            'donnees_eleve' => ['nom_complet' => 'X'],
+            'donnees_tuteurs' => [],
             'traite_le' => now()->subDays(2)->addHours(4),
         ])->forceFill(['created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)])->save();
 
         ModificationEleve::create([
-            'school_id' => $this->school->id, 'eleve_id' => $eleve->id, 'tuteur_id' => $tuteurEleve->id,
-            'donnees' => ['adresse' => 'Y'], 'statut' => 'en_attente',
+            'school_id' => $this->school->id,
+            'eleve_id' => $eleve->id,
+            'tuteur_id' => $tuteurEleve->id,
+            'donnees' => ['adresse' => 'Y'],
+            'statut' => 'en_attente',
         ]);
 
         JustificationAbsence::create([
-            'school_id' => $this->school->id, 'eleve_id' => $eleve->id, 'tuteur_id' => $tuteurEleve->id,
-            'date_debut' => now()->toDateString(), 'date_fin' => now()->toDateString(),
-            'motif' => 'maladie', 'statut' => 'en_attente',
+            'school_id' => $this->school->id,
+            'eleve_id' => $eleve->id,
+            'tuteur_id' => $tuteurEleve->id,
+            'date_debut' => now()->toDateString(),
+            'date_fin' => now()->toDateString(),
+            'motif' => 'maladie',
+            'statut' => 'en_attente',
         ]);
 
         $reponse = $this->actingAs($admin, 'sanctum')
@@ -102,6 +129,12 @@ class ParentUsageStatsTest extends TestCase
             ->getJson('/api/v1/parent-usage-stats?jours=30');
 
         $reponse->assertOk()
+            ->assertJsonPath('data.comptes.parents.total', 2)
+            ->assertJsonPath('data.comptes.parents.actifs', 2)
+            ->assertJsonPath('data.comptes.parents.taux_actifs', 100)
+            ->assertJsonPath('data.comptes.personnel.total', 3)
+            ->assertJsonPath('data.comptes.personnel.actifs', 1)
+            ->assertJsonPath('data.comptes.personnel.dormants', 2)
             ->assertJsonPath('data.adoption.tuteurs_total', 4)
             ->assertJsonPath('data.adoption.comptes_parent_total', 2)
             ->assertJsonPath('data.adoption.taux_adoption', 50)

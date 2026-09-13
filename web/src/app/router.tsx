@@ -292,6 +292,7 @@ export const router = createHashRouter([
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'comptes', element: <ProtectedRoute superAdminOnly><ComptesPage /></ProtectedRoute> },
+      { path: 'utilisation-plateforme', element: <ProtectedRoute permission="eleves.manage"><AdminParentStatsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="ecoles.manage"><SettingsPage /></ProtectedRoute> },
       { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },
       { path: 'rapport-trimestre', element: <ProtectedRoute permission="rapport_trimestre.view"><RapportTrimestrePage /></ProtectedRoute> },

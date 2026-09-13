@@ -13,8 +13,8 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
-import { Activity, Clock, KeyRound, LogIn, TrendingUp, Users2 } from 'lucide-react'
-import { fetchParentUsageStats, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
+import { Activity, Clock, KeyRound, LogIn, Moon, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
+import { fetchParentUsageStats, type ParentUsageStats, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -93,6 +93,20 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
   )
 }
 
+function BlocComptes({ titre, donnees }: { titre: string; donnees: ParentUsageStats['comptes']['parents'] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="font-display text-base font-bold text-navy-900">{titre}</h2>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Comptes ouverts" value={donnees.total} icon={KeyRound} accent="navy" hint={`${donnees.ouverts_dans_periode} sur la période`} />
+        <StatCard label="Actifs" value={`${donnees.taux_actifs} %`} icon={UserCheck} accent="green" hint={`${donnees.actifs} connecté(s) sur la période`} />
+        <StatCard label="Dormants" value={`${donnees.taux_dormants} %`} icon={Moon} accent="gold" hint={`${donnees.dormants} compte(s) actif(s) sans connexion`} />
+        <StatCard label="Jamais connectés" value={donnees.jamais_connectes} icon={UserPlus} accent="navy" hint={`${donnees.desactives} désactivé(s)`} />
+      </div>
+    </div>
+  )
+}
+
 /**
  * Suivi d'adoption et d'usage du portail parent : comptes ouverts,
  * connexions, volumes de démarches déposées et délai de traitement — pour
@@ -156,8 +170,8 @@ export function AdminParentStatsPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre="Statistiques du portail parent"
-        sousTitre={`Du ${new Date(data.periode.debut).toLocaleDateString('fr-FR')} au ${new Date(data.periode.fin).toLocaleDateString('fr-FR')}.`}
+        titre="Utilisation de la plateforme"
+        sousTitre={`Comptes parents et personnel — du ${new Date(data.periode.debut).toLocaleDateString('fr-FR')} au ${new Date(data.periode.fin).toLocaleDateString('fr-FR')}.`}
         icon={TrendingUp}
         actions={
           <Select value={jours} onChange={(e) => setJours(Number(e.target.value) as 7 | 30 | 90)} className="w-48">
@@ -169,6 +183,11 @@ export function AdminParentStatsPage() {
           </Select>
         }
       />
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <BlocComptes titre="Comptes parents" donnees={data.comptes.parents} />
+        <BlocComptes titre="Comptes du personnel" donnees={data.comptes.personnel} />
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard

@@ -108,7 +108,7 @@ class BusAffectationController extends Controller
             $message .= " {$import->versementsIgnores} déjà présent(s), ignoré(s).";
         }
         if (count($import->erreurs) > 0) {
-            $message .= ' '.count($import->erreurs).' ligne(s) en erreur.';
+            $message .= ' ' . count($import->erreurs) . ' ligne(s) en erreur.';
         }
 
         return ApiResponse::success([
@@ -184,6 +184,8 @@ class BusAffectationController extends Controller
                 'id' => $affectation->arret->id,
                 'nom' => $affectation->arret->nom,
                 'lieu_dit' => $affectation->arret->lieu_dit,
+                'lieu_ramassage' => $affectation->arret->lieu_ramassage,
+                'lieu_depot' => $affectation->arret->lieu_depot,
                 'heure_passage' => $affectation->arret->heure_passage,
             ] : null,
             'school' => $affectation->trajet->school ? [
