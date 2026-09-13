@@ -37,7 +37,7 @@ class BusTrajetController extends Controller
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
-            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', Tenant::schoolIds())],
+            'vehicule_id' => ['nullable', 'integer', 'exists:bus_vehicules,id'],
             'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
@@ -58,7 +58,7 @@ class BusTrajetController extends Controller
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
-            'vehicule_id' => ['nullable', 'integer', Rule::exists('bus_vehicules', 'id')->where('school_id', $trajet->school_id)],
+            'vehicule_id' => ['nullable', 'integer', 'exists:bus_vehicules,id'],
             'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
             'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],

@@ -504,7 +504,7 @@ export interface VolumeDemandesAvecStatut extends VolumeDemandes {
 
 export interface ParentUsageStats {
   periode: { jours: number; debut: string; fin: string };
-  comptes: {
+  comptes?: {
     parents: EtatComptes;
     personnel: EtatComptes;
   };

@@ -35,16 +35,15 @@ class BusVehiculeController extends Controller
     {
         $vehicules = $this->service->listerVehicules(Tenant::schoolIds());
 
-        return ApiResponse::success($vehicules->map(fn (BusVehicule $v) => $this->resumer($v))->values());
+        return ApiResponse::success($vehicules->map(fn(BusVehicule $v) => $this->resumer($v))->values());
     }
 
     public function store(Request $request): JsonResponse
     {
         $donnees = $this->valider($request);
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
         unset($donnees['school_id']);
 
-        $vehicule = $this->service->creerVehicule($schoolId, $donnees);
+        $vehicule = $this->service->creerVehicule($donnees);
 
         return ApiResponse::created($this->resumer($vehicule->load('school:id,name,code,type')), 'Véhicule ajouté.');
     }
@@ -52,7 +51,7 @@ class BusVehiculeController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $vehicule = $this->vehicule($id);
-        $donnees = $this->valider($request, $vehicule->id, $vehicule->school_id);
+        $donnees = $this->valider($request, $vehicule->id);
         unset($donnees['school_id']);
 
         $vehicule = $this->service->modifierVehicule($vehicule, $donnees);
@@ -77,7 +76,7 @@ class BusVehiculeController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="eleves-bus-'.$vehicule->immatriculation.'.pdf"',
+            'Content-Disposition' => 'inline; filename="eleves-bus-' . $vehicule->immatriculation . '.pdf"',
         ]);
     }
 
@@ -93,7 +92,7 @@ class BusVehiculeController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="bilan-bus-'.$vehicule->immatriculation.'.pdf"',
+            'Content-Disposition' => 'inline; filename="bilan-bus-' . $vehicule->immatriculation . '.pdf"',
         ]);
     }
 
@@ -123,7 +122,7 @@ class BusVehiculeController extends Controller
 
     private function vehicule(int $id): BusVehicule
     {
-        return BusVehicule::forSchool(Tenant::schoolIds())->with(['school', 'chauffeur'])->findOrFail($id);
+        return BusVehicule::with(['school', 'chauffeur'])->findOrFail($id);
     }
 
     /** @return array<string, mixed> */
@@ -132,18 +131,18 @@ class BusVehiculeController extends Controller
         // À la création, l'unicité de l'immatriculation se vérifie dans
         // l'école soumise (si le super admin en précise une en mode agrégé) ;
         // à la modification, dans celle — fixe — du véhicule.
-        $schoolId = $schoolIdConnu ?? ($request->integer('school_id') ?: app('tenant.school_id'));
-
         return $request->validate([
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'immatriculation' => [
-                'required', 'string', 'max:20',
-                Rule::unique('bus_vehicules', 'immatriculation')->where('school_id', $schoolId)->ignore($ignorerId),
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('bus_vehicules', 'immatriculation')->ignore($ignorerId),
             ],
             'marque' => ['nullable', 'string', 'max:100'],
             'couleur' => ['nullable', 'string', 'max:30'],
             'capacite' => ['nullable', 'integer', 'min:1', 'max:200'],
-            'chauffeur_id' => ['nullable', 'integer', $this->scopedExists('personnels')],
+            'chauffeur_id' => ['nullable', 'integer', Rule::exists('personnels', 'id')->whereIn('school_id', Tenant::schoolIds())],
             'statut' => ['nullable', 'in:actif,hors_service'],
         ]);
     }

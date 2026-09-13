@@ -66,7 +66,7 @@ class DepenseController extends Controller
                 'erreurs_metier' => $import->erreurs,
                 'comptes_non_rattaches' => $import->comptesNonRattaches,
             ],
-            $import->importedCount.' dépense(s) importée(s).',
+            $import->importedCount . ' dépense(s) importée(s).',
         );
     }
 
@@ -78,7 +78,7 @@ class DepenseController extends Controller
             'date_depense' => ['nullable', 'date'],
             'compte_comptable_id' => ['nullable', 'integer', 'exists:comptes_comptables,id'],
             'rubrique_budget_fonctionnement' => ['nullable', 'in:primes_rendement,projet_ecole,fenassco,fonctionnement,evaluation'],
-            'vehicule_id' => ['nullable', 'integer', $this->scopedExists('bus_vehicules')],
+            'vehicule_id' => ['nullable', 'integer', 'exists:bus_vehicules,id'],
             'budget_personnel_id' => ['required_if:source,budget_personnel', 'integer', $this->scopedExists('budgets_personnel')],
             'annee_scolaire_id' => ['nullable', 'integer'],
             'source' => ['nullable', 'in:caisse,revenu_personnel,budget_personnel'],

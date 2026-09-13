@@ -30,7 +30,6 @@ export interface BusVehiculePayload {
   capacite?: number | null;
   chauffeur_id?: number | null;
   statut?: BusVehicule["statut"];
-  school_id?: number | null;
 }
 
 export interface BusArret {

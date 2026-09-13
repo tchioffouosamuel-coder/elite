@@ -18,7 +18,8 @@ class BusVehiculeSpec implements SpecificationModele
     public function colonnes(): array
     {
         return [
-            'immatriculation' => 'immatriculation', 'plaque' => 'immatriculation',
+            'immatriculation' => 'immatriculation',
+            'plaque' => 'immatriculation',
             'marque' => 'marque',
             'couleur' => 'couleur',
             'capacite' => 'capacite',
@@ -30,8 +31,12 @@ class BusVehiculeSpec implements SpecificationModele
     public function libellesTemplate(): array
     {
         return [
-            'immatriculation' => 'Immatriculation', 'marque' => 'Marque', 'couleur' => 'Couleur',
-            'capacite' => 'Capacité', 'chauffeur' => 'Chauffeur', 'statut' => 'Statut',
+            'immatriculation' => 'Immatriculation',
+            'marque' => 'Marque',
+            'couleur' => 'Couleur',
+            'capacite' => 'Capacité',
+            'chauffeur' => 'Chauffeur',
+            'statut' => 'Statut',
         ];
     }
 
@@ -42,7 +47,7 @@ class BusVehiculeSpec implements SpecificationModele
 
     public function cleUnique(array $ligne, int $schoolId): array
     {
-        return ['school_id' => $schoolId, 'immatriculation' => $ligne['immatriculation']];
+        return ['immatriculation' => $ligne['immatriculation']];
     }
 
     public function transformer(array $ligne, int $schoolId): array
@@ -53,12 +58,12 @@ class BusVehiculeSpec implements SpecificationModele
             'capacite' => isset($ligne['capacite']) ? (int) $ligne['capacite'] : null,
             'chauffeur_id' => Resolveur::id(Personnel::class, $schoolId, $ligne['chauffeur'] ?? null, ['nom_complet']),
             'statut' => $ligne['statut'] ?? null,
-        ], fn ($v) => $v !== null);
+        ], fn($v) => $v !== null);
     }
 
     public function pourExport(int|array $schoolId): Builder
     {
-        return BusVehicule::forSchool($schoolId)->with('chauffeur:id,nom_complet')->orderBy('immatriculation');
+        return BusVehicule::with('chauffeur:id,nom_complet')->orderBy('immatriculation');
     }
 
     public function valeurExport(mixed $enregistrement, string $cle): mixed

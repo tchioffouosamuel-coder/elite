@@ -10,7 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BusVehicule extends Model
 {
     protected $fillable = [
-        'school_id', 'immatriculation', 'marque', 'couleur', 'capacite', 'chauffeur_id', 'statut',
+        'school_id',
+        'immatriculation',
+        'marque',
+        'couleur',
+        'capacite',
+        'chauffeur_id',
+        'statut',
     ];
 
     protected function casts(): array
@@ -20,7 +26,8 @@ class BusVehicule extends Model
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
+        // Les véhicules appartiennent à la flotte partagée, pas à une école.
+        return $query;
     }
 
     public function chauffeur(): BelongsTo

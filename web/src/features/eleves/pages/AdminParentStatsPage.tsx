@@ -14,7 +14,7 @@ import {
   Legend,
 } from 'chart.js'
 import { Activity, Clock, KeyRound, LogIn, Moon, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
-import { fetchParentUsageStats, type ParentUsageStats, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
+import { fetchParentUsageStats, type EtatComptes, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
@@ -44,6 +44,22 @@ const OPTIONS_JOURS = [
 
 function dateCourte(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
+
+const ETAT_COMPTE_VIDE: EtatComptes = {
+  total: 0,
+  ouverts_dans_periode: 0,
+  actifs: 0,
+  dormants: 0,
+  jamais_connectes: 0,
+  desactives: 0,
+  taux_actifs: 0,
+  taux_dormants: 0,
+}
+
+const ETATS_COMPTES_VIDES = {
+  parents: ETAT_COMPTE_VIDE,
+  personnel: ETAT_COMPTE_VIDE,
 }
 
 const OPTIONS_LIGNE = {
@@ -93,7 +109,7 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
   )
 }
 
-function BlocComptes({ titre, donnees }: { titre: string; donnees: ParentUsageStats['comptes']['parents'] }) {
+function BlocComptes({ titre, donnees }: { titre: string; donnees: EtatComptes }) {
   return (
     <div className="flex flex-col gap-3">
       <h2 className="font-display text-base font-bold text-navy-900">{titre}</h2>
@@ -128,6 +144,10 @@ export function AdminParentStatsPage() {
 
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />
+
+  // Le serveur peut momentanément être sur l'ancienne version de l'endpoint :
+  // les métriques parent existaient avant l'ajout du bloc comptes.
+  const comptes = data.comptes ?? ETATS_COMPTES_VIDES
 
   const labelsActivite = data.activite.serie_quotidienne.map((p) => dateCourte(p.date))
 
@@ -185,8 +205,8 @@ export function AdminParentStatsPage() {
       />
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <BlocComptes titre="Comptes parents" donnees={data.comptes.parents} />
-        <BlocComptes titre="Comptes du personnel" donnees={data.comptes.personnel} />
+        <BlocComptes titre="Comptes parents" donnees={comptes.parents} />
+        <BlocComptes titre="Comptes du personnel" donnees={comptes.personnel} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">

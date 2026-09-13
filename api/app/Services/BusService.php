@@ -42,9 +42,9 @@ class BusService extends BaseService
     }
 
     /** @param array<string, mixed> $donnees */
-    public function creerVehicule(int $schoolId, array $donnees): BusVehicule
+    public function creerVehicule(array $donnees): BusVehicule
     {
-        return BusVehicule::create([...$donnees, 'school_id' => $schoolId]);
+        return BusVehicule::create([...$donnees, 'school_id' => null]);
     }
 
     /** @param array<string, mixed> $donnees */
