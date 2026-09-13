@@ -43,7 +43,6 @@ import {
   PanelLeftOpen,
   HeartPulse,
   Bus,
-  Route as RouteIcon,
   MapPin,
   QrCode,
   ScanLine,
@@ -341,7 +340,6 @@ const navGroups = [
     label: 'nav.group.transport',
     items: [
       { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
-      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['itineraires', 'routes'] },
       { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['stops', 'points de ramassage'] },
       { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['eleves transport', 'affectation bus'] },
     ],
