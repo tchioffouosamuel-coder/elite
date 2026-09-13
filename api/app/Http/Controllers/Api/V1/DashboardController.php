@@ -56,12 +56,17 @@ class DashboardController extends Controller
 
     /**
      * Journal complet (paginé) derrière le « Voir plus » de la carte Activité
-     * récente — celle-ci ne montre qu'un aperçu des 6 dernières lignes.
+     * récente — celle-ci ne montre qu'un aperçu des 6 dernières lignes. Filtrable
+     * sur un agent précis (`personnel_id`) pour l'onglet Activité de sa fiche.
      */
     public function activiteRecente(Request $request): JsonResponse
     {
         return ApiResponse::paginated(
-            $this->service->activiteRecentePaginee(Tenant::schoolIds(), (int) $request->integer('per_page', 25)),
+            $this->service->activiteRecentePaginee(
+                Tenant::schoolIds(),
+                (int) $request->integer('per_page', 25),
+                $request->filled('personnel_id') ? $request->integer('personnel_id') : null,
+            ),
         );
     }
 }

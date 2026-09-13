@@ -36,25 +36,15 @@ export interface BusArret {
   id: number;
   nom: string;
   lieu_dit: string | null;
-  lieu_ramassage: string | null;
-  lieu_depot: string | null;
   ordre: number;
   heure_passage: string | null;
-  tarif_aller_simple: number | null;
-  tarif_retour_simple: number | null;
-  tarif_aller_retour: number | null;
 }
 
 export interface BusArretPayload {
   nom: string;
   lieu_dit?: string | null;
-  lieu_ramassage?: string | null;
-  lieu_depot?: string | null;
   ordre?: number | null;
   heure_passage?: string | null;
-  tarif_aller_simple?: number | null;
-  tarif_retour_simple?: number | null;
-  tarif_aller_retour?: number | null;
 }
 
 export type OptionTrajet = "aller_simple" | "retour_simple" | "aller_retour";
@@ -104,8 +94,6 @@ export interface BusTrajetDetail extends BusTrajet {
       id: number;
       nom: string;
       lieu_dit: string | null;
-      lieu_ramassage: string | null;
-      lieu_depot: string | null;
       heure_passage: string | null;
     } | null;
   }[];

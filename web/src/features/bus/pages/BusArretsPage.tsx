@@ -29,19 +29,6 @@ interface LigneArret extends BusArret {
   trajetNom: string
 }
 
-type ArretFormValues = {
-  trajet_id: number
-  nom: string
-  lieu_dit?: string | null
-  lieu_ramassage?: string | null
-  lieu_depot?: string | null
-  ordre?: number | string | null
-  heure_passage?: string | null
-  tarif_aller_simple?: number | string | null
-  tarif_retour_simple?: number | string | null
-  tarif_aller_retour?: number | string | null
-}
-
 export function BusArretsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
@@ -85,28 +72,6 @@ export function BusArretsPage() {
       entete: t('bus.lieu_dit'),
       valeur: (l) => l.lieu_dit,
       cellule: (l) => <span className="text-navy-600">{l.lieu_dit || '—'}</span>,
-    },
-    {
-      cle: 'lieu_ramassage',
-      entete: t('bus.lieu_ramassage'),
-      valeur: (l) => l.lieu_ramassage,
-      cellule: (l) => <span className="text-navy-600">{l.lieu_ramassage || '—'}</span>,
-    },
-    {
-      cle: 'lieu_depot',
-      entete: t('bus.lieu_depot'),
-      valeur: (l) => l.lieu_depot,
-      cellule: (l) => <span className="text-navy-600">{l.lieu_depot || '—'}</span>,
-    },
-    {
-      cle: 'tarifs',
-      entete: t('bus.tarifs'),
-      valeur: (l) => `${l.tarif_aller_simple ?? ''} ${l.tarif_retour_simple ?? ''} ${l.tarif_aller_retour ?? ''}`,
-      cellule: (l) => (
-        <span className="text-xs tabular-nums text-navy-600">
-          {l.tarif_aller_simple ?? '—'} / {l.tarif_retour_simple ?? '—'} / {l.tarif_aller_retour ?? '—'}
-        </span>
-      ),
     },
     {
       cle: 'ordre',
@@ -226,7 +191,7 @@ export function BusArretsPage() {
         <ImportModal
           title={t('import.title')}
           url="/bus/arrets/import"
-          columns={['trajet', 'nom', 'lieu_dit', 'lieu_ramassage', 'lieu_depot', 'ordre', 'heure_passage', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour']}
+          columns={['trajet', 'nom', 'lieu_dit', 'ordre', 'heure_passage']}
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />
@@ -253,36 +218,26 @@ function ArretFormModal({
     register,
     handleSubmit,
     formState: { isSubmitting, errors },
-  } = useForm<ArretFormValues>({
+  } = useForm<BusArretPayload & { trajet_id: number }>({
     defaultValues: arret
       ? {
         trajet_id: arret.trajetId,
         nom: arret.nom,
         lieu_dit: arret.lieu_dit ?? '',
-        lieu_ramassage: arret.lieu_ramassage ?? '',
-        lieu_depot: arret.lieu_depot ?? '',
         ordre: arret.ordre,
         heure_passage: arret.heure_passage ?? '',
-        tarif_aller_simple: arret.tarif_aller_simple ?? '',
-        tarif_retour_simple: arret.tarif_retour_simple ?? '',
-        tarif_aller_retour: arret.tarif_aller_retour ?? '',
       }
       : { trajet_id: trajets[0]?.id, ordre: 1 },
   })
 
-  const onSubmit = async (values: ArretFormValues) => {
+  const onSubmit = async (values: BusArretPayload & { trajet_id: number }) => {
     setServerError(null)
     const trajetId = Number(values.trajet_id)
     const payload: BusArretPayload = {
       nom: values.nom,
       lieu_dit: values.lieu_dit || null,
-      lieu_ramassage: values.lieu_ramassage || null,
-      lieu_depot: values.lieu_depot || null,
       ordre: values.ordre ? Number(values.ordre) : null,
       heure_passage: values.heure_passage || null,
-      tarif_aller_simple: values.tarif_aller_simple === '' ? null : Number(values.tarif_aller_simple),
-      tarif_retour_simple: values.tarif_retour_simple === '' ? null : Number(values.tarif_retour_simple),
-      tarif_aller_retour: values.tarif_aller_retour === '' ? null : Number(values.tarif_aller_retour),
     }
 
     try {
@@ -323,16 +278,8 @@ function ArretFormModal({
           {...register('nom', { required: t('bus.field_required') as string })}
         />
         <Input label={t('bus.lieu_dit')} {...register('lieu_dit')} />
-        <Input label={t('bus.lieu_ramassage')} {...register('lieu_ramassage')} />
-        <Input label={t('bus.lieu_depot')} {...register('lieu_depot')} />
         <Input label={t('bus.ordre')} type="number" min={1} {...register('ordre')} />
         <Input label={t('bus.heure_passage')} type="time" {...register('heure_passage')} />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Input label={t('bus.tarif_aller_simple')} type="number" min={0} {...register('tarif_aller_simple')} />
-          <Input label={t('bus.tarif_retour_simple')} type="number" min={0} {...register('tarif_retour_simple')} />
-          <Input label={t('bus.tarif_aller_retour')} type="number" min={0} {...register('tarif_aller_retour')} />
-        </div>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

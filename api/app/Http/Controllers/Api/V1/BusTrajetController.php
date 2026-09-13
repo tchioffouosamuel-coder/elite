@@ -150,13 +150,8 @@ class BusTrajetController extends Controller
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
             'lieu_dit' => ['nullable', 'string', 'max:150'],
-            'lieu_ramassage' => ['nullable', 'string', 'max:150'],
-            'lieu_depot' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
-            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
-            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
-            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $arret = $this->service->ajouterArret($trajet, $donnees);
@@ -171,13 +166,8 @@ class BusTrajetController extends Controller
         $donnees = $request->validate([
             'nom' => ['required', 'string', 'max:150'],
             'lieu_dit' => ['nullable', 'string', 'max:150'],
-            'lieu_ramassage' => ['nullable', 'string', 'max:150'],
-            'lieu_depot' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
-            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
-            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
-            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $arret = $this->service->modifierArret($arret, $donnees);
@@ -237,8 +227,6 @@ class BusTrajetController extends Controller
                     'id' => $a->arret->id,
                     'nom' => $a->arret->nom,
                     'lieu_dit' => $a->arret->lieu_dit,
-                    'lieu_ramassage' => $a->arret->lieu_ramassage,
-                    'lieu_depot' => $a->arret->lieu_depot,
                     'heure_passage' => $a->arret->heure_passage,
                 ] : null,
             ])->values(),
@@ -252,13 +240,8 @@ class BusTrajetController extends Controller
             'id' => $arret->id,
             'nom' => $arret->nom,
             'lieu_dit' => $arret->lieu_dit,
-            'lieu_ramassage' => $arret->lieu_ramassage,
-            'lieu_depot' => $arret->lieu_depot,
             'ordre' => $arret->ordre,
             'heure_passage' => $arret->heure_passage,
-            'tarif_aller_simple' => $arret->tarif_aller_simple,
-            'tarif_retour_simple' => $arret->tarif_retour_simple,
-            'tarif_aller_retour' => $arret->tarif_aller_retour,
         ];
     }
 

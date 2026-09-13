@@ -917,8 +917,6 @@
     "hors_service": "Hors service",
     "nom": "Nom",
     "lieu_dit": "Lieu-dit",
-    "lieu_ramassage": "Lieu de ramassage",
-    "lieu_depot": "Lieu de dépôt",
     "description": "Description",
     "vehicule": "Véhicule",
     "no_vehicule": "Aucun véhicule assigné",
@@ -961,10 +959,6 @@
     "affectation_updated": "Affectation mise à jour.",
     "all_trajets": "Tous les trajets",
     "tarifs_title": "Tarifs",
-    "tarifs": "Aller / Retour / Aller-retour",
-    "tarif_aller_simple": "Aller simple",
-    "tarif_retour_simple": "Retour simple",
-    "tarif_aller_retour": "Aller-retour",
     "souscrire": "Souscrire au bus",
     "paiements": "Paiements",
     "souscrire_lot": "Souscrire au bus",
@@ -1657,7 +1651,8 @@
       "remuneration": "Rémunération",
       "avances": "Avances",
       "budget": "Budget",
-      "parcours": "Parcours"
+      "parcours": "Parcours",
+      "activite": "Activité"
     },
     "groupe": {
       "dossier": "Dossier",
@@ -1729,6 +1724,8 @@
       "pere": "Père",
       "mere": "Mère",
       "remuneration_vide": "Aucune rémunération enregistrée pour cet agent.",
+      "activite_sans_compte": "{{nom}} n'a pas de compte de connexion : aucune action n'est enregistrée.",
+      "activite_vide": "Aucune action enregistrée pour cet agent.",
       "effet_au": "Effet au {{date}}",
       "mode_mensuel": "Mensuel",
       "mode_horaire": "Horaire",

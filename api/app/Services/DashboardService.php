@@ -266,15 +266,24 @@ class DashboardService extends BaseService
 
     /**
      * Journal complet, paginé — derrière le « Voir plus » de la carte
-     * Activité récente qui n'en affiche qu'un aperçu.
+     * Activité récente qui n'en affiche qu'un aperçu, et derrière l'onglet
+     * Activité d'une fiche personnel quand `$personnelId` est fourni.
      *
      * @param  int|array<int>  $schoolId
      */
-    public function activiteRecentePaginee(int|array $schoolId, int $perPage = 25): LengthAwarePaginator
+    public function activiteRecentePaginee(int|array $schoolId, int $perPage = 25, ?int $personnelId = null): LengthAwarePaginator
     {
-        return ActivityLog::forSchool($schoolId)
-            ->latest('created_at')
-            ->paginate(max(1, min($perPage, 100)))
+        $requete = ActivityLog::forSchool($schoolId)->latest('created_at');
+
+        if ($personnelId !== null) {
+            // Un agent sans compte de connexion n'a jamais pu produire de ligne
+            // de journal : userId reste `null` et la pagination retombe sur une
+            // page vide plutôt que de planter ou de montrer tout le monde.
+            $userId = Personnel::whereIn('school_id', (array) $schoolId)->whereKey($personnelId)->value('user_id');
+            $requete->where('user_id', $userId);
+        }
+
+        return $requete->paginate(max(1, min($perPage, 100)))
             ->through(fn(ActivityLog $log) => $this->formaterLogActivite($log));
     }
 }

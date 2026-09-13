@@ -703,7 +703,7 @@ class RegistreSync
             ],
             'bus_arrets' => [
                 'modele' => BusArret::class,
-                'colonnes' => ['id', 'trajet_id', 'nom', 'lieu_dit', 'lieu_ramassage', 'lieu_depot', 'ordre', 'heure_passage', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour'],
+                'colonnes' => ['id', 'trajet_id', 'nom', 'lieu_dit', 'ordre', 'heure_passage'],
                 'portee' => fn(Builder $q, int $s) => $q->whereHas('trajet', fn($t) => $t->where('school_id', $s)),
                 'permission' => 'bus.view',
             ],

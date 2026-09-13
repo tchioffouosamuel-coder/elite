@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Line, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -13,7 +13,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js'
-import { Activity, Clock, KeyRound, LogIn, Moon, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
+import { Activity, AlertTriangle, Clock, KeyRound, LogIn, Moon, RefreshCw, TrendingUp, UserCheck, UserPlus, Users2 } from 'lucide-react'
 import { fetchParentUsageStats, type EtatComptes, type VolumeDemandesAvecStatut } from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
@@ -44,22 +44,6 @@ const OPTIONS_JOURS = [
 
 function dateCourte(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-}
-
-const ETAT_COMPTE_VIDE: EtatComptes = {
-  total: 0,
-  ouverts_dans_periode: 0,
-  actifs: 0,
-  dormants: 0,
-  jamais_connectes: 0,
-  desactives: 0,
-  taux_actifs: 0,
-  taux_dormants: 0,
-}
-
-const ETATS_COMPTES_VIDES = {
-  parents: ETAT_COMPTE_VIDE,
-  personnel: ETAT_COMPTE_VIDE,
 }
 
 const OPTIONS_LIGNE = {
@@ -137,17 +121,24 @@ export function AdminParentStatsPage() {
   const navigate = useNavigate()
   const [jours, setJours] = useState<7 | 30 | 90>(7)
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['parent-usage-stats', jours],
     queryFn: () => fetchParentUsageStats(jours),
+    // Garde l'affichage précédent pendant le rechargement (changement de
+    // période, refocus de l'onglet) au lieu de tout remplacer par un
+    // spinner plein écran — c'est ce remplacement brutal et répété qui
+    // donnait l'impression d'une page saccadée.
+    placeholderData: keepPreviousData,
   })
 
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />
 
   // Le serveur peut momentanément être sur l'ancienne version de l'endpoint :
-  // les métriques parent existaient avant l'ajout du bloc comptes.
-  const comptes = data.comptes ?? ETATS_COMPTES_VIDES
+  // les métriques parent existaient avant l'ajout du bloc comptes. On ne
+  // remplace alors pas silencieusement par des zéros (qui se lisent comme
+  // une vraie donnée) : le bloc affiche un avertissement explicite à la place.
+  const comptes = data.comptes
 
   const labelsActivite = data.activite.serie_quotidienne.map((p) => dateCourte(p.date))
 
@@ -194,20 +185,45 @@ export function AdminParentStatsPage() {
         sousTitre={`Comptes parents et personnel — du ${new Date(data.periode.debut).toLocaleDateString('fr-FR')} au ${new Date(data.periode.fin).toLocaleDateString('fr-FR')}.`}
         icon={TrendingUp}
         actions={
-          <Select value={jours} onChange={(e) => setJours(Number(e.target.value) as 7 | 30 | 90)} className="w-48">
-            {OPTIONS_JOURS.map((o) => (
-              <option key={o.valeur} value={o.valeur}>
-                {o.libelle}
-              </option>
-            ))}
-          </Select>
+          <div className="flex items-center gap-2">
+            {isFetching && <RefreshCw className="h-4 w-4 animate-spin text-navy-300" aria-label="Actualisation…" />}
+            <Select value={jours} onChange={(e) => setJours(Number(e.target.value) as 7 | 30 | 90)} className="w-48">
+              {OPTIONS_JOURS.map((o) => (
+                <option key={o.valeur} value={o.valeur}>
+                  {o.libelle}
+                </option>
+              ))}
+            </Select>
+          </div>
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <BlocComptes titre="Comptes parents" donnees={comptes.parents} />
-        <BlocComptes titre="Comptes du personnel" donnees={comptes.personnel} />
-      </div>
+      {comptes ? (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <BlocComptes titre="Comptes parents" donnees={comptes.parents} />
+          <BlocComptes titre="Comptes du personnel" donnees={comptes.personnel} />
+        </div>
+      ) : (
+        <Card className="flex items-start gap-3 border-gold-200 bg-gold-50/60">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-gold-600" />
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="font-semibold text-navy-800">État des comptes indisponible.</p>
+            <p className="text-navy-500">
+              Le serveur interrogé ne renvoie pas encore ce bloc (version d&apos;API différente de celle attendue). Les
+              indicateurs ci-dessous restent fiables ; réessayez ou actualisez une fois le serveur à jour plutôt que de
+              vous fier à des comptes affichés à zéro.
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-navy-600 hover:text-navy-800"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Réessayer
+            </button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard

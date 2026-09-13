@@ -890,8 +890,6 @@
     "hors_service": "Out of service",
     "nom": "Name",
     "lieu_dit": "Locality",
-    "lieu_ramassage": "Pickup place",
-    "lieu_depot": "Drop-off place",
     "description": "Description",
     "vehicule": "Vehicle",
     "no_vehicule": "No vehicle assigned",
@@ -934,10 +932,6 @@
     "affectation_updated": "Assignment updated.",
     "all_trajets": "All routes",
     "tarifs_title": "Fares",
-    "tarifs": "One way / Return / Round trip",
-    "tarif_aller_simple": "One-way fare",
-    "tarif_retour_simple": "Return fare",
-    "tarif_aller_retour": "Round-trip fare",
     "souscrire": "Subscribe to bus",
     "paiements": "Payments",
     "souscrire_lot": "Subscribe to bus",
@@ -1657,7 +1651,8 @@
       "remuneration": "Pay",
       "avances": "Advances",
       "budget": "Budget",
-      "parcours": "Track record"
+      "parcours": "Track record",
+      "activite": "Activity"
     },
     "groupe": {
       "dossier": "Record",
@@ -1729,6 +1724,8 @@
       "pere": "Father",
       "mere": "Mother",
       "remuneration_vide": "No pay recorded for this staff member.",
+      "activite_sans_compte": "{{nom}} has no login account: no action is recorded.",
+      "activite_vide": "No action recorded for this staff member.",
       "effet_au": "Effective {{date}}",
       "mode_mensuel": "Monthly",
       "mode_horaire": "Hourly",

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +18,8 @@ import {
   MapPin,
   Landmark,
 } from 'lucide-react'
+import { fetchActiviteRecente, type ActiviteLog } from '@/features/dashboard/api'
+import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
 import {
   fetchPersonnel,
   archivePersonnel,
@@ -104,6 +106,7 @@ export function PersonnelDetailPage() {
     can('finance.paie') && { key: 'remuneration', label: t('hub.tab.remuneration') },
     can('finance.paie') && { key: 'avances', label: t('hub.tab.avances') },
     can('finance.budget') && { key: 'budget', label: t('hub.tab.budget') },
+    can('personnel.manage') && { key: 'activite', label: t('hub.tab.activite') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   const ongletDemande = searchParams.get('onglet')
@@ -379,6 +382,8 @@ export function PersonnelDetailPage() {
         <BudgetTab personnelId={personnel.id} onAllouer={() => setBudgetOuvert(true)} />
       )}
 
+      {onglet === 'activite' && <ActiviteTab personnel={personnel} />}
+
       {compteOuvert && (
         <CreateAccountModal
           personnelId={personnel.id}
@@ -456,6 +461,72 @@ function RemunerationPourPersonnel({
       onClose={onClose}
       onEnregistre={onEnregistre}
     />
+  )
+}
+
+/**
+ * Journal des actions effectuées par cet agent (connexions, créations,
+ * modifications…) — la même trace que le journal d'activité global de
+ * l'établissement, mais filtrée sur ce seul compte, pour suivre un agent en
+ * particulier sans avoir à le retrouver au milieu de toute l'école.
+ */
+function ActiviteTab({ personnel }: { personnel: Personnel }) {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const [lignes, setLignes] = useState<ActiviteLog[]>([])
+  const [dernierePage, setDernierePage] = useState<number | null>(null)
+
+  const { data, isFetching, isError } = useQuery({
+    queryKey: ['personnel-activite', personnel.id, page],
+    queryFn: () => fetchActiviteRecente(page, 25, personnel.id),
+    enabled: personnel.a_un_compte,
+  })
+
+  // Chaque page chargée s'ajoute aux précédentes — même principe que le
+  // journal d'activité global (cf. JournalActivitePage).
+  useEffect(() => {
+    if (!data) return
+    setLignes((l) => (page === 1 ? data.items : [...l, ...data.items]))
+    setDernierePage(data.pagination.last_page)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
+
+  if (!personnel.a_un_compte) {
+    return <EmptyState label={t('hub.personnel.activite_sans_compte', { nom: personnel.nom_complet })} />
+  }
+
+  const encoreDesPages = dernierePage !== null && page < dernierePage
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-1">
+        {lignes.length === 0 && isFetching ? (
+          <Spinner />
+        ) : isError ? (
+          <ErrorState />
+        ) : lignes.length === 0 ? (
+          <EmptyState label={t('hub.personnel.activite_vide')} />
+        ) : (
+          <ul className="flex flex-col divide-y divide-navy-50">
+            {lignes.map((a, i) => (
+              <LigneActivite key={i} a={a} />
+            ))}
+          </ul>
+        )}
+
+        {lignes.length > 0 && (
+          <div className="mt-3 flex justify-center">
+            {encoreDesPages ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isFetching}>
+                {isFetching ? t('common.loading') : t('dashboard.load_more')}
+              </Button>
+            ) : (
+              <p className="text-xs text-navy-400">{t('dashboard.no_more_activity')}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
   )
 }
 

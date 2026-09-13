@@ -100,14 +100,19 @@ export async function fetchPilotage(): Promise<Pilotage> {
   return data.data;
 }
 
-/** Journal complet, paginé — derrière le « Voir plus » de la carte Activité récente. */
+/**
+ * Journal complet, paginé — derrière le « Voir plus » de la carte Activité
+ * récente, ou filtré sur un agent précis (`personnelId`) pour l'onglet
+ * Activité de sa fiche.
+ */
 export async function fetchActiviteRecente(
   page: number,
   perPage = 25,
+  personnelId?: number,
 ): Promise<{ items: ActiviteLog[]; pagination: Pagination }> {
   const { data } = await http.get<ApiResponse<ActiviteLog[]>>(
     "/dashboard/activite",
-    { params: { page, per_page: perPage } },
+    { params: { page, per_page: perPage, personnel_id: personnelId } },
   );
   return { items: data.data, pagination: data.meta!.pagination! };
 }
