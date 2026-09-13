@@ -19,48 +19,59 @@
 !include "WinMessages.nsh"
 !include "nsDialogs.nsh"
 
-Var EliteDialog
-Var EliteLabelPhp
-Var EliteTexteCheminPhp
-Var EliteBoutonParcourir
-Var EliteCheminPhpChoisi
+; Tout ce bloc (page + ses fonctions) n'a de sens que pour l'INSTALLATION —
+; ce même fichier est aussi inclus tel quel lors de la compilation du
+; DÉSINSTALLEUR (`sharedHeader` est partagé entre les deux dans
+; NsisTarget.js), qui ne déclenche jamais `customPageAfterChangeDir` : sans
+; ce garde, `ElitePagePhpCreation` s'y retrouvait définie mais jamais
+; appelée, et makensis traite un avertissement « fonction non référencée »
+; comme une erreur fatale — un échec de build reproduit trois fois de
+; suite avant que la vraie cause (pas un problème de macro non définie,
+; cette fois) ne soit isolée en compilant le script réel en local.
+!ifndef BUILD_UNINSTALLER
+  Var EliteDialog
+  Var EliteLabelPhp
+  Var EliteTexteCheminPhp
+  Var EliteBoutonParcourir
+  Var EliteCheminPhpChoisi
 
-!macro customPageAfterChangeDir
-  Page custom ElitePagePhpCreation ElitePagePhpValidation
-!macroend
+  !macro customPageAfterChangeDir
+    Page custom ElitePagePhpCreation ElitePagePhpValidation
+  !macroend
 
-Function ElitePagePhpCreation
-  nsDialogs::Create 1018
-  Pop $EliteDialog
+  Function ElitePagePhpCreation
+    nsDialogs::Create 1018
+    Pop $EliteDialog
 
-  ${If} $EliteDialog == error
-    Abort
-  ${EndIf}
+    ${If} $EliteDialog == error
+      Abort
+    ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 60u "Elites School installe son propre PHP. Si un antivirus venait à le supprimer, l'application ne pourrait plus démarrer.$\r$\n$\r$\nSi ce poste a déjà un PHP installé (ex. Laragon, XAMPP, WampServer) et que vous savez où se trouve son fichier php.exe, indiquez-le ci-dessous : Elites School l'utilisera automatiquement en secours.$\r$\n$\r$\nLaissez ce champ vide si vous ne savez pas de quoi il s'agit — tout fonctionnera normalement."
-  Pop $EliteLabelPhp
+    ${NSD_CreateLabel} 0 0 100% 60u "Elites School installe son propre PHP. Si un antivirus venait à le supprimer, l'application ne pourrait plus démarrer.$\r$\n$\r$\nSi ce poste a déjà un PHP installé (ex. Laragon, XAMPP, WampServer) et que vous savez où se trouve son fichier php.exe, indiquez-le ci-dessous : Elites School l'utilisera automatiquement en secours.$\r$\n$\r$\nLaissez ce champ vide si vous ne savez pas de quoi il s'agit — tout fonctionnera normalement."
+    Pop $EliteLabelPhp
 
-  ${NSD_CreateText} 0 65u 76% 12u ""
-  Pop $EliteTexteCheminPhp
+    ${NSD_CreateText} 0 65u 76% 12u ""
+    Pop $EliteTexteCheminPhp
 
-  ${NSD_CreateButton} 79% 65u 21% 12u "Parcourir..."
-  Pop $EliteBoutonParcourir
-  ${NSD_OnClick} $EliteBoutonParcourir ElitePhpParcourirClic
+    ${NSD_CreateButton} 79% 65u 21% 12u "Parcourir..."
+    Pop $EliteBoutonParcourir
+    ${NSD_OnClick} $EliteBoutonParcourir ElitePhpParcourirClic
 
-  nsDialogs::Show
-FunctionEnd
+    nsDialogs::Show
+  FunctionEnd
 
-Function ElitePhpParcourirClic
-  nsDialogs::SelectFileDialog open "" "PHP (php.exe)|php.exe|Tous les fichiers|*.*"
-  Pop $0
-  ${If} $0 != error
-    ${NSD_SetText} $EliteTexteCheminPhp "$0"
-  ${EndIf}
-FunctionEnd
+  Function ElitePhpParcourirClic
+    nsDialogs::SelectFileDialog open "" "PHP (php.exe)|php.exe|Tous les fichiers|*.*"
+    Pop $0
+    ${If} $0 != error
+      ${NSD_SetText} $EliteTexteCheminPhp "$0"
+    ${EndIf}
+  FunctionEnd
 
-Function ElitePagePhpValidation
-  ${NSD_GetText} $EliteTexteCheminPhp $EliteCheminPhpChoisi
-FunctionEnd
+  Function ElitePagePhpValidation
+    ${NSD_GetText} $EliteTexteCheminPhp $EliteCheminPhpChoisi
+  FunctionEnd
+!endif
 
 ; Écrit la variable d'environnement UTILISATEUR (l'installation elle-même
 ; est `perMachine: false`, cf. package.json) une fois les fichiers copiés —
