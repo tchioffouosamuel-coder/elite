@@ -25,7 +25,6 @@ import type { ApiError } from '@/shared/types/api'
 interface EtatNavigation {
   eleveIds: number[]
   eleveNoms: string[]
-  schoolId?: number
   /** Modification d'une souscription existante plutôt qu'une nouvelle. */
   affectationId?: number
   affectationActuelle?: { trajet_id: number; arret_id: number | null; option_trajet: OptionTrajet }
@@ -83,9 +82,10 @@ export function BusSouscriptionPage() {
 
   const trajetId = watch('trajet_id')
   const optionChoisie = watch('option_trajet')
-  const trajetsDisponibles = etat?.schoolId
-    ? trajets?.filter((trajet) => trajet.school?.id === etat.schoolId)
-    : trajets
+  // Un trajet dessert souvent plusieurs écoles du même complexe sur le même
+  // circuit : le restreindre à l'école de l'élève masquait des trajets
+  // pourtant valides (cf. BusTrajet::scopeForSchool côté API).
+  const trajetsDisponibles = trajets
 
   const { data: trajetDetail } = useQuery({
     queryKey: ['bus-trajet', trajetId],
