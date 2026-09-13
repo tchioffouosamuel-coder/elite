@@ -193,6 +193,32 @@ function assurerLienStorage(apiDir) {
   fs.symlinkSync(cible, lien, "junction");
 }
 
+/**
+ * `execFileSync` échoue avec un message générique (« Command failed: ... »,
+ * sans plus) dès que le process a produit un stdout/stderr vide au moment du
+ * crash — c'est-à-dire précisément le cas où php.exe plante avant même
+ * d'écrire quoi que ce soit (mauvaise architecture, DLL manquante, binaire
+ * incompatible avec un `extension_dir` qui n'est pas le sien...). Sans ce
+ * détour, la boîte d'erreur affichée à l'utilisateur ne contient jamais la
+ * vraie cause — observé en conditions réelles : un poste où
+ * `ELITES_PHP_BINARY` pointait vers un PHP système n'affichait que
+ * « Command failed: C:\php\php.exe artisan migrate --force », sans le
+ * moindre indice sur pourquoi.
+ */
+function detailErreurCommande(erreur) {
+  const morceaux = [erreur.message];
+
+  const stdout = erreur.stdout?.toString("utf8").trim();
+  const stderr = erreur.stderr?.toString("utf8").trim();
+
+  if (stderr) morceaux.push(`stderr : ${stderr}`);
+  if (stdout) morceaux.push(`stdout : ${stdout}`);
+  if (typeof erreur.status === "number") morceaux.push(`code de sortie : ${erreur.status}`);
+  if (!stdout && !stderr) morceaux.push("(aucune sortie du programme — il a probablement échoué à démarrer)");
+
+  return morceaux.join("\n");
+}
+
 let phpProcess = null;
 
 function demarrerServeurPhp() {
@@ -652,7 +678,7 @@ app.whenReady().then(async () => {
         "Cause fréquente : un antivirus qui analyse encore les fichiers de l'application " +
         "lors de sa toute première exécution. Fermez cette fenêtre et relancez Elites School — " +
         "les lancements suivants sont nettement plus rapides.\n\n" +
-        `Détail technique : ${erreur.message}`,
+        `Détail technique : ${detailErreurCommande(erreur)}`,
     );
   }
 
