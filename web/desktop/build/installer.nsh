@@ -8,7 +8,16 @@
 ; Champ laissé vide par défaut : le comportement normal (PHP embarqué) ne
 ; change pas pour qui ne remplit rien.
 
+; Explicite plutôt que suposé disponible depuis le script englobant : `!include`
+; a déjà, deux fois de suite (v1.2.12 : `MUI_HEADER_TEXT` de MUI2.nsh absent,
+; v1.2.13 : `${If}` de LogicLib.nsh absent), révélé que ce fichier est traité
+; par `makensis` dans un contexte plus restreint que le script final assemblé —
+; seul `nsDialogs.nsh` s'est avéré déjà chargé (nécessaire à `MUI_PAGE_DIRECTORY`
+; juste avant). Tous les en-têtes ont leurs propres gardes anti-double-inclusion
+; (`!ifndef`), les réinclure ici est donc sans risque même s'ils le sont déjà.
+!include "LogicLib.nsh"
 !include "WinMessages.nsh"
+!include "nsDialogs.nsh"
 
 Var EliteDialog
 Var EliteLabelPhp
