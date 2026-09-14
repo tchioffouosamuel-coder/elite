@@ -101,14 +101,28 @@ class SyncPush extends Command
 
                 $resultats = collect($reponse['resultats'] ?? []);
                 $reussiesCePassage = 0;
+                $methodesParId = $lot->keyBy('id')->map(fn ($op) => $op->methode);
 
                 foreach ($resultats as $resultat) {
+                    $statut = $resultat['statut'] ?? 500;
+
                     // Chaque opération réussit ou échoue indépendamment côté
                     // serveur (cf. SyncController::rejouer()) : une opération
                     // refusée reste dans l'outbox — elle sera signalée à
                     // l'utilisateur plutôt que silencieusement perdue — les
                     // autres avancent normalement.
-                    if (($resultat['statut'] ?? 500) < 300) {
+                    //
+                    // Exception : un DELETE qui reçoit un 404 a déjà atteint
+                    // l'état voulu (la ligne n'existe plus, côté serveur comme
+                    // côté client) — la ligne a pu être supprimée par ailleurs
+                    // avant que cette écriture hors-ligne ne soit poussée. La
+                    // traiter comme un échec la ferait retenter indéfiniment,
+                    // sans jamais pouvoir un jour réussir — observé en
+                    // conditions réelles : une même poignée d'opérations
+                    // retentée à chaque cycle, `tentatives` grimpant sans fin.
+                    $idempotente = $statut === 404 && ($methodesParId[$resultat['id']] ?? null) === 'DELETE';
+
+                    if ($statut < 300 || $idempotente) {
                         SyncOutbox::whereKey($resultat['id'])->update(['pushed_at' => now()]);
                         $reussiesCePassage++;
                     } else {

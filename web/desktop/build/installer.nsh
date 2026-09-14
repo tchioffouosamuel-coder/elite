@@ -101,4 +101,15 @@
     ${If} $0 == 0
       Delete "$INSTDIR\resources\api\vendor.zip"
     ${EndIf}
+
+  ; Copie le PHP embarqué (8.4, déjà accompagné de son php.ini/ext/cacert.pem
+  ; corrects) vers `C:\php`, en secours indépendant de `$INSTDIR` — utile
+  ; pour un diagnostic manuel (support, ou l'éditeur lui-même) sans avoir à
+  ; reconstituer les arguments `-c`/`-d extension_dir`/`-d curl.cainfo` que
+  ; `resolvePhpArgsCommuns()` applique normalement au lancement de l'app.
+  ; Jamais si `C:\php` existe déjà : ce poste a sa propre installation PHP
+  ; (Laragon, XAMPP...) qu'il ne faut surtout pas écraser.
+  ${IfNot} ${FileExists} "C:\php"
+    ExecWait 'powershell -NoProfile -Command "Copy-Item -Path \"$INSTDIR\resources\php\" -Destination \"C:\php\" -Recurse -Force"'
+  ${EndIf}
 !macroend

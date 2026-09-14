@@ -664,6 +664,58 @@ class DesktopSyncTest extends TestCase
     }
 
     /**
+     * Non-régression : un `DELETE` hors-ligne visant une ligne déjà
+     * supprimée par ailleurs (autre poste, action serveur) reçoit un 404 du
+     * serveur distant. Le traiter comme un échec la retenterait à chaque
+     * cycle de sync sans jamais pouvoir réussir — observé en conditions
+     * réelles (`tentatives` grimpant indéfiniment). L'état voulu — la ligne
+     * n'existe plus — étant déjà atteint, l'opération doit être considérée
+     * réussie et sortir de l'outbox.
+     */
+    public function test_sync_push_traite_un_delete_404_comme_reussi(): void
+    {
+        $this->provisionnerSansHttp();
+
+        SyncOutbox::create(['id' => (string) \Illuminate\Support\Str::uuid(), 'methode' => 'DELETE', 'chemin' => 'eleves/8322', 'corps' => []]);
+        $enAttente = SyncOutbox::query()->enAttente()->first();
+
+        Http::fake(['*/api/v1/sync*' => Http::response([
+            'success' => true,
+            'data' => ['resultats' => [['id' => $enAttente->id, 'statut' => 404, 'reponse' => []]]],
+        ], 200)]);
+
+        Artisan::call('sync:push');
+
+        $frais = $enAttente->fresh();
+        $this->assertNotNull($frais->pushed_at);
+    }
+
+    /**
+     * L'idempotence du 404 est propre au `DELETE` : un `POST`/`PUT` refusé à
+     * 404 (route mal formée, ressource parente introuvable) est une vraie
+     * erreur, pas un état déjà atteint — il doit rester en échec comme tout
+     * autre statut ≥ 300.
+     */
+    public function test_sync_push_garde_un_post_404_en_echec(): void
+    {
+        $this->provisionnerSansHttp();
+
+        SyncOutbox::create(['id' => (string) \Illuminate\Support\Str::uuid(), 'methode' => 'POST', 'chemin' => 'annonces', 'corps' => []]);
+        $enAttente = SyncOutbox::query()->enAttente()->first();
+
+        Http::fake(['*/api/v1/sync*' => Http::response([
+            'success' => true,
+            'data' => ['resultats' => [['id' => $enAttente->id, 'statut' => 404, 'reponse' => []]]],
+        ], 200)]);
+
+        Artisan::call('sync:push');
+
+        $frais = $enAttente->fresh();
+        $this->assertNull($frais->pushed_at);
+        $this->assertSame(1, $frais->tentatives);
+    }
+
+    /**
      * Bout en bout côté serveur distant (receveur du push) : une opération
      * dont le corps porte un marqueur `__sync_fichier__` (photo prise
      * offline sur le desktop, encodée par `EnregistrerDansOutboxLocale`)
