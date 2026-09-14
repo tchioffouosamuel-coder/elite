@@ -57,7 +57,6 @@ import {
   Gavel,
   UserCog,
   KeyRound,
-  Landmark,
   Archive,
   CalendarX,
   MessageSquare,
