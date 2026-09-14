@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\TroncCommunGroupeController;
 use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
+use App\Http\Controllers\Api\V1\BanqueController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
@@ -259,6 +260,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('fonctions-referentiel/export', [FonctionReferentielController::class, 'export'])->name('fonctions-referentiel.export');
                 Route::get('fonctions-referentiel/modele', [FonctionReferentielController::class, 'modele'])->name('fonctions-referentiel.modele');
                 Route::get('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'show'])->name('fonctions-referentiel.show');
+                Route::get('banques', [BanqueController::class, 'index'])->name('banques.index');
+                Route::get('banques/export', [BanqueController::class, 'export'])->name('banques.export');
+                Route::get('banques/modele', [BanqueController::class, 'modele'])->name('banques.modele');
+                Route::get('banques/{id}', [BanqueController::class, 'show'])->name('banques.show');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/modele', [PersonnelController::class, 'modele'])->name('personnels.modele');
@@ -286,6 +291,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update');
                 Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy');
                 Route::post('fonctions-referentiel/batch-delete', [FonctionReferentielController::class, 'batchDelete'])->name('fonctions-referentiel.batch-delete');
+
+                Route::post('banques', [BanqueController::class, 'store'])->name('banques.store');
+                Route::post('banques/import', [BanqueController::class, 'import'])->name('banques.import');
+                Route::put('banques/{id}', [BanqueController::class, 'update'])->name('banques.update');
+                Route::delete('banques/{id}', [BanqueController::class, 'destroy'])->name('banques.destroy');
+                Route::post('banques/batch-delete', [BanqueController::class, 'batchDelete'])->name('banques.batch-delete');
 
                 Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store');
                 Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update');

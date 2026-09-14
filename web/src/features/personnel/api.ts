@@ -48,6 +48,7 @@ export interface DossierPersonnel {
   numero_cni: string | null;
   numero_cnps: string | null;
   /** Coordonnées bancaires — pour le virement du salaire, cf. bordereau de virement. */
+  banque_id: number | null;
   banque: string | null;
   numero_compte: string | null;
   /**
@@ -287,11 +288,64 @@ export async function batchDeleteFonctionsReferentiel(
   return data.data;
 }
 
+export interface Banque {
+  id: number;
+  school_id: number;
+  school?: School | null;
+  nom: string;
+  code: string | null;
+  personnels_count?: number;
+}
+
+export async function fetchBanques(): Promise<Banque[]> {
+  const { data } = await http.get<ApiResponse<Banque[]>>("/banques");
+  return data.data;
+}
+
+export async function fetchBanque(id: number): Promise<Banque> {
+  const { data } = await http.get<ApiResponse<Banque>>(`/banques/${id}`);
+  return data.data;
+}
+
+export async function createBanque(payload: {
+  nom: string;
+  code?: string | null;
+  school_id?: number | null;
+}): Promise<Banque> {
+  const { data } = await http.post<ApiResponse<Banque>>("/banques", payload);
+  return data.data;
+}
+
+export async function updateBanque(
+  id: number,
+  payload: { nom: string; code?: string | null },
+): Promise<Banque> {
+  const { data } = await http.put<ApiResponse<Banque>>(
+    `/banques/${id}`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function deleteBanque(id: number): Promise<void> {
+  await http.delete(`/banques/${id}`);
+}
+
+export async function batchDeleteBanques(
+  ids: number[],
+): Promise<{ deleted: number; ignorees: string[] }> {
+  const { data } = await http.post<
+    ApiResponse<{ deleted: number; ignorees: string[] }>
+  >("/banques/batch-delete", { ids });
+  return data.data;
+}
+
 export async function fetchPersonnels(params?: {
   search?: string;
   departement_id?: number;
   fonction_id?: number;
   fonction_label?: string;
+  banque_id?: number;
   /**
    * Ne retenir que les agents éligibles à cette responsabilité : un
    * enseignant peut être désigné surveillant général d'une classe, un économe

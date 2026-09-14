@@ -43,7 +43,7 @@ class PersonnelController extends Controller
     {
         $paginator = $this->service->list(
             Tenant::schoolIds(),
-            $request->only(['search', 'departement_id', 'fonction_id', 'fonction_label', 'statut', 'attribution']),
+            $request->only(['search', 'departement_id', 'fonction_id', 'fonction_label', 'banque_id', 'statut', 'attribution']),
             (int) $request->integer('per_page', 20),
         );
 

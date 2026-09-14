@@ -30,7 +30,7 @@ trait ReglesDossierPersonnel
             'telephone' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'numero_permis' => ['nullable', 'string', 'max:50'],
-            'banque' => ['nullable', 'string', 'max:150'],
+            'banque_id' => ['nullable', $this->scopedExists('banques')],
             'numero_compte' => ['nullable', 'string', 'max:100'],
             'methode_validation_seance' => ['nullable', 'in:qr,code,libre'],
             'situation_matrimoniale' => ['nullable', 'in:celibataire,marie,divorce,veuf'],

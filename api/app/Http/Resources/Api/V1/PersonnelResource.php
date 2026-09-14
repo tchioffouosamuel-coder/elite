@@ -32,6 +32,7 @@ class PersonnelResource extends JsonResource
             'date_naissance' => $this->date_naissance?->format('Y-m-d'),
             'numero_cni' => $this->numero_cni,
             'numero_cnps' => $this->numero_cnps,
+            'banque_id' => $this->banque_id,
             'banque' => $this->banque,
             'numero_compte' => $this->numero_compte,
             'methode_validation_seance' => $this->methode_validation_seance,

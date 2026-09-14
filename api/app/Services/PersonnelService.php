@@ -32,7 +32,7 @@ class PersonnelService extends BaseService
     /** @param int|array<int> $schoolId */
     public function find(int|array $schoolId, int $id): Personnel
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference', 'school:id,name,code,type'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->with(['departement', 'user', 'fonctionReference', 'banqueReference', 'school:id,name,code,type'])->findOrFail($id);
     }
 
     /**

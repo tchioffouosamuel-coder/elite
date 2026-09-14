@@ -32,6 +32,7 @@ import {
   GitMerge,
   CalendarCheck,
   BriefcaseBusiness,
+  Landmark,
   ChevronDown,
   Search,
   Repeat,
@@ -147,6 +148,7 @@ const navGroups = [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
       { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
       { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
+      { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'personnel.manage', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
       {
         to: '/departements',
         label: 'nav.departements',

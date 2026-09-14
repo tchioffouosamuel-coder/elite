@@ -16,7 +16,7 @@ class Personnel extends Model
         'fonction_id',
         'affectation',
         'matricule',
-        'banque',
+        'banque_id',
         'numero_compte',
         'methode_validation_seance',
         'nom_complet',
@@ -111,6 +111,21 @@ class Personnel extends Model
     public function getFonctionAttribute(): ?string
     {
         return $this->fonctionReference?->label();
+    }
+
+    public function banqueReference(): BelongsTo
+    {
+        return $this->belongsTo(Banque::class, 'banque_id');
+    }
+
+    /**
+     * Nom de la banque. La colonne texte a cede la place au referentiel,
+     * mais tout ce qui lisait `->banque` — bordereau de virement, fiche de
+     * personnel, exports — continue de fonctionner sans changement.
+     */
+    public function getBanqueAttribute(): ?string
+    {
+        return $this->banqueReference?->nom;
     }
 
     public function user(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Models\Banque;
 use App\Models\Classe;
 use App\Models\Departement;
 use App\Models\FonctionReferentiel;
@@ -364,7 +365,7 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             'motif_absence' => $ligne['motif_absence'],
             'dossier_disciplinaire' => $ligne['dossier_disciplinaire'],
             'date_deces' => $ligne['date_deces'],
-            'banque' => $ligne['banque'],
+            'banque_id' => $this->banqueId($ligne),
             'numero_compte' => $ligne['numero_compte'],
             'pere_nom_complet' => $ligne['pere_nom_complet'],
             'pere_statut' => $ligne['pere_statut'],
@@ -414,6 +415,30 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
         return ($fonction ?: FonctionReferentiel::create([
             'school_id' => $this->schoolId,
             'label_fr' => $libelle,
+        ]))->id;
+    }
+
+    /**
+     * Même logique que {@see fonctionId()} : une banque inconnue est ajoutée
+     * au référentiel plutôt que de faire échouer la ligne.
+     *
+     * @param  array<string, mixed>  $ligne
+     */
+    private function banqueId(array $ligne): ?int
+    {
+        $libelle = $ligne['banque'];
+
+        if ($libelle === null) {
+            return null;
+        }
+
+        $banque = Banque::forSchool($this->schoolId)
+            ->whereRaw('LOWER(nom) = ?', [Str::lower($libelle)])
+            ->first();
+
+        return ($banque ?: Banque::create([
+            'school_id' => $this->schoolId,
+            'nom' => $libelle,
         ]))->id;
     }
 

@@ -11,6 +11,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { succes, erreur } from '@/shared/lib/alertes'
 import {
+  fetchBanques,
   fetchDepartements,
   fetchFonctionsReferentiel,
   fetchPersonnel,
@@ -42,7 +43,7 @@ type Champ = keyof PersonnelPayload
 
 const ETAPES: { id: string; label: string; description: string; champs: Champ[] }[] = [
   { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
-  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub', 'banque', 'numero_compte', 'methode_validation_seance'] },
+  { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub', 'banque_id', 'numero_compte', 'methode_validation_seance'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
   { id: 'famille', label: 'Famille', description: 'Parents et enfants', champs: ['pere_nom_complet', 'pere_statut', 'pere_telephone', 'mere_nom_complet', 'mere_statut', 'mere_telephone'] },
   { id: 'recap', label: 'Récapitulatif', description: 'Vérification', champs: [] },
@@ -159,6 +160,10 @@ export function PersonnelFormPage() {
     queryFn: fetchFonctionsReferentiel,
   })
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
+  const { data: banques } = useQuery({
+    queryKey: ['banques', activeSchoolId],
+    queryFn: fetchBanques,
+  })
 
   const [etape, setEtape] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -182,6 +187,7 @@ export function PersonnelFormPage() {
   // filtrer plutôt que de mélanger les référentiels de plusieurs écoles.
   const fonctionsFiltrees = ecoleChoisie ? fonctions?.filter((f) => f.school_id === Number(ecoleChoisie)) : fonctions
   const departementsFiltres = ecoleChoisie ? departements?.filter((d) => d.school_id === Number(ecoleChoisie)) : departements
+  const banquesFiltrees = ecoleChoisie ? banques?.filter((b) => b.school_id === Number(ecoleChoisie)) : banques
   const typeEcoleFormulaire = ecoleChoisie
     ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
     : personnel?.school?.type
@@ -203,6 +209,7 @@ export function PersonnelFormPage() {
 
     setValue('fonction_id', '' as never)
     setValue('departement_id', '' as never)
+    setValue('banque_id', '' as never)
   }, [ecoleChoisie, setValue])
 
   // La fiche à modifier arrive après le premier rendu : le formulaire est
@@ -237,7 +244,7 @@ export function PersonnelFormPage() {
       statut_contrat: personnel.statut_contrat ?? undefined,
       categorie_echelon: personnel.categorie_echelon ?? '',
       grade_minedub: personnel.grade_minedub ?? '',
-      banque: personnel.banque ?? '',
+      banque_id: personnel.banque_id ?? undefined,
       numero_compte: personnel.numero_compte ?? '',
       methode_validation_seance: personnel.methode_validation_seance ?? 'qr',
       pere_nom_complet: personnel.pere_nom_complet ?? '',
@@ -257,6 +264,7 @@ export function PersonnelFormPage() {
         ...values,
         fonction_id: Number(values.fonction_id),
         departement_id: values.departement_id ? Number(values.departement_id) : null,
+        banque_id: values.banque_id ? Number(values.banque_id) : null,
         school_id: values.school_id ? Number(values.school_id) : null,
         nombre_enfants: values.nombre_enfants === undefined || values.nombre_enfants === null
           ? null
@@ -288,6 +296,7 @@ export function PersonnelFormPage() {
   const valeurs = watch()
   const enfantsSaisis = (valeurs.enfants ?? []).filter((enfant) => !estVide(enfant))
   const fonctionLabel = fonctions?.find((f) => f.id === Number(valeurs.fonction_id))?.label
+  const banqueLabel = banques?.find((b) => b.id === Number(valeurs.banque_id))?.nom
   const ecoleLabel = schools?.find((s) => s.id === Number(valeurs.school_id))?.name ?? personnel?.school?.name
   const handleNext = async (): Promise<boolean> => {
     if (ETAPES[etape]?.id === 'famille') {
@@ -333,7 +342,7 @@ export function PersonnelFormPage() {
     ['Statut', valeurs.statut_contrat],
     ['Catégorie / échelon', valeurs.categorie_echelon],
     ['Grade MINEDUB', valeurs.grade_minedub],
-    ['Banque', valeurs.banque],
+    ['Banque', banqueLabel],
     ['N° de compte', valeurs.numero_compte],
     ['Validation des séances', METHODES_VALIDATION_SEANCE.find(([cle]) => cle === valeurs.methode_validation_seance)?.[1]],
   ]
@@ -506,7 +515,14 @@ export function PersonnelFormPage() {
                 <Input label="Grade MINEDUB" placeholder="CAPIEMP, Licence, IEG…" {...register('grade_minedub')} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input label="Banque" placeholder="Afriland First Bank…" {...register('banque')} />
+                <Select label="Banque" {...register('banque_id')}>
+                  <option value="">—</option>
+                  {banquesFiltrees?.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nom}
+                    </option>
+                  ))}
+                </Select>
                 <Input label="N° de compte" {...register('numero_compte')} />
               </div>
               <Select label="Validation des séances (« Ma journée »)" {...register('methode_validation_seance')}>

@@ -19,6 +19,8 @@ import { DepartementDetailPage } from '@/features/personnel/pages/DepartementDet
 import { AssignMatieresDepartementPage } from '@/features/personnel/pages/AssignMatieresDepartementPage'
 import { FonctionsReferentielPage } from '@/features/personnel/pages/FonctionsReferentielPage'
 import { FonctionReferentielDetailPage } from '@/features/personnel/pages/FonctionReferentielDetailPage'
+import { BanquesPage } from '@/features/personnel/pages/BanquesPage'
+import { BanqueDetailPage } from '@/features/personnel/pages/BanqueDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
 import { ConseilClassePage } from '@/features/conseilClasse/pages/ConseilClassePage'
@@ -178,6 +180,8 @@ export const router = createHashRouter([
       { path: 'personnel/:id', element: <ProtectedRoute permission="personnel.view"><PersonnelDetailPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },
+      { path: 'banques', element: <ProtectedRoute superAdminOnly><BanquesPage /></ProtectedRoute> },
+      { path: 'banques/:id', element: <ProtectedRoute superAdminOnly><BanqueDetailPage /></ProtectedRoute> },
       { path: 'departements', element: <ProtectedRoute permission="personnel.view"><DepartementsPage /></ProtectedRoute> },
       { path: 'departements/:id', element: <ProtectedRoute permission="personnel.view"><DepartementDetailPage /></ProtectedRoute> },
       { path: 'departements-matieres', element: <ProtectedRoute permission="pedagogie.manage"><AssignMatieresDepartementPage /></ProtectedRoute> },
