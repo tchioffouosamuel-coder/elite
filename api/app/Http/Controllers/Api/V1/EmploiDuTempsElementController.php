@@ -29,7 +29,7 @@ class EmploiDuTempsElementController extends Controller
         $data = $this->valider($request, $schoolId);
         $classes = Classe::where('school_id', $schoolId)->whereIn('id', $data['classe_ids'])->get();
 
-        $element = DB::transaction(function () use ($data, $schoolId, $classes) {
+        [$element, $resultat] = DB::transaction(function () use ($data, $schoolId, $classes) {
             $element = EmploiDuTempsElement::create([
                 'school_id' => $schoolId,
                 'type' => $data['type'],
@@ -39,12 +39,17 @@ class EmploiDuTempsElementController extends Controller
                 'jours' => $data['jours'],
             ]);
             $element->classes()->sync($classes->pluck('id'));
-            $this->appliquerElement($element, $classes);
+            $resultat = $this->appliquerElement($element, $classes);
 
-            return $element->load('classes:id,nom,school_id');
+            return [$element->load('classes:id,nom,school_id'), $resultat];
         });
 
-        return ApiResponse::created($this->presenter($element), 'Élément ajouté aux emplois du temps.');
+        $message = 'Élément ajouté aux emplois du temps.';
+        if ($resultat['ignores'] !== []) {
+            $message .= ' '.count($resultat['ignores']).' créneau(x) non généré(s) car en conflit avec un cours existant — voir le détail.';
+        }
+
+        return ApiResponse::created([...$this->presenter($element), 'ignores' => $resultat['ignores']], $message);
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -53,7 +58,7 @@ class EmploiDuTempsElementController extends Controller
         $data = $this->valider($request, $element->school_id);
         $classes = Classe::where('school_id', $element->school_id)->whereIn('id', $data['classe_ids'])->get();
 
-        DB::transaction(function () use ($element, $data, $classes) {
+        $resultat = DB::transaction(function () use ($element, $data, $classes) {
             $element->update([
                 'type' => $data['type'],
                 'nom' => $data['nom'],
@@ -63,10 +68,16 @@ class EmploiDuTempsElementController extends Controller
             ]);
             $element->classes()->sync($classes->pluck('id'));
             EmploiDuTemps::where('emploi_du_temps_element_id', $element->id)->delete();
-            $this->appliquerElement($element->fresh(), $classes);
+
+            return $this->appliquerElement($element->fresh(), $classes);
         });
 
-        return ApiResponse::success($this->presenter($element->fresh('classes')), 'Élément mis à jour.');
+        $message = 'Élément mis à jour.';
+        if ($resultat['ignores'] !== []) {
+            $message .= ' '.count($resultat['ignores']).' créneau(x) non généré(s) car en conflit avec un cours existant — voir le détail.';
+        }
+
+        return ApiResponse::success([...$this->presenter($element->fresh('classes')), 'ignores' => $resultat['ignores']], $message);
     }
 
     public function destroy(int $id): JsonResponse
@@ -80,9 +91,14 @@ class EmploiDuTempsElementController extends Controller
     public function apply(int $id): JsonResponse
     {
         $element = EmploiDuTempsElement::forSchool(Tenant::schoolIds())->with('classes')->findOrFail($id);
-        $count = $this->appliquerElement($element, $element->classes);
+        $resultat = $this->appliquerElement($element, $element->classes);
 
-        return ApiResponse::success(['creees' => $count], "{$count} créneau(x) généré(s).");
+        $message = "{$resultat['creees']} créneau(x) généré(s).";
+        if ($resultat['ignores'] !== []) {
+            $message .= ' '.count($resultat['ignores']).' ignoré(s) car en conflit avec un créneau existant.';
+        }
+
+        return ApiResponse::success($resultat, $message);
     }
 
     /** @return array{type:string,nom:string,heure_debut:string,heure_fin:string,jours:list<int>,classe_ids:list<int>} */
@@ -108,21 +124,59 @@ class EmploiDuTempsElementController extends Controller
         return $data;
     }
 
-    private function appliquerElement(EmploiDuTempsElement $element, iterable $classes): int
+    private const LIBELLES_JOURS = [1 => 'Lundi', 2 => 'Mardi', 3 => 'Mercredi', 4 => 'Jeudi', 5 => 'Vendredi', 6 => 'Samedi', 7 => 'Dimanche'];
+
+    /**
+     * Matérialise l'élément en créneaux par classe et par jour.
+     *
+     * Un créneau n'est PAS généré quand il chevaucherait un cours déjà en
+     * place ce jour-là pour cette classe — on ne veut pas qu'une pause
+     * écrase silencieusement un cours existant. Ce chevauchement est
+     * cependant propre à chaque (classe, jour) : rien n'empêche qu'il ne se
+     * produise que le mercredi pour une classe, tout en laissant les autres
+     * jours parfaitement générés — d'où le retour du détail des créneaux
+     * ignorés, sans quoi l'absence d'une pause un jour précis semblait
+     * inexplicable alors que l'élément est bien défini pour tous les jours.
+     *
+     * @return array{creees: int, ignores: list<array{classe: string, jour: int, jour_libelle: string, conflit: string}>}
+     */
+    private function appliquerElement(EmploiDuTempsElement $element, iterable $classes): array
     {
-        $crees = 0;
+        $creees = 0;
+        $ignores = [];
+
         foreach ($classes as $classe) {
             foreach ($element->jours as $jour) {
                 $existe = EmploiDuTemps::where('emploi_du_temps_element_id', $element->id)
                     ->where('classe_id', $classe->id)->where('jour', $jour)->exists();
                 if ($existe) continue;
 
-                $chevauche = EmploiDuTemps::where('classe_id', $classe->id)
+                $conflit = EmploiDuTemps::where('classe_id', $classe->id)
                     ->where('jour', $jour)
                     ->where('heure_debut', '<', $element->heure_fin)
                     ->where('heure_fin', '>', $element->heure_debut)
-                    ->exists();
-                if ($chevauche) continue;
+                    ->with('classeMatiere.matiere')
+                    ->first();
+
+                if ($conflit) {
+                    // Un cours ne porte pas de `libelle` (cf. EmploiDuTempsController::valider) :
+                    // son nom vient de la matière rattachée. Seuls pause/activité en portent un.
+                    $nomConflit = $conflit->libelle ?: $conflit->classeMatiere?->matiere?->nom ?: 'un créneau';
+
+                    $ignores[] = [
+                        'classe' => $classe->nom,
+                        'jour' => $jour,
+                        'jour_libelle' => self::LIBELLES_JOURS[$jour] ?? (string) $jour,
+                        'conflit' => sprintf(
+                            '%s (%s–%s)',
+                            $nomConflit,
+                            substr((string) $conflit->heure_debut, 0, 5),
+                            substr((string) $conflit->heure_fin, 0, 5),
+                        ),
+                    ];
+
+                    continue;
+                }
 
                 EmploiDuTemps::create([
                     'school_id' => $classe->school_id,
@@ -135,11 +189,11 @@ class EmploiDuTempsElementController extends Controller
                     'heure_debut' => $element->heure_debut,
                     'heure_fin' => $element->heure_fin,
                 ]);
-                $crees++;
+                $creees++;
             }
         }
 
-        return $crees;
+        return ['creees' => $creees, 'ignores' => $ignores];
     }
 
     private function presenter(EmploiDuTempsElement $element): array

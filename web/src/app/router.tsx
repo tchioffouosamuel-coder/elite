@@ -2,6 +2,7 @@ import { createHashRouter } from 'react-router-dom'
 import { AppLayout } from '@/app/AppLayout'
 import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { DesktopClonageGate } from '@/features/desktop/DesktopClonageGate'
+import { IdleLockGate } from '@/features/auth/IdleLockGate'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ChangerMotDePassePage } from '@/features/auth/pages/ChangerMotDePassePage'
 import { MotDePasseOubliePage } from '@/features/auth/pages/MotDePasseOubliePage'
@@ -163,9 +164,11 @@ export const router = createHashRouter([
     path: '/',
     element: (
       <ProtectedRoute>
-        <DesktopClonageGate>
-          <AppLayout />
-        </DesktopClonageGate>
+        <IdleLockGate>
+          <DesktopClonageGate>
+            <AppLayout />
+          </DesktopClonageGate>
+        </IdleLockGate>
       </ProtectedRoute>
     ),
     children: [

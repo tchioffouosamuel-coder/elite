@@ -9,9 +9,10 @@ import {
     fetchEmploiDuTempsElements,
     updateEmploiDuTempsElement,
     JOURS,
+    type CreneauIgnore,
     type EmploiDuTempsElement,
 } from '@/features/emploiDuTemps/api'
-import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select } from '@/shared/ui/Field'
@@ -32,6 +33,7 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
     const queryClient = useQueryClient()
     const [form, setForm] = useState<Formulaire>(FORMULAIRE_VIDE)
     const [edition, setEdition] = useState<EmploiDuTempsElement | null>(null)
+    const [conflits, setConflits] = useState<CreneauIgnore[]>([])
     const { data: elements = [], isLoading } = useQuery({ queryKey: ['emploi-du-temps-elements'], queryFn: fetchEmploiDuTempsElements })
     const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: fetchClasses })
 
@@ -39,10 +41,15 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
         mutationFn: () => edition
             ? updateEmploiDuTempsElement(edition.id, form)
             : createEmploiDuTempsElement(form),
-        onSuccess: () => {
+        onSuccess: (resultat) => {
             queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-elements'] })
             queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
-            succes(edition ? 'Élément mis à jour.' : 'Élément ajouté aux emplois du temps.')
+            setConflits(resultat.ignores)
+            if (resultat.ignores.length === 0) {
+                succes(edition ? 'Élément mis à jour.' : 'Élément ajouté aux emplois du temps.')
+            } else {
+                info(`Enregistré, mais ${resultat.ignores.length} créneau(x) non généré(s) — voir le détail ci-dessous.`)
+            }
             setEdition(null)
             setForm(FORMULAIRE_VIDE)
             onChanged()
@@ -67,7 +74,12 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
         try {
             const result = await appliquerEmploiDuTempsElement(element.id)
             queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
-            succes(`${result.creees} créneau(x) ajouté(s).`)
+            setConflits(result.ignores)
+            if (result.ignores.length === 0) {
+                succes(`${result.creees} créneau(x) ajouté(s).`)
+            } else {
+                info(`${result.creees} créneau(x) ajouté(s), ${result.ignores.length} ignoré(s) — voir le détail ci-dessous.`)
+            }
             onChanged()
         } catch (err) {
             erreur((err as ApiError).message)
@@ -124,6 +136,27 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
                         </Button>
                     </div>
                 </div>
+
+                {conflits.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                            <h3 className="text-sm font-bold text-amber-800">
+                                {conflits.length} créneau(x) non généré(s) — chevauchement avec un cours existant
+                            </h3>
+                            <Button size="sm" variant="ghost" onClick={() => setConflits([])}>Masquer</Button>
+                        </div>
+                        <ul className="flex flex-col gap-1 text-xs text-amber-800">
+                            {conflits.map((conflit, index) => (
+                                <li key={index}>
+                                    <span className="font-semibold">{conflit.classe}</span> — {conflit.jour_libelle} : en conflit avec {conflit.conflit}
+                                </li>
+                            ))}
+                        </ul>
+                        <p className="mt-2 text-xs text-amber-700">
+                            Déplacez ou supprimez le cours en conflit, puis cliquez sur « Appliquer » (icône ↻) pour générer le créneau manquant.
+                        </p>
+                    </div>
+                )}
 
                 {isLoading ? <p className="text-sm text-navy-400">Chargement…</p> : elements.map((element) => (
                     <div key={element.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-navy-100 bg-white p-3">

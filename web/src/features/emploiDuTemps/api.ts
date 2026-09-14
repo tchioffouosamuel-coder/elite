@@ -72,6 +72,19 @@ export interface EmploiDuTempsElement {
   classes: { id: number; nom: string }[];
 }
 
+/**
+ * Un créneau non généré pour un (classe, jour) précis : il chevauchait un
+ * cours déjà en place ce jour-là. Sans ce détail, l'absence d'une pause un
+ * jour précis semble incompréhensible alors que l'élément est bien défini
+ * pour tous les jours — cf. EmploiDuTempsElementController::appliquerElement.
+ */
+export interface CreneauIgnore {
+  classe: string;
+  jour: number;
+  jour_libelle: string;
+  conflit: string;
+}
+
 export interface Seance {
   id: number;
   classe_id: number;
@@ -134,11 +147,10 @@ export async function createEmploiDuTempsElement(
   payload: Omit<EmploiDuTempsElement, "id" | "actif" | "classes"> & {
     classe_ids: number[];
   },
-): Promise<EmploiDuTempsElement> {
-  const { data } = await http.post<ApiResponse<EmploiDuTempsElement>>(
-    "/emploi-du-temps/elements",
-    payload,
-  );
+): Promise<EmploiDuTempsElement & { ignores: CreneauIgnore[] }> {
+  const { data } = await http.post<
+    ApiResponse<EmploiDuTempsElement & { ignores: CreneauIgnore[] }>
+  >("/emploi-du-temps/elements", payload);
   return data.data;
 }
 
@@ -147,11 +159,10 @@ export async function updateEmploiDuTempsElement(
   payload: Omit<EmploiDuTempsElement, "id" | "actif" | "classes"> & {
     classe_ids: number[];
   },
-): Promise<EmploiDuTempsElement> {
-  const { data } = await http.put<ApiResponse<EmploiDuTempsElement>>(
-    `/emploi-du-temps/elements/${id}`,
-    payload,
-  );
+): Promise<EmploiDuTempsElement & { ignores: CreneauIgnore[] }> {
+  const { data } = await http.put<
+    ApiResponse<EmploiDuTempsElement & { ignores: CreneauIgnore[] }>
+  >(`/emploi-du-temps/elements/${id}`, payload);
   return data.data;
 }
 
@@ -161,10 +172,10 @@ export async function deleteEmploiDuTempsElement(id: number): Promise<void> {
 
 export async function appliquerEmploiDuTempsElement(
   id: number,
-): Promise<{ creees: number }> {
-  const { data } = await http.post<ApiResponse<{ creees: number }>>(
-    `/emploi-du-temps/elements/${id}/appliquer`,
-  );
+): Promise<{ creees: number; ignores: CreneauIgnore[] }> {
+  const { data } = await http.post<
+    ApiResponse<{ creees: number; ignores: CreneauIgnore[] }>
+  >(`/emploi-du-temps/elements/${id}/appliquer`);
   return data.data;
 }
 
