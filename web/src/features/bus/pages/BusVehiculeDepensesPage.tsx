@@ -34,6 +34,8 @@ export function BusVehiculeDepensesPage() {
 
   const [du, setDu] = useState('')
   const [au, setAu] = useState('')
+  const [terme, setTerme] = useState('')
+  const [page, setPage] = useState(1)
   const [formOuvert, setFormOuvert] = useState(false)
 
   const { data: vehicule, isLoading: vehiculeEnChargement } = useQuery({
@@ -42,9 +44,15 @@ export function BusVehiculeDepensesPage() {
   })
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['depenses-vehicule', vehiculeId, du, au],
-    queryFn: () => fetchDepenses({ du: du || null, au: au || null, vehicule_id: vehiculeId }),
+    queryKey: ['depenses-vehicule', vehiculeId, du, au, terme, page],
+    queryFn: () => fetchDepenses({ du: du || null, au: au || null, vehicule_id: vehiculeId, q: terme || null, page }),
   })
+
+  // Un nouveau filtre repart de la première page.
+  const filtrer = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v)
+    setPage(1)
+  }
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['depenses-vehicule', vehiculeId] })
 
@@ -177,10 +185,18 @@ export function BusVehiculeDepensesPage() {
             placeholderRecherche="Rechercher une dépense…"
             messageVide="Aucune dépense enregistrée pour ce véhicule."
             largeurMin={640}
+            terme={terme}
+            onTermeChange={filtrer(setTerme)}
+            pagination={{
+              page: data.pagination.current_page,
+              totalPages: data.pagination.last_page,
+              total: data.pagination.total,
+              onPageChange: setPage,
+            }}
             outils={
               <div className="flex flex-wrap items-end gap-2">
-                <Input label="Du" type="date" value={du} onChange={(e) => setDu(e.target.value)} />
-                <Input label="Au" type="date" value={au} onChange={(e) => setAu(e.target.value)} />
+                <Input label="Du" type="date" value={du} onChange={(e) => filtrer(setDu)(e.target.value)} />
+                <Input label="Au" type="date" value={au} onChange={(e) => filtrer(setAu)(e.target.value)} />
               </div>
             }
           />

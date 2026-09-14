@@ -883,7 +883,12 @@
     "non_renseigne": "Not provided",
     "historique_label": "Student's visit history",
     "historique_empty": "No previous visit.",
-    "select_eleve_prompt": "Select a student to display their health record and history."
+    "select_eleve_prompt": "Select a student to display their health record and history.",
+    "contacts_parents": "Parent contacts",
+    "contacts_parents_empty": "No guardian registered for this student.",
+    "contact_principal": "Primary",
+    "adresse_quartier": "Address / neighborhood",
+    "appeler": "Call"
   },
   "bus": {
     "vehicules_title": "Vehicle fleet",

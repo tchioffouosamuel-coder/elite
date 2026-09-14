@@ -23,6 +23,30 @@ class ApiResponse
         return self::success($data, $message, 201);
     }
 
+    /**
+     * Comme `paginated()`, mais pour une réponse dont la forme n'est pas
+     * juste la liste des items du paginator — un bilan qui associe des
+     * lignes paginées à des totaux calculés sur tout l'ensemble filtré,
+     * par exemple.
+     */
+    public static function successPaginated(mixed $data, LengthAwarePaginator $paginator, string $message = ''): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'message' => $message,
+            'errors' => null,
+            'meta' => [
+                'pagination' => [
+                    'current_page' => $paginator->currentPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'last_page' => $paginator->lastPage(),
+                ],
+            ],
+        ]);
+    }
+
     public static function paginated(LengthAwarePaginator $paginator, ?string $resourceClass = null, string $message = ''): JsonResponse
     {
         $items = $resourceClass ? $resourceClass::collection($paginator->items()) : $paginator->items();

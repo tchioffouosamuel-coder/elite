@@ -54,13 +54,15 @@ export function PaiePage() {
   const [mois, setMois] = useState(aujourdhui.getMonth() + 1)
   const [enCours, setEnCours] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [terme, setTerme] = useState('')
+  const [page, setPage] = useState(1)
   // Vacataires que le lot n'a pas pu préparer faute d'heures : c'est ici
   // qu'on les leur demande, un par un.
   const [vacatairesEnAttente, setVacatairesEnAttente] = useState<AgentIgnore[]>([])
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['paie', activeSchoolId, annee, mois],
-    queryFn: () => fetchPaie({ annee, mois }),
+    queryKey: ['paie', activeSchoolId, annee, mois, terme, page],
+    queryFn: () => fetchPaie({ annee, mois, q: terme || null, page }),
   })
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['paie'] })
@@ -70,6 +72,7 @@ export function PaiePage() {
   // manquent toujours ici, alors que le lot n'a simplement pas encore tourné.
   useEffect(() => {
     setVacatairesEnAttente([])
+    setPage(1)
   }, [annee, mois])
 
   const handleToggleSelect = (id: number) => {
@@ -428,6 +431,17 @@ export function PaiePage() {
             placeholderRecherche={t('finance.search_paie')}
             messageVide={t('finance.empty_paie')}
             largeurMin={600}
+            terme={terme}
+            onTermeChange={(v) => {
+              setTerme(v)
+              setPage(1)
+            }}
+            pagination={{
+              page: data.pagination.current_page,
+              totalPages: data.pagination.last_page,
+              total: data.pagination.total,
+              onPageChange: setPage,
+            }}
             outils={
               <div className="flex gap-2">
                 <Select value={mois} onChange={(e) => setMois(Number(e.target.value))}>

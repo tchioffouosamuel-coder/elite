@@ -37,13 +37,22 @@ export function DepensesPage() {
   const [du, setDu] = useState('')
   const [au, setAu] = useState('')
   const [statut, setStatut] = useState('')
+  const [terme, setTerme] = useState('')
+  const [page, setPage] = useState(1)
   const [formOuvert, setFormOuvert] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['depenses', activeSchoolId, du, au, statut],
-    queryFn: () => fetchDepenses({ du: du || null, au: au || null, statut: statut || null }),
+    queryKey: ['depenses', activeSchoolId, du, au, statut, terme, page],
+    queryFn: () => fetchDepenses({ du: du || null, au: au || null, statut: statut || null, q: terme || null, page }),
   })
+
+  // Un nouveau filtre repart de la première page : la page 3 d'une recherche
+  // précédente n'a aucune raison d'exister dans les résultats du nouveau filtre.
+  const filtrer = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v)
+    setPage(1)
+  }
 
   const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['depenses'] })
 
@@ -223,11 +232,19 @@ export function DepensesPage() {
               placeholderRecherche={t('finance.search_depense')}
               messageVide={t('finance.empty_depense')}
               largeurMin={860}
+              terme={terme}
+              onTermeChange={filtrer(setTerme)}
+              pagination={{
+                page: data.pagination.current_page,
+                totalPages: data.pagination.last_page,
+                total: data.pagination.total,
+                onPageChange: setPage,
+              }}
               outils={
                 <div className="flex flex-wrap items-end gap-2">
-                  <Input label="Du" type="date" value={du} onChange={(e) => setDu(e.target.value)} />
-                  <Input label="Au" type="date" value={au} onChange={(e) => setAu(e.target.value)} />
-                  <Select value={statut} onChange={(e) => setStatut(e.target.value)}>
+                  <Input label="Du" type="date" value={du} onChange={(e) => filtrer(setDu)(e.target.value)} />
+                  <Input label="Au" type="date" value={au} onChange={(e) => filtrer(setAu)(e.target.value)} />
+                  <Select value={statut} onChange={(e) => filtrer(setStatut)(e.target.value)}>
                     <option value="">Tous statuts</option>
                     <option value="payee">Payées</option>
                     <option value="engagee">Engagées</option>

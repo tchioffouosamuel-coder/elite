@@ -544,26 +544,40 @@ class PaieService extends BaseService
      *
      * @return array{bulletins: Collection<int, BulletinPaie>, totaux: array<string, int>}
      */
-    public function masseSalariale(int|array $schoolId, int $annee, int $mois): array
+    /**
+     * `$perPage` null renvoie tous les bulletins du mois — utile à l'état
+     * d'émargement ou au bordereau, qui doivent balayer tout l'effectif.
+     * Les totaux, eux, se calculent toujours en base sur le mois entier,
+     * indépendamment de la page demandée pour la liste.
+     */
+    public function masseSalariale(int|array $schoolId, int $annee, int $mois, ?string $recherche = null, ?int $perPage = 30): array
     {
-        $bulletins = BulletinPaie::forSchool($schoolId)
+        $requete = fn () => BulletinPaie::forSchool($schoolId)
             ->where('annee', $annee)->where('mois', $mois)
-            ->with('personnel.fonctionReference')
-            ->get();
+            ->when($recherche, fn($q, $terme) => $q->whereHas(
+                'personnel',
+                fn($p) => $p->where('nom_complet', 'like', "%{$terme}%")->orWhere('matricule', 'like', "%{$terme}%"),
+            ));
 
-        $arretes = $bulletins->whereIn('statut', ['valide', 'paye']);
+        $detail = $requete()->with('personnel.fonctionReference')->orderBy('id');
+        $bulletins = $perPage !== null ? $detail->paginate($perPage) : $detail->get();
+
+        $agregats = $requete()
+            ->whereIn('statut', ['valide', 'paye'])
+            ->selectRaw('SUM(salaire_brut) as brut, SUM(charges_salariales) as charges_salariales, SUM(charges_patronales) as charges_patronales, SUM(net_a_payer) as net_a_payer')
+            ->first();
 
         return [
             'bulletins' => $bulletins,
             'totaux' => [
-                'effectif' => $bulletins->count(),
-                'brut' => (int) $arretes->sum('salaire_brut'),
-                'charges_salariales' => (int) $arretes->sum('charges_salariales'),
-                'charges_patronales' => (int) $arretes->sum('charges_patronales'),
-                'net_a_payer' => (int) $arretes->sum('net_a_payer'),
-                'cout_employeur' => (int) $arretes->sum(fn (BulletinPaie $b) => $b->cout_employeur),
-                'regles' => $bulletins->where('statut', 'paye')->count(),
-                'emarges' => $bulletins->whereNotNull('emarge_le')->count(),
+                'effectif' => (int) $requete()->count(),
+                'brut' => (int) ($agregats->brut ?? 0),
+                'charges_salariales' => (int) ($agregats->charges_salariales ?? 0),
+                'charges_patronales' => (int) ($agregats->charges_patronales ?? 0),
+                'net_a_payer' => (int) ($agregats->net_a_payer ?? 0),
+                'cout_employeur' => (int) ($agregats->brut ?? 0) + (int) ($agregats->charges_patronales ?? 0),
+                'regles' => (int) $requete()->where('statut', 'paye')->count(),
+                'emarges' => (int) $requete()->whereNotNull('emarge_le')->count(),
             ],
         ];
     }

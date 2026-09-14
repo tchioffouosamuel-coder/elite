@@ -910,7 +910,12 @@
     "non_renseigne": "Non renseigné",
     "historique_label": "Historique des visites de l'élève",
     "historique_empty": "Aucune visite antérieure.",
-    "select_eleve_prompt": "Sélectionnez un élève pour afficher sa fiche sanitaire et son historique."
+    "select_eleve_prompt": "Sélectionnez un élève pour afficher sa fiche sanitaire et son historique.",
+    "contacts_parents": "Contacts des parents",
+    "contacts_parents_empty": "Aucun tuteur enregistré pour cet élève.",
+    "contact_principal": "Principal",
+    "adresse_quartier": "Adresse / quartier",
+    "appeler": "Appeler"
   },
   "bus": {
     "vehicules_title": "Flotte de véhicules",

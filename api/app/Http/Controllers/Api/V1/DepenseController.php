@@ -24,16 +24,20 @@ class DepenseController extends Controller
 
     public function __construct(private readonly DepenseService $service) {}
 
-    /** Dépenses de la période, ventilation par compte et totaux. */
+    /** Dépenses de la période (paginées), ventilation par compte et totaux — ces deux derniers sur l'ensemble filtré. */
     public function index(Request $request): JsonResponse
     {
-        $bilan = $this->service->bilan(Tenant::schoolId(), $this->filtres($request));
+        $bilan = $this->service->bilan(
+            Tenant::schoolId(),
+            $this->filtres($request),
+            (int) $request->integer('per_page', 30),
+        );
 
-        return ApiResponse::success([
-            'depenses' => $bilan['depenses']->map(fn(Depense $d) => $this->resumer($d))->values(),
+        return ApiResponse::successPaginated([
+            'depenses' => $bilan['depenses']->getCollection()->map(fn(Depense $d) => $this->resumer($d))->values(),
             'par_compte' => $bilan['par_compte'],
             'totaux' => $bilan['totaux'],
-        ]);
+        ], $bilan['depenses']);
     }
 
     /** Plan de comptes, pour le choix du poste d'imputation. */
@@ -182,6 +186,7 @@ class DepenseController extends Controller
             'au' => ['nullable', 'date'],
             'statut' => ['nullable', 'in:engagee,payee,annulee'],
             'vehicule_id' => ['nullable', 'integer'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         return [
@@ -190,6 +195,7 @@ class DepenseController extends Controller
             'compte_comptable_id' => $request->integer('compte_comptable_id') ?: null,
             'statut' => $request->string('statut')->toString() ?: null,
             'vehicule_id' => $request->integer('vehicule_id') ?: null,
+            'q' => $request->string('q')->toString() ?: null,
         ];
     }
 
@@ -200,7 +206,7 @@ class DepenseController extends Controller
         $du = $request->string('du')->toString() ?: null;
         $au = $request->string('au')->toString() ?: null;
 
-        $bilan = $this->service->bilan($schoolId, ['du' => $du, 'au' => $au]);
+        $bilan = $this->service->bilan($schoolId, ['du' => $du, 'au' => $au], null);
 
         $pdf = (new BilanDepensesGenerator)->build(
             School::findOrFail($schoolId),

@@ -48,8 +48,16 @@ interface DataTableProps<T> {
   terme?: string
   onTermeChange?: (terme: string) => void
   onTermeSubmit?: () => void
-  /** Pagination : 0 désactive le découpage. */
+  /** Pagination : 0 désactive le découpage. Ignoré quand `pagination` est fourni. */
   parPage?: number
+  /**
+   * Pagination pilotée par le serveur : `lignes` ne contient que la page
+   * courante, et le tri/la recherche client se désactivent (le serveur a
+   * déjà appliqué les siens via `onTermeChange`/les filtres du parent) — le
+   * tableau se contente d'afficher les contrôles et de déléguer le
+   * changement de page à l'appelant plutôt que de re-découper `lignes`.
+   */
+  pagination?: { page: number; totalPages: number; total: number; onPageChange: (page: number) => void }
   messageVide?: string
   onLigneClick?: (ligne: T) => void
   /** Contenu additionnel dans la barre d'outils (filtres propres à la page). */
@@ -74,6 +82,7 @@ export function DataTable<T>({
   onTermeChange,
   onTermeSubmit,
   parPage = 15,
+  pagination,
   messageVide,
   onLigneClick,
   outils,
@@ -123,9 +132,13 @@ export function DataTable<T>({
     })
   }, [filtrees, tri, colonnes])
 
-  const nbPages = parPage > 0 ? Math.max(1, Math.ceil(triees.length / parPage)) : 1
-  const pageCourante = Math.min(page, nbPages)
-  const visibles = parPage > 0 ? triees.slice((pageCourante - 1) * parPage, pageCourante * parPage) : triees
+  // En pagination serveur, `lignes` n'est déjà que la page courante : le
+  // découpage local ne s'applique plus, sous peine d'en re-tronquer un
+  // morceau.
+  const nbPages = pagination ? pagination.totalPages : parPage > 0 ? Math.max(1, Math.ceil(triees.length / parPage)) : 1
+  const pageCourante = pagination ? pagination.page : Math.min(page, nbPages)
+  const visibles = pagination ? triees : parPage > 0 ? triees.slice((pageCourante - 1) * parPage, pageCourante * parPage) : triees
+  const totalAffiche = pagination ? pagination.total : triees.length
 
   const basculerTri = (cle: string) =>
     setTri((actuel) =>
@@ -272,18 +285,18 @@ export function DataTable<T>({
       {nbPages > 1 && (
         <div className="flex flex-col items-center justify-between gap-2 text-sm sm:flex-row">
           <span className="text-navy-400">
-            {triees.length} résultat{triees.length > 1 ? 's' : ''} · page {pageCourante} sur {nbPages}
+            {totalAffiche} résultat{totalAffiche > 1 ? 's' : ''} · page {pageCourante} sur {nbPages}
           </span>
           <div className="flex gap-1">
             <button
-              onClick={() => setPage(pageCourante - 1)}
+              onClick={() => (pagination ? pagination.onPageChange(pageCourante - 1) : setPage(pageCourante - 1))}
               disabled={pageCourante === 1}
               className="rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy-700 transition-colors hover:bg-cream-50 disabled:opacity-40"
             >
               Précédent
             </button>
             <button
-              onClick={() => setPage(pageCourante + 1)}
+              onClick={() => (pagination ? pagination.onPageChange(pageCourante + 1) : setPage(pageCourante + 1))}
               disabled={pageCourante === nbPages}
               className="rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy-700 transition-colors hover:bg-cream-50 disabled:opacity-40"
             >

@@ -39,13 +39,25 @@ class EcheancierService extends BaseService
     public const STATUT_EN_RETARD = 'en_retard';
 
     /**
+     * Mémoïsation par (école, année) : `insolvables()`/`situation()` appellent
+     * `pourDossier()` une fois par élève d'une même école, et les tranches ne
+     * changent jamais entre deux de ces appels — les relire à chaque fois
+     * coûterait une requête par élève au lieu d'une par école.
+     *
+     * @var array<string, Collection<int, TrancheScolarite>>
+     */
+    private array $trancheCache = [];
+
+    /**
      * Tranches définies pour l'école et l'année, dans l'ordre.
      *
      * @return Collection<int, TrancheScolarite>
      */
     public function tranches(int $schoolId, int $anneeScolaireId): Collection
     {
-        return TrancheScolarite::where('school_id', $schoolId)
+        $cle = $schoolId . ':' . $anneeScolaireId;
+
+        return $this->trancheCache[$cle] ??= TrancheScolarite::where('school_id', $schoolId)
             ->where('annee_scolaire_id', $anneeScolaireId)
             ->orderBy('ordre')
             ->get();

@@ -1,5 +1,5 @@
 import { http } from "@/shared/lib/http";
-import type { ApiResponse } from "@/shared/types/api";
+import type { ApiResponse, Pagination } from "@/shared/types/api";
 import type { CanalNotification } from "@/shared/ui/CanauxNotificationField";
 
 /** Les montants circulent en francs CFA entiers : la devise n'a pas de subdivision. */
@@ -258,6 +258,8 @@ export async function fetchDepenses(params: {
   au?: string | null;
   statut?: string | null;
   vehicule_id?: number | null;
+  page?: number;
+  per_page?: number;
 }): Promise<{
   depenses: Depense[];
   par_compte: {
@@ -273,9 +275,10 @@ export async function fetchDepenses(params: {
     total: number;
     annule: number;
   };
+  pagination: Pagination;
 }> {
   const { data } = await http.get<ApiResponse<never>>("/depenses", { params });
-  return data.data as never;
+  return { ...(data.data as never), pagination: data.meta!.pagination! };
 }
 
 export async function fetchComptes(): Promise<CompteComptable[]> {
@@ -357,13 +360,17 @@ export interface TotauxPaie {
 export async function fetchPaie(params: {
   annee: number;
   mois: number;
+  q?: string | null;
+  page?: number;
+  per_page?: number;
 }): Promise<{
   periode: { annee: number; mois: number };
   totaux: TotauxPaie;
   bulletins: BulletinPaie[];
+  pagination: Pagination;
 }> {
   const { data } = await http.get<ApiResponse<never>>("/paie", { params });
-  return data.data as never;
+  return { ...(data.data as never), pagination: data.meta!.pagination! };
 }
 
 /** Un agent que le lot n'a pas su préparer — et pourquoi. */

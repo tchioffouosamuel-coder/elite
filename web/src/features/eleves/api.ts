@@ -14,6 +14,7 @@ export interface Tuteur {
   telephones: TuteurTelephone[];
   email: string | null;
   profession: string | null;
+  adresse: string | null;
   lien_parente: string | null;
   is_principal: boolean;
 }

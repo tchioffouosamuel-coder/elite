@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ArrowLeft, ChevronDown, HeartPulse, History, Plus, Stethoscope, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, HeartPulse, History, Phone, Plus, Stethoscope, Trash2, Users } from 'lucide-react'
 import {
   createMalaiseReferentiel,
   createVisiteInfirmerie,
@@ -522,7 +522,58 @@ export function VisiteInfirmerieFormPage() {
                   <span className="mb-0.5 block text-navy-400">{t('infirmerie.situation_sanitaire')}</span>
                   <span className="font-medium text-navy-800">{eleveSelectionne.situation_sanitaire || t('infirmerie.non_renseigne')}</span>
                 </div>
+                <div>
+                  <span className="mb-0.5 block text-navy-400">{t('infirmerie.adresse_quartier')}</span>
+                  <span className="font-medium text-navy-800">{eleveSelectionne.adresse || t('infirmerie.non_renseigne')}</span>
+                </div>
               </div>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-gold-600" />
+              <h2 className="font-display text-sm font-bold text-navy-900">{t('infirmerie.contacts_parents')}</h2>
+            </div>
+            {!eleveSelectionne ? (
+              <p className="text-sm text-navy-400">{t('infirmerie.select_eleve_prompt')}</p>
+            ) : eleveSelectionne.tuteurs.length === 0 ? (
+              <p className="text-sm text-navy-400">{t('infirmerie.contacts_parents_empty')}</p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {eleveSelectionne.tuteurs.map((tuteur) => {
+                  const numeros = tuteur.telephones.length > 0 ? tuteur.telephones : tuteur.telephone ? [{ numero: tuteur.telephone, is_principal: true }] : []
+                  return (
+                    <li key={tuteur.id} className="rounded-xl border border-navy-100 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <span className="font-semibold text-navy-900">{tuteur.nom_complet}</span>
+                        <div className="flex items-center gap-1.5">
+                          {tuteur.lien_parente && <Badge tone="blue">{tuteur.lien_parente}</Badge>}
+                          {tuteur.is_principal && <Badge tone="green">{t('infirmerie.contact_principal')}</Badge>}
+                        </div>
+                      </div>
+                      {numeros.length === 0 ? (
+                        <p className="mt-1 text-xs text-navy-400">{t('infirmerie.non_renseigne')}</p>
+                      ) : (
+                        <div className="mt-1.5 flex flex-col gap-1">
+                          {numeros.map((tel, index) => (
+                            <a
+                              key={tel.numero + index}
+                              href={`tel:${tel.numero}`}
+                              className="flex items-center gap-1.5 font-medium text-navy-700 hover:text-gold-600"
+                            >
+                              <Phone className="h-3.5 w-3.5 text-gold-600" />
+                              {tel.numero}
+                              {tel.is_principal && <Badge tone="green">{t('infirmerie.contact_principal')}</Badge>}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {tuteur.adresse && <p className="mt-1.5 text-xs text-navy-500">{tuteur.adresse}</p>}
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </Card>
 

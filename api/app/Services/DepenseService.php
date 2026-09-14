@@ -213,29 +213,46 @@ class DepenseService extends BaseService
      * @param  array{du?: ?string, au?: ?string, compte_comptable_id?: ?int, statut?: ?string, vehicule_id?: ?int}  $filtres
      * @return array{depenses: Collection, par_compte: array<string, array>, totaux: array<string, int>}
      */
-    public function bilan(int $schoolId, array $filtres = []): array
+    /**
+     * `$perPage` null renvoie le détail complet de la période — c'est ce dont
+     * a besoin le bilan PDF, qui imprime tout l'historique filtré plutôt
+     * qu'une page. La ventilation et les totaux, eux, portent toujours sur
+     * l'ensemble filtré : ils se calculent en base, indépendamment de la
+     * page demandée pour le détail chronologique.
+     */
+    public function bilan(int $schoolId, array $filtres = [], ?int $perPage = 30): array
     {
-        $depenses = Depense::forSchool($schoolId)
+        $requete = fn () => Depense::forSchool($schoolId)
             ->when($filtres['du'] ?? null, fn($q, $du) => $q->whereDate('date_depense', '>=', $du))
             ->when($filtres['au'] ?? null, fn($q, $au) => $q->whereDate('date_depense', '<=', $au))
             ->when($filtres['compte_comptable_id'] ?? null, fn($q, $id) => $q->where('compte_comptable_id', $id))
             ->when($filtres['statut'] ?? null, fn($q, $statut) => $q->where('statut', $statut))
             ->when($filtres['vehicule_id'] ?? null, fn($q, $id) => $q->where('vehicule_id', $id))
-            ->with(['compte', 'saisisseur', 'vehicule'])
-            ->orderByDesc('date_depense')
+            ->when($filtres['q'] ?? null, fn($q, $terme) => $q->where(function ($query) use ($terme) {
+                $query->where('libelle', 'like', "%{$terme}%")
+                    ->orWhere('beneficiaire', 'like', "%{$terme}%")
+                    ->orWhere('reference_facture', 'like', "%{$terme}%");
+            }));
+
+        $detail = $requete()->with(['compte', 'saisisseur', 'vehicule'])->orderByDesc('date_depense')->orderByDesc('id');
+        $depenses = $perPage !== null ? $detail->paginate($perPage) : $detail->get();
+
+        $agregatsParCompte = $requete()
+            ->where('statut', '!=', 'annulee')
+            ->selectRaw('compte_comptable_id, COUNT(*) as nombre, SUM(montant) as montant')
+            ->groupBy('compte_comptable_id')
             ->get();
 
-        $retenues = $depenses->where('statut', '!=', 'annulee');
+        $comptes = CompteComptable::whereIn('id', $agregatsParCompte->pluck('compte_comptable_id')->filter())
+            ->get()
+            ->keyBy('id');
 
-        $parCompte = $retenues
-            ->groupBy(fn(Depense $d) => $d->compte?->code ?? '—')
-            ->map(fn($lot, $code) => [
-                // PHP convertit les clés de tableau numériques en entiers :
-                // sans ce cast, « 611 » sortirait en int et « — » en chaîne.
-                'code' => (string) $code,
-                'libelle' => $lot->first()->compte?->libelle ?? 'Non imputé',
-                'nombre' => $lot->count(),
-                'montant' => (int) $lot->sum('montant'),
+        $parCompte = $agregatsParCompte
+            ->map(fn($ligne) => [
+                'code' => (string) ($comptes->get($ligne->compte_comptable_id)?->code ?? '—'),
+                'libelle' => $comptes->get($ligne->compte_comptable_id)?->libelle ?? 'Non imputé',
+                'nombre' => (int) $ligne->nombre,
+                'montant' => (int) $ligne->montant,
             ])
             ->sortByDesc('montant')
             ->values()
@@ -245,11 +262,11 @@ class DepenseService extends BaseService
             'depenses' => $depenses,
             'par_compte' => $parCompte,
             'totaux' => [
-                'nombre' => $retenues->count(),
-                'engage' => (int) $retenues->where('statut', 'engagee')->sum('montant'),
-                'paye' => (int) $retenues->where('statut', 'payee')->sum('montant'),
-                'total' => (int) $retenues->sum('montant'),
-                'annule' => (int) $depenses->where('statut', 'annulee')->sum('montant'),
+                'nombre' => (int) $requete()->where('statut', '!=', 'annulee')->count(),
+                'engage' => (int) $requete()->where('statut', 'engagee')->sum('montant'),
+                'paye' => (int) $requete()->where('statut', 'payee')->sum('montant'),
+                'total' => (int) $requete()->where('statut', '!=', 'annulee')->sum('montant'),
+                'annule' => (int) $requete()->where('statut', 'annulee')->sum('montant'),
             ],
         ];
     }

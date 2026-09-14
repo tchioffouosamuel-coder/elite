@@ -69,18 +69,24 @@ class PaieController extends Controller
         ]);
     }
 
-    /** Masse salariale du mois et bulletins associés. */
+    /** Masse salariale du mois (paginée) et totaux — ces derniers sur l'effectif entier. */
     public function index(Request $request): JsonResponse
     {
         [$annee, $mois] = $this->periode($request);
 
-        $masse = $this->service->masseSalariale(Tenant::schoolIds(), $annee, $mois);
+        $masse = $this->service->masseSalariale(
+            Tenant::schoolIds(),
+            $annee,
+            $mois,
+            $request->string('q')->toString() ?: null,
+            (int) $request->integer('per_page', 30),
+        );
 
-        return ApiResponse::success([
+        return ApiResponse::successPaginated([
             'periode' => ['annee' => $annee, 'mois' => $mois],
             'totaux' => $masse['totaux'],
-            'bulletins' => $masse['bulletins']->map(fn (BulletinPaie $b) => $this->resumer($b))->values(),
-        ]);
+            'bulletins' => $masse['bulletins']->getCollection()->map(fn (BulletinPaie $b) => $this->resumer($b))->values(),
+        ], $masse['bulletins']);
     }
 
     /** Prépare la paie de tout le personnel en poste. */
