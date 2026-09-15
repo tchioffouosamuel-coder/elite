@@ -1,6 +1,9 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse, Pagination } from '@/shared/types/api'
 
+/** Destinataires possibles d'un document — absent/vide = tout le monde. */
+export type CibleBibliotheque = 'personnel' | 'parents'
+
 export interface DocumentBibliotheque {
   id: number
   titre: string
@@ -10,6 +13,9 @@ export interface DocumentBibliotheque {
   taille: number
   type_mime: string | null
   ecoles: { id: number; name: string }[]
+  /** Classes auxquelles ce document est restreint — vide = toute l'école. */
+  classes: { id: number; nom: string }[]
+  cibles: CibleBibliotheque[] | null
   uploade_par: string | null
   created_at: string
 }
@@ -32,12 +38,16 @@ export async function uploaderDocument(champs: {
   description?: string
   fichier: File
   school_ids: number[]
+  classe_ids?: number[]
+  cibles?: CibleBibliotheque[]
 }): Promise<DocumentBibliotheque> {
   const formulaire = new FormData()
   formulaire.append('titre', champs.titre)
   if (champs.description) formulaire.append('description', champs.description)
   formulaire.append('fichier', champs.fichier)
   champs.school_ids.forEach((id) => formulaire.append('school_ids[]', String(id)))
+  champs.classe_ids?.forEach((id) => formulaire.append('classe_ids[]', String(id)))
+  champs.cibles?.forEach((c) => formulaire.append('cibles[]', c))
 
   const { data } = await http.post<ApiResponse<DocumentBibliotheque>>('/bibliotheque', formulaire, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -45,20 +55,37 @@ export async function uploaderDocument(champs: {
   return data.data
 }
 
-/** Import massif : un document par fichier, même écoles et même description pour tous — le titre de chacun se déduit de son nom de fichier. */
+/** Import massif : un document par fichier, même ciblage et même description pour tous — le titre de chacun se déduit de son nom de fichier. */
 export async function importerDocuments(champs: {
   fichiers: File[]
   description?: string
   school_ids: number[]
+  classe_ids?: number[]
+  cibles?: CibleBibliotheque[]
 }): Promise<DocumentBibliotheque[]> {
   const formulaire = new FormData()
   champs.fichiers.forEach((fichier) => formulaire.append('fichiers[]', fichier))
   if (champs.description) formulaire.append('description', champs.description)
   champs.school_ids.forEach((id) => formulaire.append('school_ids[]', String(id)))
+  champs.classe_ids?.forEach((id) => formulaire.append('classe_ids[]', String(id)))
+  champs.cibles?.forEach((c) => formulaire.append('cibles[]', c))
 
   const { data } = await http.post<ApiResponse<DocumentBibliotheque[]>>('/bibliotheque/import', formulaire, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
+  return data.data
+}
+
+/** Ciblage plus fin d'un document déjà déposé — pas de remplacement de fichier. */
+export async function modifierCiblageDocument(
+  id: number,
+  champs: {
+    school_ids?: number[]
+    classe_ids?: number[]
+    cibles?: CibleBibliotheque[] | null
+  },
+): Promise<DocumentBibliotheque> {
+  const { data } = await http.put<ApiResponse<DocumentBibliotheque>>(`/bibliotheque/${id}`, champs)
   return data.data
 }
 

@@ -12,6 +12,8 @@ import { ExportButton } from '@/shared/ui/ExportButton'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchInsolvables, francs, type Insolvable } from '@/features/finance/api'
 import { GestionInsolvableModal } from '@/features/finance/GestionInsolvableModal'
+import { useUiStore } from '@/shared/store/uiStore'
+import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
 
 /**
  * Liste des insolvables, tous établissements confondus si le compte y a
@@ -20,6 +22,7 @@ import { GestionInsolvableModal } from '@/features/finance/GestionInsolvableModa
  */
 export function InsolvablesPage() {
   const navigate = useNavigate()
+  const montantsMasques = useUiStore((s) => s.montantsMasques)
   const [schoolId, setSchoolId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
   const [detailOuvert, setDetailOuvert] = useState<number | null>(null)
@@ -52,6 +55,7 @@ export function InsolvablesPage() {
         icon={AlertTriangle}
         actions={
           <div className="flex gap-2">
+            <ToggleMontantsMasques />
             <Button variant="secondary" onClick={() => ouvrirDocument('/finance/insolvables/pdf', pdfParams)}>
               <FileDown className="h-4 w-4" />
               PDF
@@ -96,8 +100,8 @@ export function InsolvablesPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <StatCard label="Insolvables" value={data.totaux.effectif} icon={AlertTriangle} accent="gold" />
-            <StatCard label="Total dû" value={francs(data.totaux.total_du)} icon={Wallet} accent="navy" />
-            <StatCard label="Reste à recouvrer" value={francs(data.totaux.total_reste)} icon={Wallet} accent="red" />
+            <StatCard label="Total dû" value={masquer(francs(data.totaux.total_du), montantsMasques)} icon={Wallet} accent="navy" />
+            <StatCard label="Reste à recouvrer" value={masquer(francs(data.totaux.total_reste), montantsMasques)} icon={Wallet} accent="red" />
           </div>
 
           {data.lignes.length === 0 ? (

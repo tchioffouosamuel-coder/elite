@@ -37,12 +37,10 @@ class BibliothequeController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $donnees = $request->validate([
+        $donnees = $request->validate($this->reglesCiblage() + [
             'titre' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:1000'],
             'fichier' => ['required', 'file', 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,png', 'max:20480'],
-            'school_ids' => ['required', 'array', 'min:1'],
-            'school_ids.*' => ['integer', Rule::exists('schools', 'id')],
         ]);
 
         $schoolIds = $this->schoolIdsAccessibles($donnees['school_ids']);
@@ -52,12 +50,43 @@ class BibliothequeController extends Controller
         }
 
         $document = $this->service->uploader(
-            ['titre' => $donnees['titre'], 'description' => $donnees['description'] ?? null, 'school_ids' => $schoolIds],
+            [
+                'titre' => $donnees['titre'],
+                'description' => $donnees['description'] ?? null,
+                'school_ids' => $schoolIds,
+                'classe_ids' => $donnees['classe_ids'] ?? [],
+                'cibles' => $donnees['cibles'] ?? null,
+            ],
             $request->file('fichier'),
             $request->user()?->id,
         );
 
         return ApiResponse::created($this->resumer($document), 'Document ajouté à la bibliothèque.');
+    }
+
+    /** Ciblage plus fin d'un document déjà déposé (écoles, classes, destinataires) — pas de remplacement de fichier. */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $document = BibliothequeDocument::visiblePour(Tenant::schoolIds())->findOrFail($id);
+
+        $donnees = $request->validate($this->reglesCiblage(sometimes: true) + [
+            'titre' => ['sometimes', 'required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if (array_key_exists('school_ids', $donnees)) {
+            $schoolIds = $this->schoolIdsAccessibles($donnees['school_ids']);
+
+            if ($schoolIds === null) {
+                return ApiResponse::error("Aucune des écoles sélectionnées n'est accessible à votre compte.", 422);
+            }
+
+            $donnees['school_ids'] = $schoolIds;
+        }
+
+        $document = $this->service->modifier($document, $donnees);
+
+        return ApiResponse::success($this->resumer($document), 'Document mis à jour.');
     }
 
     /**
@@ -67,12 +96,10 @@ class BibliothequeController extends Controller
      */
     public function importer(Request $request): JsonResponse
     {
-        $donnees = $request->validate([
+        $donnees = $request->validate($this->reglesCiblage() + [
             'fichiers' => ['required', 'array', 'min:1'],
             'fichiers.*' => ['file', 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,png', 'max:20480'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'school_ids' => ['required', 'array', 'min:1'],
-            'school_ids.*' => ['integer', Rule::exists('schools', 'id')],
         ]);
 
         $schoolIds = $this->schoolIdsAccessibles($donnees['school_ids']);
@@ -86,6 +113,8 @@ class BibliothequeController extends Controller
             $schoolIds,
             $donnees['description'] ?? null,
             $request->user()?->id,
+            $donnees['classe_ids'] ?? [],
+            $donnees['cibles'] ?? null,
         );
 
         return ApiResponse::created(
@@ -118,10 +147,32 @@ class BibliothequeController extends Controller
         return empty($accessibles) ? null : $accessibles;
     }
 
+    /**
+     * Règles de ciblage communes au dépôt, à l'import et à la modification :
+     * écoles obligatoires (sauf en modification, `sometimes`), classes et
+     * destinataires toujours optionnels — sans eux, le document reste visible
+     * par toute l'école et tout profil, comme avant l'ajout de ce ciblage.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function reglesCiblage(bool $sometimes = false): array
+    {
+        $requis = $sometimes ? ['sometimes', 'required'] : ['required'];
+
+        return [
+            'school_ids' => [...$requis, 'array', 'min:1'],
+            'school_ids.*' => ['integer', Rule::exists('schools', 'id')],
+            'classe_ids' => ['sometimes', 'array'],
+            'classe_ids.*' => ['integer', Rule::exists('classes', 'id')->whereIn('school_id', Tenant::schoolIds())],
+            'cibles' => ['sometimes', 'nullable', 'array'],
+            'cibles.*' => [Rule::in(BibliothequeDocument::CIBLES)],
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function resumer(BibliothequeDocument $document): array
     {
-        $document->loadMissing(['ecoles', 'uploadePar']);
+        $document->loadMissing(['ecoles', 'classes', 'uploadePar']);
 
         return [
             'id' => $document->id,
@@ -132,6 +183,8 @@ class BibliothequeController extends Controller
             'taille' => $document->taille,
             'type_mime' => $document->type_mime,
             'ecoles' => $document->ecoles->map(fn ($e) => ['id' => $e->id, 'name' => $e->name])->values(),
+            'classes' => $document->classes->map(fn ($c) => ['id' => $c->id, 'nom' => $c->nom])->values(),
+            'cibles' => $document->cibles,
             'uploade_par' => $document->uploadePar?->name,
             'created_at' => $document->created_at->format('Y-m-d H:i'),
         ];

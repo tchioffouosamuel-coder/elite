@@ -83,6 +83,20 @@ class Personnel extends Model
             ?? $this->date_naissance?->addYears(60)->format('Y-m-d');
     }
 
+    /**
+     * Ancienneté en années pleines depuis la date d'embauche — jusqu'à la
+     * date de fin de contrat pour un agent sorti, sinon jusqu'à aujourd'hui.
+     * Lecture seule : dérivée de `date_embauche`, jamais saisie à la main.
+     */
+    public function getAncienneteAttribute(): ?int
+    {
+        if ($this->date_embauche === null) {
+            return null;
+        }
+
+        return (int) $this->date_embauche->diffInYears($this->date_fin ?? now());
+    }
+
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);

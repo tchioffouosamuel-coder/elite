@@ -13,6 +13,7 @@ use App\Services\AvanceSalaireService;
 use App\Services\BibliothequeService;
 use App\Services\BudgetPersonnelService;
 use App\Services\DemandeAvanceSalaireService;
+use App\Support\Perimetre;
 use App\Support\Pdf\BudgetPersonnelBilanGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,12 +37,19 @@ class PersonnelEspaceController extends Controller
         private readonly BibliothequeService $bibliotheque,
     ) {}
 
-    /** Documents de la bibliothèque numérique visibles pour l'école de l'employé. */
+    /**
+     * Documents de la bibliothèque numérique visibles pour l'école de
+     * l'employé — un document restreint à une classe (cf.
+     * `BibliothequeDocument::classes()`) n'apparaît que si l'agent y
+     * intervient (titulariat ou affectation matière) ; sans classe rattachée,
+     * il reste visible par toute l'école.
+     */
     public function bibliotheque(Request $request): JsonResponse
     {
         $personnel = $this->moi($request);
+        $classeIds = (new Perimetre($request->user()))->classesEnseignees();
 
-        $documents = $this->bibliotheque->lister($personnel->school_id);
+        $documents = $this->bibliotheque->listerPourPersonnel($personnel->school_id, $classeIds);
 
         return ApiResponse::success($documents->map(fn (BibliothequeDocument $d) => [
             'id' => $d->id,

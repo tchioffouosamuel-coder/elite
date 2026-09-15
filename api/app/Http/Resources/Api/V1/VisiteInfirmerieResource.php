@@ -14,6 +14,7 @@ class VisiteInfirmerieResource extends JsonResource
             'eleve' => $this->whenLoaded('eleve', fn () => [
                 'id' => $this->eleve->id,
                 'nom_complet' => $this->eleve->nom_complet,
+                'sexe' => $this->eleve->sexe,
             ]),
             'classe' => $this->whenLoaded('classe', fn () => $this->classe ? [
                 'id' => $this->classe->id,

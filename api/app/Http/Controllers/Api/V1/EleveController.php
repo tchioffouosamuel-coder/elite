@@ -49,7 +49,15 @@ class EleveController extends Controller
         $paginator = $this->service->list(
             $request->user(),
             Tenant::schoolIds(),
-            $request->only(['search', 'classe_id', 'sexe', 'statut']),
+            [
+                ...$request->only(['search', 'classe_id', 'sexe', 'statut']),
+                // Par défaut, seuls les élèves préinscrits pour l'année active
+                // apparaissent (cf. Eleve::scopePreinscritAnneeActive()) — les
+                // écrans qui doivent voir tout le monde (tableau de bord, page
+                // des dettes antérieures, outils de correction de données)
+                // passent `tous=1` pour lever ce filtre.
+                'tous' => $request->boolean('tous'),
+            ],
             (int) $request->integer('per_page', 20),
         );
 
@@ -115,7 +123,7 @@ class EleveController extends Controller
             'q' => ['required', 'string', 'min:2', 'max:100'],
         ]);
 
-        $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q']);
+        $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q'], $request->boolean('tous'));
 
         $this->marquerNonReinscrits($eleves);
         $eleves->each(fn(Eleve $eleve) => $eleve->setAttribute(

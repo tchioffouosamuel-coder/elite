@@ -11,6 +11,7 @@ use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\User;
 use App\Support\Attributions;
@@ -359,13 +360,26 @@ class AttributionsTest extends TestCase
         $this->enseigne($user, $sienne);
 
         foreach ([[$sienne, 'Élève de sa classe'], [$autre, "Élève d'ailleurs"]] as [$classe, $nom]) {
-            Eleve::create([
+            $eleve = Eleve::create([
                 'school_id' => $this->school->id,
                 'classe_id' => $classe->id,
                 'matricule' => Eleve::genererMatricule($this->school->id),
                 'nom_complet' => $nom,
                 'sexe' => 'F',
                 'statut' => 'actif',
+            ]);
+
+            // Préinscrit pour l'année active : sans quoi la liste des élèves
+            // (filtrée par défaut sur les préinscrits — cf.
+            // Eleve::scopePreinscritAnneeActive()) ne renverrait plus rien ici.
+            Preinscription::create([
+                'school_id' => $this->school->id,
+                'annee_scolaire_id' => $this->annee->id,
+                'eleve_id' => $eleve->id,
+                'type' => 'existant',
+                'statut' => 'validee',
+                'donnees_eleve' => [],
+                'donnees_tuteurs' => [],
             ]);
         }
 

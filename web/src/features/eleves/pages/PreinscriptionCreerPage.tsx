@@ -66,7 +66,10 @@ function EleveAutocomplete({ onChoisir, onNouveau }: { onChoisir: (eleve: Eleve)
 
   const { data: suggestions, isFetching } = useQuery({
     queryKey: ['eleves-recherche-globale', termeDebounce],
-    queryFn: () => rechercheGlobaleEleves(termeDebounce),
+    // C'est justement ici qu'on cherche un ancien élève pas encore
+    // préinscrit pour l'année active, pour lui en créer une : le filtre par
+    // défaut de `rechercheGlobaleEleves` le masquerait sans ce `tous`.
+    queryFn: () => rechercheGlobaleEleves(termeDebounce, true),
     enabled: ouvert && termeDebounce.length >= 2,
   })
 

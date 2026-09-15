@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { clsx } from 'clsx'
-import { BookOpen, Download, FileUp, Plus, Search, Trash2, X } from 'lucide-react'
+import { BookOpen, Download, FileUp, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import {
   fetchBibliotheque,
   uploaderDocument,
   importerDocuments,
+  modifierCiblageDocument,
   supprimerDocument,
+  type CibleBibliotheque,
   type DocumentBibliotheque,
 } from '@/features/bibliotheque/api'
-import { fetchSchools, type School } from '@/features/classes/api'
+import { fetchSchools, fetchClasses, type Classe, type School } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
@@ -64,13 +66,112 @@ function SelecteurEcoles({
   )
 }
 
-/** Bascule un id dans un `Set` — évite de répéter le même montage/démontage à chaque sélecteur multi-écoles. */
-function useSelectionMultiple() {
-  const [selection, setSelection] = useState<Set<number>>(new Set())
-  const toggle = (id: number) =>
+/**
+ * Restreint le document à une ou plusieurs classes des écoles déjà
+ * sélectionnées — aucune classe cochée signifie « toute l'école », le
+ * comportement historique. N'affiche que les classes des écoles choisies :
+ * cibler une classe d'une école non sélectionnée n'aurait pas de sens.
+ */
+function SelecteurClasses({
+  classes,
+  ecolesSelectionnees,
+  selectionnees,
+  onToggle,
+}: {
+  classes: Classe[] | undefined
+  ecolesSelectionnees: Set<number>
+  selectionnees: Set<number>
+  onToggle: (id: number) => void
+}) {
+  const classesFiltrees = classes?.filter((c) => c.school_id !== undefined && ecolesSelectionnees.has(c.school_id))
+
+  if (ecolesSelectionnees.size === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-semibold tracking-wide text-navy-500 uppercase">
+        Restreindre à des classes (optionnel)
+      </span>
+      <p className="text-xs text-navy-400">
+        Aucune classe cochée : le document reste visible par toute l'école. Une ou plusieurs classes cochées : seuls
+        les enseignants de ces classes et les parents des élèves qui y sont inscrits y ont accès.
+      </p>
+      {classesFiltrees && classesFiltrees.length > 0 ? (
+        <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-xl border border-navy-100 p-2">
+          {classesFiltrees.map((c) => {
+            const active = selectionnees.has(c.id)
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onToggle(c.id)}
+                className={clsx(
+                  'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                  active
+                    ? 'border-gold-600 bg-gold-500 text-navy-900'
+                    : 'border-navy-200 bg-white text-navy-600 hover:border-navy-300',
+                )}
+              >
+                {c.nom}
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-navy-300">Aucune classe trouvée pour ces écoles.</p>
+      )}
+    </div>
+  )
+}
+
+const OPTIONS_CIBLES: [CibleBibliotheque, string][] = [
+  ['personnel', 'Personnel'],
+  ['parents', 'Parents'],
+]
+
+/** Destinataires du document — aucune coche = tout le monde (comportement historique). */
+function SelecteurCibles({
+  selectionnees,
+  onToggle,
+}: {
+  selectionnees: Set<CibleBibliotheque>
+  onToggle: (cible: CibleBibliotheque) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-semibold tracking-wide text-navy-500 uppercase">Destinataires (optionnel)</span>
+      <p className="text-xs text-navy-400">Aucune coche : visible par tout le monde (personnel et parents).</p>
+      <div className="flex flex-wrap gap-2">
+        {OPTIONS_CIBLES.map(([valeur, libelle]) => {
+          const active = selectionnees.has(valeur)
+          return (
+            <button
+              key={valeur}
+              type="button"
+              onClick={() => onToggle(valeur)}
+              className={clsx(
+                'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                active
+                  ? 'border-navy-700 bg-navy-700 text-cream-50'
+                  : 'border-navy-200 bg-white text-navy-600 hover:border-navy-300',
+              )}
+            >
+              {libelle}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** Bascule une valeur dans un `Set` — évite de répéter le même montage/démontage à chaque sélecteur multiple. */
+function useSelectionMultiple<T>() {
+  const [selection, setSelection] = useState<Set<T>>(new Set())
+  const toggle = (valeur: T) =>
     setSelection((actuel) => {
       const suivant = new Set(actuel)
-      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      suivant.has(valeur) ? suivant.delete(valeur) : suivant.add(valeur)
       return suivant
     })
   return [selection, toggle] as const
@@ -78,7 +179,10 @@ function useSelectionMultiple() {
 
 function DocumentFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
-  const [ecolesSelectionnees, toggleEcole] = useSelectionMultiple()
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: fetchClasses })
+  const [ecolesSelectionnees, toggleEcole] = useSelectionMultiple<number>()
+  const [classesSelectionnees, toggleClasse] = useSelectionMultiple<number>()
+  const [ciblesSelectionnees, toggleCible] = useSelectionMultiple<CibleBibliotheque>()
   const [fichier, setFichier] = useState<File | null>(null)
   const [erreurForm, setErreurForm] = useState<string | null>(null)
   const {
@@ -104,6 +208,8 @@ function DocumentFormModal({ onClose, onCreated }: { onClose: () => void; onCrea
         description: values.description || undefined,
         fichier,
         school_ids: [...ecolesSelectionnees],
+        classe_ids: [...classesSelectionnees],
+        cibles: [...ciblesSelectionnees],
       })
       succes('Document ajouté à la bibliothèque.')
       onCreated()
@@ -134,6 +240,13 @@ function DocumentFormModal({ onClose, onCreated }: { onClose: () => void; onCrea
         </div>
 
         <SelecteurEcoles schools={schools} selectionnees={ecolesSelectionnees} onToggle={toggleEcole} />
+        <SelecteurClasses
+          classes={classes}
+          ecolesSelectionnees={ecolesSelectionnees}
+          selectionnees={classesSelectionnees}
+          onToggle={toggleClasse}
+        />
+        <SelecteurCibles selectionnees={ciblesSelectionnees} onToggle={toggleCible} />
 
         {erreurForm && <p className="text-xs text-red-500">{erreurForm}</p>}
 
@@ -158,7 +271,10 @@ function DocumentFormModal({ onClose, onCreated }: { onClose: () => void; onCrea
  */
 function ImportMassifModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
-  const [ecolesSelectionnees, toggleEcole] = useSelectionMultiple()
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: fetchClasses })
+  const [ecolesSelectionnees, toggleEcole] = useSelectionMultiple<number>()
+  const [classesSelectionnees, toggleClasse] = useSelectionMultiple<number>()
+  const [ciblesSelectionnees, toggleCible] = useSelectionMultiple<CibleBibliotheque>()
   const [fichiers, setFichiers] = useState<File[]>([])
   const [description, setDescription] = useState('')
   const [enCours, setEnCours] = useState(false)
@@ -192,6 +308,8 @@ function ImportMassifModal({ onClose, onCreated }: { onClose: () => void; onCrea
         fichiers,
         description: description || undefined,
         school_ids: [...ecolesSelectionnees],
+        classe_ids: [...classesSelectionnees],
+        cibles: [...ciblesSelectionnees],
       })
       succes(`${crees.length} document(s) ajouté(s) à la bibliothèque.`)
       onCreated()
@@ -248,6 +366,13 @@ function ImportMassifModal({ onClose, onCreated }: { onClose: () => void; onCrea
         />
 
         <SelecteurEcoles schools={schools} selectionnees={ecolesSelectionnees} onToggle={toggleEcole} />
+        <SelecteurClasses
+          classes={classes}
+          ecolesSelectionnees={ecolesSelectionnees}
+          selectionnees={classesSelectionnees}
+          onToggle={toggleClasse}
+        />
+        <SelecteurCibles selectionnees={ciblesSelectionnees} onToggle={toggleCible} />
 
         {erreurForm && <p className="text-xs text-red-500">{erreurForm}</p>}
 
@@ -264,11 +389,85 @@ function ImportMassifModal({ onClose, onCreated }: { onClose: () => void; onCrea
   )
 }
 
+/**
+ * Ajuste le ciblage d'un document déjà déposé (écoles, classes,
+ * destinataires) sans repasser par un nouveau fichier — utile quand
+ * l'admin s'est trompé de classe ou veut ouvrir un document à toute l'école.
+ */
+function EditCiblageModal({
+  document,
+  onClose,
+  onSaved,
+}: {
+  document: DocumentBibliotheque
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
+  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: fetchClasses })
+  const [ecolesSelectionnees, setEcolesSelectionnees] = useState<Set<number>>(() => new Set(document.ecoles.map((e) => e.id)))
+  const [classesSelectionnees, setClassesSelectionnees] = useState<Set<number>>(() => new Set(document.classes.map((c) => c.id)))
+  const [ciblesSelectionnees, setCiblesSelectionnees] = useState<Set<CibleBibliotheque>>(() => new Set(document.cibles ?? []))
+  const [enCours, setEnCours] = useState(false)
+
+  const basculer = <T,>(setter: Dispatch<SetStateAction<Set<T>>>) => (valeur: T) =>
+    setter((actuel) => {
+      const suivant = new Set(actuel)
+      suivant.has(valeur) ? suivant.delete(valeur) : suivant.add(valeur)
+      return suivant
+    })
+  const toggleEcole = basculer<number>(setEcolesSelectionnees)
+  const toggleClasse = basculer<number>(setClassesSelectionnees)
+  const toggleCible = basculer<CibleBibliotheque>(setCiblesSelectionnees)
+
+  const onSubmit = async () => {
+    setEnCours(true)
+    try {
+      await modifierCiblageDocument(document.id, {
+        school_ids: [...ecolesSelectionnees],
+        classe_ids: [...classesSelectionnees],
+        cibles: [...ciblesSelectionnees],
+      })
+      succes('Ciblage mis à jour.')
+      onSaved()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <Modal title={`Ciblage de « ${document.titre} »`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <SelecteurEcoles schools={schools} selectionnees={ecolesSelectionnees} onToggle={toggleEcole} />
+        <SelecteurClasses
+          classes={classes}
+          ecolesSelectionnees={ecolesSelectionnees}
+          selectionnees={classesSelectionnees}
+          onToggle={toggleClasse}
+        />
+        <SelecteurCibles selectionnees={ciblesSelectionnees} onToggle={toggleCible} />
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="button" onClick={onSubmit} disabled={enCours || ecolesSelectionnees.size === 0}>
+            {enCours ? '…' : 'Enregistrer'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export function BibliothequePage() {
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [editingCiblage, setEditingCiblage] = useState<DocumentBibliotheque | null>(null)
   const [recherche, setRecherche] = useState('')
   const [page, setPage] = useState(1)
 
@@ -365,6 +564,15 @@ export function BibliothequePage() {
                       </a>
                       {can('bibliotheque.manage') && (
                         <button
+                          title="Modifier le ciblage"
+                          onClick={() => setEditingCiblage(document)}
+                          className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {can('bibliotheque.manage') && (
+                        <button
                           title="Supprimer"
                           onClick={() => supprimer(document)}
                           className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
@@ -376,6 +584,20 @@ export function BibliothequePage() {
                   </div>
                   {document.description && (
                     <p className="mt-2 whitespace-pre-wrap text-sm text-navy-700">{document.description}</p>
+                  )}
+                  {(document.classes.length > 0 || document.cibles) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {document.classes.map((c) => (
+                        <span key={c.id} className="rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-semibold text-gold-700">
+                          {c.nom}
+                        </span>
+                      ))}
+                      {document.cibles?.map((cible) => (
+                        <span key={cible} className="rounded-full bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-600">
+                          {cible === 'personnel' ? 'Personnel' : 'Parents'}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}
@@ -401,6 +623,17 @@ export function BibliothequePage() {
           onClose={() => setShowImport(false)}
           onCreated={() => {
             setShowImport(false)
+            invalider()
+          }}
+        />
+      )}
+
+      {editingCiblage && (
+        <EditCiblageModal
+          document={editingCiblage}
+          onClose={() => setEditingCiblage(null)}
+          onSaved={() => {
+            setEditingCiblage(null)
             invalider()
           }}
         />

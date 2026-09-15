@@ -202,17 +202,24 @@ export function ClassesListPage() {
       cellule: (c) => {
         const depasse = c.capacite != null && (c.effectif ?? 0) > c.capacite
         return (
-          <span className="inline-flex items-center gap-1.5 tabular-nums">
-            <span>
-              <span className={clsx('font-semibold', depasse && 'text-red-600')}>{c.effectif ?? 0}</span>
-              {c.capacite != null && <span className={depasse ? 'text-red-400' : 'text-navy-300'}> / {c.capacite}</span>}
+          <div className="flex flex-col gap-0.5">
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
+              <span>
+                <span className={clsx('font-semibold', depasse && 'text-red-600')}>{c.effectif ?? 0}</span>
+                {c.capacite != null && <span className={depasse ? 'text-red-400' : 'text-navy-300'}> / {c.capacite}</span>}
+              </span>
+              {depasse && (
+                <span title={`Capacité dépassée : ${c.effectif ?? 0} élèves pour ${c.capacite} places`}>
+                  <AlertTriangle className="h-3.5 w-3.5 flex-none text-red-500" />
+                </span>
+              )}
             </span>
-            {depasse && (
-              <span title={`Capacité dépassée : ${c.effectif ?? 0} élèves pour ${c.capacite} places`}>
-                <AlertTriangle className="h-3.5 w-3.5 flex-none text-red-500" />
+            {(c.garcons != null || c.filles != null) && (
+              <span className="text-xs text-navy-400">
+                {t('dashboard.boys')} {c.garcons ?? 0} · {t('dashboard.girls')} {c.filles ?? 0}
               </span>
             )}
-          </span>
+          </div>
         )
       },
     },

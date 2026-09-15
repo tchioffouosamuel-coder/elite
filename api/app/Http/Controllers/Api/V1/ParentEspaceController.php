@@ -64,16 +64,23 @@ class ParentEspaceController extends Controller
         private readonly EmploiDuTempsGenerator $emploiDuTempsPdf,
     ) {}
 
-    /** Documents de la bibliothèque numérique visibles pour les écoles des enfants du compte connecté. */
+    /**
+     * Documents de la bibliothèque numérique visibles pour les écoles des
+     * enfants du compte connecté — un document restreint à une classe (cf.
+     * `BibliothequeDocument::classes()`) n'apparaît que si l'un des enfants y
+     * est inscrit ; sans classe rattachée, il reste visible par toute l'école.
+     */
     public function bibliotheque(Request $request): JsonResponse
     {
-        $ecoleIds = ParentAccess::enfants($request->user())->pluck('school_id')->filter()->unique()->values()->all();
+        $enfants = ParentAccess::enfants($request->user());
+        $ecoleIds = $enfants->pluck('school_id')->filter()->unique()->values()->all();
 
         if (empty($ecoleIds)) {
             return ApiResponse::success([]);
         }
 
-        $documents = $this->bibliotheque->lister($ecoleIds);
+        $classeIds = $enfants->pluck('classe_id')->filter()->unique()->values()->all();
+        $documents = $this->bibliotheque->listerPourParent($ecoleIds, $classeIds);
 
         return ApiResponse::success($documents->map(fn(BibliothequeDocument $d) => [
             'id' => $d->id,

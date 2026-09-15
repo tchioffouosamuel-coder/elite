@@ -25,6 +25,8 @@ class VisiteInfirmerieController extends Controller
         $request->validate([
             'eleve_id' => ['nullable', 'integer'],
             'classe_id' => ['nullable', 'integer'],
+            'school_id' => ['nullable', 'integer'],
+            'sous_systeme_id' => ['nullable', 'integer'],
             'du' => ['nullable', 'date'],
             'au' => ['nullable', 'date'],
         ]);
@@ -33,6 +35,11 @@ class VisiteInfirmerieController extends Controller
             ->with(self::AVEC_RELATIONS)
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
+            // École et sous-système restreignent davantage le périmètre déjà
+            // posé par `forSchool()` — utile en mode agrégé (plusieurs écoles
+            // accessibles) pour isoler un établissement ou une filière précise.
+            ->when($request->integer('school_id'), fn ($q, $id) => $q->whereHas('eleve', fn ($e) => $e->where('school_id', $id)))
+            ->when($request->integer('sous_systeme_id'), fn ($q, $id) => $q->whereHas('classe', fn ($c) => $c->where('sous_systeme_id', $id)))
             ->when($request->string('du')->toString(), fn ($q, $du) => $q->whereDate('date_visite', '>=', $du))
             ->when($request->string('au')->toString(), fn ($q, $au) => $q->whereDate('date_visite', '<=', $au))
             ->latest('date_visite')

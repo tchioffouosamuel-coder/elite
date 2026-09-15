@@ -10,6 +10,8 @@ import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
+import { useUiStore } from '@/shared/store/uiStore'
+import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { fetchDettesAnterieuresListe, oublierDetteAnterieure, francs, type LigneDetteAnterieure } from '@/features/finance/api'
@@ -27,6 +29,7 @@ export function DettesAnterieuresPage() {
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
   const queryClient = useQueryClient()
+  const montantsMasques = useUiStore((s) => s.montantsMasques)
 
   const [schoolId, setSchoolId] = useState<number | ''>('')
   const [classeId, setClasseId] = useState<number | ''>('')
@@ -47,7 +50,9 @@ export function DettesAnterieuresPage() {
   // enregistre un nouveau.
   const { data: eleves } = useQuery({
     queryKey: ['eleves-options-dette'],
-    queryFn: () => fetchEleves({ per_page: 1000 }),
+    // Une dette antérieure peut concerner un élève pas encore préinscrit
+    // pour l'année en cours : cette page doit donc voir tout le monde.
+    queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
     enabled: detteModalOuvert,
   })
 
@@ -97,6 +102,7 @@ export function DettesAnterieuresPage() {
         icon={History}
         actions={
           <>
+            <ToggleMontantsMasques />
             {can('finance.manage') && (
               <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
                 <Plus className="h-4 w-4" />
@@ -155,8 +161,8 @@ export function DettesAnterieuresPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <StatCard label="Élèves concernés" value={data.totaux.effectif} icon={Users} accent="gold" />
-            <StatCard label="Total des reliquats" value={francs(data.totaux.total_montant)} icon={Wallet} accent="navy" />
-            <StatCard label="Reste à recouvrer" value={francs(data.totaux.total_reste)} icon={Wallet} accent="red" />
+            <StatCard label="Total des reliquats" value={masquer(francs(data.totaux.total_montant), montantsMasques)} icon={Wallet} accent="navy" />
+            <StatCard label="Reste à recouvrer" value={masquer(francs(data.totaux.total_reste), montantsMasques)} icon={Wallet} accent="red" />
           </div>
 
           {lignesFiltrees.length === 0 ? (

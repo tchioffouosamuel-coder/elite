@@ -101,6 +101,22 @@ function nettoyer(valeur: unknown): unknown {
   return valeur === '' ? null : valeur
 }
 
+/** Années pleines entre l'embauche et la fin de contrat (ou aujourd'hui) — même calcul que `Personnel::anciennete` côté API, pour un aperçu immédiat pendant la saisie. */
+function calculerAnciennete(dateEmbauche: string | null | undefined, dateFin: string | null | undefined): number | null {
+  if (!dateEmbauche) return null
+
+  const debut = new Date(dateEmbauche)
+  const fin = dateFin ? new Date(dateFin) : new Date()
+  if (Number.isNaN(debut.getTime()) || Number.isNaN(fin.getTime()) || fin < debut) return null
+
+  let annees = fin.getFullYear() - debut.getFullYear()
+  const anniversairePasse =
+    fin.getMonth() > debut.getMonth() || (fin.getMonth() === debut.getMonth() && fin.getDate() >= debut.getDate())
+  if (!anniversairePasse) annees -= 1
+
+  return Math.max(0, annees)
+}
+
 function resumeParent(nom: string | null | undefined, statut: PersonnelPayload['pere_statut'] | null | undefined, telephone: string | null | undefined) {
   if (!nom && !statut && !telephone) return null
 
@@ -183,6 +199,7 @@ export function PersonnelFormPage() {
   const { fields: enfants, append, remove } = useFieldArray({ control, name: 'enfants' })
 
   const ecoleChoisie = watch('school_id')
+  const anciennete = calculerAnciennete(watch('date_embauche'), watch('date_fin'))
   // La fonction et le département dépendent de l'école choisie : en mode
   // agrégé, `fonctions`/`departements` couvrent tout le complexe, il faut
   // filtrer plutôt que de mélanger les référentiels de plusieurs écoles.
@@ -339,6 +356,7 @@ export function PersonnelFormPage() {
     ['Diplôme académique', valeurs.diplome_academique],
     ["Date d'embauche", valeurs.date_embauche],
     ['Fin de contrat', valeurs.date_fin],
+    ['Ancienneté', anciennete !== null ? `${anciennete} an${anciennete > 1 ? 's' : ''}` : null],
     ['Type de contrat', valeurs.type_contrat],
     ['Statut', valeurs.statut_contrat],
     ['Catégorie / échelon', valeurs.categorie_echelon],
@@ -493,6 +511,12 @@ export function PersonnelFormPage() {
                   })}
                 />
               </div>
+              {anciennete !== null && (
+                <p className="-mt-2 text-xs text-navy-400">
+                  Ancienneté : <span className="font-semibold text-navy-600">{anciennete} an{anciennete > 1 ? 's' : ''}</span>{' '}
+                  (calculée automatiquement, non modifiable)
+                </p>
+              )}
               {valeurs.date_fin && (
                 <p className="rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
                   Une date de fin marque l'agent comme sorti des effectifs.
@@ -544,7 +568,10 @@ export function PersonnelFormPage() {
             <div className="flex flex-col gap-4">
               <h3 className="font-display text-base font-bold text-navy-900">Coordonnées et situation</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input label={t('personnel.telephone')} {...register('telephone')} />
+                <Input
+                  label={`${t('personnel.telephone')} (identifiant qui sera utilisé pour la connexion)`}
+                  {...register('telephone')}
+                />
                 <Input label="Second téléphone" {...register('telephone_2')} />
               </div>
               <Input

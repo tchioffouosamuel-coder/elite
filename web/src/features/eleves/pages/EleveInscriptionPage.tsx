@@ -286,7 +286,9 @@ export function EleveInscriptionPage() {
     // Récupérer l'élève si on est en édition
     const { data: elevesData, isLoading } = useQuery({
         queryKey: ['eleves', eleveId],
-        queryFn: () => fetchEleves({ per_page: 1000 }),
+        // Modifier la fiche d'un élève ne doit pas dépendre de sa préinscription
+        // pour l'année active — sans quoi sa fiche deviendrait introuvable ici.
+        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
         enabled: !!eleveId,
     })
 

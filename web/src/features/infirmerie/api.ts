@@ -34,7 +34,7 @@ export interface MaterielVisitePayload {
 
 export interface VisiteInfirmerie {
   id: number
-  eleve: { id: number; nom_complet: string }
+  eleve: { id: number; nom_complet: string; sexe: 'M' | 'F' | null }
   classe: { id: number; nom: string } | null
   school?: { id: number; name: string; code: string; type: string } | null
   date_visite: string
@@ -73,6 +73,8 @@ export interface VisiteInfirmeriePayload {
 export interface VisitesInfirmerieParams {
   eleve_id?: number
   classe_id?: number
+  school_id?: number
+  sous_systeme_id?: number
   du?: string
   au?: string
 }

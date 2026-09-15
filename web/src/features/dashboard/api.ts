@@ -8,6 +8,13 @@ export interface ActiviteLog {
   date: string;
 }
 
+export interface ClasseEffectifDetaille {
+  classe: string;
+  effectif: number;
+  garcons: number;
+  filles: number;
+}
+
 export interface DashboardStatsEcole {
   scope: "ecole";
   annee_scolaire_active: string | null;
@@ -18,7 +25,9 @@ export interface DashboardStatsEcole {
     classes: number;
   };
   repartition_genre: { garcons: number; filles: number };
-  top_classes: { classe: string; effectif: number }[];
+  top_classes: ClasseEffectifDetaille[];
+  /** Classement complet des classes par effectif, derrière le « Voir plus » du widget. */
+  classement_classes: ClasseEffectifDetaille[];
   indicateurs: { taux_filles: number; eleves_par_classe_moyenne: number };
   activite_recente: ActiviteLog[];
   /** Confirmation de présence pour l'année active : réinscription des anciens élèves et nouveaux arrivants. */

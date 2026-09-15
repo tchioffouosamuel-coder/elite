@@ -393,7 +393,8 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
   const navigate = useNavigate()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const nomEcoleActive = useAuthStore((s) => s.activeSchool()?.name)
-  const { effectifs, repartition_genre, top_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
+  const [voirClassement, setVoirClassement] = useState(false)
+  const { effectifs, repartition_genre, top_classes, classement_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
   const totalGenre = Math.max(1, repartition_genre.garcons + repartition_genre.filles)
   const partGarcons = Math.round((repartition_genre.garcons / totalGenre) * 100)
@@ -432,18 +433,33 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <h2 className="mb-5 font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.top_classes')}</h2>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.top_classes')}</h2>
+            {classement_classes.length > top_classes.length && (
+              <button
+                onClick={() => setVoirClassement(true)}
+                className="text-sm font-medium text-gold-600 transition-colors hover:text-gold-700"
+              >
+                {t('dashboard.see_more')}
+              </button>
+            )}
+          </div>
           <div className="flex flex-col gap-4">
             {top_classes.map((c) => (
-              <div key={c.classe} className="flex items-center gap-3">
-                <span className="w-24 flex-none truncate text-sm font-medium text-navy-600">{c.classe}</span>
-                <div className="h-2.5 flex-1 rounded-full bg-cream-100">
-                  <div
-                    className="h-2.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-300 transition-all"
-                    style={{ width: `${(c.effectif / maxClasseEffectif) * 100}%` }}
-                  />
+              <div key={c.classe} className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <span className="w-24 flex-none truncate text-sm font-medium text-navy-600">{c.classe}</span>
+                  <div className="h-2.5 flex-1 rounded-full bg-cream-100">
+                    <div
+                      className="h-2.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-300 transition-all"
+                      style={{ width: `${(c.effectif / maxClasseEffectif) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-8 flex-none text-right text-sm font-semibold tabular-nums text-navy-700">{c.effectif}</span>
                 </div>
-                <span className="w-8 flex-none text-right text-sm font-semibold tabular-nums text-navy-700">{c.effectif}</span>
+                <span className="pl-[6.75rem] text-xs text-navy-400">
+                  {t('dashboard.boys')} {c.garcons} · {t('dashboard.girls')} {c.filles}
+                </span>
               </div>
             ))}
           </div>
@@ -490,6 +506,23 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
       <PilotagePanel />
 
       {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
+
+      {voirClassement && (
+        <Modal title={t('dashboard.top_classes')} onClose={() => setVoirClassement(false)} taille="lg">
+          <div className="flex flex-col divide-y divide-navy-50">
+            {classement_classes.map((c, i) => (
+              <div key={c.classe} className="flex items-center gap-3 py-2.5">
+                <span className="w-6 flex-none text-right text-xs font-semibold tabular-nums text-navy-400">{i + 1}</span>
+                <span className="flex-1 truncate text-sm font-medium text-navy-700">{c.classe}</span>
+                <span className="text-xs text-navy-400">
+                  {t('dashboard.boys')} {c.garcons} · {t('dashboard.girls')} {c.filles}
+                </span>
+                <span className="w-10 flex-none text-right text-sm font-semibold tabular-nums text-navy-800">{c.effectif}</span>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Coins, HeartPulse, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { deleteVisiteInfirmerie, fetchVisitesInfirmerie, type VisiteInfirmerie } from '@/features/infirmerie/api'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClasses, fetchSchools } from '@/features/classes/api'
+import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
@@ -19,6 +20,41 @@ type FiltreNombre = number | ''
 
 function debutJour(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+function iso(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+type Periode = '' | 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee'
+
+/** Bornes calendaires (pas glissantes) de la période choisie, pour préremplir du/au. */
+function bornesPeriode(periode: Periode): { du: string; au: string } | null {
+  if (periode === '') return null
+
+  const maintenant = new Date()
+  const annee = maintenant.getFullYear()
+
+  if (periode === 'jour') {
+    return { du: iso(maintenant), au: iso(maintenant) }
+  }
+  if (periode === 'semaine') {
+    // Semaine ISO (lundi → dimanche).
+    const jourSemaine = (maintenant.getDay() + 6) % 7
+    const lundi = new Date(maintenant)
+    lundi.setDate(maintenant.getDate() - jourSemaine)
+    const dimanche = new Date(lundi)
+    dimanche.setDate(lundi.getDate() + 6)
+    return { du: iso(lundi), au: iso(dimanche) }
+  }
+  if (periode === 'mois') {
+    return { du: iso(new Date(annee, maintenant.getMonth(), 1)), au: iso(new Date(annee, maintenant.getMonth() + 1, 0)) }
+  }
+  if (periode === 'trimestre') {
+    const debutTrimestre = Math.floor(maintenant.getMonth() / 3) * 3
+    return { du: iso(new Date(annee, debutTrimestre, 1)), au: iso(new Date(annee, debutTrimestre + 3, 0)) }
+  }
+  return { du: iso(new Date(annee, 0, 1)), au: iso(new Date(annee, 11, 31)) }
 }
 
 function formatDateHeure(valeur: string, locale: string): string {
@@ -40,23 +76,43 @@ export function InfirmeriePage() {
   const can = useAuthStore((s) => s.can)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [ecoleFiltre, setEcoleFiltre] = useState<FiltreNombre>('')
+  const [sousSystemeFiltre, setSousSystemeFiltre] = useState<FiltreNombre>('')
   const [classeFiltre, setClasseFiltre] = useState<FiltreNombre>('')
   const [eleveFiltre, setEleveFiltre] = useState<FiltreNombre>('')
+  const [periode, setPeriode] = useState<Periode>('')
   const [du, setDu] = useState('')
   const [au, setAu] = useState('')
 
+  const changerPeriode = (valeur: Periode) => {
+    setPeriode(valeur)
+    const bornes = bornesPeriode(valeur)
+    setDu(bornes?.du ?? '')
+    setAu(bornes?.au ?? '')
+  }
+
   const params = useMemo(
     () => ({
+      ...(ecoleFiltre ? { school_id: Number(ecoleFiltre) } : {}),
+      ...(sousSystemeFiltre ? { sous_systeme_id: Number(sousSystemeFiltre) } : {}),
       ...(classeFiltre ? { classe_id: Number(classeFiltre) } : {}),
       ...(eleveFiltre ? { eleve_id: Number(eleveFiltre) } : {}),
       ...(du ? { du } : {}),
       ...(au ? { au } : {}),
     }),
-    [au, classeFiltre, du, eleveFiltre],
+    [au, classeFiltre, du, ecoleFiltre, eleveFiltre, sousSystemeFiltre],
   )
 
+  const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
+  const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: eleves } = useQuery({ queryKey: ['eleves', 'infirmerie'], queryFn: () => fetchEleves({ per_page: 500 }) })
+
+  const sousSystemesFiltres = ecoleFiltre
+    ? sousSystemes?.filter((s) => s.school_id === Number(ecoleFiltre))
+    : sousSystemes
+  const classesFiltrees = ecoleFiltre ? classes?.filter((c) => c.school_id === Number(ecoleFiltre)) : classes
+
   const { data: visites, isLoading } = useQuery({
     queryKey: ['infirmerie', 'visites', params],
     queryFn: () => fetchVisitesInfirmerie(params),
@@ -64,11 +120,14 @@ export function InfirmeriePage() {
 
   const lignes = useMemo(() => visites ?? [], [visites])
   const stats = useMemo(() => {
-    const elevesDistincts = new Set(lignes.map((visite) => visite.eleve.id)).size
+    const parEleve = new Map(lignes.map((visite) => [visite.eleve.id, visite.eleve]))
+    const elevesUniques = [...parEleve.values()]
+    const garcons = elevesUniques.filter((e) => e.sexe === 'M').length
+    const filles = elevesUniques.filter((e) => e.sexe === 'F').length
     const coutTotal = lignes.reduce((total, visite) => total + visite.cout_total, 0)
     const visitesAujourdhui = lignes.filter((visite) => visite.date_visite.startsWith(debutJour())).length
 
-    return { elevesDistincts, coutTotal, visitesAujourdhui }
+    return { elevesDistincts: elevesUniques.length, garcons, filles, coutTotal, visitesAujourdhui }
   }, [lignes])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['infirmerie', 'visites'] })
@@ -187,7 +246,13 @@ export function InfirmeriePage() {
 
       <div className="grid gap-3 md:grid-cols-3">
         <StatCard label={t('infirmerie.visits_total')} value={lignes.length} icon={HeartPulse} accent="red" />
-        <StatCard label={t('infirmerie.students_seen')} value={stats.elevesDistincts} icon={Users} accent="navy" />
+        <StatCard
+          label={t('infirmerie.students_seen')}
+          value={stats.elevesDistincts}
+          hint={t('infirmerie.students_seen_detail', { garcons: stats.garcons, filles: stats.filles })}
+          icon={Users}
+          accent="navy"
+        />
         <StatCard
           label={t('infirmerie.care_cost_total')}
           value={formatMontant(stats.coutTotal, i18n.language)}
@@ -209,9 +274,33 @@ export function InfirmeriePage() {
           largeurMin={980}
           outils={
             <>
+              <Select
+                value={ecoleFiltre}
+                onChange={(e) => {
+                  setEcoleFiltre(e.target.value ? Number(e.target.value) : '')
+                  setSousSystemeFiltre('')
+                  setClasseFiltre('')
+                }}
+                className="w-52"
+              >
+                <option value="">{t('infirmerie.all_schools')}</option>
+                {schools?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+              <Select value={sousSystemeFiltre} onChange={(e) => setSousSystemeFiltre(e.target.value ? Number(e.target.value) : '')} className="w-48">
+                <option value="">{t('infirmerie.all_sous_systemes')}</option>
+                {sousSystemesFiltres?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nom}
+                  </option>
+                ))}
+              </Select>
               <Select value={classeFiltre} onChange={(e) => setClasseFiltre(e.target.value ? Number(e.target.value) : '')} className="w-52">
                 <option value="">{t('infirmerie.all_classes')}</option>
-                {classes?.map((c) => (
+                {classesFiltrees?.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nom}
                   </option>
@@ -225,8 +314,34 @@ export function InfirmeriePage() {
                   </option>
                 ))}
               </Select>
-              <Input type="date" value={du} onChange={(e) => setDu(e.target.value)} className="w-40" icon={CalendarDays} />
-              <Input type="date" value={au} onChange={(e) => setAu(e.target.value)} className="w-40" icon={CalendarDays} />
+              <Select value={periode} onChange={(e) => changerPeriode(e.target.value as Periode)} className="w-40">
+                <option value="">{t('infirmerie.periode_custom')}</option>
+                <option value="jour">{t('infirmerie.periode_jour')}</option>
+                <option value="semaine">{t('infirmerie.periode_semaine')}</option>
+                <option value="mois">{t('infirmerie.periode_mois')}</option>
+                <option value="trimestre">{t('infirmerie.periode_trimestre')}</option>
+                <option value="annee">{t('infirmerie.periode_annee')}</option>
+              </Select>
+              <Input
+                type="date"
+                value={du}
+                onChange={(e) => {
+                  setDu(e.target.value)
+                  setPeriode('')
+                }}
+                className="w-40"
+                icon={CalendarDays}
+              />
+              <Input
+                type="date"
+                value={au}
+                onChange={(e) => {
+                  setAu(e.target.value)
+                  setPeriode('')
+                }}
+                className="w-40"
+                icon={CalendarDays}
+              />
             </>
           }
         />

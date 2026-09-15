@@ -36,7 +36,9 @@ export function ElevesDoublonsPage() {
     const queryClient = useQueryClient()
     const { data, isLoading, isError } = useQuery({
         queryKey: ['eleves'],
-        queryFn: () => fetchEleves({ per_page: 1000 }),
+        // Outil de correction de données : doit repérer les doublons parmi
+        // tous les élèves, pas seulement les préinscrits de l'année active.
+        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
     })
 
     const groupes = useMemo<GroupeDoublon[]>(() => {

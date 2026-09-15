@@ -99,7 +99,7 @@ export interface Seance {
   contenu: string | null;
   statut: "prevue" | "effectuee" | "annulee";
   absents: number;
-  /** Plus de 15 minutes se sont écoulées depuis le premier enregistrement de l'appel. */
+  /** Le délai de correction configuré pour l’école/sous-système est dépassé depuis le premier enregistrement de l’appel. */
   verrouille: boolean;
   /** Faux tant que l'heure de début n'est pas arrivée — l'appel ne peut pas encore être fait. */
   demarree: boolean;
@@ -315,7 +315,7 @@ export interface FeuilleAppel {
   tronc_commun: boolean;
   classes: ClasseAssociee[];
   lignes: LigneAppel[];
-  /** Plus de 15 minutes depuis le premier enregistrement : l'appel n'est plus modifiable. */
+  /** Délai de correction (configurable par école/sous-système) dépassé depuis le premier enregistrement : l’appel n’est plus modifiable. */
   verrouille: boolean;
   /** Jusqu'à quand la correction reste possible, si l'appel a déjà été enregistré une fois. */
   modifiable_jusqua: string | null;

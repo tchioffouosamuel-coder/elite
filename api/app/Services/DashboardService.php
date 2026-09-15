@@ -95,14 +95,28 @@ class DashboardService extends BaseService
         $filles = (int) ($parGenre['F'] ?? 0);
         $garcons = (int) ($parGenre['M'] ?? 0);
 
-        $effectifsParClasse = (clone $elevesInscrits)
-            ->selectRaw('classe_id, count(*) as total')
-            ->groupBy('classe_id')
-            ->pluck('total', 'classe_id');
-        $topClasses = (clone $classesQuery)->whereIn('id', $effectifsParClasse->keys())
+        // Par classe ET par genre, pour détailler garçons/filles/total sous
+        // chaque classe du classement (widget « Classes les plus nombreuses »).
+        $genrePartClasse = (clone $elevesInscrits)
+            ->selectRaw('classe_id, sexe, count(*) as total')
+            ->groupBy('classe_id', 'sexe')
+            ->get()
+            ->groupBy('classe_id');
+        $effectifsParClasse = $genrePartClasse->map(fn($lignes) => (int) $lignes->sum('total'));
+        $classementClasses = (clone $classesQuery)->whereIn('id', $effectifsParClasse->keys())
             ->get(['id', 'nom'])
-            ->map(fn($c) => ['classe' => $c->nom, 'effectif' => (int) $effectifsParClasse[$c->id]])
-            ->sortByDesc('effectif')->take(5)->values();
+            ->map(function ($c) use ($genrePartClasse, $effectifsParClasse) {
+                $lignes = $genrePartClasse->get($c->id, collect());
+
+                return [
+                    'classe' => $c->nom,
+                    'effectif' => (int) $effectifsParClasse[$c->id],
+                    'garcons' => (int) $lignes->firstWhere('sexe', 'M')?->total,
+                    'filles' => (int) $lignes->firstWhere('sexe', 'F')?->total,
+                ];
+            })
+            ->sortByDesc('effectif')->values();
+        $topClasses = $classementClasses->take(5)->values();
 
         // Journal réel des connexions et actions marquantes (qui a fait quoi),
         // pas une reconstruction a posteriori à partir des dates de création —
@@ -122,6 +136,8 @@ class DashboardService extends BaseService
             ],
             'repartition_genre' => ['garcons' => $garcons, 'filles' => $filles],
             'top_classes' => $topClasses,
+            // Classement complet, derrière le « Voir plus » du widget.
+            'classement_classes' => $classementClasses,
             'indicateurs' => [
                 'taux_filles' => $totalEleves > 0 ? round($filles / $totalEleves * 100, 1) : 0,
                 'eleves_par_classe_moyenne' => $totalClasses > 0 ? round($totalEleves / $totalClasses, 1) : 0,

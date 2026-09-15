@@ -13,6 +13,8 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
+import { useUiStore } from '@/shared/store/uiStore'
+import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
 import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
@@ -56,6 +58,7 @@ export function CaissePage() {
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const montantsMasques = useUiStore((s) => s.montantsMasques)
 
   const [classeId, setClasseId] = useState<number | ''>('')
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
@@ -265,6 +268,7 @@ export function CaissePage() {
         icon={Wallet}
         actions={
           <>
+            <ToggleMontantsMasques />
             <Button variant="secondary" onClick={() => navigate('/caisse/dettes-anterieures')}>
               <History className="h-4 w-4" />
               Dettes antérieures
@@ -294,15 +298,15 @@ export function CaissePage() {
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Attendu" value={francs(data.totaux.attendu)} icon={Users} accent="navy" />
+            <StatCard label="Attendu" value={masquer(francs(data.totaux.attendu), montantsMasques)} icon={Users} accent="navy" />
             <StatCard
               label="Recouvré"
-              value={francs(data.totaux.recouvre)}
+              value={masquer(francs(data.totaux.recouvre), montantsMasques)}
               icon={TrendingUp}
               accent="green"
               hint={`${data.totaux.taux_recouvrement} % du dû`}
             />
-            <StatCard label="Reste à recouvrer" value={francs(data.totaux.reste)} icon={AlertTriangle} accent="red" />
+            <StatCard label="Reste à recouvrer" value={masquer(francs(data.totaux.reste), montantsMasques)} icon={AlertTriangle} accent="red" />
             <StatCard
               label="Insolvables"
               value={data.totaux.insolvables}

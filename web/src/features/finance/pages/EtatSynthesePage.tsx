@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banknote, Building2, Calculator, FileText, RefreshCw, Users, Wallet } from 'lucide-react'
+import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
+import { useUiStore } from '@/shared/store/uiStore'
 import {
   doterAmortissements,
   fetchAmortissements,
@@ -38,6 +40,7 @@ export function EtatSynthesePage() {
   const user = useAuthStore((s) => s.user)
   const activeSchool = useAuthStore((s) => s.activeSchool)
   const queryClient = useQueryClient()
+  const montantsMasques = useUiStore((s) => s.montantsMasques)
 
   // Le document est par établissement : en mode agrégé, on retient la première
   // école accessible plutôt que d'additionner deux classeurs distincts.
@@ -78,6 +81,7 @@ export function EtatSynthesePage() {
         icon={Calculator}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <ToggleMontantsMasques />
             <Select
               value={exerciceId ?? ''}
               onChange={(e) => setExerciceId(Number(e.target.value))}
@@ -123,11 +127,11 @@ export function EtatSynthesePage() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Effectif de l'exercice" value={data.exercice.effectif} icon={Users} accent="navy" />
-            <StatCard label="Total recettes" value={francs(data.document.total_recettes)} icon={Banknote} accent="green" />
-            <StatCard label="Total dépenses" value={francs(data.document.total_depenses)} icon={Wallet} accent="gold" />
+            <StatCard label="Total recettes" value={masquer(francs(data.document.total_recettes), montantsMasques)} icon={Banknote} accent="green" />
+            <StatCard label="Total dépenses" value={masquer(francs(data.document.total_depenses), montantsMasques)} icon={Wallet} accent="gold" />
             <StatCard
               label="Balance de fin d'exercice"
-              value={francs(data.document.balance)}
+              value={masquer(francs(data.document.balance), montantsMasques)}
               icon={Calculator}
               accent={data.document.balance < 0 ? 'red' : 'green'}
               hint={data.document.balance < 0 ? 'Déficit au sens du document' : 'Excédent au sens du document'}

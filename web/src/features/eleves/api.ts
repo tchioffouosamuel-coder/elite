@@ -99,6 +99,14 @@ export async function fetchEleves(params: {
   classe_id?: number;
   page?: number;
   per_page?: number;
+  /**
+   * Par défaut, seuls les élèves préinscrits pour l'année active sont
+   * renvoyés (cf. `Eleve::scopePreinscritAnneeActive()` côté API). Passer
+   * `tous: true` pour les écrans qui doivent voir tout le monde — tableau de
+   * bord, page des dettes antérieures, outils de correction de données
+   * (doublons, élèves sans classe).
+   */
+  tous?: boolean;
 }): Promise<{
   items: Eleve[];
   pagination: Pagination;
@@ -112,11 +120,15 @@ export async function fetchEleves(params: {
  * ses tuteurs. Résultats non paginés, bornés côté API — pensée pour une
  * recherche rapide (ex. un appel entrant dont on n'a que le numéro), pas
  * pour remplacer la liste filtrée de `fetchEleves`.
+ *
+ * `tous`: voir `fetchEleves` — nécessaire par ex. pour retrouver un ancien
+ * élève pas encore préinscrit cette année, quand on veut justement créer sa
+ * préinscription.
  */
-export async function rechercheGlobaleEleves(q: string): Promise<Eleve[]> {
+export async function rechercheGlobaleEleves(q: string, tous = false): Promise<Eleve[]> {
   const { data } = await http.get<ApiResponse<Eleve[]>>(
     "/eleves/recherche-globale",
-    { params: { q } },
+    { params: { q, tous: tous || undefined } },
   );
   return data.data;
 }

@@ -51,7 +51,10 @@ export function ElevesSansClassePage() {
     })
     const { data, isLoading, isError } = useQuery({
         queryKey: ['eleves', 'sans-classe'],
-        queryFn: () => fetchEleves({ per_page: 1000 }),
+        // Outil de correction de données : un élève sans classe n'a souvent
+        // pas encore de préinscription traitée pour l'année active — il ne
+        // doit pas disparaître de cette liste pour autant.
+        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
     })
 
     const elevesSansClasse = (data?.items ?? []).filter((eleve) => eleve.classe === null)

@@ -48,6 +48,7 @@ class PersonnelResource extends JsonResource
             'date_embauche' => $this->date_embauche?->format('Y-m-d'),
             'date_fin' => $this->date_fin?->format('Y-m-d'),
             'date_retraite' => $this->date_retraite_calculee,
+            'anciennete' => $this->anciennete,
             'pere_nom_complet' => $this->pere_nom_complet,
             'pere_statut' => $this->pere_statut,
             'pere_telephone' => $this->pere_telephone,

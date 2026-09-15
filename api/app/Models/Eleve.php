@@ -67,6 +67,32 @@ class Eleve extends Model
         return is_array($schoolId) ? $query->whereIn('school_id', $schoolId) : $query->where('school_id', $schoolId);
     }
 
+    /**
+     * Restreint aux élèves ayant une préinscription (en attente ou validée)
+     * pour l'année scolaire active de leur propre école — même définition
+     * que `PreinscriptionService::estPreinscritAnneeActive()`, mais en
+     * sous-requête pour filtrer une liste plutôt que tester un élève à la
+     * fois. Sert à limiter les listes d'élèves à ceux réellement engagés pour
+     * l'année en cours, hors tableau de bord et page des dettes antérieures
+     * (qui doivent au contraire voir tout le monde).
+     */
+    public function scopePreinscritAnneeActive(Builder $query): Builder
+    {
+        return $query->whereExists(function ($sous) {
+            $sous->selectRaw('1')
+                ->from('preinscriptions')
+                ->whereColumn('preinscriptions.eleve_id', 'eleves.id')
+                ->whereIn('preinscriptions.statut', ['en_attente', 'validee'])
+                ->whereExists(function ($annee) {
+                    $annee->selectRaw('1')
+                        ->from('annee_scolaires')
+                        ->whereColumn('annee_scolaires.id', 'preinscriptions.annee_scolaire_id')
+                        ->whereColumn('annee_scolaires.school_id', 'eleves.school_id')
+                        ->where('annee_scolaires.is_active', true);
+                });
+        });
+    }
+
     /** Format YYELITES-NNNN : année sur deux chiffres puis ordre global. */
     public static function genererMatricule(int $schoolId): string
     {

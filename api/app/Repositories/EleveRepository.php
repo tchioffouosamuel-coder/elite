@@ -18,6 +18,13 @@ class EleveRepository extends BaseRepository
      * Le compte borne la liste à ses classes : un surveillant général chargé
      * de six classes ne feuillette pas les 1 800 élèves de l'établissement.
      *
+     * Restreinte par défaut aux élèves préinscrits pour l'année active (cf.
+     * `Eleve::scopePreinscritAnneeActive()`) — un élève qui n'a pas confirmé
+     * sa présence cette année n'a plus sa place dans les listes de travail
+     * courantes. `$filters['tous']` lève ce filtre pour les écrans qui, eux,
+     * doivent voir tout le monde (tableau de bord, page des dettes
+     * antérieures, outils de correction de données comme les doublons).
+     *
      * @param  int|array<int>  $schoolId
      */
     public function paginateForSchool(?User $user, int|array $schoolId, array $filters, int $perPage = 20): LengthAwarePaginator
@@ -26,6 +33,7 @@ class EleveRepository extends BaseRepository
             ->forSchool($schoolId)
             ->dansPerimetre($user)
             ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])
+            ->when(empty($filters['tous']), fn($query) => $query->preinscritAnneeActive())
             ->when($filters['search'] ?? null, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom_complet', 'like', "%{$search}%")
@@ -50,12 +58,13 @@ class EleveRepository extends BaseRepository
      * @param  int|array<int>  $schoolId
      * @return Collection<int, Eleve>
      */
-    public function rechercheGlobale(int|array $schoolId, ?User $user, string $terme, int $limite = 50): Collection
+    public function rechercheGlobale(int|array $schoolId, ?User $user, string $terme, int $limite = 50, bool $tous = false): Collection
     {
         return $this->query()
             ->forSchool($schoolId)
             ->dansPerimetre($user)
             ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])
+            ->when(! $tous, fn($query) => $query->preinscritAnneeActive())
             ->where(function ($query) use ($terme) {
                 $query->where('nom_complet', 'like', "%{$terme}%")
                     ->orWhere('matricule', 'like', "%{$terme}%")

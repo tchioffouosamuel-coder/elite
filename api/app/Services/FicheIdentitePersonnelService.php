@@ -15,10 +15,16 @@ use PhpOffice\PhpWord\PhpWord;
  * FicheIdentitePersonnelGenerator pour la version PDF) : même contenu, pour
  * l'établissement qui veut la corriger à la main avant archivage plutôt que
  * ressaisir le dossier.
+ *
+ * Habillage aligné sur les autres documents .docx de l'établissement
+ * (certificat de scolarité, attestation d'employeur : Times New Roman, noir,
+ * sans accent coloré) plutôt que sur la charte des documents .pdf (Montserrat,
+ * vert) — les deux versions partagent le même contenu, mais chaque format
+ * garde la présentation de sa propre famille de documents.
  */
 class FicheIdentitePersonnelService extends BaseService
 {
-    private const ACCENT = '39B54A';
+    private const GRIS_FILET = 'BDC3C7';
 
     private const POINTILLES = '……………………………………';
 
@@ -28,7 +34,7 @@ class FicheIdentitePersonnelService extends BaseService
         $feminin = $personnel->sexe === 'F';
 
         $phpWord = new PhpWord;
-        $phpWord->setDefaultFontName('Montserrat');
+        $phpWord->setDefaultFontName('Times New Roman');
         $section = $phpWord->addSection([
             'marginTop' => 720, 'marginBottom' => 720, 'marginLeft' => 900, 'marginRight' => 900,
         ]);
@@ -36,8 +42,8 @@ class FicheIdentitePersonnelService extends BaseService
         EnTeteWord::filigrane($section, $school);
         EnTeteWord::ajouter($section, $school);
 
-        $section->addText("FICHE D'IDENTIFICATION DU PERSONNEL", ['bold' => true, 'size' => 14, 'color' => self::ACCENT], ['alignment' => 'center', 'spaceAfter' => 0]);
-        $section->addText('STAFF IDENTIFICATION SHEET', ['italic' => true, 'size' => 11, 'color' => self::ACCENT], ['alignment' => 'center', 'spaceAfter' => 200]);
+        $section->addText("FICHE D'IDENTIFICATION DU PERSONNEL", ['bold' => true, 'size' => 15], ['alignment' => 'center', 'spaceAfter' => 0]);
+        $section->addText('STAFF IDENTIFICATION SHEET', ['bold' => true, 'italic' => true, 'size' => 12], ['alignment' => 'center', 'spaceAfter' => 200]);
 
         if ($personnel->photo_path) {
             $chemin = storage_path('app/public/'.ltrim($personnel->photo_path, '/'));
@@ -99,20 +105,20 @@ class FicheIdentitePersonnelService extends BaseService
 
     private function rubrique(Section $section, string $fr, string $en): void
     {
-        $ligne = $section->addTextRun(['spaceBefore' => 200, 'spaceAfter' => 120, 'borderBottomSize' => 6, 'borderBottomColor' => self::ACCENT]);
-        $ligne->addText(mb_strtoupper($fr).' ', ['bold' => true, 'size' => 11, 'color' => '292F36']);
-        $ligne->addText('/ '.$en, ['bold' => true, 'italic' => true, 'size' => 9, 'color' => '777777']);
+        $ligne = $section->addTextRun(['spaceBefore' => 200, 'spaceAfter' => 120, 'borderBottomSize' => 6, 'borderBottomColor' => self::GRIS_FILET]);
+        $ligne->addText(mb_strtoupper($fr).' ', ['bold' => true, 'size' => 11]);
+        $ligne->addText('/ '.$en, ['bold' => true, 'italic' => true, 'size' => 10]);
     }
 
     private function champ(Section $section, string $fr, string $en, ?string $valeur, bool $majuscules = false): void
     {
         $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 90]);
-        $ligne->addText($fr.' / ', ['size' => 10]);
-        $ligne->addText($en, ['size' => 10, 'italic' => true]);
-        $ligne->addText(' : ', ['size' => 10]);
+        $ligne->addText($fr.' / ', ['size' => 11]);
+        $ligne->addText($en, ['size' => 11, 'italic' => true]);
+        $ligne->addText(' : ', ['size' => 11]);
         $ligne->addText(
             $valeur !== null && trim($valeur) !== '' ? $valeur : self::POINTILLES,
-            ['size' => 10, 'bold' => true, 'allCaps' => $majuscules],
+            ['size' => 11, 'bold' => true, 'allCaps' => $majuscules],
         );
     }
 

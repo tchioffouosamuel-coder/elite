@@ -71,6 +71,8 @@ export interface DossierPersonnel {
   date_fin: string | null;
   /** Retombe sur naissance + 60 ans quand la date n'est pas saisie. */
   date_retraite: string | null;
+  /** Années pleines depuis `date_embauche` (jusqu'à `date_fin` si l'agent est sorti) — calculée côté API, lecture seule. */
+  anciennete: number | null;
   pere_nom_complet: string | null;
   pere_statut: StatutParent | null;
   pere_telephone: string | null;

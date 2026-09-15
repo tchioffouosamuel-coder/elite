@@ -323,6 +323,10 @@ export function PersonnelDetailPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Champ label={t('hub.personnel.date_embauche')} valeur={personnel.date_embauche} />
               <Champ label={t('hub.personnel.date_fin')} valeur={personnel.date_fin} />
+              <Champ
+                label={t('hub.personnel.anciennete')}
+                valeur={personnel.anciennete !== null ? t('hub.personnel.anciennete_valeur', { count: personnel.anciennete }) : null}
+              />
               <Champ label={t('hub.personnel.date_retraite')} valeur={personnel.date_retraite} />
               <Champ label={t('hub.personnel.affectation')} valeur={personnel.affectation} />
               <Champ label={t('hub.personnel.diplome_academique')} valeur={personnel.diplome_academique} />
