@@ -90,7 +90,7 @@ class MaJourneeController extends Controller
 
         $preuveFournie = $classeMatiere->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
-        if ($request->user()->methodeValidationSeance() !== 'libre' && ! $preuveFournie) {
+        if ($request->user()->methodeValidationSeance($classeMatiere->classe) !== 'libre' && ! $preuveFournie) {
             return ApiResponse::forbidden(
                 "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
             );

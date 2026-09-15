@@ -340,6 +340,64 @@ export async function batchDeleteBanques(
   return data.data;
 }
 
+/**
+ * Règle par défaut de preuve de présence pour « Ma journée », par école et
+ * en option par sous-système (nul = toute l'école). Une fiche de personnel
+ * peut la surcharger via `methode_validation_seance`.
+ */
+export interface RegleValidationSeance {
+  id: number;
+  school_id: number;
+  sous_systeme_id: number | null;
+  sous_systeme?: string | null;
+  methode_validation: "qr" | "code" | "libre";
+  delai_valeur: number;
+  delai_unite: "minutes" | "jours" | "semaines";
+  delai_en_minutes: number;
+}
+
+export async function fetchReglesValidationSeance(): Promise<
+  RegleValidationSeance[]
+> {
+  const { data } = await http.get<ApiResponse<RegleValidationSeance[]>>(
+    "/regles-validation-seance",
+  );
+  return data.data;
+}
+
+export interface RegleValidationSeancePayload {
+  school_id?: number | null;
+  sous_systeme_id?: number | null;
+  methode_validation: "qr" | "code" | "libre";
+  delai_valeur: number;
+  delai_unite: "minutes" | "jours" | "semaines";
+}
+
+export async function createRegleValidationSeance(
+  payload: RegleValidationSeancePayload,
+): Promise<RegleValidationSeance> {
+  const { data } = await http.post<ApiResponse<RegleValidationSeance>>(
+    "/regles-validation-seance",
+    payload,
+  );
+  return data.data;
+}
+
+export async function updateRegleValidationSeance(
+  id: number,
+  payload: RegleValidationSeancePayload,
+): Promise<RegleValidationSeance> {
+  const { data } = await http.put<ApiResponse<RegleValidationSeance>>(
+    `/regles-validation-seance/${id}`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function deleteRegleValidationSeance(id: number): Promise<void> {
+  await http.delete(`/regles-validation-seance/${id}`);
+}
+
 export async function fetchPersonnels(params?: {
   search?: string;
   departement_id?: number;

@@ -45,15 +45,27 @@ class Seance extends Model
     }
 
     /**
-     * L'appel reste corrigeable 15 minutes après son premier enregistrement
-     * (`appel_verrouille_le`, figé une seule fois) — passé ce délai,
-     * l'enseignant doit passer par le Surveillant Général pour toute
+     * L'appel reste corrigeable un certain délai après son premier
+     * enregistrement (`appel_verrouille_le`, figé une seule fois) — passé ce
+     * délai, l'enseignant doit passer par le Surveillant Général pour toute
      * correction plutôt que de pouvoir réécrire l'historique de pointage.
+     *
+     * Le délai vient de la règle définie par la direction pour l'école (et,
+     * si précisée, le sous-système) de cette séance — cf.
+     * `RegleValidationSeance` — et retombe sur 15 minutes en son absence.
      */
     public function appelVerrouille(): bool
     {
         return $this->appel_verrouille_le !== null
-            && now()->greaterThan($this->appel_verrouille_le->addMinutes(self::MINUTES_VERROUILLAGE_APPEL));
+            && now()->greaterThan($this->appel_verrouille_le->addMinutes($this->minutesVerrouillageAppel()));
+    }
+
+    /** Délai de correction applicable à cette séance, en minutes. */
+    public function minutesVerrouillageAppel(): int
+    {
+        $regle = \App\Models\RegleValidationSeance::pour($this->school_id, $this->classe?->sous_systeme_id);
+
+        return $regle?->delaiEnMinutes() ?? self::MINUTES_VERROUILLAGE_APPEL;
     }
 
     /**

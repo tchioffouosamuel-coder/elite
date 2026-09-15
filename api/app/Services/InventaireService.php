@@ -4,25 +4,30 @@ namespace App\Services;
 
 use App\Models\InventaireArticle;
 use App\Support\CodeBarreArticle;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
 class InventaireService extends BaseService
 {
     /**
+     * `$perPage` null renvoie le catalogue complet — utile aux étiquettes et
+     * à l'export, qui doivent balayer tout le stock filtré plutôt qu'une page.
+     *
      * @param  int|array<int>  $schoolId
      * @param  array{categorie?: ?string, etat?: ?string, search?: ?string}  $filtres
      */
-    public function lister(int|array $schoolId, array $filtres = []): Collection
+    public function lister(int|array $schoolId, array $filtres = [], ?int $perPage = 30): Collection|LengthAwarePaginator
     {
-        return InventaireArticle::forSchool($schoolId)
+        $detail = InventaireArticle::forSchool($schoolId)
             ->with('school:id,name,code,type')
             ->when($filtres['categorie'] ?? null, fn ($q, $c) => $q->where('categorie', $c))
             ->when($filtres['etat'] ?? null, fn ($q, $e) => $q->where('etat', $e))
             ->when($filtres['search'] ?? null, fn ($q, $s) => $q->where(function ($query) use ($s) {
                 $query->where('nom', 'like', "%{$s}%")->orWhere('localisation', 'like', "%{$s}%");
             }))
-            ->orderBy('nom')
-            ->get();
+            ->orderBy('nom');
+
+        return $perPage !== null ? $detail->paginate($perPage) : $detail->get();
     }
 
     /** @param int|array<int> $schoolId */
@@ -97,18 +102,34 @@ class InventaireService extends BaseService
     }
 
     /**
+     * Calculées en base plutôt que sur une collection chargée en mémoire :
+     * le stock d'une école s'accumule sur des années sans jamais se purger,
+     * contrairement à une grille tarifaire bornée par le nombre de classes.
+     *
      * @param  int|array<int>  $schoolId
      * @return array{effectif_articles: int, quantite_totale: int, valeur_totale: int, par_etat: array<string, int>}
      */
     public function stats(int|array $schoolId): array
     {
-        $articles = InventaireArticle::forSchool($schoolId)->get();
+        // Alias distinct du nom de l'accesseur `valeur_totale` du modèle : en
+        // portant ce nom, la colonne agrégée serait masquée par
+        // `getValeurTotaleAttribute()`, qui recalculerait (et renverrait 0)
+        // à partir des attributs `quantite`/`valeur_unitaire` absents de cette
+        // ligne d'agrégat plutôt que de lire la valeur SQL.
+        $totaux = InventaireArticle::forSchool($schoolId)
+            ->selectRaw('COUNT(*) as effectif, SUM(quantite) as quantite_totale, SUM(quantite * COALESCE(valeur_unitaire, 0)) as somme_valeur')
+            ->first();
+
+        $parEtat = InventaireArticle::forSchool($schoolId)
+            ->selectRaw('etat, SUM(quantite) as quantite')
+            ->groupBy('etat')
+            ->pluck('quantite', 'etat');
 
         return [
-            'effectif_articles' => $articles->count(),
-            'quantite_totale' => (int) $articles->sum('quantite'),
-            'valeur_totale' => (int) $articles->sum(fn (InventaireArticle $a) => $a->valeur_totale),
-            'par_etat' => $articles->groupBy('etat')->map(fn ($grp) => (int) $grp->sum('quantite'))->all(),
+            'effectif_articles' => (int) ($totaux->effectif ?? 0),
+            'quantite_totale' => (int) ($totaux->quantite_totale ?? 0),
+            'valeur_totale' => (int) ($totaux->somme_valeur ?? 0),
+            'par_etat' => $parEtat->map(fn ($q) => (int) $q)->all(),
         ];
     }
 }

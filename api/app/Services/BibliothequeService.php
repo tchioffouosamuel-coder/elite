@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BibliothequeDocument;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection as SupportCollection;
@@ -10,13 +11,27 @@ use Illuminate\Support\Facades\Storage;
 
 class BibliothequeService extends BaseService
 {
-    /** @param int|array<int> $schoolId */
-    public function lister(int|array $schoolId): Collection
+    /**
+     * `$perPage` null renvoie le catalogue complet — c'est ce qu'utilisent
+     * les espaces personnel et parent, qui affichent tout sans pagination.
+     * L'écran d'administration, lui, en accumule chaque dépôt d'année en
+     * année et demande une page à la fois.
+     *
+     * @param  int|array<int>  $schoolId
+     * @param  array{search?: ?string}  $filtres
+     */
+    public function lister(int|array $schoolId, array $filtres = [], ?int $perPage = null): Collection|LengthAwarePaginator
     {
-        return BibliothequeDocument::visiblePour($schoolId)
+        $detail = BibliothequeDocument::visiblePour($schoolId)
             ->with(['ecoles', 'uploadePar'])
-            ->latest()
-            ->get();
+            ->when($filtres['search'] ?? null, fn ($q, $s) => $q->where(function ($query) use ($s) {
+                $query->where('titre', 'like', "%{$s}%")
+                    ->orWhere('description', 'like', "%{$s}%")
+                    ->orWhereHas('ecoles', fn ($e) => $e->where('name', 'like', "%{$s}%"));
+            }))
+            ->latest();
+
+        return $perPage !== null ? $detail->paginate($perPage) : $detail->get();
     }
 
     /** @param array{titre: string, description?: ?string, school_ids: array<int>} $donnees */

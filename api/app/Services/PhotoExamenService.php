@@ -209,7 +209,7 @@ class PhotoExamenService extends BaseService
     /** @return \GdImage|null */
     private function ouvrir(string $chemin)
     {
-        $type = @exif_imagetype($chemin);
+        $type = @getimagesize($chemin)[2] ?? null;
 
         $image = match ($type) {
             IMAGETYPE_JPEG => @imagecreatefromjpeg($chemin),

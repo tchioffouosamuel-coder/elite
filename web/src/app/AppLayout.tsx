@@ -148,6 +148,7 @@ const navGroups = [
       { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
       { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
       { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'personnel.manage', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
+      { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
       {
         to: '/departements',
         label: 'nav.departements',

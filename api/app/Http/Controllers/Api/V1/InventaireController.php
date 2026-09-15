@@ -35,12 +35,16 @@ class InventaireController extends Controller
             'search' => $request->string('search')->toString() ?: null,
         ];
 
-        $articles = $this->service->lister(Tenant::schoolIds(), $filtres);
+        $articles = $this->service->lister(
+            Tenant::schoolIds(),
+            $filtres,
+            (int) $request->integer('per_page', 30),
+        );
 
-        return ApiResponse::success([
-            'articles' => $articles->map(fn (InventaireArticle $a) => $this->resumer($a))->values(),
+        return ApiResponse::successPaginated([
+            'articles' => $articles->getCollection()->map(fn (InventaireArticle $a) => $this->resumer($a))->values(),
             'stats' => $this->service->stats(Tenant::schoolIds()),
-        ]);
+        ], $articles);
     }
 
     public function store(Request $request): JsonResponse

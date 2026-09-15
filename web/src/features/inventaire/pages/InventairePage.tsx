@@ -53,6 +53,8 @@ export function InventairePage() {
   const queryClient = useQueryClient()
   const [categorie, setCategorie] = useState<CategorieArticle | ''>('')
   const [etat, setEtat] = useState<EtatArticle | ''>('')
+  const [terme, setTerme] = useState('')
+  const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [articleEnEdition, setArticleEnEdition] = useState<ArticleInventaire | null>(null)
   // Étiqueter se fait par lot : un carton de cahiers, c'est une planche
@@ -61,9 +63,15 @@ export function InventairePage() {
   const [impressionEnCours, setImpressionEnCours] = useState(false)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventaire', categorie, etat],
-    queryFn: () => fetchInventaire({ categorie: categorie || undefined, etat: etat || undefined }),
+    queryKey: ['inventaire', categorie, etat, terme, page],
+    queryFn: () => fetchInventaire({ categorie: categorie || undefined, etat: etat || undefined, search: terme || undefined, page }),
   })
+
+  // Un nouveau filtre repart de la première page.
+  const filtrer = <T,>(setter: (v: T) => void) => (v: T) => {
+    setter(v)
+    setPage(1)
+  }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['inventaire'] })
 
@@ -330,9 +338,21 @@ export function InventairePage() {
           placeholderRecherche={t('inventaire.search_placeholder')}
           messageVide={t('inventaire.empty')}
           largeurMin={760}
+          terme={terme}
+          onTermeChange={filtrer(setTerme)}
+          pagination={
+            data
+              ? {
+                page: data.pagination.current_page,
+                totalPages: data.pagination.last_page,
+                total: data.pagination.total,
+                onPageChange: setPage,
+              }
+              : undefined
+          }
           outils={
             <div className="flex flex-wrap gap-2">
-              <Select value={categorie} onChange={(e) => setCategorie(e.target.value as CategorieArticle | '')}>
+              <Select value={categorie} onChange={(e) => filtrer(setCategorie)(e.target.value as CategorieArticle | '')}>
                 <option value="">{t('inventaire.all_categories')}</option>
                 {CATEGORIES.map((valeur) => (
                   <option key={valeur} value={valeur}>
@@ -340,7 +360,7 @@ export function InventairePage() {
                   </option>
                 ))}
               </Select>
-              <Select value={etat} onChange={(e) => setEtat(e.target.value as EtatArticle | '')}>
+              <Select value={etat} onChange={(e) => filtrer(setEtat)(e.target.value as EtatArticle | '')}>
                 <option value="">{t('inventaire.all_etats')}</option>
                 {ETATS.map((valeur) => (
                   <option key={valeur} value={valeur}>

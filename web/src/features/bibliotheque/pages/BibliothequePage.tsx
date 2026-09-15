@@ -16,6 +16,7 @@ import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Textarea } from '@/shared/ui/Field'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { Pagination } from '@/shared/ui/Pagination'
 import { Spinner, EmptyState, ErrorState } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -269,20 +270,16 @@ export function BibliothequePage() {
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [recherche, setRecherche] = useState('')
+  const [page, setPage] = useState(1)
 
-  const { data, isLoading, isError } = useQuery({ queryKey: ['bibliotheque'], queryFn: fetchBibliotheque })
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['bibliotheque', recherche, page],
+    queryFn: () => fetchBibliotheque({ search: recherche || undefined, page }),
+  })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['bibliotheque'] })
 
-  const termeRecherche = recherche.trim().toLowerCase()
-  const documentsFiltres = data?.filter((document) => {
-    if (termeRecherche === '') return true
-    const contenu = [document.titre, document.description, ...document.ecoles.map((e) => e.name)]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return contenu.includes(termeRecherche)
-  })
+  const documents = data?.documents
 
   const supprimer = async (document: DocumentBibliotheque) => {
     const confirme = await confirmerSuppression(`Supprimer « ${document.titre} » ?`)
@@ -325,25 +322,28 @@ export function BibliothequePage() {
         <ErrorState />
       ) : (
         <>
-          {data.length > 0 && (
+          {(documents!.length > 0 || recherche !== '') && (
             <div className="relative max-w-sm">
               <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-navy-300" />
               <input
                 value={recherche}
-                onChange={(e) => setRecherche(e.target.value)}
+                onChange={(e) => {
+                  setRecherche(e.target.value)
+                  setPage(1)
+                }}
                 placeholder="Rechercher un document…"
                 className="w-full rounded-xl border border-navy-200 py-2 pr-3 pl-9 text-sm outline-none focus:border-navy-400"
               />
             </div>
           )}
 
-          {data.length === 0 ? (
-            <EmptyState label="Aucun document dans la bibliothèque." />
-          ) : documentsFiltres?.length === 0 ? (
-            <EmptyState label="Aucun document ne correspond à cette recherche." />
+          {documents!.length === 0 ? (
+            <EmptyState
+              label={recherche ? 'Aucun document ne correspond à cette recherche.' : 'Aucun document dans la bibliothèque.'}
+            />
           ) : (
             <div className="flex flex-col gap-3">
-              {documentsFiltres?.map((document) => (
+              {documents!.map((document) => (
                 <div key={document.id} className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -381,6 +381,8 @@ export function BibliothequePage() {
               ))}
             </div>
           )}
+
+          {data && <Pagination pagination={data.pagination} onChange={setPage} />}
         </>
       )}
 

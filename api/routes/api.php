@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\BanqueController;
+use App\Http\Controllers\Api\V1\RegleValidationSeanceController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
@@ -264,6 +265,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('banques/export', [BanqueController::class, 'export'])->name('banques.export');
                 Route::get('banques/modele', [BanqueController::class, 'modele'])->name('banques.modele');
                 Route::get('banques/{id}', [BanqueController::class, 'show'])->name('banques.show');
+                Route::get('regles-validation-seance', [RegleValidationSeanceController::class, 'index'])->name('regles-validation-seance.index');
                 Route::get('personnels', [PersonnelController::class, 'index'])->name('personnels.index');
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/modele', [PersonnelController::class, 'modele'])->name('personnels.modele');
@@ -297,6 +299,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('banques/{id}', [BanqueController::class, 'update'])->name('banques.update');
                 Route::delete('banques/{id}', [BanqueController::class, 'destroy'])->name('banques.destroy');
                 Route::post('banques/batch-delete', [BanqueController::class, 'batchDelete'])->name('banques.batch-delete');
+
+                Route::post('regles-validation-seance', [RegleValidationSeanceController::class, 'store'])->name('regles-validation-seance.store');
+                Route::put('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'update'])->name('regles-validation-seance.update');
+                Route::delete('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'destroy'])->name('regles-validation-seance.destroy');
 
                 Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store');
                 Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update');

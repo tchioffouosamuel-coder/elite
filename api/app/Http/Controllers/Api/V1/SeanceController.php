@@ -140,7 +140,7 @@ class SeanceController extends Controller
         abort_if(
             $seance->appelVerrouillePour($request->user()),
             403,
-            "L'appel de cette séance est verrouillé depuis plus de " . Seance::MINUTES_VERROUILLAGE_APPEL . " minutes. Contactez le Surveillant Général pour une correction."
+            "L'appel de cette séance est verrouillé depuis plus de " . $seance->minutesVerrouillageAppel() . " minutes. Contactez le Surveillant Général pour une correction."
         );
 
         $data = $request->validate([
@@ -165,7 +165,7 @@ class SeanceController extends Controller
         $preuveFournie = $seance->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
         abort_if(
-            $request->user()->methodeValidationSeance() !== 'libre' && ! $preuveFournie,
+            $request->user()->methodeValidationSeance($seance->classe) !== 'libre' && ! $preuveFournie,
             403,
             "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
         );

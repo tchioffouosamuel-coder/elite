@@ -136,7 +136,7 @@ class VisaComposeService
     /** @return \GdImage|null */
     private function charger(string $chemin)
     {
-        $type = @exif_imagetype($chemin);
+        $type = @getimagesize($chemin)[2] ?? null;
 
         $image = match ($type) {
             IMAGETYPE_PNG => @imagecreatefrompng($chemin),

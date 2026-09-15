@@ -167,12 +167,13 @@ class MaJourneeService extends BaseService
                 'observations' => $seance->observations,
                 'donnees_personnalisees' => $seance->donnees_personnalisees ?? [],
                 // L'appel ET les leçons cochées se soumettent ensemble ici : le
-                // même verrou couvre les deux, 15 minutes après la première
-                // déclaration de cette séance (cf. `enregistrer()`).
+                // même verrou couvre les deux, un délai après la première
+                // déclaration de cette séance (cf. `enregistrer()`), réglable
+                // par école/sous-système — cf. `RegleValidationSeance`.
                 'verrouille' => $seance->appelVerrouillePour($user),
                 'aujourdhui' => $seance->estAujourdhui(),
                 'modifiable_jusqua' => $seance->appel_verrouille_le
-                    ?->addMinutes(Seance::MINUTES_VERROUILLAGE_APPEL)
+                    ?->addMinutes($seance->minutesVerrouillageAppel())
                     ?->toIso8601String(),
             ],
             'lecons' => $lecons,
@@ -219,7 +220,7 @@ class MaJourneeService extends BaseService
         abort_if(
             $seance->appelVerrouillePour($user),
             403,
-            'La déclaration de cette séance est verrouillée depuis plus de '.Seance::MINUTES_VERROUILLAGE_APPEL.' minutes. Contactez le Surveillant Général pour une correction.'
+            'La déclaration de cette séance est verrouillée depuis plus de '.$seance->minutesVerrouillageAppel().' minutes. Contactez le Surveillant Général pour une correction.'
         );
 
         return $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $observations, $donneesPersonnalisees, $qrVerifie) {

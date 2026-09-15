@@ -1,5 +1,5 @@
 import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
+import type { ApiResponse, Pagination } from '@/shared/types/api'
 
 export interface DocumentBibliotheque {
   id: number
@@ -17,9 +17,13 @@ export interface DocumentBibliotheque {
 /** Vue en lecture seule (espaces personnel/parent) : ni la liste des écoles, ni le déposant. */
 export type DocumentBibliothequeLecture = Omit<DocumentBibliotheque, 'ecoles' | 'uploade_par'>
 
-export async function fetchBibliotheque(): Promise<DocumentBibliotheque[]> {
-  const { data } = await http.get<ApiResponse<DocumentBibliotheque[]>>('/bibliotheque')
-  return data.data
+export async function fetchBibliotheque(params?: {
+  search?: string
+  page?: number
+  per_page?: number
+}): Promise<{ documents: DocumentBibliotheque[]; pagination: Pagination }> {
+  const { data } = await http.get<ApiResponse<DocumentBibliotheque[]>>('/bibliotheque', { params })
+  return { documents: data.data, pagination: data.meta!.pagination! }
 }
 
 /** `FormData` et non JSON : le document porte un fichier. */

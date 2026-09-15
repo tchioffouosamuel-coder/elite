@@ -21,11 +21,18 @@ class BibliothequeController extends Controller
 {
     public function __construct(private readonly BibliothequeService $service) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $documents = $this->service->lister(Tenant::schoolIds());
+        $documents = $this->service->lister(
+            Tenant::schoolIds(),
+            ['search' => $request->string('search')->toString() ?: null],
+            (int) $request->integer('per_page', 20),
+        );
 
-        return ApiResponse::success($documents->map(fn (BibliothequeDocument $d) => $this->resumer($d))->values());
+        return ApiResponse::successPaginated(
+            $documents->getCollection()->map(fn (BibliothequeDocument $d) => $this->resumer($d))->values(),
+            $documents,
+        );
     }
 
     public function store(Request $request): JsonResponse

@@ -1,5 +1,5 @@
 import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
+import type { ApiResponse, Pagination } from '@/shared/types/api'
 
 export type CategorieArticle = 'mobilier' | 'informatique' | 'pedagogique' | 'sport' | 'medical' | 'autre'
 export type EtatArticle = 'bon' | 'moyen' | 'mauvais' | 'hors_service'
@@ -51,17 +51,18 @@ export interface StatsInventaire {
 }
 
 export async function fetchInventaire(
-  params?: { categorie?: CategorieArticle; etat?: EtatArticle; search?: string },
+  params?: { categorie?: CategorieArticle; etat?: EtatArticle; search?: string; page?: number; per_page?: number },
   schoolId?: number,
 ): Promise<{
   articles: ArticleInventaire[]
   stats: StatsInventaire
+  pagination: Pagination
 }> {
   const { data } = await http.get<ApiResponse<{ articles: ArticleInventaire[]; stats: StatsInventaire }>>('/inventaire', {
     params,
     headers: schoolId ? { 'X-School-Id': String(schoolId) } : undefined,
   })
-  return data.data
+  return { ...data.data, pagination: data.meta!.pagination! }
 }
 
 export async function creerArticle(payload: ArticleInventairePayload): Promise<ArticleInventaire> {

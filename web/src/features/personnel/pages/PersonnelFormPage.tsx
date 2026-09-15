@@ -69,6 +69,7 @@ const SITUATIONS = [
 ] as const
 
 const METHODES_VALIDATION_SEANCE = [
+  ['', "Hériter du réglage de l'école (Administration › Validation des séances)"],
   ['qr', 'Scanner le QR de la salle'],
   ['code', 'Saisir le code de la salle'],
   ['libre', 'Libre (aucune preuve exigée)'],
@@ -177,7 +178,7 @@ export function PersonnelFormPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '', methode_validation_seance: 'qr' } })
+  } = useForm<PersonnelPayload>({ defaultValues: { nom_complet: '', enfants: [], pere_statut: '', mere_statut: '', methode_validation_seance: undefined } })
 
   const { fields: enfants, append, remove } = useFieldArray({ control, name: 'enfants' })
 
@@ -246,7 +247,7 @@ export function PersonnelFormPage() {
       grade_minedub: personnel.grade_minedub ?? '',
       banque_id: personnel.banque_id ?? undefined,
       numero_compte: personnel.numero_compte ?? '',
-      methode_validation_seance: personnel.methode_validation_seance ?? 'qr',
+      methode_validation_seance: personnel.methode_validation_seance ?? undefined,
       pere_nom_complet: personnel.pere_nom_complet ?? '',
       pere_statut: personnel.pere_statut ?? '',
       pere_telephone: personnel.pere_telephone ?? '',
@@ -344,7 +345,7 @@ export function PersonnelFormPage() {
     ['Grade MINEDUB', valeurs.grade_minedub],
     ['Banque', banqueLabel],
     ['N° de compte', valeurs.numero_compte],
-    ['Validation des séances', METHODES_VALIDATION_SEANCE.find(([cle]) => cle === valeurs.methode_validation_seance)?.[1]],
+    ['Validation des séances', METHODES_VALIDATION_SEANCE.find(([cle]) => cle === (valeurs.methode_validation_seance ?? ''))?.[1]],
   ]
 
   if (personnelId !== null && isLoading) return <Spinner />

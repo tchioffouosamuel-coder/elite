@@ -164,14 +164,32 @@ class User extends Authenticatable
      * admin_college, censeur_sg) reste de toute façon dispensée, qu'elle
      * porte ou non un dossier personnel, car elle peut remplir l'appel à
      * distance (suivi, correction) — cf. `MaJourneeController::enregistrer()`.
+     *
+     * Sans surcharge sur la fiche de l'agent, la règle par défaut de l'école
+     * (et du sous-système de `$classe`, si fournie) s'applique — cf.
+     * `RegleValidationSeance`. `qr` reste le repli final, historique.
      */
-    public function methodeValidationSeance(): string
+    public function methodeValidationSeance(?\App\Models\Classe $classe = null): string
     {
         if ($this->estPersonnelDirection()) {
             return 'libre';
         }
 
-        return $this->personnel?->methode_validation_seance ?? 'qr';
+        if ($this->personnel?->methode_validation_seance !== null) {
+            return $this->personnel->methode_validation_seance;
+        }
+
+        $schoolId = $classe?->school_id ?? $this->personnel?->school_id;
+
+        if ($schoolId !== null) {
+            $regle = \App\Models\RegleValidationSeance::pour($schoolId, $classe?->sous_systeme_id);
+
+            if ($regle !== null) {
+                return $regle->methode_validation;
+            }
+        }
+
+        return 'qr';
     }
 
     /**

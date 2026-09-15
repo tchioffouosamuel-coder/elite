@@ -13,6 +13,7 @@ use App\Services\Notifications\NotificationPaiementService;
 use App\Services\ScolariteService;
 use App\Support\Pdf\RecuVersementGenerator;
 use App\Support\Tenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -146,16 +147,14 @@ class ScolariteController extends Controller
      */
     public function versementsDoublons(): JsonResponse
     {
-        $versements = Versement::forSchool(Tenant::schoolIds())
-            ->valides()
+        $versements = $this->versementsCandidatsDoublons(Tenant::schoolIds())
             ->with(['dossier.eleve.classe', 'encaisseur:id,name'])
-            ->orderBy('date_versement')
-            ->orderBy('id')
+            ->orderBy('versements.date_versement')
+            ->orderBy('versements.id')
             ->get();
 
         $groupes = $versements
             ->groupBy(fn(Versement $v) => "{$v->dossier_scolarite_id}:{$v->montant}")
-            ->filter(fn($groupe) => $groupe->count() > 1)
             ->values()
             ->map(function ($groupe) {
                 $premier = $groupe->first();
@@ -198,7 +197,7 @@ class ScolariteController extends Controller
      */
     public function versementsDoublonsTraitementAutomatique(Request $request): JsonResponse
     {
-        $versements = Versement::forSchool(Tenant::schoolIds())->valides()->orderBy('id')->get();
+        $versements = $this->versementsCandidatsDoublons(Tenant::schoolIds())->orderBy('versements.id')->get();
 
         $groupes = $versements
             ->groupBy(fn(Versement $v) => "{$v->dossier_scolarite_id}:{$v->montant}")
@@ -242,6 +241,32 @@ class ScolariteController extends Controller
     private function dossierDuTenant(int $id): DossierScolarite
     {
         return DossierScolarite::forSchool(Tenant::schoolIds())->avecTotaux()->findOrFail($id);
+    }
+
+    /**
+     * Ne charge que les versements appartenant à une paire (dossier, montant)
+     * en doublon — repérée par une agrégation en base — plutôt que tout
+     * l'historique des encaissements de l'école, qui grossit indéfiniment
+     * d'année en année alors que les doublons eux-mêmes restent une poignée
+     * de paires.
+     *
+     * @param  list<int>  $schoolIds
+     */
+    private function versementsCandidatsDoublons(array $schoolIds): Builder
+    {
+        $paires = Versement::forSchool($schoolIds)
+            ->valides()
+            ->select('dossier_scolarite_id', 'montant')
+            ->groupBy('dossier_scolarite_id', 'montant')
+            ->havingRaw('COUNT(*) > 1');
+
+        return Versement::forSchool($schoolIds)
+            ->valides()
+            ->joinSub($paires, 'doublons', function ($join) {
+                $join->on('versements.dossier_scolarite_id', '=', 'doublons.dossier_scolarite_id')
+                    ->on('versements.montant', '=', 'doublons.montant');
+            })
+            ->select('versements.*');
     }
 
     /**
