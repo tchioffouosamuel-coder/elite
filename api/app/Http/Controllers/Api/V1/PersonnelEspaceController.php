@@ -7,11 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AvanceSalaire;
 use App\Models\BibliothequeDocument;
 use App\Models\BudgetPersonnel;
+use App\Models\DemandeArticleInventaire;
 use App\Models\DemandeAvanceSalaire;
 use App\Models\Personnel;
 use App\Services\AvanceSalaireService;
 use App\Services\BibliothequeService;
 use App\Services\BudgetPersonnelService;
+use App\Services\DemandeArticleInventaireService;
 use App\Services\DemandeAvanceSalaireService;
 use App\Support\Perimetre;
 use App\Support\Pdf\BudgetPersonnelBilanGenerator;
@@ -35,6 +37,7 @@ class PersonnelEspaceController extends Controller
         private readonly DemandeAvanceSalaireService $demandes,
         private readonly BudgetPersonnelService $budgets,
         private readonly BibliothequeService $bibliotheque,
+        private readonly DemandeArticleInventaireService $demandesArticles,
     ) {}
 
     /**
@@ -129,6 +132,45 @@ class PersonnelEspaceController extends Controller
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
+
+        return ApiResponse::created($demande, "Demande transmise, en attente de validation par l'établissement.");
+    }
+
+    /**
+     * Mes demandes de matériel d'inventaire — tout ce que l'établissement m'a
+     * remis pour mon travail — équivalent de {@see mesAvances()} pour cette file.
+     */
+    public function mesDemandesArticles(Request $request): JsonResponse
+    {
+        $personnel = $this->moi($request);
+
+        $demandes = $this->demandesArticles->pourPersonnel($personnel->id);
+
+        return ApiResponse::success($demandes->map(fn (DemandeArticleInventaire $d) => [
+            'id' => $d->id,
+            'donnees' => $d->donnees,
+            'statut' => $d->statut,
+            'motif_rejet' => $d->motif_rejet,
+            'inventaire_article_id' => $d->inventaire_article_id,
+            'created_at' => $d->created_at->format('Y-m-d H:i'),
+            'traite_le' => $d->traite_le?->format('Y-m-d H:i'),
+        ])->values());
+    }
+
+    public function soumettreDemandeArticle(Request $request): JsonResponse
+    {
+        $personnel = $this->moi($request);
+
+        $data = $request->validate([
+            'nom' => ['required', 'string', 'max:150'],
+            'categorie' => ['required', 'in:mobilier,informatique,pedagogique,sport,medical,autre'],
+            'quantite' => ['required', 'integer', 'min:1'],
+            'etat' => ['nullable', 'in:bon,moyen,mauvais,hors_service'],
+            'localisation' => ['nullable', 'string', 'max:150'],
+            'notes' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $demande = $this->demandesArticles->soumettre($personnel, $data);
 
         return ApiResponse::created($demande, "Demande transmise, en attente de validation par l'établissement.");
     }

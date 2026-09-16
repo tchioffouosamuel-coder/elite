@@ -38,7 +38,7 @@ class RevendicationController extends Controller
 
     public function store(StoreRevendicationRequest $request): JsonResponse
     {
-        $eleve = Eleve::forSchool(app('tenant.school_id'))->findOrFail($request->integer('eleve_id'));
+        $eleve = Eleve::forSchool(app('tenant.school_id'))->dansPerimetre($request->user())->findOrFail($request->integer('eleve_id'));
 
         $donnees = $request->validated();
 

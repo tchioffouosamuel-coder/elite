@@ -10,6 +10,7 @@ use App\Models\ClasseMatiere;
 use App\Models\Presence;
 use App\Models\ProgressionItem;
 use App\Services\MaJourneeService;
+use App\Services\SuiviActiviteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,7 +22,10 @@ use RuntimeException;
  */
 class MaJourneeController extends Controller
 {
-    public function __construct(private readonly MaJourneeService $service) {}
+    public function __construct(
+        private readonly MaJourneeService $service,
+        private readonly SuiviActiviteService $suiviActivite,
+    ) {}
 
     /** Classes et matières sur lesquelles l'enseignant connecté intervient. */
     public function affectations(Request $request): JsonResponse
@@ -179,6 +183,22 @@ class MaJourneeController extends Controller
     public function couverture(Request $request): JsonResponse
     {
         return ApiResponse::success($this->service->heuresCouverture($request->user(), app('tenant.school_id')));
+    }
+
+    /** Heures prévues vs réalisées de l'enseignant connecté, pour le jour, la semaine, le mois et l'année en cours. */
+    public function couverturePeriodes(Request $request): JsonResponse
+    {
+        $personnelId = $request->user()->personnel?->id;
+
+        if ($personnelId === null) {
+            $vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_prevues' => 0, 'seances_realisees' => 0, 'seances_annulees' => 0, 'seances_en_retard' => 0];
+
+            return ApiResponse::success(array_fill_keys(['jour', 'semaine', 'mois', 'annee'], $vide));
+        }
+
+        return ApiResponse::success(
+            $this->suiviActivite->resumePersonnel(app('tenant.school_id'), $personnelId, CarbonImmutable::now())
+        );
     }
 
     /**

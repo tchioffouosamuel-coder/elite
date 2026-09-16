@@ -52,9 +52,9 @@ class ObservationAdminController extends Controller
         return ApiResponse::success($fils);
     }
 
-    public function show(int $eleveId): JsonResponse
+    public function show(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $observations = Observation::where('eleve_id', $eleve->id)
             ->with('user:id,name')
@@ -78,7 +78,7 @@ class ObservationAdminController extends Controller
     /** Réponse de l'établissement dans le fil — ne notifie pas (seul un message parent notifie, cf. ObservationService::creer()). */
     public function repondre(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
         $data = $request->validate(['contenu' => ['required', 'string', 'max:2000']]);
 
         $observation = $this->service->creer($eleve, $request->user(), $data['contenu']);

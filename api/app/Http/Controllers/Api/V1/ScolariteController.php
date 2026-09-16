@@ -57,7 +57,7 @@ class ScolariteController extends Controller
      */
     public function dossier(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->with('classe')->findOrFail($eleveId);
 
         $dossier = $this->service->dossier($eleve, $this->annee($request, $eleve->school_id));
         $dossier->load('eleve.classe');

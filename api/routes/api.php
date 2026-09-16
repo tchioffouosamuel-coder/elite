@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\CompteController;
 use App\Http\Controllers\Api\V1\ConseilClasseController;
 use App\Http\Controllers\Api\V1\ConseilEcoleController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DemandeArticleInventaireAdminController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
@@ -617,6 +618,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('mon-espace')->name('mon-espace.')->group(function () {
                 Route::get('avances', [PersonnelEspaceController::class, 'mesAvances'])->name('avances.index');
                 Route::post('avances/demandes', [PersonnelEspaceController::class, 'soumettreDemandeAvance'])->name('avances.demandes.store');
+                Route::get('inventaire/demandes', [PersonnelEspaceController::class, 'mesDemandesArticles'])->name('inventaire.demandes.index');
+                Route::post('inventaire/demandes', [PersonnelEspaceController::class, 'soumettreDemandeArticle'])->name('inventaire.demandes.store');
                 Route::get('budgets', [PersonnelEspaceController::class, 'mesBudgets'])->name('budgets.index');
                 Route::put('budgets/{id}/note-gestion', [PersonnelEspaceController::class, 'modifierNoteGestionBudget'])->name('budgets.note-gestion');
                 Route::get('budgets/{id}/bilan/pdf', [PersonnelEspaceController::class, 'bilanBudgetPdf'])->name('budgets.bilan-pdf');
@@ -729,6 +732,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::middleware('permission:appel.manage')->group(function () {
                 Route::get('ma-journee/couverture', [MaJourneeController::class, 'couverture'])->name('ma-journee.couverture');
+                Route::get('ma-journee/couverture-periodes', [MaJourneeController::class, 'couverturePeriodes'])->name('ma-journee.couverture-periodes');
                 Route::get('ma-journee/qr/{token}', [MaJourneeController::class, 'resoudreQr'])->name('ma-journee.qr');
                 Route::get('ma-journee', [MaJourneeController::class, 'affectations'])->name('ma-journee.affectations');
                 Route::get('ma-journee/{classeMatiereId}', [MaJourneeController::class, 'feuille'])->name('ma-journee.feuille');
@@ -1159,6 +1163,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('inventaire/{id}/code-barre', [InventaireController::class, 'codeBarre'])->name('inventaire.code-barre');
                 Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update');
                 Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy');
+
+                Route::get('demandes-articles-inventaire', [DemandeArticleInventaireAdminController::class, 'index'])->name('demandes-articles-inventaire.index');
+                Route::post('demandes-articles-inventaire/{id}/valider', [DemandeArticleInventaireAdminController::class, 'valider'])->name('demandes-articles-inventaire.valider');
+                Route::post('demandes-articles-inventaire/{id}/rejeter', [DemandeArticleInventaireAdminController::class, 'rejeter'])->name('demandes-articles-inventaire.rejeter');
             });
 
             Route::middleware('permission:infrastructures.view')->group(function () {

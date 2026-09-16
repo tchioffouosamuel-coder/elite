@@ -101,6 +101,7 @@ import { RentreeScolairePage } from '@/features/finance/pages/RentreeScolairePag
 import { RapportRentreePage } from '@/features/rapportRentree/pages/RapportRentreePage'
 import { RapportTrimestrePage } from '@/features/rapportTrimestre/pages/RapportTrimestrePage'
 import { MesAvancesPage } from '@/features/mon-espace/pages/MesAvancesPage'
+import { MesArticlesInventairePage } from '@/features/mon-espace/pages/MesArticlesInventairePage'
 import { MonBudgetPage } from '@/features/mon-espace/pages/MonBudgetPage'
 import { MesInformationsPage } from '@/features/enseignant/pages/MesInformationsPage'
 import { MesMatieresPage } from '@/features/enseignant/pages/MesMatieresPage'
@@ -274,6 +275,7 @@ export const router = createHashRouter([
       // Libre-service de l'agent sur ses propres avances : aucun privilège de
       // gestion, la seule fiche personnel suffit.
       { path: 'mes-avances', element: <ProtectedRoute personnelOnly><MesAvancesPage /></ProtectedRoute> },
+      { path: 'mes-articles-inventaire', element: <ProtectedRoute personnelOnly><MesArticlesInventairePage /></ProtectedRoute> },
       { path: 'mon-budget', element: <ProtectedRoute personnelOnly><MonBudgetPage /></ProtectedRoute> },
       { path: 'ma-bibliotheque', element: <ProtectedRoute personnelOnly><MaBibliothequePage /></ProtectedRoute> },
       // Espace enseignant : fiche personnelle, rémunération et matières

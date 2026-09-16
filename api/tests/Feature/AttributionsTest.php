@@ -390,6 +390,41 @@ class AttributionsTest extends TestCase
             ->assertJsonPath('data.0.nom_complet', 'Élève de sa classe');
     }
 
+    /**
+     * La liste (`/eleves`) était déjà bornée à ses classes — mais deviner
+     * l'id d'un élève d'une autre classe et l'ouvrir directement (fiche,
+     * notes...) ne l'était pas : `dansPerimetre()` doit s'appliquer aussi à
+     * ces résolutions par id, pas seulement aux listes.
+     */
+    public function test_l_enseignant_ne_peut_pas_ouvrir_un_eleve_hors_de_ses_classes_par_id(): void
+    {
+        $sienne = $this->classe('2nde C');
+        $autre = $this->classe('2nde D');
+
+        $user = $this->agent('Enseignant', 'enseignant', 'prof.eleve.id@test.local');
+        $this->enseigne($user, $sienne);
+        $user = $user->fresh();
+
+        $eleveASoi = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $sienne->id,
+            'matricule' => Eleve::genererMatricule($this->school->id),
+            'nom_complet' => 'Élève de sa classe', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+        $eleveHorsPerimetre = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $autre->id,
+            'matricule' => Eleve::genererMatricule($this->school->id),
+            'nom_complet' => "Élève d'ailleurs", 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson("/api/v1/eleves/{$eleveASoi->id}")
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson("/api/v1/eleves/{$eleveHorsPerimetre->id}")
+            ->assertStatus(404);
+    }
+
     public function test_l_enseignant_garde_l_acces_a_ses_propres_classes(): void
     {
         $sienne = $this->classe('4e C');

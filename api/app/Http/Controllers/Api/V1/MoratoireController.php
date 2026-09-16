@@ -20,9 +20,9 @@ use Illuminate\Http\Request;
 class MoratoireController extends Controller
 {
     /** Historique des moratoires d'un élève, le plus récent en tête. */
-    public function index(int $eleveId): JsonResponse
+    public function index(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $moratoires = Moratoire::where('eleve_id', $eleve->id)
             ->with('accordePar:id,name')
@@ -34,7 +34,7 @@ class MoratoireController extends Controller
 
     public function store(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $data = $request->validate([
             'date_delivrance' => ['required', 'date'],

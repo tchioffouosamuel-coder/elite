@@ -19,9 +19,9 @@ class RemiseController extends Controller
 {
     public function __construct(private readonly ScolariteService $service) {}
 
-    public function index(int $eleveId): JsonResponse
+    public function index(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $remises = Remise::where('eleve_id', $eleve->id)
             ->with(['anneeScolaire:id,libelle', 'accordePar:id,name'])
@@ -33,7 +33,7 @@ class RemiseController extends Controller
 
     public function store(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $data = $request->validate([
             // Optionnel : la liste des années scolaires exige `ecoles.manage`,

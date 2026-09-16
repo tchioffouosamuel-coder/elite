@@ -10,16 +10,15 @@ use App\Http\Requests\Api\V1\StoreEleveRequest;
 use App\Http\Requests\Api\V1\UpdateEleveRequest;
 use App\Http\Resources\Api\V1\EleveResource;
 use App\Models\ActivityLog;
-use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\DossierScolarite;
 use App\Models\Eleve;
 use App\Models\HistoriqueScolariteEleve;
-use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Setting;
 use App\Services\AuthService;
 use App\Services\CompteEleveService;
+use App\Services\EleveFusionService;
 use App\Services\EleveService;
 use App\Services\PreinscriptionService;
 use App\Services\SettingsCatalog;
@@ -42,6 +41,7 @@ class EleveController extends Controller
         private readonly PreinscriptionService $preinscriptions,
         private readonly CompteEleveService $comptes,
         private readonly AuthService $auth,
+        private readonly EleveFusionService $fusion,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -71,44 +71,63 @@ class EleveController extends Controller
         return ApiResponse::paginated($paginator, EleveResource::class);
     }
 
-    /** Supprime uniquement le doublon sans date quand deux fiches inscrites ont le même montant encaissé. */
+    /**
+     * Fusionne les doublons certains : même école, même nom (normalisé) et
+     * même date de naissance renseignée — signature qui, en pratique, ne
+     * désigne quasiment jamais deux enfants distincts, mais une même fiche
+     * réimportée sous un nouveau schéma de matricule.
+     *
+     * Un groupe où aucune fiche (ou plusieurs) n'est rattachée à une classe
+     * cette année est ambigu — impossible de désigner la fiche à conserver
+     * sans arbitrage humain — et reste intact. À l'intérieur d'un groupe
+     * résolu, chaque fusion individuelle peut elle-même refuser de toucher
+     * aux fiches si leurs dossiers de scolarité se chevauchent sur une même
+     * année (cf. EleveFusionService) : impossible alors de savoir si un
+     * paiement a été ressaisi en double ou s'il s'agit de deux versements
+     * distincts, donc rien n'est automatiquement décidé à sa place.
+     */
     public function traitementAutomatiqueDoublons(): JsonResponse
     {
-        $anneesActives = AnneeScolaire::whereIn('school_id', Tenant::schoolIds())
-            ->where('is_active', true)->pluck('id');
-        $eleveIds = Preinscription::forSchool(Tenant::schoolIds())
-            ->whereIn('annee_scolaire_id', $anneesActives)
-            ->whereIn('statut', ['en_attente', 'validee'])
-            ->whereNotNull('eleve_id')
-            ->pluck('eleve_id')->unique();
+        $eleves = Eleve::forSchool(Tenant::schoolIds())->whereNotNull('date_naissance')->get();
 
-        $eleves = Eleve::forSchool(Tenant::schoolIds())->whereIn('id', $eleveIds)->get();
-        $totaux = $this->totauxVersements($eleves->pluck('id'));
-        $groupes = $eleves->groupBy(fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet));
-        $supprimes = 0;
-        $montantConserve = 0;
-        $details = [];
+        $groupes = $eleves->groupBy(
+            fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet) . ':' . $eleve->date_naissance->toDateString()
+        );
+
+        $fusionnes = 0;
+        $conflits = [];
+        $ambigus = [];
 
         foreach ($groupes as $groupe) {
-            if ($groupe->count() !== 2) continue;
+            if ($groupe->count() < 2) continue;
 
-            [$premier, $second] = $groupe->values()->all();
-            $unSeulSansDate = ($premier->date_naissance === null) xor ($second->date_naissance === null);
-            $montantPremier = $totaux[$premier->id] ?? 0;
-            $montantSecond = $totaux[$second->id] ?? 0;
-            if (! $unSeulSansDate || $montantPremier !== $montantSecond) continue;
+            $avecClasse = $groupe->filter(fn(Eleve $eleve) => $eleve->classe_id !== null);
+            if ($avecClasse->count() !== 1) {
+                $ambigus[] = ['nom' => $groupe->first()->nom_complet, 'ids' => $groupe->pluck('id')->values()->all()];
+                continue;
+            }
 
-            $aSupprimer = $premier->date_naissance === null ? $premier : $second;
-            $aConserver = $aSupprimer->id === $premier->id ? $second : $premier;
-            $this->service->delete($aSupprimer);
-            $supprimes++;
-            $montantConserve += $totaux[$aConserver->id] ?? 0;
-            $details[] = ['supprime_id' => $aSupprimer->id, 'conserve_id' => $aConserver->id, 'montant' => $montantPremier];
+            $conservee = $avecClasse->first();
+            foreach ($groupe as $autre) {
+                if ($autre->id === $conservee->id) continue;
+
+                $resultat = $this->fusion->fusionner($conservee, $autre);
+                if ($resultat['fusionne']) {
+                    $fusionnes++;
+                } else {
+                    $conflits[] = [
+                        'nom' => $conservee->nom_complet,
+                        'conservee_id' => $conservee->id,
+                        'autre_id' => $autre->id,
+                        'raison' => $resultat['raison'],
+                    ];
+                }
+            }
         }
 
         return ApiResponse::success(
-            ['supprimes' => $supprimes, 'montant_conserve' => $montantConserve, 'details' => $details],
-            "{$supprimes} doublon(s) supprimé(s) automatiquement.",
+            ['fusionnes' => $fusionnes, 'conflits' => $conflits, 'ambigus' => $ambigus],
+            "{$fusionnes} doublon(s) fusionné(s) automatiquement, " . count($conflits) . ' en conflit financier, ' . count($ambigus) . ' ambigu(s) à traiter à la main.',
         );
     }
 
@@ -191,17 +210,17 @@ class EleveController extends Controller
         return ApiResponse::created(new EleveResource($eleve), 'Élève inscrit.');
     }
 
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
 
         return ApiResponse::success(new EleveResource($eleve));
     }
 
     /** Parcours scolaire de l'élève, année par année — cf. HistoriqueScolariteEleve, alimenté à chaque conseil de classe validé. */
-    public function parcours(int $id): JsonResponse
+    public function parcours(Request $request, int $id): JsonResponse
     {
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
 
         $historique = HistoriqueScolariteEleve::where('eleve_id', $eleve->id)
             ->with('anneeScolaire')
@@ -223,7 +242,7 @@ class EleveController extends Controller
 
     public function update(UpdateEleveRequest $request, int $id): JsonResponse
     {
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
         $data = $request->validated();
 
         if (array_key_exists('matricule_national', $data) && $data['matricule_national'] !== null && ! $eleve->school->estSecondaire()) {
@@ -343,7 +362,7 @@ class EleveController extends Controller
     {
         $request->validate(['photo' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120']]);
 
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
         $eleve = $this->service->updatePhoto($eleve, $request->file('photo'));
 
         return ApiResponse::success(new EleveResource($eleve), 'Photo mise à jour.');
@@ -377,7 +396,7 @@ class EleveController extends Controller
             return ApiResponse::error("La classe d'arrivée n'appartient pas à l'établissement de destination.", 422);
         }
 
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $user);
         $eleve = $this->service->transferer($eleve, $classe);
 
         return ApiResponse::success(
@@ -386,9 +405,9 @@ class EleveController extends Controller
         );
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        $eleve = $this->service->find(Tenant::schoolIds(), $id);
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
         $this->service->delete($eleve);
 
         return ApiResponse::success(null, 'Élève supprimé.');
@@ -405,7 +424,7 @@ class EleveController extends Controller
         $deleted = 0;
 
         foreach ($data['ids'] as $id) {
-            $eleve = $this->service->find($schoolId, $id);
+            $eleve = $this->service->find($schoolId, $id, $request->user());
             $this->service->delete($eleve);
             $deleted++;
         }
@@ -434,7 +453,7 @@ class EleveController extends Controller
         $transferes = 0;
 
         foreach ($data['ids'] as $id) {
-            $eleve = $this->service->find($schoolId, $id);
+            $eleve = $this->service->find($schoolId, $id, $request->user());
             $this->service->update($eleve, ['classe_id' => $data['classe_id']]);
             $transferes++;
         }
@@ -476,7 +495,7 @@ class EleveController extends Controller
         $transferes = 0;
 
         foreach ($data['ids'] as $id) {
-            $eleve = $this->service->find($schoolId, $id);
+            $eleve = $this->service->find($schoolId, $id, $user);
             $this->service->transferer($eleve, $classe);
             $transferes++;
         }
@@ -485,9 +504,9 @@ class EleveController extends Controller
     }
 
     /** Ouvre l'accès élève (portail lecture seule) — pendant de {@see TuteurController::creerCompteParent()}. */
-    public function creerCompteEleve(int $id): JsonResponse
+    public function creerCompteEleve(Request $request, int $id): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($id);
 
         try {
             $user = $this->comptes->assurer($eleve);
@@ -520,9 +539,9 @@ class EleveController extends Controller
     }
 
     /** Bloque/débloque l'accès élève — pendant de {@see TuteurController::basculerAcces()}. */
-    public function basculerAcces(int $id): JsonResponse
+    public function basculerAcces(Request $request, int $id): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->with('user')->findOrFail($id);
 
         if (! $eleve->user) {
             return ApiResponse::error("Cet élève n'a pas encore de compte.", 422);
@@ -538,9 +557,9 @@ class EleveController extends Controller
     }
 
     /** Supprime le compte élève (le portail, pas la fiche) — pendant de {@see TuteurController::supprimerCompteParent()}. */
-    public function supprimerCompteEleve(int $id): JsonResponse
+    public function supprimerCompteEleve(Request $request, int $id): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('user')->findOrFail($id);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->with('user')->findOrFail($id);
 
         if ($eleve->user) {
             $eleve->user->delete();

@@ -106,3 +106,34 @@ export async function ouvrirEtiquettes(ids: number[], exemplaires?: number): Pro
   // Laisse le temps à l'onglet de lire le blob avant de le révoquer.
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
+
+// ---------------------------------------------------------- Demandes de matériel
+
+export type StatutDemandeArticle = 'en_attente' | 'validee' | 'rejetee'
+
+export interface DemandeArticleInventaire {
+  id: number
+  statut: StatutDemandeArticle
+  personnel: { id: number; nom_complet: string; matricule: string | null; fonction: string | null } | null
+  donnees: { nom: string; categorie: CategorieArticle; quantite: number; etat?: EtatArticle | null; localisation?: string | null; notes?: string | null }
+  motif_rejet: string | null
+  inventaire_article_id: number | null
+  created_at: string
+  traite_le: string | null
+}
+
+/** File d'attente du matériel signalé par le personnel (médical, typiquement), à valider ou rejeter. */
+export async function fetchDemandesArticles(statut?: StatutDemandeArticle): Promise<DemandeArticleInventaire[]> {
+  const { data } = await http.get<ApiResponse<DemandeArticleInventaire[]>>('/demandes-articles-inventaire', { params: { statut } })
+  return data.data
+}
+
+export async function validerDemandeArticle(id: number): Promise<DemandeArticleInventaire> {
+  const { data } = await http.post<ApiResponse<DemandeArticleInventaire>>(`/demandes-articles-inventaire/${id}/valider`)
+  return data.data
+}
+
+export async function rejeterDemandeArticle(id: number, motif: string): Promise<DemandeArticleInventaire> {
+  const { data } = await http.post<ApiResponse<DemandeArticleInventaire>>(`/demandes-articles-inventaire/${id}/rejeter`, { motif })
+  return data.data
+}

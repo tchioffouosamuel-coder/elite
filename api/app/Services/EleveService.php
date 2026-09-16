@@ -43,9 +43,10 @@ class EleveService extends BaseService
     }
 
     /** @param int|array<int> $schoolId */
-    public function find(int|array $schoolId, int $id): Eleve
+    public function find(int|array $schoolId, int $id, ?User $user = null): Eleve
     {
-        return $this->repository->query()->forSchool($schoolId)->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])->findOrFail($id);
+        return $this->repository->query()->forSchool($schoolId)->dansPerimetre($user)
+            ->with(['classe.niveau', 'school:id,name,code,type', 'tuteurs.telephones'])->findOrFail($id);
     }
 
     public function create(int $schoolId, array $attributes): Eleve

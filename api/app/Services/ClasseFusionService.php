@@ -79,7 +79,11 @@ class ClasseFusionService extends BaseService
     private function deplacerReferencesSimples(int $sourceId, int $targetId): void
     {
         foreach (['eleves', 'sanctions', 'dossiers_scolarite', 'visites_infirmerie', 'preinscriptions', 'historiques_scolarite_eleves', 'archives_classe_annee', 'conseils_classe', 'frais_annexe_classe', 'bulletin_publications'] as $table) {
-            if (DB::getSchemaBuilder()->hasTable($table)) {
+            // `dossiers_scolarite`, par exemple, existe mais ne rattache
+            // jamais une classe directement (il vit par élève + année) : sans
+            // ce contrôle, hasTable() seul laissait passer une requête sur une
+            // colonne absente, en erreur SQL au lieu d'un no-op silencieux.
+            if (DB::getSchemaBuilder()->hasColumn($table, 'classe_id')) {
                 DB::table($table)->where('classe_id', $sourceId)->update(['classe_id' => $targetId]);
             }
         }

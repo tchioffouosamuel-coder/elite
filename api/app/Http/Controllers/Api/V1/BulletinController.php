@@ -27,7 +27,7 @@ class BulletinController extends Controller
     /** Bulletin d'un seul élève (le reste de la classe sert au calcul des rangs). */
     public function show(Request $request, int $eleveId): Response
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('classe.school')->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->with('classe.school')->findOrFail($eleveId);
 
         if (! $eleve->classe) {
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);

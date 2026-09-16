@@ -26,9 +26,9 @@ class DetteAnterieureController extends Controller
 {
     public function __construct(private readonly ScolariteService $service) {}
 
-    public function index(int $eleveId): JsonResponse
+    public function index(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $dettes = DetteAnterieure::where('eleve_id', $eleve->id)
             ->with('accordePar:id,name')
@@ -84,7 +84,7 @@ class DetteAnterieureController extends Controller
 
     public function store(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $data = $request->validate([
             'montant' => ['required', 'integer', 'min:1'],
@@ -123,7 +123,7 @@ class DetteAnterieureController extends Controller
      */
     public function oublier(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         try {
             $this->service->oublierDetteAnterieure($eleve, $request->user()?->id);

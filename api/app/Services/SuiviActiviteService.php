@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ClasseMatiere;
 use App\Models\Seance;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -101,6 +102,38 @@ class SuiviActiviteService
                 ->filter(fn(Seance $s) => $s->date_seance->lt(now()->startOfDay()))
                 ->count(),
         ];
+    }
+
+    /**
+     * Prévu vs réalisé d'un seul personnel, pour le jour, la semaine, le mois
+     * et l'année en cours — le pendant personnel de `parPersonnel()`, pour son
+     * propre tableau de bord plutôt que la vue transverse admin.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function resumePersonnel(int $schoolId, int $personnelId, CarbonImmutable $maintenant): array
+    {
+        $classeMatiereIds = ClasseMatiere::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->where(fn($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)))
+            ->pluck('id');
+
+        $bornes = [
+            'jour' => [$maintenant->startOfDay(), $maintenant->endOfDay()],
+            'semaine' => [$maintenant->startOfWeek(), $maintenant->endOfWeek()],
+            'mois' => [$maintenant->startOfMonth(), $maintenant->endOfMonth()],
+            'annee' => [$maintenant->startOfYear(), $maintenant->endOfYear()],
+        ];
+
+        return collect($bornes)->map(function (array $borne) use ($classeMatiereIds) {
+            $seances = Seance::whereIn('classe_matiere_id', $classeMatiereIds)
+                ->whereBetween('date_seance', $borne)
+                ->get(['statut', 'heure_debut', 'heure_fin', 'date_seance']);
+
+            return $this->resume($seances);
+        })->all();
     }
 
     private function cle(\Illuminate\Support\Carbon $date, string $granularite): string

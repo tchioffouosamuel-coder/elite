@@ -2,34 +2,51 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Barcode, Boxes, Camera, Package, Pencil, Plus, Printer, Trash2, Wallet } from 'lucide-react'
+import { Barcode, Boxes, Camera, Check, Package, Pencil, Plus, Printer, Trash2, Wallet, X } from 'lucide-react'
 import {
   creerArticle,
+  fetchDemandesArticles,
   fetchInventaire,
   genererCodeBarre,
   modifierArticle,
   ouvrirEtiquettes,
+  rejeterDemandeArticle,
   supprimerArticle,
+  validerDemandeArticle,
   type ArticleInventaire,
   type ArticleInventairePayload,
   type CategorieArticle,
+  type DemandeArticleInventaire,
   type EtatArticle,
+  type StatutDemandeArticle,
 } from '@/features/inventaire/api'
 import { francs } from '@/features/finance/api'
 import { fetchSchools } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
-import { StatCard } from '@/shared/ui/Card'
+import { Card, StatCard } from '@/shared/ui/Card'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
-import { Input, MontantInput, Select } from '@/shared/ui/Field'
-import { Spinner } from '@/shared/ui/Feedback'
+import { Input, MontantInput, Select, Textarea } from '@/shared/ui/Field'
+import { EmptyState, Spinner } from '@/shared/ui/Feedback'
+import { Tabs } from '@/shared/ui/Tabs'
 import { Modal } from '@/shared/ui/Modal'
 import { BarcodeScannerModal } from '@/shared/ui/BarcodeScannerModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+const TONE_DEMANDE: Record<StatutDemandeArticle, 'green' | 'gold' | 'red'> = {
+  en_attente: 'gold',
+  validee: 'green',
+  rejetee: 'red',
+}
+const LIBELLES_DEMANDE: Record<StatutDemandeArticle, string> = {
+  en_attente: 'En attente',
+  validee: 'Validée',
+  rejetee: 'Rejetée',
+}
 
 /*
  * Valeur du choix « toutes les écoles » dans le sélecteur d'établissement.
@@ -57,6 +74,7 @@ export function InventairePage() {
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [articleEnEdition, setArticleEnEdition] = useState<ArticleInventaire | null>(null)
+  const [onglet, setOnglet] = useState<'inventaire' | 'demandes'>('inventaire')
   // Étiqueter se fait par lot : un carton de cahiers, c'est une planche
   // entière, pas un aller-retour par article.
   const [selection, setSelection] = useState<Set<number>>(new Set())
@@ -65,6 +83,14 @@ export function InventairePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['inventaire', categorie, etat, terme, page],
     queryFn: () => fetchInventaire({ categorie: categorie || undefined, etat: etat || undefined, search: terme || undefined, page }),
+  })
+
+  // Compteur de l'onglet. Même clé que la liste filtrée sur « en attente » :
+  // React Query mutualise la requête au lieu d'en lancer une seconde.
+  const { data: demandesEnAttente } = useQuery({
+    queryKey: ['demandes-articles-inventaire', 'en_attente'],
+    queryFn: () => fetchDemandesArticles('en_attente'),
+    enabled: can('inventaire.manage'),
   })
 
   // Un nouveau filtre repart de la première page.
@@ -328,7 +354,26 @@ export function InventairePage() {
         </div>
       )}
 
-      {isLoading ? (
+      {/* Le matériel signalé par le personnel n'atteint l'inventaire qu'une
+          fois validé : deux états de la même matière, deux onglets — même
+          patron que la page des avances sur salaire. */}
+      {can('inventaire.manage') && (
+        <Tabs
+          active={onglet}
+          onChange={(cle) => setOnglet(cle as 'inventaire' | 'demandes')}
+          tabs={[
+            { key: 'inventaire', label: t('inventaire.title') },
+            {
+              key: 'demandes',
+              label: demandesEnAttente?.length ? `Demandes (${demandesEnAttente.length})` : 'Demandes',
+            },
+          ]}
+        />
+      )}
+
+      {onglet === 'demandes' && can('inventaire.manage') ? (
+        <DemandesArticlesSection onTraitee={invalidate} />
+      ) : isLoading ? (
         <Spinner />
       ) : (
         <DataTable
@@ -582,6 +627,164 @@ function ArticleFormModal({
           </Button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+/**
+ * File d'attente du matériel signalé par le personnel depuis son espace
+ * (« Matériel reçu » — cf. MesArticlesInventairePage). Valider crée
+ * réellement l'article ; rejeter la clôt avec un motif que l'employé
+ * retrouve dans son espace.
+ */
+function DemandesArticlesSection({ onTraitee }: { onTraitee: () => void }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [statut, setStatut] = useState<StatutDemandeArticle | ''>('en_attente')
+  const [demandeARejeter, setDemandeARejeter] = useState<DemandeArticleInventaire | null>(null)
+  const [traitementId, setTraitementId] = useState<number | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['demandes-articles-inventaire', statut || 'toutes'],
+    queryFn: () => fetchDemandesArticles(statut || undefined),
+  })
+
+  const invalider = () => {
+    queryClient.invalidateQueries({ queryKey: ['demandes-articles-inventaire'] })
+    // Une validation crée un article : la liste et les stats de l'inventaire changent aussi.
+    onTraitee()
+  }
+
+  const valider = async (d: DemandeArticleInventaire) => {
+    setTraitementId(d.id)
+    try {
+      await validerDemandeArticle(d.id)
+      succes("Demande validée, article ajouté à l'inventaire.")
+      invalider()
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setTraitementId(null)
+    }
+  }
+
+  if (isLoading) return <Spinner />
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutDemandeArticle | '')} className="w-48">
+          <option value="en_attente">En attente</option>
+          <option value="validee">Validées</option>
+          <option value="rejetee">Rejetées</option>
+          <option value="">Toutes</option>
+        </Select>
+      </div>
+
+      {!data?.length ? (
+        <EmptyState label="Aucune demande dans cet état." />
+      ) : (
+        data.map((d) => (
+          <Card key={d.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-display text-base font-bold text-navy-900">{d.donnees.nom} (x{d.donnees.quantite})</p>
+                <p className="mt-0.5 text-xs text-navy-400">
+                  {d.personnel?.nom_complet ?? '—'} · {d.personnel?.fonction ?? '—'} · signalé le{' '}
+                  {new Date(d.created_at).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <Badge tone={TONE_DEMANDE[d.statut]}>{LIBELLES_DEMANDE[d.statut]}</Badge>
+            </div>
+
+            <p className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">
+              {t(`inventaire.categorie_${d.donnees.categorie}`)}
+              {d.donnees.etat ? ` · État : ${d.donnees.etat}` : null}
+              {d.donnees.localisation ? ` · Localisation : ${d.donnees.localisation}` : null}
+            </p>
+
+            {d.donnees.notes && <p className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-xs text-navy-600">{d.donnees.notes}</p>}
+
+            {d.statut === 'rejetee' && d.motif_rejet && (
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                <b>Motif du rejet :</b> {d.motif_rejet}
+              </p>
+            )}
+
+            {d.statut === 'en_attente' && (
+              <div className="mt-3 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setDemandeARejeter(d)} disabled={traitementId === d.id}>
+                  <X className="h-4 w-4" />
+                  Rejeter
+                </Button>
+                <Button onClick={() => valider(d)} disabled={traitementId === d.id}>
+                  <Check className="h-4 w-4" />
+                  Valider
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))
+      )}
+
+      {demandeARejeter && (
+        <RejeterDemandeArticleModal
+          demande={demandeARejeter}
+          onClose={() => setDemandeARejeter(null)}
+          onRejetee={() => {
+            setDemandeARejeter(null)
+            invalider()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function RejeterDemandeArticleModal({
+  demande,
+  onClose,
+  onRejetee,
+}: {
+  demande: DemandeArticleInventaire
+  onClose: () => void
+  onRejetee: () => void
+}) {
+  const [motif, setMotif] = useState('')
+  const [enCours, setEnCours] = useState(false)
+
+  const rejeter = async () => {
+    if (motif.trim().length < 3) return
+    setEnCours(true)
+    try {
+      await rejeterDemandeArticle(demande.id, motif.trim())
+      succes('Demande rejetée.')
+      onRejetee()
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setEnCours(false)
+    }
+  }
+
+  return (
+    <Modal title={`Rejeter la demande — ${demande.donnees.nom}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
+          Le motif sera visible par l'employé dans son espace « Matériel reçu ».
+        </p>
+
+        <Textarea label="Motif du rejet" value={motif} onChange={(e) => setMotif(e.target.value)} />
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button variant="danger" onClick={rejeter} disabled={enCours || motif.trim().length < 3}>
+            Confirmer le rejet
+          </Button>
+        </div>
+      </div>
     </Modal>
   )
 }

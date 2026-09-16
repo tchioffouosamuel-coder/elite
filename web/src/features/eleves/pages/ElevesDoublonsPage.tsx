@@ -35,10 +35,21 @@ export function ElevesDoublonsPage() {
     const can = useAuthStore((state) => state.can)
     const queryClient = useQueryClient()
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['eleves'],
+        queryKey: ['eleves', 'doublons', 'toutes-pages'],
         // Outil de correction de données : doit repérer les doublons parmi
-        // tous les élèves, pas seulement les préinscrits de l'année active.
-        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
+        // TOUS les élèves, pas seulement les préinscrits de l'année active —
+        // et sur un complexe de plusieurs milliers d'élèves, une seule page
+        // de 1000 n'en couvre qu'une fraction : on boucle jusqu'à la
+        // dernière page plutôt que de rater silencieusement les 4/5 restants.
+        queryFn: async () => {
+            const premiere = await fetchEleves({ per_page: 1000, tous: true })
+            const items = [...premiere.items]
+            for (let page = 2; page <= premiere.pagination.last_page; page++) {
+                const suivante = await fetchEleves({ per_page: 1000, tous: true, page })
+                items.push(...suivante.items)
+            }
+            return { items, pagination: premiere.pagination }
+        },
     })
 
     const groupes = useMemo<GroupeDoublon[]>(() => {
@@ -68,16 +79,19 @@ export function ElevesDoublonsPage() {
 
     const traiterAutomatiquement = async () => {
         const confirme = await confirmer({
-            titre: 'Supprimer les doublons certains ?',
-            message: 'Seuls les groupes de exactement deux élèves déjà inscrits seront traités : même nom, même total de versements, une seule date de naissance manquante. La fiche sans date sera supprimée.',
-            action: 'Traiter automatiquement',
+            titre: 'Fusionner les doublons certains ?',
+            message: "Seuls les groupes où même nom, même école et même date de naissance désignent une seule fiche rattachée à une classe cette année seront fusionnés dans celle-ci (notes, présences, sanctions...). Une paire dont les dossiers de scolarité se chevauchent sur une même année est laissée de côté, pour éviter de risquer un paiement compté deux fois ou perdu.",
+            action: 'Fusionner automatiquement',
         })
         if (!confirme) return
 
         try {
             const resultat = await traitementAutomatiqueDoublons()
             rafraichir()
-            succes(`${resultat.supprimes} doublon(s) supprimé(s). Montant conservé : ${formatMontant(resultat.montant_conserve)}.`)
+            const details: string[] = []
+            if (resultat.conflits.length > 0) details.push(`${resultat.conflits.length} en conflit financier à vérifier`)
+            if (resultat.ambigus.length > 0) details.push(`${resultat.ambigus.length} ambigu(s) à trancher à la main`)
+            succes(`${resultat.fusionnes} doublon(s) fusionné(s).${details.length > 0 ? ' ' + details.join(', ') + '.' : ''}`)
         } catch (err) {
             erreur((err as ApiError).message)
         }

@@ -271,7 +271,11 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
         $texte = trim((string) $valeur);
 
-        return preg_match('/^([01]?\d|2[0-3]):([0-5]\d)/', $texte, $m) ? "{$m[1]}:{$m[2]}" : null;
+        // Zéro-paddé comme le format('H:i') de la branche DateTimeInterface
+        // ci-dessus : sans ça, "9:10" et "10:50" se comparent comme du texte
+        // ('1' < '9') plutôt que comme des heures, et un créneau valide comme
+        // 9h10–10h50 est rejeté par la comparaison heureFin <= heureDebut.
+        return preg_match('/^([01]?\d|2[0-3]):([0-5]\d)/', $texte, $m) ? sprintf('%02d:%s', (int) $m[1], $m[2]) : null;
     }
 
     /** @return list<int> */

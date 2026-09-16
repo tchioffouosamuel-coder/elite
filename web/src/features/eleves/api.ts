@@ -238,11 +238,16 @@ export async function batchDeleteEleves(
 }
 
 export async function traitementAutomatiqueDoublons(): Promise<{
-  supprimes: number;
-  montant_conserve: number;
+  fusionnes: number;
+  conflits: { nom: string; conservee_id: number; autre_id: number; raison: string }[];
+  ambigus: { nom: string; ids: number[] }[];
 }> {
   const { data } = await http.post<
-    ApiResponse<{ supprimes: number; montant_conserve: number }>
+    ApiResponse<{
+      fusionnes: number;
+      conflits: { nom: string; conservee_id: number; autre_id: number; raison: string }[];
+      ambigus: { nom: string; ids: number[] }[];
+    }>
   >("/eleves/doublons/traitement-automatique");
   return data.data;
 }

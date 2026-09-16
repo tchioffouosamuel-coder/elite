@@ -81,3 +81,38 @@ export async function modifierNoteGestionMonBudget(id: number, note_gestion: str
   })
   return data.data
 }
+
+// ---------------------------------------------------------- Articles d'inventaire
+
+export type StatutDemandeArticle = 'en_attente' | 'validee' | 'rejetee'
+
+export type CategorieArticleDemande = 'mobilier' | 'informatique' | 'pedagogique' | 'sport' | 'medical' | 'autre'
+
+export interface DonneesArticleDemande {
+  nom: string
+  categorie: CategorieArticleDemande
+  quantite: number
+  etat?: 'bon' | 'moyen' | 'mauvais' | 'hors_service' | null
+  localisation?: string | null
+  notes?: string | null
+}
+
+export interface MaDemandeArticle {
+  id: number
+  donnees: DonneesArticleDemande
+  statut: StatutDemandeArticle
+  motif_rejet: string | null
+  inventaire_article_id: number | null
+  created_at: string
+  traite_le: string | null
+}
+
+export async function fetchMesDemandesArticles(): Promise<MaDemandeArticle[]> {
+  const { data } = await http.get<ApiResponse<MaDemandeArticle[]>>('/mon-espace/inventaire/demandes')
+  return data.data
+}
+
+export async function soumettreDemandeArticle(payload: DonneesArticleDemande): Promise<MaDemandeArticle> {
+  const { data } = await http.post<ApiResponse<MaDemandeArticle>>('/mon-espace/inventaire/demandes', payload)
+  return data.data
+}

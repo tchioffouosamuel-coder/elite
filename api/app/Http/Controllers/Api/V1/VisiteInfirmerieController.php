@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\StoreVisiteInfirmerieRequest;
 use App\Http\Requests\Api\V1\UpdateVisiteInfirmerieRequest;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
 use App\Models\Eleve;
+use App\Models\User;
 use App\Models\VisiteInfirmerie;
 use App\Services\InfirmerieService;
 use App\Support\Tenant;
@@ -50,7 +51,7 @@ class VisiteInfirmerieController extends Controller
 
     public function store(StoreVisiteInfirmerieRequest $request): JsonResponse
     {
-        $eleve = $this->eleve($request->integer('eleve_id'));
+        $eleve = $this->eleve($request->integer('eleve_id'), $request->user());
         $donnees = $request->validated();
 
         $visite = $this->service->creer(
@@ -75,7 +76,7 @@ class VisiteInfirmerieController extends Controller
     public function update(UpdateVisiteInfirmerieRequest $request, int $id): JsonResponse
     {
         $visite = $this->visite($id);
-        $eleve = $this->eleve($request->integer('eleve_id'));
+        $eleve = $this->eleve($request->integer('eleve_id'), $request->user());
         $donnees = $request->validated();
 
         $visite = $this->service->modifier(
@@ -109,8 +110,8 @@ class VisiteInfirmerieController extends Controller
         return VisiteInfirmerie::forSchool(Tenant::schoolIds())->findOrFail($id);
     }
 
-    private function eleve(int $id): Eleve
+    private function eleve(int $id, ?User $user = null): Eleve
     {
-        return Eleve::forSchool(Tenant::schoolIds())->findOrFail($id);
+        return Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($user)->findOrFail($id);
     }
 }

@@ -159,7 +159,7 @@ class PreinscriptionAdminController extends Controller
             'rubriques_versement.*.montant' => ['required_with:rubriques_versement', 'integer', 'min:1'],
         ]);
 
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($data['eleve_id']);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($data['eleve_id']);
 
         try {
             $p = $this->service->creerEtValiderParAdmin($eleve, $data, $request->user()->id);

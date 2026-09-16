@@ -7,10 +7,12 @@ import {
   fetchMesAffectations,
   fetchFeuilleJournee,
   enregistrerJournee,
-  fetchHeuresCouverture,
+  fetchHeuresCouverturePeriodes,
   MOTIFS,
   type MotifAbsence,
   type LigneAppel,
+  type HeuresCouverturePeriode,
+  type HeuresCouverturePeriodes,
 } from '@/features/progression/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Select, Input, Textarea } from '@/shared/ui/Field'
@@ -20,41 +22,56 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
-/** Heures de cours prévues vs réalisées de l'enseignant, depuis le début de l'année. */
-function CouvertureStats() {
-  const { data } = useQuery({ queryKey: ['heures-couverture'], queryFn: fetchHeuresCouverture })
+const LIBELLES_PERIODES: Record<keyof HeuresCouverturePeriodes, string> = {
+  jour: 'Jour',
+  semaine: 'Semaine',
+  mois: 'Mois',
+  annee: 'Année',
+}
 
-  if (!data || data.heures_prevues === 0) return null
+/** Une carte prévu/réalisé pour une période (jour, semaine, mois ou année). */
+function CartePeriode({ libelle, stats }: { libelle: string; stats: HeuresCouverturePeriode }) {
+  return (
+    <div className="flex flex-1 flex-col gap-2 rounded-xl border border-navy-100/70 bg-white p-3.5 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{libelle}</p>
+      <p className="text-sm text-navy-700">
+        <span className="font-bold tabular-nums text-navy-900">{stats.heures_realisees}h</span>
+        {' / '}
+        <span className="font-semibold tabular-nums">{stats.heures_prevues}h</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-navy-100">
+          <div
+            className={`h-full rounded-full ${stats.taux >= 90 ? 'bg-green-500' : stats.taux >= 60 ? 'bg-gold-500' : 'bg-red-500'}`}
+            style={{ width: `${Math.min(100, stats.taux)}%` }}
+          />
+        </div>
+        <span className="text-xs font-semibold tabular-nums text-navy-600">{stats.taux}%</span>
+      </div>
+      {stats.seances_en_retard > 0 && (
+        <span className="text-xs font-semibold text-red-600">
+          {stats.seances_en_retard} séance{stats.seances_en_retard > 1 ? 's' : ''} en retard
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Heures de cours prévues vs réalisées de l'enseignant, pour le jour, la semaine, le mois et l'année en cours. */
+function CouvertureStats() {
+  const { data } = useQuery({ queryKey: ['heures-couverture-periodes'], queryFn: fetchHeuresCouverturePeriodes })
+
+  if (!data || data.annee.heures_prevues === 0) return null
 
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-navy-100/70 bg-cream-50/50 p-4">
       <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-navy-50 text-navy-600">
         <Clock className="h-4.5 w-4.5" />
       </span>
-      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-1">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">Heures de couverture</p>
-          <p className="text-sm text-navy-700">
-            <span className="font-bold tabular-nums text-navy-900">{data.heures_realisees}h</span>
-            {' réalisées sur '}
-            <span className="font-semibold tabular-nums">{data.heures_prevues}h</span>
-            {' prévues'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-28 overflow-hidden rounded-full bg-navy-100">
-            <div
-              className={`h-full rounded-full ${data.taux >= 90 ? 'bg-green-500' : data.taux >= 60 ? 'bg-gold-500' : 'bg-red-500'}`}
-              style={{ width: `${Math.min(100, data.taux)}%` }}
-            />
-          </div>
-          <span className="text-xs font-semibold tabular-nums text-navy-600">{data.taux}%</span>
-        </div>
-        {data.seances_en_retard > 0 && (
-          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
-            {data.seances_en_retard} séance{data.seances_en_retard > 1 ? 's' : ''} en retard
-          </span>
-        )}
+      <div className="flex flex-1 flex-wrap gap-3">
+        {(Object.keys(LIBELLES_PERIODES) as (keyof HeuresCouverturePeriodes)[]).map((cle) => (
+          <CartePeriode key={cle} libelle={LIBELLES_PERIODES[cle]} stats={data[cle]} />
+        ))}
       </div>
     </div>
   )

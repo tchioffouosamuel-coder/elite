@@ -30,7 +30,7 @@ class NoteEleveController extends Controller
 
     public function index(Request $request, int $eleveId): JsonResponse
     {
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->with('classe.school')->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->with('classe.school')->findOrFail($eleveId);
 
         if (! $eleve->classe) {
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);

@@ -371,17 +371,22 @@ export async function enregistrerJournee(
   return data.data;
 }
 
-/** Heures de cours prévues vs réalisées de l'enseignant connecté, depuis le début de l'année. */
-export interface HeuresCouverture {
+/** Heures prévues vs réalisées de l'enseignant connecté, pour le jour, la semaine, le mois et l'année en cours. */
+export interface HeuresCouverturePeriode {
   heures_prevues: number;
   heures_realisees: number;
   taux: number;
+  seances_prevues: number;
+  seances_realisees: number;
+  seances_annulees: number;
   seances_en_retard: number;
 }
 
-export async function fetchHeuresCouverture(): Promise<HeuresCouverture> {
-  const { data } = await http.get<ApiResponse<HeuresCouverture>>(
-    "/ma-journee/couverture",
+export type HeuresCouverturePeriodes = Record<'jour' | 'semaine' | 'mois' | 'annee', HeuresCouverturePeriode>;
+
+export async function fetchHeuresCouverturePeriodes(): Promise<HeuresCouverturePeriodes> {
+  const { data } = await http.get<ApiResponse<HeuresCouverturePeriodes>>(
+    "/ma-journee/couverture-periodes",
   );
   return data.data;
 }

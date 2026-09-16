@@ -50,6 +50,7 @@ import {
   ScanLine,
   Megaphone,
   Boxes,
+  Package,
   Store,
   Target,
   SmilePlus,
@@ -121,6 +122,15 @@ const navGroups = [
         // Aucun privilège : l'écran ne montre que les avances du compte
         // connecté. `estPersonnel` le réserve aux agents — un compte
         // purement administratif n'a pas de salaire à avancer.
+        estPersonnel: true,
+      },
+      {
+        to: '/mes-articles-inventaire',
+        label: 'nav.mesArticlesInventaire',
+        icon: Package,
+        // Même principe que « Mes avances » : signaler du matériel reçu
+        // (médical typiquement) sans y avoir directement accès en écriture —
+        // cf. PersonnelEspaceController::soumettreDemandeArticle().
         estPersonnel: true,
       },
       {

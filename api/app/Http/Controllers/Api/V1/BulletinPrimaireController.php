@@ -26,6 +26,7 @@ class BulletinPrimaireController extends Controller
     public function show(Request $request, int $eleveId): Response
     {
         $eleve = Eleve::forSchool(Tenant::schoolIds())
+            ->dansPerimetre($request->user())
             ->with('classe.school', 'classe.niveauScolaire', 'classe.titulaire')
             ->findOrFail($eleveId);
 

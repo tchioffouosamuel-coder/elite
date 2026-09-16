@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Eleve;
 use App\Services\AttestationService;
 use App\Support\Tenant;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -13,11 +14,12 @@ class AttestationController extends Controller
 {
     public function __construct(private readonly AttestationService $service) {}
 
-    public function scolarite(int $eleveId): BinaryFileResponse
+    public function scolarite(Request $request, int $eleveId): BinaryFileResponse
     {
         // `tuteurs` : le modèle de certificat mentionne la filiation
         // (« Fils de… Et de… »), résolue depuis les rattachements de l'élève.
         $eleve = Eleve::forSchool(Tenant::schoolIds())
+            ->dansPerimetre($request->user())
             ->with(['classe', 'school', 'tuteurs'])
             ->findOrFail($eleveId);
 

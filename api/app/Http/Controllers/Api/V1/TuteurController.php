@@ -215,7 +215,7 @@ class TuteurController extends Controller
             'eleve_ids.*' => ['integer'],
         ]);
 
-        $eleves = Eleve::forSchool(Tenant::schoolIds())->whereIn('id', $data['eleve_ids'])->get();
+        $eleves = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->whereIn('id', $data['eleve_ids'])->get();
         $tuteur->eleves()->syncWithoutDetaching($eleves->mapWithKeys(fn(Eleve $eleve) => [
             $eleve->id => ['is_principal' => false],
         ])->all());

@@ -142,13 +142,13 @@ class SanctionController extends Controller
      * `DossierDisciplinaireScreen` de _smapp, calculé à la volée plutôt que
      * stocké, pour ne jamais désynchroniser d'une sanction confirmée après coup.
      */
-    public function dossier(int $eleveId): JsonResponse
+    public function dossier(Request $request, int $eleveId): JsonResponse
     {
         if ($refus = $this->refuserSaufPour('secondaire')) {
             return $refus;
         }
 
-        $eleve = Eleve::forSchool(Tenant::schoolIds())->findOrFail($eleveId);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $sanctions = Sanction::where('eleve_id', $eleve->id)
             ->with(['classe', 'enregistrePar'])
