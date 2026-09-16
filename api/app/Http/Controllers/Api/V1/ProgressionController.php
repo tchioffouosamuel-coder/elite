@@ -180,6 +180,9 @@ class ProgressionController extends Controller
         $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
         $lecteur->setReadDataOnly(true);
         $feuilles = $lecteur->listWorksheetInfo($fichier->getRealPath());
+        $classeur = $lecteur->load($fichier->getRealPath());
+
+        $ligneAttendue = $cycle === 'secondaire' ? 8 : 7;
 
         $imports = [];
         $ignorees = [];
@@ -202,6 +205,19 @@ class ProgressionController extends Controller
             }
 
             if ($classeMatiere->classe_id !== $classe->id) {
+                $ignorees[] = $titre;
+
+                continue;
+            }
+
+            // La feuille correspond à une matière de cette classe, mais son
+            // en-tête doit encore être à la ligne attendue pour ce cycle :
+            // sinon WithHeadingRow lirait une ligne de données comme en-tête
+            // et aucune colonne ne serait reconnue, sans qu'aucune erreur ne
+            // le signale (cf. import() qui fait la même vérification).
+            $ligneReelle = ProgressionImport::ligneEnTeteFeuille($classeur->getSheet($index));
+
+            if ($ligneReelle !== $ligneAttendue) {
                 $ignorees[] = $titre;
 
                 continue;

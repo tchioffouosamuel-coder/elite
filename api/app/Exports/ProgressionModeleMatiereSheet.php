@@ -60,7 +60,10 @@ class ProgressionModeleMatiereSheet implements FromArray, WithColumnWidths, With
 
         $lignes[] = ['Academic Year', $this->anneeScolaire ?? '—', 'Term', 'Année scolaire complète'];
         $lignes[] = ['Une ligne = une leçon. One row = one lesson.'];
-        $lignes[] = [];
+        // [null] et non [] : Laravel Excel interprète un tableau totalement
+        // vide comme « aucune ligne » (ArrayHelper::hasMultipleRows), ce qui
+        // supprimerait cette ligne de séparation et décalerait l'en-tête.
+        $lignes[] = [null];
 
         $colonnes = ProgressionGabaritColonnes::pour($this->cycle);
         $lignes[] = array_values($colonnes);

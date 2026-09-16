@@ -437,7 +437,11 @@
     "responsable_censeur_aide": "Encadre l'organisation pédagogique de la classe.",
     "responsable_conseiller_orientation": "Conseiller d'orientation",
     "responsable_conseiller_orientation_aide": "Accompagne les élèves dans leurs choix d'orientation.",
-    "responsable_aucun_eligible": "Aucun agent éligible : la fonction requise n'est portée par personne pour l'instant."
+    "responsable_aucun_eligible": "Aucun agent éligible : la fonction requise n'est portée par personne pour l'instant.",
+    "import_affectations": "Importer les affectations",
+    "import_affectations_hint": "La colonne « Classes » du fichier indique la ou les classes de chaque ligne (séparées par ;) : un seul fichier peut couvrir plusieurs classes à la fois.",
+    "import_affectations_ecole_visee": "École visée :",
+    "import_affectations_choisir_ecole": "Choisissez une école dans le filtre de la liste avant d'importer."
   },
   "attributions": {
     "title": "Mes attributions",

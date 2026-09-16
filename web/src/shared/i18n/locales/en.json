@@ -437,7 +437,11 @@
     "responsable_censeur_aide": "Oversees the class's academic organization.",
     "responsable_conseiller_orientation": "Guidance counselor",
     "responsable_conseiller_orientation_aide": "Supports students in their orientation choices.",
-    "responsable_aucun_eligible": "No eligible member of staff: nobody currently holds the required function."
+    "responsable_aucun_eligible": "No eligible member of staff: nobody currently holds the required function.",
+    "import_affectations": "Import assignments",
+    "import_affectations_hint": "The file's \"Classes\" column names the class (or classes, separated by ;) for each row: a single file can cover several classes at once.",
+    "import_affectations_ecole_visee": "Target school:",
+    "import_affectations_choisir_ecole": "Pick a school in the list filter before importing."
   },
   "attributions": {
     "title": "My responsibilities",

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
-import { Plus, Pencil, Trash2, School, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown, GitMerge } from 'lucide-react'
+import { Plus, Pencil, Trash2, School, AlertTriangle, Eye, Users, UserPlus, CalendarClock, GitBranch, FileDown, GitMerge, Upload } from 'lucide-react'
 import {
   fetchClasses,
   deleteClasse,
@@ -23,6 +23,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { Select } from '@/shared/ui/Select'
 import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { Modal } from '@/shared/ui/Modal'
@@ -30,6 +31,16 @@ import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+
+/*
+ * Colonnes attendues par l'import groupé des affectations (cf.
+ * App\Imports\MatiereImport, mode sans classe_id) : une ligne par matière,
+ * "Classes" pouvant lister plusieurs classes séparées par ; — c'est cette
+ * colonne qui route chaque ligne, contrairement à l'import scopé à une seule
+ * classe (bouton "Importer une affectation" de la page d'une classe), qui
+ * l'ignore.
+ */
+const COLONNES_AFFECTATIONS = ['nom', 'classes', 'enseignant', 'coefficient', 'quota_horaire']
 
 export function ClassesListPage() {
   const { t } = useTranslation()
@@ -41,6 +52,8 @@ export function ClassesListPage() {
   const [selectedClasses, setSelectedClasses] = useState<Set<number>>(new Set())
   const [classesAFusionner, setClassesAFusionner] = useState<Classe[] | null>(null)
   const [schoolFilter, setSchoolFilter] = useState<number | null>(null)
+  const [showImportAffectations, setShowImportAffectations] = useState(false)
+  const [cycleAffectations, setCycleAffectations] = useState<'secondaire' | 'primaire' | 'maternelle'>('secondaire')
   const secondaire = estSecondaire()
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['classes'] })
@@ -71,6 +84,19 @@ export function ClassesListPage() {
   const classesFiltrees = schoolFilter === null
     ? data ?? []
     : (data ?? []).filter((classe) => (classe.school_id ?? classe.school?.id) === schoolFilter)
+
+  /** École unique de ce type dans le complexe, s'il y en a exactement une — cf. MatieresPage. */
+  const ecoleAffectationsParType = (type: 'secondaire' | 'primaire' | 'maternelle') => {
+    const correspondantes = schools.filter((school) => school.type === type)
+    return correspondantes.length === 1 ? correspondantes[0] : null
+  }
+
+  const cibleCycleAffectations = (valeur: string) => {
+    if (valeur !== 'secondaire' && valeur !== 'primaire' && valeur !== 'maternelle') return
+    setCycleAffectations(valeur)
+    const ecole = ecoleAffectationsParType(valeur)
+    if (ecole) setSchoolFilter(ecole.id)
+  }
 
   const getSousSystemeNom = (classe: Classe) => {
     if (classe.sous_systeme?.nom) return classe.sous_systeme.nom
@@ -310,6 +336,18 @@ export function ClassesListPage() {
                 nomFichier="classes"
                 onImported={invalidate}
               />
+              {can('pedagogie.manage') && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    cibleCycleAffectations(cycleAffectations)
+                    setShowImportAffectations(true)
+                  }}
+                >
+                  <Upload className="h-4 w-4" />
+                  {t('classes.import_affectations')}
+                </Button>
+              )}
               <Button onClick={() => setShowForm(true)}>
                 <Plus className="h-4 w-4" />
                 {t('classes.add')}
@@ -459,6 +497,46 @@ export function ClassesListPage() {
             setSelectedClasses(new Set())
             invalidate()
           }}
+        />
+      )}
+
+      {showImportAffectations && can('pedagogie.manage') && (
+        <ImportModal
+          title={t('classes.import_affectations')}
+          url="/matieres/import"
+          columns={COLONNES_AFFECTATIONS}
+          // Pas de classe_id ici : c'est la colonne "Classes" du fichier qui
+          // route chaque ligne, seule façon de couvrir plusieurs classes en
+          // un seul import (cf. commentaire au-dessus de COLONNES_AFFECTATIONS).
+          extraFields={schoolFilter ? { school_id: schoolFilter } : undefined}
+          choix={{
+            nom: 'cycle',
+            label: t('matieres.import_cycle'),
+            defaut: cycleAffectations,
+            options: [
+              { valeur: 'secondaire', libelle: t('matieres.cycle_secondaire'), colonnes: COLONNES_AFFECTATIONS },
+              { valeur: 'primaire', libelle: t('matieres.cycle_primaire'), colonnes: COLONNES_AFFECTATIONS },
+              { valeur: 'maternelle', libelle: t('matieres.cycle_maternelle'), colonnes: COLONNES_AFFECTATIONS },
+            ],
+          }}
+          onChoixChange={cibleCycleAffectations}
+          note={
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-navy-500">{t('classes.import_affectations_hint')}</p>
+              {schoolFilter ? (
+                <p className="text-xs text-navy-500">
+                  {t('classes.import_affectations_ecole_visee')}{' '}
+                  <span className="font-semibold text-navy-700">
+                    {schools.find((school) => school.id === schoolFilter)?.name}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-gold-600">{t('classes.import_affectations_choisir_ecole')}</p>
+              )}
+            </div>
+          }
+          onClose={() => setShowImportAffectations(false)}
+          onImported={invalidate}
         />
       )}
 

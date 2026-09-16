@@ -234,6 +234,18 @@ class ProgressionImport implements ToCollection, WithHeadingRow
         $lecteur->setReadDataOnly(true);
         $feuille = $lecteur->load($fichier->getRealPath())->getSheet(0);
 
+        return self::ligneEnTeteFeuille($feuille);
+    }
+
+    /**
+     * Détecte la ligne d'en-tête réelle d'une feuille déjà chargée, en y
+     * cherchant la colonne « Week » sur les lignes 7 ou 8 — sans présumer du
+     * cycle attendu. Utilisée aussi bien pour l'import matière par matière
+     * (`ligneEnTete()`) que pour l'import groupé d'une classe entière, où
+     * chaque feuille du classeur doit être vérifiée individuellement.
+     */
+    public static function ligneEnTeteFeuille(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $feuille): ?int
+    {
         foreach ([7, 8] as $ligne) {
             foreach ($feuille->getRowIterator($ligne, $ligne) as $ligneEntete) {
                 foreach ($ligneEntete->getCellIterator() as $cellule) {
