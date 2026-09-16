@@ -365,7 +365,7 @@ export function ImportModal({
                       <div className="flex flex-none gap-1">
                         <Button type="button" size="sm" variant="secondary" onClick={() => setErreurSelectionnee({ message, erreurs })}>
                           <Eye className="h-3.5 w-3.5" />
-                          Noms
+                          Lignes
                         </Button>
                         <Button type="button" size="sm" variant="secondary" onClick={() => exporterErreurs(erreurs, 'lignes-en-erreur')}>
                           <Download className="h-3.5 w-3.5" />
@@ -397,9 +397,12 @@ export function ImportModal({
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurSelectionnee.message}</p>
             <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
               {erreurSelectionnee.erreurs.map((erreur) => (
-                <div key={`${erreur.lot ?? 0}-${erreur.ligne}`} className="flex justify-between border-b border-navy-50 px-3 py-2 text-sm last:border-0">
-                  <span className="font-semibold text-navy-800">{erreur.nom || 'Nom non renseigné'}</span>
-                  <span className="text-navy-400">Ligne {erreur.ligne}</span>
+                <div key={`${erreur.lot ?? 0}-${erreur.ligne}`} className="flex flex-col gap-1 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+                  <div className="flex justify-between gap-3">
+                    <span className="font-semibold text-navy-800">Ligne {erreur.ligne} · {erreur.nom || 'Matière non renseignée'}</span>
+                    {erreur.lot && <span className="text-navy-400">Lot {erreur.lot}</span>}
+                  </div>
+                  <span className="text-red-600">{erreur.message}</span>
                 </div>
               ))}
             </div>

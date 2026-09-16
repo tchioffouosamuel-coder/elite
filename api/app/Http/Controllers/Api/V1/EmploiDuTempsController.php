@@ -205,7 +205,7 @@ class EmploiDuTempsController extends Controller
             'imported' => $import->importedCount,
             'ignored' => $import->ignoredCount,
             'failed' => count($import->erreurs),
-            'errors' => $import->erreurs,
+            'erreurs' => $import->erreurs,
             'matieres_introuvables' => $import->matieresIntrouvables,
             'enseignants_introuvables' => $import->enseignantsIntrouvables,
             'classes_introuvables' => $import->classesIntrouvables,

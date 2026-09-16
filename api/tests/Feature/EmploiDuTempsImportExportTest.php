@@ -48,7 +48,7 @@ class EmploiDuTempsImportExportTest extends TestCase
             ...$lignes,
         ], null, 'A1');
 
-        $chemin = tempnam(sys_get_temp_dir(), 'edt').'.xlsx';
+        $chemin = tempnam(sys_get_temp_dir(), 'edt') . '.xlsx';
         (new Xlsx($feuille->getParent()))->save($chemin);
 
         return new UploadedFile($chemin, 'edt.xlsx', null, null, true);
@@ -92,6 +92,9 @@ class EmploiDuTempsImportExportTest extends TestCase
 
         $this->assertSame(1, $import->importedCount);
         $this->assertSame(['Matière inconnue' => 1], $import->matieresIntrouvables);
+        $this->assertSame(2, $import->erreurs[0]['ligne']);
+        $this->assertSame('Matière absente du catalogue de l’école.', $import->erreurs[0]['message']);
+        $this->assertSame('Matière inconnue', $import->erreurs[0]['nom']);
     }
 
     public function test_un_creneau_qui_chevauche_un_existant_est_ignore(): void
@@ -99,8 +102,12 @@ class EmploiDuTempsImportExportTest extends TestCase
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
         $classeMatiere = ClasseMatiere::create(['classe_id' => $this->classe->id, 'matiere_id' => $matiere->id]);
         EmploiDuTemps::create([
-            'school_id' => $this->school->id, 'classe_id' => $this->classe->id, 'classe_matiere_id' => $classeMatiere->id,
-            'jour' => 1, 'heure_debut' => '08:00', 'heure_fin' => '10:00',
+            'school_id' => $this->school->id,
+            'classe_id' => $this->classe->id,
+            'classe_matiere_id' => $classeMatiere->id,
+            'jour' => 1,
+            'heure_debut' => '08:00',
+            'heure_fin' => '10:00',
         ]);
 
         $autreMatiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Physique']);
@@ -163,11 +170,18 @@ class EmploiDuTempsImportExportTest extends TestCase
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
         $enseignant = Personnel::create(['school_id' => $this->school->id, 'nom_complet' => 'FOKO PIERRE', 'sexe' => 'M', 'statut' => 'actif']);
         $classeMatiere = ClasseMatiere::create([
-            'classe_id' => $this->classe->id, 'matiere_id' => $matiere->id, 'personnel_id' => $enseignant->id,
+            'classe_id' => $this->classe->id,
+            'matiere_id' => $matiere->id,
+            'personnel_id' => $enseignant->id,
         ]);
         $creneau = EmploiDuTemps::create([
-            'school_id' => $this->school->id, 'classe_id' => $this->classe->id, 'classe_matiere_id' => $classeMatiere->id,
-            'jour' => 1, 'heure_debut' => '08:00', 'heure_fin' => '10:00', 'salle' => 'B12',
+            'school_id' => $this->school->id,
+            'classe_id' => $this->classe->id,
+            'classe_matiere_id' => $classeMatiere->id,
+            'jour' => 1,
+            'heure_debut' => '08:00',
+            'heure_fin' => '10:00',
+            'salle' => 'B12',
         ]);
         $creneau->classesAssociees()->sync([$associee->id]);
 
@@ -175,8 +189,12 @@ class EmploiDuTempsImportExportTest extends TestCase
         $autreMatiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Physique']);
         $autreClasseMatiere = ClasseMatiere::create(['classe_id' => $associee->id, 'matiere_id' => $autreMatiere->id]);
         EmploiDuTemps::create([
-            'school_id' => $this->school->id, 'classe_id' => $associee->id, 'classe_matiere_id' => $autreClasseMatiere->id,
-            'jour' => 2, 'heure_debut' => '08:00', 'heure_fin' => '09:00',
+            'school_id' => $this->school->id,
+            'classe_id' => $associee->id,
+            'classe_matiere_id' => $autreClasseMatiere->id,
+            'jour' => 2,
+            'heure_debut' => '08:00',
+            'heure_fin' => '09:00',
         ]);
 
         $lignes = (new EmploiDuTempsExport($this->classe->fresh()))->collection();
@@ -197,17 +215,22 @@ class EmploiDuTempsImportExportTest extends TestCase
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
         $classeMatiere = ClasseMatiere::create(['classe_id' => $this->classe->id, 'matiere_id' => $matiere->id]);
         $creneau = EmploiDuTemps::create([
-            'school_id' => $this->school->id, 'classe_id' => $this->classe->id, 'classe_matiere_id' => $classeMatiere->id,
-            'jour' => 3, 'heure_debut' => '14:00', 'heure_fin' => '16:00', 'salle' => 'Labo',
+            'school_id' => $this->school->id,
+            'classe_id' => $this->classe->id,
+            'classe_matiere_id' => $classeMatiere->id,
+            'jour' => 3,
+            'heure_debut' => '14:00',
+            'heure_fin' => '16:00',
+            'salle' => 'Labo',
         ]);
         $creneau->classesAssociees()->sync([$associee->id]);
 
-        $lignes = (new EmploiDuTempsExport($this->classe->fresh()))->collection()->map(fn ($l) => array_values($l))->all();
+        $lignes = (new EmploiDuTempsExport($this->classe->fresh()))->collection()->map(fn($l) => array_values($l))->all();
 
         // Reproduit ce que fait ExcelController::export() -> réimport, sans passer par le disque.
         $feuille = (new Spreadsheet)->getActiveSheet();
         $feuille->fromArray([['Jour', 'Heure debut', 'Heure fin', 'Matiere', 'Enseignant', 'Salle', 'Classes associees'], ...$lignes], null, 'A1');
-        $chemin = tempnam(sys_get_temp_dir(), 'edt').'.xlsx';
+        $chemin = tempnam(sys_get_temp_dir(), 'edt') . '.xlsx';
         (new Xlsx($feuille->getParent()))->save($chemin);
 
         // Grille vidée avant réimport : sans quoi le créneau réimporté

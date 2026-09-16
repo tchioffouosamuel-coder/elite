@@ -94,7 +94,7 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
     public int $ignoredCount = 0;
 
-    /** @var array<int, string> lignes en échec métier (chevauchement, quota, jour/heure invalides) */
+    /** @var array<int, array{ligne: int, message: string, nom: string|null, donnees: array<string, mixed>}> */
     public array $erreurs = [];
 
     /** @var array<string, int> libellé de matière non rattachée au catalogue => nombre de lignes concernées */
@@ -122,8 +122,9 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
     public function collection(Collection $rows): void
     {
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
             $ligne = $this->canoniser($row instanceof Collection ? $row->all() : (array) $row);
+            $numeroLigne = (int) $index + 2;
 
             $nomMatiere = trim((string) ($ligne['matiere'] ?? ''));
             if ($nomMatiere === '') {
@@ -137,7 +138,7 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
             $heureFin = $this->heure($ligne['heure_fin'] ?? null);
 
             if ($jour === null || $heureDebut === null || $heureFin === null || $heureFin <= $heureDebut) {
-                $this->erreurs[] = "{$nomMatiere} : jour ou horaire invalide.";
+                $this->ajouterErreur($numeroLigne, 'Jour ou horaire invalide.', $nomMatiere, $ligne);
 
                 continue;
             }
@@ -145,6 +146,7 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
             $matiereId = $this->matieres()[self::cle($nomMatiere)] ?? null;
             if ($matiereId === null) {
                 $this->matieresIntrouvables[$nomMatiere] = ($this->matieresIntrouvables[$nomMatiere] ?? 0) + 1;
+                $this->ajouterErreur($numeroLigne, 'Matière absente du catalogue de l’école.', $nomMatiere, $ligne);
 
                 continue;
             }
@@ -172,13 +174,13 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
             )->id;
 
             if ($this->service->chevauche($this->classe, $jour, $heureDebut, $heureFin, null, $associees)) {
-                $this->erreurs[] = "{$nomMatiere} ({$this->jourLibelle($jour)} {$heureDebut}) : chevauche un créneau existant.";
+                $this->ajouterErreur($numeroLigne, "Chevauche un créneau existant ({$this->jourLibelle($jour)} {$heureDebut}).", $nomMatiere, $ligne);
 
                 continue;
             }
 
             if ($erreurQuota = $this->service->depasseQuota($classeMatiere, $heureDebut, $heureFin)) {
-                $this->erreurs[] = $erreurQuota;
+                $this->ajouterErreur($numeroLigne, $erreurQuota, $nomMatiere, $ligne);
 
                 continue;
             }
@@ -198,9 +200,20 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
                 $this->importedCount++;
             } catch (Throwable $e) {
-                $this->erreurs[] = "{$nomMatiere} : {$e->getMessage()}";
+                $this->ajouterErreur($numeroLigne, $e->getMessage(), $nomMatiere, $ligne);
             }
         }
+    }
+
+    /** @param array<string, mixed> $donnees */
+    private function ajouterErreur(int $ligne, string $message, string $nomMatiere, array $donnees): void
+    {
+        $this->erreurs[] = [
+            'ligne' => $ligne,
+            'message' => $message,
+            'nom' => $nomMatiere !== '' ? $nomMatiere : null,
+            'donnees' => $donnees,
+        ];
     }
 
     /**
