@@ -279,10 +279,15 @@ class ScolariteService extends BaseService
      * vienne de l'année précédente ou de dettes non encore imputées, et le
      * regrouper avant de l'effacer couvre les deux origines d'un seul geste.
      *
-     * Le `report_dette` est ramené à ce qui est déjà réglé dessus — jamais en
+     * Le montant dû est ramené à ce qui est déjà réglé dessus — jamais en
      * dessous — pour ne pas transformer un versement déjà encaissé en avance
      * fictive. Les versements passés ne sont pas touchés : seul ce qui restait
      * dû s'annule.
+     *
+     * Le reliquat peut vivre à deux endroits (cf. {@see dettesAnterieures()})
+     * : sur `report_dette` s'il n'a jamais été ouvert ailleurs, ou déjà
+     * converti en ligne de frais annexe « Dette antérieure » — le cas normal
+     * dès qu'un dossier existe. Les deux sont cherchés et effacés.
      */
     public function oublierDetteAnterieure(Eleve $eleve, ?int $accordePar): DossierScolarite
     {
@@ -294,21 +299,38 @@ class ScolariteService extends BaseService
 
             $dossier = $this->dossier($eleve, $anneeActive);
 
-            $reliquat = collect($dossier->rubriques)->firstWhere('cle', 'report_dette');
-            if (! $reliquat || $reliquat['reste'] <= 0) {
+            $rubriques = collect($dossier->rubriques)->filter(
+                fn(array $r) => $r['reste'] > 0 && ($r['cle'] === 'report_dette' || $r['libelle'] === 'Dette antérieure'),
+            );
+            if ($rubriques->isEmpty()) {
                 throw new RuntimeException("Cet élève n'a aucun reliquat d'année antérieure en attente.");
             }
 
             $auteur = $accordePar ? User::find($accordePar)?->name : null;
-            $note = 'Reliquat de ' . number_format($reliquat['reste'], 0, ',', ' ') . ' F effacé le ' . now()->format('d/m/Y')
+            $resteTotal = (int) $rubriques->sum('reste');
+            $note = 'Reliquat de ' . number_format($resteTotal, 0, ',', ' ') . ' F effacé le ' . now()->format('d/m/Y')
                 . ($auteur ? ' par ' . $auteur : '') . '.';
 
+            foreach ($rubriques as $rubrique) {
+                if ($rubrique['cle'] === 'report_dette') {
+                    $dossier->update(['report_dette' => $rubrique['montant_paye']]);
+
+                    continue;
+                }
+
+                // Ligne de frais annexe « Dette antérieure » : pas de colonne
+                // « payé » à ramener, le montant dû lui-même se ramène à ce
+                // qui est déjà réglé — la ligne cesse alors d'apparaître
+                // comme un reste dû.
+                DossierFraisAnnexe::where('id', $rubrique['dossier_frais_annexe_id'])
+                    ->update(['montant' => $rubrique['montant_paye']]);
+            }
+
             $dossier->update([
-                'report_dette' => $reliquat['montant_paye'],
                 'observation' => trim(($dossier->observation ? $dossier->observation . "\n" : '') . $note),
             ]);
 
-            return $dossier;
+            return $dossier->fresh();
         });
     }
 
@@ -830,14 +852,26 @@ class ScolariteService extends BaseService
                  */
                 $echeancier = $this->echeancier->pourDossier($dossier);
 
+                // L'échéancier ne porte que la scolarité (cf. EcheancierService) :
+                // le reliquat d'avant l'année, qu'il vive encore sur `report_dette`
+                // ou déjà converti en frais annexe « Dette antérieure », est
+                // exigible tout de suite et doit peser sur l'insolvabilité au même
+                // titre qu'un retard de tranche — sans quoi une famille à jour sur
+                // l'année mais qui traîne un ancien reliquat n'apparaîtrait jamais.
+                $horsEcheancier = (int) collect($dossier->rubriques)
+                    ->where('cle', '!=', 'scolarite')
+                    ->sum('reste');
+                $retard = $echeancier['retard'] + $horsEcheancier;
+
                 $seuil = (int) round($dossier->montant_scolarite * $seuilPourcentage / 100);
 
-                if ($echeancier['retard'] > $seuil) {
+                if ($retard > $seuil) {
                     $candidats->push([
                         'dossier' => $dossier,
                         'school' => $ecoles->get($schoolId),
                         'seuil' => $seuil,
                         'echeancier' => $echeancier,
+                        'retard' => $retard,
                     ]);
                 }
             }
@@ -868,7 +902,7 @@ class ScolariteService extends BaseService
                     // passées, distinct du reste à payer sur l'année entière.
                     'echeancier_actif' => $candidat['echeancier']['actif'],
                     'du_a_ce_jour' => $candidat['echeancier']['du_a_ce_jour'],
-                    'retard' => $candidat['echeancier']['retard'],
+                    'retard' => $candidat['retard'],
                     'tranches_en_retard' => collect($candidat['echeancier']['tranches'])
                         ->where('statut', 'en_retard')
                         ->map(fn(array $t) => [
@@ -901,10 +935,19 @@ class ScolariteService extends BaseService
 
     /**
      * Qui traîne encore un reliquat d'avant l'année active, un ou plusieurs
-     * établissements à la fois — la rubrique `report_dette` du dossier
-     * (ouvert ou projeté), isolée du reste de la scolarité en cours : un
-     * élève à jour sur l'année mais qui doit encore sur un ancien reliquat
-     * doit apparaître ici même s'il n'apparaît pas dans les insolvables.
+     * établissements à la fois — un élève à jour sur l'année mais qui doit
+     * encore sur un ancien reliquat doit apparaître ici même s'il n'apparaît
+     * pas dans les insolvables.
+     *
+     * Le reliquat vit à deux endroits selon le moment : sur la rubrique
+     * `report_dette` du dossier tant qu'il n'a pas encore été ouvert
+     * ailleurs, puis {@see \App\Services\PreinscriptionService::convertirDetteEnFraisAnnexe()}
+     * le convertit en ligne de frais annexe « Dette antérieure » dès la
+     * première ouverture du dossier (le cas normal, dès qu'un élève se
+     * réinscrit) et remet `report_dette` à 0. Ne regarder que `report_dette`
+     * ratait donc la quasi-totalité des dettes réelles, déjà converties —
+     * les deux formes sont désormais cherchées, jamais comptées deux fois
+     * pour un même dossier.
      *
      * @param  list<int>  $schoolIds
      * @param  array{classe_id?: ?int}  $filtres
@@ -926,8 +969,10 @@ class ScolariteService extends BaseService
             $situation = $this->situation($schoolId, $annee->id, ['classe_id' => $classeId]);
 
             foreach ($situation['dossiers'] as $dossier) {
-                $reliquat = collect($dossier->rubriques)->firstWhere('cle', 'report_dette');
-                if (! $reliquat || $reliquat['reste'] <= 0) {
+                $rubriques = collect($dossier->rubriques)->filter(
+                    fn(array $r) => $r['reste'] > 0 && ($r['cle'] === 'report_dette' || $r['libelle'] === 'Dette antérieure'),
+                );
+                if ($rubriques->isEmpty()) {
                     continue;
                 }
 
@@ -939,9 +984,9 @@ class ScolariteService extends BaseService
                         'classe' => $dossier->eleve->classe?->nom,
                     ],
                     'school' => ['id' => $schoolId, 'name' => $ecoles->get($schoolId)?->name],
-                    'montant' => $reliquat['montant_du'],
-                    'paye' => $reliquat['montant_paye'],
-                    'reste' => $reliquat['reste'],
+                    'montant' => (int) $rubriques->sum('montant_du'),
+                    'paye' => (int) $rubriques->sum('montant_paye'),
+                    'reste' => (int) $rubriques->sum('reste'),
                 ]);
             }
         }

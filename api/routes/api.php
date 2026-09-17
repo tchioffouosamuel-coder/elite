@@ -469,13 +469,17 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/tableau-ages/pdf', [EleveRapportsController::class, 'tableauAgesPdf'])->name('eleves.tableau-ages.pdf');
                 Route::get('eleves/rapport-minorites', [EleveRapportsController::class, 'rapportMinorites'])->name('eleves.rapport-minorites');
                 Route::get('eleves/{eleveId}/attestation-scolarite', [AttestationController::class, 'scolarite'])->name('eleves.attestation');
+                // Avant `eleves/{id}` ci-dessous : sinon Laravel matche
+                // `/eleves/doublons` comme show(id="doublons") en premier
+                // (routes GET évaluées dans l'ordre de déclaration) et
+                // plante avec un TypeError sur l'argument entier attendu.
+                Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
             });
 
             Route::middleware('permission:eleves.manage')->group(function () {
                 Route::post('eleves/doublons/traitement-automatique', [EleveController::class, 'traitementAutomatiqueDoublons'])->name('eleves.doublons.automatique');
-                Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
                 Route::post('eleves/doublons/fusionner', [EleveController::class, 'fusionnerDoublon'])->name('eleves.doublons.fusionner');
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
