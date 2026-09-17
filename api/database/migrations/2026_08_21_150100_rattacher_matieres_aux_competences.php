@@ -43,42 +43,76 @@ return new class extends Migration
             DB::table('matieres')->whereIn('school_id', $ecolesConcernees)->delete();
         }
 
-        Schema::table('matieres', function (Blueprint $table) {
-            $table->foreignId('competence_id')->nullable()->after('abbreviation')
-                ->constrained('competences')->cascadeOnDelete();
-        });
+        // Gardes `hasColumn`/`hasForeign` plutôt qu'un bloc unique : un poste
+        // desktop peut avoir vu cette migration s'exécuter partiellement lors
+        // d'un lancement antérieur interrompu (processus PHP tué en cours de
+        // route — panne électrique, antivirus, fermeture forcée) sans que la
+        // ligne correspondante soit inscrite dans `migrations` (SQLite ne
+        // garantit l'atomicité globale de la migration que si tout tient dans
+        // la même transaction, ce qui n'a pas été le cas sur au moins un poste
+        // client — observé en conditions réelles : colonne déjà là, migration
+        // rejouée depuis le début). Chaque étape se protège donc elle-même
+        // pour que relancer la migration après une panne la termine au lieu
+        // de la faire échouer sur ce qu'elle avait déjà accompli.
+        if (! Schema::hasColumn('matieres', 'competence_id')) {
+            Schema::table('matieres', function (Blueprint $table) {
+                $table->foreignId('competence_id')->nullable()->after('abbreviation')
+                    ->constrained('competences')->cascadeOnDelete();
+            });
+        }
 
-        Schema::table('matieres', function (Blueprint $table) {
-            $table->dropColumn(['notation', 'evalue_pratique', 'repartition_volets']);
-        });
+        $colonnesMatieresAEnlever = array_values(array_filter(
+            ['notation', 'evalue_pratique', 'repartition_volets'],
+            fn (string $colonne) => Schema::hasColumn('matieres', $colonne),
+        ));
 
-        Schema::table('notes', function (Blueprint $table) {
-            $table->foreignId('classe_competence_id')->nullable()->after('classe_matiere_id')
-                ->constrained('classe_competences')->cascadeOnDelete();
-        });
+        if ($colonnesMatieresAEnlever !== []) {
+            Schema::table('matieres', function (Blueprint $table) use ($colonnesMatieresAEnlever) {
+                $table->dropColumn($colonnesMatieresAEnlever);
+            });
+        }
+
+        if (! Schema::hasColumn('notes', 'classe_competence_id')) {
+            Schema::table('notes', function (Blueprint $table) {
+                $table->foreignId('classe_competence_id')->nullable()->after('classe_matiere_id')
+                    ->constrained('classe_competences')->cascadeOnDelete();
+            });
+        }
 
         // La note du primaire ne porte plus d'affectation matière : la colonne
         // doit accepter NULL. Il faut lâcher la clé étrangère le temps du
         // changement de type, MySQL refusant de modifier une colonne indexée
         // par une contrainte référentielle.
-        Schema::table('notes', function (Blueprint $table) {
-            $table->dropForeign(['classe_matiere_id']);
-        });
+        $aDejaLaContrainteClasseMatiere = collect(Schema::getForeignKeys('notes'))
+            ->contains(fn (array $cle) => $cle['columns'] === ['classe_matiere_id']);
+
+        if ($aDejaLaContrainteClasseMatiere) {
+            Schema::table('notes', function (Blueprint $table) {
+                $table->dropForeign(['classe_matiere_id']);
+            });
+        }
 
         Schema::table('notes', function (Blueprint $table) {
             $table->unsignedBigInteger('classe_matiere_id')->nullable()->change();
         });
 
-        Schema::table('notes', function (Blueprint $table) {
-            $table->foreign('classe_matiere_id')->references('id')->on('classe_matieres')->cascadeOnDelete();
+        $aDejaLIndexUniqueCompetence = collect(Schema::getIndexes('notes'))
+            ->contains(fn (array $index) => $index['name'] === 'notes_unique_cellule_competence');
+
+        Schema::table('notes', function (Blueprint $table) use ($aDejaLIndexUniqueCompetence) {
+            if (! collect(Schema::getForeignKeys('notes'))->contains(fn (array $cle) => $cle['columns'] === ['classe_matiere_id'])) {
+                $table->foreign('classe_matiere_id')->references('id')->on('classe_matieres')->cascadeOnDelete();
+            }
 
             // Une contrainte par chemin. MySQL considère NULL comme distinct
             // dans un index unique : chaque index ne contraint donc que les
             // lignes de son propre moteur de notation, sans gêner l'autre.
-            $table->unique(
-                ['eleve_id', 'classe_competence_id', 'sequence_id', 'composante'],
-                'notes_unique_cellule_competence',
-            );
+            if (! $aDejaLIndexUniqueCompetence) {
+                $table->unique(
+                    ['eleve_id', 'classe_competence_id', 'sequence_id', 'composante'],
+                    'notes_unique_cellule_competence',
+                );
+            }
         });
     }
 

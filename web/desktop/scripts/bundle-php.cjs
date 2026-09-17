@@ -106,6 +106,26 @@ function reecrirePhpIni(iniPath) {
     }
   }
 
+  // Le runtime Visual C++ (vcruntime140/msvcp140) dont php.exe dépend n'est
+  // PAS inclus dans les archives PHP officielles — il vient normalement du
+  // « Visual C++ Redistributable » installé séparément sur la machine. Un
+  // poste qui ne l'a jamais eu voit php.exe échouer à démarrer avec le code
+  // de sortie 3221225781 (STATUS_DLL_NOT_FOUND), sans aucun rapport avec un
+  // antivirus malgré ce que l'erreur générique de main.cjs laisse penser —
+  // observé en conditions réelles sur un poste client. On l'embarque donc à
+  // côté de php.exe (l'ordre de recherche des DLL Windows regarde d'abord le
+  // dossier de l'exécutable) pour ne dépendre d'aucune installation système.
+  const runtimeVCDir = process.env.ELITES_VC_RUNTIME_DIR || "C:\\Windows\\System32";
+  for (const dll of ["vcruntime140.dll", "msvcp140.dll"]) {
+    const dllSource = path.join(runtimeVCDir, dll);
+    if (existsSync(dllSource)) {
+      cpSync(dllSource, path.join(destination, dll));
+    } else {
+      console.error(`[bundle-php] runtime VC++ introuvable : ${dllSource} (définir ELITES_VC_RUNTIME_DIR ?)`);
+      process.exit(1);
+    }
+  }
+
   const cacertDestination = path.join(destination, "cacert.pem");
   const cacertLocal = process.env.ELITES_CACERT_PATH;
   if (cacertLocal && existsSync(cacertLocal)) {

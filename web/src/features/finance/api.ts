@@ -258,6 +258,7 @@ export async function fetchDepenses(params: {
   au?: string | null;
   statut?: string | null;
   vehicule_id?: number | null;
+  q?: string | null;
   page?: number;
   per_page?: number;
 }): Promise<{
@@ -277,8 +278,14 @@ export async function fetchDepenses(params: {
   };
   pagination: Pagination;
 }> {
-  const { data } = await http.get<ApiResponse<never>>("/depenses", { params });
-  return { ...(data.data as never), pagination: data.meta!.pagination! };
+  const { data } = await http.get<
+    ApiResponse<{
+      depenses: Depense[];
+      par_compte: { code: string; libelle: string; nombre: number; montant: number }[];
+      totaux: { nombre: number; engage: number; paye: number; total: number; annule: number };
+    }>
+  >("/depenses", { params });
+  return { ...data.data, pagination: data.meta!.pagination! };
 }
 
 export async function fetchComptes(): Promise<CompteComptable[]> {
@@ -374,8 +381,14 @@ export async function fetchPaie(params: {
   bulletins: BulletinPaie[];
   pagination: Pagination;
 }> {
-  const { data } = await http.get<ApiResponse<never>>("/paie", { params });
-  return { ...(data.data as never), pagination: data.meta!.pagination! };
+  const { data } = await http.get<
+    ApiResponse<{
+      periode: { annee: number; mois: number };
+      totaux: TotauxPaie;
+      bulletins: BulletinPaie[];
+    }>
+  >("/paie", { params });
+  return { ...data.data, pagination: data.meta!.pagination! };
 }
 
 /** Un agent que le lot n'a pas su préparer — et pourquoi. */
