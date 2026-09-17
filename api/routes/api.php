@@ -475,6 +475,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:eleves.manage')->group(function () {
                 Route::post('eleves/doublons/traitement-automatique', [EleveController::class, 'traitementAutomatiqueDoublons'])->name('eleves.doublons.automatique');
+                Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
+                Route::post('eleves/doublons/fusionner', [EleveController::class, 'fusionnerDoublon'])->name('eleves.doublons.fusionner');
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
                 Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');

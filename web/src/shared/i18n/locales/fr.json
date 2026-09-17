@@ -315,6 +315,8 @@
     "edit": "Modifier une banque",
     "nom": "Nom de la banque",
     "code": "Code / SWIFT",
+    "numero_compte_ecole": "N° de compte de l'établissement dans cette banque",
+    "numero_compte_ecole_placeholder": "ex: 2704-006",
     "nom_placeholder": "ex: Afriland First Bank",
     "code_placeholder": "ex: AFBKCMCX",
     "nom_required": "Le nom de la banque est requis",

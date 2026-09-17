@@ -1512,6 +1512,7 @@ export interface LigneBordereau {
   numero: string;
   personnel_id: number;
   nom_complet: string | null;
+  civilite: string | null;
   matricule: string | null;
   banque: string | null;
   numero_compte: string | null;
@@ -1522,8 +1523,10 @@ export interface LigneBordereau {
 
 export interface BordereauVirement {
   periode: { annee: number; mois: number };
+  numero_document: string;
   banques: {
     banque: string;
+    numero_compte_ecole: string | null;
     effectif: number;
     total: number;
     lignes: LigneBordereau[];

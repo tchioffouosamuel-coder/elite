@@ -252,6 +252,41 @@ export async function traitementAutomatiqueDoublons(): Promise<{
   return data.data;
 }
 
+export interface MembreDoublon {
+  id: number;
+  matricule: string | null;
+  statut: string;
+  classe: string | null;
+  total_versements: number;
+  created_at: string | null;
+  tuteur: { nom_complet: string; telephone: string | null } | null;
+}
+
+export interface GroupeDoublonDetaille {
+  nom: string;
+  date_naissance: string;
+  ecole: string | null;
+  /** 3 = plusieurs exemplaires déjà payés (le plus sensible), 2 = plusieurs actifs dans une classe, 1 = le reste. */
+  urgence: 1 | 2 | 3;
+  membres: MembreDoublon[];
+}
+
+export async function fetchDoublonsDetailles(): Promise<GroupeDoublonDetaille[]> {
+  const { data } = await http.get<ApiResponse<GroupeDoublonDetaille[]>>("/eleves/doublons");
+  return data.data;
+}
+
+export async function fusionnerDoublon(
+  conserveeId: number,
+  autreId: number,
+): Promise<{ fusionne: boolean; raison?: string }> {
+  const { data } = await http.post<ApiResponse<{ fusionne: boolean; raison?: string }>>(
+    "/eleves/doublons/fusionner",
+    { conservee_id: conserveeId, autre_id: autreId },
+  );
+  return data.data;
+}
+
 export async function normaliserMatricules(): Promise<{ normalises: number }> {
   const { data } = await http.post<ApiResponse<{ normalises: number }>>(
     "/eleves/normaliser-matricules",

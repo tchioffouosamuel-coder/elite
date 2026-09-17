@@ -296,6 +296,8 @@ export interface Banque {
   school?: School | null;
   nom: string;
   code: string | null;
+  /** Compte de l'établissement dans cette banque — celui débité pour le virement des salaires. */
+  numero_compte_ecole: string | null;
   personnels_count?: number;
 }
 
@@ -312,6 +314,7 @@ export async function fetchBanque(id: number): Promise<Banque> {
 export async function createBanque(payload: {
   nom: string;
   code?: string | null;
+  numero_compte_ecole?: string | null;
   school_id?: number | null;
 }): Promise<Banque> {
   const { data } = await http.post<ApiResponse<Banque>>("/banques", payload);
@@ -320,7 +323,7 @@ export async function createBanque(payload: {
 
 export async function updateBanque(
   id: number,
-  payload: { nom: string; code?: string | null },
+  payload: { nom: string; code?: string | null; numero_compte_ecole?: string | null },
 ): Promise<Banque> {
   const { data } = await http.put<ApiResponse<Banque>>(
     `/banques/${id}`,

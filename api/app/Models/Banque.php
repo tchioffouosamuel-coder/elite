@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Banque extends Model
 {
-    protected $fillable = ['school_id', 'nom', 'code'];
+    protected $fillable = ['school_id', 'nom', 'code', 'numero_compte_ecole'];
 
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {

@@ -43,6 +43,10 @@ class BanqueController extends Controller
             'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
             'code' => ['nullable', 'string', 'max:50'],
+            // Compte de l'établissement dans cette banque — celui débité au
+            // bordereau de virement des salaires, distinct du compte de
+            // chaque agent.
+            'numero_compte_ecole' => ['nullable', 'string', 'max:50'],
         ]);
 
         $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
@@ -54,6 +58,7 @@ class BanqueController extends Controller
         $banque = Banque::create([
             'nom' => $data['nom'],
             'code' => $data['code'] ?? null,
+            'numero_compte_ecole' => $data['numero_compte_ecole'] ?? null,
             'school_id' => $schoolId,
         ])->load('school:id,name,code,type');
 
@@ -83,6 +88,7 @@ class BanqueController extends Controller
                 Rule::unique('banques', 'nom')->where('school_id', $schoolId)->ignore($id),
             ],
             'code' => ['nullable', 'string', 'max:50'],
+            'numero_compte_ecole' => ['nullable', 'string', 'max:50'],
         ]);
 
         $banque->update($data);

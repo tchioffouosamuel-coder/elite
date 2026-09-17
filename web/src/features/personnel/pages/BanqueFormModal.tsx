@@ -18,6 +18,7 @@ interface BanqueFormModalProps {
 interface FormValues {
   nom: string
   code: string
+  numero_compte_ecole: string
   school_id?: number
 }
 
@@ -33,6 +34,7 @@ export function BanqueFormModal({ banque, onClose, onSaved }: BanqueFormModalPro
     defaultValues: {
       nom: banque?.nom ?? '',
       code: banque?.code ?? '',
+      numero_compte_ecole: banque?.numero_compte_ecole ?? '',
       school_id: banque?.school_id,
     },
   })
@@ -41,6 +43,7 @@ export function BanqueFormModal({ banque, onClose, onSaved }: BanqueFormModalPro
     reset({
       nom: banque?.nom ?? '',
       code: banque?.code ?? '',
+      numero_compte_ecole: banque?.numero_compte_ecole ?? '',
       school_id: banque?.school_id,
     })
   }, [banque, reset])
@@ -51,12 +54,14 @@ export function BanqueFormModal({ banque, onClose, onSaved }: BanqueFormModalPro
         await updateBanque(banque.id, {
           nom: values.nom.trim(),
           code: values.code.trim() || null,
+          numero_compte_ecole: values.numero_compte_ecole.trim() || null,
         })
         succes(t('banques.updated'))
       } else {
         await createBanque({
           nom: values.nom.trim(),
           code: values.code.trim() || null,
+          numero_compte_ecole: values.numero_compte_ecole.trim() || null,
           school_id: values.school_id ? Number(values.school_id) : undefined,
         })
         succes(t('banques.created'))
@@ -92,6 +97,11 @@ export function BanqueFormModal({ banque, onClose, onSaved }: BanqueFormModalPro
           {...register('nom', { required: t('banques.nom_required') })}
         />
         <Input label={t('banques.code')} placeholder={t('banques.code_placeholder')} {...register('code')} />
+        <Input
+          label={t('banques.numero_compte_ecole')}
+          placeholder={t('banques.numero_compte_ecole_placeholder')}
+          {...register('numero_compte_ecole')}
+        />
 
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="secondary" onClick={onClose} type="button">

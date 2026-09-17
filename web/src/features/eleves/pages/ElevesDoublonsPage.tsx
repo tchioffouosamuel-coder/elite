@@ -1,8 +1,14 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArrowLeft, Eye, GitMerge, Pencil, RotateCcw, Trash2, UserRound, WandSparkles } from 'lucide-react'
-import { archiveEleve, deleteEleve, fetchEleves, reactivateEleve, traitementAutomatiqueDoublons, type Eleve } from '@/features/eleves/api'
+import { ArrowLeft, GitMerge, UserRound, WandSparkles } from 'lucide-react'
+import {
+    fetchDoublonsDetailles,
+    fusionnerDoublon,
+    traitementAutomatiqueDoublons,
+    type GroupeDoublonDetaille,
+    type MembreDoublon,
+} from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -12,69 +18,37 @@ import { Card } from '@/shared/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { PageHeader } from '@/shared/ui/PageHeader'
 
-interface GroupeDoublon {
-    cle: string
-    nom: string
-    ecole: string
-    eleves: Eleve[]
-}
-
 const formatMontant = (montant: number) => `${new Intl.NumberFormat('fr-FR').format(montant)} FCFA`
 
-function normaliserNom(nom: string): string {
-    return nom
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .toLocaleLowerCase('fr')
+const URGENCE_BADGE: Record<1 | 2 | 3, { tone: 'red' | 'gold' | 'neutral'; label: string }> = {
+    3: { tone: 'red', label: 'Argent des deux côtés' },
+    2: { tone: 'gold', label: 'Actifs dans la même classe' },
+    1: { tone: 'neutral', label: 'Inactifs' },
 }
 
+/**
+ * Gestion des doublons — revue humaine, pas fusion automatique aveugle.
+ *
+ * Ni « qui a une classe » ni « qui a des versements » ne départage la plupart
+ * des groupes en pratique : les deux exemplaires sont souvent actifs dans la
+ * même classe, ou tous deux payés. Chaque groupe est donc affiché avec les
+ * deux fiches côte à côte, trié par urgence (l'argent en double d'abord), et
+ * c'est l'utilisateur qui choisit laquelle garder.
+ */
 export function ElevesDoublonsPage() {
     const navigate = useNavigate()
     const can = useAuthStore((state) => state.can)
     const queryClient = useQueryClient()
-    const { data, isLoading, isError } = useQuery({
-        queryKey: ['eleves', 'doublons', 'toutes-pages'],
-        // Outil de correction de données : doit repérer les doublons parmi
-        // TOUS les élèves, pas seulement les préinscrits de l'année active —
-        // et sur un complexe de plusieurs milliers d'élèves, une seule page
-        // de 1000 n'en couvre qu'une fraction : on boucle jusqu'à la
-        // dernière page plutôt que de rater silencieusement les 4/5 restants.
-        queryFn: async () => {
-            const premiere = await fetchEleves({ per_page: 1000, tous: true })
-            const items = [...premiere.items]
-            for (let page = 2; page <= premiere.pagination.last_page; page++) {
-                const suivante = await fetchEleves({ per_page: 1000, tous: true, page })
-                items.push(...suivante.items)
-            }
-            return { items, pagination: premiere.pagination }
-        },
+    const [enCours, setEnCours] = useState<string | null>(null)
+
+    const { data: groupes, isLoading, isError } = useQuery({
+        queryKey: ['eleves', 'doublons-detailles'],
+        queryFn: fetchDoublonsDetailles,
     })
-
-    const groupes = useMemo<GroupeDoublon[]>(() => {
-        const groupesParCle = new Map<string, Eleve[]>()
-
-        for (const eleve of data?.items ?? []) {
-            const cle = `${eleve.school_id ?? 0}:${normaliserNom(eleve.nom_complet)}`
-            const groupe = groupesParCle.get(cle) ?? []
-            groupe.push(eleve)
-            groupesParCle.set(cle, groupe)
-        }
-
-        return Array.from(groupesParCle.entries())
-            .filter(([, eleves]) => eleves.length > 1)
-            .map(([cle, eleves]) => ({
-                cle,
-                nom: eleves[0].nom_complet,
-                ecole: eleves[0].school?.name ?? 'École non renseignée',
-                eleves,
-            }))
-            .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
-    }, [data?.items])
 
     const rafraichir = () => {
         queryClient.invalidateQueries({ queryKey: ['eleves'] })
+        queryClient.invalidateQueries({ queryKey: ['eleves', 'doublons-detailles'] })
     }
 
     const traiterAutomatiquement = async () => {
@@ -90,48 +64,42 @@ export function ElevesDoublonsPage() {
             rafraichir()
             const details: string[] = []
             if (resultat.conflits.length > 0) details.push(`${resultat.conflits.length} en conflit financier à vérifier`)
-            if (resultat.ambigus.length > 0) details.push(`${resultat.ambigus.length} ambigu(s) à trancher à la main`)
+            if (resultat.ambigus.length > 0) details.push(`${resultat.ambigus.length} restent à trancher ci-dessous`)
             succes(`${resultat.fusionnes} doublon(s) fusionné(s).${details.length > 0 ? ' ' + details.join(', ') + '.' : ''}`)
         } catch (err) {
             erreur((err as ApiError).message)
         }
     }
 
-    const changerStatut = async (eleve: Eleve) => {
-        try {
-            if (eleve.statut === 'actif') {
-                const confirme = await confirmer({
-                    titre: `Archiver ${eleve.nom_complet} ?`,
-                    message: 'Cette fiche ne sera plus considérée comme active.',
-                    action: 'Archiver',
-                })
-                if (!confirme) return
-                await archiveEleve(eleve.id)
-                succes('Fiche élève archivée.')
-            } else {
-                await reactivateEleve(eleve.id)
-                succes('Fiche élève réactivée.')
-            }
-            rafraichir()
-        } catch (err) {
-            erreur((err as ApiError).message)
-        }
-    }
+    const fusionner = async (groupe: GroupeDoublonDetaille, conservee: MembreDoublon) => {
+        const autres = groupe.membres.filter((m) => m.id !== conservee.id)
 
-    const supprimer = async (eleve: Eleve) => {
         const confirme = await confirmer({
-            titre: `Supprimer ${eleve.nom_complet} ?`,
-            message: 'Cette action est irréversible et supprimera la fiche sélectionnée.',
-            action: 'Supprimer',
+            titre: `Garder la fiche de ${conservee.matricule ?? conservee.id} ?`,
+            message: `Notes, présences, sanctions, dossier scolaire... de ${autres.length > 1 ? 'toutes les autres fiches' : "l'autre fiche"} seront rattachés à celle-ci, qui sera seule conservée. Si un dossier de scolarité se chevauche sur une même année, la fusion de cette paire sera refusée plutôt que de risquer un paiement compté deux fois.`,
+            action: 'Fusionner',
         })
         if (!confirme) return
 
+        setEnCours(`${groupe.nom}:${conservee.id}`)
         try {
-            await deleteEleve(eleve.id)
-            succes('Fiche élève supprimée.')
+            let fusionnes = 0
+            const refus: string[] = []
+            for (const autre of autres) {
+                const resultat = await fusionnerDoublon(conservee.id, autre.id)
+                if (resultat.fusionne) fusionnes++
+                else refus.push(autre.matricule ?? String(autre.id))
+            }
             rafraichir()
+            if (refus.length === 0) {
+                succes(`${fusionnes} fiche(s) fusionnée(s) dans ${conservee.matricule ?? conservee.id}.`)
+            } else {
+                erreur(`${fusionnes} fusionnée(s), mais refusé pour ${refus.join(', ')} (dossiers de scolarité en chevauchement).`)
+            }
         } catch (err) {
             erreur((err as ApiError).message)
+        } finally {
+            setEnCours(null)
         }
     }
 
@@ -139,11 +107,14 @@ export function ElevesDoublonsPage() {
         return <ErrorState />
     }
 
+    const totalFiches = groupes?.reduce((total, g) => total + g.membres.length, 0) ?? 0
+    const totalVerse = groupes?.reduce((total, g) => total + g.membres.reduce((s, m) => s + m.total_versements, 0), 0) ?? 0
+
     return (
         <div className="flex flex-col gap-5">
             <PageHeader
                 titre="Gestion des doublons"
-                sousTitre="Fiches élèves portant le même nom dans une même école. Vérifiez chaque fiche avant de l'archiver ou de la supprimer."
+                sousTitre="Fiches élèves portant le même nom, la même école et la même date de naissance. Choisissez laquelle garder pour chaque groupe."
                 icon={GitMerge}
                 actions={
                     <div className="flex flex-wrap justify-end gap-2">
@@ -161,7 +132,7 @@ export function ElevesDoublonsPage() {
 
             {isLoading ? (
                 <Spinner />
-            ) : isError || !data ? (
+            ) : isError || !groupes ? (
                 <ErrorState />
             ) : groupes.length === 0 ? (
                 <Card>
@@ -171,56 +142,70 @@ export function ElevesDoublonsPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2 text-sm text-navy-600">
                         <UserRound className="h-4 w-4" />
-                        {groupes.length} groupe(s) de doublons, {groupes.reduce((total, groupe) => total + groupe.eleves.length, 0)} fiche(s) à vérifier · Total versé : {formatMontant(groupes.reduce((total, groupe) => total + groupe.eleves.reduce((somme, eleve) => somme + (eleve.total_versements ?? 0), 0), 0))}
+                        {groupes.length} groupe(s) de doublons, {totalFiches} fiche(s) à vérifier · Total versé : {formatMontant(totalVerse)}
                     </div>
 
-                    {groupes.map((groupe) => (
-                        <Card key={groupe.cle}>
-                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy-100 pb-3">
-                                <div>
-                                    <h2 className="font-bold text-navy-900">{groupe.nom}</h2>
-                                    <p className="text-xs text-navy-500">{groupe.ecole}</p>
-                                </div>
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                    <span className="text-xs font-semibold text-navy-500">Versé : {formatMontant(groupe.eleves.reduce((total, eleve) => total + (eleve.total_versements ?? 0), 0))}</span>
-                                    <Badge tone="red">{groupe.eleves.length} fiches</Badge>
-                                </div>
-                            </div>
+                    {groupes.map((groupe) => {
+                        const badge = URGENCE_BADGE[groupe.urgence]
+                        const cle = groupe.nom + groupe.date_naissance
 
-                            <div className="flex flex-col divide-y divide-navy-100">
-                                {groupe.eleves.map((eleve) => (
-                                    <div key={eleve.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className={`font-semibold ${eleve.preinscription_active ? 'text-green-700' : 'text-navy-900'}`}>
-                                                    {eleve.nom_complet}
-                                                </p>
-                                                {eleve.preinscription_active && <Badge tone="green">Déjà inscrit</Badge>}
-                                            </div>
-                                            <p className="text-xs text-navy-500">
-                                                Matricule : {eleve.matricule ?? '—'} · Né(e) le : {eleve.date_naissance ?? '—'} · Classe : {eleve.classe?.nom ?? 'Sans classe'} · Versé : {formatMontant(eleve.total_versements ?? 0)}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Badge tone={eleve.statut === 'actif' ? 'green' : 'neutral'}>{eleve.statut === 'actif' ? 'Actif' : eleve.statut}</Badge>
-                                            <button type="button" title="Consulter" onClick={() => navigate(`/eleves/${eleve.id}`)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                                                <Eye className="h-4 w-4" />
-                                            </button>
-                                            <button type="button" title="Modifier" onClick={() => navigate(`/eleves/${eleve.id}/edit`)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                                                <Pencil className="h-4 w-4" />
-                                            </button>
-                                            <button type="button" title={eleve.statut === 'actif' ? 'Archiver' : 'Réactiver'} onClick={() => void changerStatut(eleve)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                                                {eleve.statut === 'actif' ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
-                                            </button>
-                                            <button type="button" title="Supprimer" onClick={() => void supprimer(eleve)} className="rounded-lg p-1.5 text-red-400 hover:bg-red-50 hover:text-red-700">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                        return (
+                            <Card key={cle}>
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy-100 pb-3">
+                                    <div>
+                                        <h2 className="font-bold text-navy-900">{groupe.nom}</h2>
+                                        <p className="text-xs text-navy-500">
+                                            {groupe.ecole ?? 'École non renseignée'} · Né(e) le {groupe.date_naissance}
+                                        </p>
                                     </div>
-                                ))}
-                            </div>
-                        </Card>
-                    ))}
+                                    <Badge tone={badge.tone}>{badge.label}</Badge>
+                                </div>
+
+                                <div className="flex flex-col divide-y divide-navy-100">
+                                    {groupe.membres.map((membre) => (
+                                        <div key={membre.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="font-semibold text-navy-900">Matricule {membre.matricule ?? '—'}</p>
+                                                    <Badge tone={membre.statut === 'actif' ? 'green' : 'neutral'}>
+                                                        {membre.statut === 'actif' ? 'Actif' : membre.statut}
+                                                    </Badge>
+                                                    {membre.total_versements > 0 && (
+                                                        <Badge tone="gold">Versé : {formatMontant(membre.total_versements)}</Badge>
+                                                    )}
+                                                </div>
+                                                <p className="mt-0.5 text-xs text-navy-500">
+                                                    Classe : {membre.classe ?? 'Sans classe'} · Créée le {membre.created_at ?? '—'}
+                                                    {membre.tuteur && (
+                                                        <> · Tuteur : {membre.tuteur.nom_complet} {membre.tuteur.telephone ? `(${membre.tuteur.telephone})` : ''}</>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    title="Consulter"
+                                                    onClick={() => navigate(`/eleves/${membre.id}`)}
+                                                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-navy-500 hover:bg-cream-100 hover:text-navy-700"
+                                                >
+                                                    Consulter
+                                                </button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    disabled={enCours !== null}
+                                                    onClick={() => void fusionner(groupe, membre)}
+                                                >
+                                                    <GitMerge className="h-3.5 w-3.5" />
+                                                    {enCours === `${groupe.nom}:${membre.id}` ? 'Fusion…' : 'Garder celle-ci'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        )
+                    })}
                 </div>
             )}
         </div>

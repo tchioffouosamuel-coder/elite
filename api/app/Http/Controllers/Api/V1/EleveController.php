@@ -132,6 +132,95 @@ class EleveController extends Controller
     }
 
     /**
+     * Détail des groupes de doublons, pour arbitrage humain : ni « avec
+     * classe » ni « avec versements » ne départage la plupart des groupes en
+     * pratique (souvent les deux exemplaires sont actifs dans la même classe,
+     * ou tous deux inactifs) — les deux signaux sont donc remontés côte à
+     * côte, sans décider à la place de l'établissement.
+     *
+     * Trié par urgence : un groupe où **plusieurs** exemplaires ont déjà reçu
+     * des versements réels passe en premier — c'est là que le risque d'avoir
+     * compté un paiement deux fois est le plus concret, cf. la remarque de
+     * l'établissement qui a motivé cet écran plutôt qu'une fusion aveugle.
+     */
+    public function doublons(): JsonResponse
+    {
+        $eleves = Eleve::forSchool(Tenant::schoolIds())
+            ->whereNotNull('date_naissance')
+            ->with(['classe:id,nom', 'school:id,name', 'tuteurs:id,nom_complet,telephone'])
+            ->get(['id', 'school_id', 'classe_id', 'nom_complet', 'date_naissance', 'matricule', 'statut', 'created_at']);
+
+        $totaux = $this->totauxVersements($eleves->pluck('id'));
+
+        $groupes = $eleves
+            ->groupBy(fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet) . ':' . $eleve->date_naissance->toDateString())
+            ->filter(fn($groupe) => $groupe->count() > 1)
+            ->map(function ($groupe) use ($totaux) {
+                $membres = $groupe->map(function (Eleve $eleve) use ($totaux) {
+                    $principal = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+                    return [
+                        'id' => $eleve->id,
+                        'matricule' => $eleve->matricule,
+                        'statut' => $eleve->statut,
+                        'classe' => $eleve->classe?->nom,
+                        'total_versements' => $totaux[$eleve->id] ?? 0,
+                        'created_at' => $eleve->created_at?->format('Y-m-d H:i'),
+                        'tuteur' => $principal ? ['nom_complet' => $principal->nom_complet, 'telephone' => $principal->telephone] : null,
+                    ];
+                })->values();
+
+                $avecVersement = $membres->filter(fn($m) => $m['total_versements'] > 0)->count();
+                $avecClasse = $membres->filter(fn($m) => $m['classe'] !== null)->count();
+
+                return [
+                    'nom' => $groupe->first()->nom_complet,
+                    'date_naissance' => $groupe->first()->date_naissance->format('Y-m-d'),
+                    'ecole' => $groupe->first()->school?->name,
+                    // 3 : plusieurs exemplaires déjà payés — le cas le plus
+                    // sensible. 2 : plusieurs actifs dans une classe, sans
+                    // doublon d'argent connu. 1 : le reste (souvent inactifs).
+                    'urgence' => match (true) {
+                        $avecVersement >= 2 => 3,
+                        $avecClasse >= 2 => 2,
+                        default => 1,
+                    },
+                    'membres' => $membres,
+                ];
+            })
+            ->sortByDesc('urgence')
+            ->values();
+
+        return ApiResponse::success($groupes, "{$groupes->count()} groupe(s) de doublons.");
+    }
+
+    /**
+     * Fusion d'une paire choisie à la main : {@see EleveFusionService} refuse
+     * elle-même si les deux fiches ont un dossier de scolarité sur une même
+     * année (risque de double-compte d'un paiement), sans qu'il soit besoin
+     * de le revérifier ici.
+     */
+    public function fusionnerDoublon(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'conservee_id' => ['required', 'integer', 'different:autre_id'],
+            'autre_id' => ['required', 'integer'],
+        ]);
+
+        $conservee = Eleve::forSchool(Tenant::schoolIds())->findOrFail($data['conservee_id']);
+        $autre = Eleve::forSchool(Tenant::schoolIds())->findOrFail($data['autre_id']);
+
+        $resultat = $this->fusion->fusionner($conservee, $autre);
+
+        return ApiResponse::success(
+            $resultat,
+            $resultat['fusionne']
+                ? "{$autre->nom_complet} fusionné(e) dans la fiche conservée."
+                : "Fusion refusée : dossiers de scolarité en chevauchement sur une même année. À traiter manuellement.",
+        );
+    }
+
+    /**
      * Recherche transverse d'élèves, tous critères confondus : nom de
      * l'élève, matricule, ou nom/téléphone d'un de ses tuteurs. Pensée pour
      * une barre de recherche rapide, pas pour remplacer la liste filtrée.
