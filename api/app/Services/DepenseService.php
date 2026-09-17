@@ -234,7 +234,7 @@ class DepenseService extends BaseService
                     ->orWhere('reference_facture', 'like', "%{$terme}%");
             }));
 
-        $detail = $requete()->with(['compte', 'saisisseur', 'vehicule'])->orderByDesc('date_depense')->orderByDesc('id');
+        $detail = $requete()->with(['compte', 'saisisseur', 'vehicule', 'budgetPersonnel.personnel'])->orderByDesc('date_depense')->orderByDesc('id');
         $depenses = $perPage !== null ? $detail->paginate($perPage) : $detail->get();
 
         $agregatsParCompte = $requete()

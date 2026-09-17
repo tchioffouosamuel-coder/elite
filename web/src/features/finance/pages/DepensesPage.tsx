@@ -34,7 +34,9 @@ export function DepensesPage() {
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
 
-  const [du, setDu] = useState('')
+  const debutMoisCourant = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+
+  const [du, setDu] = useState(debutMoisCourant)
   const [au, setAu] = useState('')
   const [statut, setStatut] = useState('')
   const [terme, setTerme] = useState('')

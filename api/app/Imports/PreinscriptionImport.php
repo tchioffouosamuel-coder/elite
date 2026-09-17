@@ -20,9 +20,9 @@ use RuntimeException;
  *
  * Ancien élève ou nouveau : jamais une colonne dédiée, toujours une
  * comparaison — matricule d'abord (s'il correspond réellement à un élève de
- * l'école), puis nom complet + date de naissance. Sans correspondance,
- * c'est un nouvel élève. Cf. `PreinscriptionService::importerLigne()` pour
- * la comparaison elle-même.
+ * l'école), puis nom complet seul. Sans correspondance, c'est un nouvel
+ * élève. Cf. `PreinscriptionService::importerLigne()` pour la comparaison
+ * elle-même.
  */
 class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingRow
 {

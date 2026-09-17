@@ -752,10 +752,8 @@ class PreinscriptionService extends BaseService
     /**
      * Ancien élève ou nouveau : le matricule prime s'il correspond
      * réellement à un élève de l'école (une ligne peut en porter un ancien,
-     * périmé) ; à défaut, on rapproche sur nom complet + date de naissance —
-     * le même duo qu'utilise déjà {@see soumettre()} pour détecter les
-     * doublons d'une nouvelle inscription. Sans les deux, aucun rapprochement
-     * n'est tenté : un nom seul rapprocherait trop de monde.
+     * périmé) ; à défaut, on rapproche sur le seul nom complet. Sans nom,
+     * aucun rapprochement n'est tenté.
      */
     private function rapprocherEleveExistant(int $schoolId, array $ligne): ?Eleve
     {
@@ -767,13 +765,12 @@ class PreinscriptionService extends BaseService
             }
         }
 
-        if (empty($ligne['nom_complet']) || empty($ligne['date_naissance'])) {
+        if (empty($ligne['nom_complet'])) {
             return null;
         }
 
         return Eleve::where('school_id', $schoolId)
             ->whereRaw('LOWER(nom_complet) = ?', [mb_strtolower(trim($ligne['nom_complet']))])
-            ->whereDate('date_naissance', $ligne['date_naissance'])
             ->first();
     }
 
