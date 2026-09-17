@@ -120,6 +120,9 @@ class RemunerationController extends Controller
              */
             'mode' => ['nullable', 'in:mensuel,horaire'],
             'taux_horaire' => ['required_if:mode,horaire', 'nullable', 'integer', 'min:1'],
+            // N'a de sens que pour une vacation : un salarié mensuel relève
+            // de la CNPS de droit, ce n'est pas un choix à faire ici.
+            'cnps_actif' => ['nullable', 'boolean'],
             'salaire_base' => ['required_unless:mode,horaire', 'nullable', 'integer', 'min:0'],
             'prime_anciennete' => ['nullable', 'integer', 'min:0'],
             'prime_communication' => ['nullable', 'integer', 'min:0'],
@@ -137,6 +140,7 @@ class RemunerationController extends Controller
                 'school_id' => $personnel->school_id,
                 'mode' => $horaire ? 'horaire' : 'mensuel',
                 'taux_horaire' => $horaire ? (int) $donnees['taux_horaire'] : null,
+                'cnps_actif' => $horaire && ($donnees['cnps_actif'] ?? false),
                 // Une vacation n'a ni base ni primes : les laisser garnies
                 // ferait apparaître un salaire là où il n'y a qu'un taux.
                 ...collect(self::GAINS)->mapWithKeys(
@@ -249,6 +253,7 @@ class RemunerationController extends Controller
             'categorie' => $remuneration->categorie,
             'mode' => $remuneration->mode,
             'taux_horaire' => $remuneration->taux_horaire,
+            'cnps_actif' => $remuneration->cnps_actif,
             ...$remuneration->only(self::GAINS),
             'brut' => $resultat->brut,
             'base_taxable' => $resultat->baseTaxable,

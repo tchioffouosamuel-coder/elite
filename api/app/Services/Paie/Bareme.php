@@ -21,8 +21,13 @@ interface Bareme
      * @param  array<string, int>  $gains  salaire_base, prime_anciennete,
      *                                     prime_communication, prime_transport,
      *                                     prime_recherche, prime_performance
+     * @param  int|null  $schoolId  école dont les taux (Setting) surchargent le
+     *                              barème par défaut — cf. BaremeMaison. Sans
+     *                              elle (aucun établissement précis, ex. une
+     *                              simulation hors contexte), le barème par
+     *                              défaut de config/paie.php s'applique.
      */
-    public function calculer(array $gains): ResultatPaie;
+    public function calculer(array $gains, ?int $schoolId = null): ResultatPaie;
 
     /** Libellé du barème, porté sur le bulletin pour qu'il se relise plus tard. */
     public function libelle(): string;

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play } from 'lucide-react'
+import { Banknote, FileText, Lock, Wallet, PenLine, Users, ListChecks, Play, PlusCircle } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
-import { Select } from '@/shared/ui/Field'
+import { Select, Input, MontantInput } from '@/shared/ui/Field'
+import { Modal } from '@/shared/ui/Modal'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
@@ -59,6 +60,9 @@ export function PaiePage() {
   // Vacataires que le lot n'a pas pu préparer faute d'heures : c'est ici
   // qu'on les leur demande, un par un.
   const [vacatairesEnAttente, setVacatairesEnAttente] = useState<AgentIgnore[]>([])
+  // Complément ponctuel du mois pour un vacataire — un rattrapage, une prime
+  // exceptionnelle — saisi sur son brouillon déjà préparé.
+  const [bulletinAAjuster, setBulletinAAjuster] = useState<BulletinPaie | null>(null)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['paie', activeSchoolId, annee, mois, terme, page],
@@ -306,6 +310,12 @@ export function PaiePage() {
             <FileText className="h-3.5 w-3.5" />
           </Button>
 
+          {can('finance.paie') && b.statut === 'brouillon' && b.taux_horaire !== null && (
+            <Button size="sm" variant="secondary" title="Ajouter un complément" onClick={() => setBulletinAAjuster(b)}>
+              <PlusCircle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
           {can('finance.paie') && b.statut === 'brouillon' && (
             <Button size="sm" title="Arrêter" onClick={() => arreter(b)}>
               <Lock className="h-3.5 w-3.5" />
@@ -468,7 +478,87 @@ export function PaiePage() {
           <BordereauCard annee={annee} mois={mois} />
         </>
       )}
+
+      {bulletinAAjuster && (
+        <AjusterVacataireModal
+          bulletin={bulletinAAjuster}
+          annee={annee}
+          mois={mois}
+          onClose={() => setBulletinAAjuster(null)}
+          onAjuste={() => {
+            setBulletinAAjuster(null)
+            rafraichir()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Complément ponctuel du mois pour un vacataire déjà préparé — un
+ * rattrapage, une prime exceptionnelle. Rejoue simplement `preparerBulletinAgent`
+ * avec le montant et sa raison : le bulletin est encore en brouillon, donc se
+ * recalcule sans risque, heures et retenues CNPS/impôt comprises.
+ */
+function AjusterVacataireModal({
+  bulletin,
+  annee,
+  mois,
+  onClose,
+  onAjuste,
+}: {
+  bulletin: BulletinPaie
+  annee: number
+  mois: number
+  onClose: () => void
+  onAjuste: () => void
+}) {
+  const [montant, setMontant] = useState(bulletin.extra_montant)
+  const [motif, setMotif] = useState(bulletin.extra_motif ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const [erreurServeur, setErreurServeur] = useState<string | null>(null)
+
+  const enregistrer = async () => {
+    setErreurServeur(null)
+    setSubmitting(true)
+    try {
+      await preparerBulletinAgent(
+        bulletin.personnel.id,
+        { annee, mois },
+        {
+          heures: bulletin.heures ?? undefined,
+          extra_montant: montant,
+          extra_motif: motif || undefined,
+        },
+      )
+      succes('Complément enregistré.')
+      onAjuste()
+    } catch (e) {
+      setErreurServeur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal title={`Complément du mois — ${bulletin.personnel.nom_complet}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <MontantInput label="Montant complémentaire (F CFA)" value={montant} onChange={setMontant} placeholder="0" />
+        <Input label="Raison" placeholder="Ex. Rattrapage de cours" value={motif} onChange={(e) => setMotif(e.target.value)} />
+
+        {erreurServeur && <p className="text-sm text-red-500">{erreurServeur}</p>}
+
+        <div className="mt-1 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button onClick={enregistrer} disabled={submitting}>
+            Enregistrer
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

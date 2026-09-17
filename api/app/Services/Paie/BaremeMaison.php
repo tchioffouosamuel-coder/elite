@@ -2,6 +2,8 @@
 
 namespace App\Services\Paie;
 
+use App\Models\Setting;
+
 /**
  * Barème effectivement pratiqué par l'établissement dans ses registres de paie
  * et ses états de cotisations.
@@ -41,7 +43,7 @@ class BaremeMaison implements Bareme
     }
 
     /** @param array<string, int> $gains */
-    public function calculer(array $gains): ResultatPaie
+    public function calculer(array $gains, ?int $schoolId = null): ResultatPaie
     {
         $gains = array_map(static fn ($v) => max(0, (int) $v), $gains + [
             'salaire_base' => 0,
@@ -56,12 +58,12 @@ class BaremeMaison implements Bareme
         $assiette = $this->assiette($brut);
 
         $lignes = [
-            $this->ligne('Taxe de développement local', 'Local development tax', $assiette, 'tdl_salarie', null),
-            $this->ligne('Crédit Foncier du Cameroun', 'Housing fund', $assiette, 'cfc_salarie', 'cfc_employeur'),
-            $this->ligne("Fonds National de l'Emploi", 'National employment fund', $assiette, null, 'fne_employeur'),
-            $this->ligne('CNPS — Pension vieillesse', 'Old-age pension', $assiette, 'cnps_pension_salarie', 'cnps_pension_employeur'),
-            $this->ligne('CNPS — Prestations familiales', 'Family benefits', $assiette, null, 'cnps_prestations_familiales'),
-            $this->ligne('CNPS — Accidents du travail', 'Work injury', $assiette, null, 'cnps_accidents_travail'),
+            $this->ligne('Taxe de développement local', 'Local development tax', $assiette, 'tdl_salarie', null, $schoolId),
+            $this->ligne('Crédit Foncier du Cameroun', 'Housing fund', $assiette, 'cfc_salarie', 'cfc_employeur', $schoolId),
+            $this->ligne("Fonds National de l'Emploi", 'National employment fund', $assiette, null, 'fne_employeur', $schoolId),
+            $this->ligne('CNPS — Pension vieillesse', 'Old-age pension', $assiette, 'cnps_pension_salarie', 'cnps_pension_employeur', $schoolId),
+            $this->ligne('CNPS — Prestations familiales', 'Family benefits', $assiette, null, 'cnps_prestations_familiales', $schoolId),
+            $this->ligne('CNPS — Accidents du travail', 'Work injury', $assiette, null, 'cnps_accidents_travail', $schoolId),
         ];
 
         return new ResultatPaie(
@@ -90,10 +92,10 @@ class BaremeMaison implements Bareme
     /**
      * @return array{libelle: string, libelle_en: string, base: int, taux_salarial: ?float, taux_patronal: ?float, montant_salarial: int, montant_patronal: int}
      */
-    private function ligne(string $libelle, string $libelleEn, int $base, ?string $cleSalarie, ?string $clePatronal): array
+    private function ligne(string $libelle, string $libelleEn, int $base, ?string $cleSalarie, ?string $clePatronal, ?int $schoolId): array
     {
-        $tauxSalarial = $cleSalarie ? (float) config("paie.maison.taux.{$cleSalarie}") : 0.0;
-        $tauxPatronal = $clePatronal ? (float) config("paie.maison.taux.{$clePatronal}") : 0.0;
+        $tauxSalarial = $cleSalarie ? $this->taux($schoolId, $cleSalarie) : 0.0;
+        $tauxPatronal = $clePatronal ? $this->taux($schoolId, $clePatronal) : 0.0;
 
         return [
             'libelle' => $libelle,
@@ -109,5 +111,36 @@ class BaremeMaison implements Bareme
     private function pourcentage(int $base, float $taux): int
     {
         return $taux > 0 ? (int) round($base * $taux / 100) : 0;
+    }
+
+    /**
+     * Clé interne (config/paie.php) => clé du réglage éditable
+     * (App\Services\SettingsCatalog, groupe `paie_permanents`).
+     */
+    private const CLES_REGLAGE = [
+        'tdl_salarie' => 'paie_maison_tdl',
+        'cfc_salarie' => 'paie_maison_cfc_salarie',
+        'cfc_employeur' => 'paie_maison_cfc_employeur',
+        'fne_employeur' => 'paie_maison_fne',
+        'cnps_pension_salarie' => 'paie_maison_cnps_pension_salarie',
+        'cnps_pension_employeur' => 'paie_maison_cnps_pension_employeur',
+        'cnps_prestations_familiales' => 'paie_maison_cnps_prestations_familiales',
+        'cnps_accidents_travail' => 'paie_maison_cnps_accidents_travail',
+    ];
+
+    /**
+     * Taux réglé par l'établissement (Setting), à défaut celui de
+     * config/paie.php — un établissement qui n'a jamais touché aux réglages
+     * garde exactement le comportement d'avant.
+     */
+    private function taux(?int $schoolId, string $cle): float
+    {
+        $defaut = (float) config("paie.maison.taux.{$cle}");
+
+        if ($schoolId === null) {
+            return $defaut;
+        }
+
+        return (float) Setting::get($schoolId, self::CLES_REGLAGE[$cle], $defaut);
     }
 }

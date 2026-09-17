@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Remuneration extends Model
 {
     protected $fillable = [
-        'school_id', 'personnel_id', 'date_effet', 'mode', 'taux_horaire',
+        'school_id', 'personnel_id', 'date_effet', 'mode', 'taux_horaire', 'cnps_actif',
         'salaire_base', 'prime_anciennete',
         'prime_communication', 'prime_transport', 'prime_recherche', 'prime_performance', 'categorie',
     ];
@@ -23,6 +23,7 @@ class Remuneration extends Model
         return [
             'date_effet' => 'date:Y-m-d',
             'taux_horaire' => 'integer',
+            'cnps_actif' => 'boolean',
             'salaire_base' => 'integer',
             'prime_anciennete' => 'integer',
             'prime_communication' => 'integer',

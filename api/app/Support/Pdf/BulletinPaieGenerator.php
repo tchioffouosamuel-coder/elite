@@ -57,10 +57,11 @@ class BulletinPaieGenerator
 
     private function titre(BulletinPaie $bulletin): string
     {
-        // Un vacataire n'est pas salarié : ce qu'on lui remet est un reçu
-        // pour les heures enseignées, pas un bulletin de paie — le document
-        // n'a ni IRPP ni CNPS à y justifier.
-        $horaire = $bulletin->taux_horaire !== null;
+        // Un vacataire non déclaré à la CNPS n'est pas salarié : ce qu'on lui
+        // remet est un reçu pour les heures enseignées, pas un bulletin de
+        // paie. Un vacataire déclaré, lui, a bien des cotisations à justifier
+        // — le document redevient un vrai bulletin.
+        $horaire = $bulletin->taux_horaire !== null && ! $bulletin->cnps_actif;
 
         return '<div style="text-align:center;line-height:1.4;">'
             . ($horaire
@@ -205,9 +206,11 @@ class BulletinPaieGenerator
                 . '</tr>';
         }
 
-        // Un vacataire n'a aucune cotisation : la ligne resterait à zéro sur
-        // toute sa largeur, un artefact de mise en page plutôt qu'une donnée.
-        if ($horaire) {
+        // Un vacataire non déclaré à la CNPS n'a aucune cotisation : la ligne
+        // resterait à zéro sur toute sa largeur, un artefact de mise en page
+        // plutôt qu'une donnée. Un vacataire déclaré, lui, a bien des
+        // cotisations à totaliser comme un salarié mensuel.
+        if ($horaire && ! $bulletin->cnps_actif) {
             return $html . '</tbody></table>';
         }
 

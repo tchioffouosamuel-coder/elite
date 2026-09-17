@@ -11,6 +11,7 @@ use App\Models\Remuneration;
 use App\Models\School;
 use App\Models\Seance;
 use App\Services\Paie\Bareme;
+use App\Services\Paie\CalculateurVacataire;
 use App\Services\Paie\ResultatPaie;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -72,6 +73,7 @@ class PaieService extends BaseService
 
     public function __construct(
         private readonly Bareme $bareme,
+        private readonly CalculateurVacataire $vacataire,
         private readonly DocumentReferenceService $references,
         private readonly AvanceSalaireService $avances,
     ) {}
@@ -79,7 +81,7 @@ class PaieService extends BaseService
     /**
      * Prépare — ou recalcule — le bulletin d'un agent pour un mois donné.
      *
-     * @param  array{jours_ouvrables?: int, jours_travailles?: int, deduction_raff?: int, deduction_njangi?: int, deduction_pret?: int, deduction_autre?: int}  $saisie
+     * @param  array{jours_ouvrables?: int, jours_travailles?: int, deduction_raff?: int, deduction_njangi?: int, deduction_pret?: int, deduction_autre?: int, extra_montant?: int, extra_motif?: ?string}  $saisie
      */
     public function preparer(Personnel $personnel, int $annee, int $mois, array $saisie = []): BulletinPaie
     {
@@ -108,6 +110,10 @@ class PaieService extends BaseService
              * n'a pas de primes — il n'a qu'un volume et un taux.
              */
             $heures = isset($saisie['heures']) ? max(0, (int) $saisie['heures']) : null;
+            // Sans objet pour un salarié mensuel : seul le vacataire connaît
+            // un complément ponctuel du mois.
+            $extraMontant = 0;
+            $extraMotif = null;
 
             if ($remuneration->estHoraire()) {
                 /*
@@ -133,6 +139,13 @@ class PaieService extends BaseService
                     }
                 }
 
+                // Complément ponctuel du mois — un rattrapage, une prime
+                // exceptionnelle — jamais reconduit d'un mois sur l'autre : la
+                // saisie ne connaît que celui du mois en cours, comme les
+                // heures elles-mêmes.
+                $extraMontant = max(0, (int) ($saisie['extra_montant'] ?? 0));
+                $extraMotif = $extraMontant > 0 ? ($saisie['extra_motif'] ?? null) : null;
+
                 $gains = ['salaire_base' => $heures * (int) $remuneration->taux_horaire];
             } else {
                 $gains = [
@@ -146,22 +159,16 @@ class PaieService extends BaseService
             }
 
             /*
-             * Un vacataire n'est pas salarié : ni IRPP, ni CNPS, ni aucune des
-             * charges du barème. Le document remis n'est pas un bulletin de
-             * paie mais un reçu de paiement pour les heures enseignées — d'où
-             * un résultat directement construit plutôt que passé au barème,
-             * qui ne connaît que des salariés mensuels.
+             * Un vacataire n'est pas salarié au sens du barème mensuel : pas
+             * de primes, pas d'IRPP progressif. Mais depuis l'ouverture de ce
+             * régime, son contrat peut le déclarer à la CNPS — auquel cas
+             * l'impôt obligatoire s'applique aussi, cf. CalculateurVacataire.
+             * Sans CNPS, le document reste un reçu de paiement pour les
+             * heures enseignées, sans aucune charge.
              */
             $resultat = $remuneration->estHoraire()
-                ? new ResultatPaie(
-                    brut: $gains['salaire_base'],
-                    baseTaxable: 0,
-                    chargesSalariales: 0,
-                    chargesPatronales: 0,
-                    gains: [],
-                    retenues: [],
-                )
-                : $this->bareme->calculer($gains);
+                ? $this->vacataire->calculer($gains['salaire_base'] + $extraMontant, $remuneration->cnps_actif, $personnel->school_id)
+                : $this->bareme->calculer($gains, $personnel->school_id);
 
             $joursOuvrables = (int) ($saisie['jours_ouvrables'] ?? 22);
             $joursTravailles = (int) ($saisie['jours_travailles'] ?? $joursOuvrables);
@@ -207,6 +214,13 @@ class PaieService extends BaseService
                 'jours_travailles' => $joursTravailles,
                 'heures' => $heures,
                 'taux_horaire' => $remuneration->estHoraire() ? $remuneration->taux_horaire : null,
+                // Recopiés du contrat/de la saisie du mois sur le bulletin
+                // lui-même, comme `bareme` juste en dessous : un document
+                // remis à l'agent ne doit pas changer de statut CNPS
+                // rétroactivement si le contrat est modifié ensuite.
+                'cnps_actif' => $remuneration->estHoraire() && $remuneration->cnps_actif,
+                'extra_montant' => $extraMontant,
+                'extra_motif' => $extraMotif,
                 'salaire_brut' => $resultat->brut,
                 'net_taxable' => $resultat->baseTaxable,
                 'charges_salariales' => $resultat->chargesSalariales,
@@ -328,17 +342,45 @@ class PaieService extends BaseService
     {
         $bulletin->lignes()->delete();
 
-        // Le vacataire n'a qu'une ligne : les heures du mois à son taux. Les
-        // six libellés de salaire/primes et les retenues légales ne relèvent
-        // que du salarié mensuel — $resultat les porte vides pour lui.
+        // Le vacataire n'a que ses heures, un éventuel complément du mois, et
+        // — depuis l'ouverture du régime CNPS — les mêmes retenues que
+        // $resultat porte pour un salarié (cf. CalculateurVacataire). Les six
+        // libellés de salaire/primes ci-dessous ne relèvent, eux, que du
+        // salarié mensuel.
         if ($bulletin->taux_horaire !== null) {
+            $ordre = 1;
+
             $bulletin->lignes()->create([
-                'ordre' => 1,
+                'ordre' => $ordre++,
                 'type' => 'gain',
                 'libelle' => sprintf('Vacation horaire (%d h × %s F CFA)', $bulletin->heures, number_format($bulletin->taux_horaire, 0, ',', ' ')),
                 'libelle_en' => sprintf('Hourly vacation (%d h × %s F CFA)', $bulletin->heures, number_format($bulletin->taux_horaire, 0, ',', ' ')),
-                'montant_salarial' => $resultat->brut,
+                'montant_salarial' => $resultat->brut - $bulletin->extra_montant,
             ]);
+
+            if ($bulletin->extra_montant > 0) {
+                $bulletin->lignes()->create([
+                    'ordre' => $ordre++,
+                    'type' => 'gain',
+                    'libelle' => $bulletin->extra_motif ? "Complément — {$bulletin->extra_motif}" : 'Complément',
+                    'libelle_en' => $bulletin->extra_motif ? "Extra payment — {$bulletin->extra_motif}" : 'Extra payment',
+                    'montant_salarial' => $bulletin->extra_montant,
+                ]);
+            }
+
+            foreach ($resultat->retenues as $retenue) {
+                $bulletin->lignes()->create([
+                    'ordre' => $ordre++,
+                    'type' => 'retenue',
+                    'libelle' => $retenue['libelle'],
+                    'libelle_en' => $retenue['libelle_en'],
+                    'base' => $retenue['base'],
+                    'taux_salarial' => $retenue['taux_salarial'],
+                    'taux_patronal' => $retenue['taux_patronal'],
+                    'montant_salarial' => $retenue['montant_salarial'],
+                    'montant_patronal' => $retenue['montant_patronal'],
+                ]);
+            }
 
             return;
         }

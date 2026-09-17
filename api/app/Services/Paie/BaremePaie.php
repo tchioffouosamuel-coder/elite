@@ -26,7 +26,7 @@ class BaremePaie implements Bareme
      *                                     prime_communication, prime_transport,
      *                                     prime_recherche, prime_performance
      */
-    public function calculer(array $gains): ResultatPaie
+    public function calculer(array $gains, ?int $schoolId = null): ResultatPaie
     {
         $gains = array_map(static fn ($v) => max(0, (int) $v), $gains + [
             'salaire_base' => 0,

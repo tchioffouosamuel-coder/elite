@@ -58,6 +58,7 @@ export function RemunerationModal({
   // Vacataire du technique : ni base ni primes, un taux et des heures.
   const [horaire, setHoraire] = useState(personnel.remuneration?.mode === 'horaire')
   const [tauxHoraire, setTauxHoraire] = useState(personnel.remuneration?.taux_horaire ?? 0)
+  const [cnpsActif, setCnpsActif] = useState(personnel.remuneration?.cnps_actif ?? false)
   const [categorie, setCategorie] = useState(personnel.remuneration?.categorie ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -92,6 +93,7 @@ export function RemunerationModal({
         ...(horaire ? {} : nombres),
         mode: horaire ? 'horaire' : 'mensuel',
         taux_horaire: horaire ? tauxHoraire : undefined,
+        cnps_actif: horaire ? cnpsActif : undefined,
         date_effet: dateEffet,
         categorie: categorie || undefined,
       })
@@ -144,9 +146,28 @@ export function RemunerationModal({
               placeholder="1 100"
             />
             <p className="text-xs text-navy-400">
-              Le brut du mois se calcule heures × taux. Un vacataire n'a ni salaire de base ni primes, et les jours
-              d'absence ne se retiennent pas : les heures non faites ne sont simplement pas payées.
+              Le brut du mois se calcule heures × taux, plus un éventuel complément saisi le mois même. Un vacataire
+              n'a ni salaire de base ni primes, et les jours d'absence ne se retiennent pas : les heures non faites
+              ne sont simplement pas payées.
             </p>
+
+            <label className="flex items-center gap-2 rounded-xl bg-cream-100 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={cnpsActif}
+                onChange={(e) => setCnpsActif(e.target.checked)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+              <span className="text-sm text-navy-700">
+                Déclaré à la CNPS — retenues CNPS et impôt appliquées sur chaque bulletin
+              </span>
+            </label>
+            {!cnpsActif && (
+              <p className="text-xs text-navy-400">
+                Sans la CNPS, le document remis reste un simple reçu de paiement des heures enseignées : aucune
+                retenue.
+              </p>
+            )}
           </div>
         ) : (
         <div className="grid gap-3 sm:grid-cols-2">

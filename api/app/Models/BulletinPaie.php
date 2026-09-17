@@ -22,7 +22,7 @@ class BulletinPaie extends Model
     protected $fillable = [
         'school_id', 'personnel_id', 'annee_scolaire_id', 'numero',
         'annee', 'mois', 'periode_debut', 'periode_fin',
-        'jours_ouvrables', 'jours_travailles', 'heures', 'taux_horaire',
+        'jours_ouvrables', 'jours_travailles', 'heures', 'taux_horaire', 'cnps_actif', 'extra_montant', 'extra_motif',
         'salaire_brut', 'net_taxable', 'charges_salariales', 'charges_patronales',
         'bareme', 'charges_salariales_a_charge_employeur',
         'deduction_absences', 'deduction_raff', 'deduction_njangi', 'deduction_pret', 'deduction_autre',
@@ -43,6 +43,8 @@ class BulletinPaie extends Model
             'jours_travailles' => 'integer',
             'heures' => 'integer',
             'taux_horaire' => 'integer',
+            'cnps_actif' => 'boolean',
+            'extra_montant' => 'integer',
             'salaire_brut' => 'integer',
             'net_taxable' => 'integer',
             'charges_salariales' => 'integer',

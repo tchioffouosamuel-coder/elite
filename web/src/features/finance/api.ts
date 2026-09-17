@@ -333,6 +333,11 @@ export interface BulletinPaie {
   periode: string;
   jours_ouvrables: number;
   jours_travailles: number;
+  taux_horaire: number | null;
+  heures: number | null;
+  cnps_actif: boolean;
+  extra_montant: number;
+  extra_motif: string | null;
   salaire_brut: number;
   net_taxable: number;
   charges_salariales: number;
@@ -398,7 +403,7 @@ export async function preparerPaie(
 export async function preparerBulletinAgent(
   personnelId: number,
   params: { annee: number; mois: number },
-  payload: { heures?: number },
+  payload: { heures?: number; extra_montant?: number; extra_motif?: string | null },
 ): Promise<BulletinPaie> {
   const { data } = await http.post<ApiResponse<BulletinPaie>>(
     `/paie/personnels/${personnelId}/preparer`,
@@ -764,6 +769,7 @@ export interface Remuneration extends Record<ChampGain, number> {
   categorie: string | null;
   mode: ModeRemuneration;
   taux_horaire: number | null;
+  cnps_actif: boolean;
   brut: number;
   base_taxable: number;
   charges_salariales: number;
@@ -837,6 +843,7 @@ export async function enregistrerRemuneration(
     /** « horaire » pour un vacataire : seules les heures enseignées sont dues. */
     mode?: ModeRemuneration;
     taux_horaire?: number;
+    cnps_actif?: boolean;
   },
 ): Promise<Remuneration> {
   const { data } = await http.post<ApiResponse<Remuneration>>(

@@ -119,6 +119,10 @@ class PaieController extends Controller
             // Un vacataire n'a ni jours ni primes : seules ses heures du mois
             // déterminent ce qu'il touche.
             'heures' => ['nullable', 'integer', 'min:0', 'max:744'],
+            // Complément ponctuel du mois — un rattrapage, une prime
+            // exceptionnelle — propre au vacataire, jamais reconduit.
+            'extra_montant' => ['nullable', 'integer', 'min:0'],
+            'extra_motif' => ['nullable', 'string', 'max:255'],
             'deduction_raff' => ['nullable', 'integer', 'min:0'],
             'deduction_njangi' => ['nullable', 'integer', 'min:0'],
             'deduction_pret' => ['nullable', 'integer', 'min:0'],
@@ -273,6 +277,11 @@ class PaieController extends Controller
             'periode' => $bulletin->periode_libelle,
             'jours_ouvrables' => $bulletin->jours_ouvrables,
             'jours_travailles' => $bulletin->jours_travailles,
+            'taux_horaire' => $bulletin->taux_horaire,
+            'heures' => $bulletin->heures,
+            'cnps_actif' => $bulletin->cnps_actif,
+            'extra_montant' => $bulletin->extra_montant,
+            'extra_motif' => $bulletin->extra_motif,
             'salaire_brut' => $bulletin->salaire_brut,
             'net_taxable' => $bulletin->net_taxable,
             'charges_salariales' => $bulletin->charges_salariales,

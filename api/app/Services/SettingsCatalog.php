@@ -336,6 +336,138 @@ class SettingsCatalog
                 'label_fr' => 'Contact du directeur',
                 'label_en' => "Director's contact",
             ],
+
+            /*
+             * Taux de paie — barème « maison », celui effectivement appliqué
+             * en pratique (cf. App\Services\Paie\BaremeMaison). Réglables ici
+             * plutôt que par variable d'environnement : un taux qui change ne
+             * doit pas exiger un redéploiement, et l'établissement qui répond
+             * de ces chiffres devant la CNPS et le fisc doit pouvoir les
+             * corriger lui-même. Les valeurs par défaut reprennent
+             * config/paie.php telles quelles — rien ne change tant qu'un
+             * super admin ne les modifie pas ici.
+             */
+            [
+                'key' => 'paie_maison_tdl',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 0.38,
+                'label_fr' => 'Taxe de développement local (%)',
+                'label_en' => 'Local development tax (%)',
+            ],
+            [
+                'key' => 'paie_maison_cfc_salarie',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 1.0,
+                'label_fr' => 'Crédit Foncier — part salariale (%)',
+                'label_en' => 'Housing fund — employee share (%)',
+            ],
+            [
+                'key' => 'paie_maison_cfc_employeur',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 1.5,
+                'label_fr' => 'Crédit Foncier — part patronale (%)',
+                'label_en' => 'Housing fund — employer share (%)',
+            ],
+            [
+                'key' => 'paie_maison_fne',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 1.0,
+                'label_fr' => "Fonds National de l'Emploi — part patronale (%)",
+                'label_en' => 'National employment fund — employer share (%)',
+            ],
+            [
+                'key' => 'paie_maison_cnps_pension_salarie',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 4.2,
+                'label_fr' => 'CNPS pension vieillesse — part salariale (%)',
+                'label_en' => 'CNPS old-age pension — employee share (%)',
+            ],
+            [
+                'key' => 'paie_maison_cnps_pension_employeur',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 4.2,
+                'label_fr' => 'CNPS pension vieillesse — part patronale (%)',
+                'label_en' => 'CNPS old-age pension — employer share (%)',
+            ],
+            [
+                'key' => 'paie_maison_cnps_prestations_familiales',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 7.0,
+                'label_fr' => 'CNPS prestations familiales — part patronale (%)',
+                'label_en' => 'CNPS family benefits — employer share (%)',
+            ],
+            [
+                'key' => 'paie_maison_cnps_accidents_travail',
+                'groupe' => 'paie_permanents',
+                'type' => 'number',
+                'default' => 1.75,
+                'label_fr' => 'CNPS accidents du travail — part patronale (%)',
+                'label_en' => 'CNPS work injury — employer share (%)',
+            ],
+
+            /*
+             * Taux de paie des vacataires — nouveau régime : à la différence
+             * du salarié mensuel, un vacataire ne relève de la CNPS que si le
+             * contrat le déclare (cf. Remuneration::cnps_actif), mais l'impôt
+             * ci-dessous s'applique dès que la CNPS est réglée. Aucun taux
+             * n'existait avant : les valeurs par défaut sont à 0, donc sans
+             * effet tant qu'un super admin ne les a pas renseignées.
+             */
+            [
+                'key' => 'paie_vacataire_cnps_pension_salarie',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'CNPS pension vieillesse — part salariale (%)',
+                'label_en' => 'CNPS old-age pension — employee share (%)',
+            ],
+            [
+                'key' => 'paie_vacataire_cnps_pension_employeur',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'CNPS pension vieillesse — part patronale (%)',
+                'label_en' => 'CNPS old-age pension — employer share (%)',
+            ],
+            [
+                'key' => 'paie_vacataire_cnps_prestations_familiales',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'CNPS prestations familiales — part patronale (%)',
+                'label_en' => 'CNPS family benefits — employer share (%)',
+            ],
+            [
+                'key' => 'paie_vacataire_cnps_accidents_travail',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'CNPS accidents du travail — part patronale (%)',
+                'label_en' => 'CNPS work injury — employer share (%)',
+            ],
+            [
+                'key' => 'paie_vacataire_impot_salarie',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'Impôt obligatoire — part salariale (%)',
+                'label_en' => 'Mandatory tax — employee share (%)',
+            ],
+            [
+                'key' => 'paie_vacataire_impot_employeur',
+                'groupe' => 'paie_vacataires',
+                'type' => 'number',
+                'default' => 0,
+                'label_fr' => 'Impôt obligatoire — part patronale (%)',
+                'label_en' => 'Mandatory tax — employer share (%)',
+            ],
         ];
     }
 
