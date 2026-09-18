@@ -238,7 +238,12 @@ class BusSouscriptionImport implements SkipsEmptyRows, ToCollection, WithHeading
             throw new RuntimeException('Bus (trajet) non renseigné.');
         }
 
-        $this->trajets ??= BusTrajet::where('school_id', $this->schoolId)->get()
+        // Non filtré par école : un trajet dessert souvent des élèves de
+        // plusieurs écoles du complexe sur le même circuit (cf.
+        // BusTrajet::scopeForSchool, volontairement un no-op pour la même
+        // raison) — le borner à `$this->schoolId` le rendait introuvable dès
+        // que l'élève importé n'était pas de l'école où le trajet a été créé.
+        $this->trajets ??= BusTrajet::all()
             ->keyBy(fn (BusTrajet $t) => self::cle($t->nom))
             ->all();
 
