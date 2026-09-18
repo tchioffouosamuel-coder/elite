@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardCheck, Search, Plus, UserX, Check, X } from 'lucide-react'
+import { ClipboardCheck, Search, Plus, UserX, Check, X, Trash2 } from 'lucide-react'
 import { http } from '@/shared/lib/http'
-import type { ApiResponse } from '@/shared/types/api'
+import type { ApiResponse, ApiError } from '@/shared/types/api'
 import { francs } from '@/features/finance/api'
+import { deleteEleve } from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -15,6 +16,7 @@ import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Tabs } from '@/shared/ui/Tabs'
 import { fetchAnneesScolaires } from '@/features/session/api'
 import { confirmer, demanderTexte, erreur, succes } from '@/shared/lib/alertes'
+import { useAuthStore } from '@/shared/store/authStore'
 
 type Statut = 'en_attente' | 'validee' | 'rejetee'
 type Type = 'existant' | 'nouveau'
@@ -85,6 +87,7 @@ function decouper<T>(valeurs: T[], taille: number): T[][] {
 export function PreinscriptionsAdminPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const can = useAuthStore((s) => s.can)
   const [onglet, setOnglet] = useState<'preinscriptions' | 'non-inscrits'>('preinscriptions')
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
@@ -169,6 +172,23 @@ export function PreinscriptionsAdminPage() {
       erreur((err as { message?: string }).message ?? 'La validation groupée a échoué.')
     } finally {
       setTraitement(false)
+    }
+  }
+
+  const supprimerNonInscrit = async (e: EleveNonInscrit) => {
+    const confirme = await confirmer({
+      titre: `Supprimer ${e.nom_complet} ?`,
+      message: "Cette action est irréversible : la fiche de l'élève et ses données liées seront définitivement supprimées.",
+      action: 'Supprimer',
+    })
+    if (!confirme) return
+
+    try {
+      await deleteEleve(e.id)
+      await queryClient.invalidateQueries({ queryKey: ['preinscriptions-non-inscrits'] })
+      succes('Élève supprimé.')
+    } catch (err) {
+      erreur((err as ApiError).message)
     }
   }
 
@@ -315,10 +335,22 @@ export function PreinscriptionsAdminPage() {
                       {e.matricule} · {e.classe ?? 'Sans classe'} · {e.tuteur ?? 'Aucun tuteur'} {e.telephone ? `(${e.telephone})` : ''}
                     </p>
                   </div>
-                  <Badge tone="red">
-                    <UserX className="h-3.5 w-3.5" />
-                    Non réinscrit
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="red">
+                      <UserX className="h-3.5 w-3.5" />
+                      Non réinscrit
+                    </Badge>
+                    {can('eleves.manage') && (
+                      <button
+                        type="button"
+                        title="Supprimer"
+                        onClick={() => void supprimerNonInscrit(e)}
+                        className="rounded-lg p-1.5 text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}
