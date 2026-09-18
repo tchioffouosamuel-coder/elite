@@ -177,7 +177,11 @@ class BusSouscriptionImport implements SkipsEmptyRows, ToCollection, WithHeading
         $donnees = $ligne['donnees'];
 
         try {
-            $mois = $this->resoudreMois($affectation->trajet->school_id, $donnees);
+            // L'école de l'élève, pas celle du trajet : un trajet dessert
+            // souvent plusieurs écoles du complexe et son `school_id` peut
+            // même être vide (cf. resoudreTrajet) — seule celle de l'élève
+            // dit quelle année scolaire s'applique à son versement.
+            $mois = $this->resoudreMois($affectation->eleve->school_id, $donnees);
 
             if ($mois === null) {
                 throw new RuntimeException("Mois de paiement introuvable ou non reconnu.");
