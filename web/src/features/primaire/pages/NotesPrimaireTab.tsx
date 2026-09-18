@@ -17,6 +17,7 @@ import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
 
 /** Clé d'une cellule de la grille : élève × volet × séquence. */
 function cle(eleveId: number, composante: Composante, sequenceId: number): string {
@@ -179,8 +180,20 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
     setValeurs(initial)
   }, [grille])
 
+  const notesInvalides =
+    grille !== undefined &&
+    grille.mode !== 'appreciation' &&
+    grille.lignes.some((ligne) =>
+      grille.composantes.some((composante) =>
+        grille.sequences.some(
+          (sequence) =>
+            messageErreurNote(valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? '', grille.repartition[composante]) !== undefined,
+        ),
+      ),
+    )
+
   const handleSave = async () => {
-    if (!grille) return
+    if (!grille || notesInvalides) return
 
     setSubmitting(true)
     try {
@@ -333,19 +346,16 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
                             key={`${composante}-${sequence.id}`}
                             className={`px-1.5 py-1.5 text-center ${index === 0 ? 'border-l border-navy-50' : ''}`}
                           >
-                            <input
-                              type="number"
-                              min={0}
+                            <NoteInput
                               max={grille.repartition[composante]}
-                              step={0.25}
                               value={valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? ''}
-                              onChange={(e) =>
-                                setValeurs((v) => ({
-                                  ...v,
-                                  [cle(ligne.eleve_id, composante, sequence.id)]: e.target.value,
+                              onChange={(v) =>
+                                setValeurs((val) => ({
+                                  ...val,
+                                  [cle(ligne.eleve_id, composante, sequence.id)]: v,
                                 }))
                               }
-                              className="w-16 rounded-lg border border-navy-200 px-1.5 py-1 text-center text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-100"
+                              className="w-16 px-1.5 py-1 text-center"
                             />
                           </td>
                         )),
@@ -370,9 +380,12 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
           </div>
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleSave} disabled={submitting}>
+            <Button onClick={handleSave} disabled={submitting || notesInvalides}>
               {t('common.save')}
             </Button>
+            {notesInvalides && (
+              <span className="text-sm font-medium text-red-500">Corrigez les notes hors barème avant d'enregistrer.</span>
+            )}
           </div>
         </>
       )}

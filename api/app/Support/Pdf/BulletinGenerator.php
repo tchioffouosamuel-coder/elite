@@ -74,7 +74,7 @@ class BulletinGenerator
      */
     protected function logoBoiteMax(): array
     {
-        return ['largeur' => 22.0, 'hauteur' => 13.0];
+        return ['largeur' => 28.0, 'hauteur' => 17.0];
     }
 
     private function styles(): string

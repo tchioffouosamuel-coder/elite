@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState, ErrorState } from '@/shared/ui/Feedback'
 import { succes } from '@/shared/lib/alertes'
+import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
 
 /** Saisie des notes de l'enseignant pour une de ses affectations, sur la séquence active du trimestre en cours. */
 export function RemplirNotesPage() {
@@ -45,8 +46,10 @@ export function RemplirNotesPage() {
     if (grille) setValeurs(Object.fromEntries(grille.map((g) => [g.eleve_id, g.valeur !== null ? String(g.valeur) : ''])))
   }, [grille])
 
+  const notesInvalides = Object.values(valeurs).some((v) => messageErreurNote(v, 20) !== undefined)
+
   const handleSave = async () => {
-    if (!sequenceId) return
+    if (!sequenceId || notesInvalides) return
     setSubmitting(true)
     try {
       const notes = Object.entries(valeurs).map(([eleveId, v]) => ({
@@ -107,14 +110,11 @@ export function RemplirNotesPage() {
                 <Tr key={row.eleve_id}>
                   <Td className="font-medium">{row.nom_complet}</Td>
                   <Td>
-                    <input
-                      type="number"
-                      min={0}
+                    <NoteInput
                       max={20}
-                      step={0.25}
                       value={valeurs[row.eleve_id] ?? ''}
-                      onChange={(e) => setValeurs((v) => ({ ...v, [row.eleve_id]: e.target.value }))}
-                      className="w-24 rounded-lg border border-navy-200 px-2.5 py-1.5 text-sm shadow-soft focus:border-navy-400 focus:outline-none focus:ring-4 focus:ring-navy-100"
+                      onChange={(v) => setValeurs((val) => ({ ...val, [row.eleve_id]: v }))}
+                      className="w-24"
                     />
                   </Td>
                 </Tr>
@@ -123,9 +123,12 @@ export function RemplirNotesPage() {
           </Table>
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleSave} disabled={submitting}>
+            <Button onClick={handleSave} disabled={submitting || notesInvalides}>
               {t('common.save')}
             </Button>
+            {notesInvalides && (
+              <span className="text-sm font-medium text-red-500">Corrigez les notes hors barème avant d'enregistrer.</span>
+            )}
           </div>
         </>
       ) : (

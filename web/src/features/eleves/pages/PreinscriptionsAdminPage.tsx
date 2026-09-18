@@ -92,6 +92,7 @@ export function PreinscriptionsAdminPage() {
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
   const [selection, setSelection] = useState<Set<number>>(new Set())
+  const [selectionNonInscrits, setSelectionNonInscrits] = useState<Set<number>>(new Set())
   const [traitement, setTraitement] = useState(false)
 
   const { data: anneesScolaires } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
@@ -124,6 +125,27 @@ export function PreinscriptionsAdminPage() {
 
   const idsVisibles = donneesFiltrees.filter((p) => p.statut === 'en_attente').map((p) => p.id)
   const toutSelectionne = idsVisibles.length > 0 && idsVisibles.every((id) => selection.has(id))
+
+  const idsNonInscritsVisibles = nonInscritsFiltres.map((e) => e.id)
+  const toutSelectionneNonInscrits = idsNonInscritsVisibles.length > 0 && idsNonInscritsVisibles.every((id) => selectionNonInscrits.has(id))
+
+  const basculerSelectionNonInscrit = (id: number) => {
+    setSelectionNonInscrits((actuelle) => {
+      const prochaine = new Set(actuelle)
+      if (prochaine.has(id)) prochaine.delete(id)
+      else prochaine.add(id)
+      return prochaine
+    })
+  }
+
+  const basculerToutNonInscrits = () => {
+    setSelectionNonInscrits((actuelle) => {
+      const prochaine = new Set(actuelle)
+      if (toutSelectionneNonInscrits) idsNonInscritsVisibles.forEach((id) => prochaine.delete(id))
+      else idsNonInscritsVisibles.forEach((id) => prochaine.add(id))
+      return prochaine
+    })
+  }
 
   const basculerSelection = (id: number) => {
     setSelection((actuelle) => {
@@ -192,6 +214,35 @@ export function PreinscriptionsAdminPage() {
     }
   }
 
+  const supprimerSelectionNonInscrits = async () => {
+    const ids = [...selectionNonInscrits]
+    const ok = await confirmer({
+      titre: `Supprimer ${ids.length} élève(s) ?`,
+      message: "Cette action est irréversible : les fiches et données liées seront définitivement supprimées.",
+      action: 'Supprimer',
+    })
+    if (!ok) return
+
+    setTraitement(true)
+    try {
+      let supprimes = 0
+      let erreurs = 0
+      for (const id of ids) {
+        try {
+          await deleteEleve(id)
+          supprimes += 1
+        } catch {
+          erreurs += 1
+        }
+      }
+      succes(`${supprimes} élève(s) supprimé(s)${erreurs ? `, ${erreurs} en erreur` : ''}.`)
+      setSelectionNonInscrits(new Set())
+      await queryClient.invalidateQueries({ queryKey: ['preinscriptions-non-inscrits'] })
+    } finally {
+      setTraitement(false)
+    }
+  }
+
   const rejeterSelection = async () => {
     const motif = await demanderTexte({
       titre: `Motif du rejet de ${selection.size} préinscription(s)`,
@@ -252,6 +303,12 @@ export function PreinscriptionsAdminPage() {
                 <option value="rejetee">Rejetées</option>
                 <option value="">Toutes</option>
               </Select>
+            )}
+            {onglet === 'non-inscrits' && selectionNonInscrits.size > 0 && can('eleves.manage') && (
+              <Button type="button" size="sm" variant="danger" onClick={() => void supprimerSelectionNonInscrits()} disabled={traitement}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer ({selectionNonInscrits.size})
+              </Button>
             )}
             {onglet === 'preinscriptions' && selection.size > 0 && (
               <>
@@ -326,14 +383,36 @@ export function PreinscriptionsAdminPage() {
           <EmptyState label="Aucun élève ne correspond à cette recherche." />
         ) : (
           <div className="flex flex-col gap-3">
+            {can('eleves.manage') && (
+              <label className="flex items-center gap-2 px-2 text-sm font-semibold text-navy-600">
+                <input
+                  type="checkbox"
+                  checked={toutSelectionneNonInscrits}
+                  onChange={basculerToutNonInscrits}
+                  className="h-4 w-4 accent-navy-700"
+                />
+                Sélectionner les élèves affichés
+              </label>
+            )}
             {nonInscritsFiltres.map((e) => (
               <Card key={e.id} className="border-red-200 bg-red-50">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-display text-base font-bold text-red-800">{e.nom_complet}</p>
-                    <p className="mt-0.5 text-xs text-red-700">
-                      {e.matricule} · {e.classe ?? 'Sans classe'} · {e.tuteur ?? 'Aucun tuteur'} {e.telephone ? `(${e.telephone})` : ''}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-3">
+                    {can('eleves.manage') && (
+                      <input
+                        type="checkbox"
+                        checked={selectionNonInscrits.has(e.id)}
+                        onChange={() => basculerSelectionNonInscrit(e.id)}
+                        aria-label={`Sélectionner ${e.nom_complet}`}
+                        className="mt-1 h-4 w-4 shrink-0 accent-navy-700"
+                      />
+                    )}
+                    <div>
+                      <p className="font-display text-base font-bold text-red-800">{e.nom_complet}</p>
+                      <p className="mt-0.5 text-xs text-red-700">
+                        {e.matricule} · {e.classe ?? 'Sans classe'} · {e.tuteur ?? 'Aucun tuteur'} {e.telephone ? `(${e.telephone})` : ''}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone="red">

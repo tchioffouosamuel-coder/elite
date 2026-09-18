@@ -53,7 +53,7 @@ class BulletinPrimaireGenerator
      */
     protected function logoBoiteMax(): array
     {
-        return ['largeur' => 18.0, 'hauteur' => 10.0];
+        return ['largeur' => 23.0, 'hauteur' => 13.0];
     }
 
     public function build(array $donnees): string
