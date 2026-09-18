@@ -38,8 +38,20 @@ const TONE_PAIEMENT: Record<string, 'green' | 'gold' | 'red' | 'neutral'> = {
 export function BusAffectationsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // Un super admin en mode agrégé n'a, par défaut, aucune école ciblée pour
+  // l'import : côté serveur, `Tenant::schoolId()` en choisirait alors une au
+  // hasard et l'import échouerait pour tout élève qui ne s'y trouve pas (cf.
+  // ScopeEtablissement). Concentré sur une seule école (`activeSchoolId` posé
+  // via le SchoolSwitcher), il n'y a rien à choisir de plus.
+  const ecolesImport =
+    user?.is_super_admin && !activeSchoolId && (user.ecoles_accessibles?.length ?? 0) > 1
+      ? user.ecoles_accessibles.map((e) => ({ id: e.id, nom: e.name }))
+      : undefined
 
   const [classeFiltre, setClasseFiltre] = useState<number | ''>('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -262,6 +274,7 @@ export function BusAffectationsPage() {
               colonnes={COLONNES_IMPORT_BUS}
               nomFichier="souscriptions-bus"
               onImported={invalidate}
+              ecoles={ecolesImport}
             />
           )
         }

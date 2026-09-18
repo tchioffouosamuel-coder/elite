@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { ImportModal, type ImportAnneeScolaire, type ImportDecoupe } from '@/shared/ui/ImportModal'
+import { ImportModal, type ImportAnneeScolaire, type ImportDecoupe, type ImportEcole } from '@/shared/ui/ImportModal'
 import { ExportButton } from '@/shared/ui/ExportButton'
 import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 
@@ -23,6 +23,8 @@ export function ImportExportBar({
   onImported,
   decoupe,
   anneesScolaires,
+  ecoles,
+  ecoleId,
 }: {
   titreImport: string
   importUrl: string
@@ -34,6 +36,9 @@ export function ImportExportBar({
   /** Bascule l'envoi en petits lots successifs — pour un fichier trop volumineux pour un seul appel (cf. `ImportModal`). */
   decoupe?: ImportDecoupe
   anneesScolaires?: ImportAnneeScolaire[]
+  /** École à choisir avant l'import (super admin en mode agrégé) — cf. `ImportModal`. */
+  ecoles?: ImportEcole[]
+  ecoleId?: number
 }) {
   const { t } = useTranslation()
   const [importOuvert, setImportOuvert] = useState(false)
@@ -55,6 +60,8 @@ export function ImportExportBar({
           decoupe={decoupe}
           anneesScolaires={anneesScolaires}
           anneeScolaireId={anneesScolaires?.find((annee) => annee.is_active)?.id}
+          ecoles={ecoles}
+          ecoleId={ecoleId}
           onClose={() => setImportOuvert(false)}
           // Rafraîchit la liste en fond, sans fermer la fenêtre : celle-ci
           // affiche le résultat (« X importées, Y échouées ») juste après —

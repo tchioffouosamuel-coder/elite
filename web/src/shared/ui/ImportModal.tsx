@@ -77,6 +77,11 @@ export interface ImportAnneeScolaire {
   is_active: boolean
 }
 
+export interface ImportEcole {
+  id: number
+  nom: string
+}
+
 export function ImportModal({
   title,
   url,
@@ -84,6 +89,8 @@ export function ImportModal({
   choix,
   anneesScolaires,
   anneeScolaireId,
+  ecoles,
+  ecoleId,
   extraFields,
   progressUrl,
   decoupe,
@@ -98,6 +105,16 @@ export function ImportModal({
   choix?: ChoixImport
   anneesScolaires?: ImportAnneeScolaire[]
   anneeScolaireId?: number
+  /**
+   * Écoles parmi lesquelles choisir l'établissement visé par l'import — pour
+   * un super admin en mode agrégé (« Toutes les écoles »), sans quoi le
+   * serveur en résoudrait une au hasard (`Tenant::schoolId()`) et l'import
+   * échouerait pour tout élève qui ne s'y trouve pas. Sans effet sur le
+   * contexte global de l'appli : l'en-tête `X-School-Id` n'est posé que sur
+   * les requêtes de cet import.
+   */
+  ecoles?: ImportEcole[]
+  ecoleId?: number
   extraFields?: Record<string, string | number>
   progressUrl?: string
   /** Bascule l'envoi en petits lots successifs — voir `ImportDecoupe`. Incompatible avec `progressUrl`, sans objet ici. */
@@ -113,6 +130,7 @@ export function ImportModal({
   const [file, setFile] = useState<File | null>(null)
   const [choisi, setChoisi] = useState(choix?.defaut ?? '')
   const [anneeChoisie, setAnneeChoisie] = useState(String(anneeScolaireId ?? ''))
+  const [ecoleChoisie, setEcoleChoisie] = useState(String(ecoleId ?? ecoles?.[0]?.id ?? ''))
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -163,6 +181,10 @@ export function ImportModal({
     ...extraFields,
     ...(anneeChoisie ? { annee_scolaire_id: anneeChoisie } : {}),
   }
+  // Ne cible qu'une requête à la fois — jamais le contexte global de l'appli
+  // (cf. `ImportEcole` ci-dessus) : c'est ce qui permet à un super admin en
+  // mode agrégé de choisir l'école visée sans quitter « Toutes les écoles ».
+  const enTetesEcole = ecoles && ecoleChoisie ? { 'X-School-Id': ecoleChoisie } : undefined
 
   const handleSubmitDecoupe = async (decoupeConfig: ImportDecoupe, fichier: File) => {
     const formData = new FormData()
@@ -173,7 +195,7 @@ export function ImportModal({
     const { data: prepare } = await http.post<{ data: { token: string; lots: number } }>(
       decoupeConfig.preparerUrl,
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      { headers: { 'Content-Type': 'multipart/form-data', ...enTetesEcole } },
     )
     const { token: lotToken, lots } = prepare.data
     setProgress({ processed: 0, total: lots, current_name: null })
@@ -184,10 +206,11 @@ export function ImportModal({
     const cartes: (keyof ImportResult)[] = ['classes_introuvables', 'enseignants_introuvables', 'affectations_non_rattachees']
 
     for (let i = 0; i < lots; i++) {
-      const { data: lot } = await http.post<{ data: ImportResult }>(`${decoupeConfig.traiterUrl}/${lotToken}`, {
-        index: i,
-        ...champsSupplementaires,
-      })
+      const { data: lot } = await http.post<{ data: ImportResult }>(
+        `${decoupeConfig.traiterUrl}/${lotToken}`,
+        { index: i, ...champsSupplementaires },
+        { headers: enTetesEcole },
+      )
       const r = lot.data
 
       for (const cle of ['imported', 'failed', 'updated', 'ignored', 'dettes', 'dettes_montant', 'dettes_ignorees', 'affectations', 'comptes_ouverts'] as const) {
@@ -231,7 +254,7 @@ export function ImportModal({
       if (token) formData.append('progress_token', token)
 
       const { data } = await http.post<{ data: ImportResult }>(url, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'multipart/form-data', ...enTetesEcole },
       })
       setResult(data.data)
       onImported()
@@ -271,6 +294,20 @@ export function ImportModal({
             {anneesScolaires.map((annee) => (
               <option key={annee.id} value={annee.id}>
                 {annee.libelle}{annee.is_active ? ' (active)' : ''}
+              </option>
+            ))}
+          </Select>
+        )}
+
+        {ecoles && ecoles.length > 0 && (
+          <Select
+            label="École visée par l'import"
+            value={ecoleChoisie}
+            onChange={(e) => setEcoleChoisie(e.target.value)}
+          >
+            {ecoles.map((ecole) => (
+              <option key={ecole.id} value={ecole.id}>
+                {ecole.nom}
               </option>
             ))}
           </Select>
@@ -384,7 +421,11 @@ export function ImportModal({
             {result ? t('common.close') : t('common.cancel')}
           </Button>
           {!result && (
-            <Button type="button" onClick={handleSubmit} disabled={!file || submitting}>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!file || submitting || (!!ecoles?.length && !ecoleChoisie)}
+            >
               <Upload className="h-4 w-4" />
               {t('import.submit')}
             </Button>
