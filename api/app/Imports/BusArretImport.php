@@ -38,8 +38,6 @@ class BusArretImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wi
     /** @var array<int, int> trajet_id => dernier ordre attribué pendant cet import */
     private array $dernierOrdre = [];
 
-    public function __construct(private readonly int $schoolId) {}
-
     public function collection(Collection $rows): void
     {
         foreach ($rows as $row) {
@@ -105,7 +103,9 @@ class BusArretImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wi
 
         $this->trajets = [];
 
-        foreach (BusTrajet::where('school_id', $this->schoolId)->get(['id', 'nom']) as $trajet) {
+        // Les trajets forment une flotte partagée, pas cloisonnée par école
+        // (cf. BusTrajet::scopeForSchool) : on résout par nom parmi tous.
+        foreach (BusTrajet::all(['id', 'nom']) as $trajet) {
             $this->trajets[self::cle($trajet->nom)] = $trajet->id;
         }
 

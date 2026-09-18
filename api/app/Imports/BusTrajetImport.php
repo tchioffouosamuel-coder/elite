@@ -23,16 +23,14 @@ class BusTrajetImport implements SkipsOnFailure, ToModel, WithHeadingRow, WithVa
 
     public int $importedCount = 0;
 
-    public function __construct(private readonly int $schoolId)
-    {
-    }
-
     public function model(array $row): ?BusTrajet
     {
         $this->importedCount++;
 
+        // Jamais rattaché à une école : un trajet dessert souvent plusieurs
+        // écoles du complexe sur le même circuit (cf. BusTrajet::scopeForSchool).
         return new BusTrajet([
-            'school_id' => $this->schoolId,
+            'school_id' => null,
             'nom' => $row['nom'],
             'description' => $row['description'] ?? null,
             'tarif_aller_simple' => self::montant($row['tarif_aller_simple'] ?? null),

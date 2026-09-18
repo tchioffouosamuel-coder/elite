@@ -140,11 +140,11 @@ class BusService extends BaseService
             ->findOrFail($id);
     }
 
-    /** @param array<string, mixed> $donnees */
-    public function creerTrajet(int $schoolId, array $donnees): BusTrajet
+    /** Un trajet dessert souvent plusieurs écoles du complexe : jamais rattaché à une seule (cf. BusVehicule, même flotte partagée). */
+    public function creerTrajet(array $donnees): BusTrajet
     {
         return BusTrajet::create([
-            'school_id' => $schoolId,
+            'school_id' => null,
             'vehicule_id' => $donnees['vehicule_id'] ?? null,
             'nom' => $donnees['nom'],
             'description' => $donnees['description'] ?? null,

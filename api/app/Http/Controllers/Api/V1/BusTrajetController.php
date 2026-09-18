@@ -34,7 +34,6 @@ class BusTrajetController extends Controller
     public function store(Request $request): JsonResponse
     {
         $donnees = $request->validate([
-            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:255'],
             'vehicule_id' => ['nullable', 'integer', 'exists:bus_vehicules,id'],
@@ -43,10 +42,7 @@ class BusTrajetController extends Controller
             'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
-        unset($donnees['school_id']);
-
-        $trajet = $this->service->creerTrajet($schoolId, $donnees);
+        $trajet = $this->service->creerTrajet($donnees);
 
         return ApiResponse::created($this->resumer($trajet->load('school:id,name,code,type')), 'Trajet créé.');
     }
@@ -96,13 +92,11 @@ class BusTrajetController extends Controller
 
     public function importTrajets(Request $request): JsonResponse
     {
-        $donnees = $request->validate([
+        $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
         ]);
 
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
-        $import = new BusTrajetImport($schoolId);
+        $import = new BusTrajetImport();
         Excel::import($import, $request->file('file'));
 
         $resultat = [
@@ -117,13 +111,11 @@ class BusTrajetController extends Controller
     /** Colonne « trajet » requise : les arrêts se rattachent par nom au trajet déjà créé. */
     public function importArrets(Request $request): JsonResponse
     {
-        $donnees = $request->validate([
+        $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
         ]);
 
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? null);
-        $import = new BusArretImport($schoolId);
+        $import = new BusArretImport();
         Excel::import($import, $request->file('file'));
 
         $resultat = [

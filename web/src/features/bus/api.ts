@@ -107,7 +107,6 @@ export interface BusTrajetPayload {
   tarif_aller_simple?: number | null;
   tarif_retour_simple?: number | null;
   tarif_aller_retour?: number | null;
-  school_id?: number | null;
 }
 
 export interface BusAffectation {
