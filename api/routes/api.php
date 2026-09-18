@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\JustificationAbsenceAdminController;
+use App\Http\Controllers\Api\V1\ListeClassePersonnaliseeController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MalaiseReferentielController;
@@ -425,6 +426,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{id}/cartes-scolaires', [CarteScolaireController::class, 'classe'])->name('classes.cartes');
                 Route::get('classes/{id}/eleves/pdf', [ListeElevesController::class, 'pdf'])->name('classes.eleves.pdf');
                 Route::get('classes/{id}/eleves/word', [ListeElevesController::class, 'word'])->name('classes.eleves.word');
+                Route::get('classes/liste-personnalisee/modeles', [ListeClassePersonnaliseeController::class, 'modeles'])->name('classes.liste-personnalisee.modeles.index');
+                Route::post('classes/liste-personnalisee/modeles', [ListeClassePersonnaliseeController::class, 'storeModele'])->name('classes.liste-personnalisee.modeles.store');
+                Route::put('classes/liste-personnalisee/modeles/{id}', [ListeClassePersonnaliseeController::class, 'updateModele'])->name('classes.liste-personnalisee.modeles.update');
+                Route::delete('classes/liste-personnalisee/modeles/{id}', [ListeClassePersonnaliseeController::class, 'destroyModele'])->name('classes.liste-personnalisee.modeles.destroy');
+                Route::get('classes/{id}/liste-personnalisee/pdf', [ListeClassePersonnaliseeController::class, 'pdf'])->name('classes.liste-personnalisee.pdf');
+                Route::get('classes/{id}/liste-personnalisee/word', [ListeClassePersonnaliseeController::class, 'word'])->name('classes.liste-personnalisee.word');
+                Route::get('classes/{id}/liste-personnalisee/excel', [ListeClassePersonnaliseeController::class, 'excel'])->name('classes.liste-personnalisee.excel');
                 Route::get('classes/{id}', [ClasseController::class, 'show'])->name('classes.show');
                 Route::get('schools', [ClasseController::class, 'schools'])->name('schools.index');
                 Route::get('schools/{id}', [ClasseController::class, 'showSchool'])->name('schools.show');
@@ -476,6 +484,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
+                // Routes statiques déclarées avant `matricules-nationaux/{id}`
+                // (ajoutée dans le groupe `eleves.manage` ci-dessous) : même
+                // précaution que pour `eleves/doublons` juste au-dessus.
+                Route::get('matricules-nationaux', [MatriculeNationalController::class, 'index'])->name('matricules-nationaux.index');
+                Route::get('matricules-nationaux/export', [MatriculeNationalController::class, 'export'])->name('matricules-nationaux.export');
+                Route::get('matricules-nationaux/modele', [MatriculeNationalController::class, 'modele'])->name('matricules-nationaux.modele');
             });
 
             Route::middleware('permission:eleves.manage')->group(function () {
@@ -487,6 +501,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete');
                 Route::post('eleves/normaliser-matricules', [EleveController::class, 'normaliserMatricules'])->name('eleves.normaliser-matricules');
                 Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe');
+                Route::post('matricules-nationaux/import', [MatriculeNationalController::class, 'import'])->name('matricules-nationaux.import');
+                Route::put('matricules-nationaux/{id}', [MatriculeNationalController::class, 'update'])->name('matricules-nationaux.update');
                 Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
                 Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
                 Route::get('eleves/import-progress/{token}', [EleveController::class, 'importProgress'])->name('eleves.import-progress');

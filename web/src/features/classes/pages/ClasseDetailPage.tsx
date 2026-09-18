@@ -17,6 +17,7 @@ import {
   Trash2,
   School,
   Gavel,
+  ClipboardList,
 } from 'lucide-react'
 import { fetchClasse, deleteClasse } from '@/features/classes/api'
 import { ouvrirBulletinsClasse } from '@/features/resultats/api'
@@ -154,6 +155,11 @@ export function ClasseDetailPage() {
           icon: FileSpreadsheet,
           onClick: () =>
             telechargerFichier(`/classes/${classe.id}/eleves/word`, undefined, `${classe.nom}.docx`),
+        },
+        can('classes.view') && {
+          label: t('hub.classe.liste_personnalisee'),
+          icon: ClipboardList,
+          onClick: () => navigate(`/classes/${classe.id}/liste-personnalisee`),
         },
       ],
     },

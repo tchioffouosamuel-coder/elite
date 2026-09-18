@@ -25,6 +25,7 @@ import { ReglesValidationSeancePage } from '@/features/personnel/pages/ReglesVal
 import { BanqueDetailPage } from '@/features/personnel/pages/BanqueDetailPage'
 import { ClassesListPage } from '@/features/classes/pages/ClassesListPage'
 import { ClasseDetailPage } from '@/features/classes/pages/ClasseDetailPage'
+import { ListePersonnaliseePage } from '@/features/classes/listePersonnalisee/ListePersonnaliseePage'
 import { ConseilClassePage } from '@/features/conseilClasse/pages/ConseilClassePage'
 import { ArchivesPage } from '@/features/archives/pages/ArchivesPage'
 import { ArchiveClassePage } from '@/features/archives/pages/ArchiveClassePage'
@@ -43,6 +44,7 @@ import { EleveRapportsPage } from '@/features/eleves/pages/EleveRapportsPage'
 import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
 import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
 import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage'
+import { MatriculesNationauxPage } from '@/features/matriculesNationaux/pages/MatriculesNationauxPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { CompetencesPage } from '@/features/pedagogie/pages/CompetencesPage'
 import { AppreciationsPage } from '@/features/primaire/pages/AppreciationsPage'
@@ -196,7 +198,9 @@ export const router = createHashRouter([
       { path: 'niveaux/:id', element: <ProtectedRoute permission="pedagogie.view"><NiveauScolaireDetailPage /></ProtectedRoute> },
       { path: 'niveaux-globaux', element: <ProtectedRoute permission="niveaux.view"><NiveauxListPage /></ProtectedRoute> },
       { path: 'classes', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClassesListPage /></ProtectedRoute> },
+      { path: 'classes/liste-personnalisee', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ListePersonnaliseePage /></ProtectedRoute> },
       { path: 'classes/:id', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ClasseDetailPage /></ProtectedRoute> },
+      { path: 'classes/:id/liste-personnalisee', element: <ProtectedRoute permission="classes.view" masquerPourTitulaire><ListePersonnaliseePage /></ProtectedRoute> },
       { path: 'conseil-classe/:classeId', element: <ProtectedRoute permission="conseil_classe.view"><ConseilClassePage /></ProtectedRoute> },
       { path: 'archives', element: <ProtectedRoute permission="conseil_classe.view"><ArchivesPage /></ProtectedRoute> },
       { path: 'archives/:anneeId/classes/:classeId', element: <ProtectedRoute permission="conseil_classe.view"><ArchiveClassePage /></ProtectedRoute> },
@@ -213,6 +217,7 @@ export const router = createHashRouter([
       { path: 'eleves/nouveau', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
       { path: 'eleves/transferts', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveTransfertsPage /></ProtectedRoute> },
       { path: 'eleves/:id/edit', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
+      { path: 'matricules-nationaux', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><MatriculesNationauxPage /></ProtectedRoute> },
       { path: 'matieres', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><MatieresPage /></ProtectedRoute> },
       { path: 'competences', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><CompetencesPage /></ProtectedRoute> },
       { path: 'appreciations', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><AppreciationsPage /></ProtectedRoute> },

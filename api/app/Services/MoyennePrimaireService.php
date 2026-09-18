@@ -6,6 +6,7 @@ use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Eleve;
 use App\Models\Note;
+use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
@@ -129,6 +130,37 @@ class MoyennePrimaireService extends BaseService
             'total_obtenu' => round($totalObtenu, 2),
             'total_bareme' => $totalBareme,
         ];
+    }
+
+    /**
+     * Moyenne d'une seule séquence, ramenée sur 20 comme
+     * {@see moyenneGeneraleEleve()} mais à partir du seul total de séquence
+     * de chaque compétence (`totaux_sequences[$sequence->id]`) plutôt que de
+     * la moyenne des trois séquences du trimestre. Sert à la « liste
+     * personnalisée de classe » quand l'utilisateur veut la moyenne d'une
+     * séquence précise plutôt que du trimestre entier.
+     */
+    public function moyenneSequenceEleve(Eleve $eleve, Sequence $sequence): ?float
+    {
+        $affectations = $eleve->classe?->classeCompetences()
+            ->where('statut', 'actif')->with('competence')->get() ?? collect();
+
+        $totalObtenu = 0.0;
+        $totalBareme = 0;
+
+        foreach ($affectations as $classeCompetence) {
+            $resultat = $this->noteCompetenceEleve($eleve, $classeCompetence, $sequence->trimestre);
+            $total = $resultat['totaux_sequences'][$sequence->id] ?? null;
+
+            if ($total === null) {
+                continue;
+            }
+
+            $totalObtenu += $total;
+            $totalBareme += $resultat['bareme'];
+        }
+
+        return $totalBareme > 0 ? round($totalObtenu * 20 / $totalBareme, 2) : null;
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Note;
+use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
@@ -73,6 +74,39 @@ class MoyenneService extends BaseService
             'total_points' => round($totalPoints, 2),
             'total_coef' => $totalCoef,
         ];
+    }
+
+    /**
+     * Moyenne d'une seule séquence (pas tout le trimestre) : même pondération
+     * par coefficient que {@see moyenneGeneraleEleve()}, mais la note de
+     * chaque matière est celle de CETTE séquence, pas la moyenne des séquences
+     * du trimestre. Sert à la « liste personnalisée de classe » quand
+     * l'utilisateur veut la moyenne d'une séquence précise plutôt que du
+     * trimestre entier.
+     */
+    public function moyenneSequenceEleve(Eleve $eleve, Sequence $sequence): ?float
+    {
+        $affectations = $eleve->classe?->classeMatieres()->where('statut', 'actif')->get() ?? collect();
+
+        $totalPoints = 0.0;
+        $totalCoef = 0.0;
+
+        foreach ($affectations as $classeMatiere) {
+            $note = Note::where('eleve_id', $eleve->id)
+                ->where('classe_matiere_id', $classeMatiere->id)
+                ->where('sequence_id', $sequence->id)
+                ->whereNotNull('valeur')
+                ->value('valeur');
+
+            if ($note === null) {
+                continue;
+            }
+
+            $totalPoints += (float) $note * (float) $classeMatiere->coefficient;
+            $totalCoef += (float) $classeMatiere->coefficient;
+        }
+
+        return $totalCoef > 0 ? round($totalPoints / $totalCoef, 2) : null;
     }
 
     /**
