@@ -392,6 +392,100 @@ export async function soumettreModification(
 
 // ------------------------------------------------------------ Préinscription
 
+// ------------------------------------------------------- Informations manquantes
+
+export interface EnfantChampsManquants {
+  id: number;
+  nom_complet: string;
+  champs: string[];
+}
+
+export interface TuteurChampsManquants {
+  id: number;
+  champs: string[];
+}
+
+export interface ChampsManquants {
+  tuteur: TuteurChampsManquants | null;
+  enfants: EnfantChampsManquants[];
+  total: number;
+}
+
+/** Vue d'ensemble des informations manquantes sur le compte connecté — déclenche l'alerte de complétion à l'ouverture du portail. */
+export async function fetchChampsManquants(): Promise<ChampsManquants> {
+  const { data } = await http.get<ApiResponse<ChampsManquants>>(
+    "/parent/champs-manquants",
+  );
+  return data.data;
+}
+
+export interface CompleterEnfantPayload {
+  sexe?: "M" | "F";
+  date_naissance?: string;
+  lieu_naissance?: string;
+  adresse?: string;
+  numero_acte_naissance?: string;
+  lieu_delivrance_acte?: string;
+  officier_etat_civil?: string;
+  groupe_sanguin?: string;
+  situation_sanitaire?: string;
+  allergies?: string;
+}
+
+/** Complète directement les champs encore vides de l'enfant — sans validation admin, cf. `soumettreModification` pour corriger une valeur déjà renseignée. */
+export async function completerEnfant(
+  eleveId: number,
+  payload: CompleterEnfantPayload,
+): Promise<EnfantDossier> {
+  const { data } = await http.post<ApiResponse<EnfantDossier>>(
+    `/parent/enfants/${eleveId}/completer`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function completerPhotoEnfant(
+  eleveId: number,
+  file: File,
+): Promise<{ photo_url: string }> {
+  const formData = new FormData();
+  formData.append("photo", file);
+  const { data } = await http.post<ApiResponse<{ photo_url: string }>>(
+    `/parent/enfants/${eleveId}/completer/photo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data.data;
+}
+
+export interface CompleterTuteurPayload {
+  telephone?: string;
+  email?: string;
+  profession?: string;
+  lieu_service?: string;
+  adresse?: string;
+}
+
+export interface TuteurComplete {
+  id: number;
+  telephone: string | null;
+  email: string | null;
+  profession: string | null;
+  lieu_service: string | null;
+  adresse: string | null;
+}
+
+/** Complète directement les champs encore vides de la fiche tuteur du compte connecté. */
+export async function completerTuteur(
+  payload: CompleterTuteurPayload,
+): Promise<TuteurComplete> {
+  const { data } = await http.post<ApiResponse<TuteurComplete>>(
+    "/parent/tuteur/completer",
+    payload,
+  );
+  return data.data;
+}
+
 export type TypePreinscription = "existant" | "nouveau";
 export type StatutPreinscription = "en_attente" | "validee" | "rejetee";
 

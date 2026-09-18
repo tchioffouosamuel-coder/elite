@@ -125,6 +125,7 @@ import { JustificationsAdminPage } from '@/features/eleves/pages/JustificationsA
 import { ObservationsAdminPage } from '@/features/eleves/pages/ObservationsAdminPage'
 import { ParentLayout } from '@/app/ParentLayout'
 import { ParentAccueilPage } from '@/features/parent/pages/ParentAccueilPage'
+import { ParentCompleterPage } from '@/features/parent/pages/ParentCompleterPage'
 import { ParentEnfantPage } from '@/features/parent/pages/ParentEnfantPage'
 import { EleveLayout } from '@/app/EleveLayout'
 import { EleveAccueilPage } from '@/features/eleve/pages/EleveAccueilPage'
@@ -336,6 +337,7 @@ export const router = createHashRouter([
       { index: true, element: <ParentAccueilPage /> },
       { path: 'annonces', element: <AnnoncesPage /> },
       { path: 'bibliotheque', element: <ParentBibliothequePage /> },
+      { path: 'completer', element: <ParentCompleterPage /> },
       { path: 'enfants/:id', element: <ParentEnfantPage /> },
       { path: 'preinscription/nouveau', element: <ParentPreinscriptionNouveauPage /> },
       { path: 'preinscription/existant/:eleveId', element: <ParentPreinscriptionExistantPage /> },

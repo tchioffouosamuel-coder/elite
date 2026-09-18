@@ -12,12 +12,17 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class EleveExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
     /** @param int|array<int> $schoolId */
-    public function __construct(private readonly int|array $schoolId, private readonly ?int $classeId = null) {}
+    public function __construct(
+        private readonly int|array $schoolId,
+        private readonly ?int $classeId = null,
+        private readonly bool $sansClasse = false,
+    ) {}
 
     public function collection(): Collection
     {
         return Eleve::forSchool($this->schoolId)
             ->when($this->classeId, fn ($q, $id) => $q->where('classe_id', $id))
+            ->when($this->sansClasse, fn ($q) => $q->whereNull('classe_id'))
             ->with(['classe', 'tuteurs'])
             ->orderBy('nom_complet')
             ->get();

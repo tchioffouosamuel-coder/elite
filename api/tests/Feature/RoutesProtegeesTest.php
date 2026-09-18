@@ -135,6 +135,13 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.parent.preinscriptions.update',
         'api.v1.parent.ecoles-disponibles',
         'api.v1.parent.ecoles.classes',
+        // Informations manquantes : lecture et complétion bornées, comme le
+        // reste du portail, aux enfants du compte connecté et à sa propre
+        // fiche tuteur (cf. ParentEspaceController::champsManquants()).
+        'api.v1.parent.champs-manquants',
+        'api.v1.parent.tuteur.completer',
+        'api.v1.parent.enfants.completer',
+        'api.v1.parent.enfants.completer.photo',
         // Bibliothèque numérique en lecture seule, bornée aux écoles des
         // enfants du compte (cf. ParentEspaceController::bibliotheque).
         'api.v1.parent.bibliotheque.index',

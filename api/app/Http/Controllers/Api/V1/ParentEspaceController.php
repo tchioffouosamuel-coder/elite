@@ -17,11 +17,13 @@ use App\Models\Sanction;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Models\Tuteur;
+use App\Models\TuteurTelephone;
 use App\Models\VisiteInfirmerie;
 use App\Http\Resources\Api\V1\SanctionResource;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
 use App\Services\BulletinPrimaireService;
 use App\Services\BulletinService;
+use App\Services\EleveService;
 use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\BibliothequeService;
@@ -62,7 +64,79 @@ class ParentEspaceController extends Controller
         private readonly EcheancierService $echeancier,
         private readonly BibliothequeService $bibliotheque,
         private readonly EmploiDuTempsGenerator $emploiDuTempsPdf,
+        private readonly EleveService $eleves,
     ) {}
+
+    /**
+     * Champs de l'élève considérés comme obligatoires pour un dossier complet,
+     * en dehors de l'identité (nom, classe) déjà garantie à l'inscription —
+     * utilisé à la fois par l'alerte "informations manquantes" et par
+     * `completerEnfant()` pour n'accepter que ce qui est réellement attendu.
+     *
+     * @var list<string>
+     */
+    private const CHAMPS_ELEVE = [
+        'sexe', 'date_naissance', 'lieu_naissance', 'adresse',
+        'numero_acte_naissance', 'lieu_delivrance_acte', 'officier_etat_civil',
+        'groupe_sanguin', 'situation_sanitaire', 'allergies',
+    ];
+
+    /** @var list<string> */
+    private const CHAMPS_TUTEUR = ['telephone', 'email', 'profession', 'lieu_service', 'adresse'];
+
+    /**
+     * Vue d'ensemble des informations manquantes sur le compte connecté :
+     * la fiche tuteur du parent lui-même, et chacun de ses enfants. Sert à
+     * déclencher l'alerte "informations manquantes" à l'ouverture du portail
+     * (web comme mobile) sans avoir à recharger le dossier complet de
+     * chaque enfant.
+     */
+    public function champsManquants(Request $request): JsonResponse
+    {
+        $enfants = ParentAccess::enfants($request->user());
+        $tuteur = Tuteur::where('user_id', $request->user()->id)->first();
+
+        $champsTuteur = $tuteur ? $this->champsManquantsTuteur($tuteur) : [];
+
+        $champsEnfants = $enfants
+            ->map(fn(Eleve $e) => [
+                'id' => $e->id,
+                'nom_complet' => $e->nom_complet,
+                'champs' => $this->champsManquantsEleve($e),
+            ])
+            ->filter(fn(array $x) => $x['champs'] !== [])
+            ->values();
+
+        return ApiResponse::success([
+            'tuteur' => $tuteur ? ['id' => $tuteur->id, 'champs' => $champsTuteur] : null,
+            'enfants' => $champsEnfants,
+            'total' => count($champsTuteur) + $champsEnfants->sum(fn(array $x) => count($x['champs'])),
+        ]);
+    }
+
+    /** @return list<string> */
+    private function champsManquantsEleve(Eleve $e): array
+    {
+        $champs = array_values(array_filter(self::CHAMPS_ELEVE, fn(string $champ) => blank($e->{$champ})));
+
+        if (blank($e->photo_path)) {
+            $champs[] = 'photo';
+        }
+
+        return $champs;
+    }
+
+    /** @return list<string> */
+    private function champsManquantsTuteur(Tuteur $tuteur): array
+    {
+        return array_values(array_filter(self::CHAMPS_TUTEUR, function (string $champ) use ($tuteur) {
+            if ($champ === 'telephone') {
+                return $tuteur->telephones()->doesntExist() && blank($tuteur->telephone);
+            }
+
+            return blank($tuteur->{$champ});
+        }));
+    }
 
     /**
      * Documents de la bibliothèque numérique visibles pour les écoles des
@@ -115,7 +189,12 @@ class ParentEspaceController extends Controller
     {
         $e = ParentAccess::assertEnfant($request->user(), $eleveId);
 
-        return ApiResponse::success([
+        return ApiResponse::success($this->presenterEnfant($e));
+    }
+
+    private function presenterEnfant(Eleve $e): array
+    {
+        return [
             'id' => $e->id,
             'matricule' => $e->matricule,
             'nom_complet' => $e->nom_complet,
@@ -153,7 +232,106 @@ class ParentEspaceController extends Controller
                 'lien_parente' => $t->pivot->lien_parente,
                 'is_principal' => (bool) $t->pivot->is_principal,
             ]),
+        ];
+    }
+
+    /**
+     * Complète directement les champs de l'enfant encore vides — sans passer
+     * par la validation admin de `soumettreModification()` : il ne s'agit
+     * pas de corriger une donnée déjà renseignée, seulement de remplir un
+     * blanc. Un champ déjà rempli côté base est donc ignoré même s'il est
+     * envoyé, pour qu'on ne puisse pas se servir de cette voie pour écraser
+     * une valeur existante sans passer par l'approbation de l'école.
+     */
+    public function completerEnfant(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        $data = $request->validate([
+            'sexe' => ['sometimes', 'in:M,F'],
+            'date_naissance' => ['sometimes', 'date'],
+            'lieu_naissance' => ['sometimes', 'string', 'max:255'],
+            'adresse' => ['sometimes', 'string', 'max:255'],
+            'numero_acte_naissance' => ['sometimes', 'string', 'max:100'],
+            'lieu_delivrance_acte' => ['sometimes', 'string', 'max:255'],
+            'officier_etat_civil' => ['sometimes', 'string', 'max:255'],
+            'groupe_sanguin' => ['sometimes', 'string', 'max:10'],
+            'situation_sanitaire' => ['sometimes', 'string', 'max:1000'],
+            'allergies' => ['sometimes', 'string', 'max:1000'],
         ]);
+
+        $aAppliquer = collect($data)
+            ->only(self::CHAMPS_ELEVE)
+            ->filter(fn($valeur, string $champ) => blank($e->{$champ}))
+            ->all();
+
+        if ($aAppliquer === []) {
+            return ApiResponse::error('Ces informations sont déjà renseignées.', 422);
+        }
+
+        $e->fill($aAppliquer)->save();
+
+        return ApiResponse::success($this->presenterEnfant($e->fresh(['classe.sousSysteme', 'school', 'tuteurs.telephones'])), 'Informations complétées.');
+    }
+
+    /**
+     * Photo de l'enfant, quand aucune n'est encore enregistrée — même
+     * traitement (recadrage carré 600×600) que côté personnel, cf.
+     * `EleveController::photo()`. Refusé si une photo existe déjà : la
+     * remplacer reste un geste réservé à l'établissement.
+     */
+    public function completerPhotoEnfant(Request $request, int $eleveId): JsonResponse
+    {
+        $e = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        if ($e->photo_path) {
+            return ApiResponse::error('Une photo est déjà enregistrée pour cet enfant.', 422);
+        }
+
+        $request->validate(['photo' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120']]);
+
+        $e = $this->eleves->updatePhoto($e, $request->file('photo'));
+
+        return ApiResponse::success(['photo_url' => asset('storage/' . $e->photo_path)], 'Photo ajoutée.');
+    }
+
+    /**
+     * Complète directement les champs encore vides de la fiche tuteur du
+     * compte connecté — même logique additive que `completerEnfant()`.
+     */
+    public function completerTuteur(Request $request): JsonResponse
+    {
+        $tuteur = $this->tuteurDe($request);
+
+        $data = $request->validate([
+            'telephone' => ['sometimes', 'string', 'max:20'],
+            'email' => ['sometimes', 'email', 'max:255'],
+            'profession' => ['sometimes', 'string', 'max:255'],
+            'lieu_service' => ['sometimes', 'string', 'max:255'],
+            'adresse' => ['sometimes', 'string', 'max:255'],
+        ]);
+
+        if (isset($data['telephone']) && $tuteur->telephones()->doesntExist() && blank($tuteur->telephone)) {
+            TuteurTelephone::create(['tuteur_id' => $tuteur->id, 'numero' => $data['telephone'], 'is_principal' => true]);
+            $tuteur->telephone = $data['telephone'];
+        }
+        unset($data['telephone']);
+
+        $aAppliquer = collect($data)
+            ->only(['email', 'profession', 'lieu_service', 'adresse'])
+            ->filter(fn($valeur, string $champ) => blank($tuteur->{$champ}))
+            ->all();
+
+        $tuteur->fill($aAppliquer)->save();
+
+        return ApiResponse::success([
+            'id' => $tuteur->id,
+            'telephone' => $tuteur->telephone,
+            'email' => $tuteur->email,
+            'profession' => $tuteur->profession,
+            'lieu_service' => $tuteur->lieu_service,
+            'adresse' => $tuteur->adresse,
+        ], 'Informations complétées.');
     }
 
     /** Situation financière de l'année active — mêmes chiffres que la caisse, vus par la famille. */

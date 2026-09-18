@@ -351,8 +351,10 @@ class EleveController extends Controller
     public function export(Request $request): BinaryFileResponse
     {
         $classeId = $request->integer('classe_id') ?: null;
+        $sansClasse = $request->boolean('sans_classe');
+        $nomFichier = $sansClasse ? 'eleves-sans-classe.xlsx' : 'eleves.xlsx';
 
-        return Excel::download(new EleveExport(Tenant::schoolIds(), $classeId), 'eleves.xlsx');
+        return Excel::download(new EleveExport(Tenant::schoolIds(), $classeId, $sansClasse), $nomFichier);
     }
 
     public function modele(): BinaryFileResponse

@@ -566,8 +566,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * le même sens que pour le personnel.
              */
             Route::prefix('parent')->name('parent.')->middleware('role:parent')->group(function () {
+                Route::get('champs-manquants', [ParentEspaceController::class, 'champsManquants'])->name('champs-manquants');
+                Route::post('tuteur/completer', [ParentEspaceController::class, 'completerTuteur'])->name('tuteur.completer');
+
                 Route::get('enfants', [ParentEspaceController::class, 'mesEnfants'])->name('enfants.index');
                 Route::get('enfants/{eleveId}', [ParentEspaceController::class, 'enfant'])->name('enfants.show');
+                Route::post('enfants/{eleveId}/completer', [ParentEspaceController::class, 'completerEnfant'])->name('enfants.completer');
+                Route::post('enfants/{eleveId}/completer/photo', [ParentEspaceController::class, 'completerPhotoEnfant'])->name('enfants.completer.photo');
                 Route::get('enfants/{eleveId}/finance', [ParentEspaceController::class, 'finance'])->name('enfants.finance');
                 Route::get('enfants/{eleveId}/bulletin', [ParentEspaceController::class, 'bulletin'])->name('enfants.bulletin');
                 Route::get('enfants/{eleveId}/progression', [ParentEspaceController::class, 'progression'])->name('enfants.progression');

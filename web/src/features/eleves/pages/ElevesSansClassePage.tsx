@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, UserRound } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, UserRound, Upload } from 'lucide-react'
 import { changerClasseEleve, fetchEleves, type Eleve } from '@/features/eleves/api'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -9,7 +10,10 @@ import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { Select } from '@/shared/ui/Select'
+import { ImportModal } from '@/shared/ui/ImportModal'
+import { useAuthStore } from '@/shared/store/authStore'
 import { erreur, succes } from '@/shared/lib/alertes'
+import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
 
 function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {
@@ -45,6 +49,9 @@ function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {
 
 export function ElevesSansClassePage() {
     const navigate = useNavigate()
+    const can = useAuthStore((s) => s.can)
+    const queryClient = useQueryClient()
+    const [showImport, setShowImport] = useState(false)
     const { data: classes = [], isLoading: classesLoading } = useQuery({
         queryKey: ['classes'],
         queryFn: () => fetchClasses(),
@@ -58,6 +65,12 @@ export function ElevesSansClassePage() {
     })
 
     const elevesSansClasse = (data?.items ?? []).filter((eleve) => eleve.classe === null)
+
+    const invalidate = () => {
+        queryClient.invalidateQueries({ queryKey: ['eleves', 'sans-classe'] })
+        queryClient.invalidateQueries({ queryKey: ['eleves'] })
+        queryClient.invalidateQueries({ queryKey: ['classes'] })
+    }
 
     const colonnes: Colonne<Eleve>[] = [
         {
@@ -107,10 +120,26 @@ export function ElevesSansClassePage() {
                 sousTitre="Élèves actuellement inscrits qui ne sont affectés à aucune classe."
                 icon={UserRound}
                 actions={
-                    <Button type="button" variant="secondary" onClick={() => navigate('/eleves')}>
-                        <ArrowLeft className="h-4 w-4" />
-                        Retour aux élèves
-                    </Button>
+                    <>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => telechargerFichier('/eleves/export', { sans_classe: 1 }, 'eleves-sans-classe.xlsx')}
+                        >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Exporter la liste
+                        </Button>
+                        {can('eleves.manage') && (
+                            <Button type="button" variant="secondary" onClick={() => setShowImport(true)}>
+                                <Upload className="h-4 w-4" />
+                                Importer les classes
+                            </Button>
+                        )}
+                        <Button type="button" variant="secondary" onClick={() => navigate('/eleves')}>
+                            <ArrowLeft className="h-4 w-4" />
+                            Retour aux élèves
+                        </Button>
+                    </>
                 }
             />
 
@@ -129,6 +158,23 @@ export function ElevesSansClassePage() {
                     placeholderRecherche="Rechercher un élève…"
                     messageVide="Aucun élève ne correspond à cette recherche."
                     largeurMin={760}
+                />
+            )}
+
+            {showImport && (
+                <ImportModal
+                    title="Importer les classes"
+                    url="/eleves/import"
+                    decoupe={{ preparerUrl: '/eleves/import/preparer', traiterUrl: '/eleves/import/traiter' }}
+                    columns={['Matricule', 'Nom complet', 'Sexe', 'Classe', 'Statut', 'Tuteur', 'Téléphone tuteur']}
+                    note={
+                        <p className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">
+                            Reprenez le fichier exporté ci-dessus et complétez la colonne « Classe » pour chaque élève
+                            avant de le réimporter — les autres colonnes restent inchangées.
+                        </p>
+                    }
+                    onClose={() => setShowImport(false)}
+                    onImported={invalidate}
                 />
             )}
         </div>

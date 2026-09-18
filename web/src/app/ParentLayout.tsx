@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
 import { logout } from '@/features/auth/api'
+import { InformationsManquantesAlert } from '@/features/parent/components/InformationsManquantesAlert'
 
 const liens = [
   { to: '/parent', fr: 'Mes enfants', en: 'My children', icon: Users, end: true },
@@ -113,6 +114,8 @@ export function ParentLayout() {
       <main className="mx-auto min-h-0 min-w-0 w-full max-w-5xl flex-1 overflow-x-clip overflow-y-auto overscroll-contain px-4 pb-24 pt-6 sm:min-h-auto sm:overflow-visible sm:px-6 sm:py-6">
         <Outlet />
       </main>
+
+      <InformationsManquantesAlert />
     </div>
   )
 }
