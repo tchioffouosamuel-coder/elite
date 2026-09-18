@@ -428,6 +428,44 @@ class EleveService extends BaseService
         });
     }
 
+    /**
+     * Fiches jamais préinscrites, sans classe et sans la moindre trace
+     * d'activité (cf. Eleve::scopeNonPreinscritSansHistorique) — les
+     * doublons vides d'un import massif mal dédupliqué, jamais un élève
+     * ayant réellement fréquenté l'école.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return Collection<int, Eleve>
+     */
+    public function candidatsNonPreinscritsSansHistorique(int|array $schoolId): Collection
+    {
+        return Eleve::forSchool($schoolId)
+            ->nonPreinscritSansHistorique()
+            ->orderBy('nom_complet')
+            ->get();
+    }
+
+    /**
+     * Supprime le lot de fiches non préinscrites sans historique — recalculé
+     * ici plutôt que confié aux ids reçus du client : entre l'aperçu affiché
+     * à l'utilisateur et son clic sur « Supprimer », une fiche a pu recevoir
+     * une classe, une préinscription ou un premier versement, auquel cas
+     * elle ne doit plus jamais être une candidate à la suppression.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return int nombre de fiches supprimées
+     */
+    public function supprimerNonPreinscritsSansHistorique(int|array $schoolId): int
+    {
+        $candidats = $this->candidatsNonPreinscritsSansHistorique($schoolId);
+
+        foreach ($candidats as $eleve) {
+            $this->delete($eleve);
+        }
+
+        return $candidats->count();
+    }
+
     /** @return array{nouveaux: int, redoublants: int, camerounais: int, refugies: int, effectif: int} */
     private function ligneEffectifsVide(): array
     {

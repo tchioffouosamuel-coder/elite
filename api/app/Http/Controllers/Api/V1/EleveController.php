@@ -504,6 +504,28 @@ class EleveController extends Controller
         return ApiResponse::success(null, 'Élève supprimé.');
     }
 
+    /**
+     * Aperçu des fiches sans classe, jamais préinscrites et sans la moindre
+     * trace d'activité (cf. Eleve::scopeNonPreinscritSansHistorique) — les
+     * doublons laissés par un import massif mal dédupliqué. À afficher avant
+     * `supprimerNonPreinscritsSansHistorique()`, jamais supprimé à l'aveugle.
+     */
+    public function nonPreinscritsSansHistorique(): JsonResponse
+    {
+        $eleves = $this->service->candidatsNonPreinscritsSansHistorique(Tenant::schoolIds());
+        $eleves->load('school:id,name,code,type');
+
+        return ApiResponse::success(EleveResource::collection($eleves));
+    }
+
+    /** Supprime le lot précédemment prévisualisé — recalculé côté serveur, cf. EleveService::supprimerNonPreinscritsSansHistorique(). */
+    public function supprimerNonPreinscritsSansHistorique(): JsonResponse
+    {
+        $supprimes = $this->service->supprimerNonPreinscritsSansHistorique(Tenant::schoolIds());
+
+        return ApiResponse::success(['deleted' => $supprimes], "{$supprimes} fiche(s) non préinscrite(s) supprimée(s).");
+    }
+
     public function batchDelete(Request $request): JsonResponse
     {
         $data = $request->validate([

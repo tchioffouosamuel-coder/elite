@@ -17,10 +17,17 @@ class ListeClasseColonnes
         'lieu_naissance' => ['fr' => 'Lieu de naissance', 'en' => 'Place of birth'],
         'sexe' => ['fr' => 'Sexe', 'en' => 'Sex'],
         'age' => ['fr' => 'Âge', 'en' => 'Age'],
+        'nom_parent' => ['fr' => 'Nom parent', 'en' => 'Guardian name'],
+        'numero_parent' => ['fr' => 'Numéro parent', 'en' => 'Guardian phone'],
+        'nom_pere' => ['fr' => 'Nom père', 'en' => "Father's name"],
+        'numero_pere' => ['fr' => 'Numéro père', 'en' => "Father's phone"],
+        'nom_mere' => ['fr' => 'Nom mère', 'en' => "Mother's name"],
+        'numero_mere' => ['fr' => 'Numéro mère', 'en' => "Mother's phone"],
         'statut_solvabilite' => ['fr' => 'Statut solvabilité', 'en' => 'Solvency status'],
         'reste_scolarite_a_payer' => ['fr' => 'Reste scolarité à payer', 'en' => 'Tuition balance due'],
         'situation_transport' => ['fr' => 'Situation transport', 'en' => 'Transport status'],
         'dette_anterieure' => ['fr' => 'Dette antérieure', 'en' => 'Previous debt'],
+        'absences' => ['fr' => 'Absences', 'en' => 'Absences'],
         'moyenne' => ['fr' => 'Moyenne', 'en' => 'Average'],
     ];
 

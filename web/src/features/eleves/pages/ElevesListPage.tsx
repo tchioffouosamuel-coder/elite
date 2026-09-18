@@ -198,11 +198,13 @@ export function ElevesListPage() {
   )
 
   // Recherche, tri et pagination sont assurés par DataTable côté client : on
-  // charge donc l'effectif complet de l'établissement. Au-delà de ~2000 élèves
-  // il faudra rebasculer la pagination côté API.
+  // charge donc l'effectif complet de l'établissement. Le complexe dépasse
+  // déjà 2000 élèves au total (moins une fois filtré aux préinscrits de
+  // l'année active, cf. `tous` côté API) — 10000 laisse une marge large avant
+  // qu'il faille rebasculer sur une pagination serveur.
   const { data, isLoading, isError } = useQuery({
     queryKey: ['eleves'],
-    queryFn: () => fetchEleves({ per_page: 1000 }),
+    queryFn: () => fetchEleves({ per_page: 10000 }),
   })
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })

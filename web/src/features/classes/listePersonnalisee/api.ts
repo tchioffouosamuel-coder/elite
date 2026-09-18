@@ -9,10 +9,17 @@ export type ColonneListePersonnalisee =
   | 'lieu_naissance'
   | 'sexe'
   | 'age'
+  | 'nom_parent'
+  | 'numero_parent'
+  | 'nom_pere'
+  | 'numero_pere'
+  | 'nom_mere'
+  | 'numero_mere'
   | 'statut_solvabilite'
   | 'reste_scolarite_a_payer'
   | 'situation_transport'
   | 'dette_anterieure'
+  | 'absences'
   | 'moyenne'
 
 /** Ordre d'affichage proposé à l'utilisateur — reflète App\Support\ListeClasseColonnes côté API. */
@@ -23,12 +30,22 @@ export const COLONNES_LISTE_PERSONNALISEE: ColonneListePersonnalisee[] = [
   'lieu_naissance',
   'sexe',
   'age',
+  'nom_parent',
+  'numero_parent',
+  'nom_pere',
+  'numero_pere',
+  'nom_mere',
+  'numero_mere',
   'statut_solvabilite',
   'reste_scolarite_a_payer',
   'situation_transport',
   'dette_anterieure',
+  'absences',
   'moyenne',
 ]
+
+/** Colonnes dont la valeur dépend de la période choisie (cf. moyenneType/moyenneReferenceId) — pas seulement « moyenne ». */
+export const COLONNES_AVEC_PERIODE: ColonneListePersonnalisee[] = ['moyenne', 'absences']
 
 export type MoyenneType = 'trimestre' | 'sequence' | 'annuelle'
 

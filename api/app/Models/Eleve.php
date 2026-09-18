@@ -93,6 +93,56 @@ class Eleve extends Model
         });
     }
 
+    /**
+     * Fiches jamais engagées et sans la moindre trace d'activité : jamais
+     * préinscrites (aucune ligne `preinscriptions`, quel que soit son
+     * statut ou son année), sans classe, et absentes de toutes les tables
+     * qui accrochent un historique réel à l'élève (notes, présences,
+     * sanctions, dossier de scolarité et versements, transport, infirmerie,
+     * observations, décisions de conseil de classe…). En pratique, les
+     * doublons vides laissés par un import massif mal dédupliqué — jamais
+     * un ancien élève parti, qui aurait lui un dossier de scolarité même
+     * sans classe pour l'année active. Sert de base à la suppression en
+     * lot (cf. EleveService::supprimerNonPreinscritsSansHistorique) : sans
+     * suppression douce sur ce modèle, chaque table listée ici doit être
+     * vérifiée avant tout DELETE, la contrainte étrangère cascadant sinon
+     * silencieusement l'historique avec la fiche.
+     */
+    public function scopeNonPreinscritSansHistorique(Builder $query): Builder
+    {
+        // Une table par ligne : nom de table, colonne portant l'id élève.
+        $tablesHistorique = [
+            ['preinscriptions', 'eleve_id'],
+            ['notes', 'eleve_id'],
+            ['absence_trimestres', 'eleve_id'],
+            ['sanctions', 'eleve_id'],
+            ['presences', 'eleve_id'],
+            ['dossiers_scolarite', 'eleve_id'],
+            ['visites_infirmerie', 'eleve_id'],
+            ['bus_affectations', 'eleve_id'],
+            ['revendications', 'eleve_id'],
+            ['moratoires', 'eleve_id'],
+            ['remises', 'eleve_id'],
+            ['dettes_anterieures', 'eleve_id'],
+            ['justifications_absences', 'eleve_id'],
+            ['observations', 'eleve_id'],
+            ['modifications_eleves', 'eleve_id'],
+            ['conseil_classe_decisions', 'eleve_id'],
+            ['historiques_scolarite_eleves', 'eleve_id'],
+            ['ventes_fournitures', 'eleve_id'],
+        ];
+
+        $query->whereNull('classe_id');
+
+        foreach ($tablesHistorique as [$table, $colonne]) {
+            $query->whereNotExists(function ($sous) use ($table, $colonne) {
+                $sous->selectRaw('1')->from($table)->whereColumn("{$table}.{$colonne}", 'eleves.id');
+            });
+        }
+
+        return $query;
+    }
+
     /** Format YYELITES-NNNN : année sur deux chiffres puis ordre global. */
     public static function genererMatricule(int $schoolId): string
     {

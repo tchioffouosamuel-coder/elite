@@ -78,11 +78,36 @@ class ListeClassePersonnaliseeTest extends TestCase
         $this->acteur()
             ->get("/api/v1/classes/{$this->classe->id}/liste-personnalisee/word?".http_build_query([
                 'titre_fr' => 'Liste des élèves', 'titre_en' => 'Student list',
-                'colonnes' => 'numero,nom_prenom,statut_solvabilite,reste_scolarite_a_payer,situation_transport,dette_anterieure,moyenne',
+                'colonnes' => 'numero,nom_prenom,statut_solvabilite,reste_scolarite_a_payer,situation_transport,dette_anterieure,moyenne,'
+                    .'nom_parent,numero_parent,nom_pere,numero_pere,nom_mere,numero_mere,absences',
                 'moyenne_type' => 'annuelle',
             ]))
             ->assertOk()
             ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    public function test_resout_le_pere_et_la_mere_par_lien_de_parente(): void
+    {
+        $eleve = Eleve::where('matricule', 'M1')->firstOrFail();
+
+        $pere = \App\Models\Tuteur::create(['school_id' => $this->school->id, 'nom_complet' => 'Kamga Robert', 'telephone' => '699000001']);
+        $mere = \App\Models\Tuteur::create(['school_id' => $this->school->id, 'nom_complet' => 'Kamga Alice', 'telephone' => '699000002']);
+        $eleve->tuteurs()->attach($pere->id, ['lien_parente' => 'Père', 'is_principal' => true]);
+        $eleve->tuteurs()->attach($mere->id, ['lien_parente' => 'Mère']);
+
+        $lignes = app(\App\Services\ListeClassePersonnaliseeService::class)->construireLignes(
+            $this->classe->fresh(),
+            ['nom_prenom', 'nom_parent', 'numero_parent', 'nom_pere', 'numero_pere', 'nom_mere', 'numero_mere'],
+        );
+
+        $ligne = collect($lignes)->firstWhere('nom_prenom', 'Kamga Paul');
+
+        $this->assertSame('Kamga Robert', $ligne['nom_parent']);
+        $this->assertSame('699000001', $ligne['numero_parent']);
+        $this->assertSame('Kamga Robert', $ligne['nom_pere']);
+        $this->assertSame('699000001', $ligne['numero_pere']);
+        $this->assertSame('Kamga Alice', $ligne['nom_mere']);
+        $this->assertSame('699000002', $ligne['numero_mere']);
     }
 
     public function test_genere_l_excel(): void

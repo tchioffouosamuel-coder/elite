@@ -287,6 +287,27 @@ export async function fusionnerDoublon(
   return data.data;
 }
 
+/**
+ * Fiches sans classe, jamais préinscrites et sans la moindre trace
+ * d'activité (cf. `Eleve::scopeNonPreinscritSansHistorique` côté API) — les
+ * doublons laissés par un import massif mal dédupliqué, jamais un élève
+ * ayant réellement fréquenté l'école.
+ */
+export async function fetchNonPreinscritsSansHistorique(): Promise<Eleve[]> {
+  const { data } = await http.get<ApiResponse<Eleve[]>>(
+    "/eleves/non-preinscrits-sans-historique",
+  );
+  return data.data;
+}
+
+/** Supprime le lot prévisualisé par `fetchNonPreinscritsSansHistorique` — recalculé côté serveur au moment de la suppression, jamais les ids reçus tels quels. */
+export async function supprimerNonPreinscritsSansHistorique(): Promise<{ deleted: number }> {
+  const { data } = await http.delete<ApiResponse<{ deleted: number }>>(
+    "/eleves/non-preinscrits-sans-historique",
+  );
+  return data.data;
+}
+
 export async function normaliserMatricules(): Promise<{ normalises: number }> {
   const { data } = await http.post<ApiResponse<{ normalises: number }>>(
     "/eleves/normaliser-matricules",

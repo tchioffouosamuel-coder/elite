@@ -124,7 +124,7 @@ class ListeClassePersonnaliseeController extends Controller
 
         $colonnes = $this->colonnesValidees($data['colonnes']);
 
-        if (in_array('moyenne', $colonnes, true) && in_array($data['moyenne_type'] ?? null, ['trimestre', 'sequence'], true) && empty($data['moyenne_reference_id'])) {
+        if (array_intersect($colonnes, ['moyenne', 'absences']) !== [] && in_array($data['moyenne_type'] ?? null, ['trimestre', 'sequence'], true) && empty($data['moyenne_reference_id'])) {
             throw ValidationException::withMessages(['moyenne_reference_id' => ['La période exacte (trimestre ou séquence) est requise.']]);
         }
 

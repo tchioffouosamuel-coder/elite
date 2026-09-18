@@ -13,7 +13,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
-import { createEleve, updateEleve, fetchEleves, rechercheTuteurs, rechercherMatriculeNational, type ElevePayload, type TuteurSuggestion, type MatriculeNationalResult } from '@/features/eleves/api'
+import { createEleve, updateEleve, fetchEleve, rechercheTuteurs, rechercherMatriculeNational, type ElevePayload, type TuteurSuggestion, type MatriculeNationalResult } from '@/features/eleves/api'
 import { NB_TELEPHONES_MIN, telephonesParDefaut, completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 import {
@@ -283,16 +283,15 @@ export function EleveInscriptionPage() {
     const [matriculeNationalErreur, setMatriculeNationalErreur] = useState<string | null>(null)
     const [matriculeNationalRechercheEnCours, setMatriculeNationalRechercheEnCours] = useState(false)
 
-    // Récupérer l'élève si on est en édition
-    const { data: elevesData, isLoading } = useQuery({
-        queryKey: ['eleves', eleveId],
-        // Modifier la fiche d'un élève ne doit pas dépendre de sa préinscription
-        // pour l'année active — sans quoi sa fiche deviendrait introuvable ici.
-        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
+    // Récupérer l'élève si on est en édition — par son id directement : passer
+    // par la liste paginée (même avec `tous: true`) rendait la fiche
+    // introuvable dès que l'élève édité n'était pas dans le premier lot
+    // (au-delà de `per_page`, ex. le 1001ᵉ élève de l'établissement).
+    const { data: eleve, isLoading } = useQuery({
+        queryKey: ['eleve', eleveId],
+        queryFn: () => fetchEleve(eleveId!),
         enabled: !!eleveId,
     })
-
-    const eleve = eleveId ? elevesData?.items?.find(e => e.id === eleveId) : undefined
     const [currentStep, setCurrentStep] = useState(0)
     const [serverError, setServerError] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)

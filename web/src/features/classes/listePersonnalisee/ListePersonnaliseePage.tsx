@@ -6,6 +6,7 @@ import { ClipboardList, FileDown, FileSpreadsheet, FileText, Save, Trash2 } from
 import { fetchClasse, fetchClasses } from '@/features/classes/api'
 import { fetchTrimestresAll } from '@/features/session/api'
 import {
+  COLONNES_AVEC_PERIODE,
   COLONNES_LISTE_PERSONNALISEE,
   creerListeClasseModele,
   fetchListeClasseModeles,
@@ -221,7 +222,7 @@ export function ListePersonnaliseePage() {
           </div>
         </div>
 
-        {colonnes.has('moyenne') && (
+        {COLONNES_AVEC_PERIODE.some((c) => colonnes.has(c)) && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Select
               label={t('listePersonnalisee.moyenne_type_label')}

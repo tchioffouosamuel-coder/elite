@@ -482,6 +482,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // (routes GET évaluées dans l'ordre de déclaration) et
                 // plante avec un TypeError sur l'argument entier attendu.
                 Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
+                Route::get('eleves/non-preinscrits-sans-historique', [EleveController::class, 'nonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
                 // Routes statiques déclarées avant `matricules-nationaux/{id}`
@@ -497,6 +498,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/doublons/fusionner', [EleveController::class, 'fusionnerDoublon'])->name('eleves.doublons.fusionner');
                 Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
                 Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
+                // Avant `eleves/{id}` juste en dessous : même précaution que pour
+                // `eleves/doublons` plus haut, appliquée cette fois au verbe DELETE.
+                Route::delete('eleves/non-preinscrits-sans-historique', [EleveController::class, 'supprimerNonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique.destroy');
                 Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');
                 Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete');
                 Route::post('eleves/normaliser-matricules', [EleveController::class, 'normaliserMatricules'])->name('eleves.normaliser-matricules');

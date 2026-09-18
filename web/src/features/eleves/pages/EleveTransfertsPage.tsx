@@ -38,7 +38,7 @@ export function EleveTransfertsPage() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['eleves', 'transferts', classeFiltreId],
-    queryFn: () => fetchEleves({ per_page: 1000, classe_id: classeFiltreId ? Number(classeFiltreId) : undefined }),
+    queryFn: () => fetchEleves({ per_page: 10000, classe_id: classeFiltreId ? Number(classeFiltreId) : undefined }),
   })
 
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })

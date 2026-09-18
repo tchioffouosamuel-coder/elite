@@ -1,20 +1,105 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileSpreadsheet, UserRound, Upload } from 'lucide-react'
-import { changerClasseEleve, fetchEleves, type Eleve } from '@/features/eleves/api'
+import { ArrowLeft, FileSpreadsheet, Sparkles, UserRound, Upload } from 'lucide-react'
+import {
+  changerClasseEleve,
+  fetchEleves,
+  fetchNonPreinscritsSansHistorique,
+  supprimerNonPreinscritsSansHistorique,
+  type Eleve,
+} from '@/features/eleves/api'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { Modal } from '@/shared/ui/Modal'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { Select } from '@/shared/ui/Select'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { useAuthStore } from '@/shared/store/authStore'
-import { erreur, succes } from '@/shared/lib/alertes'
+import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
+
+/**
+ * Aperçu + suppression des doublons vides avant d'agir : jamais un bouton
+ * qui supprime à l'aveugle. `Eleve` n'a pas de suppression douce côté API —
+ * chaque fiche listée ici est vérifiée sans classe, jamais préinscrite et
+ * sans la moindre trace d'activité (cf. `Eleve::scopeNonPreinscritSansHistorique`),
+ * mais la liste reste affichée pour revue avant le clic de confirmation.
+ */
+function NettoyageDoublonsModal({ onClose, onSupprime }: { onClose: () => void; onSupprime: () => void }) {
+  const [suppression, setSuppression] = useState(false)
+  const { data: candidats, isLoading, isError } = useQuery({
+    queryKey: ['eleves', 'non-preinscrits-sans-historique'],
+    queryFn: () => fetchNonPreinscritsSansHistorique(),
+  })
+
+  const supprimer = async () => {
+    if (!candidats || candidats.length === 0) return
+    if (!(await confirmerSuppression(
+      `${candidats.length} fiche(s) sans historique`,
+      'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible.',
+    ))) return
+
+    setSuppression(true)
+    try {
+      const { deleted } = await supprimerNonPreinscritsSansHistorique()
+      succes(`${deleted} fiche(s) supprimée(s).`)
+      onSupprime()
+      onClose()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setSuppression(false)
+    }
+  }
+
+  return (
+    <Modal title="Nettoyer les doublons sans historique" onClose={onClose} taille="lg">
+      <div className="flex flex-col gap-4">
+        <p className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">
+          Fiches sans classe, jamais préinscrites et sans la moindre trace d'activité (aucune note,
+          présence, versement, sanction…) — typiquement des doublons laissés par un import massif.
+          Un ancien élève réellement parti garde, lui, son historique et n'apparaît jamais ici.
+        </p>
+
+        {isLoading ? (
+          <Spinner />
+        ) : isError || !candidats ? (
+          <ErrorState />
+        ) : candidats.length === 0 ? (
+          <EmptyState label="Aucune fiche sans historique à supprimer." />
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-navy-800">{candidats.length} fiche(s) trouvée(s) :</p>
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
+              {candidats.map((eleve) => (
+                <div key={eleve.id} className="flex items-center justify-between gap-3 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+                  <span className="font-medium text-navy-800">{eleve.nom_complet}</span>
+                  <span className="font-mono text-xs text-navy-400">{eleve.matricule ?? '—'}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          {candidats && candidats.length > 0 && (
+            <Button type="button" onClick={supprimer} disabled={suppression}>
+              Supprimer ces {candidats.length} fiche(s)
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {
     const queryClient = useQueryClient()
@@ -52,6 +137,7 @@ export function ElevesSansClassePage() {
     const can = useAuthStore((s) => s.can)
     const queryClient = useQueryClient()
     const [showImport, setShowImport] = useState(false)
+    const [showNettoyage, setShowNettoyage] = useState(false)
     const { data: classes = [], isLoading: classesLoading } = useQuery({
         queryKey: ['classes'],
         queryFn: () => fetchClasses(),
@@ -61,7 +147,7 @@ export function ElevesSansClassePage() {
         // Outil de correction de données : un élève sans classe n'a souvent
         // pas encore de préinscription traitée pour l'année active — il ne
         // doit pas disparaître de cette liste pour autant.
-        queryFn: () => fetchEleves({ per_page: 1000, tous: true }),
+        queryFn: () => fetchEleves({ per_page: 10000, tous: true }),
     })
 
     const elevesSansClasse = (data?.items ?? []).filter((eleve) => eleve.classe === null)
@@ -135,6 +221,12 @@ export function ElevesSansClassePage() {
                                 Importer les classes
                             </Button>
                         )}
+                        {can('eleves.manage') && (
+                            <Button type="button" variant="secondary" onClick={() => setShowNettoyage(true)}>
+                                <Sparkles className="h-4 w-4" />
+                                Nettoyer les doublons
+                            </Button>
+                        )}
                         <Button type="button" variant="secondary" onClick={() => navigate('/eleves')}>
                             <ArrowLeft className="h-4 w-4" />
                             Retour aux élèves
@@ -176,6 +268,10 @@ export function ElevesSansClassePage() {
                     onClose={() => setShowImport(false)}
                     onImported={invalidate}
                 />
+            )}
+
+            {showNettoyage && (
+                <NettoyageDoublonsModal onClose={() => setShowNettoyage(false)} onSupprime={invalidate} />
             )}
         </div>
     )

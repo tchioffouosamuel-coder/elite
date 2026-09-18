@@ -8,6 +8,7 @@ use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Sequence;
 use App\Models\Trimestre;
+use App\Models\Tuteur;
 use App\Support\ListeClasseColonnes;
 use App\Support\Pdf\ListeClassePersonnaliseeGenerator;
 use App\Support\Word\EnTeteWord;
@@ -28,8 +29,10 @@ use PhpOffice\PhpWord\SimpleType\JcTable;
  * antérieure) réutilisent {@see ScolariteService::situation()}, déjà
  * responsable de ce calcul pour le recouvrement — pas de second calcul
  * susceptible de diverger. « Situation transport » se déduit de
- * {@see BusAffectation}, et « moyenne » de {@see MoyenneService} ou
- * {@see MoyennePrimaireService} selon que l'école est secondaire ou non.
+ * {@see BusAffectation}, « moyenne » et « absences » de {@see MoyenneService}
+ * / {@see MoyennePrimaireService} et {@see DisciplineService} sur la même
+ * période choisie (trimestre, séquence ou année), et les colonnes parent de
+ * {@see Eleve::tuteurs()}.
  */
 class ListeClassePersonnaliseeService extends BaseService
 {
@@ -37,10 +40,13 @@ class ListeClassePersonnaliseeService extends BaseService
 
     private const ARDOISE = '292F36';
 
+    private const COLONNES_PARENTS = ['nom_parent', 'numero_parent', 'nom_pere', 'numero_pere', 'nom_mere', 'numero_mere'];
+
     public function __construct(
         private readonly ScolariteService $scolariteService,
         private readonly MoyenneService $moyenneService,
         private readonly MoyennePrimaireService $moyennePrimaireService,
+        private readonly DisciplineService $disciplineService,
     ) {}
 
     /**
@@ -49,9 +55,13 @@ class ListeClassePersonnaliseeService extends BaseService
      */
     public function construireLignes(Classe $classe, array $colonnes, ?string $moyenneType = null, ?int $moyenneReferenceId = null): array
     {
+        $classe->loadMissing('school');
+        $besoinParents = array_intersect($colonnes, self::COLONNES_PARENTS) !== [];
+
         $eleves = Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
             ->where('statut', 'actif')
+            ->when($besoinParents, fn ($q) => $q->with('tuteurs'))
             ->orderBy('nom_complet')
             ->get();
 
@@ -60,12 +70,16 @@ class ListeClassePersonnaliseeService extends BaseService
         $moyennes = in_array('moyenne', $colonnes, true)
             ? $this->moyennesParEleve($classe, $eleves, $moyenneType, $moyenneReferenceId)
             : collect();
+        $absences = in_array('absences', $colonnes, true)
+            ? $this->absencesParEleve($classe, $moyenneType, $moyenneReferenceId)
+            : collect();
+        $uniteAbsence = $classe->school?->estSecondaire() ?? true ? 'h' : 'j';
 
         $lignes = [];
         foreach ($eleves as $index => $eleve) {
             $ligne = [];
             foreach ($colonnes as $colonne) {
-                $ligne[$colonne] = $this->valeurColonne($colonne, $eleve, $index + 1, $dossiersParEleve, $abonnesBus, $moyennes);
+                $ligne[$colonne] = $this->valeurColonne($colonne, $eleve, $index + 1, $dossiersParEleve, $abonnesBus, $moyennes, $absences, $uniteAbsence);
             }
             $lignes[] = $ligne;
         }
@@ -144,9 +158,77 @@ class ListeClassePersonnaliseeService extends BaseService
     }
 
     /**
+     * Absences non justifiées sur la même période que la moyenne (cf.
+     * $moyenneType/$moyenneReferenceId). Le suivi n'existe qu'au grain du
+     * trimestre ({@see DisciplineService::grille()}) : une séquence retombe
+     * donc sur les absences de tout son trimestre, faute de plus fin.
+     *
+     * @return Collection<int, float>
+     */
+    private function absencesParEleve(Classe $classe, ?string $moyenneType, ?int $moyenneReferenceId): Collection
+    {
+        return match ($moyenneType) {
+            'trimestre' => $this->absencesTrimestre($classe, $moyenneReferenceId ? Trimestre::find($moyenneReferenceId) : null),
+            'sequence' => $this->absencesTrimestre($classe, $moyenneReferenceId ? Sequence::find($moyenneReferenceId)?->trimestre : null),
+            'annuelle' => $this->absencesAnnuelles($classe),
+            default => collect(),
+        };
+    }
+
+    /** @return Collection<int, float> */
+    private function absencesTrimestre(Classe $classe, ?Trimestre $trimestre): Collection
+    {
+        if (! $trimestre) {
+            return collect();
+        }
+
+        return $this->disciplineService->grille($classe, $trimestre)
+            ->mapWithKeys(fn (array $ligne) => [$ligne['eleve_id'] => $ligne['non_justifiees']]);
+    }
+
+    /** @return Collection<int, float> */
+    private function absencesAnnuelles(Classe $classe): Collection
+    {
+        $annee = AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->first();
+
+        if (! $annee) {
+            return collect();
+        }
+
+        $total = collect();
+
+        foreach (Trimestre::where('annee_scolaire_id', $annee->id)->get() as $trimestre) {
+            $this->disciplineService->grille($classe, $trimestre)->each(function (array $ligne) use ($total) {
+                $total[$ligne['eleve_id']] = ($total[$ligne['eleve_id']] ?? 0) + $ligne['non_justifiees'];
+            });
+        }
+
+        return $total;
+    }
+
+    /** Père ou mère selon le lien de parenté du rattachement — même repérage que AttestationService::parent(). */
+    private function tuteurParRole(Eleve $eleve, string $role): ?Tuteur
+    {
+        $prefixes = $role === 'pere' ? ['pere', 'père', 'father'] : ['mere', 'mère', 'mother'];
+
+        return $eleve->tuteurs->first(function (Tuteur $tuteur) use ($prefixes) {
+            $lien = mb_strtolower(trim((string) $tuteur->pivot->lien_parente));
+
+            return $lien !== '' && collect($prefixes)->contains(fn (string $p) => str_starts_with($lien, $p));
+        });
+    }
+
+    /** Contact principal (pivot `is_principal`), ou à défaut le premier tuteur rattaché. */
+    private function tuteurPrincipal(Eleve $eleve): ?Tuteur
+    {
+        return $eleve->tuteurs->first(fn (Tuteur $t) => (bool) $t->pivot->is_principal) ?? $eleve->tuteurs->first();
+    }
+
+    /**
      * @param  Collection<int, mixed>  $dossiersParEleve
      * @param  Collection<int, bool>  $abonnesBus
      * @param  Collection<int, ?float>  $moyennes
+     * @param  Collection<int, float>  $absences
      */
     private function valeurColonne(
         string $colonne,
@@ -155,6 +237,8 @@ class ListeClassePersonnaliseeService extends BaseService
         Collection $dossiersParEleve,
         Collection $abonnesBus,
         Collection $moyennes,
+        Collection $absences,
+        string $uniteAbsence,
     ): string {
         return match ($colonne) {
             'numero' => (string) $rang,
@@ -163,10 +247,17 @@ class ListeClassePersonnaliseeService extends BaseService
             'lieu_naissance' => $eleve->lieu_naissance ?: '—',
             'sexe' => $eleve->sexe ?: '—',
             'age' => $eleve->age !== null ? (string) $eleve->age : '—',
+            'nom_parent' => $this->tuteurPrincipal($eleve)?->nom_complet ?: '—',
+            'numero_parent' => $this->tuteurPrincipal($eleve)?->telephone ?: '—',
+            'nom_pere' => $this->tuteurParRole($eleve, 'pere')?->nom_complet ?: '—',
+            'numero_pere' => $this->tuteurParRole($eleve, 'pere')?->telephone ?: '—',
+            'nom_mere' => $this->tuteurParRole($eleve, 'mere')?->nom_complet ?: '—',
+            'numero_mere' => $this->tuteurParRole($eleve, 'mere')?->telephone ?: '—',
             'statut_solvabilite' => $this->libelleStatutPaiement($dossiersParEleve->get($eleve->id)?->statut_paiement),
             'reste_scolarite_a_payer' => $this->montant($dossiersParEleve->get($eleve->id)?->reste_a_payer),
             'situation_transport' => $abonnesBus->get($eleve->id) ? 'Abonné' : 'Non abonné',
             'dette_anterieure' => $this->montant($dossiersParEleve->get($eleve->id)?->report_dette),
+            'absences' => $absences->has($eleve->id) ? number_format($absences->get($eleve->id), 1, ',', ' ').' '.$uniteAbsence : '—',
             'moyenne' => $moyennes->get($eleve->id) !== null ? number_format((float) $moyennes->get($eleve->id), 2, ',', ' ') : '—',
             default => '—',
         };
