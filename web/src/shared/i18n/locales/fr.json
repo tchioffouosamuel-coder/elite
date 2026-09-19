@@ -1375,6 +1375,7 @@
     "title": "Emploi du temps",
     "timeslot_deleted": "Créneau supprimé.",
     "deletion_failed": "Suppression impossible.",
+    "creneau_libre": "Libre",
     "jours": {
       "lundi": "Lundi",
       "mardi": "Mardi",

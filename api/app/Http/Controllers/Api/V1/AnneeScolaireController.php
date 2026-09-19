@@ -128,4 +128,19 @@ class AnneeScolaireController extends Controller
 
         return ApiResponse::success($resultat, "{$resultat['creees']} séance(s) générée(s) sur {$resultat['classes']} classe(s).");
     }
+
+    /** Retire les séances (non effectuées) de toutes les classes de l'année. */
+    public function supprimerSeances(int $id, Request $request, EmploiDuTempsService $service): JsonResponse
+    {
+        $schoolId = app('tenant.school_id');
+        $annee = AnneeScolaire::where('school_id', $schoolId)->findOrFail($id);
+
+        $classes = Classe::forSchool($schoolId)
+            ->dansPerimetre($request->user())
+            ->get();
+
+        $resultat = $service->supprimerSeancesPourClasses($classes, $annee->date_debut, $annee->date_fin, null);
+
+        return ApiResponse::success($resultat, "{$resultat['supprimees']} séance(s) supprimée(s) sur {$resultat['classes']} classe(s).");
+    }
 }

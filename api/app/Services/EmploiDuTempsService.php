@@ -216,8 +216,14 @@ class EmploiDuTempsService extends BaseService
          * Un cours en tronc commun est porté une fois et une seule : générer
          * aussi depuis les classes associées créerait une séance par classe
          * pour un cours unique, donc autant d'appels que de classes.
+         *
+         * Un créneau de type pause/activité (sans classe_matiere_id) ne
+         * correspond à aucun cours et ne doit pas produire de séance d'appel.
          */
-        $creneaux = EmploiDuTemps::where('classe_id', $classe->id)->get()->groupBy('jour');
+        $creneaux = EmploiDuTemps::where('classe_id', $classe->id)
+            ->whereNotNull('classe_matiere_id')
+            ->get()
+            ->groupBy('jour');
         $creees = 0;
 
         for ($jour = $debut->copy()->startOfDay(); $jour->lte($fin); $jour->addDay()) {
@@ -271,6 +277,42 @@ class EmploiDuTempsService extends BaseService
         }
 
         return ['creees' => $creees, 'classes' => $classes->count()];
+    }
+
+    /**
+     * Retire les séances matérialisées sur une période, pour repartir d'une
+     * grille propre avant une nouvelle génération (créneaux corrigés, quota
+     * changé, etc.). Une séance dont l'appel a déjà été pris
+     * (`statut = effectuee`) est préservée : la supprimer effacerait un
+     * historique de présence qu'aucune régénération ne recrée.
+     *
+     * @return int nombre de séances supprimées
+     */
+    public function supprimerSeances(Classe $classe, Carbon $debut, Carbon $fin, ?Trimestre $trimestre): int
+    {
+        return Seance::where('classe_id', $classe->id)
+            ->whereBetween('date_seance', [$debut->toDateString(), $fin->toDateString()])
+            ->when($trimestre, fn($q) => $q->where('trimestre_id', $trimestre->id))
+            ->where('statut', '!=', 'effectuee')
+            ->delete();
+    }
+
+    /**
+     * Pendant « en masse » de {@see supprimerSeances()}, pour purger un
+     * trimestre ou une année sans repasser classe par classe.
+     *
+     * @param Collection<int, Classe> $classes
+     * @return array{supprimees: int, classes: int}
+     */
+    public function supprimerSeancesPourClasses(Collection $classes, Carbon $debut, Carbon $fin, ?Trimestre $trimestre): array
+    {
+        $supprimees = 0;
+
+        foreach ($classes as $classe) {
+            $supprimees += $this->supprimerSeances($classe, $debut, $fin, $trimestre);
+        }
+
+        return ['supprimees' => $supprimees, 'classes' => $classes->count()];
     }
 
     /**

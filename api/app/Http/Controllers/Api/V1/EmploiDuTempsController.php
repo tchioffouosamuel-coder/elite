@@ -187,6 +187,32 @@ class EmploiDuTempsController extends Controller
         return ApiResponse::success(['creees' => $creees], "{$creees} séance(s) générée(s).");
     }
 
+    /** Retire les séances (non effectuées) de cette classe sur une période. */
+    public function supprimerSeances(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+
+        $data = $request->validate([
+            'date_debut' => ['required', 'date'],
+            'date_fin' => ['required', 'date', 'after_or_equal:date_debut'],
+            'trimestre_id' => ['nullable', 'integer'],
+        ]);
+
+        $trimestre = $data['trimestre_id'] ?? null
+            ? Trimestre::whereHas('anneeScolaire', fn($q) => $q->where('school_id', $classe->school_id))
+            ->find($data['trimestre_id'])
+            : null;
+
+        $supprimees = $this->service->supprimerSeances(
+            $classe,
+            Carbon::parse($data['date_debut']),
+            Carbon::parse($data['date_fin']),
+            $trimestre,
+        );
+
+        return ApiResponse::success(['supprimees' => $supprimees], "{$supprimees} séance(s) supprimée(s).");
+    }
+
     /**
      * Import de l'emploi du temps de cette classe, dans la forme produite par
      * {@see export()} : les créneaux déjà en place restent (aucune purge

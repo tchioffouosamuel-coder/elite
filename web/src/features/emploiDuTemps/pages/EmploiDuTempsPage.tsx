@@ -47,6 +47,71 @@ function enMinutes(heure: string): number {
   return h * 60 + m
 }
 
+type Periode = readonly [string, string]
+
+function versHeure(minutes: number): string {
+  const h = Math.floor(minutes / 60).toString().padStart(2, '0')
+  const m = (minutes % 60).toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+
+function periodesRegulieres(debut: string, fin: string, dureeMinutes: number): Periode[] {
+  const periodes: Periode[] = []
+  const finMin = enMinutes(fin)
+
+  for (let curseur = enMinutes(debut); curseur < finMin; curseur += dureeMinutes) {
+    periodes.push([versHeure(curseur), versHeure(curseur + dureeMinutes)])
+  }
+
+  return periodes
+}
+
+/**
+ * Grille horaire fixe : chaque créneau du planning s'aligne sur l'une de ces
+ * périodes (ou en couvre plusieurs à la suite), ce qui permet de repérer d'un
+ * coup d'œil les cases vides plutôt que de les laisser disparaître entre deux
+ * cours empilés. Le secondaire suit des blocs de cours irréguliers ; le
+ * primaire et la maternelle, des demi-heures régulières.
+ */
+const PERIODES_SECONDAIRE: readonly Periode[] = [
+  ['07:00', '07:30'],
+  ['07:30', '08:20'],
+  ['08:20', '09:10'],
+  ['09:10', '10:00'],
+  ['10:00', '10:50'],
+  ['10:50', '11:10'],
+  ['11:10', '12:00'],
+  ['12:00', '12:50'],
+  ['12:50', '13:20'],
+  ['13:20', '14:10'],
+  ['14:10', '15:00'],
+  ['15:00', '15:50'],
+]
+
+const PERIODES_PRIMAIRE_MATERNELLE: readonly Periode[] = periodesRegulieres('07:00', '15:30', 30)
+
+/**
+ * Première et dernière période chevauchées par un créneau — un cours qui
+ * couvre plusieurs périodes doit occuper une seule carte étirée sur toutes,
+ * pas une carte par période. Le chevauchement (plutôt qu'une égalité stricte
+ * des bornes) tolère un créneau qui ne tomberait pas pile sur la grille.
+ */
+function plagePeriodes(periodes: readonly Periode[], heureDebut: string, heureFin: string): { debut: number; fin: number } | null {
+  const debutMin = enMinutes(heureDebut)
+  const finMin = enMinutes(heureFin)
+  let debut = -1
+  let fin = -1
+
+  periodes.forEach(([pDebut, pFin], index) => {
+    if (debutMin < enMinutes(pFin) && finMin > enMinutes(pDebut)) {
+      if (debut === -1) debut = index
+      fin = index
+    }
+  })
+
+  return debut === -1 ? null : { debut, fin }
+}
+
 export function EmploiDuTempsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
@@ -325,46 +390,17 @@ export function EmploiDuTempsPage() {
           <EmptyState label={t('emploiDuTemps.empty_creneaux')} />
         </Card>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-navy-100 bg-white">
-          {/* Chaque jour empile ses créneaux à la suite les uns des autres,
-              dans l'ordre chronologique, plutôt que de les caler sur une
-              grille d'heures communes : un cours qui démarre à 08h20 ne
-              laisse plus de case vide sous celui qui le précède. */}
-          <div className="grid min-w-[820px]" style={{ gridTemplateColumns: `repeat(${JOURS.length}, minmax(0, 1fr))` }}>
-            {JOURS.map((jour) => (
-              <div
-                key={jour.valeur}
-                className="border-b border-l border-navy-100 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wide text-navy-500 first:border-l-0"
-              >
-                {t(`emploiDuTemps.jours.${jour.libelle}`)}
-              </div>
-            ))}
-            {JOURS.map((jour) => {
-              const duJour = creneauxParJour.get(jour.valeur) ?? []
-              return (
-                <div key={jour.valeur} className="flex flex-col gap-1 border-l border-navy-50 p-1.5 first:border-l-0">
-                  {duJour.length === 0 ? (
-                    <p className="px-1 py-2 text-center text-xs text-navy-300">—</p>
-                  ) : (
-                    duJour.map((c) => (
-                      <CelluleCreneau
-                        key={c.id}
-                        creneau={c}
-                        classeId={Number(classeId)}
-                        peutGerer={peutGerer}
-                        modeSelection={modeSelection}
-                        selectionne={selectedIds.has(c.id)}
-                        onBasculerSelection={() => basculerSelection(c.id)}
-                        onModifier={() => setCreneauEnEdition(c)}
-                        onSupprimer={() => supprimerCreneau(c)}
-                      />
-                    ))
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <GrillePeriodes
+          periodes={estSecondaire() ? PERIODES_SECONDAIRE : PERIODES_PRIMAIRE_MATERNELLE}
+          creneauxParJour={creneauxParJour}
+          classeId={Number(classeId)}
+          peutGerer={peutGerer}
+          modeSelection={modeSelection}
+          selectedIds={selectedIds}
+          onBasculerSelection={basculerSelection}
+          onModifier={setCreneauEnEdition}
+          onSupprimer={supprimerCreneau}
+        />
       )}
 
       {formOuvert && classeActive && (
@@ -432,6 +468,138 @@ export function EmploiDuTempsPage() {
   )
 }
 
+/**
+ * Grille horaire par périodes fixes : les périodes ({@see PERIODES_SECONDAIRE},
+ * {@see PERIODES_PRIMAIRE_MATERNELLE}) composent les lignes, les jours les
+ * colonnes. Un créneau qui couvre plusieurs périodes n'occupe qu'une seule
+ * carte étirée sur toute sa durée (`grid-row` en span), et toute période
+ * qu'aucun créneau ne couvre apparaît en rouge — c'est elle, pas l'absence de
+ * carte, qui dit qu'il n'y a rien de prévu à cette heure-là.
+ */
+function GrillePeriodes({
+  periodes,
+  creneauxParJour,
+  classeId,
+  peutGerer,
+  modeSelection,
+  selectedIds,
+  onBasculerSelection,
+  onModifier,
+  onSupprimer,
+}: {
+  periodes: readonly Periode[]
+  creneauxParJour: Map<number, Creneau[]>
+  classeId: number
+  peutGerer: boolean
+  modeSelection: boolean
+  selectedIds: Set<number>
+  onBasculerSelection: (id: number) => void
+  onModifier: (creneau: Creneau) => void
+  onSupprimer: (creneau: Creneau) => void
+}) {
+  const { t } = useTranslation()
+
+  // Une case par période et par jour : soit le créneau qui l'ouvre (celui qui
+  // suit se déduit de son span), soit 'occupee' pour une période déjà couverte
+  // par le span d'un créneau précédent, soit `null` pour une période libre.
+  const occupationParJour = useMemo(() => {
+    const carte = new Map<number, Array<Creneau | 'occupee' | null>>()
+
+    JOURS.forEach((jour) => {
+      const cases: Array<Creneau | 'occupee' | null> = new Array(periodes.length).fill(null)
+
+      for (const creneau of creneauxParJour.get(jour.valeur) ?? []) {
+        const plage = plagePeriodes(periodes, creneau.heure_debut, creneau.heure_fin)
+        if (!plage) continue
+
+        cases[plage.debut] = creneau
+        for (let i = plage.debut + 1; i <= plage.fin; i++) cases[i] = 'occupee'
+      }
+
+      carte.set(jour.valeur, cases)
+    })
+
+    return carte
+  }, [creneauxParJour, periodes])
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+      <div
+        className="grid min-w-[960px]"
+        style={{
+          gridTemplateColumns: `88px repeat(${JOURS.length}, minmax(0, 1fr))`,
+          gridTemplateRows: `auto repeat(${periodes.length}, minmax(52px, auto))`,
+        }}
+      >
+        <div className="border-b border-navy-100 bg-cream-50" style={{ gridColumn: 1, gridRow: 1 }} />
+        {JOURS.map((jour, index) => (
+          <div
+            key={jour.valeur}
+            className="border-b border-l border-navy-100 px-2 py-2.5 text-center text-xs font-bold uppercase tracking-wide text-navy-500"
+            style={{ gridColumn: index + 2, gridRow: 1 }}
+          >
+            {t(`emploiDuTemps.jours.${jour.libelle}`)}
+          </div>
+        ))}
+
+        {periodes.map(([debut, fin], index) => (
+          <div
+            key={`${debut}-${fin}`}
+            className="flex flex-col items-center justify-center border-b border-navy-50 bg-cream-50 px-1 py-1 text-center text-[11px] font-semibold text-navy-500"
+            style={{ gridColumn: 1, gridRow: index + 2 }}
+          >
+            <span>{debut}</span>
+            <span className="text-navy-300">–</span>
+            <span>{fin}</span>
+          </div>
+        ))}
+
+        {JOURS.map((jour, jourIndex) => {
+          const cases = occupationParJour.get(jour.valeur) ?? []
+
+          return cases.map((valeur, periodeIndex) => {
+            if (valeur === 'occupee') return null
+
+            const colonne = jourIndex + 2
+            const ligne = periodeIndex + 2
+
+            if (valeur === null) {
+              return (
+                <div
+                  key={`${jour.valeur}-${periodeIndex}`}
+                  className="m-0.5 flex items-center justify-center rounded-lg bg-red-50 text-[11px] font-semibold uppercase tracking-wide text-red-400 ring-1 ring-red-100"
+                  style={{ gridColumn: colonne, gridRow: ligne }}
+                >
+                  {t('emploiDuTemps.creneau_libre')}
+                </div>
+              )
+            }
+
+            const plage = plagePeriodes(periodes, valeur.heure_debut, valeur.heure_fin)
+            const span = plage ? plage.fin - plage.debut + 1 : 1
+
+            return (
+              <div key={valeur.id} className="m-0.5" style={{ gridColumn: colonne, gridRow: `${ligne} / span ${span}` }}>
+                <CelluleCreneau
+                  creneau={valeur}
+                  classeId={classeId}
+                  peutGerer={peutGerer}
+                  modeSelection={modeSelection}
+                  selectionne={selectedIds.has(valeur.id)}
+                  onBasculerSelection={() => onBasculerSelection(valeur.id)}
+                  onModifier={() => onModifier(valeur)}
+                  onSupprimer={() => onSupprimer(valeur)}
+                  pleineHauteur
+                />
+              </div>
+            )
+          })
+        })}
+      </div>
+    </div>
+  )
+}
+
 function CelluleCreneau({
   creneau,
   classeId,
@@ -441,6 +609,7 @@ function CelluleCreneau({
   onBasculerSelection,
   onModifier,
   onSupprimer,
+  pleineHauteur = false,
 }: {
   creneau: Creneau
   classeId: number
@@ -450,6 +619,8 @@ function CelluleCreneau({
   onBasculerSelection: () => void
   onModifier: () => void
   onSupprimer: () => void
+  /** Dans la grille par périodes, la carte doit remplir toute la hauteur de son span plutôt que de s'empiler avec une marge. */
+  pleineHauteur?: boolean
 }) {
   const { t } = useTranslation()
   // Un créneau de tronc commun porté par une autre classe n'est ni éditable,
@@ -458,7 +629,7 @@ function CelluleCreneau({
 
   return (
     <div
-      className={`group relative mb-1 rounded-lg px-2 py-1.5 ring-1 ${creneau.type === 'pause' ? 'bg-blue-50 ring-blue-200' : creneau.type === 'activite' ? 'bg-yellow-50 ring-yellow-200' : 'bg-gold-50 ring-gold-200'} ${modeSelection && gerable ? 'cursor-pointer pl-7' : ''
+      className={`group relative rounded-lg px-2 py-1.5 ring-1 ${pleineHauteur ? 'h-full' : 'mb-1'} ${creneau.type === 'pause' ? 'bg-blue-50 ring-blue-200' : creneau.type === 'activite' ? 'bg-yellow-50 ring-yellow-200' : 'bg-gold-50 ring-gold-200'} ${modeSelection && gerable ? 'cursor-pointer pl-7' : ''
         } ${selectionne ? 'bg-gold-100 ring-2 ring-gold-400' : ''}`}
       onClick={modeSelection && gerable ? onBasculerSelection : undefined}
     >

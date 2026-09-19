@@ -1375,6 +1375,7 @@
     "title": "Schedule",
     "timeslot_deleted": "Timeslot deleted.",
     "deletion_failed": "Deletion failed.",
+    "creneau_libre": "Free",
     "jours": {
       "lundi": "Monday",
       "mardi": "Tuesday",

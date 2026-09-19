@@ -371,6 +371,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('annees-scolaires/{id}', [AnneeScolaireController::class, 'update'])->name('annees.update');
                 Route::post('annees-scolaires/{id}/activer', [AnneeScolaireController::class, 'activate'])->name('annees.activate');
                 Route::post('annees-scolaires/{id}/generer-seances', [AnneeScolaireController::class, 'genererSeances'])->name('annees.generer-seances');
+                Route::post('annees-scolaires/{id}/supprimer-seances', [AnneeScolaireController::class, 'supprimerSeances'])->name('annees.supprimer-seances');
                 Route::post('annees-scolaires/{id}/archiver', [AnneeScolaireController::class, 'archiver'])->name('annees.archiver');
                 Route::post('annees-scolaires/{id}/basculer', [AnneeScolaireController::class, 'basculer'])->name('annees.basculer');
 
@@ -781,6 +782,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update');
                 Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate');
                 Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances');
+                Route::post('trimestres/{id}/supprimer-seances', [TrimestreController::class, 'supprimerSeances'])->name('trimestres.supprimer-seances');
             });
 
             Route::middleware('permission:notes.view')->group(function () {
@@ -897,6 +899,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
                 Route::post('classes/{classeId}/emploi-du-temps/batch-delete', [EmploiDuTempsController::class, 'batchDelete'])->name('edt.batch-delete');
                 Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
+                Route::post('classes/{classeId}/emploi-du-temps/supprimer-seances', [EmploiDuTempsController::class, 'supprimerSeances'])->name('edt.supprimer-seances');
                 Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier');
                 Route::post('classes/{classeId}/emploi-du-temps/import', [EmploiDuTempsController::class, 'import'])->name('edt.import');
                 Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
