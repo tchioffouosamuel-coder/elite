@@ -88,6 +88,20 @@ export function PreinscriptionsAdminPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const can = useAuthStore((s) => s.can)
+  const user = useAuthStore((s) => s.user)
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+
+  // Un super admin en mode agrégé n'a, par défaut, aucune école ciblée pour
+  // l'import : côté serveur, `Tenant::schoolId()` en choisirait alors une au
+  // hasard et les classes du fichier (souvent d'une autre école du complexe)
+  // resteraient introuvables pour chaque ligne — même bug déjà corrigé sur
+  // l'import du bus (cf. BusAffectationsPage). Concentré sur une seule école
+  // (`activeSchoolId` posé via le SchoolSwitcher), il n'y a rien à choisir.
+  const ecolesImport =
+    user?.is_super_admin && !activeSchoolId && (user.ecoles_accessibles?.length ?? 0) > 1
+      ? user.ecoles_accessibles.map((e) => ({ id: e.id, nom: e.name }))
+      : undefined
+
   const [onglet, setOnglet] = useState<'preinscriptions' | 'non-inscrits'>('preinscriptions')
   const [statut, setStatut] = useState<Statut | ''>('en_attente')
   const [recherche, setRecherche] = useState('')
@@ -327,6 +341,7 @@ export function PreinscriptionsAdminPage() {
               importUrl="preinscriptions/import"
               decoupe={{ preparerUrl: 'preinscriptions/import/preparer', traiterUrl: 'preinscriptions/import/traiter' }}
               anneesScolaires={anneesScolaires}
+              ecoles={ecolesImport}
               exportUrl={onglet === 'non-inscrits' ? 'preinscriptions/non-inscrits/export' : 'preinscriptions/export'}
               modeleUrl="preinscriptions/modele"
               colonnes={[

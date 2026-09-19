@@ -8,16 +8,64 @@ use App\Http\Resources\Api\V1\RemiseResource;
 use App\Models\AnneeScolaire;
 use App\Models\Eleve;
 use App\Models\Remise;
+use App\Models\School;
 use App\Services\ScolariteService;
+use App\Support\Pdf\RemisesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 /** Remises individuelles sur la scolarité — plusieurs lignes motivées par élève et par année. */
 class RemiseController extends Controller
 {
     public function __construct(private readonly ScolariteService $service) {}
+
+    /**
+     * Export PDF des remises accordées sur le périmètre visible (toutes
+     * écoles du tenant, ou une seule si précisée), filtrable par classe et
+     * par année scolaire — sans filtre d'année, celles actives par école.
+     */
+    public function pdf(Request $request): Response
+    {
+        $schoolIds = $this->schoolIds($request);
+        $classeId = $request->integer('classe_id') ?: null;
+        $anneeId = $request->integer('annee_scolaire_id') ?: null;
+
+        $anneeIds = $anneeId
+            ? [$anneeId]
+            : AnneeScolaire::whereIn('school_id', $schoolIds)->where('is_active', true)->pluck('id')->all();
+
+        $remises = Remise::forSchool($schoolIds)
+            ->whereIn('annee_scolaire_id', $anneeIds)
+            ->when($classeId, fn($q, $classeId) => $q->whereHas('eleve', fn($eq) => $eq->where('classe_id', $classeId)))
+            ->with(['eleve.classe', 'accordePar'])
+            ->orderBy('created_at')
+            ->get();
+
+        $school = School::whereIn('id', $schoolIds)->first();
+
+        $pdf = (new RemisesGenerator)->build($school, $remises);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="liste-remises.pdf"',
+        ]);
+    }
+
+    /** @return list<int> */
+    private function schoolIds(Request $request): array
+    {
+        $requested = $request->integer('school_id');
+        if (! $requested) {
+            return Tenant::schoolIds();
+        }
+
+        abort_unless(in_array($requested, Tenant::schoolIds(), true), 403, "Cet établissement n'est pas accessible à votre compte.");
+
+        return [$requested];
+    }
 
     public function index(Request $request, int $eleveId): JsonResponse
     {

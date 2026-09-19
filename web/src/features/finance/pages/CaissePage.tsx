@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History, Settings2 } from 'lucide-react'
+import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History, Settings2, FileDown } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -276,6 +276,13 @@ export function CaissePage() {
             <Button variant="secondary" onClick={() => navigate('/caisse/insolvables')}>
               <ListFilter className="h-4 w-4" />
               Insolvables
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => ouvrirDocument('/finance/remises/pdf', classeId ? { classe_id: classeId } : undefined)}
+            >
+              <FileDown className="h-4 w-4" />
+              Remises
             </Button>
           </>
         }
