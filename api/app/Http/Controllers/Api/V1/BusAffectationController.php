@@ -8,10 +8,15 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Imports\BusSouscriptionImport;
 use App\Models\BusAffectation;
+use App\Models\BusArret;
+use App\Models\BusTrajet;
+use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\School;
 use App\Services\BusPaiementService;
 use App\Services\BusService;
 use App\Services\PreinscriptionService;
+use App\Support\Pdf\ListePersonnaliseeBusGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +25,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class BusAffectationController extends Controller
 {
@@ -54,6 +60,53 @@ class BusAffectationController extends Controller
     public function stats(): JsonResponse
     {
         return ApiResponse::success($this->service->statistiques(Tenant::schoolIds()));
+    }
+
+    /**
+     * Liste personnalisée : les affectations filtrées (classe, trajet,
+     * destination, sens, nom) et éventuellement regroupées, pour composer à
+     * la volée le manifeste dont on a besoin (une classe entière, un
+     * quartier, une fratrie…) sans passer par un trajet ou un véhicule précis.
+     */
+    public function listePersonnalisee(Request $request): JsonResponse
+    {
+        $filtres = $this->filtresListePersonnalisee($request);
+        $groupePar = $this->groupePar($request);
+
+        $affectations = $this->service->listerPourImpression(Tenant::schoolIds(), $filtres);
+        $resumes = $affectations->map(fn(BusAffectation $a) => $this->resumer($a))->values();
+
+        $resultats = $groupePar
+            ? $resumes->groupBy(fn(array $r) => $this->cleGroupe($r, $groupePar))->map->values()
+            : $resumes;
+
+        return ApiResponse::success([
+            'group_by' => $groupePar,
+            'total' => $affectations->count(),
+            'resultats' => $resultats,
+        ]);
+    }
+
+    /** Même filtrage que `listePersonnalisee`, restitué en PDF imprimable. */
+    public function listePersonnaliseePdf(Request $request): Response
+    {
+        $filtres = $this->filtresListePersonnalisee($request);
+        $groupePar = $this->groupePar($request);
+
+        $affectations = $this->service->listerPourImpression(Tenant::schoolIds(), $filtres);
+        $ecole = School::findOrFail(Tenant::schoolId());
+
+        $pdf = (new ListePersonnaliseeBusGenerator)->build(
+            $affectations,
+            $groupePar,
+            $this->filtresLabel($filtres),
+            $ecole,
+        );
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="liste-personnalisee-bus.pdf"',
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -263,6 +316,73 @@ class BusAffectationController extends Controller
             // massif — jamais engagés pour l'année active.
             'preinscrit_annee_active' => $this->preinscriptions->estPreinscritAnneeActive($eleve),
         ];
+    }
+
+    private const GROUPES_VALIDES = ['classe', 'trajet', 'arret', 'option_trajet'];
+
+    /** @return array{classe_id?: int, trajet_id?: int, arret_id?: int, option_trajet?: string, statut?: string, nom?: string} */
+    private function filtresListePersonnalisee(Request $request): array
+    {
+        return array_filter([
+            'classe_id' => $request->integer('classe_id') ?: null,
+            'trajet_id' => $request->integer('trajet_id') ?: null,
+            'arret_id' => $request->integer('arret_id') ?: null,
+            'option_trajet' => $request->string('option_trajet')->toString() ?: null,
+            'statut' => $request->string('statut')->toString() ?: null,
+            'nom' => $request->string('nom')->toString() ?: null,
+        ], fn($v) => $v !== null);
+    }
+
+    private function groupePar(Request $request): ?string
+    {
+        $groupe = $request->string('group_by')->toString() ?: null;
+
+        return in_array($groupe, self::GROUPES_VALIDES, true) ? $groupe : null;
+    }
+
+    /** @param array<string, mixed> $resume */
+    private function cleGroupe(array $resume, string $groupePar): string
+    {
+        return match ($groupePar) {
+            'classe' => $resume['eleve']['classe'] ?: 'Sans classe',
+            'trajet' => $resume['trajet']['nom'] ?: 'Sans trajet',
+            'arret' => $resume['arret']['nom'] ?? 'Sans arrêt',
+            'option_trajet' => $resume['option_trajet'],
+            default => '—',
+        };
+    }
+
+    private const LIBELLES_OPTION_TRAJET = [
+        'aller_simple' => 'Aller simple',
+        'retour_simple' => 'Retour simple',
+        'aller_retour' => 'Aller-retour',
+    ];
+
+    /** Libellés lisibles des filtres actifs, pour le bandeau du PDF. */
+    private function filtresLabel(array $filtres): array
+    {
+        $labels = [];
+
+        if (isset($filtres['classe_id'])) {
+            $labels['Classe'] = Classe::find($filtres['classe_id'])?->nom ?? (string) $filtres['classe_id'];
+        }
+        if (isset($filtres['trajet_id'])) {
+            $labels['Trajet'] = BusTrajet::find($filtres['trajet_id'])?->nom ?? (string) $filtres['trajet_id'];
+        }
+        if (isset($filtres['arret_id'])) {
+            $labels['Arrêt'] = BusArret::find($filtres['arret_id'])?->nom ?? (string) $filtres['arret_id'];
+        }
+        if (isset($filtres['option_trajet'])) {
+            $labels['Sens'] = self::LIBELLES_OPTION_TRAJET[$filtres['option_trajet']] ?? $filtres['option_trajet'];
+        }
+        if (isset($filtres['nom'])) {
+            $labels['Nom'] = $filtres['nom'];
+        }
+        if (isset($filtres['statut'])) {
+            $labels['Statut'] = $filtres['statut'];
+        }
+
+        return $labels;
     }
 
     private function affectation(int $id): BusAffectation

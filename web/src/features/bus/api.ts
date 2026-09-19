@@ -1,4 +1,5 @@
 import { http } from "@/shared/lib/http";
+import { ouvrirDocument } from "@/shared/lib/download";
 import type { ApiResponse } from "@/shared/types/api";
 import type { CanalNotification } from "@/shared/ui/CanauxNotificationField";
 
@@ -360,6 +361,62 @@ export async function retirerAffectationsLot(ids: number[]): Promise<{ retirees:
     { data: { ids } },
   );
   return data.data;
+}
+
+// ---- Liste personnalisée --------------------------------------------------
+
+export type GroupeListeBus = "classe" | "trajet" | "arret" | "option_trajet";
+
+export interface FiltresListeBus {
+  classe_id?: number;
+  trajet_id?: number;
+  arret_id?: number;
+  option_trajet?: OptionTrajet;
+  statut?: "actif" | "suspendu";
+  nom?: string;
+  group_by?: GroupeListeBus;
+}
+
+export interface ListePersonnaliseeBus {
+  group_by: GroupeListeBus | null;
+  total: number;
+  /** À plat si `group_by` est vide, sinon un tableau d'affectations par groupe (clé = libellé du groupe). */
+  resultats: BusAffectation[] | Record<string, BusAffectation[]>;
+}
+
+function paramsListeBus(filtres: FiltresListeBus) {
+  return {
+    classe_id: filtres.classe_id || undefined,
+    trajet_id: filtres.trajet_id || undefined,
+    arret_id: filtres.arret_id || undefined,
+    option_trajet: filtres.option_trajet || undefined,
+    statut: filtres.statut || undefined,
+    nom: filtres.nom || undefined,
+    group_by: filtres.group_by || undefined,
+  };
+}
+
+/** Liste filtrable/regroupable des élèves transportés — classe, trajet, arrêt, sens ou nom, seuls ou combinés. */
+export async function fetchListePersonnaliseeBus(
+  filtres: FiltresListeBus,
+): Promise<ListePersonnaliseeBus> {
+  const { data } = await http.get<ApiResponse<ListePersonnaliseeBus>>(
+    "/bus/affectations/liste-personnalisee",
+    { params: paramsListeBus(filtres) },
+  );
+  return data.data;
+}
+
+/** Aperçu PDF de la liste personnalisée, mêmes filtres — via `ouvrirDocument`, seul moyen de charger un PDF authentifié. */
+export async function apercuListePersonnaliseeBusPdf(
+  filtres: FiltresListeBus,
+): Promise<void> {
+  await ouvrirDocument(
+    "/bus/affectations/liste-personnalisee/pdf",
+    paramsListeBus(filtres) as Record<string, string | number | undefined>,
+    undefined,
+    "Liste personnalisée — transport scolaire",
+  );
 }
 
 // ---- Paiement mensuel -----------------------------------------------------

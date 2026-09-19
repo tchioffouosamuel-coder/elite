@@ -1152,6 +1152,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
+                Route::get('bus/affectations/liste-personnalisee', [BusAffectationController::class, 'listePersonnalisee'])->name('bus.affectations.liste-personnalisee');
+                Route::get('bus/affectations/liste-personnalisee/pdf', [BusAffectationController::class, 'listePersonnaliseePdf'])->name('bus.affectations.liste-personnalisee-pdf');
                 Route::get('bus/affectations/export', [BusAffectationController::class, 'export'])->name('bus.affectations.export');
                 Route::get('bus/affectations/modele', [BusAffectationController::class, 'modele'])->name('bus.affectations.modele');
                 Route::get('bus/eleves', [BusAffectationController::class, 'eleves'])->name('bus.eleves');

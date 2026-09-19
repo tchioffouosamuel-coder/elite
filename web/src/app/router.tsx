@@ -60,6 +60,7 @@ import { BusTrajetsPage } from '@/features/bus/pages/BusTrajetsPage'
 import { BusTrajetDetailPage } from '@/features/bus/pages/BusTrajetDetailPage'
 import { BusArretsPage } from '@/features/bus/pages/BusArretsPage'
 import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
+import { BusListePersonnaliseePage } from '@/features/bus/pages/BusListePersonnaliseePage'
 import { BusSouscriptionPage } from '@/features/bus/pages/BusSouscriptionPage'
 import { BusPaiementPage } from '@/features/bus/pages/BusPaiementPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
@@ -236,6 +237,7 @@ export const router = createHashRouter([
       { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
       { path: 'bus/arrets', element: <ProtectedRoute permission="bus.view"><BusArretsPage /></ProtectedRoute> },
       { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
+      { path: 'bus/liste-personnalisee', element: <ProtectedRoute permission="bus.view"><BusListePersonnaliseePage /></ProtectedRoute> },
       { path: 'bus/souscription', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.manage"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/affectations/:affectationId/paiements', element: <ProtectedRoute permission="bus.view"><BusPaiementPage /></ProtectedRoute> },

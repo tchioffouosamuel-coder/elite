@@ -359,6 +359,7 @@ const navGroups = [
       { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['itineraires', 'routes'] },
       { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['stops', 'points de ramassage'] },
       { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['eleves transport', 'affectation bus'] },
+      { to: '/bus/liste-personnalisee', label: 'nav.busListePersonnalisee', icon: ClipboardList, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['liste personnalisee', 'manifeste', 'regroupement'] },
     ],
   },
   {

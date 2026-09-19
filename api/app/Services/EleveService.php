@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -148,6 +149,7 @@ class EleveService extends BaseService
         // que de planter la requête.
         $dimensions = @getimagesize($chemin);
         if ($dimensions === false) {
+            $this->logPhotoIllisible($eleve, $file, $chemin);
             throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
         }
         [$width, $height] = $dimensions;
@@ -167,6 +169,7 @@ class EleveService extends BaseService
             // un fichier illisible plutôt que de faire planter la requête.
             $source = @imagecreatefromstring(file_get_contents($chemin));
             if ($source === false) {
+                $this->logPhotoIllisible($eleve, $file, $chemin);
                 throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
             }
 
@@ -196,6 +199,29 @@ class EleveService extends BaseService
         Storage::disk('public')->put($path, $contents);
 
         return $this->repository->update($eleve, ['photo_path' => $path]);
+    }
+
+    /**
+     * Trace le contexte d'un échec « image illisible » — sans ça, l'erreur
+     * renvoyée au client ne dit pas si le fichier reçu est vide, tronqué
+     * (upload interrompu en cours de route), ou dans un format que GD ne
+     * décode pas (ex. WebP/HEIC, non compilés dans l'extension gd de
+     * l'image Docker). Les 12 premiers octets (signature de format) suffisent
+     * à trancher sans avoir à rejouer l'upload.
+     */
+    private function logPhotoIllisible(Eleve $eleve, UploadedFile $file, string $chemin): void
+    {
+        $tailleDisque = @filesize($chemin);
+        $signature = @file_get_contents($chemin, false, null, 0, 12);
+
+        Log::warning('Photo illisible reçue pour un élève', [
+            'eleve_id' => $eleve->id,
+            'nom_original' => $file->getClientOriginalName(),
+            'mime_annonce' => $file->getClientMimeType(),
+            'taille_annoncee' => $file->getSize(),
+            'taille_sur_disque' => $tailleDisque,
+            'signature_hex' => $signature !== false ? bin2hex($signature) : null,
+        ]);
     }
 
     /**

@@ -215,6 +215,37 @@ class BusService extends BaseService
     }
 
     /**
+     * Liste personnalisée pour impression/export : mêmes affectations que
+     * `listerAffectations`, mais filtrables sur classe, arrêt (destination),
+     * sens (aller/retour) et nom de famille — pour composer, au moment de
+     * l'embarquement ou d'une communication, exactement le regroupement
+     * dont on a besoin (une classe, un quartier, une fratrie…).
+     *
+     * @param  int|array<int>  $schoolId
+     * @param  array{classe_id?: int, trajet_id?: int, arret_id?: int, option_trajet?: string, statut?: string, nom?: string}  $filtres
+     */
+    public function listerPourImpression(int|array $schoolId, array $filtres): Collection
+    {
+        return BusAffectation::whereHas('eleve', function ($q) use ($schoolId, $filtres) {
+            $q->forSchool($schoolId);
+            if (! empty($filtres['classe_id'])) {
+                $q->where('classe_id', $filtres['classe_id']);
+            }
+            if (! empty($filtres['nom'])) {
+                $q->where('nom_complet', 'like', '%' . $filtres['nom'] . '%');
+            }
+        })
+            ->when($filtres['trajet_id'] ?? null, fn($q, $id) => $q->where('trajet_id', $id))
+            ->when($filtres['arret_id'] ?? null, fn($q, $id) => $q->where('arret_id', $id))
+            ->when($filtres['option_trajet'] ?? null, fn($q, $opt) => $q->where('option_trajet', $opt))
+            ->when($filtres['statut'] ?? null, fn($q, $s) => $q->where('statut', $s))
+            ->with(['eleve.classe', 'eleve.school', 'trajet', 'arret'])
+            ->get()
+            ->sortBy(fn(BusAffectation $a) => $a->eleve?->nom_complet)
+            ->values();
+    }
+
+    /**
      * @param array<string, mixed> $donnees
      *
      * @throws RuntimeException si l'élève a déjà une affectation active.
