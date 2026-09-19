@@ -440,7 +440,7 @@ export function ImportModal({
               {erreurSelectionnee.erreurs.map((erreur) => (
                 <div key={`${erreur.lot ?? 0}-${erreur.ligne}`} className="flex flex-col gap-1 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
                   <div className="flex justify-between gap-3">
-                    <span className="font-semibold text-navy-800">Ligne {erreur.ligne} · {erreur.nom || 'Matière non renseignée'}</span>
+                    <span className="font-semibold text-navy-800">Ligne {erreur.ligne}{erreur.nom ? ` · ${erreur.nom}` : ''}</span>
                     {erreur.lot && <span className="text-navy-400">Lot {erreur.lot}</span>}
                   </div>
                   <span className="text-red-600">{erreur.message}</span>

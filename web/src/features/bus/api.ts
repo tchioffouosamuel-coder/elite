@@ -298,6 +298,18 @@ export async function fetchElevesTransport(
   return data.data;
 }
 
+export interface BusStats {
+  total_souscrits: number;
+  par_ecole: { school: School | null; souscrits: number }[];
+  mois_courant: { mois: string; du: number; paye: number; reste: number };
+}
+
+/** Effectif souscrit par école et situation financière du mois en cours — les tuiles au-dessus de la liste des élèves. */
+export async function fetchStatsTransport(): Promise<BusStats> {
+  const { data } = await http.get<ApiResponse<BusStats>>("/bus/stats");
+  return data.data;
+}
+
 export async function souscrireEleve(
   eleveId: number,
   payload: BusSouscriptionPayload,

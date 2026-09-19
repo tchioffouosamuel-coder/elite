@@ -50,6 +50,12 @@ class BusAffectationController extends Controller
         return ApiResponse::success($eleves->map(fn(Eleve $e) => $this->resumerEleve($e))->values());
     }
 
+    /** Effectif souscrit par école et situation financière du mois en cours — les tuiles au-dessus de la liste. */
+    public function stats(): JsonResponse
+    {
+        return ApiResponse::success($this->service->statistiques(Tenant::schoolIds()));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $donnees = $this->validerSouscription($request);

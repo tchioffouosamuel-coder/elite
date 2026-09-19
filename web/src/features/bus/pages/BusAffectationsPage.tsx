@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, Clock, MapPin, Trash2, UserPlus, Wallet } from 'lucide-react'
+import { Bus, Clock, MapPin, TrendingDown, TrendingUp, Trash2, UserPlus, Users, Wallet } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
   fetchElevesTransport,
+  fetchStatsTransport,
   retirerAffectation,
   retirerAffectationsLot,
   type EleveTransport,
@@ -15,6 +16,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { StatCard } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
@@ -66,13 +68,16 @@ export function BusAffectationsPage() {
     queryKey: ['bus-eleves', classeFiltre],
     queryFn: () => fetchElevesTransport(classeFiltre || undefined),
   })
-  const eleves = nonPreinscritsSeuls
+  const { data: stats } = useQuery({ queryKey: ['bus-stats'], queryFn: () => fetchStatsTransport() })
+  const eleves = (nonPreinscritsSeuls
     ? elevesBruts?.filter((e) => !e.preinscrit_annee_active)
     : elevesBruts
+  )?.slice().sort((a, b) => Number(!!b.bus) - Number(!!a.bus))
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bus-eleves'] })
     queryClient.invalidateQueries({ queryKey: ['bus-trajets'] })
+    queryClient.invalidateQueries({ queryKey: ['bus-stats'] })
   }
 
   const handleToggleSelect = (id: number) => {
@@ -331,6 +336,33 @@ export function BusAffectationsPage() {
           )
         }
       />
+
+      {stats && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.par_ecole.length > 1 ? (
+            stats.par_ecole
+              .filter((p) => p.school)
+              .map((p) => (
+                <StatCard key={p.school!.id} label={`Souscrits — ${p.school!.name}`} value={p.souscrits} icon={Users} accent="navy" />
+              ))
+          ) : (
+            <StatCard label="Souscrits au transport" value={stats.total_souscrits} icon={Users} accent="navy" />
+          )}
+          <StatCard
+            label={`Net perçu — ${stats.mois_courant.mois}`}
+            value={`${stats.mois_courant.paye.toLocaleString('fr-FR')} FCFA`}
+            icon={TrendingUp}
+            accent="green"
+            hint={`Dû ce mois-ci : ${stats.mois_courant.du.toLocaleString('fr-FR')} FCFA`}
+          />
+          <StatCard
+            label={`Net à recouvrer — ${stats.mois_courant.mois}`}
+            value={`${stats.mois_courant.reste.toLocaleString('fr-FR')} FCFA`}
+            icon={TrendingDown}
+            accent={stats.mois_courant.reste > 0 ? 'red' : 'green'}
+          />
+        </div>
+      )}
 
       {selectedIds.size > 0 && can('bus.manage') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">

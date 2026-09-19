@@ -1152,6 +1152,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/affectations/export', [BusAffectationController::class, 'export'])->name('bus.affectations.export');
                 Route::get('bus/affectations/modele', [BusAffectationController::class, 'modele'])->name('bus.affectations.modele');
                 Route::get('bus/eleves', [BusAffectationController::class, 'eleves'])->name('bus.eleves');
+                Route::get('bus/stats', [BusAffectationController::class, 'stats'])->name('bus.stats');
                 Route::get('bus/affectations/{id}/versements', [BusPaiementController::class, 'situation'])->name('bus.paiements.situation');
                 Route::get('bus/versements/{id}/recu', [BusPaiementController::class, 'recu'])->name('bus.paiements.recu');
             });

@@ -412,6 +412,72 @@ class BusService extends BaseService
         return $eleves;
     }
 
+    /**
+     * Vue d'ensemble des souscriptions actives : effectif par école, et ce
+     * que le mois en cours représente (dû, perçu, reste à recouvrer) — la
+     * même logique que `BusAffectation::situation_mensuelle`, agrégée sur
+     * toutes les souscriptions plutôt que sur une seule.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{
+     *   total_souscrits: int,
+     *   par_ecole: list<array{school: array{id: int, name: string, code: string}|null, souscrits: int}>,
+     *   mois_courant: array{mois: string, du: int, paye: int, reste: int},
+     * }
+     */
+    public function statistiques(int|array $schoolId): array
+    {
+        $moisCourant = \Illuminate\Support\Carbon::now()->startOfMonth();
+
+        $affectations = BusAffectation::whereHas('eleve', fn($q) => $q->forSchool($schoolId))
+            ->actives()
+            ->with(['eleve.school:id,name,code', 'anneeScolaire', 'versements' => fn($q) => $q
+                ->valides()
+                ->whereYear('mois', $moisCourant->year)
+                ->whereMonth('mois', $moisCourant->month)])
+            ->get();
+
+        $parEcole = $affectations
+            ->groupBy(fn(BusAffectation $a) => $a->eleve->school?->id ?? 0)
+            ->map(function (Collection $groupe) {
+                $school = $groupe->first()->eleve->school;
+
+                return [
+                    'school' => $school ? ['id' => $school->id, 'name' => $school->name, 'code' => $school->code] : null,
+                    'souscrits' => $groupe->count(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $du = 0;
+        $paye = 0;
+        foreach ($affectations as $affectation) {
+            $couvreMoisCourant = $affectation->mois_couverture->contains(fn($m) => $m->isSameMonth($moisCourant));
+            if (! $couvreMoisCourant) {
+                continue;
+            }
+
+            $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+            $remiseMois = (int) $affectation->versements->sum('remise');
+            $duMois = max(0, $tarif - $remiseMois);
+
+            $du += $duMois;
+            $paye += min($duMois, (int) $affectation->versements->sum('montant'));
+        }
+
+        return [
+            'total_souscrits' => $affectations->count(),
+            'par_ecole' => $parEcole,
+            'mois_courant' => [
+                'mois' => $moisCourant->format('Y-m'),
+                'du' => $du,
+                'paye' => $paye,
+                'reste' => max(0, $du - $paye),
+            ],
+        ];
+    }
+
     // ---- Notifications ------------------------------------------------
 
     public const TYPES_NOTIFICATION = ['retard', 'incident', 'changement_itineraire', 'autre'];
