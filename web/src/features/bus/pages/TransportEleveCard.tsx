@@ -51,7 +51,7 @@ export function TransportEleveCard({
         </h2>
         <div className="flex items-center gap-2">
           {bus && <Badge tone={bus.statut_paiement === 'solde' ? 'green' : 'gold'}>{t(`bus.statut_paiement_${bus.statut_paiement}`)}</Badge>}
-          {can('bus.manage') && (
+          {can('bus.souscrire') && (
             <Button size="sm" variant="secondary" onClick={souscrire}>
               <Bus className="h-3.5 w-3.5" />
               {bus ? t('common.edit') : t('bus.souscrire')}

@@ -10,14 +10,20 @@ type StatutMiseAJourDesktop =
   | { etat: "telechargee"; version: string }
   | { etat: "erreur"; message: string };
 
-/** Un évènement JSON par ligne, émis par `sync:pull --json` (cf. `SyncPull::emettre()`) et relayé tel quel par `main.cjs`. */
+/**
+ * Un évènement JSON par ligne, émis par `sync:pull --json` (cf.
+ * `SyncPull::emettre()`) et relayé tel quel par `main.cjs`. `entite_debut`/
+ * `entite_fin` portent désormais un LOT de plusieurs entités (`cles`, cf.
+ * `SyncPull::TAILLE_LOT`) plutôt qu'une seule — `cle` reste la première du
+ * lot, pour compatibilité, `cles` porte le lot entier.
+ */
 type EvenementSyncProgress =
   | { type: "debut"; ecoles: number; entites_par_ecole: number }
   | { type: "ecole_debut"; school_id: number; nom: string | null; index: number; total: number }
   | { type: "ecole_fin"; school_id: number; index: number; total: number }
-  | { type: "entite_debut"; school_id: number; cle: string; etape: number; total_etapes: number }
+  | { type: "entite_debut"; school_id: number; cle: string; cles: string[]; etape: number; total_etapes: number }
   | { type: "entite_progres"; school_id: number; cle: string; lignes: number }
-  | { type: "entite_fin"; school_id: number; cle: string; etape: number; total_etapes: number; lignes: number }
+  | { type: "entite_fin"; school_id: number; cle: string; cles: string[]; etape: number; total_etapes: number; lignes: number }
   | { type: "ecole_erreur"; school_id: number; message: string }
   | { type: "clonage_initial_complet"; user_id: number }
   | { type: "fin"; echec: boolean };

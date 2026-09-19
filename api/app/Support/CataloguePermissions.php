@@ -72,7 +72,8 @@ class CataloguePermissions
         ]],
         'bus' => ['Transport scolaire', 'School transport', [
             'bus.view' => ['Consulter véhicules, trajets et affectations', 'View vehicles, routes and assignments'],
-            'bus.manage' => ['Gérer la flotte, les trajets et les affectations des élèves', 'Manage the fleet, routes and pupil assignments'],
+            'bus.manage' => ['Gérer la flotte, les trajets et les arrêts', 'Manage the fleet, routes and stops'],
+            'bus.souscrire' => ["Souscrire ou retirer des élèves au transport, encaisser leurs paiements", 'Subscribe or remove pupils from transport, collect their payments'],
         ]],
         'inventaire' => ['Inventaire', 'Inventory', [
             'inventaire.view' => ['Consulter l\'inventaire du matériel', 'View the equipment inventory'],

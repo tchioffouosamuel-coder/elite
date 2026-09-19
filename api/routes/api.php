@@ -1177,7 +1177,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('bus/trajets/{trajetId}/arrets', [BusTrajetController::class, 'ajouterArret'])->name('bus.arrets.store');
                 Route::put('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'modifierArret'])->name('bus.arrets.update');
                 Route::delete('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'supprimerArret'])->name('bus.arrets.destroy');
+            });
 
+            // Souscrire/retirer un élève et encaisser ses paiements : distinct de
+            // `bus.manage` (flotte/trajets/arrêts) pour qu'un profil autorisé à
+            // consulter et saisir des dépenses ne puisse pas, pour autant,
+            // inscrire ou désinscrire des élèves du transport.
+            Route::middleware('permission:bus.souscrire')->group(function () {
                 Route::post('bus/affectations', [BusAffectationController::class, 'store'])->name('bus.affectations.store');
                 Route::post('bus/affectations/import', [BusAffectationController::class, 'import'])->name('bus.affectations.import');
                 Route::post('bus/souscriptions-lot', [BusAffectationController::class, 'souscrireLot'])->name('bus.affectations.souscrire-lot');

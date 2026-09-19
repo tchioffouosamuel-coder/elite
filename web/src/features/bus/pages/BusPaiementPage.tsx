@@ -14,6 +14,7 @@ import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { francs } from '@/features/finance/api'
 import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
+import { useAuthStore } from '@/shared/store/authStore'
 import {
   fetchSituationPaiementBus,
   encaisserBus,
@@ -58,6 +59,7 @@ function libelleMois(mois: string): string {
 export function BusPaiementPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const can = useAuthStore((s) => s.can)
   const { affectationId } = useParams<{ affectationId: string }>()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -212,6 +214,11 @@ export function BusPaiementPage() {
         <Card className="p-5">
           <h2 className="mb-3 font-display text-sm font-bold text-navy-900">Encaisser plusieurs mois</h2>
 
+          {!can('bus.souscrire') ? (
+            <p className="rounded-xl border border-dashed border-navy-200 px-3.5 py-4 text-center text-sm text-navy-400">
+              Vous n'êtes pas autorisé(e) à encaisser les paiements du transport.
+            </p>
+          ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Select label="Mois à régler" multiple {...register('mois', { required: true })}>
               {situation.situation_mensuelle.map((m) => (
@@ -270,6 +277,7 @@ export function BusPaiementPage() {
               </Button>
             </div>
           </form>
+          )}
         </Card>
       </div>
 
@@ -310,7 +318,7 @@ export function BusPaiementPage() {
                         >
                           Reçu
                         </button>
-                        {!v.annule && (
+                        {!v.annule && can('bus.souscrire') && (
                           <button
                             className="text-xs font-semibold text-red-500 hover:text-red-700"
                             onClick={() => annulerUnVersement(v.id, v.numero_recu)}

@@ -326,7 +326,7 @@ export function EleveDetailPage() {
           icon: ShieldAlert,
           onClick: () => setSanctionOuverte(true),
         },
-        can('bus.manage') && {
+        can('bus.souscrire') && {
           label: t('hub.eleve.souscrire_bus'),
           icon: Bus,
           onClick: souscrireBus,

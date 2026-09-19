@@ -314,7 +314,12 @@ const INTERVALLE_SYNC_MS = 5 * 60 * 1000;
 let intervalleSyncId = null;
 let syncEnCours = false;
 
-/** Une commande artisan, résolue une fois le processus terminé (jamais rejetée : un échec de sync ne doit pas remonter plus haut que son propre log). */
+/**
+ * Une commande artisan, résolue une fois le processus terminé (jamais
+ * rejetée : un échec de sync ne doit pas remonter plus haut que son propre
+ * log) avec sa sortie standard, utile à `demarrerTelechargementFichiersEnArrierePlan()`
+ * pour savoir quand arrêter de boucler sur `sync:fichiers`.
+ */
 function executerArtisan(commande) {
   const apiDir = resolveApiDir();
   const phpBinary = resolvePhpBinary();
@@ -328,15 +333,19 @@ function executerArtisan(commande) {
       stdio: "pipe",
     });
 
+    let stdout = "";
+    proc.stdout.on("data", (chunk) => {
+      stdout += chunk.toString("utf8");
+    });
     proc.stderr.on("data", (chunk) => console.error(`[${commande}] ${chunk}`));
     proc.on("exit", (code) => {
       if (code !== 0)
         console.error(`[${commande}] terminé avec le code ${code}`);
-      resolve();
+      resolve({ stdout });
     });
     proc.on("error", (erreur) => {
       console.error(`[${commande}] impossible de démarrer : ${erreur.message}`);
-      resolve();
+      resolve({ stdout });
     });
   });
 }
@@ -374,9 +383,53 @@ async function synchroniserMaintenant() {
   try {
     await executerArtisan("sync:pull");
     await executerArtisan("sync:push");
+    // Rattrape ici les fichiers mis en file par ce `sync:pull` (et par le
+    // clonage initial, cf. `lancerCloneInitial`) qui n'auraient pas encore
+    // été absorbés par la boucle d'arrière-plan démarrée juste après lui —
+    // no-op silencieux si la file est déjà vide.
+    await executerArtisan("sync:fichiers");
     return true;
   } finally {
     syncEnCours = false;
+  }
+}
+
+const INTERVALLE_FICHIERS_MS = 10 * 1000;
+const CYCLES_FICHIERS_MAX = 60; // ~10 minutes avant de laisser la main au cycle périodique (5 min).
+
+/**
+ * Draine la file de fichiers en attente (photos élève/personnel…) juste
+ * après le premier clonage, sans faire attendre l'utilisateur dessus : la
+ * modale de clonage initial (cf. `lancerCloneInitial`) se ferme dès que les
+ * DONNÉES sont là, les photos manquantes se complètent ensuite au fil de
+ * l'eau pendant que l'utilisateur navigue déjà dans l'application.
+ *
+ * Bornée dans le temps plutôt que « jusqu'à la file vide » : un très grand
+ * établissement (dizaines de milliers de photos) ne doit pas faire tourner
+ * cette boucle indéfiniment en tâche de fond — passé `CYCLES_FICHIERS_MAX`
+ * cycles, le reste continuera d'être absorbé, plus lentement, par le cycle
+ * périodique habituel (`lancerSyncPeriodique`, toutes les 5 minutes).
+ */
+async function demarrerTelechargementFichiersEnArrierePlan() {
+  for (let cycle = 0; cycle < CYCLES_FICHIERS_MAX; cycle++) {
+    if (syncEnCours) {
+      await new Promise((resolve) => setTimeout(resolve, INTERVALLE_FICHIERS_MS));
+      continue;
+    }
+
+    syncEnCours = true;
+    let fileVide = false;
+    try {
+      const { stdout } = await executerArtisan("sync:fichiers");
+      // Sortie de `SyncFichiers::handle()` : « 0 fichier(s) traité(s), ... »
+      // quand la file était déjà vide à ce passage — inutile de reboucler.
+      fileVide = /^0 fichier/m.test(stdout);
+    } finally {
+      syncEnCours = false;
+    }
+
+    if (fileVide) return;
+    await new Promise((resolve) => setTimeout(resolve, INTERVALLE_FICHIERS_MS));
   }
 }
 
@@ -445,6 +498,11 @@ function lancerCloneInitial() {
 
     proc.on("exit", (code) => {
       syncEnCours = false;
+      // Ni attendu ni dans le bloc résolu ci-dessous : les données sont déjà
+      // là, la modale de clonage peut se fermer immédiatement — les photos
+      // manquantes se complètent seules pendant que l'utilisateur navigue
+      // déjà dans l'application (cf. commentaire de la fonction).
+      if (code === 0) demarrerTelechargementFichiersEnArrierePlan();
       resolve({ succes: code === 0 });
     });
   });

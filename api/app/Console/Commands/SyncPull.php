@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DesktopProvisioning;
 use App\Models\DesktopProvisioningEcole;
+use App\Models\SyncFichierEnAttente;
 use App\Support\Sync\RafraichitJetonDesktop;
 use App\Support\Sync\RegistreSync;
 use Illuminate\Console\Command;
@@ -18,14 +19,14 @@ use Illuminate\Support\Facades\Log;
  * mobile ({@see \App\Http\Controllers\Api\V1\SyncController::pull()}) :
  * cette instance locale se comporte ici comme n'importe quel client sync.
  *
- * Un appel par (compte, école, entité) — {@see DesktopProvisioningEcole} —
- * plutôt qu'un unique appel par (compte, école) qui recevrait toutes les
- * entités entremêlées sur les mêmes pages : boucler entité par entité (le
- * serveur distant accepte déjà `?entites=` pour n'en réclamer qu'une, cf.
- * `SyncController::entitesDemandees()`) permet de savoir, à tout instant,
- * QUELLE table est en cours de téléchargement — indispensable à la modale de
- * premier clonage (cf. `--json`) — sans rien changer côté serveur distant, le
- * mobile continuant de tout demander en une fois.
+ * Un appel HTTP par (compte, école, LOT d'entités) — {@see DesktopProvisioningEcole},
+ * {@see TAILLE_LOT} — plutôt qu'un unique appel par (compte, école) qui
+ * recevrait le registre entier entremêlé sur les mêmes pages (ce que fait
+ * déjà le mobile, `?entites=` omis) : demander le registre en petits lots
+ * plutôt qu'en un seul bloc permet de savoir, à tout instant, QUEL groupe de
+ * tables est en cours de téléchargement — indispensable à la modale de
+ * premier clonage (cf. `--json`) — sans rien changer côté serveur distant, ni
+ * retomber dans la lenteur d'un appel par entité individuelle (80 par école).
  *
  * Résolution de conflit : le plus récent gagne. Une ligne locale plus
  * récente que la ligne distante reçue n'est PAS écrasée — elle n'a pas
@@ -69,7 +70,8 @@ class SyncPull extends Command
         $echec = false;
 
         $ecolesTotal = $provisionings->sum(fn (DesktopProvisioning $p) => $p->ecoles->count());
-        $this->emettre(['type' => 'debut', 'ecoles' => $ecolesTotal, 'entites_par_ecole' => count(RegistreSync::cles())]);
+        $lotsParEcole = (int) ceil(count(RegistreSync::cles()) / self::TAILLE_LOT);
+        $this->emettre(['type' => 'debut', 'ecoles' => $ecolesTotal, 'entites_par_ecole' => $lotsParEcole]);
 
         try {
             $ecoleIndex = 0;
@@ -161,27 +163,43 @@ class SyncPull extends Command
     }
 
     /**
-     * Pull complet d'une seule école : chaque entité du registre, l'une
-     * après l'autre, jusqu'à épuisement de ses propres pages.
+     * Nombre d'entités regroupées dans un même appel HTTP au serveur distant
+     * (cf. `tirerLot()`). Le serveur sait déjà tout renvoyer en un seul appel
+     * — c'est ce que fait le mobile — mais y aller entité par entité (80 par
+     * école) payait un aller-retour réseau complet par TABLE, y compris pour
+     * les dizaines qui n'ont jamais rien de nouveau à envoyer : c'était, de
+     * loin, le principal poste de lenteur du premier clonage, largement
+     * devant le volume de données lui-même. Un compromis plutôt que « tout
+     * en un » : ça garde une progression par lot visible dans la modale
+     * (`PremiereSynchronisationModal`), tout en divisant par ~10 le nombre
+     * d'allers-retours.
+     */
+    private const TAILLE_LOT = 10;
+
+    /**
+     * Pull complet d'une seule école : le registre découpé en lots de
+     * {@see TAILLE_LOT} entités, chaque lot demandé en un seul appel HTTP
+     * (cf. `tirerLot()`) plutôt qu'un appel par entité.
      */
     private function tirerEcole(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning): bool
     {
-        $cles = RegistreSync::cles();
+        $lots = array_chunk(RegistreSync::cles(), self::TAILLE_LOT);
         $curseurDepart = $ecoleProvisioning->curseur_sync;
         $curseursObtenus = [];
         $totalLignes = 0;
         $totalSuppressions = 0;
 
-        foreach ($cles as $index => $cle) {
+        foreach ($lots as $index => $lot) {
             $this->emettre([
                 'type' => 'entite_debut',
                 'school_id' => $ecoleProvisioning->school_id,
-                'cle' => $cle,
+                'cle' => $lot[0],
+                'cles' => $lot,
                 'etape' => $index + 1,
-                'total_etapes' => count($cles),
+                'total_etapes' => count($lots),
             ]);
 
-            [$lignes, $suppressions, $curseur] = $this->tirerEntite($provisioning, $ecoleProvisioning, $cle, $curseurDepart);
+            [$lignes, $suppressions, $curseur] = $this->tirerLot($provisioning, $ecoleProvisioning, $lot, $curseurDepart);
 
             $totalLignes += $lignes;
             $totalSuppressions += $suppressions;
@@ -192,9 +210,10 @@ class SyncPull extends Command
             $this->emettre([
                 'type' => 'entite_fin',
                 'school_id' => $ecoleProvisioning->school_id,
-                'cle' => $cle,
+                'cle' => $lot[0],
+                'cles' => $lot,
                 'etape' => $index + 1,
-                'total_etapes' => count($cles),
+                'total_etapes' => count($lots),
                 'lignes' => $lignes,
             ]);
         }
@@ -216,19 +235,30 @@ class SyncPull extends Command
     }
 
     /**
-     * Pull complet d'une seule entité pour une école, jusqu'à épuisement de
-     * ses pages.
+     * Pull complet d'un lot de plusieurs entités pour une école, en un seul
+     * appel HTTP par page plutôt qu'un appel par entité : le serveur distant
+     * ({@see \App\Http\Controllers\Api\V1\SyncController::pull()}) accepte
+     * déjà `entites=cle1,cle2,...` et applique un unique curseur/`complet` à
+     * TOUT le lot demandé — cette méthode applique donc, à l'échelle d'un lot
+     * de {@see TAILLE_LOT} entités, la même logique de pagination qu'un
+     * unique appel entité par entité aurait suivie pour chacune.
+     *
+     * Rappeler la MÊME liste d'entités à chaque page (pas seulement celles
+     * encore incomplètes) est volontaire et sans risque : une entité déjà
+     * drainée ne renverra simplement plus rien pour le curseur avancé, au
+     * prix d'un champ vide dans la réponse — bien moins coûteux que de
+     * complexifier le lot demandé à chaque itération.
      *
      * @return array{0: int, 1: int, 2: ?string} Lignes appliquées,
      *                                            suppressions rejouées, et le
      *                                            dernier curseur renvoyé par
-     *                                            le serveur distant pour
-     *                                            cette entité (`null` si
-     *                                            aucun appel n'a abouti).
+     *                                            le serveur distant pour ce
+     *                                            lot (`null` si aucun appel
+     *                                            n'a abouti).
      */
-    private function tirerEntite(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, string $cle, ?string $curseurDepart): array
+    private function tirerLot(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, array $lot, ?string $curseurDepart): array
     {
-        $modele = RegistreSync::entites()[$cle]['modele'];
+        $modeles = collect($lot)->mapWithKeys(fn (string $cle) => [$cle => RegistreSync::entites()[$cle]['modele']]);
         $complet = false;
         $curseur = $curseurDepart;
         $dernierCurseurRecu = null;
@@ -236,33 +266,35 @@ class SyncPull extends Command
         $totalSuppressions = 0;
 
         while (! $complet) {
-            $payload = $this->executerRequete($provisioning, $ecoleProvisioning->school_id, $cle, $curseur);
+            $payload = $this->executerRequete($provisioning, $ecoleProvisioning->school_id, $lot, $curseur);
 
-            foreach ((array) ($payload['donnees'][$cle] ?? []) as $ligne) {
-                // Une ligne isolée qui viole une contrainte (ex. deux
-                // comptes comptables distincts partageant le même code,
-                // une incohérence déjà présente côté serveur) ne doit pas
-                // priver l'utilisateur de tout le reste du lot — des
-                // milliers de lignes saines à côté d'une poignée déjà en
-                // défaut ailleurs.
-                try {
-                    if ($this->appliquerLigne($modele, $ligne)) {
-                        $this->telechargerFichiers($provisioning, $ligne);
+            foreach ($modeles as $cle => $modele) {
+                foreach ((array) ($payload['donnees'][$cle] ?? []) as $ligne) {
+                    // Une ligne isolée qui viole une contrainte (ex. deux
+                    // comptes comptables distincts partageant le même code,
+                    // une incohérence déjà présente côté serveur) ne doit pas
+                    // priver l'utilisateur de tout le reste du lot — des
+                    // milliers de lignes saines à côté d'une poignée déjà en
+                    // défaut ailleurs.
+                    try {
+                        if ($this->appliquerLigne($modele, $ligne)) {
+                            $this->mettreFichiersEnFileAttente($provisioning, $ligne);
+                        }
+                        $totalLignes++;
+                    } catch (QueryException $e) {
+                        Log::warning('sync:pull ligne ignorée', [
+                            'school_id' => $ecoleProvisioning->school_id,
+                            'entite' => $cle,
+                            'id' => $ligne['id'] ?? null,
+                            'erreur' => $e->getMessage(),
+                        ]);
                     }
-                    $totalLignes++;
-                } catch (QueryException $e) {
-                    Log::warning('sync:pull ligne ignorée', [
-                        'school_id' => $ecoleProvisioning->school_id,
-                        'entite' => $cle,
-                        'id' => $ligne['id'] ?? null,
-                        'erreur' => $e->getMessage(),
-                    ]);
                 }
             }
 
             foreach ((array) ($payload['suppressions'] ?? []) as $suppression) {
-                if (($suppression['entite'] ?? null) === $cle) {
-                    $modele::query()->whereKey($suppression['id'])->delete();
+                if (in_array($suppression['entite'] ?? null, $lot, true)) {
+                    $modeles[$suppression['entite']]::query()->whereKey($suppression['id'])->delete();
                     $totalSuppressions++;
                 }
             }
@@ -271,22 +303,22 @@ class SyncPull extends Command
             $dernierCurseurRecu = $curseur;
             $complet = (bool) ($payload['complet'] ?? true);
 
-            // Persisté après CHAQUE page, pas seulement à la fin de
-            // l'entité : un établissement volumineux peut demander des
-            // dizaines de pages (chacune plafonnée à 500 lignes), donc
-            // autant d'allers-retours réseau successifs — un aléa isolé sur
-            // l'un d'eux ne doit pas effacer la progression déjà appliquée
-            // en local et forcer à tout retélécharger depuis le début au
-            // prochain essai. Observé en conditions réelles : un timeout au
-            // bout d'1h30 de pagination faisait systématiquement repartir de
-            // zéro l'école la plus volumineuse.
+            // Persisté après CHAQUE page, pas seulement à la fin du lot : un
+            // établissement volumineux peut demander des dizaines de pages
+            // (chacune plafonnée à 500 lignes), donc autant d'allers-retours
+            // réseau successifs — un aléa isolé sur l'un d'eux ne doit pas
+            // effacer la progression déjà appliquée en local et forcer à
+            // tout retélécharger depuis le début au prochain essai. Observé
+            // en conditions réelles : un timeout au bout d'1h30 de
+            // pagination faisait systématiquement repartir de zéro l'école
+            // la plus volumineuse.
             $ecoleProvisioning->update(['curseur_sync' => $curseur]);
 
             if (! $complet) {
                 $this->emettre([
                     'type' => 'entite_progres',
                     'school_id' => $ecoleProvisioning->school_id,
-                    'cle' => $cle,
+                    'cle' => $lot[0],
                     'lignes' => $totalLignes,
                 ]);
             }
@@ -296,13 +328,14 @@ class SyncPull extends Command
     }
 
     /**
-     * Une page pour une entité donnée, avec rafraîchissement du jeton
-     * d'accès sur un 401 (une seule tentative, pour ne jamais boucler si le
+     * Une page pour un lot d'entités, avec rafraîchissement du jeton d'accès
+     * sur un 401 (une seule tentative, pour ne jamais boucler si le
      * rafraîchissement lui-même est refusé).
      *
+     * @param  list<string>  $cles
      * @return array{donnees?: array, suppressions?: array, curseur?: string, complet?: bool}
      */
-    private function executerRequete(DesktopProvisioning $provisioning, int $schoolId, string $cle, ?string $depuis, bool $jetonDejaRafraichi = false): array
+    private function executerRequete(DesktopProvisioning $provisioning, int $schoolId, array $cles, ?string $depuis, bool $jetonDejaRafraichi = false): array
     {
         try {
             $reponse = Http::withToken($provisioning->token)
@@ -330,7 +363,7 @@ class SyncPull extends Command
                 // d'intercepter un 401 ci-dessous pour rafraîchir le jeton
                 // avant d'abandonner.
                 ->retry(3, 3000)
-                ->get('sync', array_filter(['depuis' => $depuis, 'entites' => $cle]));
+                ->get('sync', array_filter(['depuis' => $depuis, 'entites' => implode(',', $cles)]));
         } catch (\Illuminate\Http\Client\RequestException $e) {
             // Le jeton d'accès n'est valable que 24h (cf.
             // `AuthService::ACCESS_TOKEN_TTL_MINUTES`) et rien ne le
@@ -342,7 +375,7 @@ class SyncPull extends Command
             // depuis). On tente donc un rafraîchissement via le jeton de
             // rafraîchissement (30 jours) avant d'abandonner.
             if ($e->response?->status() === 401 && ! $jetonDejaRafraichi && $this->rafraichirJeton($provisioning)) {
-                return $this->executerRequete($provisioning, $schoolId, $cle, $depuis, jetonDejaRafraichi: true);
+                return $this->executerRequete($provisioning, $schoolId, $cles, $depuis, jetonDejaRafraichi: true);
             }
 
             throw $e;
@@ -424,55 +457,42 @@ class SyncPull extends Command
     }
 
     /**
-     * Télécharge, pour une ligne tout juste appliquée, chaque fichier
+     * Met en file, pour une ligne tout juste appliquée, chaque fichier
      * référencé par une colonne `*_path` (photo d'élève ou de membre du
-     * personnel, justificatif de dépense…).
+     * personnel, justificatif de dépense…) — le téléchargement effectif est
+     * délégué à {@see \App\Console\Commands\SyncFichiers}, en tâche de fond,
+     * pour ne plus jamais retarder la fin de `sync:pull` lui-même : un
+     * premier clonage sur un grand établissement (plusieurs milliers de
+     * photos, une requête HTTP synchrone par fichier) pouvait auparavant
+     * prendre plusieurs minutes de plus rien que pour ça — observé en
+     * conditions réelles, alors que ces fichiers n'affectent jamais la
+     * validité des données déjà appliquées.
      *
-     * Aucun endpoint dédié : le disque `public` du serveur distant est déjà
-     * servi tel quel (`{serveur}/storage/{chemin}`, la même URL que
-     * `asset('storage/...')` construit côté API) — un simple GET suffit.
-     * Retélécharge à chaque fois que la ligne change plutôt que de ne
-     * combler que les fichiers manquants : un chemin peut rester identique
-     * alors que son contenu a changé (remplacement d'une photo), et cette
-     * méthode n'est appelée que pour des lignes réellement appliquées —
-     * déjà rares en régime de croisière, une fois le pull initial passé.
+     * `upsert` plutôt qu'une création simple : une même ligne peut retraverser
+     * la synchro plusieurs fois avant que sa photo n'ait été effectivement
+     * téléchargée (page suivante, cycle périodique suivant) sans que ce soit
+     * une erreur — `chemin` est unique, on se contente de rafraîchir
+     * `serveur_url` au cas où ce chemin ait changé de compte entre deux
+     * passages (multi-comptes sur le même poste).
      */
-    private function telechargerFichiers(DesktopProvisioning $provisioning, array $ligne): void
+    private function mettreFichiersEnFileAttente(DesktopProvisioning $provisioning, array $ligne): void
     {
+        $chemins = [];
+
         foreach ($ligne as $colonne => $valeur) {
             if (! str_ends_with($colonne, '_path') || ! is_string($valeur) || $valeur === '' || str_contains($valeur, '..')) {
                 continue;
             }
 
-            $destination = storage_path('app/public/'.$valeur);
+            $chemins[] = [
+                'chemin' => $valeur,
+                'serveur_url' => $provisioning->serveur_url,
+                'created_at' => now(),
+            ];
+        }
 
-            try {
-                $reponse = Http::baseUrl(rtrim($provisioning->serveur_url, '/'))
-                    ->connectTimeout(10)
-                    ->timeout(30)
-                    ->get('storage/'.$valeur);
-
-                if (! $reponse->successful()) {
-                    Log::warning('sync:pull fichier introuvable', [
-                        'chemin' => $valeur, 'statut' => $reponse->status(),
-                    ]);
-
-                    continue;
-                }
-
-                if (! is_dir(dirname($destination))) {
-                    mkdir(dirname($destination), 0755, true);
-                }
-
-                file_put_contents($destination, $reponse->body());
-            } catch (\Illuminate\Http\Client\ConnectionException $e) {
-                // Même logique que l'aléa réseau plus haut : un fichier raté
-                // ne doit pas interrompre le reste du lot, il manquera juste
-                // à l'affichage jusqu'au prochain sync.
-                Log::warning('sync:pull erreur réseau (fichier)', [
-                    'chemin' => $valeur, 'erreur' => $e->getMessage(),
-                ]);
-            }
+        if ($chemins !== []) {
+            SyncFichierEnAttente::query()->upsert($chemins, ['chemin'], ['serveur_url']);
         }
     }
 

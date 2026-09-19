@@ -97,3 +97,19 @@ export function libelleEntite(cle: string, locale: 'fr' | 'en'): string {
   if (!libelle) return humaniser(cle)
   return locale === 'en' ? libelle.en : libelle.fr
 }
+
+/**
+ * Libellé d'un lot de plusieurs entités (cf. `SyncPull::TAILLE_LOT`) pour la
+ * modale de premier clonage : les deux premières, nommées, puis un décompte
+ * du reste — afficher les dix noms serait illisible dans l'espace réduit de
+ * la barre de progression.
+ */
+export function libelleLot(cles: string[], locale: 'fr' | 'en'): string {
+  if (cles.length <= 2) return cles.map((cle) => libelleEntite(cle, locale)).join(', ')
+
+  const [premiere, deuxieme] = cles
+  const reste = cles.length - 2
+  const suffixe = locale === 'en' ? `+${reste} more` : `+${reste} autres`
+
+  return `${libelleEntite(premiere, locale)}, ${libelleEntite(deuxieme, locale)}, ${suffixe}`
+}

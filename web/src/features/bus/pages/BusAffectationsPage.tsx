@@ -180,7 +180,7 @@ export function BusAffectationsPage() {
   }
 
   const colonnes: Colonne<EleveTransport>[] = [
-    ...(can('bus.manage')
+    ...(can('bus.souscrire')
       ? [
         {
           cle: 'selection',
@@ -282,7 +282,7 @@ export function BusAffectationsPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: can('bus.manage') ? '220px' : '110px',
+      largeur: can('bus.souscrire') ? '220px' : '110px',
       cellule: (e: EleveTransport) => (
         <div className="flex justify-end gap-1.5">
           {e.bus && (
@@ -295,13 +295,13 @@ export function BusAffectationsPage() {
               {t('bus.paiements')}
             </Button>
           )}
-          {can('bus.manage') && (
+          {can('bus.souscrire') && (
             <Button size="sm" variant="secondary" onClick={() => souscrireUnEleve(e)}>
               <UserPlus className="h-3.5 w-3.5" />
               {e.bus ? t('common.edit') : t('bus.souscrire')}
             </Button>
           )}
-          {can('bus.manage') && e.bus && (
+          {can('bus.souscrire') && e.bus && (
             <button
               title={t('bus.affectation_remove')}
               onClick={() => retirerUnEleve(e)}
@@ -322,7 +322,7 @@ export function BusAffectationsPage() {
         sousTitre={t('bus.affectations_subtitle')}
         icon={Bus}
         actions={
-          can('bus.manage') && (
+          can('bus.souscrire') && (
             <ImportExportBar
               titreImport={t('bus.import_title')}
               importUrl="bus/affectations/import"
@@ -364,7 +364,7 @@ export function BusAffectationsPage() {
         </div>
       )}
 
-      {selectedIds.size > 0 && can('bus.manage') && (
+      {selectedIds.size > 0 && can('bus.souscrire') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{t('bus.eleves_selectionnes', { count: selectedIds.size })}</p>

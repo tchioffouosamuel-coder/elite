@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { DatabaseZap, AlertTriangle, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { libelleEntite } from '@/features/desktop/registreLabels'
+import { libelleLot } from '@/features/desktop/registreLabels'
 
 interface EtatClonage {
   ecoleIndex: number
@@ -9,7 +9,7 @@ interface EtatClonage {
   ecoleNom: string | null
   etape: number
   totalEtapes: number
-  cleActuelle: string | null
+  clesActuelles: string[]
   lignesCumulees: number
   erreurs: string[]
   enCours: boolean
@@ -22,7 +22,7 @@ const ETAT_INITIAL: EtatClonage = {
   ecoleNom: null,
   etape: 0,
   totalEtapes: 1,
-  cleActuelle: null,
+  clesActuelles: [],
   lignesCumulees: 0,
   erreurs: [],
   enCours: true,
@@ -36,7 +36,7 @@ function reduire(etat: EtatClonage, evenement: EvenementSyncProgress): EtatClona
     case 'ecole_debut':
       return { ...etat, ecoleIndex: evenement.index, ecoleTotal: evenement.total, ecoleNom: evenement.nom, etape: 0, lignesCumulees: 0 }
     case 'entite_debut':
-      return { ...etat, etape: evenement.etape, totalEtapes: evenement.total_etapes, cleActuelle: evenement.cle }
+      return { ...etat, etape: evenement.etape, totalEtapes: evenement.total_etapes, clesActuelles: evenement.cles }
     case 'entite_progres':
       return { ...etat, lignesCumulees: evenement.lignes }
     case 'entite_fin':
@@ -162,14 +162,14 @@ export function PremiereSynchronisationModal({ onTermine, onAnnuler }: { onTermi
             <span className="truncate">
               {termineAvecSucces
                 ? 'Terminé'
-                : etat.cleActuelle
-                  ? `${libelleEntite(etat.cleActuelle, locale)}…`
+                : etat.clesActuelles.length > 0
+                  ? `${libelleLot(etat.clesActuelles, locale)}…`
                   : 'Connexion au serveur…'}
             </span>
             <span className="flex-none font-semibold text-navy-700">{termineAvecSucces ? '100%' : `${pourcentage}%`}</span>
           </div>
           {etat.enCours && etat.lignesCumulees > 0 && (
-            <p className="mt-1 text-[11px] text-navy-400">{etat.lignesCumulees} ligne(s) reçue(s) pour cette table…</p>
+            <p className="mt-1 text-[11px] text-navy-400">{etat.lignesCumulees} ligne(s) reçue(s) pour ce lot de tables…</p>
           )}
         </div>
 
