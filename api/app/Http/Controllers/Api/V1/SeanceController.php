@@ -93,6 +93,30 @@ class SeanceController extends Controller
         return ApiResponse::success(message: 'Séance supprimée.');
     }
 
+    /**
+     * Suppression multiple, même principe que
+     * {@see EmploiDuTempsController::batchDelete()} : les présences et
+     * leçons rattachées partent en cascade (`cascadeOnDelete` en base), sans
+     * vérification de verrouillage d'appel — `destroy()` ci-dessus n'en fait
+     * pas non plus, aucune règle métier n'exige encore de protéger une séance
+     * dont l'appel a déjà été pris contre sa suppression.
+     */
+    public function batchDelete(Request $request, int $classeId): JsonResponse
+    {
+        $classe = $this->classe($classeId);
+
+        $data = $request->validate([
+            'seance_ids' => ['required', 'array', 'min:1'],
+            'seance_ids.*' => ['integer'],
+        ]);
+
+        $deleted = Seance::where('classe_id', $classe->id)
+            ->whereIn('id', $data['seance_ids'])
+            ->delete();
+
+        return ApiResponse::success(['deleted' => $deleted], "{$deleted} séance(s) supprimée(s).");
+    }
+
     /** Feuille d'appel de la séance. */
     public function appel(Request $request, int $id): JsonResponse
     {

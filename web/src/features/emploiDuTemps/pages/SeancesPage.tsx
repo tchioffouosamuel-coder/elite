@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ClipboardCheck, Download, Lock, UserCheck } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Download, Lock, Trash2, UserCheck } from 'lucide-react'
 import { fetchClasses, fetchMaClasse, type Classe } from '@/features/classes/api'
-import { fetchSeances, type Seance } from '@/features/emploiDuTemps/api'
+import { batchDeleteSeances, fetchSeances, type Seance } from '@/features/emploiDuTemps/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -36,7 +37,9 @@ export function SeancesPage() {
   const can = useAuthStore((s) => s.can)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [classeId, setClasseId] = useState<number | ''>('')
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Au primaire et à la maternelle, un enseignant est titulaire d'une seule
   // classe : pas de sélecteur à parcourir, les séances de sa classe uniquement.
@@ -62,6 +65,45 @@ export function SeancesPage() {
     queryFn: () => fetchSeances(classeActive!),
     enabled: classeActive !== null,
   })
+
+  // Une sélection faite sur une classe n'a plus de sens dès qu'on en change
+  // (ou qu'on revient à la liste des classes) — des ids d'une autre classe
+  // resteraient sinon cochés silencieusement, prêts à être supprimés au
+  // prochain clic sur « Supprimer ».
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [classeActive])
+
+  const suppressionMultiple = useMutation({
+    mutationFn: (ids: number[]) => batchDeleteSeances(classeActive!, ids),
+    onSuccess: (resultat) => {
+      setSelectedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['seances', classeActive] })
+      succes(t('emploiDuTemps.seances_supprimees', { count: resultat.deleted }))
+    },
+    onError: (err: { message?: string }) => erreur(err.message ?? t('emploiDuTemps.deletion_failed')),
+  })
+
+  const toggleSelection = (id: number) => {
+    setSelectedIds((courant) => {
+      const copie = new Set(courant)
+      copie.has(id) ? copie.delete(id) : copie.add(id)
+      return copie
+    })
+  }
+
+  const supprimerSelection = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const confirme = await confirmerSuppression(
+      t('emploiDuTemps.seances_delete_quoi', { count: ids.length }),
+      t('emploiDuTemps.seances_delete_message'),
+    )
+    if (!confirme) return
+
+    suppressionMultiple.mutate(ids)
+  }
 
   const seancesDuJour = seances?.filter((seance) => seance.date_seance === dateLocaleAujourdhui()) ?? []
   const autresSeances = seances?.filter((seance) => seance.date_seance !== dateLocaleAujourdhui()) ?? []
@@ -104,6 +146,23 @@ export function SeancesPage() {
   ]
 
   const colonnes: Colonne<Seance>[] = [
+    ...(can('emploi_du_temps.manage')
+      ? [
+          {
+            cle: 'selection',
+            entete: '',
+            cellule: (s: Seance) => (
+              <input
+                type="checkbox"
+                checked={selectedIds.has(s.id)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={() => toggleSelection(s.id)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+              />
+            ),
+          } satisfies Colonne<Seance>,
+        ]
+      : []),
     {
       cle: 'date',
       entete: t('emploiDuTemps.date_col'),
@@ -175,7 +234,18 @@ export function SeancesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre={t('nav.seances')} icon={ClipboardCheck} />
+      <PageHeader
+        titre={t('nav.seances')}
+        icon={ClipboardCheck}
+        actions={
+          selectedIds.size > 0 && can('emploi_du_temps.manage') ? (
+            <Button variant="danger" disabled={suppressionMultiple.isPending} onClick={() => void supprimerSelection()}>
+              <Trash2 className="h-4 w-4" />
+              {t('emploiDuTemps.supprimer_selection', { count: selectedIds.size })}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {restreintATitulaire ? (
         <>

@@ -309,6 +309,21 @@ export async function fetchSeances(
   return data.data;
 }
 
+export async function deleteSeance(id: number): Promise<void> {
+  await http.delete(`/seances/${id}`);
+}
+
+export async function batchDeleteSeances(
+  classeId: number,
+  seanceIds: number[],
+): Promise<{ deleted: number }> {
+  const { data } = await http.post<ApiResponse<{ deleted: number }>>(
+    `/classes/${classeId}/seances/batch-delete`,
+    { seance_ids: seanceIds },
+  );
+  return data.data;
+}
+
 export interface FeuilleAppel {
   seance: Seance;
   /** Vrai quand la séance réunit plusieurs classes. */

@@ -910,6 +910,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
                 Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update');
                 Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy');
+                Route::post('classes/{classeId}/seances/batch-delete', [SeanceController::class, 'batchDelete'])->name('seances.batch-delete');
             });
 
             Route::middleware('permission:appel.manage')->group(function () {
