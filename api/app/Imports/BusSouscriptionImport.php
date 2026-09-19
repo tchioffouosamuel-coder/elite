@@ -198,9 +198,20 @@ class BusSouscriptionImport implements SkipsEmptyRows, ToCollection, WithHeading
                 throw new RuntimeException('Montant manquant ou nul.');
             }
 
+            // Le tarif du mois importé peut être inférieur au tarif mensuel
+            // figé sur l'affectation (cf. resoudreOuCreerAffectationPourImport,
+            // fixé sur le premier mois importé) — un mois offert ou réduit en
+            // cours d'année (ex. décembre à moitié prix) plutôt qu'une erreur
+            // de saisie. L'écart devient une remise plutôt que de faire
+            // échouer la ligne : `montant + remise = tarif` reste vérifié par
+            // `BusPaiementService::encaisser()`, et la remise reste tracée.
+            $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+            $remise = max(0, $tarif - (int) $donnees['montant']);
+
             $this->paiementService->encaisser($affectation, [
                 'mois' => $mois->toDateString(),
                 'montant' => $donnees['montant'],
+                'remise' => $remise,
                 'date_versement' => $donnees['date_versement'] ?? $mois->toDateString(),
                 'mode' => self::normaliserMode($donnees['mode'] ?? null),
                 'note' => $donnees['saisi_par'] ?? null ? 'Import — saisi par '.$donnees['saisi_par'] : 'Import de situation transport.',

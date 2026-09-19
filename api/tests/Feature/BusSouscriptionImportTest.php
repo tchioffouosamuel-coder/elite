@@ -139,6 +139,30 @@ class BusSouscriptionImportTest extends TestCase
         $this->assertDatabaseHas('bus_versements', ['montant' => 8000]);
     }
 
+    /**
+     * Cas réel observé : un tarif de décembre réduit de moitié par rapport
+     * aux autres mois, pour un même élève. L'affectation fige son tarif sur
+     * le premier mois importé (septembre) — décembre à moitié prix ne doit
+     * pas faire échouer la ligne, mais devenir une remise du mois.
+     */
+    public function test_un_mois_moins_cher_que_les_autres_devient_une_remise(): void
+    {
+        $eleve = $this->eleve('25ELITES-0743', 'FAGUJI ABDOUL KADER ZIBRILLA');
+
+        $import = $this->importer(collect([
+            $this->ligne(['matricule' => $eleve->matricule, 'nom' => $eleve->nom_complet, 'bus' => 'Ligne Nord', 'tarif' => 15000, 'mois' => 'Sept', 'mode' => 'cash']),
+            $this->ligne(['matricule' => $eleve->matricule, 'nom' => $eleve->nom_complet, 'bus' => 'Ligne Nord', 'tarif' => 15000, 'mois' => 'Oct', 'mode' => 'cash']),
+            $this->ligne(['matricule' => $eleve->matricule, 'nom' => $eleve->nom_complet, 'bus' => 'Ligne Nord', 'tarif' => 7500, 'mois' => 'Dec', 'mode' => 'cash']),
+        ]));
+
+        $this->assertSame([], $import->erreurs);
+        $this->assertSame(3, $import->versementsCrees);
+
+        $this->assertDatabaseHas('bus_affectations', ['eleve_id' => $eleve->id, 'tarif_mensuel' => 15000]);
+        $this->assertDatabaseHas('bus_versements', ['montant' => 15000, 'remise' => 0]);
+        $this->assertDatabaseHas('bus_versements', ['montant' => 7500, 'remise' => 7500]);
+    }
+
     public function test_plusieurs_mois_du_meme_eleve_partagent_l_affectation_et_creent_des_versements_distincts(): void
     {
         $eleve = $this->eleve('23PRIM2', 'FOMESSO LIMA MARK JOEL');

@@ -4,6 +4,7 @@ namespace App\Support\Pdf;
 
 use App\Models\BusAffectation;
 use App\Models\BusVehicule;
+use App\Models\School;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Illuminate\Support\Collection;
 use Mpdf\Output\Destination;
@@ -19,24 +20,28 @@ class ListeElevesBusGenerator
         'aller_retour' => 'Aller & retour',
     ];
 
-    /** @param  Collection<int, BusAffectation>  $affectations */
-    public function build(BusVehicule $vehicule, Collection $affectations): string
+    /**
+     * @param  Collection<int, BusAffectation>  $affectations
+     * @param  School  $ecole  École affichée en en-tête : les véhicules sont
+     *   partagés entre écoles, donc pas nécessairement celle de `$vehicule`.
+     */
+    public function build(BusVehicule $vehicule, Collection $affectations, School $ecole): string
     {
         $mpdf = MpdfFactory::make([
             'format' => 'A4',
             'margin_top' => 10,
             'margin_bottom' => 12,
-        ], $vehicule->school);
+        ], $ecole);
         $mpdf->SetTitle('Élèves du véhicule '.$vehicule->immatriculation);
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8">'
                 .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
-                .$this->enTeteEcole($vehicule->school)
+                .$this->enTeteEcole($ecole)
                 .'<hr>'
                 .$this->titre($vehicule, $affectations)
                 .$this->tableau($affectations)
-                .$this->signature($vehicule)
+                .$this->signature($ecole)
                 .'</body></html>'
         );
 
@@ -102,9 +107,9 @@ class ListeElevesBusGenerator
             .'</tr></thead><tbody>'.$lignes.'</tbody></table>';
     }
 
-    private function signature(BusVehicule $vehicule): string
+    private function signature(School $ecole): string
     {
-        $ville = trim(explode(',', (string) $vehicule->school->address)[0] ?? '');
+        $ville = trim(explode(',', (string) $ecole->address)[0] ?? '');
         $lieu = $ville !== '' ? 'Fait à '.$ville.', le ' : 'Fait le ';
 
         return '<table class="no-border" style="margin-top:6mm;"><tr>'

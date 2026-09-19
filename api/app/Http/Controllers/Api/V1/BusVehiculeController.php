@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Models\BusVehicule;
+use App\Models\School;
 use App\Services\BusService;
 use App\Support\ImportExport\SpecificationModele;
 use App\Support\ImportExport\Specs\BusVehiculeSpec;
@@ -72,7 +73,7 @@ class BusVehiculeController extends Controller
         $vehicule = $this->vehicule($id);
         $affectations = $this->service->elevesDuVehicule($vehicule);
 
-        $pdf = (new ListeElevesBusGenerator)->build($vehicule, $affectations);
+        $pdf = (new ListeElevesBusGenerator)->build($vehicule, $affectations, $this->ecoleEnTete($vehicule));
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
@@ -88,12 +89,23 @@ class BusVehiculeController extends Controller
         $au = $request->string('au')->toString() ?: null;
 
         $bilan = $this->service->bilanVehicule($vehicule, $du, $au);
-        $pdf = (new BilanVehiculeGenerator)->build($vehicule, $bilan, $du, $au);
+        $pdf = (new BilanVehiculeGenerator)->build($vehicule, $bilan, $du, $au, $this->ecoleEnTete($vehicule));
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="bilan-bus-' . $vehicule->immatriculation . '.pdf"',
         ]);
+    }
+
+    /**
+     * École à afficher en en-tête du document : les véhicules sont désormais
+     * partagés entre écoles (`school_id` nul), donc on retombe sur celle
+     * consultée par le compte courant plutôt que sur celle — absente — du
+     * véhicule.
+     */
+    private function ecoleEnTete(BusVehicule $vehicule): School
+    {
+        return $vehicule->school ?? School::findOrFail(Tenant::schoolId());
     }
 
     /** @return array<string, mixed> */

@@ -5,6 +5,7 @@ namespace App\Support\Pdf;
 use App\Models\BusAffectation;
 use App\Models\BusVehicule;
 use App\Models\Depense;
+use App\Models\School;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Illuminate\Support\Collection;
 use Mpdf\Output\Destination;
@@ -24,28 +25,30 @@ class BilanVehiculeGenerator
      *   recettes: int, depenses_total: int, benefice: int, deficitaire: bool,
      *   depenses: Collection<int, Depense>, affectations: Collection<int, BusAffectation>,
      * }  $bilan
+     * @param  School  $ecole  École affichée en en-tête : les véhicules sont
+     *   partagés entre écoles, donc pas nécessairement celle de `$vehicule`.
      */
-    public function build(BusVehicule $vehicule, array $bilan, ?string $du, ?string $au): string
+    public function build(BusVehicule $vehicule, array $bilan, ?string $du, ?string $au, School $ecole): string
     {
         $mpdf = MpdfFactory::make([
             'format' => 'A4',
             'orientation' => 'L',
             'margin_top' => 10,
             'margin_bottom' => 12,
-        ], $vehicule->school);
+        ], $ecole);
         $mpdf->SetTitle('Bilan financier — '.$vehicule->immatriculation);
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
                 .$this->stylesBase().$this->stylesPropres()
                 .'</style></head><body>'
-                .$this->enTeteEcole($vehicule->school)
+                .$this->enTeteEcole($ecole)
                 .$this->titre($vehicule, $du, $au)
                 .$this->resultat($bilan)
                 .$this->recettes($bilan)
                 .$this->depenses($bilan['depenses'])
                 .$this->conclusion($vehicule, $bilan)
-                .$this->signature($vehicule)
+                .$this->signature($ecole)
                 .'</body></html>'
         );
 
@@ -165,9 +168,9 @@ class BilanVehiculeGenerator
         return '<div class="conclusion"><b>Conclusion :</b> '.$this->e($texte).'</div>';
     }
 
-    private function signature(BusVehicule $vehicule): string
+    private function signature(School $ecole): string
     {
-        $ville = trim(explode(',', (string) $vehicule->school->address)[0] ?? '');
+        $ville = trim(explode(',', (string) $ecole->address)[0] ?? '');
 
         return '<table class="no-border" style="margin-top:6mm;"><tr>'
             .'<td class="no-border left" style="width:50%;font-size:2.8mm;vertical-align:top;">'
