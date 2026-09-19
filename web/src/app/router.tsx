@@ -44,6 +44,7 @@ import { EleveRapportsPage } from '@/features/eleves/pages/EleveRapportsPage'
 import { EleveDetailPage } from '@/features/eleves/pages/EleveDetailPage'
 import { EleveInscriptionPage } from '@/features/eleves/pages/EleveInscriptionPage'
 import { EleveTransfertsPage } from '@/features/eleves/pages/EleveTransfertsPage'
+import { TuteurEditPage } from '@/features/eleves/pages/TuteurEditPage'
 import { MatriculesNationauxPage } from '@/features/matriculesNationaux/pages/MatriculesNationauxPage'
 import { MatieresPage } from '@/features/pedagogie/pages/MatieresPage'
 import { CompetencesPage } from '@/features/pedagogie/pages/CompetencesPage'
@@ -217,6 +218,7 @@ export const router = createHashRouter([
       { path: 'eleves/nouveau', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
       { path: 'eleves/transferts', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveTransfertsPage /></ProtectedRoute> },
       { path: 'eleves/:id/edit', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><EleveInscriptionPage /></ProtectedRoute> },
+      { path: 'eleves/:id/tuteur', element: <ProtectedRoute permission="eleves.manage" masquerPourTitulaire><TuteurEditPage /></ProtectedRoute> },
       { path: 'matricules-nationaux', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><MatriculesNationauxPage /></ProtectedRoute> },
       { path: 'matieres', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><MatieresPage /></ProtectedRoute> },
       { path: 'competences', element: <ProtectedRoute permission="pedagogie.view" masquerPourTitulaire><CompetencesPage /></ProtectedRoute> },

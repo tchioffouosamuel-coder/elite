@@ -468,6 +468,7 @@ export function ElevesListPage() {
           ...(can('eleves.manage')
             ? ([
               { label: t('eleves.changer_classe'), icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
+              { label: 'Modifier les informations du tuteur', icon: UserRound, onClick: () => navigate(`/eleves/${e.id}/tuteur`) },
               ...(isSuperAdmin
                 ? [{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
                 : []),
