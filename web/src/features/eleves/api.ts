@@ -257,6 +257,7 @@ export interface MembreDoublon {
   matricule: string | null;
   statut: string;
   classe: string | null;
+  date_naissance: string | null;
   total_versements: number;
   created_at: string | null;
   tuteur: { nom_complet: string; telephone: string | null } | null;
@@ -264,15 +265,23 @@ export interface MembreDoublon {
 
 export interface GroupeDoublonDetaille {
   nom: string;
-  date_naissance: string;
+  /** null pour un groupe « potentiel » : les fiches n'ont justement pas la même date de naissance — voir `membres[].date_naissance` individuellement. */
+  date_naissance: string | null;
   ecole: string | null;
+  /** true = même nom + même école mais date de naissance manquante ou différente sur au moins une fiche — à vérifier à la main, jamais fusionné automatiquement. */
+  potentiel: boolean;
   /** 3 = plusieurs exemplaires déjà payés (le plus sensible), 2 = plusieurs actifs dans une classe, 1 = le reste. */
   urgence: 1 | 2 | 3;
   membres: MembreDoublon[];
 }
 
-export async function fetchDoublonsDetailles(): Promise<GroupeDoublonDetaille[]> {
-  const { data } = await http.get<ApiResponse<GroupeDoublonDetaille[]>>("/eleves/doublons");
+export async function fetchDoublonsDetailles(): Promise<{
+  certains: GroupeDoublonDetaille[];
+  potentiels: GroupeDoublonDetaille[];
+}> {
+  const { data } = await http.get<
+    ApiResponse<{ certains: GroupeDoublonDetaille[]; potentiels: GroupeDoublonDetaille[] }>
+  >("/eleves/doublons");
   return data.data;
 }
 

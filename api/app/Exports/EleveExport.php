@@ -4,48 +4,47 @@ namespace App\Exports;
 
 use App\Models\Eleve;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class EleveExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
+/**
+ * Export complet du dossier élève, une feuille par domaine plutôt qu'une
+ * seule liste à plat : l'identité et la santé ne se lisent pas comme la
+ * situation financière ou les absences, et tasser tout ça dans des colonnes
+ * uniques rendrait le fichier illisible dès qu'un élève a plusieurs tuteurs,
+ * plusieurs versements ou plusieurs années de scolarité.
+ */
+class EleveExport implements WithMultipleSheets
 {
+    /** @var Collection<int, Eleve> */
+    private Collection $eleves;
+
     /** @param int|array<int> $schoolId */
     public function __construct(
-        private readonly int|array $schoolId,
-        private readonly ?int $classeId = null,
-        private readonly bool $sansClasse = false,
-    ) {}
-
-    public function collection(): Collection
-    {
-        return Eleve::forSchool($this->schoolId)
-            ->when($this->classeId, fn ($q, $id) => $q->where('classe_id', $id))
-            ->when($this->sansClasse, fn ($q) => $q->whereNull('classe_id'))
-            ->with(['classe', 'tuteurs'])
+        int|array $schoolId,
+        ?int $classeId = null,
+        bool $sansClasse = false,
+    ) {
+        $this->eleves = Eleve::forSchool($schoolId)
+            ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
+            ->when($sansClasse, fn ($q) => $q->whereNull('classe_id'))
+            ->with(['classe', 'school', 'tuteurs.telephones'])
             ->orderBy('nom_complet')
             ->get();
     }
 
-    public function headings(): array
+    public function sheets(): array
     {
-        return ['Matricule', 'Nom complet', 'Sexe', 'Date de naissance', 'Classe', 'Statut', 'Tuteur', 'Téléphone tuteur'];
-    }
-
-    public function map($eleve): array
-    {
-        $tuteur = $eleve->tuteurs->first();
-
         return [
-            $eleve->matricule,
-            $eleve->nom_complet,
-            $eleve->sexe,
-            $eleve->date_naissance?->format('Y-m-d'),
-            $eleve->classe?->nom,
-            $eleve->statut,
-            $tuteur?->nom_complet,
-            $tuteur?->telephone,
+            new EleveIdentiteSheet($this->eleves),
+            new EleveTuteursSheet($this->eleves),
+            new EleveScolariteSheet($this->eleves),
+            new EleveFraisAnnexesSheet($this->eleves),
+            new EleveVersementsSheet($this->eleves),
+            new EleveHistoriqueFinancierSheet($this->eleves),
+            new EleveInfirmerieSheet($this->eleves),
+            new EleveNotesSheet($this->eleves),
+            new EleveTransportSheet($this->eleves),
+            new EleveAbsencesSheet($this->eleves),
         ];
     }
 }

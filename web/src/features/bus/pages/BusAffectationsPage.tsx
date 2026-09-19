@@ -7,8 +7,10 @@ import { fetchClasses } from '@/features/classes/api'
 import {
   fetchElevesTransport,
   retirerAffectation,
+  retirerAffectationsLot,
   type EleveTransport,
 } from '@/features/bus/api'
+import { batchDeleteEleves } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -54,13 +56,19 @@ export function BusAffectationsPage() {
       : undefined
 
   const [classeFiltre, setClasseFiltre] = useState<number | ''>('')
+  const [nonPreinscritsSeuls, setNonPreinscritsSeuls] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [suppressionEnCours, setSuppressionEnCours] = useState(false)
+  const [retraitEnCours, setRetraitEnCours] = useState(false)
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
-  const { data: eleves, isLoading } = useQuery({
+  const { data: elevesBruts, isLoading } = useQuery({
     queryKey: ['bus-eleves', classeFiltre],
     queryFn: () => fetchElevesTransport(classeFiltre || undefined),
   })
+  const eleves = nonPreinscritsSeuls
+    ? elevesBruts?.filter((e) => !e.preinscrit_annee_active)
+    : elevesBruts
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bus-eleves'] })
@@ -110,6 +118,49 @@ export function BusAffectationsPage() {
     })
   }
 
+  /** Retrait des souscriptions du lot sélectionné — jamais la fiche élève elle-même, cf. `supprimerSelection` pour ça. Ignore les élèves sans souscription active dans la sélection. */
+  const retirerSelection = async () => {
+    const lignes = (eleves ?? []).filter((e) => selectedIds.has(e.id) && e.bus)
+    if (lignes.length === 0) return
+    if (!(await confirmerSuppression(
+      `${lignes.length} souscription(s) bus`,
+      'Une souscription avec des versements existants est suspendue plutôt que supprimée, pour garder son historique de paiement.',
+    ))) return
+
+    setRetraitEnCours(true)
+    try {
+      const { retirees } = await retirerAffectationsLot(lignes.map((e) => e.bus!.affectation_id))
+      succes(`${retirees} souscription(s) retirée(s).`)
+      setSelectedIds(new Set())
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setRetraitEnCours(false)
+    }
+  }
+
+  const supprimerSelection = async () => {
+    const lignes = (eleves ?? []).filter((e) => selectedIds.has(e.id))
+    if (lignes.length === 0) return
+    if (!(await confirmerSuppression(
+      `${lignes.length} fiche(s) élève`,
+      'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible. Ne sélectionnez que des fiches sans historique réel.',
+    ))) return
+
+    setSuppressionEnCours(true)
+    try {
+      const { deleted } = await batchDeleteEleves(lignes.map((e) => e.id))
+      succes(`${deleted} fiche(s) supprimée(s).`)
+      setSelectedIds(new Set())
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setSuppressionEnCours(false)
+    }
+  }
+
   const retirerUnEleve = async (eleve: EleveTransport) => {
     if (!eleve.bus) return
     if (!(await confirmerSuppression(eleve.nom_complet))) return
@@ -157,8 +208,9 @@ export function BusAffectationsPage() {
       cellule: (e) => (
         <div className="min-w-0">
           <div className="truncate font-semibold text-navy-900">{e.nom_complet}</div>
-          <div className="truncate text-xs text-navy-400">
-            {e.matricule ?? '—'} · {e.classe?.nom ?? '—'}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-navy-400">
+            <span className="truncate">{e.matricule ?? '—'} · {e.classe?.nom ?? '—'}</span>
+            {!e.preinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
           </div>
           {e.moratoire && (
             <div className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gold-600">
@@ -289,6 +341,16 @@ export function BusAffectationsPage() {
                 <UserPlus className="h-4 w-4" />
                 {t('bus.souscrire_lot')} ({selectedIds.size})
               </Button>
+              {(eleves ?? []).some((e) => selectedIds.has(e.id) && e.bus) && (
+                <Button variant="danger" disabled={retraitEnCours} onClick={() => void retirerSelection()}>
+                  <Trash2 className="h-4 w-4" />
+                  Retirer les souscriptions ({(eleves ?? []).filter((e) => selectedIds.has(e.id) && e.bus).length})
+                </Button>
+              )}
+              <Button variant="danger" disabled={suppressionEnCours} onClick={() => void supprimerSelection()}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer la sélection ({selectedIds.size})
+              </Button>
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"
@@ -311,14 +373,25 @@ export function BusAffectationsPage() {
           messageVide={t('bus.empty_eleves')}
           largeurMin={600}
           outils={
-            <Select value={classeFiltre} onChange={(e) => setClasseFiltre(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">{t('bus.toutes_classes')}</option>
-              {classes?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={classeFiltre} onChange={(e) => setClasseFiltre(e.target.value ? Number(e.target.value) : '')}>
+                <option value="">{t('bus.toutes_classes')}</option>
+                {classes?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom}
+                  </option>
+                ))}
+              </Select>
+              <label className="flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-700 shadow-soft">
+                <input
+                  type="checkbox"
+                  checked={nonPreinscritsSeuls}
+                  onChange={(e) => setNonPreinscritsSeuls(e.target.checked)}
+                  className="h-4 w-4 rounded border-navy-300 text-red-600 focus:ring-red-500"
+                />
+                Non préinscrits uniquement
+              </label>
+            </div>
           }
         />
       )}

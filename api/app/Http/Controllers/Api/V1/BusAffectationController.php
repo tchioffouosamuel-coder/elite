@@ -11,6 +11,7 @@ use App\Models\BusAffectation;
 use App\Models\Eleve;
 use App\Services\BusPaiementService;
 use App\Services\BusService;
+use App\Services\PreinscriptionService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class BusAffectationController extends Controller
     public function __construct(
         private readonly BusService $service,
         private readonly BusPaiementService $paiements,
+        private readonly PreinscriptionService $preinscriptions,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -142,6 +144,23 @@ class BusAffectationController extends Controller
         return ApiResponse::success(null, 'Affectation retirée.');
     }
 
+    /** Retrait en lot — même règle que l'unitaire : suspendue si des versements existent, supprimée sinon (cf. BusService::retirerAffectation). */
+    public function batchDestroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $retirees = 0;
+        foreach ($data['ids'] as $id) {
+            $this->service->retirerAffectation($this->affectation($id));
+            $retirees++;
+        }
+
+        return ApiResponse::success(['retirees' => $retirees], "{$retirees} souscription(s) retirée(s).");
+    }
+
     /**
      * Règles communes à la souscription individuelle et en lot — le tarif ne
      * s'y trouve jamais : il vient du trajet, jamais d'une saisie.
@@ -232,6 +251,11 @@ class BusAffectationController extends Controller
                 'date_expiration' => $eleve->moratoire_valide->date_expiration->format('Y-m-d'),
                 'jours_restants' => (int) Carbon::today()->diffInDays($eleve->moratoire_valide->date_expiration, false),
             ] : null,
+            // Pour distinguer, dans cette liste volontairement large (cf.
+            // `listerElevesTransport`, sans filtre de préinscription), les
+            // vrais élèves des doublons/fiches vides laissés par un import
+            // massif — jamais engagés pour l'année active.
+            'preinscrit_annee_active' => $this->preinscriptions->estPreinscritAnneeActive($eleve),
         ];
     }
 

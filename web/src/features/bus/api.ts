@@ -158,6 +158,8 @@ export interface EleveTransport {
     statut_paiement: StatutPaiementBus;
   } | null;
   moratoire?: { date_expiration: string; jours_restants: number } | null;
+  /** false = jamais engagé pour l'année active (doublon/fiche vide d'un import massif, pas forcément un ancien élève parti). */
+  preinscrit_annee_active: boolean;
 }
 
 // ---- Véhicules ---------------------------------------------------------
@@ -337,6 +339,15 @@ export async function modifierAffectation(
 
 export async function retirerAffectation(id: number): Promise<void> {
   await http.delete(`/bus/affectations/${id}`);
+}
+
+/** Retrait en lot — même règle que l'unitaire : suspendue si des versements existent, supprimée sinon. */
+export async function retirerAffectationsLot(ids: number[]): Promise<{ retirees: number }> {
+  const { data } = await http.delete<ApiResponse<{ retirees: number }>>(
+    "/bus/affectations/batch-destroy",
+    { data: { ids } },
+  );
+  return data.data;
 }
 
 // ---- Paiement mensuel -----------------------------------------------------

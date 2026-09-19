@@ -146,52 +146,77 @@ class EleveController extends Controller
     public function doublons(): JsonResponse
     {
         $eleves = Eleve::forSchool(Tenant::schoolIds())
-            ->whereNotNull('date_naissance')
             ->with(['classe:id,nom', 'school:id,name', 'tuteurs:id,nom_complet,telephone'])
             ->get(['id', 'school_id', 'classe_id', 'nom_complet', 'date_naissance', 'matricule', 'statut', 'created_at']);
 
         $totaux = $this->totauxVersements($eleves->pluck('id'));
 
         $groupes = $eleves
+            ->whereNotNull('date_naissance')
             ->groupBy(fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet) . ':' . $eleve->date_naissance->toDateString())
             ->filter(fn($groupe) => $groupe->count() > 1)
-            ->map(function ($groupe) use ($totaux) {
-                $membres = $groupe->map(function (Eleve $eleve) use ($totaux) {
-                    $principal = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
-
-                    return [
-                        'id' => $eleve->id,
-                        'matricule' => $eleve->matricule,
-                        'statut' => $eleve->statut,
-                        'classe' => $eleve->classe?->nom,
-                        'total_versements' => $totaux[$eleve->id] ?? 0,
-                        'created_at' => $eleve->created_at?->format('Y-m-d H:i'),
-                        'tuteur' => $principal ? ['nom_complet' => $principal->nom_complet, 'telephone' => $principal->telephone] : null,
-                    ];
-                })->values();
-
-                $avecVersement = $membres->filter(fn($m) => $m['total_versements'] > 0)->count();
-                $avecClasse = $membres->filter(fn($m) => $m['classe'] !== null)->count();
-
-                return [
-                    'nom' => $groupe->first()->nom_complet,
-                    'date_naissance' => $groupe->first()->date_naissance->format('Y-m-d'),
-                    'ecole' => $groupe->first()->school?->name,
-                    // 3 : plusieurs exemplaires déjà payés — le cas le plus
-                    // sensible. 2 : plusieurs actifs dans une classe, sans
-                    // doublon d'argent connu. 1 : le reste (souvent inactifs).
-                    'urgence' => match (true) {
-                        $avecVersement >= 2 => 3,
-                        $avecClasse >= 2 => 2,
-                        default => 1,
-                    },
-                    'membres' => $membres,
-                ];
-            })
+            ->map(fn($groupe) => $this->groupeDoublon($groupe, $totaux, false))
             ->sortByDesc('urgence')
             ->values();
 
-        return ApiResponse::success($groupes, "{$groupes->count()} groupe(s) de doublons.");
+        // Doublons « potentiels » : même école et même nom, mais une date de
+        // naissance manquante ou différente sur au moins une fiche — invisibles
+        // ci-dessus puisque celui-ci exige une correspondance exacte. Très
+        // fréquent sur les doublons d'un import massif (la fiche vide n'a
+        // souvent pas de date de naissance saisie). Jamais fusionnés
+        // automatiquement : `traitementAutomatiqueDoublons()` continue à
+        // n'agir que sur les groupes ci-dessus, DOB exacte, pour ne jamais
+        // risquer de confondre deux enfants distincts du même nom.
+        $groupesPotentiels = $eleves
+            ->groupBy(fn(Eleve $eleve) => $eleve->school_id . ':' . $this->nomDoublon($eleve->nom_complet))
+            ->filter(fn($groupe) => $groupe->count() > 1)
+            ->filter(fn($groupe) => $groupe->pluck('date_naissance')->unique(fn($d) => $d?->toDateString())->count() > 1)
+            ->map(fn($groupe) => $this->groupeDoublon($groupe, $totaux, true))
+            ->sortByDesc('urgence')
+            ->values();
+
+        return ApiResponse::success(
+            ['certains' => $groupes, 'potentiels' => $groupesPotentiels],
+            "{$groupes->count()} groupe(s) de doublons certains, {$groupesPotentiels->count()} potentiel(s) (date de naissance à vérifier).",
+        );
+    }
+
+    /** @param \Illuminate\Support\Collection<int, Eleve> $groupe */
+    private function groupeDoublon(\Illuminate\Support\Collection $groupe, \Illuminate\Support\Collection $totaux, bool $potentiel): array
+    {
+        $membres = $groupe->map(function (Eleve $eleve) use ($totaux) {
+            $principal = $eleve->tuteurs->firstWhere('pivot.is_principal', true) ?? $eleve->tuteurs->first();
+
+            return [
+                'id' => $eleve->id,
+                'matricule' => $eleve->matricule,
+                'statut' => $eleve->statut,
+                'classe' => $eleve->classe?->nom,
+                'date_naissance' => $eleve->date_naissance?->format('Y-m-d'),
+                'total_versements' => $totaux[$eleve->id] ?? 0,
+                'created_at' => $eleve->created_at?->format('Y-m-d H:i'),
+                'tuteur' => $principal ? ['nom_complet' => $principal->nom_complet, 'telephone' => $principal->telephone] : null,
+            ];
+        })->values();
+
+        $avecVersement = $membres->filter(fn($m) => $m['total_versements'] > 0)->count();
+        $avecClasse = $membres->filter(fn($m) => $m['classe'] !== null)->count();
+
+        return [
+            'nom' => $groupe->first()->nom_complet,
+            'date_naissance' => $potentiel ? null : $groupe->first()->date_naissance->format('Y-m-d'),
+            'ecole' => $groupe->first()->school?->name,
+            'potentiel' => $potentiel,
+            // 3 : plusieurs exemplaires déjà payés — le cas le plus
+            // sensible. 2 : plusieurs actifs dans une classe, sans
+            // doublon d'argent connu. 1 : le reste (souvent inactifs).
+            'urgence' => match (true) {
+                $avecVersement >= 2 => 3,
+                $avecClasse >= 2 => 2,
+                default => 1,
+            },
+            'membres' => $membres,
+        ];
     }
 
     /**

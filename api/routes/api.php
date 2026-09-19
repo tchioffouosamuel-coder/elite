@@ -1175,6 +1175,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('bus/affectations/import', [BusAffectationController::class, 'import'])->name('bus.affectations.import');
                 Route::post('bus/souscriptions-lot', [BusAffectationController::class, 'souscrireLot'])->name('bus.affectations.souscrire-lot');
                 Route::put('bus/affectations/{id}', [BusAffectationController::class, 'update'])->name('bus.affectations.update');
+                // Avant `bus/affectations/{id}` juste en dessous : même précaution
+                // que pour `eleves/non-preinscrits-sans-historique` plus haut.
+                Route::delete('bus/affectations/batch-destroy', [BusAffectationController::class, 'batchDestroy'])->name('bus.affectations.batch-destroy');
                 Route::delete('bus/affectations/{id}', [BusAffectationController::class, 'destroy'])->name('bus.affectations.destroy');
 
                 Route::post('bus/affectations/{id}/versements', [BusPaiementController::class, 'encaisser'])->name('bus.paiements.encaisser');

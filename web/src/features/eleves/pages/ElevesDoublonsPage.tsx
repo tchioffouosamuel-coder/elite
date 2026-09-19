@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, GitMerge, Trash2, UserRound, WandSparkles } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, GitMerge, Trash2, UserRound, WandSparkles } from 'lucide-react'
 import {
     batchDeleteEleves,
     fetchDoublonsDetailles,
@@ -44,10 +44,12 @@ export function ElevesDoublonsPage() {
     const [selection, setSelection] = useState<Set<number>>(new Set())
     const [suppressionEnCours, setSuppressionEnCours] = useState(false)
 
-    const { data: groupes, isLoading, isError } = useQuery({
+    const { data, isLoading, isError } = useQuery({
         queryKey: ['eleves', 'doublons-detailles'],
         queryFn: fetchDoublonsDetailles,
     })
+    const certains = data?.certains ?? []
+    const potentiels = data?.potentiels ?? []
 
     const rafraichir = () => {
         queryClient.invalidateQueries({ queryKey: ['eleves'] })
@@ -146,8 +148,92 @@ export function ElevesDoublonsPage() {
         return <ErrorState />
     }
 
-    const totalFiches = groupes?.reduce((total, g) => total + g.membres.length, 0) ?? 0
-    const totalVerse = groupes?.reduce((total, g) => total + g.membres.reduce((s, m) => s + m.total_versements, 0), 0) ?? 0
+    const totalFiches = certains.reduce((total, g) => total + g.membres.length, 0)
+    const totalVerse = certains.reduce((total, g) => total + g.membres.reduce((s, m) => s + m.total_versements, 0), 0)
+
+    const renderGroupe = (groupe: GroupeDoublonDetaille) => {
+        const badge = URGENCE_BADGE[groupe.urgence]
+        const cle = groupe.potentiel ? 'p:' : 'c:' + groupe.nom + (groupe.date_naissance ?? '')
+
+        return (
+            <Card key={cle}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy-100 pb-3">
+                    <div>
+                        <h2 className="font-bold text-navy-900">{groupe.nom}</h2>
+                        <p className="text-xs text-navy-500">
+                            {groupe.ecole ?? 'École non renseignée'}
+                            {groupe.date_naissance ? ` · Né(e) le ${groupe.date_naissance}` : ' · Dates de naissance différentes — voir ci-dessous'}
+                        </p>
+                    </div>
+                    <Badge tone={badge.tone}>{badge.label}</Badge>
+                </div>
+
+                {groupe.potentiel && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+                        <span>
+                            Date de naissance manquante ou différente entre ces fiches — vérifiez qu'il s'agit bien du même
+                            enfant avant de fusionner ou de supprimer.
+                        </span>
+                    </div>
+                )}
+
+                <div className="flex flex-col divide-y divide-navy-100">
+                    {groupe.membres.map((membre) => (
+                        <div key={membre.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                            <div className="flex min-w-0 items-start gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    checked={selection.has(membre.id)}
+                                    onChange={() => toggleSelection(membre.id)}
+                                    className="mt-1 h-4 w-4 flex-none rounded border-navy-300 text-red-600 focus:ring-red-500"
+                                    title="Sélectionner pour suppression"
+                                />
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <p className="font-semibold text-navy-900">Matricule {membre.matricule ?? '—'}</p>
+                                        <Badge tone={membre.statut === 'actif' ? 'green' : 'neutral'}>
+                                            {membre.statut === 'actif' ? 'Actif' : membre.statut}
+                                        </Badge>
+                                        {membre.total_versements > 0 && (
+                                            <Badge tone="gold">Versé : {formatMontant(membre.total_versements)}</Badge>
+                                        )}
+                                    </div>
+                                    <p className="mt-0.5 text-xs text-navy-500">
+                                        Classe : {membre.classe ?? 'Sans classe'}
+                                        {groupe.potentiel && ` · Né(e) le ${membre.date_naissance ?? '—'}`}
+                                        {' '}· Créée le {membre.created_at ?? '—'}
+                                        {membre.tuteur && (
+                                            <> · Tuteur : {membre.tuteur.nom_complet} {membre.tuteur.telephone ? `(${membre.tuteur.telephone})` : ''}</>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    title="Consulter"
+                                    onClick={() => navigate(`/eleves/${membre.id}`)}
+                                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-navy-500 hover:bg-cream-100 hover:text-navy-700"
+                                >
+                                    Consulter
+                                </button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled={enCours !== null}
+                                    onClick={() => void fusionner(groupe, membre)}
+                                >
+                                    <GitMerge className="h-3.5 w-3.5" />
+                                    {enCours === `${groupe.nom}:${membre.id}` ? 'Fusion…' : 'Garder celle-ci'}
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+        )
+    }
 
     return (
         <div className="flex flex-col gap-5">
@@ -182,89 +268,33 @@ export function ElevesDoublonsPage() {
 
             {isLoading ? (
                 <Spinner />
-            ) : isError || !groupes ? (
+            ) : isError || !data ? (
                 <ErrorState />
-            ) : groupes.length === 0 ? (
+            ) : certains.length === 0 && potentiels.length === 0 ? (
                 <Card>
                     <EmptyState label="Aucun doublon apparent n'a été trouvé." />
                 </Card>
             ) : (
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center gap-2 text-sm text-navy-600">
-                        <UserRound className="h-4 w-4" />
-                        {groupes.length} groupe(s) de doublons, {totalFiches} fiche(s) à vérifier · Total versé : {formatMontant(totalVerse)}
-                    </div>
+                <div className="flex flex-col gap-6">
+                    {certains.length > 0 && (
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-2 text-sm text-navy-600">
+                                <UserRound className="h-4 w-4" />
+                                {certains.length} groupe(s) de doublons certains, {totalFiches} fiche(s) à vérifier · Total versé : {formatMontant(totalVerse)}
+                            </div>
+                            {certains.map(renderGroupe)}
+                        </div>
+                    )}
 
-                    {groupes.map((groupe) => {
-                        const badge = URGENCE_BADGE[groupe.urgence]
-                        const cle = groupe.nom + groupe.date_naissance
-
-                        return (
-                            <Card key={cle}>
-                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy-100 pb-3">
-                                    <div>
-                                        <h2 className="font-bold text-navy-900">{groupe.nom}</h2>
-                                        <p className="text-xs text-navy-500">
-                                            {groupe.ecole ?? 'École non renseignée'} · Né(e) le {groupe.date_naissance}
-                                        </p>
-                                    </div>
-                                    <Badge tone={badge.tone}>{badge.label}</Badge>
-                                </div>
-
-                                <div className="flex flex-col divide-y divide-navy-100">
-                                    {groupe.membres.map((membre) => (
-                                        <div key={membre.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                                            <div className="flex min-w-0 items-start gap-2.5">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selection.has(membre.id)}
-                                                    onChange={() => toggleSelection(membre.id)}
-                                                    className="mt-1 h-4 w-4 flex-none rounded border-navy-300 text-red-600 focus:ring-red-500"
-                                                    title="Sélectionner pour suppression"
-                                                />
-                                                <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="font-semibold text-navy-900">Matricule {membre.matricule ?? '—'}</p>
-                                                    <Badge tone={membre.statut === 'actif' ? 'green' : 'neutral'}>
-                                                        {membre.statut === 'actif' ? 'Actif' : membre.statut}
-                                                    </Badge>
-                                                    {membre.total_versements > 0 && (
-                                                        <Badge tone="gold">Versé : {formatMontant(membre.total_versements)}</Badge>
-                                                    )}
-                                                </div>
-                                                <p className="mt-0.5 text-xs text-navy-500">
-                                                    Classe : {membre.classe ?? 'Sans classe'} · Créée le {membre.created_at ?? '—'}
-                                                    {membre.tuteur && (
-                                                        <> · Tuteur : {membre.tuteur.nom_complet} {membre.tuteur.telephone ? `(${membre.tuteur.telephone})` : ''}</>
-                                                    )}
-                                                </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    title="Consulter"
-                                                    onClick={() => navigate(`/eleves/${membre.id}`)}
-                                                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-navy-500 hover:bg-cream-100 hover:text-navy-700"
-                                                >
-                                                    Consulter
-                                                </button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    disabled={enCours !== null}
-                                                    onClick={() => void fusionner(groupe, membre)}
-                                                >
-                                                    <GitMerge className="h-3.5 w-3.5" />
-                                                    {enCours === `${groupe.nom}:${membre.id}` ? 'Fusion…' : 'Garder celle-ci'}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        )
-                    })}
+                    {potentiels.length > 0 && (
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-2 text-sm text-navy-600">
+                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                {potentiels.length} doublon(s) potentiel(s) — même nom et même école, date de naissance manquante ou différente à vérifier
+                            </div>
+                            {potentiels.map(renderGroupe)}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
