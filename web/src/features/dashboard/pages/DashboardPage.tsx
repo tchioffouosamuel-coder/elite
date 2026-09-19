@@ -388,7 +388,6 @@ function PilotagePanel() {
 
 function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'ecole' }> }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const nomEcoleActive = useAuthStore((s) => s.activeSchool()?.name)
   const [voirClassement, setVoirClassement] = useState(false)
