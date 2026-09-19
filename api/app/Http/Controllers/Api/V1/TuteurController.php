@@ -12,7 +12,9 @@ use App\Models\Tuteur;
 use App\Services\AuthService;
 use App\Services\CompteParentService;
 use App\Services\SettingsCatalog;
+use App\Services\TuteurFusionService;
 use App\Support\Pdf\IdentifiantsGenerator;
+use App\Support\Telephone;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +27,7 @@ class TuteurController extends Controller
     public function __construct(
         private readonly CompteParentService $service,
         private readonly AuthService $auth,
+        private readonly TuteurFusionService $fusion,
     ) {}
 
     /** Tuteurs de l'école, avec leurs enfants et l'état de leur accès parent — la vue qui remplace de chercher fiche élève par fiche élève. */
@@ -50,6 +53,80 @@ class TuteurController extends Controller
         ]);
 
         return ApiResponse::paginated($tuteurs);
+    }
+
+    /**
+     * Fiches Tuteur partageant le même numéro de téléphone normalisé, DANS
+     * LA MÊME ÉCOLE. La recherche de doublon à la création
+     * ({@see \App\Services\EleveService::resolveTuteur()},
+     * {@see \App\Services\PreinscriptionService}) compare le numéro BRUT, pas
+     * sa forme normalisée ({@see Telephone::normaliser()}) : deux saisies du
+     * même numéro sous des formes différentes créent donc deux fiches au
+     * lieu de réutiliser la première.
+     *
+     * Scopé par école plutôt que par le seul téléphone : un même numéro peut
+     * légitimement porter sur DEUX écoles différentes du même complexe (un
+     * parent avec des enfants dans plusieurs établissements) —
+     * {@see CompteParentService::assurer()} partage alors le même compte
+     * utilisateur entre les deux fiches Tuteur, ce n'est pas un doublon à
+     * fusionner.
+     */
+    public function doublons(): JsonResponse
+    {
+        $tuteurs = Tuteur::forSchool(Tenant::schoolIds())
+            ->whereNotNull('telephone')
+            ->where('telephone', '!=', '')
+            ->with(['eleves:id,nom_complet', 'school:id,name'])
+            ->get(['id', 'school_id', 'nom_complet', 'telephone', 'email', 'user_id', 'created_at']);
+
+        $groupes = $tuteurs
+            ->groupBy(fn(Tuteur $t) => $t->school_id.':'.Telephone::normaliser($t->telephone))
+            ->filter(fn($groupe) => $groupe->count() > 1)
+            ->map(fn($groupe) => [
+                'telephone' => Telephone::normaliser($groupe->first()->telephone),
+                'ecole' => $groupe->first()->school?->name,
+                'membres' => $groupe->map(fn(Tuteur $t) => [
+                    'id' => $t->id,
+                    'nom_complet' => $t->nom_complet,
+                    'telephone' => $t->telephone,
+                    'email' => $t->email,
+                    'a_compte' => $t->user_id !== null,
+                    'enfants' => $t->eleves->map(fn($e) => ['id' => $e->id, 'nom_complet' => $e->nom_complet])->values(),
+                    'created_at' => $t->created_at?->format('Y-m-d H:i'),
+                ])->values(),
+            ])
+            ->sortByDesc(fn(array $g) => $g['membres']->count())
+            ->values();
+
+        return ApiResponse::success($groupes, "{$groupes->count()} groupe(s) de doublons.");
+    }
+
+    /**
+     * Fusion d'une paire choisie à la main. Les deux écoles doivent
+     * correspondre : un même numéro sur deux écoles différentes est un cas
+     * légitime (cf. {@see doublons()}), pas un doublon — fusionner
+     * mélangerait les enfants d'un établissement dans la fiche d'un autre.
+     */
+    public function fusionnerDoublon(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'conservee_id' => ['required', 'integer', 'different:autre_id'],
+            'autre_id' => ['required', 'integer'],
+        ]);
+
+        $conservee = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($data['conservee_id']);
+        $autre = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($data['autre_id']);
+
+        if ($conservee->school_id !== $autre->school_id) {
+            return ApiResponse::error(
+                "Ces deux fiches appartiennent à des écoles différentes : un même numéro peut légitimement correspondre à un parent ayant des enfants dans plusieurs établissements — ce n'est pas un doublon à fusionner.",
+                422,
+            );
+        }
+
+        $this->fusion->fusionner($conservee, $autre);
+
+        return ApiResponse::success(null, "{$autre->nom_complet} fusionné(e) dans la fiche conservée.");
     }
 
     /**

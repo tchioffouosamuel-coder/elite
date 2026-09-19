@@ -5,6 +5,7 @@ import logoWordmark from '@/assets/logo-wordmark.png'
 import { useAuthStore } from '@/shared/store/authStore'
 import { logout } from '@/features/auth/api'
 import { InformationsManquantesAlert } from '@/features/parent/components/InformationsManquantesAlert'
+import { CLE_ALERTE_MASQUEE } from '@/features/parent/champsManquants'
 
 const liens = [
   { to: '/parent', fr: 'Mes enfants', en: 'My children', icon: Users, end: true },
@@ -34,6 +35,10 @@ export function ParentLayout() {
     try {
       await logout()
     } finally {
+      // Sinon une reconnexion dans le même onglet hérite du masquage « pour
+      // la session » posé par le compte précédent, et l'alerte ne
+      // réapparaîtrait plus alors que le dossier est bien incomplet.
+      sessionStorage.removeItem(CLE_ALERTE_MASQUEE)
       clearSession()
       navigate('/connexion', { replace: true })
     }

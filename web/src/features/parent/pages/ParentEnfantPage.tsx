@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Check,
   TrendingUp,
+  Camera,
 } from 'lucide-react'
 import {
   fetchEnfant,
@@ -43,12 +44,14 @@ import {
   emploiDuTempsPdfEnfantUrl,
   fetchVisitesInfirmerieEnfant,
   fetchSanctionsEnfant,
+  completerPhotoEnfant,
   type MotifJustification,
   type LeconsSemaine,
   type JourAssiduite,
   type EnfantDossier,
   type ModificationEnfantPayload,
 } from '@/features/parent/api'
+import { PhotoCaptureModal } from '@/features/parent/components/PhotoCaptureModal'
 import { francs } from '@/features/finance/api'
 import type { Echeancier as EcheancierType, StatutTranche } from '@/features/finance/api'
 import { ouvrirDocument } from '@/shared/lib/download'
@@ -93,6 +96,20 @@ export function ParentEnfantPage() {
   const queryClient = useQueryClient()
   const eleveId = Number(id)
   const [modificationOuverte, setModificationOuverte] = useState(false)
+  const [captureOuverte, setCaptureOuverte] = useState(false)
+
+  const ajouterPhoto = async (fichier: File) => {
+    try {
+      await completerPhotoEnfant(eleveId, fichier)
+      succes('Photo ajoutée. / Photo added.')
+      setCaptureOuverte(false)
+      queryClient.invalidateQueries({ queryKey: ['parent-enfant', eleveId] })
+      queryClient.invalidateQueries({ queryKey: ['parent-enfants'] })
+      queryClient.invalidateQueries({ queryKey: ['parent-champs-manquants'] })
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
 
   const { data: e, isLoading, isError } = useQuery({ queryKey: ['parent-enfant', eleveId], queryFn: () => fetchEnfant(eleveId) })
   // Un seul appel pour le bandeau "en attente" et l'historique complet : la
@@ -118,9 +135,15 @@ export function ParentEnfantPage() {
           {e.photo_url ? (
             <img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 rounded-full object-cover ring-1 ring-navy-100" />
           ) : (
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-cream-50">
-              {e.nom_complet.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
-            </span>
+            <button
+              type="button"
+              onClick={() => setCaptureOuverte(true)}
+              title="Ajouter une photo / Add a photo"
+              className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-cream-50 transition-colors hover:bg-navy-600"
+            >
+              <span className="group-hover:opacity-0">{e.nom_complet.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}</span>
+              <Camera className="absolute h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
           )}
           <div className="min-w-0">
             <h1 className="break-words font-display text-2xl font-bold tracking-tight text-navy-900">{e.nom_complet}</h1>
@@ -165,9 +188,15 @@ export function ParentEnfantPage() {
           {e.photo_url ? (
             <img src={e.photo_url} alt={e.nom_complet} className="h-24 w-24 flex-none rounded-xl object-cover ring-1 ring-navy-100" />
           ) : (
-            <span className="flex h-24 w-24 flex-none items-center justify-center rounded-xl bg-cream-100 text-xs font-medium text-navy-300 ring-1 ring-navy-100">
-              Aucune photo / No photo
-            </span>
+            <button
+              type="button"
+              onClick={() => setCaptureOuverte(true)}
+              title="Ajouter une photo / Add a photo"
+              className="group flex h-24 w-24 flex-none flex-col items-center justify-center gap-1 rounded-xl bg-cream-100 text-navy-300 ring-1 ring-navy-100 transition-colors hover:bg-cream-200 hover:text-navy-500"
+            >
+              <Camera className="h-5 w-5" />
+              <span className="px-1 text-center text-[11px] font-medium leading-tight">Ajouter une photo / Add a photo</span>
+            </button>
           )}
           <Champ label="Nom complet / Full name" valeur={e.nom_complet} />
         </div>
@@ -266,6 +295,14 @@ export function ParentEnfantPage() {
             queryClient.invalidateQueries({ queryKey: ['parent-modifications', eleveId] })
             setModificationOuverte(false)
           }}
+        />
+      )}
+
+      {captureOuverte && (
+        <PhotoCaptureModal
+          titre={`Photo de ${e.nom_complet} / ${e.nom_complet}'s photo`}
+          onClose={() => setCaptureOuverte(false)}
+          onValider={ajouterPhoto}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus } from 'lucide-react'
+import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus, GitMerge } from 'lucide-react'
 import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
@@ -19,6 +20,7 @@ import type { ApiError } from '@/shared/types/api'
  * pour ouvrir un accès au coup par coup.
  */
 export function ComptesParentsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   // En mode agrégé (super admin, « Toutes les écoles »), le tableau réunit les
   // tuteurs de tout le complexe : la confirmation doit annoncer ce périmètre-là.
@@ -349,6 +351,10 @@ export function ComptesParentsPage() {
         icon={Users2}
         actions={
           <>
+            <Button variant="secondary" onClick={() => navigate('/comptes-parents/doublons')}>
+              <GitMerge className="h-4 w-4" />
+              Doublons
+            </Button>
             <Button variant="secondary" onClick={() => ouvrirDocument('/tuteurs/identifiants/pdf')}>
               <FileDown className="h-4 w-4" />
               Identifiants (PDF)

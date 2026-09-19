@@ -581,6 +581,40 @@ export async function supprimerTuteur(tuteurId: number): Promise<void> {
   await http.delete(`/tuteurs/${tuteurId}`);
 }
 
+export interface MembreDoublonTuteur {
+  id: number;
+  nom_complet: string;
+  telephone: string | null;
+  email: string | null;
+  a_compte: boolean;
+  enfants: { id: number; nom_complet: string }[];
+  created_at: string | null;
+}
+
+export interface GroupeDoublonTuteur {
+  /** Forme normalisée (E.164) du numéro partagé par ce groupe. */
+  telephone: string;
+  ecole: string | null;
+  membres: MembreDoublonTuteur[];
+}
+
+/** Doublons de fiches Tuteur — même numéro normalisé, même école (cf. `TuteurController::doublons`). */
+export async function fetchDoublonsTuteurs(): Promise<GroupeDoublonTuteur[]> {
+  const { data } =
+    await http.get<ApiResponse<GroupeDoublonTuteur[]>>("/tuteurs/doublons");
+  return data.data;
+}
+
+export async function fusionnerDoublonTuteur(
+  conserveeId: number,
+  autreId: number,
+): Promise<void> {
+  await http.post("/tuteurs/doublons/fusionner", {
+    conservee_id: conserveeId,
+    autre_id: autreId,
+  });
+}
+
 // ------------------------------------------------- Usage du portail parent
 
 export interface PointSerie {

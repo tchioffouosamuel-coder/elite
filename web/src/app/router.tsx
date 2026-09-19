@@ -124,6 +124,7 @@ import { PreinscriptionCreerPage } from '@/features/eleves/pages/PreinscriptionC
 import { PreinscriptionDetailPage } from '@/features/eleves/pages/PreinscriptionDetailPage'
 import { ModificationsElevesAdminPage } from '@/features/eleves/pages/ModificationsElevesAdminPage'
 import { ComptesParentsPage } from '@/features/eleves/pages/ComptesParentsPage'
+import { TuteursDoublonsPage } from '@/features/eleves/pages/TuteursDoublonsPage'
 import { AdminParentStatsPage } from '@/features/eleves/pages/AdminParentStatsPage'
 import { JustificationsAdminPage } from '@/features/eleves/pages/JustificationsAdminPage'
 import { ObservationsAdminPage } from '@/features/eleves/pages/ObservationsAdminPage'
@@ -327,6 +328,7 @@ export const router = createHashRouter([
       { path: 'preinscriptions/:id', element: <ProtectedRoute permission="eleves.manage"><PreinscriptionDetailPage /></ProtectedRoute> },
       { path: 'modifications-eleves', element: <ProtectedRoute permission="eleves.manage"><ModificationsElevesAdminPage /></ProtectedRoute> },
       { path: 'comptes-parents', element: <ProtectedRoute permission="eleves.manage"><ComptesParentsPage /></ProtectedRoute> },
+      { path: 'comptes-parents/doublons', element: <ProtectedRoute permission="eleves.manage"><TuteursDoublonsPage /></ProtectedRoute> },
       { path: 'statistiques-parent', element: <ProtectedRoute permission="eleves.manage"><AdminParentStatsPage /></ProtectedRoute> },
       { path: 'justifications', element: <ProtectedRoute permission="eleves.manage"><JustificationsAdminPage /></ProtectedRoute> },
       { path: 'observations', element: <ProtectedRoute permission="eleves.manage"><ObservationsAdminPage /></ProtectedRoute> },
