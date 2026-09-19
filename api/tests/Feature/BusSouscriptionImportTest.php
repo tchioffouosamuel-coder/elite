@@ -110,6 +110,35 @@ class BusSouscriptionImportTest extends TestCase
         $this->assertDatabaseHas('bus_versements', ['montant' => 15000, 'mode' => 'especes']);
     }
 
+    /**
+     * Le fichier de situation facture souvent un tarif individualisé par
+     * élève/arrêt, différent de la grille standard du trajet (15000 ici) —
+     * l'affectation doit reprendre CE tarif, sans quoi `encaisser()` échoue
+     * sur (montant du fichier) ≠ (grille du trajet) pour la quasi-totalité
+     * des lignes d'un import réel.
+     */
+    public function test_le_tarif_du_fichier_prime_sur_la_grille_du_trajet(): void
+    {
+        $eleve = $this->eleve('23PRIM2', 'FOMESSO LIMA MARK JOEL');
+
+        $import = $this->importer(collect([
+            $this->ligne([
+                'matricule' => $eleve->matricule,
+                'nom' => $eleve->nom_complet,
+                'bus' => 'Ligne Nord',
+                'tarif' => 8000,
+                'mois' => 'Sept',
+                'mode' => 'cash',
+            ]),
+        ]));
+
+        $this->assertSame([], $import->erreurs);
+        $this->assertSame(1, $import->versementsCrees);
+
+        $this->assertDatabaseHas('bus_affectations', ['eleve_id' => $eleve->id, 'tarif_mensuel' => 8000]);
+        $this->assertDatabaseHas('bus_versements', ['montant' => 8000]);
+    }
+
     public function test_plusieurs_mois_du_meme_eleve_partagent_l_affectation_et_creent_des_versements_distincts(): void
     {
         $eleve = $this->eleve('23PRIM2', 'FOMESSO LIMA MARK JOEL');

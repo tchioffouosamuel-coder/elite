@@ -773,6 +773,7 @@
     "total_jnj": "Total unexcused days",
     "moyenne_jnj": "Average per student",
     "jours_calcules": "Days derived from roll calls: a day counts as absent when the child was not marked present in any of that day's lessons.",
+    "heures_calculees": "Hours derived from roll calls. Only the supervisor can correct them.",
     "total_hnj": "Total unexcused hours",
     "moyenne_hnj": "Average per student",
     "plus_absent": "Most absent student",

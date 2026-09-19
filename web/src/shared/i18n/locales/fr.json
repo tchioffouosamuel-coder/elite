@@ -800,6 +800,7 @@
     "total_jnj": "Total jours non justifiés",
     "moyenne_jnj": "Moyenne par élève",
     "jours_calcules": "Journées déduites des appels : un jour compte comme absent si l'enfant n'a répondu présent à aucun cours de la journée.",
+    "heures_calculees": "Heures déduites des appels. Seul le surveillant général peut les corriger.",
     "total_hnj": "Total heures non justifiées",
     "moyenne_hnj": "Moyenne par élève",
     "plus_absent": "Élève le plus absent",

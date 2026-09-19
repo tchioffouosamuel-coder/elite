@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { IdCard, Pencil, Trash2 } from 'lucide-react'
+import { IdCard, Pencil, Search, Trash2 } from 'lucide-react'
 import {
   fetchMatriculesNationaux,
   majMatriculeNational,
@@ -67,6 +68,7 @@ function ModifierMatriculeModal({
 }
 
 export function MatriculesNationauxPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [enCoursId, setEnCoursId] = useState<number | null>(null)
   const [editionPour, setEditionPour] = useState<MatriculeNationalLigne | null>(null)
@@ -144,9 +146,12 @@ export function MatriculesNationauxPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: '100px',
+      largeur: '140px',
       cellule: (l) => (
         <div className="flex justify-end gap-1.5">
+          <Button size="sm" variant="secondary" title="Rechercher la fiche élève" onClick={() => navigate(`/eleves/${l.id}`)}>
+            <Search className="h-3.5 w-3.5" />
+          </Button>
           <Button size="sm" variant="secondary" title="Modifier" onClick={() => setEditionPour(l)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>

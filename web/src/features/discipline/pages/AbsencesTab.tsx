@@ -11,13 +11,19 @@ import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 
 export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleType?: TypeEcole | null }) {
   const { t } = useTranslation()
+  const can = useAuthStore((s) => s.can)
   // Au primaire et en maternelle les journées se déduisent des appels : la
   // grille n'y est qu'un compte rendu, il n'y a rien à saisir ni à envoyer.
   const secondaire = estSecondaire(ecoleType)
   const suffixe = secondaire ? 'h' : ' j'
+  // `discipline.manage` autorise déjà la correction côté API (`sauvegarderEnLot`
+  // remplace le calcul automatique quel que soit son état) : l'écran doit donc
+  // ouvrir la saisie sur toutes les lignes, pas seulement celles déjà corrigées.
+  const peutModifier = secondaire && can('discipline.manage')
 
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
@@ -76,9 +82,9 @@ export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleTy
     {
       cle: 'justifiees',
       entete: t(secondaire ? 'discipline.heures_justifiees' : 'discipline.jours_justifies'),
-      valeur: (row) => (row.calculee ? row.justifiees : Number(valeurs[row.eleve_id]?.hj ?? 0)),
+      valeur: (row) => (peutModifier ? Number(valeurs[row.eleve_id]?.hj ?? 0) : row.justifiees),
       cellule: (row) =>
-        row.calculee ? (
+        !peutModifier ? (
           row.justifiees
         ) : (
           <input
@@ -94,9 +100,9 @@ export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleTy
     {
       cle: 'non_justifiees',
       entete: t(secondaire ? 'discipline.heures_non_justifiees' : 'discipline.jours_non_justifies'),
-      valeur: (row) => (row.calculee ? row.non_justifiees : Number(valeurs[row.eleve_id]?.hnj ?? 0)),
+      valeur: (row) => (peutModifier ? Number(valeurs[row.eleve_id]?.hnj ?? 0) : row.non_justifiees),
       cellule: (row) =>
-        row.calculee ? (
+        !peutModifier ? (
           <span className={row.non_justifiees > 0 ? 'font-semibold text-navy-900' : undefined}>{row.non_justifiees}</span>
         ) : (
           <input
@@ -156,16 +162,18 @@ export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleTy
             // La saisie des heures (secondaire) doit garder toutes les lignes
             // visibles à la fois : paginer forcerait à changer de page pour
             // remplir chaque élève avant d'enregistrer.
-            parPage={secondaire ? 0 : 15}
+            parPage={peutModifier ? 0 : 15}
           />
-          {secondaire ? (
+          {peutModifier ? (
             <div>
               <Button onClick={handleSave} disabled={submitting}>
                 {t('common.save')}
               </Button>
             </div>
           ) : (
-            <p className="text-xs text-navy-400">{t('discipline.jours_calcules')}</p>
+            <p className="text-xs text-navy-400">
+              {t(secondaire ? 'discipline.heures_calculees' : 'discipline.jours_calcules')}
+            </p>
           )}
         </>
       )}

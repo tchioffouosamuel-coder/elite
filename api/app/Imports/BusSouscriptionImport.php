@@ -157,6 +157,7 @@ class BusSouscriptionImport implements SkipsEmptyRows, ToCollection, WithHeading
                 $arret,
                 $option,
                 $premierMois ?? Carbon::now()->startOfMonth(),
+                $premiere['montant'] ?? null,
             );
         } catch (RuntimeException $e) {
             foreach ($lignes as $ligne) {

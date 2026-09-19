@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FileSpreadsheet, Sparkles, UserRound, Upload } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, Sparkles, Trash2, UserRound, Upload } from 'lucide-react'
 import {
+  batchDeleteEleves,
   changerClasseEleve,
   fetchDiagnosticNonPreinscritsSansHistorique,
   fetchEleves,
@@ -163,6 +164,8 @@ export function ElevesSansClassePage() {
     const queryClient = useQueryClient()
     const [showImport, setShowImport] = useState(false)
     const [showNettoyage, setShowNettoyage] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [suppressionEnCours, setSuppressionEnCours] = useState(false)
     const { data: classes = [], isLoading: classesLoading } = useQuery({
         queryKey: ['classes'],
         queryFn: () => fetchClasses(),
@@ -183,7 +186,66 @@ export function ElevesSansClassePage() {
         queryClient.invalidateQueries({ queryKey: ['classes'] })
     }
 
+    const toggleSelect = (id: number) => {
+        setSelectedIds((courant) => {
+            const copie = new Set(courant)
+            copie.has(id) ? copie.delete(id) : copie.add(id)
+            return copie
+        })
+    }
+
+    const toggleSelectAll = () => {
+        setSelectedIds((courant) =>
+            courant.size === elevesSansClasse.length
+                ? new Set()
+                : new Set(elevesSansClasse.map((eleve) => eleve.id)),
+        )
+    }
+
+    /** Suppression directe, hors fusion : pour les fiches qu'on a identifiées à l'œil comme sans historique réel — `Eleve` n'a pas de suppression douce, jamais de retour en arrière possible ensuite. */
+    const supprimerSelection = async () => {
+        if (selectedIds.size === 0) return
+        if (!(await confirmerSuppression(
+            `${selectedIds.size} fiche(s) élève`,
+            'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible. Ne sélectionnez que des fiches sans historique réel (aucun versement, aucune note...).',
+        ))) return
+
+        setSuppressionEnCours(true)
+        try {
+            const { deleted } = await batchDeleteEleves(Array.from(selectedIds))
+            succes(`${deleted} fiche(s) supprimée(s).`)
+            setSelectedIds(new Set())
+            invalidate()
+        } catch (err) {
+            erreur((err as ApiError).message)
+        } finally {
+            setSuppressionEnCours(false)
+        }
+    }
+
     const colonnes: Colonne<Eleve>[] = [
+        {
+            cle: 'selection',
+            sticky: 'left',
+            largeur: '44px',
+            entete: (
+                <input
+                    type="checkbox"
+                    checked={selectedIds.size === elevesSansClasse.length && elevesSansClasse.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-navy-300 text-red-600 focus:ring-red-500"
+                />
+            ),
+            cellule: (eleve) => (
+                <input
+                    type="checkbox"
+                    checked={selectedIds.has(eleve.id)}
+                    onChange={() => toggleSelect(eleve.id)}
+                    onClick={(event) => event.stopPropagation()}
+                    className="h-4 w-4 rounded border-navy-300 text-red-600 focus:ring-red-500"
+                />
+            ),
+        },
         {
             cle: 'matricule',
             entete: 'Matricule',
@@ -232,6 +294,17 @@ export function ElevesSansClassePage() {
                 icon={UserRound}
                 actions={
                     <>
+                        {can('eleves.manage') && selectedIds.size > 0 && (
+                            <Button
+                                type="button"
+                                variant="danger"
+                                disabled={suppressionEnCours}
+                                onClick={() => void supprimerSelection()}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Supprimer la sélection ({selectedIds.size})
+                            </Button>
+                        )}
                         <Button
                             type="button"
                             variant="secondary"

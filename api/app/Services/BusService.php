@@ -309,6 +309,13 @@ class BusService extends BaseService
         ?BusArret $arret,
         string $optionTrajet,
         \Illuminate\Support\Carbon $depuis,
+        // Tarif de la colonne « Tarif » du fichier, quand il est fourni : le
+        // fichier de situation facture souvent un montant individualisé par
+        // élève/arrêt (négocié, ou différent de la grille du trajet), que la
+        // grille standard `$trajet->tarifPour()` ne reflète pas — l'utiliser
+        // quand même ferait échouer `BusPaiementService::encaisser()` sur
+        // quasiment chaque ligne importée (montant ≠ tarif × mois attendu).
+        ?int $tarifMensuel = null,
     ): BusAffectation {
         $existante = BusAffectation::where('eleve_id', $eleve->id)->actives()->first();
 
@@ -329,14 +336,14 @@ class BusService extends BaseService
 
         $anneeScolaireId = AnneeScolaire::where('school_id', $eleve->school_id)->where('is_active', true)->value('id');
 
-        return $this->transaction(function () use ($eleve, $trajet, $arret, $optionTrajet, $depuis, $anneeScolaireId) {
+        return $this->transaction(function () use ($eleve, $trajet, $arret, $optionTrajet, $depuis, $anneeScolaireId, $tarifMensuel) {
             $affectation = BusAffectation::create([
                 'eleve_id' => $eleve->id,
                 'trajet_id' => $trajet->id,
                 'arret_id' => $arret?->id,
                 'annee_scolaire_id' => $anneeScolaireId,
                 'option_trajet' => $optionTrajet,
-                'tarif_mensuel' => $trajet->tarifPour($optionTrajet),
+                'tarif_mensuel' => $tarifMensuel ?? $trajet->tarifPour($optionTrajet),
                 'statut' => 'actif',
             ]);
 
