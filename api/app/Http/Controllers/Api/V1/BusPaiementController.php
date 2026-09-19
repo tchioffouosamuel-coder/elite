@@ -132,7 +132,8 @@ class BusPaiementController extends Controller
         $message = "Paiement du transport scolaire de {$affectation->eleve->nom_complet} pour {$mois} : "
             . "{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
 
-        $this->notifications->notifier($tuteur, $canaux, $affectation->trajet->school_id, 'Confirmation de paiement — transport', $message);
+        // L'école de l'élève, pas celle du trajet : voir BusPaiementService::encaisser().
+        $this->notifications->notifier($tuteur, $canaux, $affectation->eleve->school_id, 'Confirmation de paiement — transport', $message);
     }
 
     private function francs(int $montant): string
@@ -157,7 +158,8 @@ class BusPaiementController extends Controller
 
     private function affectation(int $id): BusAffectation
     {
-        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool(Tenant::schoolIds()))
+        // Par l'élève, pas par le trajet : cf. BusService::listerAffectations().
+        return BusAffectation::whereHas('eleve', fn($q) => $q->forSchool(Tenant::schoolIds()))
             ->with('anneeScolaire')
             ->findOrFail($id);
     }

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, FileSpreadsheet, Sparkles, UserRound, Upload } from 'lucide-react'
 import {
   changerClasseEleve,
+  fetchDiagnosticNonPreinscritsSansHistorique,
   fetchEleves,
   fetchNonPreinscritsSansHistorique,
   supprimerNonPreinscritsSansHistorique,
@@ -35,6 +36,13 @@ function NettoyageDoublonsModal({ onClose, onSupprime }: { onClose: () => void; 
   const { data: candidats, isLoading, isError } = useQuery({
     queryKey: ['eleves', 'non-preinscrits-sans-historique'],
     queryFn: () => fetchNonPreinscritsSansHistorique(),
+  })
+  // Chargé seulement si l'aperçu revient vide : explique pourquoi, plutôt que
+  // de laisser croire qu'il n'y a vraiment rien à nettoyer.
+  const { data: diagnostic } = useQuery({
+    queryKey: ['eleves', 'non-preinscrits-sans-historique', 'diagnostic'],
+    queryFn: () => fetchDiagnosticNonPreinscritsSansHistorique(),
+    enabled: !isLoading && (candidats?.length ?? 0) === 0,
   })
 
   const supprimer = async () => {
@@ -71,7 +79,24 @@ function NettoyageDoublonsModal({ onClose, onSupprime }: { onClose: () => void; 
         ) : isError || !candidats ? (
           <ErrorState />
         ) : candidats.length === 0 ? (
-          <EmptyState label="Aucune fiche sans historique à supprimer." />
+          <div className="flex flex-col gap-3">
+            <EmptyState label="Aucune fiche sans historique à supprimer." />
+            {diagnostic && diagnostic.sans_classe > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <p className="font-semibold">
+                  Pourtant {diagnostic.sans_classe} fiche(s) sont sans classe — chacune est retenue par au moins
+                  une des tables ci-dessous (elle y a une ligne, donc une vraie trace d'activité) :
+                </p>
+                <ul className="mt-1.5 list-disc pl-4">
+                  {Object.entries(diagnostic.blocages).map(([table, n]) => (
+                    <li key={table}>
+                      <span className="font-mono">{table}</span> : {n} fiche(s)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <p className="text-sm font-semibold text-navy-800">{candidats.length} fiche(s) trouvée(s) :</p>

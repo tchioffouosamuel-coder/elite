@@ -518,6 +518,14 @@ class EleveController extends Controller
         return ApiResponse::success(EleveResource::collection($eleves));
     }
 
+    /** À afficher quand l'aperçu ci-dessus est vide alors que des fiches sans classe existent manifestement : par quelle table chacune est-elle retenue. */
+    public function diagnosticNonPreinscritsSansHistorique(): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->service->diagnostiquerNonPreinscritsSansHistorique(Tenant::schoolIds()),
+        );
+    }
+
     /** Supprime le lot précédemment prévisualisé — recalculé côté serveur, cf. EleveService::supprimerNonPreinscritsSansHistorique(). */
     public function supprimerNonPreinscritsSansHistorique(): JsonResponse
     {

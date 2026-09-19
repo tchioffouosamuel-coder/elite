@@ -21,7 +21,7 @@ class VerificationVersementBusController extends Controller
             return ApiResponse::error('Signature invalide : ce lien ne correspond à aucun reçu authentique.', 422);
         }
 
-        $versement = BusVersement::with(['affectation.eleve.classe', 'affectation.trajet.school'])->find($versementId);
+        $versement = BusVersement::with(['affectation.eleve.classe', 'affectation.eleve.school', 'affectation.trajet'])->find($versementId);
 
         if (! $versement) {
             return ApiResponse::notFound('Reçu introuvable.');
@@ -36,7 +36,7 @@ class VerificationVersementBusController extends Controller
                 'matricule' => $affectation->eleve->matricule,
             ],
             'classe' => $affectation->eleve->classe?->nom,
-            'ecole' => $affectation->trajet->school?->name,
+            'ecole' => $affectation->eleve->school?->name,
             'trajet' => $affectation->trajet->nom,
             'mois' => $versement->mois->format('Y-m-d'),
             'montant' => $versement->montant,

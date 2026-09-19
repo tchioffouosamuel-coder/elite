@@ -483,6 +483,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // plante avec un TypeError sur l'argument entier attendu.
                 Route::get('eleves/doublons', [EleveController::class, 'doublons'])->name('eleves.doublons.index');
                 Route::get('eleves/non-preinscrits-sans-historique', [EleveController::class, 'nonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique');
+                Route::get('eleves/non-preinscrits-sans-historique/diagnostic', [EleveController::class, 'diagnosticNonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique.diagnostic');
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
                 // Routes statiques déclarées avant `matricules-nationaux/{id}`

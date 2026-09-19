@@ -728,7 +728,15 @@
     "select_prompt": "Choisissez une matière et une séquence pour afficher la grille.",
     "saved": "{{count}} note(s) enregistrée(s).",
     "bareme_hint": "Matière notée sur {{bareme}}, répartie ainsi par volet et par séquence : {{repartition}}.",
-    "saisir": "Saisir les notes"
+    "saisir": "Saisir les notes",
+    "trim_colonne": "Trim.",
+    "reconduire": "Reconduire",
+    "reconduire_de": "De",
+    "reconduire_vers": "Vers",
+    "reconduire_confirm_titre": "Reconduire les notes ?",
+    "reconduire_confirm_message": "Les notes déjà saisies dans la séquence de destination seront écrasées.",
+    "reconduire_ok": "Notes reconduites — pensez à enregistrer.",
+    "invalid_hint": "Corrigez les notes hors barème avant d'enregistrer."
   },
   "niveaux": {
     "title": "Niveaux d'enseignement",

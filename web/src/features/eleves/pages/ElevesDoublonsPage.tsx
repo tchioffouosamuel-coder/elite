@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, GitMerge, UserRound, WandSparkles } from 'lucide-react'
+import { ArrowLeft, GitMerge, Trash2, UserRound, WandSparkles } from 'lucide-react'
 import {
+    batchDeleteEleves,
     fetchDoublonsDetailles,
     fusionnerDoublon,
     traitementAutomatiqueDoublons,
@@ -10,7 +11,7 @@ import {
     type MembreDoublon,
 } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
-import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -40,6 +41,8 @@ export function ElevesDoublonsPage() {
     const can = useAuthStore((state) => state.can)
     const queryClient = useQueryClient()
     const [enCours, setEnCours] = useState<string | null>(null)
+    const [selection, setSelection] = useState<Set<number>>(new Set())
+    const [suppressionEnCours, setSuppressionEnCours] = useState(false)
 
     const { data: groupes, isLoading, isError } = useQuery({
         queryKey: ['eleves', 'doublons-detailles'],
@@ -49,6 +52,42 @@ export function ElevesDoublonsPage() {
     const rafraichir = () => {
         queryClient.invalidateQueries({ queryKey: ['eleves'] })
         queryClient.invalidateQueries({ queryKey: ['eleves', 'doublons-detailles'] })
+    }
+
+    const toggleSelection = (id: number) => {
+        setSelection((courant) => {
+            const copie = new Set(courant)
+            copie.has(id) ? copie.delete(id) : copie.add(id)
+            return copie
+        })
+    }
+
+    /**
+     * Suppression directe (pas de fusion) : pensée pour les fiches sans la
+     * moindre trace réelle repérées à l'œil dans un groupe — quand l'auto-
+     * détection les laisse de côté (ex. la fiche réellement inscrite n'a pas
+     * la même date de naissance renseignée et n'apparaît donc dans aucun
+     * groupe). Recompte affiché avant confirmation ; aucune sauvegarde
+     * possible ensuite, `Eleve` n'a pas de suppression douce.
+     */
+    const supprimerSelection = async () => {
+        if (selection.size === 0) return
+        if (!(await confirmerSuppression(
+            `${selection.size} fiche(s) élève`,
+            'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible. Ne cochez que des fiches sans historique réel (aucune classe, aucun versement, aucune note...).',
+        ))) return
+
+        setSuppressionEnCours(true)
+        try {
+            const { deleted } = await batchDeleteEleves(Array.from(selection))
+            succes(`${deleted} fiche(s) supprimée(s).`)
+            setSelection(new Set())
+            rafraichir()
+        } catch (err) {
+            erreur((err as ApiError).message)
+        } finally {
+            setSuppressionEnCours(false)
+        }
     }
 
     const traiterAutomatiquement = async () => {
@@ -118,6 +157,17 @@ export function ElevesDoublonsPage() {
                 icon={GitMerge}
                 actions={
                     <div className="flex flex-wrap justify-end gap-2">
+                        {selection.size > 0 && (
+                            <Button
+                                type="button"
+                                variant="danger"
+                                disabled={suppressionEnCours}
+                                onClick={() => void supprimerSelection()}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Supprimer la sélection ({selection.size})
+                            </Button>
+                        )}
                         <Button type="button" variant="secondary" onClick={() => void traiterAutomatiquement()}>
                             <WandSparkles className="h-4 w-4" />
                             Nettoyage automatique
@@ -164,7 +214,15 @@ export function ElevesDoublonsPage() {
                                 <div className="flex flex-col divide-y divide-navy-100">
                                     {groupe.membres.map((membre) => (
                                         <div key={membre.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                                            <div className="min-w-0">
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selection.has(membre.id)}
+                                                    onChange={() => toggleSelection(membre.id)}
+                                                    className="mt-1 h-4 w-4 flex-none rounded border-navy-300 text-red-600 focus:ring-red-500"
+                                                    title="Sélectionner pour suppression"
+                                                />
+                                                <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <p className="font-semibold text-navy-900">Matricule {membre.matricule ?? '—'}</p>
                                                     <Badge tone={membre.statut === 'actif' ? 'green' : 'neutral'}>
@@ -180,6 +238,7 @@ export function ElevesDoublonsPage() {
                                                         <> · Tuteur : {membre.tuteur.nom_complet} {membre.tuteur.telephone ? `(${membre.tuteur.telephone})` : ''}</>
                                                     )}
                                                 </p>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <button

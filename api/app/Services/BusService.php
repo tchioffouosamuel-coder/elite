@@ -203,9 +203,14 @@ class BusService extends BaseService
     /** @param int|array<int> $schoolId */
     public function listerAffectations(int|array $schoolId, ?int $trajetId = null): Collection
     {
-        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool($schoolId))
+        // Par l'élève, pas par le trajet : `BusTrajet::scopeForSchool()` est
+        // un no-op (un trajet dessert souvent plusieurs écoles du complexe,
+        // cf. son commentaire) — filtrer par lui ne filtrait donc plus rien
+        // du tout, une école du complexe pouvait voir les affectations de
+        // toutes les autres.
+        return BusAffectation::whereHas('eleve', fn($q) => $q->forSchool($schoolId))
             ->when($trajetId, fn($q, $id) => $q->where('trajet_id', $id))
-            ->with(['eleve.classe', 'trajet.school', 'arret'])
+            ->with(['eleve.classe', 'eleve.school', 'trajet', 'arret'])
             ->get();
     }
 

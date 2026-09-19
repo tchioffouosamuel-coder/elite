@@ -23,10 +23,13 @@ class RecuVersementBusGenerator
 
     public function build(BusVersement $versement): string
     {
-        $versement->loadMissing(['affectation.eleve.classe', 'affectation.anneeScolaire', 'affectation.trajet.school', 'encaisseur']);
+        $versement->loadMissing(['affectation.eleve.classe', 'affectation.eleve.school', 'affectation.anneeScolaire', 'encaisseur']);
 
         $affectation = $versement->affectation;
-        $school = $affectation->trajet->school;
+        // L'école de l'élève, pas celle du trajet : un trajet dessert souvent
+        // plusieurs écoles du complexe et son `school_id` peut même être vide
+        // (cf. BusSouscriptionImport::resoudreTrajet).
+        $school = $affectation->eleve->school;
 
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,

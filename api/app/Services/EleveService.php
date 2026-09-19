@@ -446,6 +446,43 @@ class EleveService extends BaseService
     }
 
     /**
+     * Diagnostic pour comprendre un aperçu vide alors que des fiches sans
+     * classe existent manifestement : pour chacune des tables vérifiées par
+     * `Eleve::scopeNonPreinscritSansHistorique()`, combien de fiches sans
+     * classe y ont au moins une ligne (donc sont exclues à cause d'elle,
+     * seule ou en combinaison avec d'autres).
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{sans_classe: int, candidats: int, blocages: array<string, int>}
+     */
+    public function diagnostiquerNonPreinscritsSansHistorique(int|array $schoolId): array
+    {
+        $tablesHistorique = [
+            'preinscriptions', 'notes', 'absence_trimestres', 'sanctions', 'presences',
+            'dossiers_scolarite', 'visites_infirmerie', 'bus_affectations', 'revendications',
+            'moratoires', 'remises', 'dettes_anterieures', 'justifications_absences',
+            'observations', 'modifications_eleves', 'conseil_classe_decisions',
+            'historiques_scolarite_eleves', 'ventes_fournitures',
+        ];
+
+        $sansClasse = Eleve::forSchool($schoolId)->whereNull('classe_id');
+        $total = (clone $sansClasse)->count();
+
+        $blocages = [];
+        foreach ($tablesHistorique as $table) {
+            $blocages[$table] = (clone $sansClasse)->whereExists(function ($sous) use ($table) {
+                $sous->selectRaw('1')->from($table)->whereColumn("{$table}.eleve_id", 'eleves.id');
+            })->count();
+        }
+
+        return [
+            'sans_classe' => $total,
+            'candidats' => $this->candidatsNonPreinscritsSansHistorique($schoolId)->count(),
+            'blocages' => array_filter($blocages),
+        ];
+    }
+
+    /**
      * Supprime le lot de fiches non préinscrites sans historique — recalculé
      * ici plutôt que confié aux ids reçus du client : entre l'aperçu affiché
      * à l'utilisateur et son clic sur « Supprimer », une fiche a pu recevoir

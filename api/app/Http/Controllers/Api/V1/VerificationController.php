@@ -126,7 +126,7 @@ class VerificationController extends Controller
             return ApiResponse::error('Signature invalide : ce lien ne correspond à aucun reçu authentique.', 422);
         }
 
-        $versement = BusVersement::with(['affectation.eleve.classe', 'affectation.trajet.school', 'affectation.anneeScolaire'])->find((int) $versementId);
+        $versement = BusVersement::with(['affectation.eleve.classe', 'affectation.eleve.school', 'affectation.anneeScolaire'])->find((int) $versementId);
 
         if (! $versement) {
             return ApiResponse::notFound('Reçu introuvable.');
@@ -139,7 +139,7 @@ class VerificationController extends Controller
             'type_document' => 'Reçu de transport scolaire',
             'nom_eleve' => $affectation->eleve->nom_complet,
             'classe' => $affectation->eleve->classe?->nom ?? '-',
-            'etablissement' => $affectation->trajet->school?->name ?? '-',
+            'etablissement' => $affectation->eleve->school?->name ?? '-',
             'annee_scolaire' => $affectation->anneeScolaire?->libelle ?? '-',
             'genere_le' => $versement->date_versement->toDateString(),
             'valide_jusqu_au' => null,

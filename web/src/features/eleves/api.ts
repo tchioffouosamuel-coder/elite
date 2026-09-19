@@ -308,6 +308,18 @@ export async function supprimerNonPreinscritsSansHistorique(): Promise<{ deleted
   return data.data;
 }
 
+/** Pour comprendre un aperçu vide : par quelle table chaque fiche sans classe est-elle retenue. */
+export async function fetchDiagnosticNonPreinscritsSansHistorique(): Promise<{
+  sans_classe: number;
+  candidats: number;
+  blocages: Record<string, number>;
+}> {
+  const { data } = await http.get<ApiResponse<{ sans_classe: number; candidats: number; blocages: Record<string, number> }>>(
+    "/eleves/non-preinscrits-sans-historique/diagnostic",
+  );
+  return data.data;
+}
+
 export async function normaliserMatricules(): Promise<{ normalises: number }> {
   const { data } = await http.post<ApiResponse<{ normalises: number }>>(
     "/eleves/normaliser-matricules",

@@ -58,7 +58,7 @@ class BusPaiementService extends BaseService
             throw new RuntimeException("Un des mois sélectionnés n'est pas couvert par cette souscription.");
         }
 
-        $affectation->loadMissing('versements', 'trajet.school');
+        $affectation->loadMissing('versements', 'eleve.school');
         $tarif = (int) ($affectation->tarif_mensuel ?? 0);
         $resteParMois = $mois->mapWithKeys(function (Carbon $mois) use ($affectation, $tarif) {
             $paye = (int) $affectation->versements
@@ -75,7 +75,11 @@ class BusPaiementService extends BaseService
             throw new RuntimeException('Le montant encaissé doit correspondre au total dû après remise.');
         }
 
-        $school = $affectation->trajet->school;
+        // L'école de l'élève, pas celle du trajet : un trajet dessert souvent
+        // plusieurs écoles du complexe et son `school_id` peut même être vide
+        // (cf. BusSouscriptionImport::resoudreTrajet) — le reçu et le
+        // versement doivent malgré tout être rattachés à une école précise.
+        $school = $affectation->eleve->school;
 
         $versements = $this->transaction(function () use ($affectation, $donnees, $montant, $remise, $mois, $resteParMois, $totalDu, $encaissePar, $school) {
             $versements = [];

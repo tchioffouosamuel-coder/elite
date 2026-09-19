@@ -168,7 +168,7 @@ class BusAffectationController extends Controller
     /** @return array<string, mixed> */
     private function resumer(BusAffectation $affectation): array
     {
-        $affectation->loadMissing(['eleve.classe', 'trajet.school', 'arret']);
+        $affectation->loadMissing(['eleve.classe', 'eleve.school', 'trajet', 'arret']);
 
         return [
             'id' => $affectation->id,
@@ -189,11 +189,12 @@ class BusAffectationController extends Controller
                 'lieu_dit' => $affectation->arret->lieu_dit,
                 'heure_passage' => $affectation->arret->heure_passage,
             ] : null,
-            'school' => $affectation->trajet->school ? [
-                'id' => $affectation->trajet->school->id,
-                'name' => $affectation->trajet->school->name,
-                'code' => $affectation->trajet->school->code,
-                'type' => $affectation->trajet->school->type,
+            // L'école de l'élève, pas celle du trajet : voir BusPaiementService::encaisser().
+            'school' => $affectation->eleve->school ? [
+                'id' => $affectation->eleve->school->id,
+                'name' => $affectation->eleve->school->name,
+                'code' => $affectation->eleve->school->code,
+                'type' => $affectation->eleve->school->type,
             ] : null,
         ];
     }
@@ -236,6 +237,7 @@ class BusAffectationController extends Controller
 
     private function affectation(int $id): BusAffectation
     {
-        return BusAffectation::whereHas('trajet', fn($q) => $q->forSchool(Tenant::schoolIds()))->findOrFail($id);
+        // Par l'élève, pas par le trajet : cf. BusService::listerAffectations().
+        return BusAffectation::whereHas('eleve', fn($q) => $q->forSchool(Tenant::schoolIds()))->findOrFail($id);
     }
 }

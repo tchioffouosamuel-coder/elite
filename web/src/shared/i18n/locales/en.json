@@ -728,7 +728,15 @@
     "saved": "{{count}} grade(s) saved.",
     "trimestre": "Term",
     "bareme_hint": "Subject marked out of {{bareme}}, split per assessment area and per sequence as follows: {{repartition}}.",
-    "saisir": "Enter marks"
+    "saisir": "Enter marks",
+    "trim_colonne": "Term",
+    "reconduire": "Carry over",
+    "reconduire_de": "From",
+    "reconduire_vers": "To",
+    "reconduire_confirm_titre": "Carry over grades?",
+    "reconduire_confirm_message": "Grades already entered in the target sequence will be overwritten.",
+    "reconduire_ok": "Grades carried over — remember to save.",
+    "invalid_hint": "Fix out-of-range grades before saving."
   },
   "discipline": {
     "title": "Discipline",
