@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Users, History, KeyRound, AlertTriangle, School, Lock, Unlock, Trash2, KeySquare } from 'lucide-react'
+import { Users, History, KeyRound, AlertTriangle, School, Lock, Unlock, Trash2, KeySquare, ShieldCheck, ShieldOff } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -9,6 +9,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import {
   fetchComptesUtilisateurs,
+  basculerSuperAdmin,
   bloquerCompte,
   debloquerCompte,
   supprimerCompte,
@@ -48,6 +49,7 @@ export function ComptesPage() {
   const [activitePour, setActivitePour] = useState<CompteUtilisateur | null>(null)
   const [ecolesPour, setEcolesPour] = useState<CompteUtilisateur | null>(null)
   const [enCoursId, setEnCoursId] = useState<number | null>(null)
+  const [roleEnCoursId, setRoleEnCoursId] = useState<number | null>(null)
   const [reinitialisationMasseEnCours, setReinitialisationMasseEnCours] = useState(false)
   const queryClient = useQueryClient()
   const moi = useAuthStore((s) => s.user)
@@ -63,16 +65,16 @@ export function ComptesPage() {
     const confirme = await confirmer(
       compte.est_actif
         ? {
-            titre: `Bloquer le compte de ${compte.nom} ?`,
-            message: 'Il ne pourra plus se connecter tant que le compte n’est pas débloqué. Sa fiche reste intacte.',
-            action: 'Bloquer',
-          }
+          titre: `Bloquer le compte de ${compte.nom} ?`,
+          message: 'Il ne pourra plus se connecter tant que le compte n’est pas débloqué. Sa fiche reste intacte.',
+          action: 'Bloquer',
+        }
         : {
-            titre: `Débloquer le compte de ${compte.nom} ?`,
-            message: 'Il pourra de nouveau se connecter avec son identifiant et son mot de passe.',
-            action: 'Débloquer',
-            destructif: false,
-          },
+          titre: `Débloquer le compte de ${compte.nom} ?`,
+          message: 'Il pourra de nouveau se connecter avec son identifiant et son mot de passe.',
+          action: 'Débloquer',
+          destructif: false,
+        },
     )
     if (!confirme) return
 
@@ -111,6 +113,29 @@ export function ComptesPage() {
       erreur((err as ApiError).message)
     } finally {
       setEnCoursId(null)
+    }
+  }
+
+  const basculerRoleSuperAdmin = async (compte: CompteUtilisateur) => {
+    const devientSuperAdmin = compte.type !== 'super_admin'
+    const confirme = await confirmer({
+      titre: devientSuperAdmin ? `Donner le rôle super admin à ${compte.nom} ?` : `Retirer le rôle super admin de ${compte.nom} ?`,
+      message: devientSuperAdmin
+        ? 'Ce compte aura accès à tous les établissements et à tous les privilèges de l’application.'
+        : 'Ce compte perdra ses privilèges de super administrateur, mais conservera sa fiche et son accès éventuel aux fonctions de son établissement.',
+      action: devientSuperAdmin ? 'Donner le rôle' : 'Retirer le rôle',
+    })
+    if (!confirme) return
+
+    setRoleEnCoursId(compte.id)
+    try {
+      await basculerSuperAdmin(compte.id, devientSuperAdmin)
+      succes(devientSuperAdmin ? `Le compte de ${compte.nom} est super administrateur.` : `Le rôle super administrateur a été retiré de ${compte.nom}.`)
+      invalidate()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setRoleEnCoursId(null)
     }
   }
 
@@ -209,6 +234,7 @@ export function ComptesPage() {
       cellule: (c) => {
         const cestMoi = c.id === moi?.id
         const enCours = enCoursId === c.id
+        const roleEnCours = roleEnCoursId === c.id
 
         return (
           <div className="flex justify-end gap-1.5">
@@ -220,6 +246,15 @@ export function ComptesPage() {
                 <School className="h-3.5 w-3.5" />
               </Button>
             )}
+            <Button
+              size="sm"
+              variant={c.type === 'super_admin' ? 'secondary' : 'primary'}
+              title={c.type === 'super_admin' ? 'Retirer le rôle super administrateur' : 'Donner le rôle super administrateur'}
+              disabled={roleEnCours || (c.type === 'super_admin' && cestMoi)}
+              onClick={() => basculerRoleSuperAdmin(c)}
+            >
+              {c.type === 'super_admin' ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+            </Button>
             <Button size="sm" title="Réinitialiser le mot de passe" onClick={() => setReinitialisationPour(c)}>
               <KeyRound className="h-3.5 w-3.5" />
             </Button>

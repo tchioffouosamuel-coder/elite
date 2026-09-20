@@ -48,7 +48,7 @@ class CompteController extends Controller
             ->pluck('derniere', 'user_id');
 
         return ApiResponse::success(
-            $comptes->map(fn (User $u) => $this->presenter($u, $tuteursParUser, $dernieresConnexions))->values(),
+            $comptes->map(fn(User $u) => $this->presenter($u, $tuteursParUser, $dernieresConnexions))->values(),
         );
     }
 
@@ -58,8 +58,8 @@ class CompteController extends Controller
         $compte = $this->comptesAccessibles()->findOrFail($id);
 
         $journal = ActivityLog::where(
-            fn ($q) => $q->where('user_id', $compte->id)
-                ->orWhere(fn ($q2) => $q2->where('subject_type', User::class)->where('subject_id', $compte->id))
+            fn($q) => $q->where('user_id', $compte->id)
+                ->orWhere(fn($q2) => $q2->where('subject_type', User::class)->where('subject_id', $compte->id))
         )
             ->orderByDesc('created_at')
             ->paginate(30);
@@ -117,7 +117,7 @@ class CompteController extends Controller
         $cibles = $comptes
             ->whereNotIn('id', $idsTuteurs)
             ->whereNotIn('id', $idsDejaConnectes)
-            ->reject(fn (User $u) => $u->id === $request->user()->id);
+            ->reject(fn(User $u) => $u->id === $request->user()->id);
 
         foreach ($cibles as $compte) {
             $motDePasse = $compte->school_id
@@ -184,7 +184,7 @@ class CompteController extends Controller
 
         // L'école principale reste gérée par la fiche personnel/le compte
         // lui-même (`school_id`), jamais dupliquée dans la pivot.
-        $ecoles = collect($data['school_ids'] ?? [])->reject(fn ($id) => $id === $compte->school_id)->values();
+        $ecoles = collect($data['school_ids'] ?? [])->reject(fn($id) => $id === $compte->school_id)->values();
 
         $compte->schools()->sync($ecoles);
 
@@ -196,9 +196,34 @@ class CompteController extends Controller
         );
 
         return ApiResponse::success(
-            $compte->fresh()->ecolesAccessibles()->map(fn ($ecole) => ['id' => $ecole->id, 'name' => $ecole->name])->values(),
+            $compte->fresh()->ecolesAccessibles()->map(fn($ecole) => ['id' => $ecole->id, 'name' => $ecole->name])->values(),
             'Écoles accessibles mises à jour.',
         );
+    }
+
+    /** Accorde ou retire le rôle technique qui donne tous les privilèges. */
+    public function basculerSuperAdmin(Request $request, int $id): JsonResponse
+    {
+        $compte = $this->comptesAccessibles()->findOrFail($id);
+        $actif = $request->validate(['actif' => ['required', 'boolean']])['actif'];
+
+        if (! $actif && $compte->id === $request->user()->id) {
+            return ApiResponse::error('Impossible de retirer le rôle de votre propre compte.', 422);
+        }
+
+        if ($actif) {
+            $compte->assignRole('super_admin');
+            $message = "Le compte de {$compte->name} est maintenant super administrateur.";
+            $action = 'attribution_role_super_admin';
+        } else {
+            $compte->removeRole('super_admin');
+            $message = "Le rôle super administrateur a été retiré du compte de {$compte->name}.";
+            $action = 'retrait_role_super_admin';
+        }
+
+        ActivityLog::enregistrer($request->user(), $action, $message, $compte);
+
+        return ApiResponse::success(message: $message);
     }
 
     /**
@@ -270,9 +295,9 @@ class CompteController extends Controller
     private function comptesAccessibles(): Builder
     {
         return User::where(
-            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
-                ->orWhereHas('schools', fn ($s) => $s->whereIn('schools.id', Tenant::schoolIds()))
-                ->orWhereHas('roles', fn ($r) => $r->where('name', 'super_admin')),
+            fn($q) => $q->whereIn('school_id', Tenant::schoolIds())
+                ->orWhereHas('schools', fn($s) => $s->whereIn('schools.id', Tenant::schoolIds()))
+                ->orWhereHas('roles', fn($r) => $r->where('name', 'super_admin')),
         );
     }
 
@@ -303,7 +328,7 @@ class CompteController extends Controller
             // Écoles supplémentaires (compte de direction transverse, cf.
             // attribuerEcoles()) — l'école principale ci-dessus n'y figure
             // pas, l'écran de gestion des comptes les affiche séparément.
-            'ecoles_supplementaires' => $u->schools->map(fn ($e) => ['id' => $e->id, 'name' => $e->name])->values(),
+            'ecoles_supplementaires' => $u->schools->map(fn($e) => ['id' => $e->id, 'name' => $e->name])->values(),
             'derniere_connexion' => $derniere ? Carbon::parse($derniere)->toISOString() : null,
             'cree_le' => $u->created_at?->toISOString(),
         ];
