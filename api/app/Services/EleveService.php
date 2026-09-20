@@ -220,6 +220,15 @@ class EleveService extends BaseService
         return $this->repository->update($eleve, ['photo_path' => $path]);
     }
 
+    public function deletePhoto(Eleve $eleve): Eleve
+    {
+        if ($eleve->photo_path) {
+            Storage::disk('public')->delete($eleve->photo_path);
+        }
+
+        return $this->repository->update($eleve, ['photo_path' => null]);
+    }
+
     /**
      * Décode selon le type réellement détecté par `getimagesizefromstring()`.
      * Le repli `imagecreatefromstring()` couvre les variantes que GD sait lire

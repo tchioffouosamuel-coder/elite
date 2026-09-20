@@ -125,7 +125,10 @@ export async function fetchEleves(params: {
  * élève pas encore préinscrit cette année, quand on veut justement créer sa
  * préinscription.
  */
-export async function rechercheGlobaleEleves(q: string, tous = false): Promise<Eleve[]> {
+export async function rechercheGlobaleEleves(
+  q: string,
+  tous = false,
+): Promise<Eleve[]> {
   const { data } = await http.get<ApiResponse<Eleve[]>>(
     "/eleves/recherche-globale",
     { params: { q, tous: tous || undefined } },
@@ -223,6 +226,11 @@ export async function uploadElevePhoto(id: number, file: File): Promise<Eleve> {
   return data.data;
 }
 
+export async function deleteElevePhoto(id: number): Promise<Eleve> {
+  const { data } = await http.delete<ApiResponse<Eleve>>(`/eleves/${id}/photo`);
+  return data.data;
+}
+
 export async function deleteEleve(id: number): Promise<void> {
   await http.delete(`/eleves/${id}`);
 }
@@ -239,13 +247,23 @@ export async function batchDeleteEleves(
 
 export async function traitementAutomatiqueDoublons(): Promise<{
   fusionnes: number;
-  conflits: { nom: string; conservee_id: number; autre_id: number; raison: string }[];
+  conflits: {
+    nom: string;
+    conservee_id: number;
+    autre_id: number;
+    raison: string;
+  }[];
   ambigus: { nom: string; ids: number[] }[];
 }> {
   const { data } = await http.post<
     ApiResponse<{
       fusionnes: number;
-      conflits: { nom: string; conservee_id: number; autre_id: number; raison: string }[];
+      conflits: {
+        nom: string;
+        conservee_id: number;
+        autre_id: number;
+        raison: string;
+      }[];
       ambigus: { nom: string; ids: number[] }[];
     }>
   >("/eleves/doublons/traitement-automatique");
@@ -280,7 +298,10 @@ export async function fetchDoublonsDetailles(): Promise<{
   potentiels: GroupeDoublonDetaille[];
 }> {
   const { data } = await http.get<
-    ApiResponse<{ certains: GroupeDoublonDetaille[]; potentiels: GroupeDoublonDetaille[] }>
+    ApiResponse<{
+      certains: GroupeDoublonDetaille[];
+      potentiels: GroupeDoublonDetaille[];
+    }>
   >("/eleves/doublons");
   return data.data;
 }
@@ -289,10 +310,12 @@ export async function fusionnerDoublon(
   conserveeId: number,
   autreId: number,
 ): Promise<{ fusionne: boolean; raison?: string }> {
-  const { data } = await http.post<ApiResponse<{ fusionne: boolean; raison?: string }>>(
-    "/eleves/doublons/fusionner",
-    { conservee_id: conserveeId, autre_id: autreId },
-  );
+  const { data } = await http.post<
+    ApiResponse<{ fusionne: boolean; raison?: string }>
+  >("/eleves/doublons/fusionner", {
+    conservee_id: conserveeId,
+    autre_id: autreId,
+  });
   return data.data;
 }
 
@@ -310,7 +333,9 @@ export async function fetchNonPreinscritsSansHistorique(): Promise<Eleve[]> {
 }
 
 /** Supprime le lot prévisualisé par `fetchNonPreinscritsSansHistorique` — recalculé côté serveur au moment de la suppression, jamais les ids reçus tels quels. */
-export async function supprimerNonPreinscritsSansHistorique(): Promise<{ deleted: number }> {
+export async function supprimerNonPreinscritsSansHistorique(): Promise<{
+  deleted: number;
+}> {
   const { data } = await http.delete<ApiResponse<{ deleted: number }>>(
     "/eleves/non-preinscrits-sans-historique",
   );
@@ -323,9 +348,13 @@ export async function fetchDiagnosticNonPreinscritsSansHistorique(): Promise<{
   candidats: number;
   blocages: Record<string, number>;
 }> {
-  const { data } = await http.get<ApiResponse<{ sans_classe: number; candidats: number; blocages: Record<string, number> }>>(
-    "/eleves/non-preinscrits-sans-historique/diagnostic",
-  );
+  const { data } = await http.get<
+    ApiResponse<{
+      sans_classe: number;
+      candidats: number;
+      blocages: Record<string, number>;
+    }>
+  >("/eleves/non-preinscrits-sans-historique/diagnostic");
   return data.data;
 }
 

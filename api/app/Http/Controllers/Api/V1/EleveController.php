@@ -484,6 +484,14 @@ class EleveController extends Controller
         return ApiResponse::success(new EleveResource($eleve), 'Photo mise à jour.');
     }
 
+    public function supprimerPhoto(Request $request, int $id): JsonResponse
+    {
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
+        $eleve = $this->service->deletePhoto($eleve);
+
+        return ApiResponse::success(new EleveResource($eleve), 'Photo supprimée.');
+    }
+
     /**
      * Transfert d'un élève vers une autre école du complexe. La classe d'arrivée
      * est obligatoire : sans elle l'élève se retrouverait dans un établissement

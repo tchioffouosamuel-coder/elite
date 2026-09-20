@@ -18,6 +18,11 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("desktop", {
   apiBaseUrl: "http://127.0.0.1:8973/api/v1",
 
+  minimizeWindow: () => ipcRenderer.invoke("desktop:window-minimize"),
+  toggleMaximizeWindow: () =>
+    ipcRenderer.invoke("desktop:window-toggle-maximize"),
+  closeWindow: () => ipcRenderer.invoke("desktop:window-close"),
+
   getAppVersion: () => ipcRenderer.invoke("desktop:get-app-version"),
 
   /** Déclenche une vérification manuelle (bouton « Vérifier maintenant ») — no-op en dev, cf. main.cjs. */

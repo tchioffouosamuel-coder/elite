@@ -113,3 +113,10 @@
     ExecWait 'powershell -NoProfile -Command "Copy-Item -Path \"$INSTDIR\resources\php\" -Destination \"C:\php\" -Recurse -Force"'
   ${EndIf}
 !macroend
+
+!macro customUnInstall
+  ; Les donnees locales sont hors de $INSTDIR (SQLite, cle, caches et logs).
+  ; Les deux noms couvrent les profils crees par les anciennes installations.
+  RMDir /r "$APPDATA\Elites School"
+  RMDir /r "$APPDATA\elites-school-desktop"
+!macroend

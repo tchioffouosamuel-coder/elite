@@ -43,6 +43,8 @@ function reduire(etat: EtatClonage, evenement: EvenementSyncProgress): EtatClona
       return { ...etat, etape: evenement.etape, totalEtapes: evenement.total_etapes, lignesCumulees: evenement.lignes }
     case 'ecole_erreur':
       return { ...etat, erreurs: [...etat.erreurs, evenement.message] }
+    case 'sync_erreur':
+      return { ...etat, erreurs: [...etat.erreurs, evenement.message], enCours: false, echec: true }
     case 'ecole_fin':
     case 'clonage_initial_complet':
     case 'fin':
@@ -136,7 +138,7 @@ export function PremiereSynchronisationModal({ onTermine, onAnnuler }: { onTermi
             </h2>
             <p className="text-xs text-navy-400">
               {etat.echec
-                ? 'La connexion reste indisponible tant que toutes vos données ne sont pas récupérées.'
+                ? 'Le téléchargement peut reprendre là où il s’est arrêté dès que la connexion revient.'
                 : termineAvecSucces
                   ? 'Toutes vos données sont maintenant disponibles hors-ligne.'
                   : 'Premier lancement : téléchargement complet de vos données. Ne fermez pas l’application.'}
@@ -187,7 +189,7 @@ export function PremiereSynchronisationModal({ onTermine, onAnnuler }: { onTermi
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-navy-700 px-4 py-2.5 text-sm font-semibold text-cream-50 transition-colors hover:bg-navy-800"
             >
               <RefreshCw className="h-4 w-4" />
-              Réessayer
+              Reprendre le téléchargement
             </button>
             <button
               type="button"

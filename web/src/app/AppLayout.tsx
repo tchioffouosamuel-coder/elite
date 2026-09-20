@@ -62,6 +62,8 @@ import {
   CalendarX,
   MessageSquare,
   Route as RouteIcon,
+  Minus,
+  Square,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -453,6 +455,34 @@ function normaliserRecherche(texte: string): string {
     .toLowerCase()
 }
 
+function DesktopTitleBar() {
+  if (!window.desktop) return null
+
+  return (
+    <div
+      className="flex h-9 flex-none select-none items-center border-b border-white/10 bg-[#140d1d] px-3 text-white"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      onDoubleClick={() => window.desktop?.toggleMaximizeWindow()}
+    >
+      <div className="flex min-w-0 items-center gap-2 text-xs font-semibold tracking-wide text-white/80">
+        <img src={logoMark} alt="" className="h-5 w-5 rounded-md object-contain" />
+        <span className="truncate">Elites School</span>
+      </div>
+      <div className="ml-auto flex h-full items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <button type="button" onClick={() => window.desktop?.minimizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Réduire">
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={() => window.desktop?.toggleMaximizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Agrandir">
+          <Square className="h-3 w-3" />
+        </button>
+        <button type="button" onClick={() => window.desktop?.closeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-red-500 hover:text-white" aria-label="Fermer">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -615,37 +645,39 @@ export function AppLayout() {
   const groupesSidebar = groupesVisibles
 
   return (
-    <div className="flex h-svh overflow-hidden bg-cream-50">
-      {menuOuvert && (
-        <div
-          className="animate-fade-in fixed inset-0 z-40 bg-navy-900/60 backdrop-blur-sm lg:hidden"
-          onClick={() => setMenuOuvert(false)}
-          aria-hidden
-        />
-      )}
-
-      <aside
-        className={clsx(
-          // `fixed` seul : `relative` en plus faisait gagner `position:
-          // relative` selon l'ordre de génération des classes Tailwind — la
-          // sidebar restait alors dans le flux flex même repoussée hors
-          // champ par `-translate-x-full`, écrasant <main> sur mobile.
-          'fixed inset-y-0 left-0 z-50 flex w-[17rem] min-w-0 flex-none flex-col overflow-hidden bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
-          'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
-          menuOuvert ? 'translate-x-0' : '-translate-x-full',
-          sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
+    <div className="flex h-svh flex-col overflow-hidden bg-cream-50">
+      <DesktopTitleBar />
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        {menuOuvert && (
+          <div
+            className="animate-fade-in fixed inset-0 z-40 bg-navy-900/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setMenuOuvert(false)}
+            aria-hidden
+          />
         )}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.08]"
-          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1.5px, transparent 0)', backgroundSize: '28px 28px' }}
-          aria-hidden
-        />
-        <div className="pointer-events-none absolute -right-28 -top-24 h-96 w-96 rounded-full bg-gold-500/15 blur-3xl" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-green-500/20 blur-3xl" aria-hidden />
 
-        <div className={clsx('relative z-10 flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
-          {/*
+        <aside
+          className={clsx(
+            // `fixed` seul : `relative` en plus faisait gagner `position:
+            // relative` selon l'ordre de génération des classes Tailwind — la
+            // sidebar restait alors dans le flux flex même repoussée hors
+            // champ par `-translate-x-full`, écrasant <main> sur mobile.
+            'fixed inset-y-0 left-0 z-50 flex w-[17rem] min-w-0 flex-none flex-col overflow-hidden bg-[linear-gradient(145deg,#391651_0%,#481e67_48%,#230c32_100%)] text-cream-50 shadow-lifted transition-transform duration-200 ease-out',
+            'lg:static lg:z-auto lg:shadow-none lg:transition-[width] lg:duration-200',
+            menuOuvert ? 'translate-x-0' : '-translate-x-full',
+            sidebarOpen ? 'lg:w-64 lg:translate-x-0' : 'lg:w-20 lg:translate-x-0',
+          )}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.08]"
+            style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1.5px, transparent 0)', backgroundSize: '28px 28px' }}
+            aria-hidden
+          />
+          <div className="pointer-events-none absolute -right-28 -top-24 h-96 w-96 rounded-full bg-gold-500/15 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-green-500/20 blur-3xl" aria-hidden />
+
+          <div className={clsx('relative z-10 flex items-center gap-2.5 px-5 py-5', !sidebarOpen && 'lg:justify-center lg:px-0')}>
+            {/*
            * Déplié : un logo par établissement accessible, chacun dans sa
            * propre tuile plutôt qu'entassés dans un cadre unique — une
            * mire large (« wordmark ») et un emblème carré n'ont pas le
@@ -653,319 +685,320 @@ export function AppLayout() {
            * d'écraser l'un ou de perdre l'autre dans trop de vide. Repli sur
            * le logo générique quand aucune école du compte n'en a un.
            */}
-          <div className={clsx('flex min-w-0 flex-1 flex-wrap items-center gap-1.5', !sidebarOpen && 'lg:hidden')}>
-            {ecolesAvecLogo.length > 0 ? (
-              ecolesAvecLogo.map((ecole) => (
-                <span
-                  key={ecole.id}
-                  title={ecole.name}
-                  className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft"
-                >
-                  <img src={ecole.logo_url!} alt={ecole.name} className="h-11 w-auto max-w-[92px] object-contain" />
+            <div className={clsx('flex min-w-0 flex-1 flex-wrap items-center gap-1.5', !sidebarOpen && 'lg:hidden')}>
+              {ecolesAvecLogo.length > 0 ? (
+                ecolesAvecLogo.map((ecole) => (
+                  <span
+                    key={ecole.id}
+                    title={ecole.name}
+                    className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft"
+                  >
+                    <img src={ecole.logo_url!} alt={ecole.name} className="h-11 w-auto max-w-[92px] object-contain" />
+                  </span>
+                ))
+              ) : (
+                <span className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft">
+                  <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
                 </span>
-              ))
-            ) : (
-              <span className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-soft">
-                <img src={logoWordmark} alt={t('app.name')} className="h-11 w-auto object-contain" />
-              </span>
-            )}
-          </div>
-          {/* Réduite : une seule tuile (l'école active, ou la première logotée) — pas la place pour plusieurs. */}
-          <span
-            title={ecolesAccessibles.length > 1 ? ecolesAccessibles.map((e) => e.name).join(' · ') : undefined}
-            className={clsx('hidden h-14 w-14 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}
-          >
-            <img src={logoReduitSrc} alt={logoReduitAlt} className="h-full w-full object-contain" />
-          </span>
-          <button
-            onClick={() => setMenuOuvert(false)}
-            className="ml-auto rounded-lg p-1.5 text-navy-300 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
-            aria-label={t('common.close')}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className={clsx('relative z-10 px-3 pb-3', !sidebarOpen && 'lg:hidden')}>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
-            <input
-              value={rechercheMenu}
-              onChange={(e) => setRechercheMenu(e.target.value)}
-              placeholder={t('nav.searchMenu')}
-              className="h-10 w-full rounded-xl border border-white/10 bg-white/8 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-navy-400 focus:border-gold-400/50 focus:bg-white/12 focus:ring-4 focus:ring-gold-400/10"
-            />
-          </div>
-        </div>
-
-        <nav className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-x-hidden overflow-y-auto px-3 pt-1 pb-4">
-          {groupesSidebar.map((group) => {
-            // Pour les enseignants, tout est visible en sidebar puisqu'il n'y a pas de topbar
-            const groupeEnTopbar = !user?.est_enseignant && groupesTopbarDesktop.has(group.label)
-
-            return (
-              <div key={group.label} className={clsx('flex flex-col gap-1', groupeEnTopbar && !requeteMenu && 'lg:hidden')}>
-                <button
-                  type="button"
-                  aria-expanded={Boolean(requeteMenu) || groupesOuverts[group.label]}
-                  onClick={() =>
-                    setGroupesOuverts((actuel) => ({
-                      ...actuel,
-                      [group.label]: !actuel[group.label],
-                    }))
-                  }
-                  className={clsx(
-                    'flex h-7 items-center justify-between gap-2 rounded-lg px-3 text-left text-[9px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
-                    !sidebarOpen && 'lg:hidden',
-                  )}
-                >
-                  <span className="truncate">{t(group.label)}</span>
-                  <ChevronDown
-                    className={clsx(
-                      'h-3.5 w-3.5 flex-none transition-transform',
-                      (requeteMenu || groupesOuverts[group.label]) && 'rotate-180',
-                    )}
-                  />
-                </button>
-                {/* Réduite, la sidebar n'a plus d'accordéon à replier : chaque
-                    groupe reste visible pour garder ses icônes accessibles. */}
-                {(requeteMenu || groupesOuverts[group.label] || !sidebarOpen) && (
-                  <div className="flex flex-col gap-1">
-                    {group.items.map((item) => {
-                      const estActif = item.to === cheminActif
-                      return (
-                        <NavLink
-                          key={item.to}
-                          to={item.to}
-                          end
-                          aria-current={estActif ? 'page' : undefined}
-                          title={!sidebarOpen ? t(item.label) : undefined}
-                          className={clsx(
-                            'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors',
-                            !sidebarOpen && 'lg:justify-center lg:px-2',
-                            estActif
-                              ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
-                              : 'text-navy-200 hover:bg-white/5 hover:text-white',
-                          )}
-                        >
-                          {estActif && (
-                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
-                          )}
-                          <item.icon
-                            className={clsx(
-                              'h-[18px] w-[18px] flex-none',
-                              estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
-                            )}
-                          />
-                          <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
-                        </NavLink>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {groupesSidebar.length === 0 && (
-            <div className="rounded-xl border border-white/10 px-3.5 py-4 text-sm text-navy-300">
-              {t('nav.noMenuFound')}
+              )}
             </div>
-          )}
-        </nav>
-
-        <div
-          className={clsx(
-            'relative z-10 sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800/70 px-4 py-4 backdrop-blur-sm',
-            !sidebarOpen && 'lg:flex-col lg:gap-2 lg:px-2',
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => navigate('/profil')}
-            title={t('nav.profile')}
-            className={clsx(
-              'flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left transition-colors hover:bg-white/5',
-              sidebarOpen ? '-ml-2 px-2 py-1.5' : 'lg:justify-center lg:px-0',
-            )}
-          >
-            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
-              {initials(user?.name)}
-            </span>
-            <span className={clsx('min-w-0 flex-1', !sidebarOpen && 'lg:hidden')}>
-              <span className="block truncate text-sm font-semibold text-white">{user?.name}</span>
-              <span className="block truncate text-xs text-navy-300">{user?.fonction || user?.roles.join(', ')}</span>
-            </span>
-          </button>
-          <button
-            onClick={handleLogout}
-            title={t('nav.logout')}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-navy-300 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="relative z-30 flex flex-none items-center gap-3 border-b border-navy-100 bg-white/85 px-4 py-3 backdrop-blur-sm sm:px-6">
-          <button
-            onClick={() => setMenuOuvert(true)}
-            className="-ml-1 flex h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:hidden"
-            aria-label={t('nav.openMenu')}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-
-          <button
-            onClick={toggleSidebar}
-            className="-ml-1 hidden h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:flex"
-            aria-label={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
-            title={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
-          >
-            {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-          </button>
-
-          {groupesTopbar.length > 0 && (
-            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto lg:flex" aria-label={t('nav.topbarMenu')}>
-              {groupesTopbar.map((group) => {
-                const groupeActif = group.items.some((item) => item.to === cheminActif)
-                const ouvert = groupeTopbarOuvert === group.label
-
-                return (
-                  <div key={group.label} className="relative flex-none">
-                    <button
-                      type="button"
-                      ref={(el) => {
-                        boutonsGroupeTopbarRef.current[group.label] = el
-                      }}
-                      aria-expanded={ouvert}
-                      onClick={() => {
-                        setGroupeTopbarOuvert((actuel) => {
-                          if (actuel === group.label) return null
-
-                          const rect = boutonsGroupeTopbarRef.current[group.label]?.getBoundingClientRect()
-                          if (rect) setPositionGroupeTopbar({ left: rect.left, top: rect.bottom })
-                          return group.label
-                        })
-                      }}
-                      className={clsx(
-                        'flex h-8 flex-none items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-semibold transition-colors',
-                        groupeActif
-                          ? 'bg-navy-50 text-navy-900'
-                          : 'text-navy-500 hover:bg-cream-100 hover:text-navy-800',
-                      )}
-                    >
-                      {t(group.label)}
-                      <ChevronDown className={clsx('h-3 w-3 transition-transform', ouvert && 'rotate-180')} />
-                    </button>
-
-                    {ouvert &&
-                      positionGroupeTopbar &&
-                      createPortal(
-                        <>
-                          <div className="fixed inset-0 z-30" onClick={() => setGroupeTopbarOuvert(null)} />
-                          <div
-                            className="fixed z-40 mt-2 min-w-52 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted"
-                            style={{ left: positionGroupeTopbar.left, top: positionGroupeTopbar.top }}
-                          >
-                            {group.items.map((item) => {
-                              const estActif = item.to === cheminActif
-
-                              return (
-                                <NavLink
-                                  key={item.to}
-                                  to={item.to}
-                                  end
-                                  onClick={() => setGroupeTopbarOuvert(null)}
-                                  className={clsx(
-                                    'flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors',
-                                    estActif
-                                      ? 'bg-gold-50 font-semibold text-navy-900'
-                                      : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
-                                  )}
-                                >
-                                  <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
-                                  <span className="truncate">{t(item.label)}</span>
-                                </NavLink>
-                              )
-                            })}
-                          </div>
-                        </>,
-                        document.body,
-                      )}
-                  </div>
-                )
-              })}
-            </nav>
-          )}
-
-          {groupesTopbar.length === 0 && <div className="min-w-0 flex-1" />}
-
-          <DesktopStatusIndicator />
-          <NotificationBell />
-
-          <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
-            {(['fr', 'en'] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLocale(l)}
-                className={clsx(
-                  'rounded-full px-2.5 py-1 transition-colors',
-                  locale === l ? 'bg-gold-500 text-navy-900 shadow-soft' : 'text-navy-400 hover:text-navy-600',
-                )}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/profil')}
-            className="hidden items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-cream-100 xl:flex"
-          >
-            <div className="max-w-[160px] text-right text-sm leading-tight">
-              <p className="truncate font-semibold text-navy-800" title={user?.name}>{user?.name}</p>
-              <p className="truncate text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
-            </div>
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
-              {initials(user?.name)}
-            </span>
-          </button>
-        </header>
-
-        <main className="relative min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {logoEcole && (
-            /*
-             * Filigrane : logo de l'établissement actif, fixe au centre de la
-             * zone de travail. `fixed` plutôt qu'`absolute` pour qu'il reste
-             * en place au défilement, et `pointer-events-none` pour qu'il ne
-             * capte jamais un clic destiné au contenu par-dessus.
-             *
-             * Beaucoup d'écrans (barres de recherche, cartes de statistiques,
-             * bandeaux de sélection…) posent leur contenu à même le fond de
-             * page, sans panneau opaque par-dessus : le filigrane doit donc
-             * rester lisible-mais-discret tout seul, sans compter sur un
-             * habillage supplémentaire pour l'atténuer. `grayscale` désature
-             * le logo pour qu'il se fonde dans le fond crème plutôt que de
-             * ressortir comme une image en couleur.
-             */
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+            {/* Réduite : une seule tuile (l'école active, ou la première logotée) — pas la place pour plusieurs. */}
+            <span
+              title={ecolesAccessibles.length > 1 ? ecolesAccessibles.map((e) => e.name).join(' · ') : undefined}
+              className={clsx('hidden h-14 w-14 flex-none items-center justify-center rounded-xl bg-white p-1.5 shadow-soft', !sidebarOpen && 'lg:flex')}
             >
-              <img
-                src={logoEcole}
-                alt=""
-                className="w-[min(36vw,20rem)] max-w-none grayscale opacity-[0.05] select-none"
+              <img src={logoReduitSrc} alt={logoReduitAlt} className="h-full w-full object-contain" />
+            </span>
+            <button
+              onClick={() => setMenuOuvert(false)}
+              className="ml-auto rounded-lg p-1.5 text-navy-300 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+              aria-label={t('common.close')}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className={clsx('relative z-10 px-3 pb-3', !sidebarOpen && 'lg:hidden')}>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" />
+              <input
+                value={rechercheMenu}
+                onChange={(e) => setRechercheMenu(e.target.value)}
+                placeholder={t('nav.searchMenu')}
+                className="h-10 w-full rounded-xl border border-white/10 bg-white/8 py-2 pl-9 pr-3 text-sm text-white outline-none transition-colors placeholder:text-navy-400 focus:border-gold-400/50 focus:bg-white/12 focus:ring-4 focus:ring-gold-400/10"
               />
             </div>
-          )}
-
-          <div className="relative z-10 mx-auto max-w-7xl">
-            <Outlet />
           </div>
-        </main>
+
+          <nav className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 overflow-x-hidden overflow-y-auto px-3 pt-1 pb-4">
+            {groupesSidebar.map((group) => {
+              // Pour les enseignants, tout est visible en sidebar puisqu'il n'y a pas de topbar
+              const groupeEnTopbar = !user?.est_enseignant && groupesTopbarDesktop.has(group.label)
+
+              return (
+                <div key={group.label} className={clsx('flex flex-col gap-1', groupeEnTopbar && !requeteMenu && 'lg:hidden')}>
+                  <button
+                    type="button"
+                    aria-expanded={Boolean(requeteMenu) || groupesOuverts[group.label]}
+                    onClick={() =>
+                      setGroupesOuverts((actuel) => ({
+                        ...actuel,
+                        [group.label]: !actuel[group.label],
+                      }))
+                    }
+                    className={clsx(
+                      'flex h-7 items-center justify-between gap-2 rounded-lg px-3 text-left text-[9px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
+                      !sidebarOpen && 'lg:hidden',
+                    )}
+                  >
+                    <span className="truncate">{t(group.label)}</span>
+                    <ChevronDown
+                      className={clsx(
+                        'h-3.5 w-3.5 flex-none transition-transform',
+                        (requeteMenu || groupesOuverts[group.label]) && 'rotate-180',
+                      )}
+                    />
+                  </button>
+                  {/* Réduite, la sidebar n'a plus d'accordéon à replier : chaque
+                    groupe reste visible pour garder ses icônes accessibles. */}
+                  {(requeteMenu || groupesOuverts[group.label] || !sidebarOpen) && (
+                    <div className="flex flex-col gap-1">
+                      {group.items.map((item) => {
+                        const estActif = item.to === cheminActif
+                        return (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end
+                            aria-current={estActif ? 'page' : undefined}
+                            title={!sidebarOpen ? t(item.label) : undefined}
+                            className={clsx(
+                              'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors',
+                              !sidebarOpen && 'lg:justify-center lg:px-2',
+                              estActif
+                                ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
+                                : 'text-navy-200 hover:bg-white/5 hover:text-white',
+                            )}
+                          >
+                            {estActif && (
+                              <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gold-400" />
+                            )}
+                            <item.icon
+                              className={clsx(
+                                'h-[18px] w-[18px] flex-none',
+                                estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
+                              )}
+                            />
+                            <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
+                          </NavLink>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {groupesSidebar.length === 0 && (
+              <div className="rounded-xl border border-white/10 px-3.5 py-4 text-sm text-navy-300">
+                {t('nav.noMenuFound')}
+              </div>
+            )}
+          </nav>
+
+          <div
+            className={clsx(
+              'relative z-10 sticky bottom-0 flex items-center gap-3 border-t border-white/10 bg-navy-800/70 px-4 py-4 backdrop-blur-sm',
+              !sidebarOpen && 'lg:flex-col lg:gap-2 lg:px-2',
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => navigate('/profil')}
+              title={t('nav.profile')}
+              className={clsx(
+                'flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left transition-colors hover:bg-white/5',
+                sidebarOpen ? '-ml-2 px-2 py-1.5' : 'lg:justify-center lg:px-0',
+              )}
+            >
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-200 ring-1 ring-gold-400/30">
+                {initials(user?.name)}
+              </span>
+              <span className={clsx('min-w-0 flex-1', !sidebarOpen && 'lg:hidden')}>
+                <span className="block truncate text-sm font-semibold text-white">{user?.name}</span>
+                <span className="block truncate text-xs text-navy-300">{user?.fonction || user?.roles.join(', ')}</span>
+              </span>
+            </button>
+            <button
+              onClick={handleLogout}
+              title={t('nav.logout')}
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-navy-300 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="relative z-30 flex flex-none items-center gap-3 border-b border-navy-100 bg-white/85 px-4 py-3 backdrop-blur-sm sm:px-6">
+            <button
+              onClick={() => setMenuOuvert(true)}
+              className="-ml-1 flex h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:hidden"
+              aria-label={t('nav.openMenu')}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <button
+              onClick={toggleSidebar}
+              className="-ml-1 hidden h-9 w-9 flex-none items-center justify-center rounded-xl text-navy-500 transition-colors hover:bg-cream-100 hover:text-navy-800 lg:flex"
+              aria-label={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
+              title={sidebarOpen ? t('nav.hideMenu') : t('nav.openMenu')}
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+            </button>
+
+            {groupesTopbar.length > 0 && (
+              <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto lg:flex" aria-label={t('nav.topbarMenu')}>
+                {groupesTopbar.map((group) => {
+                  const groupeActif = group.items.some((item) => item.to === cheminActif)
+                  const ouvert = groupeTopbarOuvert === group.label
+
+                  return (
+                    <div key={group.label} className="relative flex-none">
+                      <button
+                        type="button"
+                        ref={(el) => {
+                          boutonsGroupeTopbarRef.current[group.label] = el
+                        }}
+                        aria-expanded={ouvert}
+                        onClick={() => {
+                          setGroupeTopbarOuvert((actuel) => {
+                            if (actuel === group.label) return null
+
+                            const rect = boutonsGroupeTopbarRef.current[group.label]?.getBoundingClientRect()
+                            if (rect) setPositionGroupeTopbar({ left: rect.left, top: rect.bottom })
+                            return group.label
+                          })
+                        }}
+                        className={clsx(
+                          'flex h-8 flex-none items-center gap-1 whitespace-nowrap rounded-lg px-2 text-xs font-semibold transition-colors',
+                          groupeActif
+                            ? 'bg-navy-50 text-navy-900'
+                            : 'text-navy-500 hover:bg-cream-100 hover:text-navy-800',
+                        )}
+                      >
+                        {t(group.label)}
+                        <ChevronDown className={clsx('h-3 w-3 transition-transform', ouvert && 'rotate-180')} />
+                      </button>
+
+                      {ouvert &&
+                        positionGroupeTopbar &&
+                        createPortal(
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setGroupeTopbarOuvert(null)} />
+                            <div
+                              className="fixed z-40 mt-2 min-w-52 overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted"
+                              style={{ left: positionGroupeTopbar.left, top: positionGroupeTopbar.top }}
+                            >
+                              {group.items.map((item) => {
+                                const estActif = item.to === cheminActif
+
+                                return (
+                                  <NavLink
+                                    key={item.to}
+                                    to={item.to}
+                                    end
+                                    onClick={() => setGroupeTopbarOuvert(null)}
+                                    className={clsx(
+                                      'flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors',
+                                      estActif
+                                        ? 'bg-gold-50 font-semibold text-navy-900'
+                                        : 'text-navy-600 hover:bg-cream-50 hover:text-navy-900',
+                                    )}
+                                  >
+                                    <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
+                                    <span className="truncate">{t(item.label)}</span>
+                                  </NavLink>
+                                )
+                              })}
+                            </div>
+                          </>,
+                          document.body,
+                        )}
+                    </div>
+                  )
+                })}
+              </nav>
+            )}
+
+            {groupesTopbar.length === 0 && <div className="min-w-0 flex-1" />}
+
+            <DesktopStatusIndicator />
+            <NotificationBell />
+
+            <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">
+              {(['fr', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLocale(l)}
+                  className={clsx(
+                    'rounded-full px-2.5 py-1 transition-colors',
+                    locale === l ? 'bg-gold-500 text-navy-900 shadow-soft' : 'text-navy-400 hover:text-navy-600',
+                  )}
+                >
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/profil')}
+              className="hidden items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-cream-100 xl:flex"
+            >
+              <div className="max-w-[160px] text-right text-sm leading-tight">
+                <p className="truncate font-semibold text-navy-800" title={user?.name}>{user?.name}</p>
+                <p className="truncate text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
+              </div>
+              <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
+                {initials(user?.name)}
+              </span>
+            </button>
+          </header>
+
+          <main className="relative min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            {logoEcole && (
+              /*
+               * Filigrane : logo de l'établissement actif, fixe au centre de la
+               * zone de travail. `fixed` plutôt qu'`absolute` pour qu'il reste
+               * en place au défilement, et `pointer-events-none` pour qu'il ne
+               * capte jamais un clic destiné au contenu par-dessus.
+               *
+               * Beaucoup d'écrans (barres de recherche, cartes de statistiques,
+               * bandeaux de sélection…) posent leur contenu à même le fond de
+               * page, sans panneau opaque par-dessus : le filigrane doit donc
+               * rester lisible-mais-discret tout seul, sans compter sur un
+               * habillage supplémentaire pour l'atténuer. `grayscale` désature
+               * le logo pour qu'il se fonde dans le fond crème plutôt que de
+               * ressortir comme une image en couleur.
+               */
+              <div
+                aria-hidden
+                className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+              >
+                <img
+                  src={logoEcole}
+                  alt=""
+                  className="w-[min(36vw,20rem)] max-w-none grayscale opacity-[0.05] select-none"
+                />
+              </div>
+            )}
+
+            <div className="relative z-10 mx-auto max-w-7xl">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   )

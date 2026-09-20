@@ -516,6 +516,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('eleves/import/traiter/{token}', [EleveController::class, 'importerLot'])->name('eleves.import-traiter');
                 Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
                 Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
+                Route::delete('eleves/{id}/photo', [EleveController::class, 'supprimerPhoto'])->name('eleves.photo.destroy');
 
                 Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index');
                 // Avant `tuteurs/{id}/...` plus bas, même précaution que pour

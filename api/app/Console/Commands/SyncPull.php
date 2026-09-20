@@ -69,7 +69,7 @@ class SyncPull extends Command
 
         $echec = false;
 
-        $ecolesTotal = $provisionings->sum(fn (DesktopProvisioning $p) => $p->ecoles->count());
+        $ecolesTotal = $provisionings->sum(fn(DesktopProvisioning $p) => $p->ecoles->count());
         $lotsParEcole = (int) ceil(count(RegistreSync::cles()) / self::TAILLE_LOT);
         $this->emettre(['type' => 'debut', 'ecoles' => $ecolesTotal, 'entites_par_ecole' => $lotsParEcole]);
 
@@ -258,12 +258,13 @@ class SyncPull extends Command
      */
     private function tirerLot(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, array $lot, ?string $curseurDepart): array
     {
-        $modeles = collect($lot)->mapWithKeys(fn (string $cle) => [$cle => RegistreSync::entites()[$cle]['modele']]);
+        $modeles = collect($lot)->mapWithKeys(fn(string $cle) => [$cle => RegistreSync::entites()[$cle]['modele']]);
         $complet = false;
         $curseur = $curseurDepart;
         $dernierCurseurRecu = null;
         $totalLignes = 0;
         $totalSuppressions = 0;
+        $erreursApplication = [];
 
         while (! $complet) {
             $payload = $this->executerRequete($provisioning, $ecoleProvisioning->school_id, $lot, $curseur);
@@ -288,8 +289,18 @@ class SyncPull extends Command
                             'id' => $ligne['id'] ?? null,
                             'erreur' => $e->getMessage(),
                         ]);
+                        $erreursApplication[] = $cle . '#' . ($ligne['id'] ?? '?');
                     }
                 }
+            }
+
+            if ($erreursApplication !== []) {
+                throw new \RuntimeException(
+                    'Synchronisation interrompue : ' . count($erreursApplication) .
+                        ' ligne(s) n’ont pas pu être appliquées (' .
+                        implode(', ', array_slice($erreursApplication, 0, 5)) .
+                        '). Les données déjà reçues sont conservées; corrigez la base locale puis réessayez.',
+                );
             }
 
             foreach ((array) ($payload['suppressions'] ?? []) as $suppression) {
@@ -340,7 +351,7 @@ class SyncPull extends Command
         try {
             $reponse = Http::withToken($provisioning->token)
                 ->withHeaders(['X-School-Id' => $schoolId])
-                ->baseUrl(rtrim($provisioning->serveur_url, '/').'/api/v1')
+                ->baseUrl(rtrim($provisioning->serveur_url, '/') . '/api/v1')
                 ->acceptJson()
                 // Le timeout par défaut du client HTTP (30s, cf. Laravel) est
                 // parfois trop court pour une page pleine (jusqu'à 500 lignes) :
@@ -403,8 +414,10 @@ class SyncPull extends Command
         // La ligne distante ne porte pas forcément `updated_at` (colonnes
         // projetées par `RegistreSync`) : sans base de comparaison, on
         // applique — c'est le cas d'une création locale jamais vue avant.
-        if ($existante !== null && isset($ligne['updated_at'], $existante->updated_at)
-            && $existante->updated_at->gt($ligne['updated_at'])) {
+        if (
+            $existante !== null && isset($ligne['updated_at'], $existante->updated_at)
+            && $existante->updated_at->gt($ligne['updated_at'])
+        ) {
             return false;
         }
 

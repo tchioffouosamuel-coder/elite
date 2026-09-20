@@ -23,7 +23,7 @@ import {
   Search,
   GitMerge,
 } from 'lucide-react'
-import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
+import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -49,6 +49,7 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return
@@ -58,6 +59,21 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
       queryClient.invalidateQueries({ queryKey: ['eleves'] })
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleDelete = async (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (!eleve.photo_url || !(await confirmer({ titre: t('eleves.photo_delete_title'), message: t('eleves.photo_delete_message'), action: t('common.delete') }))) return
+    setDeleting(true)
+    try {
+      await deleteElevePhoto(eleve.id)
+      queryClient.invalidateQueries({ queryKey: ['eleves'] })
+      succes(t('eleves.photo_deleted'))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -77,18 +93,21 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
       )}
       {canManage && (
         <>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              inputRef.current?.click()
-            }}
-            disabled={uploading}
-            title={t('eleves.photo_title')}
-            className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-navy-900 shadow-soft hover:bg-gold-600"
-          >
-            <Camera className="h-3 w-3" />
-          </button>
+          <div className="absolute -bottom-1 -right-1 flex gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                inputRef.current?.click()
+              }}
+              disabled={uploading || deleting}
+              title={t('eleves.photo_title')}
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-navy-900 shadow-soft hover:bg-gold-600"
+            >
+              <Camera className="h-3 w-3" />
+            </button>
+            {eleve.photo_url && <button type="button" onClick={handleDelete} disabled={uploading || deleting} title={t('eleves.photo_delete_title')} className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-soft hover:bg-red-600"><Trash2 className="h-3 w-3" /></button>}
+          </div>
           <input
             ref={inputRef}
             type="file"

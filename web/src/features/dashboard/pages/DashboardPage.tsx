@@ -29,7 +29,11 @@ import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
 
 export function DashboardPage() {
-  const { data, isLoading, isError } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboardStats })
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: fetchDashboardStats,
+    staleTime: 30_000,
+  })
 
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />

@@ -678,7 +678,10 @@
       "aucun_versement": "Aucun versement enregistré.",
       "encaisser": "Encaisser"
     },
-    "photo_updated": "Photo mise à jour."
+    "photo_updated": "Photo mise à jour.",
+    "photo_deleted": "Photo supprimée.",
+    "photo_delete_title": "Supprimer la photo",
+    "photo_delete_message": "Voulez-vous supprimer la photo de cet élève ?"
   },
   "matieres": {
     "title": "Matières",

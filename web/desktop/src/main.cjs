@@ -112,7 +112,12 @@ function resolvePhpArgsCommuns() {
   // silencieusement inopérante sans jamais faire échouer le démarrage.
   const cacert = path.join(bundle, "cacert.pem");
   if (fs.existsSync(cacert)) {
-    args.push("-d", `curl.cainfo="${cacert}"`, "-d", `openssl.cafile="${cacert}"`);
+    args.push(
+      "-d",
+      `curl.cainfo="${cacert}"`,
+      "-d",
+      `openssl.cafile="${cacert}"`,
+    );
   }
 
   return args;
@@ -224,8 +229,12 @@ function detailErreurCommande(erreur) {
 
   if (stderr) morceaux.push(`stderr : ${stderr}`);
   if (stdout) morceaux.push(`stdout : ${stdout}`);
-  if (typeof erreur.status === "number") morceaux.push(`code de sortie : ${erreur.status}`);
-  if (!stdout && !stderr) morceaux.push("(aucune sortie du programme — il a probablement échoué à démarrer)");
+  if (typeof erreur.status === "number")
+    morceaux.push(`code de sortie : ${erreur.status}`);
+  if (!stdout && !stderr)
+    morceaux.push(
+      "(aucune sortie du programme — il a probablement échoué à démarrer)",
+    );
 
   return morceaux.join("\n");
 }
@@ -413,7 +422,9 @@ const CYCLES_FICHIERS_MAX = 60; // ~10 minutes avant de laisser la main au cycle
 async function demarrerTelechargementFichiersEnArrierePlan() {
   for (let cycle = 0; cycle < CYCLES_FICHIERS_MAX; cycle++) {
     if (syncEnCours) {
-      await new Promise((resolve) => setTimeout(resolve, INTERVALLE_FICHIERS_MS));
+      await new Promise((resolve) =>
+        setTimeout(resolve, INTERVALLE_FICHIERS_MS),
+      );
       continue;
     }
 
@@ -470,6 +481,7 @@ function lancerCloneInitial() {
     );
 
     let resteStdout = "";
+    let erreurStderr = "";
 
     proc.stdout.on("data", (chunk) => {
       resteStdout += chunk.toString("utf8");
@@ -481,7 +493,10 @@ function lancerCloneInitial() {
         if (!texte) continue;
 
         try {
-          mainWindow?.webContents.send("desktop:sync-progress", JSON.parse(texte));
+          mainWindow?.webContents.send(
+            "desktop:sync-progress",
+            JSON.parse(texte),
+          );
         } catch {
           // Une ligne de sortie non-JSON (avertissement PHP, etc.) : sans
           // intérêt pour la modale, mais ne doit pas interrompre le flux.
@@ -489,7 +504,11 @@ function lancerCloneInitial() {
       }
     });
 
-    proc.stderr.on("data", (chunk) => console.error(`[sync:pull] ${chunk}`));
+    proc.stderr.on("data", (chunk) => {
+      const texte = chunk.toString("utf8");
+      erreurStderr = `${erreurStderr}${texte}`.slice(-2000);
+      console.error(`[sync:pull] ${texte}`);
+    });
 
     proc.on("error", (erreur) => {
       syncEnCours = false;
@@ -498,6 +517,16 @@ function lancerCloneInitial() {
 
     proc.on("exit", (code) => {
       syncEnCours = false;
+      if (code !== 0) {
+        mainWindow?.webContents.send("desktop:sync-progress", {
+          type: "sync_erreur",
+          message:
+            erreurStderr.includes("cURL error") ||
+            erreurStderr.includes("Could not resolve host")
+              ? "Connexion Internet interrompue. Les données déjà reçues sont conservées. Réessayez pour reprendre le téléchargement."
+              : "Le téléchargement a été interrompu. Les données déjà reçues sont conservées. Réessayez pour reprendre.",
+        });
+      }
       // Ni attendu ni dans le bloc résolu ci-dessous : les données sont déjà
       // là, la modale de clonage peut se fermer immédiatement — les photos
       // manquantes se complètent seules pendant que l'utilisateur navigue
@@ -619,6 +648,9 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
+    frame: false,
+    autoHideMenuBar: true,
+    backgroundColor: "#140d1d",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -745,6 +777,20 @@ function configurerAutoUpdate() {
  */
 ipcMain.handle("desktop:get-app-version", () => app.getVersion());
 
+ipcMain.handle("desktop:window-minimize", () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle("desktop:window-toggle-maximize", () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+
+ipcMain.handle("desktop:window-close", () => {
+  mainWindow?.close();
+});
+
 ipcMain.handle("desktop:check-for-updates", async () => {
   if (!app.isPackaged) return { skipped: true };
 
@@ -795,8 +841,8 @@ app.whenReady().then(async () => {
     );
   }
 
+  Menu.setApplicationMenu(null);
   createWindow();
-  creerMenuNatif();
   configurerAutoUpdate();
   // Ni attendu ni dans le bloc try/catch ci-dessus : un aléa réseau au tout
   // premier cycle ne doit pas empêcher la fenêtre de s'ouvrir, et chaque

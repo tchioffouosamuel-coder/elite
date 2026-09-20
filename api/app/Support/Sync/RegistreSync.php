@@ -703,19 +703,19 @@ class RegistreSync
             'bus_vehicules' => [
                 'modele' => BusVehicule::class,
                 'colonnes' => ['id', 'school_id', 'immatriculation', 'marque', 'couleur', 'capacite', 'chauffeur_id', 'statut'],
-                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where(fn($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => 'bus.view',
             ],
             'bus_trajets' => [
                 'modele' => BusTrajet::class,
                 'colonnes' => ['id', 'school_id', 'vehicule_id', 'nom', 'description', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour'],
-                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'portee' => fn(Builder $q, int $s) => $q->where(fn($w) => $w->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => 'bus.view',
             ],
             'bus_arrets' => [
                 'modele' => BusArret::class,
                 'colonnes' => ['id', 'trajet_id', 'nom', 'lieu_dit', 'ordre', 'heure_passage'],
-                'portee' => fn(Builder $q, int $s) => $q->whereHas('trajet', fn($t) => $t->where('school_id', $s)),
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('trajet', fn($t) => $t->where('school_id', $s)->orWhereNull('school_id')),
                 'permission' => 'bus.view',
             ],
             'bus_affectations' => [

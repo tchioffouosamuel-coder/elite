@@ -15,9 +15,11 @@ if (Get-Process | Where-Object { $_.ProcessName -like "*Elites*" }) {
 }
 
 $candidatsData = @(
-    "$env:APPDATA\Elites School",
-    "$env:APPDATA\elites-school-desktop"
-) | Where-Object { Test-Path $_ }
+    @(
+        "${env:APPDATA}\Elites School",
+        "${env:APPDATA}\elites-school-desktop"
+    ) | Where-Object { Test-Path $_ }
+)
 
 if (-not $candidatsData) {
     Write-Host "Dossier de donnees introuvable automatiquement." -ForegroundColor Red
@@ -32,11 +34,13 @@ if (-not (Test-Path $dbPath)) {
 }
 
 $candidats = @(
-    "$env:LOCALAPPDATA\Programs\Elites School",
-    "$env:LOCALAPPDATA\Programs\elites-school-desktop",
-    "$env:ProgramFiles\Elites School",
-    "${env:ProgramFiles(x86)}\Elites School"
-) | Where-Object { Test-Path $_ }
+    @(
+        "${env:LOCALAPPDATA}\Programs\Elites School",
+        "${env:LOCALAPPDATA}\Programs\elites-school-desktop",
+        "${env:ProgramFiles}\Elites School",
+        "${env:ProgramFiles(x86)}\Elites School"
+    ) | Where-Object { Test-Path $_ }
+)
 $installDir = if ($candidats) { $candidats[0] } else { Read-Host "Dossier d'installation introuvable. Colle le chemin complet" }
 $apiDir = Join-Path $installDir "resources\api"
 $phpExe = if ($env:ELITES_PHP_BINARY) { $env:ELITES_PHP_BINARY } else { Join-Path $installDir "resources\php\php.exe" }

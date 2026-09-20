@@ -296,7 +296,7 @@ class BusAffectationController extends Controller
                 'code' => $eleve->school->code,
                 'type' => $eleve->school->type,
             ] : null,
-            'bus' => $affectation ? [
+            'bus' => $affectation?->trajet ? [
                 'affectation_id' => $affectation->id,
                 'trajet' => ['id' => $affectation->trajet->id, 'nom' => $affectation->trajet->nom],
                 'arret' => $affectation->arret ? [

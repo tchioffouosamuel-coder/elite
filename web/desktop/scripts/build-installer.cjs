@@ -1,19 +1,37 @@
-const { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
+const {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} = require("node:fs");
 const { spawnSync } = require("node:child_process");
+const os = require("node:os");
 const path = require("node:path");
 const { createPackage } = require("@electron/asar");
-const { NtExecutable, NtExecutableResource, Data, Resource } = require("resedit");
+const {
+  NtExecutable,
+  NtExecutableResource,
+  Data,
+  Resource,
+} = require("resedit");
 
 const root = path.resolve(__dirname, "..");
 const unpackedOutput = path.join(root, "build-unpacked");
-const stableOutput = path.join(root, "prepackaged-final");
+const stableOutput = path.join(
+  os.tmpdir(),
+  `elites-school-prepackaged-${process.pid}`,
+);
 const installerOutput = path.join(root, "dist");
 const executableName = "Elites School.exe";
 const webDist = path.resolve(root, "..", "dist");
 const apiSource = path.resolve(root, "..", "..", "api");
 const phpBundleSource = path.join(root, "resources", "php");
 const iconSource = path.join(root, "build", "icon.ico");
-const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+const packageJson = JSON.parse(
+  readFileSync(path.join(root, "package.json"), "utf8"),
+);
 
 /**
  * `--prepackaged` court-circuite l'étape normale d'electron-builder qui
@@ -24,7 +42,9 @@ const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "ut
  */
 function embarquerIconeEtVersion(executablePath) {
   if (!existsSync(iconSource)) {
-    console.warn(`[desktop] icône introuvable (${iconSource}) — icône Electron par défaut conservée.`);
+    console.warn(
+      `[desktop] icône introuvable (${iconSource}) — icône Electron par défaut conservée.`,
+    );
     return;
   }
 
@@ -34,7 +54,8 @@ function embarquerIconeEtVersion(executablePath) {
   const viList = Resource.VersionInfo.fromEntries(res.entries);
   const vi = viList.length > 0 ? viList[0] : Resource.VersionInfo.createEmpty();
   const langues = vi.getAllLanguagesForStringValues();
-  const langue = langues.length > 0 ? langues[0] : { lang: 0x0409, codepage: 1200 };
+  const langue =
+    langues.length > 0 ? langues[0] : { lang: 0x0409, codepage: 1200 };
 
   vi.setStringValues(langue, {
     ProductName: packageJson.build?.productName ?? packageJson.name,
@@ -47,11 +68,19 @@ function embarquerIconeEtVersion(executablePath) {
   vi.outputToResourceEntries(res.entries);
 
   const iconFile = Data.IconFile.from(readFileSync(iconSource));
-  Resource.IconGroupEntry.replaceIconsForResource(res.entries, 1, langue.lang, iconFile.icons.map((i) => i.data));
+  Resource.IconGroupEntry.replaceIconsForResource(
+    res.entries,
+    1,
+    langue.lang,
+    iconFile.icons.map((i) => i.data),
+  );
 
   res.outputResource(executable);
   writeFileSync(executablePath, Buffer.from(executable.generate()));
-  console.log("[desktop] icône et métadonnées intégrées à", path.basename(executablePath));
+  console.log(
+    "[desktop] icône et métadonnées intégrées à",
+    path.basename(executablePath),
+  );
 }
 
 /**
@@ -61,7 +90,14 @@ function embarquerIconeEtVersion(executablePath) {
  * de dev embarquée écraserait sinon celle, vide, que chaque installation
  * doit créer elle-même au premier lancement (cf. `main.cjs`).
  */
-const API_EXCLUSIONS = new Set(["vendor", "tests", ".git", ".github", "node_modules", "storage"]);
+const API_EXCLUSIONS = new Set([
+  "vendor",
+  "tests",
+  ".git",
+  ".github",
+  "node_modules",
+  "storage",
+]);
 
 function copierApi(destination) {
   cpSync(apiSource, destination, {
@@ -71,14 +107,21 @@ function copierApi(destination) {
       if (relatif === "") return true;
       const premierSegment = relatif.split(path.sep)[0];
       if (API_EXCLUSIONS.has(premierSegment)) return false;
-      if (relatif.startsWith(path.join("database", "database.sqlite"))) return false;
+      if (relatif.startsWith(path.join("database", "database.sqlite")))
+        return false;
       return true;
     },
   });
 
   // Ossature vide de `storage/` : Laravel plante si ces dossiers n'existent
   // pas, même vides (logs, cache de vues Blade, sessions, fichiers publics).
-  for (const sous of ["app/public", "framework/cache", "framework/sessions", "framework/views", "logs"]) {
+  for (const sous of [
+    "app/public",
+    "framework/cache",
+    "framework/sessions",
+    "framework/views",
+    "logs",
+  ]) {
     mkdirSync(path.join(destination, "storage", sous), { recursive: true });
   }
 
@@ -99,7 +142,9 @@ function copierApi(destination) {
   const TENTATIVES_MAX = 3;
 
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
-    console.log(`[desktop] composer install --no-dev dans la copie embarquée (tentative ${tentative}/${TENTATIVES_MAX})`);
+    console.log(
+      `[desktop] composer install --no-dev dans la copie embarquée (tentative ${tentative}/${TENTATIVES_MAX})`,
+    );
     rmSync(path.join(destination, "vendor"), { recursive: true, force: true });
     const install = spawnSync(
       composer,
@@ -108,7 +153,9 @@ function copierApi(destination) {
     );
     if (install.status !== 0) {
       if (tentative === TENTATIVES_MAX) {
-        throw new Error("composer install a échoué pour la copie embarquée de l'API.");
+        throw new Error(
+          "composer install a échoué pour la copie embarquée de l'API.",
+        );
       }
       continue;
     }
@@ -116,7 +163,9 @@ function copierApi(destination) {
     // `artisan --version` force à charger entièrement le framework (autoload
     // de toutes les classes du noyau) : un vendor tronqué y échoue
     // immédiatement, un vendor complet répond en une fraction de seconde.
-    console.log("[desktop] vérification du vendor embarqué (artisan --version)");
+    console.log(
+      "[desktop] vérification du vendor embarqué (artisan --version)",
+    );
     const verification = spawnSync("php", ["artisan", "--version"], {
       cwd: destination,
       stdio: "inherit",
@@ -130,13 +179,15 @@ function copierApi(destination) {
     if (tentative === TENTATIVES_MAX) {
       throw new Error(
         "Le vendor composé pour l'API embarquée reste corrompu ou incomplet " +
-        `après ${TENTATIVES_MAX} tentatives (\`artisan --version\` échoue juste après ` +
-        "un `composer install` pourtant réussi) — build interrompu plutôt que de " +
-        "publier un installeur cassé.",
+          `après ${TENTATIVES_MAX} tentatives (\`artisan --version\` échoue juste après ` +
+          "un `composer install` pourtant réussi) — build interrompu plutôt que de " +
+          "publier un installeur cassé.",
       );
     }
 
-    console.warn(`[desktop] vendor incomplet à la tentative ${tentative}, nouvel essai...`);
+    console.warn(
+      `[desktop] vendor incomplet à la tentative ${tentative}, nouvel essai...`,
+    );
   }
 
   // Le `vendor` composé pèse plusieurs milliers de petits fichiers PHP —
@@ -191,10 +242,15 @@ function copierApi(destination) {
  */
 function ecrireAppUpdateYml(resourcesDir) {
   const publish = packageJson.build?.publish;
-  if (!publish || publish.provider !== "github" || !publish.owner || !publish.repo) {
+  if (
+    !publish ||
+    publish.provider !== "github" ||
+    !publish.owner ||
+    !publish.repo
+  ) {
     console.warn(
       "[desktop] build.publish (provider github, owner, repo) absent ou incomplet dans package.json : " +
-      "app-update.yml non généré, l'auto-update sera inactif sur cet installeur.",
+        "app-update.yml non généré, l'auto-update sera inactif sur cet installeur.",
     );
     return;
   }

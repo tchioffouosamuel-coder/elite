@@ -34,6 +34,7 @@ import {
   archiveEleve,
   reactivateEleve,
   deleteEleve,
+  deleteElevePhoto,
   uploadElevePhoto,
   fetchParcoursEleve,
   type ParcoursAnnee,
@@ -148,6 +149,21 @@ export function EleveDetailPage() {
       await uploadElevePhoto(eleveId, fichier)
       rafraichir()
       succes(t('eleves.photo_updated'))
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setPhotoEnCours(false)
+    }
+  }
+
+  const supprimerPhoto = async () => {
+    const confirme = await confirmer({ titre: t('eleves.photo_delete_title'), message: t('eleves.photo_delete_message'), action: t('common.delete') })
+    if (!confirme) return
+    setPhotoEnCours(true)
+    try {
+      await deleteElevePhoto(eleveId)
+      rafraichir()
+      succes(t('eleves.photo_deleted'))
     } catch (err) {
       erreur((err as ApiError).message)
     } finally {
@@ -278,6 +294,12 @@ export function EleveDetailPage() {
           label: t('eleves.photo_title'),
           icon: Camera,
           onClick: () => photoInputRef.current?.click(),
+          disabled: photoEnCours,
+        },
+        can('eleves.manage') && Boolean(eleve.photo_url) && {
+          label: t('eleves.photo_delete_title'),
+          icon: Trash2,
+          onClick: supprimerPhoto,
           disabled: photoEnCours,
         },
         can('eleves.manage') && {
