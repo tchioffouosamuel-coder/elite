@@ -181,6 +181,17 @@ class BusService extends BaseService
         ]);
     }
 
+    private function trouverOuCreerArret(BusTrajet $trajet, ?string $nom): ?BusArret
+    {
+        $nom = trim((string) $nom);
+        if ($nom === '') {
+            return null;
+        }
+
+        return $trajet->arrets()->where('nom', $nom)->first()
+            ?? $this->ajouterArret($trajet, ['nom' => $nom]);
+    }
+
     /** @param array<string, mixed> $donnees */
     public function modifierArret(BusArret $arret, array $donnees): BusArret
     {
@@ -265,6 +276,9 @@ class BusService extends BaseService
 
         return $this->transaction(function () use ($eleve, $trajet, $donnees, $schoolId) {
             $option = $donnees['option_trajet'] ?? 'aller_retour';
+            $arret = array_key_exists('arret_nom', $donnees)
+                ? $this->trouverOuCreerArret($trajet, $donnees['arret_nom'])
+                : null;
 
             // Sans année précisée, celle qui compte est l'année active : c'est
             // elle que la caisse regarde pour savoir ce qu'un élève doit
@@ -276,7 +290,7 @@ class BusService extends BaseService
             $affectation = BusAffectation::create([
                 'eleve_id' => $eleve->id,
                 'trajet_id' => $trajet->id,
-                'arret_id' => $donnees['arret_id'] ?? null,
+                'arret_id' => $arret?->id ?? ($donnees['arret_id'] ?? null),
                 'annee_scolaire_id' => $anneeScolaireId,
                 'option_trajet' => $option,
                 // Le tarif vient du trajet, jamais saisi à la main : il se fige
@@ -387,6 +401,11 @@ class BusService extends BaseService
     /** @param array<string, mixed> $donnees */
     public function modifierAffectation(BusAffectation $affectation, array $donnees): BusAffectation
     {
+        if (array_key_exists('arret_nom', $donnees)) {
+            $donnees['arret_id'] = $this->trouverOuCreerArret($affectation->trajet, $donnees['arret_nom'])?->id;
+            unset($donnees['arret_nom']);
+        }
+
         // Un changement d'option relit le tarif du trajet.
         if (isset($donnees['option_trajet']) && $donnees['option_trajet'] !== $affectation->option_trajet) {
             $donnees['tarif_mensuel'] = $affectation->trajet->tarifPour($donnees['option_trajet']);

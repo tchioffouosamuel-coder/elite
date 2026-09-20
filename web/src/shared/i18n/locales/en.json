@@ -964,6 +964,7 @@
     "affectations": "Assigned students",
     "eleve": "Student",
     "arret_select": "Stop",
+    "arret_placeholder": "Enter or choose a stop",
     "tarif_mensuel": "Monthly fee",
     "search_vehicule": "Search a vehicle…",
     "search_trajet": "Search a route…",

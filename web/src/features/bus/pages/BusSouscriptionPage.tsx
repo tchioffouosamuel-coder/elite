@@ -27,7 +27,7 @@ interface EtatNavigation {
   eleveNoms: string[]
   /** Modification d'une souscription existante plutôt qu'une nouvelle. */
   affectationId?: number
-  affectationActuelle?: { trajet_id: number; arret_id: number | null; option_trajet: OptionTrajet }
+  affectationActuelle?: { trajet_id: number; arret_id: number | null; arret_nom?: string | null; option_trajet: OptionTrajet }
   /** Trajet déjà choisi si on arrive depuis la fiche d'un trajet précis. */
   trajetId?: number
   retour?: string
@@ -73,11 +73,11 @@ export function BusSouscriptionPage() {
     handleSubmit,
     watch,
     formState: { isSubmitting, errors },
-  } = useForm<{ trajet_id: number; arret_id?: number; option_trajet: OptionTrajet }>({
+  } = useForm<{ trajet_id: number; arret_nom?: string; option_trajet: OptionTrajet }>({
     defaultValues: etat?.affectationActuelle
       ? {
         trajet_id: etat.affectationActuelle.trajet_id,
-        arret_id: etat.affectationActuelle.arret_id ?? undefined,
+        arret_nom: etat.affectationActuelle.arret_nom ?? undefined,
         option_trajet: etat.affectationActuelle.option_trajet,
       }
       : { trajet_id: etat?.trajetId, option_trajet: 'aller_retour' },
@@ -113,11 +113,11 @@ export function BusSouscriptionPage() {
     navigate(etat?.retour ?? '/bus/eleves')
   }
 
-  const onSubmit = async (values: { trajet_id: number; arret_id?: number; option_trajet: OptionTrajet }) => {
+  const onSubmit = async (values: { trajet_id: number; arret_nom?: string; option_trajet: OptionTrajet }) => {
     setServerError(null)
     const payload = {
       trajet_id: Number(values.trajet_id),
-      arret_id: values.arret_id ? Number(values.arret_id) : null,
+      arret_nom: values.arret_nom?.trim() || null,
       option_trajet: values.option_trajet,
     }
 
@@ -217,14 +217,17 @@ export function BusSouscriptionPage() {
             ))}
           </Select>
 
-          <Select label={t('bus.arret_select')} {...register('arret_id')}>
-            <option value="">—</option>
+          <Input
+            label={t('bus.arret_select')}
+            list="bus-arrets"
+            placeholder={t('bus.arret_placeholder')}
+            {...register('arret_nom')}
+          />
+          <datalist id="bus-arrets">
             {(trajetDetail?.arrets ?? []).map((arret) => (
-              <option key={arret.id} value={arret.id}>
-                {arret.nom}{arret.lieu_dit ? ` — ${arret.lieu_dit}` : ''}
-              </option>
+              <option key={arret.id} value={arret.nom} />
             ))}
-          </Select>
+          </datalist>
 
           <Select label={t('bus.option_trajet')} {...register('option_trajet', { required: true })}>
             <option value="aller_retour">{t('bus.aller_retour')}</option>

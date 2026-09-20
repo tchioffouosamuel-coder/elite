@@ -991,6 +991,7 @@
     "affectations": "Élèves affectés",
     "eleve": "Élève",
     "arret_select": "Arrêt",
+    "arret_placeholder": "Saisir ou choisir un arrêt",
     "tarif_mensuel": "Tarif mensuel",
     "search_vehicule": "Rechercher un véhicule…",
     "search_trajet": "Rechercher un trajet…",

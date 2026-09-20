@@ -135,6 +135,7 @@ export interface BusAffectation {
 export interface BusSouscriptionPayload {
   trajet_id: number;
   arret_id?: number | null;
+  arret_nom?: string | null;
   annee_scolaire_id?: number | null;
   option_trajet: OptionTrajet;
 }
@@ -355,7 +356,9 @@ export async function retirerAffectation(id: number): Promise<void> {
 }
 
 /** Retrait en lot — même règle que l'unitaire : suspendue si des versements existent, supprimée sinon. */
-export async function retirerAffectationsLot(ids: number[]): Promise<{ retirees: number }> {
+export async function retirerAffectationsLot(
+  ids: number[],
+): Promise<{ retirees: number }> {
   const { data } = await http.delete<ApiResponse<{ retirees: number }>>(
     "/bus/affectations/batch-destroy",
     { data: { ids } },

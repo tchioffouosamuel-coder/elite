@@ -229,6 +229,7 @@ export function BusTrajetDetailPage() {
                                   affectationActuelle: {
                                     trajet_id: trajetId,
                                     arret_id: a.arret?.id ?? null,
+                                    arret_nom: a.arret?.nom ?? null,
                                     option_trajet: a.option_trajet,
                                   },
                                   retour: `/bus/trajets/${trajetId}`,

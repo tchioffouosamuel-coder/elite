@@ -187,6 +187,7 @@ class BusAffectationController extends Controller
 
         $donnees = $request->validate([
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $affectation->trajet_id)],
+            'arret_nom' => ['nullable', 'string', 'max:150'],
             'statut' => ['nullable', 'in:actif,suspendu'],
             'option_trajet' => ['nullable', Rule::in(BusAffectation::OPTIONS_TRAJET)],
         ]);
@@ -238,6 +239,7 @@ class BusAffectationController extends Controller
             // Un arrêt n'appartenant pas au trajet choisi n'a pas de sens :
             // le champ « ramassera » un enfant sur un circuit qu'il ne suit pas.
             'arret_id' => ['nullable', 'integer', Rule::exists('bus_arrets', 'id')->where('trajet_id', $request->integer('trajet_id'))],
+            'arret_nom' => ['nullable', 'string', 'max:150'],
             'annee_scolaire_id' => ['nullable', 'integer', Rule::exists('annee_scolaires', 'id')->whereIn('school_id', Tenant::schoolIds())],
             'option_trajet' => ['required', Rule::in(BusAffectation::OPTIONS_TRAJET)],
         ]);
