@@ -139,6 +139,17 @@ class EleveService extends BaseService
     public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
     {
         $chemin = $file->getRealPath();
+        if ($chemin === false) {
+            $this->logPhotoIllisible($eleve, $file, '');
+            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
+        }
+
+        $contenu = @file_get_contents($chemin);
+
+        if ($contenu === false || $contenu === '') {
+            $this->logPhotoIllisible($eleve, $file, $chemin);
+            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
+        }
 
         // getimagesize() ne lit que l'en-tête (quelques Ko), sans décoder les
         // pixels : une photo de téléphone à très haute résolution (ex. 8000x6000,
@@ -147,12 +158,12 @@ class EleveService extends BaseService
         // erreur fatale non rattrapable par try/catch, contrairement à un
         // Throwable classique. On la rejette donc proprement avant, plutôt
         // que de planter la requête.
-        $dimensions = @getimagesize($chemin);
+        $dimensions = @getimagesizefromstring($contenu);
         if ($dimensions === false) {
-            $this->logPhotoIllisible($eleve, $file, $chemin);
+            $this->logPhotoIllisible($eleve, $file, $chemin, $contenu);
             throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
         }
-        [$width, $height] = $dimensions;
+        [$width, $height, $type] = $dimensions;
         if ($width * $height > self::MAX_PIXELS_PHOTO) {
             throw new UnprocessableEntityHttpException('Photo trop grande (résolution excessive) : réduisez sa taille avant de l\'envoyer.');
         }
@@ -162,14 +173,9 @@ class EleveService extends BaseService
         $limiteAnterieure = ini_set('memory_limit', '512M');
 
         try {
-            // imagecreatefromstring() détecte le format à partir du contenu réel
-            // (contrairement à imagecreatefromjpeg/png qui plantent avec une
-            // TypeError non attrapée si le mime détecté ne correspond pas
-            // vraiment aux octets du fichier) et retourne false proprement sur
-            // un fichier illisible plutôt que de faire planter la requête.
-            $source = @imagecreatefromstring(file_get_contents($chemin));
+            $source = $this->decoderPhoto($chemin, $contenu, $type);
             if ($source === false) {
-                $this->logPhotoIllisible($eleve, $file, $chemin);
+                $this->logPhotoIllisible($eleve, $file, $chemin, $contenu);
                 throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
             }
 
@@ -178,6 +184,8 @@ class EleveService extends BaseService
             $srcY = intdiv($height - $side, 2);
 
             $square = imagecreatetruecolor(600, 600);
+            $blanc = imagecolorallocate($square, 255, 255, 255);
+            imagefill($square, 0, 0, $blanc);
             imagecopyresampled($square, $source, 0, 0, $srcX, $srcY, 600, 600, $side, $side);
             imagedestroy($source);
 
@@ -202,6 +210,34 @@ class EleveService extends BaseService
     }
 
     /**
+     * Décode selon le type réellement détecté par `getimagesizefromstring()`.
+     * Le repli `imagecreatefromstring()` couvre les variantes que GD sait lire
+     * mais dont la constante n'est pas explicitement listée ici.
+     *
+     * @return \GdImage|false
+     */
+    private function decoderPhoto(string $chemin, string $contenu, int $type): \GdImage|false
+    {
+        $decodeur = match ($type) {
+            IMAGETYPE_JPEG => 'imagecreatefromjpeg',
+            IMAGETYPE_PNG => 'imagecreatefrompng',
+            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? 'imagecreatefromwebp' : null,
+            IMAGETYPE_AVIF => function_exists('imagecreatefromavif') ? 'imagecreatefromavif' : null,
+            default => null,
+        };
+
+        if ($decodeur !== null) {
+            $source = @$decodeur($chemin);
+
+            if ($source !== false) {
+                return $source;
+            }
+        }
+
+        return @imagecreatefromstring($contenu);
+    }
+
+    /**
      * Trace le contexte d'un échec « image illisible » — sans ça, l'erreur
      * renvoyée au client ne dit pas si le fichier reçu est vide, tronqué
      * (upload interrompu en cours de route), ou dans un format que GD ne
@@ -209,10 +245,13 @@ class EleveService extends BaseService
      * l'image Docker). Les 12 premiers octets (signature de format) suffisent
      * à trancher sans avoir à rejouer l'upload.
      */
-    private function logPhotoIllisible(Eleve $eleve, UploadedFile $file, string $chemin): void
+    private function logPhotoIllisible(Eleve $eleve, UploadedFile $file, string $chemin, ?string $contenu = null): void
     {
         $tailleDisque = @filesize($chemin);
-        $signature = @file_get_contents($chemin, false, null, 0, 12);
+        $signature = $contenu !== null
+            ? substr($contenu, 0, 12)
+            : @file_get_contents($chemin, false, null, 0, 12);
+        $gd = extension_loaded('gd') ? gd_info() : [];
 
         Log::warning('Photo illisible reçue pour un élève', [
             'eleve_id' => $eleve->id,
@@ -221,6 +260,11 @@ class EleveService extends BaseService
             'taille_annoncee' => $file->getSize(),
             'taille_sur_disque' => $tailleDisque,
             'signature_hex' => $signature !== false ? bin2hex($signature) : null,
+            'gd_charge' => extension_loaded('gd'),
+            'gd_jpeg' => $gd['JPEG Support'] ?? null,
+            'gd_png' => $gd['PNG Support'] ?? null,
+            'gd_webp' => $gd['WebP Support'] ?? null,
+            'gd_avif' => $gd['AVIF Support'] ?? null,
         ]);
     }
 
