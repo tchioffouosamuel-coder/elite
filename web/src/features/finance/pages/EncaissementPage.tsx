@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, Receipt, Wallet } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, Eye, Printer, Receipt, Wallet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
@@ -11,7 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
 import { succes } from '@/shared/lib/alertes'
-import { ouvrirDocument } from '@/shared/lib/download'
+import { imprimerDocument, ouvrirDocument } from '@/shared/lib/download'
 import { encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
 import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
 import type { ApiError } from '@/shared/types/api'
@@ -23,6 +23,8 @@ interface FormValues {
   reference_externe: string
   note: string
 }
+
+type SortieRecu = 'preview' | 'print'
 
 /**
  * Encaissement au comptoir, en page dédiée plutôt qu'en modale : la
@@ -49,6 +51,7 @@ export function EncaissementPage() {
   const [allocationsModifiees, setAllocationsModifiees] = useState(false)
   const [moratoireOuvert, setMoratoireOuvert] = useState(false)
   const [canaux, setCanaux] = useState<CanalNotification[]>(['sms'])
+  const [sortieRecu, setSortieRecu] = useState<SortieRecu>('preview')
 
   const {
     data: dossier,
@@ -134,7 +137,12 @@ export function EncaissementPage() {
       })
 
       succes(t('finance.receipt_recorded', { numero: numero_recu }))
-      ouvrirDocument(`/versements/${versement_id}/recu`)
+      const urlRecu = `/versements/${versement_id}/recu`
+      if (sortieRecu === 'print') {
+        await imprimerDocument(urlRecu)
+      } else {
+        await ouvrirDocument(urlRecu)
+      }
       retour()
     } catch (e) {
       const err = e as ApiError
@@ -324,9 +332,47 @@ export function EncaissementPage() {
 
           <CanauxNotificationField value={canaux} onChange={setCanaux} />
 
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Sortie du reçu</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSortieRecu('preview')}
+                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                  sortieRecu === 'preview'
+                    ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
+                    : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
+                }`}
+              >
+                <Eye className="h-5 w-5 flex-none" />
+                <span>
+                  <span className="block font-semibold">Afficher l'aperçu</span>
+                  <span className="block text-xs text-navy-400">Ouvrir le reçu avant impression</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortieRecu('print')}
+                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                  sortieRecu === 'print'
+                    ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
+                    : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
+                }`}
+              >
+                <Printer className="h-5 w-5 flex-none" />
+                <span>
+                  <span className="block font-semibold">Imprimer directement</span>
+                  <span className="block text-xs text-navy-400">Lancer la boîte d'impression</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
           <p className="flex items-start gap-2 rounded-xl bg-cream-100 px-3 py-2 text-xs text-navy-500">
             <Receipt className="mt-0.5 h-3.5 w-3.5 flex-none" />
-            Le reçu s'ouvrira automatiquement à l'enregistrement, prêt à imprimer.
+            {sortieRecu === 'print'
+              ? "Le reçu sera envoyé directement à l'impression après l'enregistrement."
+              : "Le reçu s'ouvrira automatiquement à l'enregistrement, prêt à imprimer."}
           </p>
 
           {serverError && <p className="text-sm text-red-500">{serverError}</p>}

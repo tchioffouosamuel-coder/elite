@@ -72,3 +72,64 @@ export async function ouvrirDocument(
 
   useDocumentPreviewStore.getState().open(dataUrl, titre);
 }
+
+/**
+ * Charge un PDF authentifié dans une iframe invisible et déclenche
+ * immédiatement l'impression. L'iframe reste en place quelques instants après
+ * `print()` pour ne pas couper le dialogue d'impression du navigateur.
+ */
+export async function imprimerDocument(
+  url: string,
+  params?: Record<string, string | number | undefined>,
+  headers?: Record<string, string>,
+): Promise<void> {
+  const response = await http.get(url, {
+    params,
+    headers,
+    responseType: "blob",
+  });
+  const dataUrl = await blobEnDataUrl(response.data as Blob);
+
+  await new Promise<void>((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+    let nettoye = false;
+
+    const nettoyer = () => {
+      if (nettoye) return;
+      nettoye = true;
+      iframe.remove();
+    };
+
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "1px";
+    iframe.style.height = "1px";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    iframe.setAttribute("aria-hidden", "true");
+
+    iframe.onload = () => {
+      try {
+        const fenetre = iframe.contentWindow;
+        if (!fenetre) throw new Error("Fenêtre d'impression indisponible.");
+
+        fenetre.focus();
+        fenetre.print();
+        window.setTimeout(nettoyer, 60_000);
+        resolve();
+      } catch (error) {
+        nettoyer();
+        reject(error);
+      }
+    };
+
+    iframe.onerror = () => {
+      nettoyer();
+      reject(new Error("Impossible de charger le reçu à imprimer."));
+    };
+
+    document.body.appendChild(iframe);
+    iframe.src = dataUrl;
+  });
+}
