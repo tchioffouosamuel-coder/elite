@@ -51,6 +51,7 @@ class BusAffectationController extends Controller
             Tenant::schoolIds(),
             $request->integer('classe_id') ?: null,
             $request->integer('annee_scolaire_id') ?: null,
+            $request->integer('eleve_id') ?: null,
         );
 
         return ApiResponse::success($eleves->map(fn(Eleve $e) => $this->resumerEleve($e))->values());

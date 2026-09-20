@@ -168,6 +168,17 @@ class EleveService extends BaseService
             throw new UnprocessableEntityHttpException('Photo trop grande (résolution excessive) : réduisez sa taille avant de l\'envoyer.');
         }
 
+        // Certains hébergements PHP n'activent pas GD malgré la validation
+        // correcte de l'image. Dans ce cas, conserver le fichier original
+        // permet de terminer l'inscription sans appeler une fonction absente.
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagecreatetruecolor') || ! function_exists('imagejpeg')) {
+            $extension = $type === IMAGETYPE_PNG ? 'png' : 'jpg';
+            $path = 'eleves/photos/' . $eleve->id . '.' . $extension;
+            Storage::disk('public')->put($path, $contenu);
+
+            return $this->repository->update($eleve, ['photo_path' => $path]);
+        }
+
         // Marge de sécurité pour les photos de résolution normale mais
         // néanmoins volumineuses à décoder ; restaurée après coup.
         $limiteAnterieure = ini_set('memory_limit', '512M');
@@ -219,8 +230,8 @@ class EleveService extends BaseService
     private function decoderPhoto(string $chemin, string $contenu, int $type): \GdImage|false
     {
         $decodeur = match ($type) {
-            IMAGETYPE_JPEG => 'imagecreatefromjpeg',
-            IMAGETYPE_PNG => 'imagecreatefrompng',
+            IMAGETYPE_JPEG => function_exists('imagecreatefromjpeg') ? 'imagecreatefromjpeg' : null,
+            IMAGETYPE_PNG => function_exists('imagecreatefrompng') ? 'imagecreatefrompng' : null,
             IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? 'imagecreatefromwebp' : null,
             IMAGETYPE_AVIF => function_exists('imagecreatefromavif') ? 'imagecreatefromavif' : null,
             default => null,
@@ -528,11 +539,24 @@ class EleveService extends BaseService
     public function diagnostiquerNonPreinscritsSansHistorique(int|array $schoolId): array
     {
         $tablesHistorique = [
-            'preinscriptions', 'notes', 'absence_trimestres', 'sanctions', 'presences',
-            'dossiers_scolarite', 'visites_infirmerie', 'bus_affectations', 'revendications',
-            'moratoires', 'remises', 'dettes_anterieures', 'justifications_absences',
-            'observations', 'modifications_eleves', 'conseil_classe_decisions',
-            'historiques_scolarite_eleves', 'ventes_fournitures',
+            'preinscriptions',
+            'notes',
+            'absence_trimestres',
+            'sanctions',
+            'presences',
+            'dossiers_scolarite',
+            'visites_infirmerie',
+            'bus_affectations',
+            'revendications',
+            'moratoires',
+            'remises',
+            'dettes_anterieures',
+            'justifications_absences',
+            'observations',
+            'modifications_eleves',
+            'conseil_classe_decisions',
+            'historiques_scolarite_eleves',
+            'ventes_fournitures',
         ];
 
         $sansClasse = Eleve::forSchool($schoolId)->whereNull('classe_id');

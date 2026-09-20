@@ -76,9 +76,16 @@ class ParentEspaceController extends Controller
      * @var list<string>
      */
     private const CHAMPS_ELEVE = [
-        'sexe', 'date_naissance', 'lieu_naissance', 'adresse',
-        'numero_acte_naissance', 'lieu_delivrance_acte', 'officier_etat_civil',
-        'groupe_sanguin', 'situation_sanitaire', 'allergies',
+        'sexe',
+        'date_naissance',
+        'lieu_naissance',
+        'adresse',
+        'numero_acte_naissance',
+        'lieu_delivrance_acte',
+        'officier_etat_civil',
+        'groupe_sanguin',
+        'situation_sanitaire',
+        'allergies',
     ];
 
     /** @var list<string> */
@@ -345,7 +352,15 @@ class ParentEspaceController extends Controller
         }
 
         $dossier = $this->scolarite->dossier($e, $annee);
-        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
+        $dossier->loadMissing([
+            'fraisAnnexes',
+            'versements' => fn($q) => $q->valides()->with('lignes'),
+            'busAffectations.trajet',
+            'busAffectations.arret',
+            'busAffectations.anneeScolaire',
+            'busAffectations.versements',
+        ]);
+        $bus = $dossier->bus_actif;
 
         // Un moratoire valide est l'échéance qui concerne réellement cette
         // famille ; la date d'exclusion générale de l'école n'est affichée en
@@ -376,6 +391,14 @@ class ParentEspaceController extends Controller
             'moratoire' => $moratoire ? [
                 'date_expiration' => $moratoire->date_expiration->format('Y-m-d'),
                 'motif' => $moratoire->motif,
+            ] : null,
+            'bus' => $bus ? [
+                'affectation_id' => $bus->id,
+                'trajet' => $bus->trajet?->nom,
+                'arret' => $bus->arret?->nom,
+                'option_trajet' => $bus->option_trajet,
+                'tarif_mensuel' => $bus->tarif_mensuel,
+                'situation_mensuelle' => $bus->situation_mensuelle,
             ] : null,
         ]);
     }

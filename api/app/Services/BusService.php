@@ -441,10 +441,11 @@ class BusService extends BaseService
      * remplace le fait de devoir deviner sur quel trajet chercher un élève.
      */
     /** @param int|array<int> $schoolId */
-    public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId): Collection
+    public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId, ?int $eleveId = null): Collection
     {
         $eleves = Eleve::forSchool($schoolId)
             ->where('statut', 'actif')
+            ->when($eleveId, fn($q, $id) => $q->whereKey($id))
             ->when($classeId, fn($q, $id) => $q->where('classe_id', $id))
             ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn($q) => $q
                 ->when($anneeScolaireId, fn($qq, $id) => $qq->where('annee_scolaire_id', $id))
