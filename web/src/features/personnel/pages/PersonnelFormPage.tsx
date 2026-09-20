@@ -199,6 +199,8 @@ export function PersonnelFormPage() {
   const { fields: enfants, append, remove } = useFieldArray({ control, name: 'enfants' })
 
   const ecoleChoisie = watch('school_id')
+  const civiliteChoisie = watch('civilite')
+  const sexeChoisi = watch('sexe')
   const anciennete = calculerAnciennete(watch('date_embauche'), watch('date_fin'))
   // La fonction et le département dépendent de l'école choisie : en mode
   // agrégé, `fonctions`/`departements` couvrent tout le complexe, il faut
@@ -403,7 +405,7 @@ export function PersonnelFormPage() {
             <div className="flex flex-col gap-4">
               <h3 className="font-display text-base font-bold text-navy-900">Identité de l'agent</h3>
               <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
-                <Select label="Civilité" {...register('civilite')}>
+                <Select label="Civilité" {...register('civilite')} value={civiliteChoisie ?? ''}>
                   <option value="">—</option>
                   {CIVILITES.map((c) => (
                     <option key={c} value={c}>
@@ -418,7 +420,7 @@ export function PersonnelFormPage() {
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Select label="Sexe" {...register('sexe')}>
+                <Select label="Sexe" {...register('sexe')} value={sexeChoisi ?? ''}>
                   <option value="">—</option>
                   <option value="M">Masculin</option>
                   <option value="F">Féminin</option>

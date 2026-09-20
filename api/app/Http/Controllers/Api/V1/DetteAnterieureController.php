@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Exports\DetteAnterieureExport;
 use App\Http\Resources\Api\V1\DetteAnterieureResource;
 use App\Models\DetteAnterieure;
 use App\Models\Eleve;
@@ -15,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Dettes des années antérieures, saisies à la main — le cas d'un élève qui
@@ -67,6 +69,34 @@ class DetteAnterieureController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="dettes-anterieures.pdf"',
         ]);
+    }
+
+    public function excel(Request $request): Response
+    {
+        $situation = $this->service->dettesAnterieures($this->schoolIds($request), [
+            'classe_id' => $request->integer('classe_id') ?: null,
+        ]);
+
+        return Excel::download(new DetteAnterieureExport($situation['lignes']), 'dettes-anterieures.xlsx');
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $schoolIds = $this->schoolIds($request);
+        $schoolId = $request->integer('school_id') ?: null;
+        $import = new DetteAnterieureImport($schoolIds, $schoolId, $request->user()?->id);
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success(
+            [
+                'imported' => $import->importedCount,
+                'failed' => count($import->erreurs),
+                'erreurs_metier' => $import->erreurs,
+            ],
+            $import->importedCount . ' dette(s) importée(s).',
+        );
     }
 
     /** @return list<int> */

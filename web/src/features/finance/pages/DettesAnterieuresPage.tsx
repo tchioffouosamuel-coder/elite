@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { History, ArrowLeft, FileDown, Plus, Wallet, Users, HeartHandshake, Search } from 'lucide-react'
+import { History, ArrowLeft, FileDown, FileSpreadsheet, Plus, Upload, Wallet, Users, HeartHandshake, Search } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -12,6 +12,7 @@ import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
+import { ImportModal } from '@/shared/ui/ImportModal'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { fetchDettesAnterieuresListe, oublierDetteAnterieure, francs, type LigneDetteAnterieure } from '@/features/finance/api'
@@ -35,6 +36,7 @@ export function DettesAnterieuresPage() {
   const [classeId, setClasseId] = useState<number | ''>('')
   const [terme, setTerme] = useState('')
   const [detteModalOuvert, setDetteModalOuvert] = useState(false)
+  const [importOuvert, setImportOuvert] = useState(false)
 
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
@@ -104,11 +106,21 @@ export function DettesAnterieuresPage() {
           <>
             <ToggleMontantsMasques />
             {can('finance.manage') && (
-              <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
-                <Plus className="h-4 w-4" />
-                Enregistrer une dette
-              </Button>
+              <>
+                <Button variant="secondary" onClick={() => setImportOuvert(true)}>
+                  <Upload className="h-4 w-4" />
+                  Importer
+                </Button>
+                <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
+                  <Plus className="h-4 w-4" />
+                  Enregistrer une dette
+                </Button>
+              </>
             )}
+            <Button variant="secondary" onClick={() => ouvrirDocument('/finance/dettes-anterieures/excel', pdfParams)}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
             <Button variant="secondary" onClick={() => ouvrirDocument('/finance/dettes-anterieures/pdf', pdfParams)}>
               <FileDown className="h-4 w-4" />
               PDF
@@ -223,6 +235,19 @@ export function DettesAnterieuresPage() {
           eleves={(eleves?.items ?? []).map((e) => ({ id: e.id, nom_complet: e.nom_complet, matricule: e.matricule }))}
           onClose={() => setDetteModalOuvert(false)}
           onCreated={rafraichir}
+        />
+      )}
+
+      {importOuvert && (
+        <ImportModal
+          title="Importer des dettes antérieures"
+          url="/finance/dettes-anterieures/import"
+          columns={['Matricule', 'Nom', 'Dette']}
+          ecoles={schools.map((school) => ({ id: school.id, nom: school.name }))}
+          ecoleId={schoolId || undefined}
+          note="Chaque ligne doit contenir le matricule, le nom de l'élève et le montant de sa dette. Le matricule sert au rapprochement ; le nom est contrôlé en cas de doublon."
+          onClose={() => setImportOuvert(false)}
+          onImported={rafraichir}
         />
       )}
     </div>

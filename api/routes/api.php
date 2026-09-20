@@ -947,6 +947,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::get('finance/dettes-anterieures', [DetteAnterieureController::class, 'liste'])->name('finance.dettes-anterieures');
                 Route::get('finance/dettes-anterieures/pdf', [DetteAnterieureController::class, 'pdf'])->name('finance.dettes-anterieures.pdf');
+                Route::get('finance/dettes-anterieures/excel', [DetteAnterieureController::class, 'excel'])->name('finance.dettes-anterieures.excel');
 
                 Route::get('eleves/{eleveId}/moratoires', [MoratoireController::class, 'index'])->name('moratoires.index');
                 Route::get('eleves/{eleveId}/remises', [RemiseController::class, 'index'])->name('remises.index');
@@ -968,6 +969,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * décider un montant — `finance.manage`, pas le simple encaissement.
              */
             Route::middleware('permission:finance.manage')->group(function () {
+                Route::post('finance/dettes-anterieures/import', [DetteAnterieureController::class, 'import'])->name('finance.dettes-anterieures.import');
                 Route::post('eleves/{eleveId}/moratoires', [MoratoireController::class, 'store'])->name('moratoires.store');
                 Route::delete('moratoires/{id}', [MoratoireController::class, 'destroy'])->name('moratoires.destroy');
 
