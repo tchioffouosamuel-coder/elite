@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Clock,
   CalendarClock,
+  CheckCircle2,
   AlarmClockOff,
   UserX,
   TrendingUp,
@@ -309,6 +310,13 @@ function PilotagePanel() {
               onDetail={setCreneauDetail}
             />
             <ListeCreneaux
+              titre={t('dashboard.past_lessons')}
+              icon={CheckCircle2}
+              creneaux={data.cours_passes}
+              vide={t('dashboard.no_past_lessons')}
+              onDetail={setCreneauDetail}
+            />
+            <ListeCreneaux
               titre={t('dashboard.upcoming_lessons')}
               icon={CalendarClock}
               creneaux={data.cours_a_venir}
@@ -420,7 +428,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
         <StatCard label={t('dashboard.classes')} value={effectifs.classes} icon={School} accent="gold" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-2">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.top_classes')}</h2>

@@ -89,6 +89,7 @@ export interface ClasseSansEnseignant {
 export interface Pilotage {
   genere_le: string;
   cours_en_cours: CreneauPilotage[];
+  cours_passes: CreneauPilotage[];
   cours_a_venir: CreneauPilotage[];
   appels_en_retard: CreneauPilotage[];
   classes_sans_enseignant: ClasseSansEnseignant[];

@@ -34,7 +34,7 @@ class ObservationService extends BaseService
                 'observation',
                 'Observation transmise par un parent',
                 "{$auteur->name} a transmis une observation au sujet de {$eleve->nom_complet}.",
-                "/observations?id={$observation->id}",
+                "/observations?id={$eleve->id}",
             );
         }
 

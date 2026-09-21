@@ -37,13 +37,13 @@ class PilotageService extends BaseService
     }
 
     /**
-     * Cours en cours, cours à venir dans la journée, et cours dont l'heure est
-     * passée sans que l'appel ait été fait — chacun sur la base de l'emploi du
+     * Cours en cours, cours passés, cours à venir dans la journée, et cours
+     * dont l'heure est passée sans que l'appel ait été fait — chacun sur la base de l'emploi du
      * temps du jour, les créneaux annulés (séance du jour au statut « annulée »)
      * étant écartés.
      *
      * @param  int|array<int>  $schoolId
-     * @return array{cours_en_cours: list<array<string, mixed>>, cours_a_venir: list<array<string, mixed>>, appels_en_retard: list<array<string, mixed>>}
+     * @return array{cours_en_cours: list<array<string, mixed>>, cours_passes: list<array<string, mixed>>, cours_a_venir: list<array<string, mixed>>, appels_en_retard: list<array<string, mixed>>}
      */
     private function creneauxDuJour(int|array $schoolId, Carbon $maintenant): array
     {
@@ -57,7 +57,7 @@ class PilotageService extends BaseService
             ->get();
 
         if ($creneaux->isEmpty()) {
-            return ['cours_en_cours' => [], 'cours_a_venir' => [], 'appels_en_retard' => []];
+            return ['cours_en_cours' => [], 'cours_passes' => [], 'cours_a_venir' => [], 'appels_en_retard' => []];
         }
 
         // Les séances déjà matérialisées pour aujourd'hui disent si un créneau
@@ -70,6 +70,7 @@ class PilotageService extends BaseService
             ->keyBy('emploi_du_temps_id');
 
         $enCours = collect();
+        $passes = collect();
         $aVenir = collect();
         $enRetard = collect();
 
@@ -86,13 +87,17 @@ class PilotageService extends BaseService
                 $enCours->push($ligne);
             } elseif ($creneau->heure_debut > $heure) {
                 $aVenir->push($ligne);
-            } elseif ($seance?->statut !== 'effectuee') {
-                $enRetard->push($ligne);
+            } else {
+                $passes->push($ligne);
+                if ($seance?->statut !== 'effectuee') {
+                    $enRetard->push($ligne);
+                }
             }
         }
 
         return [
             'cours_en_cours' => $enCours->values()->all(),
+            'cours_passes' => $passes->sortByDesc('heure_fin')->take(8)->values()->all(),
             'cours_a_venir' => $aVenir->take(8)->values()->all(),
             'appels_en_retard' => $enRetard->sortByDesc('heure_fin')->take(8)->values()->all(),
         ];
@@ -104,6 +109,7 @@ class PilotageService extends BaseService
 
         return [
             'emploi_du_temps_id' => $creneau->id,
+            'classe_matiere_id' => $creneau->classe_matiere_id,
             'classe' => $classes->pluck('nom')->implode(' + '),
             'ecole' => $creneau->classe?->school?->name,
             'matiere' => $creneau->classeMatiere?->matiere?->nom,
@@ -126,10 +132,10 @@ class PilotageService extends BaseService
     {
         $matieresSansEnseignant = ClasseMatiere::where('statut', 'actif')
             ->whereNull('personnel_id')
-            ->whereHas('classe', fn ($q) => $q->forSchool($schoolId)->whereHas('school', fn ($s) => $s->where('type', 'secondaire')))
+            ->whereHas('classe', fn($q) => $q->forSchool($schoolId)->whereHas('school', fn($s) => $s->where('type', 'secondaire')))
             ->with(['classe.school', 'matiere'])
             ->get()
-            ->map(fn (ClasseMatiere $cm) => [
+            ->map(fn(ClasseMatiere $cm) => [
                 'classe' => $cm->classe->nom,
                 'matiere' => $cm->matiere->nom,
                 'ecole' => $cm->classe->school->name,
@@ -137,10 +143,10 @@ class PilotageService extends BaseService
 
         $classesSansTitulaire = Classe::forSchool($schoolId)
             ->whereNull('titulaire_id')
-            ->whereHas('school', fn ($s) => $s->whereIn('type', ['primaire', 'maternelle']))
+            ->whereHas('school', fn($s) => $s->whereIn('type', ['primaire', 'maternelle']))
             ->with('school')
             ->get()
-            ->map(fn (Classe $classe) => [
+            ->map(fn(Classe $classe) => [
                 'classe' => $classe->nom,
                 'matiere' => null,
                 'ecole' => $classe->school->name,
@@ -163,10 +169,10 @@ class PilotageService extends BaseService
         $lecons = (int) $parClasse->sum('lecons');
         $traitees = (int) $parClasse->sum('traitees');
 
-        $enRetard = $parClasse->filter(fn (array $c) => $c['lecons'] > 0)
+        $enRetard = $parClasse->filter(fn(array $c) => $c['lecons'] > 0)
             ->sortBy('taux')
             ->take(5)
-            ->map(fn (array $c) => ['classe' => $c['classe'], 'niveau' => $c['niveau'], 'taux' => $c['taux']])
+            ->map(fn(array $c) => ['classe' => $c['classe'], 'niveau' => $c['niveau'], 'taux' => $c['taux']])
             ->values();
 
         return [

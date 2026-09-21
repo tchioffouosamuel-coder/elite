@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Exports\DetteAnterieureExport;
 use App\Http\Resources\Api\V1\DetteAnterieureResource;
+use App\Imports\DetteAnterieureImport;
 use App\Models\DetteAnterieure;
 use App\Models\Eleve;
 use App\Models\School;

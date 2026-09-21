@@ -133,7 +133,7 @@ class DemarchesParentAdminTest extends TestCase
         $observation = app(ObservationService::class)->creer($this->eleve, $parent, 'Mon enfant a été malade hier.');
 
         $this->assertSame(1, NotificationInterne::where('type', 'observation')->count());
-        $this->assertTrue(NotificationInterne::where('user_id', $this->admin->id)->where('lien', "/observations?id={$observation->id}")->exists());
+        $this->assertTrue(NotificationInterne::where('user_id', $this->admin->id)->where('lien', "/observations?id={$this->eleve->id}")->exists());
 
         app(ObservationService::class)->creer($this->eleve, $this->admin, 'Merci, bon rétablissement.');
 
