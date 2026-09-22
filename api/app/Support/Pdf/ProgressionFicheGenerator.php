@@ -47,19 +47,67 @@ class ProgressionFicheGenerator
         ], $school);
         $mpdf->SetTitle('Fiche de progression — '.$classeMatiere->classe->nom.' — '.$classeMatiere->matiere->nom);
 
-        $mpdf->WriteHTML(
-            '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-                .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
-                .$this->enTeteEcole($school)
-                .$this->titre($cycle)
-                .$this->cartouche($classeMatiere, $cycle, $terme, $anneeScolaire)
-                .$this->legende()
-                .$this->tableau($lecons, $colonnes, $cycle)
-                .$this->pied($classeMatiere)
-                .'</body></html>'
-        );
+        $mpdf->WriteHTML($this->document($classeMatiere, $lecons, $colonnes, $cycle, $terme, $anneeScolaire));
 
         return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * Regroupe toutes les fiches d'une classe dans un document directement
+     * imprimable et agrafable, avec une nouvelle page pour chaque matière.
+     *
+     * @param Collection<int, array{affectation: ClasseMatiere, lecons: Collection, colonnes: Collection}> $fiches
+     */
+    public function buildClasse(Collection $fiches, string $cycle, ?string $anneeScolaire): string
+    {
+        /** @var ClasseMatiere $premiere */
+        $premiere = $fiches->first()['affectation'];
+        $school = $premiere->classe->school;
+        $mpdf = MpdfFactory::make([
+            'format' => 'A4',
+            'orientation' => 'L',
+            'margin_top' => 8,
+            'margin_bottom' => 10,
+            'margin_left' => 6,
+            'margin_right' => 6,
+        ], $school);
+        $mpdf->SetTitle('Fiches de progression — '.$premiere->classe->nom);
+
+        foreach ($fiches->values() as $index => $fiche) {
+            if ($index > 0) {
+                $mpdf->AddPage('L');
+            }
+
+            $mpdf->WriteHTML($this->document(
+                $fiche['affectation'],
+                $fiche['lecons'],
+                $fiche['colonnes'],
+                $cycle,
+                null,
+                $anneeScolaire,
+            ));
+        }
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    private function document(
+        ClasseMatiere $classeMatiere,
+        Collection $lecons,
+        Collection $colonnes,
+        string $cycle,
+        ?string $terme,
+        ?string $anneeScolaire,
+    ): string {
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+            .'<style>'.$this->stylesBase().$this->stylesPropres().'</style></head><body>'
+            .$this->enTeteEcole($classeMatiere->classe->school)
+            .$this->titre($cycle)
+            .$this->cartouche($classeMatiere, $cycle, $terme, $anneeScolaire)
+            .$this->legende()
+            .$this->tableau($lecons, $colonnes, $cycle)
+            .$this->pied($classeMatiere)
+            .'</body></html>';
     }
 
     private function stylesPropres(): string

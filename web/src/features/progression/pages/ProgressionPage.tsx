@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, ChevronRight, Download, FileSpreadsheet, GitBranch, Search, Upload } from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronRight, Download, FileSpreadsheet, FileText, GitBranch, Search, Upload } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
   fetchProgressionClasse,
@@ -10,6 +10,7 @@ import {
   fetchProgramme,
   telechargerModeleProgressionClasse,
   importerProgressionClasse,
+  ouvrirFichesProgressionClassePdf,
   type TauxClasse,
 } from '@/features/progression/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -280,6 +281,7 @@ function ImportModeleClasseModal({
 function MatieresClasseView({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [exportEnCours, setExportEnCours] = useState(false)
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: matieres, isLoading } = useQuery({
     queryKey: ['progression-classe', classeId],
@@ -292,14 +294,29 @@ function MatieresClasseView({ classeId }: { classeId: number }) {
     ? [classe.niveau?.name_fr, classe.niveau_scolaire?.libelle, classe.filiere].filter(Boolean).join(' • ')
     : t('progression.matieres_classe_hint')
 
+  const exporterClasse = async () => {
+    setExportEnCours(true)
+    try {
+      await ouvrirFichesProgressionClassePdf(classeId)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titre={titre} sousTitre={sousTitre || t('progression.matieres_classe_hint')} icon={BookOpen} />
-        <Button type="button" variant="secondary" onClick={() => navigate('/progression')}>
-          <ArrowLeft className="h-4 w-4" />
-          {t('progression.retour_classes')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={exporterClasse} disabled={exportEnCours || isLoading}>
+            <FileText className="h-4 w-4" />
+            {t('progression.pdf_classe')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => navigate('/progression')}>
+            <ArrowLeft className="h-4 w-4" />
+            {t('progression.retour_classes')}
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

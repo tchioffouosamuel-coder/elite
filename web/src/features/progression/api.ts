@@ -197,6 +197,22 @@ export async function ouvrirFicheProgressionPdf(
   }
 }
 
+export async function ouvrirFichesProgressionClassePdf(classeId: number): Promise<void> {
+  const fenetre = window.open("", "_blank");
+  const response = await http.get(`/classes/${classeId}/progression/pdf`, {
+    responseType: "blob",
+  });
+  const blobUrl = URL.createObjectURL(response.data as Blob);
+
+  if (fenetre) {
+    fenetre.location.href = blobUrl;
+  } else {
+    window.open(blobUrl, "_blank");
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
+
 export interface TauxMatiere {
   classe_matiere_id: number;
   matiere: string;

@@ -758,6 +758,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('progression', [ProgressionController::class, 'etablissement'])->name('progression.etablissement');
                 Route::get('classes/{classeId}/progression', [ProgressionController::class, 'classe'])->name('progression.classe');
+                Route::get('classes/{classeId}/progression/pdf', [ProgressionController::class, 'pdfClasse'])->name('progression.classe-pdf');
                 Route::get('classes/{classeId}/progression/modele', [ProgressionController::class, 'modeleClasse'])->name('progression.modele-classe');
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
                 Route::get('classe-matieres/{classeMatiereId}/progression/pdf', [ProgressionController::class, 'pdf'])->name('progression.pdf');

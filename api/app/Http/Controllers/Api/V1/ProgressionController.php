@@ -292,6 +292,49 @@ class ProgressionController extends Controller
         ]);
     }
 
+    /** Toutes les fiches de progression d'une classe dans un PDF à agrafer. */
+    public function pdfClasse(Request $request, int $classeId)
+    {
+        $classe = $this->classeAutorisee($classeId);
+        $perimetre = $request->user()->perimetre();
+
+        $affectations = ClasseMatiere::where('classe_id', $classe->id)
+            ->with(['classe.school', 'classe.titulaire', 'matiere.departement', 'enseignant', 'progressionColonnes'])
+            ->when(
+                $perimetre->matieresRestreintesDans($classe->id),
+                fn ($q) => $q->where('personnel_id', $perimetre->personnelId())
+            )
+            ->get()
+            ->sortBy(fn (ClasseMatiere $cm) => $cm->matiere->nom)
+            ->values();
+
+        abort_if($affectations->isEmpty(), 404, "Aucune matière n'est affectée à cette classe.");
+
+        $items = ProgressionItem::whereIn('classe_matiere_id', $affectations->pluck('id'))
+            ->where('type', 'lecon')
+            ->orderBy('ordre')->orderBy('id')
+            ->get()
+            ->groupBy('classe_matiere_id');
+
+        $fiches = $affectations->map(fn (ClasseMatiere $cm) => [
+            'affectation' => $cm,
+            'lecons' => $items->get($cm->id, collect()),
+            'colonnes' => $cm->progressionColonnes,
+        ]);
+
+        $pdf = (new ProgressionFicheGenerator)->buildClasse(
+            $fiches,
+            ProgressionItem::cyclePour($classe->school->type),
+            $this->anneeScolaireActive($classe->school_id),
+        );
+        $nomFichier = 'fiches-progression-'.Str::slug($classe->nom).'.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$nomFichier.'"',
+        ]);
+    }
+
     /**
      * Avancement de chaque matière d'une classe.
      *
