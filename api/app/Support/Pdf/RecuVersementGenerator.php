@@ -36,6 +36,7 @@ class RecuVersementGenerator
 
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,
+            'orientation' => 'L',
             'margin_left' => 4,
             'margin_right' => 4,
             'margin_top' => 4,
@@ -62,21 +63,21 @@ class RecuVersementGenerator
 
     private function styles(): string
     {
-        return 'body{font-family:montserrat,sans-serif;font-size:2.4mm;color:#000;margin:0}'
+        return 'body{font-family:montserrat,sans-serif;font-size:3.2mm;color:#000;margin:0}'
             . '.centre{text-align:center}'
-            . '.ecole{font-weight:bold;font-size:2.7mm;line-height:1.2}'
-            . '.mentions{font-size:2mm;line-height:1.25}'
-            . '.titre{font-weight:bold;font-size:3mm;text-align:center;text-decoration:underline;margin:2mm 0}'
+            . '.ecole{font-weight:bold;font-size:3.6mm;line-height:1.2}'
+            . '.mentions{font-size:2.8mm;line-height:1.25}'
+            . '.titre{font-weight:bold;font-size:4mm;text-align:center;text-decoration:underline;margin:2mm 0}'
             . 'table{width:100%;border-collapse:collapse}'
-            . 'td{padding:0.4mm 0;vertical-align:top;font-size:2.4mm}'
+            . 'td{padding:0.6mm 0;vertical-align:top;font-size:3.2mm}'
             . '.cle{font-weight:bold;width:42%}'
             . '.sep{border-top:0.4mm dashed #000;margin:2mm 0}'
-            . '.section{font-weight:bold;font-size:2.5mm;margin:1.5mm 0 0.5mm}'
-            . '.hist td{border-bottom:0.2mm dotted #999;font-size:2.3mm;padding:0.6mm 0}'
+            . '.section{font-weight:bold;font-size:3.3mm;margin:1.5mm 0 0.5mm}'
+            . '.hist td{border-bottom:0.2mm dotted #999;font-size:3mm;padding:0.8mm 0}'
             . '.montant{text-align:right;font-weight:bold}'
-            . '.total{font-weight:bold;font-size:2.7mm}'
-            . '.pied{font-size:2.1mm;margin-top:2.5mm}'
-            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:3mm;margin:1.5mm 0}';
+            . '.total{font-weight:bold;font-size:3.6mm}'
+            . '.pied{font-size:2.8mm;margin-top:2.5mm}'
+            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:4mm;margin:1.5mm 0}';
     }
 
     /**
@@ -98,7 +99,7 @@ class RecuVersementGenerator
 
     private function titre(Versement $versement): string
     {
-        $titre = $this->estBusSeul($versement) ? 'DES FRAIS DE BUS / SCHOOL TRANSPORT FEES' : 'DES FRAIS DE SCOLARITÉ / TUITION FEES';
+        $titre = $this->estBusSeul($versement) ? 'DES FRAIS DE BUS / SCHOOL TRANSPORT FEES' : 'DES FRAIS DE SCOLARITÉ / SCHOOL FEES';
 
         return '<div class="titre">REÇU DE PAIEMENT / PAYMENT RECEIPT<br>' . $titre . '</div>';
     }
@@ -127,7 +128,7 @@ class RecuVersementGenerator
         $rubriqueBus = collect($rubriques)->firstWhere('cle', 'bus');
         $montantDu = $busSeul ? (int) ($rubriqueBus['montant_du'] ?? 0) : $dossier->total_du;
         $montantPaye = $busSeul ? (int) $lignes->sum('montant') : $versement->montant;
-        $libelleDu = $busSeul ? 'Frais de bus / School transport fees' : 'Frais de scolarité / Tuition fees';
+        $libelleDu = $busSeul ? 'Frais de bus / School transport fees' : 'Frais de scolarité / School fees';
 
         $html .= '</table><div class="sep"></div><table>'
             . $this->ligneMontant($libelleDu, $montantDu)
@@ -259,7 +260,7 @@ class RecuVersementGenerator
     {
         return match ($affectation) {
             'bus' => 'Transport scolaire / School transport',
-            'scolarite' => 'Frais de scolarité / Tuition fees',
+            'scolarite' => 'Frais de scolarité / School fees',
             'report_dette' => 'Reliquat année précédente / Previous year balance',
             default => $libelle . ' / Additional fee',
         };

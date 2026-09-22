@@ -33,6 +33,7 @@ class RecuVersementBusGenerator
 
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,
+            'orientation' => 'L',
             'margin_left' => 4,
             'margin_right' => 4,
             'margin_top' => 4,
@@ -57,18 +58,18 @@ class RecuVersementBusGenerator
 
     private function styles(): string
     {
-        return 'body{font-family:montserrat,sans-serif;font-size:2.4mm;color:#000;margin:0}'
+        return 'body{font-family:montserrat,sans-serif;font-size:3.2mm;color:#000;margin:0}'
             . '.centre{text-align:center}'
-            . '.ecole{font-weight:bold;font-size:2.7mm;line-height:1.2}'
-            . '.titre{font-weight:bold;font-size:3mm;text-align:center;text-decoration:underline;margin:2mm 0}'
+            . '.ecole{font-weight:bold;font-size:3.6mm;line-height:1.2}'
+            . '.titre{font-weight:bold;font-size:4mm;text-align:center;text-decoration:underline;margin:2mm 0}'
             . 'table{width:100%;border-collapse:collapse}'
-            . 'td{padding:0.4mm 0;vertical-align:top;font-size:2.4mm}'
+            . 'td{padding:0.6mm 0;vertical-align:top;font-size:3.2mm}'
             . '.cle{font-weight:bold;width:46%}'
             . '.sep{border-top:0.4mm dashed #000;margin:2mm 0}'
             . '.montant{text-align:right;font-weight:bold}'
-            . '.total{font-weight:bold;font-size:2.7mm}'
-            . '.pied{font-size:2.1mm;margin-top:2.5mm}'
-            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:3mm;margin:1.5mm 0}';
+            . '.total{font-weight:bold;font-size:3.6mm}'
+            . '.pied{font-size:2.8mm;margin-top:2.5mm}'
+            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:4mm;margin:1.5mm 0}';
     }
 
     private function enTete(School $school): string
