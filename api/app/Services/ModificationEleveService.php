@@ -17,7 +17,10 @@ use RuntimeException;
  */
 class ModificationEleveService extends BaseService
 {
-    public function __construct(private readonly NotificationService $notifications) {}
+    public function __construct(
+        private readonly NotificationService $notifications,
+        private readonly EleveService $eleveService,
+    ) {}
 
     private const CHAMPS_MODIFIABLES = [
         'nom_complet',
@@ -33,6 +36,16 @@ class ModificationEleveService extends BaseService
         'aptitude',
         'allergies',
     ];
+
+    /**
+     * `photo_path` n'est pas un champ texte comme les autres : c'est le
+     * chemin de stockage d'une photo déjà traitée et posée en attente par
+     * {@see EleveService::stockerPhotoPendante()}. Elle transite dans
+     * `donnees` comme le reste, mais `valider()`/`rejeter()` la traitent à
+     * part (déplacement/suppression de fichier) plutôt que de l'écrire telle
+     * quelle sur l'élève.
+     */
+    private const CHAMP_PHOTO = 'photo_path';
 
     public function enAttentePour(int $eleveId): ?ModificationEleve
     {
@@ -51,7 +64,7 @@ class ModificationEleveService extends BaseService
             throw new RuntimeException('Une demande de modification est déjà en attente de validation pour cet élève.');
         }
 
-        $donnees = array_intersect_key($donnees, array_flip(self::CHAMPS_MODIFIABLES));
+        $donnees = array_intersect_key($donnees, array_flip([...self::CHAMPS_MODIFIABLES, self::CHAMP_PHOTO]));
 
         if (empty($donnees)) {
             throw new RuntimeException('Aucune modification à transmettre.');
@@ -84,7 +97,16 @@ class ModificationEleveService extends BaseService
         }
 
         return $this->transaction(function () use ($modification, $adminUserId) {
-            $modification->eleve->update($modification->donnees);
+            $donnees = $modification->donnees;
+            $cheminPhoto = $donnees[self::CHAMP_PHOTO] ?? null;
+            unset($donnees[self::CHAMP_PHOTO]);
+
+            if ($cheminPhoto) {
+                $this->eleveService->appliquerPhotoPendante($modification->eleve, $cheminPhoto);
+            }
+            if ($donnees !== []) {
+                $modification->eleve->update($donnees);
+            }
 
             $modification->update([
                 'statut' => 'validee',
@@ -100,6 +122,10 @@ class ModificationEleveService extends BaseService
     {
         if ($modification->statut !== 'en_attente') {
             throw new RuntimeException('Cette demande a déjà été traitée.');
+        }
+
+        if ($cheminPhoto = $modification->donnees[self::CHAMP_PHOTO] ?? null) {
+            $this->eleveService->supprimerPhotoPendante($cheminPhoto);
         }
 
         $modification->update([

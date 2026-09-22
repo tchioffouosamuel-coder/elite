@@ -33,10 +33,23 @@ class ModificationEleveAdminController extends Controller
             ->with(['tuteur:id,nom_complet,telephone,email', 'eleve:id,nom_complet,matricule'])
             ->findOrFail($id);
 
+        $donnees = $m->donnees;
+        $valeursActuelles = collect($donnees)->keys()->mapWithKeys(fn ($cle) => [$cle => $m->eleve->{$cle}])->all();
+
+        // `photo_path` est un chemin de stockage, pas une valeur à afficher
+        // telle quelle : on le résout en URL des deux côtés (actuelle et
+        // proposée) pour que l'admin voie les deux photos, pas deux chemins.
+        if (isset($donnees['photo_path'])) {
+            $donnees['photo_path'] = asset('storage/' . $donnees['photo_path']);
+            $valeursActuelles['photo_path'] = $valeursActuelles['photo_path']
+                ? asset('storage/' . $valeursActuelles['photo_path'])
+                : null;
+        }
+
         return ApiResponse::success([
             ...$this->resume($m),
-            'donnees' => $m->donnees,
-            'valeurs_actuelles' => collect($m->donnees)->keys()->mapWithKeys(fn ($cle) => [$cle => $m->eleve->{$cle}])->all(),
+            'donnees' => $donnees,
+            'valeurs_actuelles' => $valeursActuelles,
         ]);
     }
 

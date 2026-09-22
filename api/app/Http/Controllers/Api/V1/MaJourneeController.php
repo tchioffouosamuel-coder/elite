@@ -179,6 +179,21 @@ class MaJourneeController extends Controller
         ]);
     }
 
+    /**
+     * Vue globale, pour l'administration : tous les cours prévus dans l'école
+     * à une date donnée (aujourd'hui par défaut), avec leur statut réel — le
+     * pendant transverse de `affectations()`, réservé à l'utilisateur
+     * connecté. Restreint à `personnel.view` (cf. routes/api.php), que
+     * l'enseignant ordinaire ne porte pas, malgré `appel.manage` : sans quoi
+     * il verrait l'emploi du temps et l'avancement de toute l'école.
+     */
+    public function ecole(Request $request): JsonResponse
+    {
+        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
+
+        return ApiResponse::success($this->service->coursDuJour(app('tenant.school_id'), $date));
+    }
+
     /** Heures de cours prévues vs réalisées de l'enseignant connecté, depuis le début de l'année. */
     public function couverture(Request $request): JsonResponse
     {

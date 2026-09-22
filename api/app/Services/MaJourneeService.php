@@ -120,6 +120,77 @@ class MaJourneeService extends BaseService
         );
     }
 
+    /**
+     * Vue globale, pour l'administration : tous les cours prévus dans l'école
+     * à une date donnée, avec leur statut réel — le pendant transverse de
+     * `mesAffectations()`, qui ne montre que celles de l'utilisateur
+     * connecté. Sert la page de consultation quotidienne de la direction,
+     * qui peut ensuite ouvrir n'importe lequel via `feuilleDuJour()` /
+     * `enregistrer()` ci-dessus (cf. `peutIntervenir()`, déjà ouvert à ces
+     * rôles pour toute affectation).
+     *
+     * Un seul créneau par affectation ce jour-là, comme `mesAffectations()` :
+     * lister chaque période séparément ferait croire à des cours distincts
+     * qui n'existeraient pas.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function coursDuJour(int $schoolId, string $date): Collection
+    {
+        $jour = Carbon::parse($date)->dayOfWeekIso;
+
+        $creneaux = EmploiDuTemps::forSchool($schoolId)
+            ->where('jour', $jour)
+            ->whereNotNull('classe_matiere_id')
+            ->with(['classe.titulaire', 'classeMatiere.matiere', 'classeMatiere.enseignant'])
+            ->orderBy('heure_debut')
+            ->get()
+            ->groupBy('classe_matiere_id')
+            ->map(fn (Collection $groupe) => $groupe->first());
+
+        $seances = Seance::forSchool($schoolId)
+            ->whereDate('date_seance', $date)
+            ->whereIn('classe_matiere_id', $creneaux->pluck('classe_matiere_id'))
+            ->withCount(['lecons', 'presences'])
+            ->get()
+            ->keyBy('classe_matiere_id');
+
+        $estAujourdhui = Carbon::parse($date)->isToday();
+        $maintenant = Carbon::now()->format('H:i:s');
+
+        return $creneaux
+            ->map(function (EmploiDuTemps $creneau) use ($seances, $estAujourdhui, $maintenant) {
+                $classeMatiere = $creneau->classeMatiere;
+                $classe = $creneau->classe;
+                $seance = $seances->get($creneau->classe_matiere_id);
+                $enseignant = $classeMatiere?->enseignant ?? $classe?->titulaire;
+
+                // Sans séance déclarée, le cours reste « prévu » jusqu'à son
+                // heure de fin passée, au-delà de laquelle il est en retard —
+                // uniquement pertinent pour aujourd'hui, une date passée sans
+                // séance étant simplement restée non couverte.
+                $enRetard = $estAujourdhui && ! $seance && $maintenant > (string) $creneau->heure_fin;
+
+                return [
+                    'classe_matiere_id' => $creneau->classe_matiere_id,
+                    'classe_id' => $classe?->id,
+                    'classe' => $classe?->nom,
+                    'matiere' => $classeMatiere?->matiere?->nom,
+                    'enseignant' => $enseignant?->nom_complet,
+                    'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
+                    'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
+                    'salle' => $creneau->salle,
+                    'seance_id' => $seance?->id,
+                    'statut' => $seance?->statut ?? ($enRetard ? 'en_retard' : 'prevue'),
+                    'lecons_traitees' => $seance?->lecons_count ?? 0,
+                    'eleves_pointes' => $seance?->presences_count ?? 0,
+                    'verrouille' => $seance?->appelVerrouille() ?? false,
+                ];
+            })
+            ->sortBy('heure_debut')
+            ->values();
+    }
+
     /** Trimestre couvrant la date, sinon celui qui est actif. */
     private function trimestreDe(Classe $classe, string $date): ?Trimestre
     {

@@ -56,6 +56,7 @@ const LIBELLES_CHAMPS: Record<string, string> = {
   situation_sanitaire: 'Situation sanitaire',
   aptitude: 'Aptitude',
   allergies: 'Allergies',
+  photo_path: 'Photo',
 }
 
 /** File d'attente des révisions d'identité/santé proposées par les parents — à examiner, valider ou rejeter. */
@@ -220,13 +221,29 @@ function ModificationDetailModal({ id, onClose, onTraitee }: { id: number; onClo
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
-                {Object.entries(m.donnees).map(([cle, valeur]) => (
-                  <tr key={cle}>
-                    <td className="px-2.5 py-1.5 font-medium text-navy-800">{LIBELLES_CHAMPS[cle] || cle}</td>
-                    <td className="px-2.5 py-1.5 text-navy-400">{m.valeurs_actuelles[cle] || '—'}</td>
-                    <td className="px-2.5 py-1.5 font-semibold text-navy-900">{valeur || '—'}</td>
-                  </tr>
-                ))}
+                {Object.entries(m.donnees).map(([cle, valeur]) =>
+                  cle === 'photo_path' ? (
+                    <tr key={cle}>
+                      <td className="px-2.5 py-1.5 font-medium text-navy-800">{LIBELLES_CHAMPS[cle] || cle}</td>
+                      <td className="px-2.5 py-1.5">
+                        {m.valeurs_actuelles[cle] ? (
+                          <img src={m.valeurs_actuelles[cle]!} alt="Photo actuelle" className="h-12 w-12 rounded-lg object-cover" />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-2.5 py-1.5">
+                        <img src={valeur} alt="Photo proposée" className="h-12 w-12 rounded-lg object-cover" />
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={cle}>
+                      <td className="px-2.5 py-1.5 font-medium text-navy-800">{LIBELLES_CHAMPS[cle] || cle}</td>
+                      <td className="px-2.5 py-1.5 text-navy-400">{m.valeurs_actuelles[cle] || '—'}</td>
+                      <td className="px-2.5 py-1.5 font-semibold text-navy-900">{valeur || '—'}</td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>

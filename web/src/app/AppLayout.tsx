@@ -308,6 +308,16 @@ const navGroups = [
         types: ['primaire', 'maternelle'] as TypeEcole[],
       },
       {
+        to: '/journee-ecole',
+        label: 'nav.journeeEcole',
+        icon: ClipboardCheck,
+        // Le pendant, pour l'administration, de « Ma journée » ci-dessous :
+        // tous les cours et leçons prévus aujourd'hui, toutes classes
+        // confondues, avec leur statut — `personnel.view` exclut déjà
+        // l'enseignant ordinaire, pas besoin de `masquerPourTitulaire`.
+        permission: 'personnel.view',
+      },
+      {
         to: '/ma-journee',
         label: 'nav.maJournee',
         icon: CalendarCheck,

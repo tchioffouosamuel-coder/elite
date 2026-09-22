@@ -727,7 +727,18 @@ class ParentEspaceController extends Controller
             'situation_sanitaire' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'aptitude' => ['sometimes', 'in:apte,inapte'],
             'allergies' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'photo' => ['sometimes', 'file', 'mimes:jpeg,jpg,png', 'max:5120'],
         ]);
+
+        // La photo n'est pas un champ texte du diff : elle est traitée et
+        // posée « en attente » tout de suite (même recadrage que l'upload
+        // direct), et seul son chemin de stockage voyage dans `donnees` —
+        // appliqué à l'élève par ModificationEleveService::valider() une fois
+        // la demande acceptée.
+        if ($request->hasFile('photo')) {
+            $data['photo_path'] = $this->eleves->stockerPhotoPendante($e, $request->file('photo'));
+        }
+        unset($data['photo']);
 
         try {
             $tuteur = $this->tuteurDe($request);

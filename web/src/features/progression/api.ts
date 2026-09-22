@@ -503,6 +503,37 @@ export async function fetchHeuresCouverturePeriodes(): Promise<HeuresCouvertureP
   return data.data;
 }
 
+/* ------------------------------------------------------------------ */
+/* Journée de l'école (vue admin, tous les cours du jour)              */
+/* ------------------------------------------------------------------ */
+
+export type StatutCoursJour = "prevue" | "effectuee" | "annulee" | "en_retard";
+
+/** Un cours du jour, tel que vu par l'administration — toute l'école, pas seulement ses propres affectations. */
+export interface CoursJourAdmin {
+  classe_matiere_id: number;
+  classe_id: number | null;
+  classe: string | null;
+  matiere: string | null;
+  enseignant: string | null;
+  heure_debut: string;
+  heure_fin: string;
+  salle: string | null;
+  seance_id: number | null;
+  statut: StatutCoursJour;
+  lecons_traitees: number;
+  eleves_pointes: number;
+  verrouille: boolean;
+}
+
+export async function fetchJourneeEcole(date?: string): Promise<CoursJourAdmin[]> {
+  const { data } = await http.get<ApiResponse<CoursJourAdmin[]>>(
+    "/ma-journee/ecole",
+    { params: date ? { date } : undefined },
+  );
+  return data.data;
+}
+
 /** Résout le cours en cours dans une salle à partir de son QR code. */
 export interface ResolutionQr {
   classe_matiere_id: number;

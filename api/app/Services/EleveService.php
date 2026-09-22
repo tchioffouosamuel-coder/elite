@@ -135,8 +135,10 @@ class EleveService extends BaseService
 
     /**
      * Recadre en carré (centre) et redimensionne en 600x600 JPEG, comme upload_photo.php dans _smapp.
+     *
+     * @return array{contenu: string, extension: string}
      */
-    public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
+    private function traiterPhoto(Eleve $eleve, UploadedFile $file): array
     {
         $chemin = $file->getRealPath();
         if ($chemin === false) {
@@ -173,10 +175,8 @@ class EleveService extends BaseService
         // permet de terminer l'inscription sans appeler une fonction absente.
         if (! function_exists('imagecreatefromstring') || ! function_exists('imagecreatetruecolor') || ! function_exists('imagejpeg')) {
             $extension = $type === IMAGETYPE_PNG ? 'png' : 'jpg';
-            $path = 'eleves/photos/' . $eleve->id . '.' . $extension;
-            Storage::disk('public')->put($path, $contenu);
 
-            return $this->repository->update($eleve, ['photo_path' => $path]);
+            return ['contenu' => $contenu, 'extension' => $extension];
         }
 
         // Marge de sécurité pour les photos de résolution normale mais
@@ -214,10 +214,54 @@ class EleveService extends BaseService
             }
         }
 
-        $path = 'eleves/photos/' . $eleve->id . '.jpg';
-        Storage::disk('public')->put($path, $contents);
+        return ['contenu' => $contents, 'extension' => 'jpg'];
+    }
+
+    public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
+    {
+        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhoto($eleve, $file);
+
+        $path = 'eleves/photos/' . $eleve->id . '.' . $extension;
+        Storage::disk('public')->put($path, $contenu);
 
         return $this->repository->update($eleve, ['photo_path' => $path]);
+    }
+
+    /**
+     * Traite et stocke une photo « en attente » — proposée par un parent pour
+     * remplacer une photo déjà enregistrée, sans toucher à `eleves.photo_path`
+     * tant que l'établissement n'a pas validé la demande de modification qui
+     * la référence (cf. {@see \App\Services\ModificationEleveService}).
+     */
+    public function stockerPhotoPendante(Eleve $eleve, UploadedFile $file): string
+    {
+        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhoto($eleve, $file);
+
+        $path = 'eleves/photos_pending/' . $eleve->id . '.' . $extension;
+        Storage::disk('public')->put($path, $contenu);
+
+        return $path;
+    }
+
+    /** Applique une photo en attente validée : devient la photo officielle, le fichier temporaire est nettoyé. */
+    public function appliquerPhotoPendante(Eleve $eleve, string $cheminPendant): Eleve
+    {
+        if (! Storage::disk('public')->exists($cheminPendant)) {
+            throw new RuntimeException("La photo proposée n'est plus disponible.");
+        }
+
+        $extension = pathinfo($cheminPendant, PATHINFO_EXTENSION) ?: 'jpg';
+        $path = 'eleves/photos/' . $eleve->id . '.' . $extension;
+        Storage::disk('public')->put($path, Storage::disk('public')->get($cheminPendant));
+        Storage::disk('public')->delete($cheminPendant);
+
+        return $this->repository->update($eleve, ['photo_path' => $path]);
+    }
+
+    /** Nettoie une photo en attente rejetée ou remplacée avant validation. */
+    public function supprimerPhotoPendante(string $cheminPendant): void
+    {
+        Storage::disk('public')->delete($cheminPendant);
     }
 
     public function deletePhoto(Eleve $eleve): Eleve

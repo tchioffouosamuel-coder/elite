@@ -796,6 +796,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * littérales (couverture, qr/{token}) précèdent le paramètre
              * générique {classeMatiereId} pour ne pas s'y faire happer.
              */
+            // Vue globale de la journée, réservée à l'administration — même
+            // permission que « Suivi d'activité », que l'enseignant ordinaire
+            // ne porte pas (contrairement à `appel.manage`, ci-dessous, qui
+            // couvre aussi son propre `ma-journee`). Route littérale avant
+            // {classeMatiereId} du groupe suivant, pour ne pas s'y faire happer.
+            Route::middleware('permission:personnel.view')->group(function () {
+                Route::get('ma-journee/ecole', [MaJourneeController::class, 'ecole'])->name('ma-journee.ecole');
+            });
+
             Route::middleware('permission:appel.manage')->group(function () {
                 Route::get('ma-journee/couverture', [MaJourneeController::class, 'couverture'])->name('ma-journee.couverture');
                 Route::get('ma-journee/couverture-periodes', [MaJourneeController::class, 'couverturePeriodes'])->name('ma-journee.couverture-periodes');

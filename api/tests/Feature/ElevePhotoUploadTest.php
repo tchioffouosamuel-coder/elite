@@ -75,6 +75,56 @@ class ElevePhotoUploadTest extends TestCase
         $this->assertPhotoCarreeStockee($eleve->id);
     }
 
+    public function test_parent_propose_un_changement_de_photo_deja_existante_soumis_a_validation(): void
+    {
+        Storage::fake('public');
+
+        $eleve = $this->eleve('26SEC3', 'Parent Rephoto');
+        Storage::disk('public')->put('eleves/photos/'.$eleve->id.'.jpg', 'ancienne-photo');
+        $eleve->update(['photo_path' => 'eleves/photos/'.$eleve->id.'.jpg']);
+        $parent = $this->parentPour($eleve);
+
+        $this->actingAs($parent, 'sanctum')
+            ->post("/api/v1/parent/enfants/{$eleve->id}/modification", [
+                'photo' => UploadedFile::fake()->image('nouvelle.jpg', 400, 400),
+            ])
+            ->assertCreated();
+
+        // La photo officielle n'a pas bougé tant que ce n'est pas validé…
+        $this->assertSame('ancienne-photo', Storage::disk('public')->get('eleves/photos/'.$eleve->id.'.jpg'));
+        Storage::disk('public')->assertExists('eleves/photos_pending/'.$eleve->id.'.jpg');
+
+        $modification = \App\Models\ModificationEleve::where('eleve_id', $eleve->id)->latest()->firstOrFail();
+
+        app(\App\Services\ModificationEleveService::class)->valider($modification);
+
+        $this->assertPhotoCarreeStockee($eleve->id);
+        Storage::disk('public')->assertMissing('eleves/photos_pending/'.$eleve->id.'.jpg');
+    }
+
+    public function test_le_rejet_dune_proposition_de_photo_nettoie_le_fichier_en_attente(): void
+    {
+        Storage::fake('public');
+
+        $eleve = $this->eleve('26SEC4', 'Parent Rephoto Rejet');
+        Storage::disk('public')->put('eleves/photos/'.$eleve->id.'.jpg', 'ancienne-photo');
+        $eleve->update(['photo_path' => 'eleves/photos/'.$eleve->id.'.jpg']);
+        $parent = $this->parentPour($eleve);
+
+        $this->actingAs($parent, 'sanctum')
+            ->post("/api/v1/parent/enfants/{$eleve->id}/modification", [
+                'photo' => UploadedFile::fake()->image('nouvelle.jpg', 400, 400),
+            ])
+            ->assertCreated();
+
+        $modification = \App\Models\ModificationEleve::where('eleve_id', $eleve->id)->latest()->firstOrFail();
+
+        app(\App\Services\ModificationEleveService::class)->rejeter($modification, 'Photo floue.');
+
+        Storage::disk('public')->assertMissing('eleves/photos_pending/'.$eleve->id.'.jpg');
+        $this->assertSame('ancienne-photo', Storage::disk('public')->get('eleves/photos/'.$eleve->id.'.jpg'));
+    }
+
     private function eleve(string $matricule, string $nom): Eleve
     {
         return Eleve::create([

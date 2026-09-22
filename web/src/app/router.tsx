@@ -85,6 +85,7 @@ import { NiveauxListPage } from '@/features/niveaux/pages/NiveauxListPage'
 import { ProgressionPage } from '@/features/progression/pages/ProgressionPage'
 import { CalendrierScolairePage } from '@/features/progression/pages/CalendrierScolairePage'
 import { MaJourneePage } from '@/features/progression/pages/MaJourneePage'
+import { JourneeEcolePage } from '@/features/progression/pages/JourneeEcolePage'
 import { QrScanPage } from '@/features/progression/pages/QrScanPage'
 import { QrScannerPage } from '@/features/progression/pages/QrScannerPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
@@ -261,6 +262,7 @@ export const router = createHashRouter([
       { path: 'progression/classes/:classeId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
       { path: 'progression/matieres/:classeMatiereId', element: <ProtectedRoute permission="notes.view" enseignantPrimaireOnly><ProgressionPage /></ProtectedRoute> },
       { path: 'ma-journee', element: <ProtectedRoute permission="appel.manage" enseignantOnly><MaJourneePage /></ProtectedRoute> },
+      { path: 'journee-ecole', element: <ProtectedRoute permission="personnel.view"><JourneeEcolePage /></ProtectedRoute> },
       { path: 'scanner-qr', element: <ProtectedRoute permission="appel.manage"><QrScannerPage /></ProtectedRoute> },
       {
         path: 'qr/:token',
