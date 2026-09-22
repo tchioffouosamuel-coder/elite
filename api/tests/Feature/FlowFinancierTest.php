@@ -45,24 +45,35 @@ class FlowFinancierTest extends TestCase
         $this->seed(PlanComptableSeeder::class);
 
         $this->school = School::create([
-            'name' => 'Les Elites', 'code' => 'ELT', 'type' => 'primaire', 'is_active' => true,
+            'name' => 'Les Elites',
+            'code' => 'ELT',
+            'type' => 'primaire',
+            'is_active' => true,
         ]);
 
         $this->annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2025-2026',
-            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01',
+            'date_fin' => '2026-07-31',
+            'is_active' => true,
         ]);
     }
 
     private function agent(string $nom = 'BOIGA DJANABOU', array $remuneration = []): Personnel
     {
         $personnel = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => $nom,
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
 
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $personnel->id,
-            'date_effet' => '2025-09-01', 'salaire_base' => 60000,
+            'school_id' => $this->school->id,
+            'personnel_id' => $personnel->id,
+            'date_effet' => '2025-09-01',
+            'salaire_base' => 60000,
         ] + $remuneration);
 
         return $personnel;
@@ -154,8 +165,10 @@ class FlowFinancierTest extends TestCase
         ]);
 
         $suivante = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31',
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
         ]);
 
         app(AmortissementService::class)->doter($this->school->id, $suivante->id);
@@ -299,7 +312,9 @@ class FlowFinancierTest extends TestCase
     public function test_un_vacataire_est_paye_aux_heures_faites(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1100, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1100,
+            'salaire_base' => 0,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 40]);
@@ -312,11 +327,15 @@ class FlowFinancierTest extends TestCase
     public function test_une_vacation_ne_se_proratise_pas_sur_les_jours(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, [
-            'heures' => 30, 'jours_ouvrables' => 20, 'jours_travailles' => 12,
+            'heures' => 30,
+            'jours_ouvrables' => 20,
+            'jours_travailles' => 12,
         ]);
 
         // Les heures non faites ne sont pas payées : les retenir en plus les
@@ -334,7 +353,9 @@ class FlowFinancierTest extends TestCase
     public function test_les_heures_se_deduisent_des_seances_effectuees(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
         $classeMatiere = $this->affectation($agent);
 
@@ -364,7 +385,9 @@ class FlowFinancierTest extends TestCase
     public function test_la_saisie_manuelle_prevaut_sur_les_seances_effectuees(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
         $classeMatiere = $this->affectation($agent);
         $this->seance($classeMatiere, '2026-01-05', '08:00', '08:50', 'effectuee');
@@ -381,7 +404,9 @@ class FlowFinancierTest extends TestCase
     public function test_zero_heure_saisi_explicitement_est_accepte(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 0]);
@@ -397,8 +422,10 @@ class FlowFinancierTest extends TestCase
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Electrical Installation']);
 
         return ClasseMatiere::create([
-            'classe_id' => $classe->id, 'matiere_id' => $matiere->id,
-            'personnel_id' => $enseignant->id, 'coefficient' => 1,
+            'classe_id' => $classe->id,
+            'matiere_id' => $matiere->id,
+            'personnel_id' => $enseignant->id,
+            'coefficient' => 1,
         ]);
     }
 
@@ -418,7 +445,9 @@ class FlowFinancierTest extends TestCase
     public function test_un_vacataire_sans_heures_saisies_est_refuse(): void
     {
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
 
         $this->expectException(RuntimeException::class);
@@ -440,7 +469,9 @@ class FlowFinancierTest extends TestCase
         $this->app->forgetInstance(\App\Services\Paie\Bareme::class);
 
         $agent = $this->agent('SONG ERIC MUNYAM', [
-            'mode' => 'horaire', 'taux_horaire' => 5000, 'salaire_base' => 0,
+            'mode' => 'horaire',
+            'taux_horaire' => 5000,
+            'salaire_base' => 0,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 100]);

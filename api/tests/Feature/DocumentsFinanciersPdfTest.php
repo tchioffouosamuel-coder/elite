@@ -43,12 +43,18 @@ class DocumentsFinanciersPdfTest extends TestCase
         $this->seed(PlanComptableSeeder::class);
 
         $this->school = School::create([
-            'name' => 'Les Elites', 'code' => 'ELT', 'type' => 'primaire', 'is_active' => true,
+            'name' => 'Les Elites',
+            'code' => 'ELT',
+            'type' => 'primaire',
+            'is_active' => true,
         ]);
 
         $this->annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2025-2026',
-            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01',
+            'date_fin' => '2026-07-31',
+            'is_active' => true,
         ]);
     }
 
@@ -68,7 +74,7 @@ class DocumentsFinanciersPdfTest extends TestCase
             'school_id' => $this->school->id,
             'annee_scolaire_id' => $this->annee->id,
             'date_ecriture' => '2026-01-15',
-            'libelle' => 'Test '.$code,
+            'libelle' => 'Test ' . $code,
             'montant' => $montant,
             'sens' => $sens,
             'compte_comptable_id' => CompteComptable::where('code', $code)->value('id'),
@@ -101,7 +107,7 @@ class DocumentsFinanciersPdfTest extends TestCase
         $this->ecrire('701', 1_000_000, 'credit');
 
         $reponse = $this->actingAs($this->admin(), 'sanctum')->get(
-            '/api/v1/etat-synthese/pdf?school_id='.$this->school->id.'&annee_scolaire_id='.$this->annee->id,
+            '/api/v1/etat-synthese/pdf?school_id=' . $this->school->id . '&annee_scolaire_id=' . $this->annee->id,
         );
 
         $reponse->assertOk();
@@ -115,8 +121,10 @@ class DocumentsFinanciersPdfTest extends TestCase
         $this->ecrire('624', 22_185_600, 'debit');
 
         AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31',
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
         ]);
 
         $serie = app(EtatSyntheseService::class)->serie($this->school->id);
@@ -128,7 +136,10 @@ class DocumentsFinanciersPdfTest extends TestCase
     public function test_un_etablissement_sans_exercice_ne_fait_pas_echouer_la_serie(): void
     {
         $vierge = School::create([
-            'name' => 'Elites Tech', 'code' => 'ETC', 'type' => 'secondaire', 'is_active' => true,
+            'name' => 'Elites Tech',
+            'code' => 'ETC',
+            'type' => 'secondaire',
+            'is_active' => true,
         ]);
 
         $this->estUnPdf((new SerieExercicesGenerator)->build($vierge, []));
@@ -144,13 +155,19 @@ class DocumentsFinanciersPdfTest extends TestCase
     public function test_le_bulletin_d_un_vacataire_porte_ses_heures_et_son_taux(): void
     {
         $personnel = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'SONG ERIC MUNYAM',
-            'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'SONG ERIC MUNYAM',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
 
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $personnel->id,
-            'date_effet' => '2025-09-01', 'mode' => 'horaire', 'taux_horaire' => 1100, 'salaire_base' => 0,
+            'school_id' => $this->school->id,
+            'personnel_id' => $personnel->id,
+            'date_effet' => '2025-09-01',
+            'mode' => 'horaire',
+            'taux_horaire' => 1100,
+            'salaire_base' => 0,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($personnel, 2026, 1, ['heures' => 40]);
@@ -165,13 +182,17 @@ class DocumentsFinanciersPdfTest extends TestCase
     public function test_le_bulletin_d_un_mensuel_reste_inchange(): void
     {
         $personnel = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'BOIGA DJANABOU',
-            'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'BOIGA DJANABOU',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
 
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $personnel->id,
-            'date_effet' => '2025-09-01', 'salaire_base' => 60000,
+            'school_id' => $this->school->id,
+            'personnel_id' => $personnel->id,
+            'date_effet' => '2025-09-01',
+            'salaire_base' => 60000,
         ]);
 
         $bulletin = app(PaieService::class)->preparer($personnel, 2026, 1);
@@ -186,13 +207,19 @@ class DocumentsFinanciersPdfTest extends TestCase
     {
         $banqueId = $banque === null ? null : Banque::firstOrCreate(['nom' => $banque])->id;
         $personnel = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
-            'banque_id' => $banqueId, 'numero_compte' => $compte,
+            'school_id' => $this->school->id,
+            'nom_complet' => $nom,
+            'sexe' => 'F',
+            'statut' => 'actif',
+            'banque_id' => $banqueId,
+            'numero_compte' => $compte,
         ]);
 
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $personnel->id,
-            'date_effet' => '2025-09-01', 'salaire_base' => 60000,
+            'school_id' => $this->school->id,
+            'personnel_id' => $personnel->id,
+            'date_effet' => '2025-09-01',
+            'salaire_base' => 60000,
         ]);
 
         $service = app(PaieService::class);
@@ -235,7 +262,7 @@ class DocumentsFinanciersPdfTest extends TestCase
         $this->agentPaye('NCHANG SYLVIE WANKI', 'NTARINKON', '827508');
 
         $reponse = $this->actingAs($this->admin(), 'sanctum')->get(
-            '/api/v1/paie/bordereau/pdf?school_id='.$this->school->id.'&annee=2026&mois=1',
+            '/api/v1/paie/bordereau/pdf?school_id=' . $this->school->id . '&annee=2026&mois=1',
         );
 
         $reponse->assertOk();
@@ -253,8 +280,11 @@ class DocumentsFinanciersPdfTest extends TestCase
         $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
         $user = \App\Models\User::create([
-            'school_id' => $this->school->id, 'name' => 'Économe', 'email' => 'econome@elites.test',
-            'password' => \Illuminate\Support\Facades\Hash::make('secret'), 'is_active' => true,
+            'school_id' => $this->school->id,
+            'name' => 'Économe',
+            'email' => 'econome@elites.test',
+            'password' => \Illuminate\Support\Facades\Hash::make('secret'),
+            'is_active' => true,
         ]);
 
         $user->assignRole($role);

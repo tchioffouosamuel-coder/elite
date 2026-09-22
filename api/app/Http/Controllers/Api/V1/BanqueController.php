@@ -131,7 +131,7 @@ class BanqueController extends Controller
 
         $message = "{$deleted} banque(s) supprimée(s).";
         if ($ignorees !== []) {
-            $message .= ' '.count($ignorees).' ignorée(s) car utilisée(s) par du personnel : '.implode(', ', $ignorees).'.';
+            $message .= ' ' . count($ignorees) . ' ignorée(s) car utilisée(s) par du personnel : ' . implode(', ', $ignorees) . '.';
         }
 
         return ApiResponse::success(['deleted' => $deleted, 'ignorees' => $ignorees], $message);

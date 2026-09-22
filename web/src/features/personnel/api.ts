@@ -321,7 +321,11 @@ export async function createBanque(payload: {
 
 export async function updateBanque(
   id: number,
-  payload: { nom: string; code?: string | null; numero_compte_ecole?: string | null },
+  payload: {
+    nom: string;
+    code?: string | null;
+    numero_compte_ecole?: string | null;
+  },
 ): Promise<Banque> {
   const { data } = await http.put<ApiResponse<Banque>>(
     `/banques/${id}`,
@@ -482,7 +486,10 @@ export const COLONNES_LISTE_ENSEIGNANT: ColonneListeEnseignant[] = [
   "ecole",
 ];
 
-export const LIBELLES_COLONNES_ENSEIGNANT: Record<ColonneListeEnseignant, string> = {
+export const LIBELLES_COLONNES_ENSEIGNANT: Record<
+  ColonneListeEnseignant,
+  string
+> = {
   numero: "N°",
   matricule: "Matricule",
   nom_prenom: "Nom et prénom",
@@ -530,7 +537,9 @@ export interface GenererListeEnseignantPayload {
   statut?: "actif" | "ex_employe" | "";
 }
 
-export async function fetchListeEnseignantModeles(): Promise<ListeEnseignantModele[]> {
+export async function fetchListeEnseignantModeles(): Promise<
+  ListeEnseignantModele[]
+> {
   const { data } = await http.get<ApiResponse<ListeEnseignantModele[]>>(
     "/personnels/liste-personnalisee/modeles",
   );
@@ -547,11 +556,15 @@ export async function creerListeEnseignantModele(
   return data.data;
 }
 
-export async function supprimerListeEnseignantModele(id: number): Promise<void> {
+export async function supprimerListeEnseignantModele(
+  id: number,
+): Promise<void> {
   await http.delete(`/personnels/liste-personnalisee/modeles/${id}`);
 }
 
-function paramsGenerationListeEnseignant(payload: GenererListeEnseignantPayload) {
+function paramsGenerationListeEnseignant(
+  payload: GenererListeEnseignantPayload,
+) {
   return {
     titre_fr: payload.titreFr,
     titre_en: payload.titreEn,
@@ -656,7 +669,10 @@ export async function rattraperTelephonesPersonnel(): Promise<{
   ignores: Array<{ personnel: string; motif: string }>;
 }> {
   const { data } = await http.post<
-    ApiResponse<{ maj: number; ignores: Array<{ personnel: string; motif: string }> }>
+    ApiResponse<{
+      maj: number;
+      ignores: Array<{ personnel: string; motif: string }>;
+    }>
   >("/personnels/rattraper-telephones");
   return data.data;
 }
@@ -776,10 +792,14 @@ export interface IncoherencePresencePersonnel {
   matiere: string | null;
   heure_arrivee: string | null;
   heure_depart: string | null;
-  motifs: Array<"presence_absente" | "cours_avant_arrivee" | "cours_apres_depart">;
+  motifs: Array<
+    "presence_absente" | "cours_avant_arrivee" | "cours_apres_depart"
+  >;
 }
 
-export async function ouvrirFichePresencePersonnel(date: string): Promise<void> {
+export async function ouvrirFichePresencePersonnel(
+  date: string,
+): Promise<void> {
   await ouvrirDocument(
     "/personnels/presences-journalieres/fiche",
     { date },
@@ -800,8 +820,12 @@ export async function fetchIncoherencesPresencePersonnel(params: {
   return data.data;
 }
 
-export async function annulerValidationPresence(seanceId: number): Promise<void> {
-  await http.post(`/personnels/suivi-activite/incoherences-presence/${seanceId}/annuler-validation`);
+export async function annulerValidationPresence(
+  seanceId: number,
+): Promise<void> {
+  await http.post(
+    `/personnels/suivi-activite/incoherences-presence/${seanceId}/annuler-validation`,
+  );
 }
 
 // --------------------------------------------- Import de présence par photo (OCR)
@@ -833,7 +857,10 @@ export interface ResultatImportOcrPresence {
   errors: Array<{ ligne: number; message: string; nom: string | null }>;
 }
 
-export async function apercuOcrPresencePersonnel(image: File, date: string): Promise<ApercuOcrPresence> {
+export async function apercuOcrPresencePersonnel(
+  image: File,
+  date: string,
+): Promise<ApercuOcrPresence> {
   const formData = new FormData();
   formData.append("image", image);
   formData.append("date", date);
@@ -847,7 +874,12 @@ export async function apercuOcrPresencePersonnel(image: File, date: string): Pro
 
 export async function confirmerImportOcrPresence(
   date: string,
-  lignes: Array<{ personnel_id: number | null; nom_complet: string; heure_arrivee: string | null; heure_depart: string | null }>,
+  lignes: Array<{
+    personnel_id: number | null;
+    nom_complet: string;
+    heure_arrivee: string | null;
+    heure_depart: string | null;
+  }>,
 ): Promise<ResultatImportOcrPresence> {
   const { data } = await http.post<ApiResponse<ResultatImportOcrPresence>>(
     "/personnels/presences-journalieres/import-ocr",

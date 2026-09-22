@@ -373,7 +373,7 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             'mere_nom_complet' => $ligne['mere_nom_complet'],
             'mere_statut' => $ligne['mere_statut'],
             'mere_telephone' => $ligne['mere_telephone'],
-        ], fn ($valeur) => $valeur !== null);
+        ], fn($valeur) => $valeur !== null);
 
         // Un agent dont le contrat a une date de fin n'est plus en poste.
         $attributs['statut'] = $ligne['date_fin'] !== null ? 'ex_employe' : 'actif';

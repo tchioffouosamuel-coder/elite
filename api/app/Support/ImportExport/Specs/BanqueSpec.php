@@ -16,8 +16,10 @@ class BanqueSpec implements SpecificationModele
     public function colonnes(): array
     {
         return [
-            'banque' => 'nom', 'nom' => 'nom',
-            'code' => 'code', 'swift' => 'code',
+            'banque' => 'nom',
+            'nom' => 'nom',
+            'code' => 'code',
+            'swift' => 'code',
         ];
     }
 
@@ -38,7 +40,7 @@ class BanqueSpec implements SpecificationModele
 
     public function transformer(array $ligne, int $schoolId): array
     {
-        return array_filter(['code' => $ligne['code'] ?? null], fn ($v) => $v !== null);
+        return array_filter(['code' => $ligne['code'] ?? null], fn($v) => $v !== null);
     }
 
     public function pourExport(int|array $schoolId): Builder
