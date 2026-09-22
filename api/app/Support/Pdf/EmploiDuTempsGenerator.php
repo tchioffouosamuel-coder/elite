@@ -48,9 +48,9 @@ class EmploiDuTempsGenerator
             . 'body{font-size:2.8mm}.edt th{background:' . self::ACCENT . ';color:#fff;font-size:2.8mm;padding:1mm}.edt td{height:9mm;vertical-align:middle;padding:0.5mm}.cours{background:#e3f5e6}.matiere{font-weight:bold;font-size:2.8mm}.enseignant{font-size:2.4mm}.heure{font-style:italic;font-size:2.2mm}.vide{color:#888}.qr{width:16mm;height:16mm}</style></head><body>'
             . $this->enTeteEcole($classe->school)
             . '<div style="text-align:center;margin:1mm 0 2mm"><span class="titre">Emploi du temps - ' . $this->e($classe->nom) . '</span><br><span class="titre-en">Timetable - ' . $this->e($classe->nom) . '</span><br>Année scolaire / Academic year : <b>' . $this->e($annee->libelle) . '</b></div>'
-            . '<table class="edt"><thead><tr><th>Heures<br><i>Time</i></th>';
+            . '<table class="edt"><thead><tr><th>Heures<br>Time</th>';
         foreach ($jours as $jour) {
-            $html .= '<th>' . $jour[0] . '<br><i>' . $jour[1] . '</i></th>';
+            $html .= '<th>' . $jour[0] . '<br>' . $jour[1] . '</th>';
         }
         $html .= '</tr></thead><tbody>';
         foreach ($lignes as $ligne) {

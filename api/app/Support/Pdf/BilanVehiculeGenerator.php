@@ -84,9 +84,9 @@ class BilanVehiculeGenerator
             .'</div>'
             .'<div style="background:'.self::ARDOISE.';color:#fff;padding:2mm;text-align:center;'
             .'font-size:2.9mm;font-weight:bold;margin:3mm 0;">'
-            .'Véhicule <i>/ Vehicle</i> : '.$this->e($identite)
+            .'Véhicule <span style="color:'.self::ACCENT.';">/ Vehicle</span> : '.$this->e($identite)
             .' &nbsp;|&nbsp; Chauffeur : '.$this->e($vehicule->chauffeur?->nom_complet ?: '—')
-            .' &nbsp;|&nbsp; Période <i>/ Period</i> : '.$this->e($periode)
+            .' &nbsp;|&nbsp; Période <span style="color:'.self::ACCENT.';">/ Period</span> : '.$this->e($periode)
             .'</div>';
     }
 
@@ -177,11 +177,11 @@ class BilanVehiculeGenerator
             .'Fait à '.$this->e($ville !== '' ? $ville : '…………').', le '.date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:25%;text-align:center;font-size:2.8mm;">'
-            .'<b>L\'Économe</b><br><i>The Bursar</i><br><br><br><br>'
+            .'<b>L\'Économe</b><br><span style="color:'.self::ACCENT.';">The Bursar</span><br><br><br><br>'
             .'<span style="border-top:0.4px solid #000;">Signature</span>'
             .'</td>'
             .'<td class="no-border" style="width:25%;text-align:center;font-size:2.8mm;">'
-            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i><br><br><br><br>'
+            .'<b>Le Chef d\'Établissement</b><br><span style="color:'.self::ACCENT.';">The Principal</span><br><br><br><br>'
             .'<span style="border-top:0.4px solid #000;">Signature et cachet</span>'
             .'</td></tr></table>';
     }

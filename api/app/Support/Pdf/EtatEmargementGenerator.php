@@ -81,8 +81,8 @@ class EtatEmargementGenerator
             .'</div>'
             .'<div style="background:'.self::ARDOISE.';color:#fff;padding:2mm;text-align:center;'
             .'font-size:3mm;font-weight:bold;margin:3mm 0;">'
-            .'Période <i>/ Period</i> : '.$this->e($periode)
-            .' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : '.$bulletins->count()
+            .'Période <span style="color:'.self::ACCENT.';">/ Period</span> : '.$this->e($periode)
+            .' &nbsp;|&nbsp; Effectif <span style="color:'.self::ACCENT.';">/ Headcount</span> : '.$bulletins->count()
             .'</div>';
     }
 
@@ -91,13 +91,13 @@ class EtatEmargementGenerator
     {
         $html = '<table class="etat"><thead><tr>'
             .'<th style="width:5%;">N°</th>'
-            .'<th class="nom" style="width:24%;">Nom et prénoms<br><i>Full name</i></th>'
+            .'<th class="nom" style="width:24%;">Nom et prénoms<br><span style="color:'.self::ARDOISE.';">Full name</span></th>'
             .'<th style="width:11%;">Matricule</th>'
-            .'<th style="width:13%;">Fonction<br><i>Position</i></th>'
-            .'<th style="width:12%;">Net à percevoir<br><i>Net pay</i></th>'
-            .'<th style="width:10%;">Mode<br><i>Method</i></th>'
+            .'<th style="width:13%;">Fonction<br><span style="color:'.self::ARDOISE.';">Position</span></th>'
+            .'<th style="width:12%;">Net à percevoir<br><span style="color:'.self::ARDOISE.';">Net pay</span></th>'
+            .'<th style="width:10%;">Mode<br><span style="color:'.self::ARDOISE.';">Method</span></th>'
             .'<th style="width:10%;">Date</th>'
-            .'<th style="width:15%;">Signature<br><i>Signature</i></th>'
+            .'<th style="width:15%;">Signature<br><span style="color:'.self::ARDOISE.';">Signature</span></th>'
             .'</tr></thead><tbody>';
 
         $rang = 1;
@@ -123,7 +123,7 @@ class EtatEmargementGenerator
         }
 
         return $html.'<tr class="total">'
-            .'<td colspan="4" class="nom">Total à décaisser <i>/ Total disbursed</i></td>'
+            .'<td colspan="4" class="nom">Total à décaisser <span style="color:'.self::ACCENT.';">/ Total disbursed</span></td>'
             .'<td class="num">'.$this->francs((int) $bulletins->sum('net_a_payer')).'</td>'
             .'<td colspan="3"></td>'
             .'</tr></tbody></table>';
@@ -136,11 +136,11 @@ class EtatEmargementGenerator
         return '<table class="no-border" style="margin-top:6mm;"><tr>'
             .'<td class="no-border left" style="width:50%;font-size:2.8mm;vertical-align:top;">'
             .'Arrêté le présent état à la somme portée en total.<br>'
-            .'<i>Closed at the total amount shown above.</i><br><br>'
+            .'<span style="color:'.self::ACCENT.';">Closed at the total amount shown above.</span><br><br>'
             .'Fait à '.$this->e($ville !== '' ? $ville : '…………').', le '.date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i><br><br><br><br>'
+            .'<b>Le Chef d\'Établissement</b><br><span style="color:'.self::ACCENT.';">The Principal</span><br><br><br><br>'
             .'<span style="border-top:0.4px solid #000;">Signature et cachet</span>'
             .'</td></tr></table>';
     }

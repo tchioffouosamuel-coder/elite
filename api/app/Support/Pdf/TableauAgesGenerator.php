@@ -151,10 +151,10 @@ class TableauAgesGenerator
         }
 
         return '<table class="ages"><thead><tr>'
-            .'<th style="width:25%;">Âge exact (ans.mois)<br><i>Exact age (years.months)</i></th>'
-            .'<th style="width:25%;">Garçons<br><i>Boys</i></th>'
-            .'<th style="width:25%;">Filles<br><i>Girls</i></th>'
-            .'<th style="width:25%;">Effectif<br><i>Total</i></th>'
+            .'<th style="width:25%;">Âge exact (ans.mois)<br><span style="color:'.self::ARDOISE.';">Exact age (years.months)</span></th>'
+            .'<th style="width:25%;">Garçons<br><span style="color:'.self::ARDOISE.';">Boys</span></th>'
+            .'<th style="width:25%;">Filles<br><span style="color:'.self::ARDOISE.';">Girls</span></th>'
+            .'<th style="width:25%;">Effectif<br><span style="color:'.self::ARDOISE.';">Total</span></th>'
             .'</tr></thead><tbody>'.$corps.'</tbody>'
             .'<tfoot><tr><td>Total</td><td>'.$totaux['garcons'].'</td><td>'.$totaux['filles'].'</td><td>'.$totaux['total'].'</td></tr></tfoot>'
             .'</table>';

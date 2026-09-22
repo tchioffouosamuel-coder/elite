@@ -92,7 +92,7 @@ class StatistiquesGenerator
             .'<table class="no-border"><tr><td class="left" style="line-height:1.4;">'
             .'<span class="titre">'.$this->e($fr).'</span><br>'
             .'<span class="titre-en">'.$this->e($en).'</span><br>'
-            .'<span style="font-size:2.8mm;">Période <i>/ Term</i> : <b>'.$this->e($trimestre).'</b></span>'
+            .'<span style="font-size:2.8mm;">Période <span style="color:'.self::ACCENT.';">/ Term</span> : <b>'.$this->e($trimestre).'</b></span>'
             .'</td></tr></table>';
     }
 

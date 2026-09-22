@@ -89,7 +89,7 @@ class ListePersonnaliseeBusGenerator
             . '<span class="titre-en">Custom transport list</span>'
             . '</div>'
             . ($filtres !== '' ? '<div class="filtres">' . $filtres . '</div>' : '')
-            . '<div class="bandeau">Effectif <i>/ Headcount</i> : ' . $affectations->count() . '</div>';
+            . '<div class="bandeau">Effectif <span style="color:' . self::ACCENT . ';">/ Headcount</span> : ' . $affectations->count() . '</div>';
     }
 
     /** @param  Collection<int, BusAffectation>  $affectations */
@@ -153,11 +153,11 @@ class ListePersonnaliseeBusGenerator
 
         return '<table class="liste"><thead><tr>'
             . '<th style="width:6%;">N°</th>'
-            . '<th style="width:26%;">Nom et prénoms<br><i>Full name</i></th>'
-            . ($colonneMasquee === 'classe' ? '' : '<th style="width:16%;">Classe<br><i>Class</i></th>')
-            . ($colonneMasquee === 'trajet' ? '' : '<th style="width:20%;">Trajet<br><i>Route</i></th>')
-            . ($colonneMasquee === 'arret' ? '' : '<th style="width:16%;">Arrêt<br><i>Stop</i></th>')
-            . ($colonneMasquee === 'option_trajet' ? '' : '<th style="width:16%;">Sens<br><i>Direction</i></th>')
+            . '<th style="width:26%;">Nom et prénoms<br><span style="color:' . self::ARDOISE . ';">Full name</span></th>'
+            . ($colonneMasquee === 'classe' ? '' : '<th style="width:16%;">Classe<br><span style="color:' . self::ARDOISE . ';">Class</span></th>')
+            . ($colonneMasquee === 'trajet' ? '' : '<th style="width:20%;">Trajet<br><span style="color:' . self::ARDOISE . ';">Route</span></th>')
+            . ($colonneMasquee === 'arret' ? '' : '<th style="width:16%;">Arrêt<br><span style="color:' . self::ARDOISE . ';">Stop</span></th>')
+            . ($colonneMasquee === 'option_trajet' ? '' : '<th style="width:16%;">Sens<br><span style="color:' . self::ARDOISE . ';">Direction</span></th>')
             . '</tr></thead><tbody>' . $lignes . '</tbody></table>';
     }
 
@@ -171,7 +171,7 @@ class ListePersonnaliseeBusGenerator
             . $this->e($lieu) . date('d/m/Y')
             . '</td>'
             . '<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            . '<b>Responsable du transport scolaire</b><br><i>Transport officer</i>'
+            . '<b>Responsable du transport scolaire</b><br><span style="color:' . self::ACCENT . ';">Transport officer</span>'
             . '<br><br><br><br>'
             . '<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature</span>'
             . '</td></tr></table>';

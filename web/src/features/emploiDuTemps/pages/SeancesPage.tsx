@@ -92,6 +92,20 @@ export function SeancesPage() {
     })
   }
 
+  const toggleToutesLesSeances = (lignes: Seance[]) => {
+    setSelectedIds((courant) => {
+      const toutesSelectionnees = lignes.length > 0 && lignes.every((seance) => courant.has(seance.id))
+      const copie = new Set(courant)
+
+      lignes.forEach((seance) => {
+        if (toutesSelectionnees) copie.delete(seance.id)
+        else copie.add(seance.id)
+      })
+
+      return copie
+    })
+  }
+
   const supprimerSelection = async () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
@@ -145,23 +159,33 @@ export function SeancesPage() {
     },
   ]
 
-  const colonnes: Colonne<Seance>[] = [
+  const colonnesPour = (lignes: Seance[]): Colonne<Seance>[] => [
     ...(can('emploi_du_temps.manage')
       ? [
-          {
-            cle: 'selection',
-            entete: '',
-            cellule: (s: Seance) => (
-              <input
-                type="checkbox"
-                checked={selectedIds.has(s.id)}
-                onClick={(event) => event.stopPropagation()}
-                onChange={() => toggleSelection(s.id)}
-                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
-              />
-            ),
-          } satisfies Colonne<Seance>,
-        ]
+        {
+          cle: 'selection',
+          entete: (
+            <input
+              type="checkbox"
+              checked={lignes.length > 0 && lignes.every((seance) => selectedIds.has(seance.id))}
+              onClick={(event) => event.stopPropagation()}
+              onChange={() => toggleToutesLesSeances(lignes)}
+              disabled={lignes.length === 0}
+              aria-label={t('emploiDuTemps.selectionner_toutes_seances')}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+          cellule: (s: Seance) => (
+            <input
+              type="checkbox"
+              checked={selectedIds.has(s.id)}
+              onClick={(event) => event.stopPropagation()}
+              onChange={() => toggleSelection(s.id)}
+              className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+            />
+          ),
+        } satisfies Colonne<Seance>,
+      ]
       : []),
     {
       cle: 'date',
@@ -232,6 +256,17 @@ export function SeancesPage() {
     },
   ]
 
+  const tableauSeances = (lignes: Seance[], messageVide: string) => (
+    <DataTable
+      colonnes={colonnesPour(lignes)}
+      lignes={lignes}
+      cleLigne={(s) => s.id}
+      placeholderRecherche={t('emploiDuTemps.search_placeholder')}
+      messageVide={messageVide}
+      largeurMin={820}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -267,25 +302,11 @@ export function SeancesPage() {
             <>
               <Card>
                 <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances du jour</h2>
-                <DataTable
-                  colonnes={colonnes}
-                  lignes={seancesDuJour}
-                  cleLigne={(s) => s.id}
-                  placeholderRecherche={t('emploiDuTemps.search_placeholder')}
-                  messageVide="Aucune séance prévue aujourd'hui."
-                  largeurMin={820}
-                />
+                {tableauSeances(seancesDuJour, "Aucune séance prévue aujourd'hui.")}
               </Card>
               <Card>
                 <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances des autres jours</h2>
-                <DataTable
-                  colonnes={colonnes}
-                  lignes={autresSeances}
-                  cleLigne={(s) => s.id}
-                  placeholderRecherche={t('emploiDuTemps.search_placeholder')}
-                  messageVide="Aucune autre séance."
-                  largeurMin={820}
-                />
+                {tableauSeances(autresSeances, 'Aucune autre séance.')}
               </Card>
             </>
           )}
@@ -315,14 +336,16 @@ export function SeancesPage() {
           {isLoading ? (
             <Spinner />
           ) : (
-            <DataTable
-              colonnes={colonnes}
-              lignes={seances ?? []}
-              cleLigne={(s) => s.id}
-              placeholderRecherche={t('emploiDuTemps.search_placeholder')}
-              messageVide={t('emploiDuTemps.empty_seances')}
-              largeurMin={820}
-            />
+            <>
+              <Card>
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances du jour</h2>
+                {tableauSeances(seancesDuJour, "Aucune séance prévue aujourd'hui.")}
+              </Card>
+              <Card>
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-navy-500">Séances des autres jours</h2>
+                {tableauSeances(autresSeances, 'Aucune autre séance.')}
+              </Card>
+            </>
           )}
         </>
       )}

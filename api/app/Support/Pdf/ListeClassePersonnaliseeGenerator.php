@@ -67,9 +67,9 @@ class ListeClassePersonnaliseeGenerator
             .'<span class="titre-en">'.$this->e($titreEn).'</span>'
             .'</div>'
             .'<div class="bandeau">'
-            .'Classe <i>/ Class</i> : '.$this->e($classe->nom)
-            .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e($anneeLibelle)
-            .' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : '.$effectif
+            .'Classe <span style="color:'.self::ACCENT.';">/ Class</span> : '.$this->e($classe->nom)
+            .' &nbsp;|&nbsp; Année scolaire <span style="color:'.self::ACCENT.';">/ Academic year</span> : '.$this->e($anneeLibelle)
+            .' &nbsp;|&nbsp; Effectif <span style="color:'.self::ACCENT.';">/ Headcount</span> : '.$effectif
             .'</div>';
     }
 
@@ -82,7 +82,7 @@ class ListeClassePersonnaliseeGenerator
         $entetes = '';
         foreach ($colonnes as $colonne) {
             [$fr, $en] = ListeClasseColonnes::libelles($colonne);
-            $entetes .= '<th>'.$this->e($fr).'<br><i>'.$this->e($en).'</i></th>';
+            $entetes .= '<th>'.$this->e($fr).'<br><span style="color:'.self::ARDOISE.';">'.$this->e($en).'</span></th>';
         }
 
         $corps = '';

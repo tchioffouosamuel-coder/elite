@@ -97,8 +97,8 @@ class PersonnelFichierGenerator
             . '<span class="titre-en">Staff file</span>'
             . '</div>'
             . '<div class="bandeau">'
-            . 'Année scolaire <i>/ Academic year</i> : ' . $this->e($annee?->libelle ?? '—')
-            . ' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : ' . $donnees['total']
+            . 'Année scolaire <span style="color:' . self::ACCENT . ';">/ Academic year</span> : ' . $this->e($annee?->libelle ?? '—')
+            . ' &nbsp;|&nbsp; Effectif <span style="color:' . self::ACCENT . ';">/ Headcount</span> : ' . $donnees['total']
             . '</div>';
     }
 
@@ -141,18 +141,18 @@ class PersonnelFichierGenerator
         }
 
         $headerHtml = '<th style="width:5%;">N°</th>'
-            . '<th style="width:22%;">Nom et prénoms<br><i>Full name</i></th>'
-            . '<th style="width:12%;">Matricule<br><i>ID number</i></th>'
-            . '<th style="width:19%;">Fonction<br><i>Position</i></th>';
+            . '<th style="width:22%;">Nom et prénoms<br><span style="color:' . self::ARDOISE . ';">Full name</span></th>'
+            . '<th style="width:12%;">Matricule<br><span style="color:' . self::ARDOISE . ';">ID number</span></th>'
+            . '<th style="width:19%;">Fonction<br><span style="color:' . self::ARDOISE . ';">Position</span></th>';
 
         if ($isSecondaire) {
-            $headerHtml .= '<th style="width:26%;">Département<br><i>Department</i></th>';
+            $headerHtml .= '<th style="width:26%;">Département<br><span style="color:' . self::ARDOISE . ';">Department</span></th>';
         }
 
-        $headerHtml .= '<th style="width:16%;">Téléphone<br><i>Phone</i></th>';
+        $headerHtml .= '<th style="width:16%;">Téléphone<br><span style="color:' . self::ARDOISE . ';">Phone</span></th>';
 
         if (! $isSecondaire) {
-            $headerHtml .= '<th style="width:18%;">Classe tenue<br><i>Assigned class</i></th>';
+            $headerHtml .= '<th style="width:18%;">Classe tenue<br><span style="color:' . self::ARDOISE . ';">Assigned class</span></th>';
         }
 
         return '<table class="registre"><thead><tr>'
@@ -215,7 +215,7 @@ class PersonnelFichierGenerator
             . $this->e($lieu) . date('d/m/Y')
             . '</td>'
             . '<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            . '<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'
+            . '<b>Le Chef d\'Établissement</b><br><span style="color:' . self::ACCENT . ';">The Principal</span>'
             . $this->visa($school)
             . '<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature et cachet</span>'
             . '</td></tr></table>';

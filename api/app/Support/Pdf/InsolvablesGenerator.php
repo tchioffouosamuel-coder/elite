@@ -63,9 +63,9 @@ class InsolvablesGenerator
             . '<span class="titre-en">Defaulting students</span>'
             . '</div>'
             . '<div class="bandeau">'
-            . 'Effectif <i>/ Headcount</i> : ' . $totaux['effectif']
-            . ' &nbsp;|&nbsp; Total dû <i>/ Total due</i> : ' . number_format($totaux['total_du'], 0, ',', ' ') . ' F'
-            . ' &nbsp;|&nbsp; Reste à recouvrer <i>/ Outstanding</i> : ' . number_format($totaux['total_reste'], 0, ',', ' ') . ' F'
+            . 'Effectif <span style="color:' . self::ACCENT . ';">/ Headcount</span> : ' . $totaux['effectif']
+            . ' &nbsp;|&nbsp; Total dû <span style="color:' . self::ACCENT . ';">/ Total due</span> : ' . number_format($totaux['total_du'], 0, ',', ' ') . ' F'
+            . ' &nbsp;|&nbsp; Reste à recouvrer <span style="color:' . self::ACCENT . ';">/ Outstanding</span> : ' . number_format($totaux['total_reste'], 0, ',', ' ') . ' F'
             . '</div>';
     }
 
@@ -102,12 +102,12 @@ class InsolvablesGenerator
 
         return '<table class="liste"><thead><tr>'
             . '<th style="width:4%;">N°</th>'
-            . '<th style="width:16%;">École<br><i>School</i></th>'
-            . '<th style="width:18%;">Élève<br><i>Student</i></th>'
-            . '<th style="width:10%;">Matricule<br><i>ID</i></th>'
-            . '<th style="width:12%;">Classe<br><i>Class</i></th>'
-            . '<th style="width:32%;">Détail par rubrique<br><i>Breakdown</i></th>'
-            . '<th style="width:8%;">Reste (F)<br><i>Balance</i></th>'
+            . '<th style="width:16%;">École<br><span style="color:' . self::ARDOISE . ';">School</span></th>'
+            . '<th style="width:18%;">Élève<br><span style="color:' . self::ARDOISE . ';">Student</span></th>'
+            . '<th style="width:10%;">Matricule<br><span style="color:' . self::ARDOISE . ';">ID</span></th>'
+            . '<th style="width:12%;">Classe<br><span style="color:' . self::ARDOISE . ';">Class</span></th>'
+            . '<th style="width:32%;">Détail par rubrique<br><span style="color:' . self::ARDOISE . ';">Breakdown</span></th>'
+            . '<th style="width:8%;">Reste (F)<br><span style="color:' . self::ARDOISE . ';">Balance</span></th>'
             . '</tr></thead><tbody>' . $corps . '</tbody></table>';
     }
 
@@ -126,7 +126,7 @@ class InsolvablesGenerator
             . $this->e($lieu) . date('d/m/Y')
             . '</td>'
             . '<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            . '<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'
+            . '<b>Le Chef d\'Établissement</b><br><span style="color:' . self::ACCENT . ';">The Principal</span>'
             . $this->visa($school)
             . '<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature et cachet</span>'
             . '</td></tr></table>';

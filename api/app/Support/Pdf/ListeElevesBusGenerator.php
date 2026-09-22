@@ -68,8 +68,8 @@ class ListeElevesBusGenerator
             .'<span class="titre-en">Bus student list</span>'
             .'</div>'
             .'<div class="bandeau">'
-            .'Véhicule <i>/ Vehicle</i> : '.$this->e($identite)
-            .' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : '.$affectations->count()
+            .'Véhicule <span style="color:'.self::ACCENT.';">/ Vehicle</span> : '.$this->e($identite)
+            .' &nbsp;|&nbsp; Effectif <span style="color:'.self::ACCENT.';">/ Headcount</span> : '.$affectations->count()
             .'</div>';
     }
 
@@ -99,11 +99,11 @@ class ListeElevesBusGenerator
 
         return '<table class="liste"><thead><tr>'
             .'<th style="width:6%;">N°</th>'
-            .'<th style="width:26%;">Nom et prénoms<br><i>Full name</i></th>'
-            .'<th style="width:16%;">Classe<br><i>Class</i></th>'
-            .'<th style="width:20%;">Trajet<br><i>Route</i></th>'
-            .'<th style="width:16%;">Arrêt<br><i>Stop</i></th>'
-            .'<th style="width:16%;">Souscription<br><i>Subscription</i></th>'
+            .'<th style="width:26%;">Nom et prénoms<br><span style="color:'.self::ARDOISE.';">Full name</span></th>'
+            .'<th style="width:16%;">Classe<br><span style="color:'.self::ARDOISE.';">Class</span></th>'
+            .'<th style="width:20%;">Trajet<br><span style="color:'.self::ARDOISE.';">Route</span></th>'
+            .'<th style="width:16%;">Arrêt<br><span style="color:'.self::ARDOISE.';">Stop</span></th>'
+            .'<th style="width:16%;">Souscription<br><span style="color:'.self::ARDOISE.';">Subscription</span></th>'
             .'</tr></thead><tbody>'.$lignes.'</tbody></table>';
     }
 
@@ -117,7 +117,7 @@ class ListeElevesBusGenerator
             .$this->e($lieu).date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            .'<b>Responsable du transport scolaire</b><br><i>Transport officer</i>'
+            .'<b>Responsable du transport scolaire</b><br><span style="color:'.self::ACCENT.';">Transport officer</span>'
             .'<br><br><br><br>'
             .'<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature</span>'
             .'</td></tr></table>';

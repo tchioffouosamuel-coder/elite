@@ -135,7 +135,7 @@ class ProgressionFicheGenerator
 
     private function legende(): string
     {
-        return '<span class="legende">Une ligne = une leçon. <i>One row = one lesson.</i></span>';
+        return '<span class="legende">Une ligne = une leçon. One row = one lesson.</span>';
     }
 
     /**

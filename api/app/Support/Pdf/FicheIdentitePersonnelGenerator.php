@@ -106,7 +106,7 @@ class FicheIdentitePersonnelGenerator
     {
         $feminin = $personnel->sexe === 'F';
 
-        return '<div class="section"><h4>Identité <i>/ Identity</i></h4>'
+        return '<div class="section"><h4>Identité <span style="color:'.self::ACCENT.';">/ Identity</span></h4>'
             .$this->grille([
                 ['Matricule', 'Staff ID', $personnel->matricule],
                 ['Civilité', 'Title', $personnel->civilite],
@@ -127,7 +127,7 @@ class FicheIdentitePersonnelGenerator
 
     private function emploi(Personnel $personnel): string
     {
-        return '<div class="section"><h4>Emploi <i>/ Employment</i></h4>'
+        return '<div class="section"><h4>Emploi <span style="color:'.self::ACCENT.';">/ Employment</span></h4>'
             .$this->grille([
                 ['Fonction', 'Position', $personnel->fonction],
                 ['Département / Service', 'Department', $personnel->departement?->nom],
@@ -143,7 +143,7 @@ class FicheIdentitePersonnelGenerator
 
     private function diplomesEtBanque(Personnel $personnel): string
     {
-        return '<div class="section"><h4>Diplômes &amp; coordonnées bancaires <i>/ Qualifications &amp; bank details</i></h4>'
+        return '<div class="section"><h4>Diplômes &amp; coordonnées bancaires <span style="color:'.self::ACCENT.';">/ Qualifications &amp; bank details</span></h4>'
             .$this->grille([
                 ['Diplôme académique', 'Academic qualification', $personnel->diplome_academique],
                 ['Diplôme professionnel', 'Professional qualification', $personnel->diplome_professionnel],
@@ -155,7 +155,7 @@ class FicheIdentitePersonnelGenerator
 
     private function filiation(Personnel $personnel): string
     {
-        return '<div class="section"><h4>Filiation <i>/ Parentage</i></h4>'
+        return '<div class="section"><h4>Filiation <span style="color:'.self::ACCENT.';">/ Parentage</span></h4>'
             .$this->grille([
                 ['Père', 'Father', $personnel->pere_nom_complet],
                 ['Statut', 'Status', $this->statutParent($personnel->pere_statut)],
@@ -185,11 +185,11 @@ class FicheIdentitePersonnelGenerator
                 .'</tr>';
         }
 
-        return '<div class="section"><h4>Enfants <i>/ Children</i></h4>'
+        return '<div class="section"><h4>Enfants <span style="color:'.self::ACCENT.';">/ Children</span></h4>'
             .'<table><thead><tr>'
-            .'<th style="width:60%;">Nom et prénoms<br><i>Full name</i></th>'
-            .'<th style="width:15%;">Sexe<br><i>Sex</i></th>'
-            .'<th style="width:25%;">Date de naissance<br><i>Date of birth</i></th>'
+            .'<th style="width:60%;">Nom et prénoms<br><span style="color:'.self::ARDOISE.';">Full name</span></th>'
+            .'<th style="width:15%;">Sexe<br><span style="color:'.self::ARDOISE.';">Sex</span></th>'
+            .'<th style="width:25%;">Date de naissance<br><span style="color:'.self::ARDOISE.';">Date of birth</span></th>'
             .'</tr></thead><tbody>'.$lignes.'</tbody></table>'
             .'</div>';
     }
@@ -203,7 +203,7 @@ class FicheIdentitePersonnelGenerator
             .'Fait à '.$this->e($ville !== '' ? $ville : '…………').', le '.date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'
+            .'<b>Le Chef d\'Établissement</b><br><span style="color:'.self::ACCENT.';">The Principal</span>'
             .$this->visa($school)
             .'<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature et cachet</span>'
             .'</td></tr></table>';

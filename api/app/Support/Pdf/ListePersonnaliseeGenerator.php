@@ -65,7 +65,7 @@ class ListePersonnaliseeGenerator
             .'<span class="titre-en">'.$this->e($titreEn).'</span>'
             .'</div>'
             .($details !== '' ? '<div class="meta">'.$details.'</div>' : '')
-            .'<div class="bandeau">Effectif <i>/ Headcount</i> : '.$effectif.'</div>';
+            .'<div class="bandeau">Effectif <span style="color:'.self::ACCENT.';">/ Headcount</span> : '.$effectif.'</div>';
     }
 
     /**
@@ -78,7 +78,7 @@ class ListePersonnaliseeGenerator
         $entetes = '';
         foreach ($colonnes as $colonne) {
             $definition = $definitions[$colonne] ?? ['fr' => $colonne, 'en' => $colonne];
-            $entetes .= '<th>'.$this->e($definition['fr']).'<br><i>'.$this->e($definition['en']).'</i></th>';
+            $entetes .= '<th>'.$this->e($definition['fr']).'<br><span style="color:'.self::ARDOISE.';">'.$this->e($definition['en']).'</span></th>';
         }
 
         $corps = '';

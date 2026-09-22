@@ -72,7 +72,10 @@ class EtatSyntheseGenerator
             .'.deficit{color:#ac3527}'
             .'.excedent{color:#1d7a35}'
             .'.note{font-size:2.4mm;color:#555;text-align:left;line-height:1.5;margin-top:2mm}'
-            .'.tag{font-size:2.1mm;color:#777;font-style:italic}';
+            .'.tag{font-size:2.1mm;color:#777;font-style:italic}'
+            // Même taille/graisse que .section : seule la couleur distingue
+            // la traduction anglaise, pour ne pas la rendre secondaire.
+            .'.section-en{font-weight:bold;font-size:3mm;color:'.self::ACCENT.';text-transform:uppercase}';
     }
 
     /** @param array<string, mixed> $etat */
@@ -103,7 +106,7 @@ class EtatSyntheseGenerator
                 .'</tr>';
         }
 
-        return '<div class="section">'.$this->e($titre).' <span class="tag">'.$this->e($titreEn).'</span></div>'
+        return '<div class="section">'.$this->e($titre).' <span class="section-en">'.$this->e($titreEn).'</span></div>'
             .'<table class="es"><thead><tr>'
             .'<th style="width:12mm">Compte</th><th>Libellé</th><th style="width:32mm">Montants</th>'
             .'</tr></thead><tbody>'.$corps.'</tbody>'

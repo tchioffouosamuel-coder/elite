@@ -114,7 +114,10 @@ trait RenduDocument
             . '.lh-1{line-height:1.25}'
             . '.no-border,.no-border td,.no-border tr{border:none!important}'
             . '.titre{color:' . self::ACCENT . ';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
-            . '.titre-en{color:' . self::ACCENT . ';text-transform:uppercase;font-style:italic;font-size:3.2mm}'
+            // Même poids et même taille que le titre français : seule la couleur
+            // distingue les deux langues, pour éviter qu'un texte anglais en
+            // italique/allégé ne soit perçu comme secondaire.
+            . '.titre-en{color:' . self::ARDOISE . ';text-transform:uppercase;font-weight:bold;font-size:3.8mm}'
             . '.left{text-align:left!important}'
             . '.value{font-weight:bold;color:#000}'
             . '.mini{font-size:2.2mm}'

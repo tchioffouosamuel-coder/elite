@@ -56,7 +56,8 @@ class FicheAppelHebdomadaireGenerator
             .'.fiche .absent{background:#e05353;color:#fff;font-weight:bold}'
             .'.fiche .vide{background:#f0f0ee}'
             .'.fiche .total{background-color:'.self::ARDOISE.';color:#fff;font-weight:bold}'
-            .'.fiche thead .jour{background-color:'.self::ARDOISE.'}';
+            .'.fiche thead .jour{background-color:'.self::ARDOISE.'}'
+            .'.fiche tbody tr.pair{background:#eef1f0}';
     }
 
     /** @param  list<Carbon>  $jours */
@@ -100,7 +101,8 @@ class FicheAppelHebdomadaireGenerator
 
         $rang = 1;
         foreach ($grille['lignes'] as $ligne) {
-            $html .= '<tr><td class="num">'.$rang++.'</td><td class="nom">'.$this->e($ligne['eleve']->nom_complet).'</td>';
+            $classeRang = $rang % 2 === 0 ? ' class="pair"' : '';
+            $html .= '<tr'.$classeRang.'><td class="num">'.$rang++.'</td><td class="nom">'.$this->e($ligne['eleve']->nom_complet).'</td>';
 
             foreach ($grille['jours'] as $jour) {
                 $periodesDuJour = $ligne['jours'][$jour->toDateString()] ?? [];
@@ -129,6 +131,6 @@ class FicheAppelHebdomadaireGenerator
         }
 
         return $html.'</tbody></table>'
-            .'<div class="legende" style="margin-top:2mm;"><span class="absent" style="padding:0.5mm 2mm;">X</span> = absent à cette période — <i>absent at this period</i></div>';
+            .'<div class="legende" style="margin-top:2mm;"><span class="absent" style="padding:0.5mm 2mm;">X</span> = absent à cette période — <span style="color:'.self::ACCENT.';">absent at this period</span></div>';
     }
 }

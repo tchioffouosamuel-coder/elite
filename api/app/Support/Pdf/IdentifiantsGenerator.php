@@ -80,7 +80,7 @@ class IdentifiantsGenerator
             . '<span class="titre-en">Login credentials</span>'
             . '</div>'
             . '<div class="bandeau">'
-            . 'Comptes actifs <i>/ Active accounts</i> : ' . $donnees['total']
+            . 'Comptes actifs <span style="color:' . self::ACCENT . ';">/ Active accounts</span> : ' . $donnees['total']
             . '</div>';
     }
 
@@ -90,8 +90,8 @@ class IdentifiantsGenerator
             . '<b>Document confidentiel</b> — à remettre en main propre à chaque titulaire, '
             . 'jamais affiché ni transmis en clair. Chaque mot de passe listé est provisoire '
             . 'et doit être remplacé dès la première connexion.<br>'
-            . '<i>Confidential document — hand to each holder in person, never posted or sent unencrypted. '
-            . 'Every listed password is temporary and must be changed on first login.</i>'
+            . '<span style="color:' . self::ACCENT . ';">Confidential document — hand to each holder in person, never posted or sent unencrypted. '
+            . 'Every listed password is temporary and must be changed on first login.</span>'
             . '</div>';
     }
 
@@ -127,10 +127,10 @@ class IdentifiantsGenerator
 
         return '<table class="identifiants"><thead><tr>'
             . '<th style="width:5%;">N°</th>'
-            . '<th style="width:27%;">Nom et prénoms<br><i>Full name</i></th>'
-            . '<th style="width:18%;">Fonction<br><i>Role</i></th>'
-            . '<th style="width:28%;">Identifiant<br><i>Login</i></th>'
-            . '<th style="width:22%;">Mot de passe<br><i>Password</i></th>'
+            . '<th style="width:27%;">Nom et prénoms<br><span style="color:' . self::ARDOISE . ';">Full name</span></th>'
+            . '<th style="width:18%;">Fonction<br><span style="color:' . self::ARDOISE . ';">Role</span></th>'
+            . '<th style="width:28%;">Identifiant<br><span style="color:' . self::ARDOISE . ';">Login</span></th>'
+            . '<th style="width:22%;">Mot de passe<br><span style="color:' . self::ARDOISE . ';">Password</span></th>'
             . '</tr></thead><tbody>' . $lignes . '</tbody></table>';
     }
 

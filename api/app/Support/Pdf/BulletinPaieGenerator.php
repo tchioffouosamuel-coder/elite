@@ -70,7 +70,7 @@ class BulletinPaieGenerator
             . '</div>'
             . '<div class="bandeau" style="background:' . self::ARDOISE . ';color:#fff;padding:1.5mm;text-align:center;'
             . 'font-size:2.8mm;font-weight:bold;margin:2mm 0;">'
-            . 'Période <i>/ Period</i> : ' . $bulletin->periode_debut->format('d/m/Y')
+            . 'Période <span style="color:' . self::ACCENT . ';">/ Period</span> : ' . $bulletin->periode_debut->format('d/m/Y')
             . ' — ' . $bulletin->periode_fin->format('d/m/Y')
             . ' &nbsp;|&nbsp; N° ' . $this->e($bulletin->numero)
             . '</div>';
@@ -112,7 +112,7 @@ class BulletinPaieGenerator
         ];
 
         return '<div class="bandeau" style="background:' . self::ARDOISE . ';color:#fff;padding:1mm;text-align:center;'
-            . 'font-size:2.5mm;font-weight:bold;margin-top:2mm;">Informations de l\'agent <i>/ Employee information</i></div>'
+            . 'font-size:2.5mm;font-weight:bold;margin-top:2mm;">Informations de l\'agent <span style="color:' . self::ACCENT . ';">/ Employee information</span></div>'
             . '<table class="no-border"><tr>'
             . '<td class="no-border" style="width:33.33%;vertical-align:top;">' . $this->colonneIdentite($gauche) . '</td>'
             . '<td class="no-border" style="width:33.33%;vertical-align:top;">' . $this->colonneIdentite($milieu) . '</td>'
@@ -148,12 +148,12 @@ class BulletinPaieGenerator
     {
         $html = '<table class="paie"><thead><tr>'
             . '<th style="width:4%;">N°</th>'
-            . '<th class="lib" style="width:34%;">Désignation<br><i>Description</i></th>'
-            . '<th style="width:14%;">Base<br><i>Basic</i></th>'
-            . '<th style="width:9%;">Taux<br><i>Rate</i></th>'
-            . '<th style="width:13%;">Gain<br><i>Earning</i></th>'
-            . '<th style="width:13%;">Retenue<br><i>Deduction</i></th>'
-            . '<th style="width:13%;">Part patronale<br><i>Employer</i></th>'
+            . '<th class="lib" style="width:34%;">Désignation<br><span style="color:' . self::ARDOISE . ';">Description</span></th>'
+            . '<th style="width:14%;">Base<br><span style="color:' . self::ARDOISE . ';">Basic</span></th>'
+            . '<th style="width:9%;">Taux<br><span style="color:' . self::ARDOISE . ';">Rate</span></th>'
+            . '<th style="width:13%;">Gain<br><span style="color:' . self::ARDOISE . ';">Earning</span></th>'
+            . '<th style="width:13%;">Retenue<br><span style="color:' . self::ARDOISE . ';">Deduction</span></th>'
+            . '<th style="width:13%;">Part patronale<br><span style="color:' . self::ARDOISE . ';">Employer</span></th>'
             . '</tr></thead><tbody>';
 
         $rang = 1;
@@ -181,8 +181,8 @@ class BulletinPaieGenerator
                 . '<td>' . $rang++ . '</td>'
                 . '<td class="lib">'
                 . ($estVacation
-                    ? 'Vacations <i>/ Teaching hours</i>'
-                    : $this->e($ligne->libelle) . ' <i>/ ' . $this->e($ligne->libelle_en) . '</i>')
+                    ? 'Vacations <span style="color:' . self::ACCENT . ';">/ Teaching hours</span>'
+                    : $this->e($ligne->libelle) . ' <span style="color:' . self::ACCENT . ';">/ ' . $this->e($ligne->libelle_en) . '</span>')
                 . '</td>'
                 . '<td>' . ($estVacation ? (int) $bulletin->heures . ' h' : '') . '</td>'
                 . '<td>' . ($estVacation ? $this->francs((int) $bulletin->taux_horaire) : '') . '</td>'
@@ -191,13 +191,13 @@ class BulletinPaieGenerator
                 . '</tr>';
         }
 
-        $html .= '<tr class="brut"><td colspan="4" class="lib">Salaire brut <i>/ Gross salary</i></td>'
+        $html .= '<tr class="brut"><td colspan="4" class="lib">Salaire brut <span style="color:' . self::ACCENT . ';">/ Gross salary</span></td>'
             . '<td class="num">' . $this->francs($bulletin->salaire_brut) . '</td><td></td><td></td></tr>';
 
         foreach ($bulletin->lignes->where('type', 'retenue') as $ligne) {
             $html .= '<tr>'
                 . '<td>' . $rang++ . '</td>'
-                . '<td class="lib">' . $this->e($ligne->libelle) . ' <i>/ ' . $this->e($ligne->libelle_en) . '</i></td>'
+                . '<td class="lib">' . $this->e($ligne->libelle) . ' <span style="color:' . self::ACCENT . ';">/ ' . $this->e($ligne->libelle_en) . '</span></td>'
                 . '<td class="num">' . $this->francs((int) $ligne->base) . '</td>'
                 . '<td class="num">' . $this->taux($ligne->taux_salarial) . '</td>'
                 . '<td></td>'
@@ -215,7 +215,7 @@ class BulletinPaieGenerator
         }
 
         return $html . '<tr class="sous-total">'
-            . '<td colspan="5" class="lib">Total des cotisations <i>/ Total contributions</i></td>'
+            . '<td colspan="5" class="lib">Total des cotisations <span style="color:' . self::ACCENT . ';">/ Total contributions</span></td>'
             . '<td class="num">' . $this->francs($bulletin->charges_salariales) . '</td>'
             . '<td class="num">' . $this->francs($bulletin->charges_patronales) . '</td>'
             . '</tr></tbody></table>';
@@ -241,9 +241,9 @@ class BulletinPaieGenerator
 
         $html = '<table class="paie"><thead><tr>'
             . ($horaire
-                ? '<th>Heures<br><i>Hours</i></th><th>Taux horaire<br><i>Hourly rate</i></th>'
-                : '<th>Jours ouvrables<br><i>Working days</i></th><th>Jours travaillés<br><i>Days worked</i></th>')
-            . '<th>Net taxable<br><i>Taxable</i></th>';
+                ? '<th>Heures<br><span style="color:' . self::ARDOISE . ';">Hours</span></th><th>Taux horaire<br><span style="color:' . self::ARDOISE . ';">Hourly rate</span></th>'
+                : '<th>Jours ouvrables<br><span style="color:' . self::ARDOISE . ';">Working days</span></th><th>Jours travaillés<br><span style="color:' . self::ARDOISE . ';">Days worked</span></th>')
+            . '<th>Net taxable<br><span style="color:' . self::ARDOISE . ';">Taxable</span></th>';
 
         foreach ($deductions as [$libelle]) {
             $html .= '<th>' . $this->e($libelle) . '</th>';
@@ -261,7 +261,7 @@ class BulletinPaieGenerator
 
         return $html . '</tr></tbody></table>'
             . '<table class="paie"><tr class="net">'
-            . '<td class="lib">Net à percevoir <i>/ Net pay</i></td>'
+            . '<td class="lib">Net à percevoir <span style="color:' . self::ARDOISE . ';">/ Net pay</span></td>'
             . '<td class="num">' . $this->francs($bulletin->net_a_payer) . '</td>'
             . '</tr></table>';
     }
@@ -270,20 +270,20 @@ class BulletinPaieGenerator
     {
         $reglement = $bulletin->date_paiement
             ? 'Réglé le ' . $bulletin->date_paiement->format('d/m/Y') . ' par ' . $this->modeLibelle($bulletin->mode_paiement)
-            : 'Non réglé à ce jour <i>/ Not yet paid</i>';
+            : 'Non réglé à ce jour <span style="color:' . self::ACCENT . ';">/ Not yet paid</span>';
 
         return '<table class="no-border" style="margin-top:5mm;"><tr>'
             . '<td class="no-border left" style="width:50%;vertical-align:top;font-size:2.6mm;">'
             . $reglement . '<br><br>'
-            . '<b>Signature de l\'agent</b><br><i>Employee signature</i>'
+            . '<b>Signature de l\'agent</b><br><span style="color:' . self::ACCENT . ';">Employee signature</span>'
             . '<br><br><br><span style="border-top:0.4px solid #000;">Pour acquit / Received</span>'
             . '</td>'
             . '<td class="no-border" style="width:50%;text-align:center;font-size:2.6mm;">'
-            . '<b>Le Chef d\'Établissement</b><br><i>The Principal</i><br><br><br><br>'
+            . '<b>Le Chef d\'Établissement</b><br><span style="color:' . self::ACCENT . ';">The Principal</span><br><br><br><br>'
             . '<span style="border-top:0.4px solid #000;">Signature et cachet</span>'
             . '</td></tr></table>'
             . '<div class="legende" style="margin-top:3mm;">'
-            . 'Ce bulletin est à conserver sans limitation de durée. <i>Keep this pay slip indefinitely.</i>'
+            . 'Ce bulletin est à conserver sans limitation de durée. <span style="color:' . self::ACCENT . ';">Keep this pay slip indefinitely.</span>'
             . '</div>';
     }
 

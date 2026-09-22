@@ -77,11 +77,11 @@ class RecapitulatifEffectifsGenerator
             .'<div class="recap-titre">'.$this->e($titre).'</div>'
             .'<table class="recap"><thead><tr>'
             .'<th></th>'
-            .'<th>Nouveaux<br><i>New</i></th>'
-            .'<th>Redoublants<br><i>Repeaters</i></th>'
-            .'<th>Camerounais<br><i>Cameroonian</i></th>'
-            .'<th>Réfugiés<br><i>Refugees</i></th>'
-            .'<th>Effectif<br><i>Total</i></th>'
+            .'<th>Nouveaux<br><span style="color:'.self::ARDOISE.';">New</span></th>'
+            .'<th>Redoublants<br><span style="color:'.self::ARDOISE.';">Repeaters</span></th>'
+            .'<th>Camerounais<br><span style="color:'.self::ARDOISE.';">Cameroonian</span></th>'
+            .'<th>Réfugiés<br><span style="color:'.self::ARDOISE.';">Refugees</span></th>'
+            .'<th>Effectif<br><span style="color:'.self::ARDOISE.';">Total</span></th>'
             .'</tr></thead><tbody>'
             .$ligne('Garçons', $garcons)
             .$ligne('Filles', $filles)

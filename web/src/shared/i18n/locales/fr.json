@@ -1485,6 +1485,7 @@
     "seances_delete_quoi": "{{count}} séance(s) sélectionnée(s)",
     "seances_delete_message": "Les présences déjà enregistrées pour ces séances seront supprimées avec elles — action irréversible.",
     "seances_supprimees": "{{count}} séance(s) supprimée(s).",
+    "selectionner_toutes_seances": "Tout cocher ou décocher",
     "tronc_commun_label": "Tronc commun",
     "tronc_commun_aide": "Cochez les classes qui suivent ce cours avec celle-ci, au même moment et devant le même enseignant.",
     "import_note": "La matière doit déjà exister au catalogue de l'école ; son affectation à cette classe est créée automatiquement si elle manque. Un créneau qui chevauche l'existant ou dépasse le quota horaire de la matière est ignoré.",

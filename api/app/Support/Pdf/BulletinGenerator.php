@@ -91,7 +91,7 @@ class BulletinGenerator
             .'<table class="no-border"><tr><td style="line-height:1.4;text-align:center;">'
             .'<span class="titre">Bulletin de notes du '.$this->e($donnees['trimestre']->libelle).'</span><br>'
             .'<span class="titre-en">'.$this->e($donnees['trimestre']->libelle).' report card</span><br>'
-            .'<span style="font-size:2.8mm;">Année scolaire <i>/ Academic year</i> : <b>'
+            .'<span style="font-size:2.8mm;">Année scolaire <span style="color:'.self::ACCENT.';">/ Academic year</span> : <b>'
             .$this->e($donnees['annee']?->libelle ?? '—').'</b></span>'
             .'</td></tr></table>';
     }
@@ -114,7 +114,7 @@ class BulletinGenerator
 
         return '<table class="no-border" style="font-size:2.8mm;" width="100%">'
             .'<tr><td class="left" style="width:40%;'.$bandeau.'">'
-            .'<span style="color:#fff;">Nom de l\'élève <i>/ Student\'s name</i> :</span></td>'
+            .'<span style="color:#fff;">Nom de l\'élève <span style="color:'.self::ACCENT.';">/ Student\'s name</span> :</span></td>'
             .'<td class="left" style="width:60%;'.$bandeau.'text-transform:uppercase;">'
             .'<b style="color:#fff;font-size:4.2mm;">'.$this->e($eleve->nom_complet).'</b></td></tr>'
             .'<tr><td class="left" style="width:10%;">'.$cellulephoto.'</td>'
@@ -156,7 +156,7 @@ class BulletinGenerator
     private function champ(string $fr, string $en, ?string $valeur, int $largeur = 33): string
     {
         return '<td class="left" style="padding:0.5mm;width:'.$largeur.'%;" width="'.$largeur.'%">'
-            .'<span>'.$this->e($fr).' <i>/ '.$this->e($en).'</i> : </span>'
+            .'<span>'.$this->e($fr).' <span style="color:'.self::ACCENT.';">/ '.$this->e($en).'</span> : </span>'
             .'<span class="value" style="border-bottom:0.3mm dotted #9aa0a6;">'.$this->e($valeur ?: '—').'</span></td>';
     }
 
@@ -170,14 +170,14 @@ class BulletinGenerator
 
         // « Eval. N » plutôt que le libellé brut de la séquence (« Séquence N ») :
         // plus court, ça libère de la place dans une colonne déjà étroite.
-        $entete = '<tr><th class="left">Matières<br><i>Subjects</i></th>'
-            .'<th>Compétences évaluées<br><i>Competencies</i></th>';
+        $entete = '<tr><th class="left">Matières<br><span style="color:'.self::ARDOISE.';">Subjects</span></th>'
+            .'<th>Compétences évaluées<br><span style="color:'.self::ARDOISE.';">Competencies</span></th>';
         foreach ($sequences as $sequence) {
             $entete .= '<th>Eval. '.$sequence->ordre.'</th>';
         }
         $ordreTrimestre = $donnees['trimestre']->ordre;
-        $entete .= '<th>Trim '.$ordreTrimestre.'.<br><i>Term '.$ordreTrimestre.'</i></th><th>Coef</th><th>TxC</th>'
-            .'<th>Cote<br><i>Grade</i></th><th>Min</th><th>Max</th><th>Rang<br><i>Pos.</i></th>'
+        $entete .= '<th>Trim '.$ordreTrimestre.'.<br><span style="color:'.self::ARDOISE.';">Term '.$ordreTrimestre.'</span></th><th>Coef</th><th>TxC</th>'
+            .'<th>Cote<br><span style="color:'.self::ARDOISE.';">Grade</span></th><th>Min</th><th>Max</th><th>Rang<br><span style="color:'.self::ARDOISE.';">Pos.</span></th>'
             .'<th>Obs. &amp; Sign.</th></tr>';
 
         $corps = '';
@@ -225,31 +225,31 @@ class BulletinGenerator
         ])->filter()->implode(' · ') ?: '—';
 
         return '<table><tr>'
-            .'<th style="width:25%;">Travail <i>/ Work</i></th>'
-            .'<th style="width:20%;">Conduite <i>/ Conduct</i></th>'
-            .'<th style="width:35%;">Appréciations <i>/ Remarks</i></th>'
-            .'<th style="width:20%;">Profil classe <i>/ Class perf.</i></th>'
+            .'<th style="width:25%;">Travail <span style="color:'.self::ARDOISE.';">/ Work</span></th>'
+            .'<th style="width:20%;">Conduite <span style="color:'.self::ARDOISE.';">/ Conduct</span></th>'
+            .'<th style="width:35%;">Appréciations <span style="color:'.self::ARDOISE.';">/ Remarks</span></th>'
+            .'<th style="width:20%;">Profil classe <span style="color:'.self::ARDOISE.';">/ Class perf.</span></th>'
             .'</tr><tr>'
             .'<td class="left mini">'
             .'Total points : <b>'.$this->nombre($bulletin['total_points']).'</b><br>'
             .'Total coef : <b>'.$this->nombre($bulletin['total_coef'], 1).'</b><br>'
-            .'Moyenne <i>/ Av</i> : <b>'.$this->nombre($bulletin['moyenne_generale']).'</b><br>'
-            .'Rang <i>/ Rank</i> : <b>'.$this->e((string) ($bulletin['rang'] ?? '—')).'</b><br>'
-            .'Cote <i>/ Grade</i> : <b>'.$this->e($bulletin['cote']).'</b></td>'
+            .'Moyenne <span style="color:'.self::ACCENT.';">/ Av</span> : <b>'.$this->nombre($bulletin['moyenne_generale']).'</b><br>'
+            .'Rang <span style="color:'.self::ACCENT.';">/ Rank</span> : <b>'.$this->e((string) ($bulletin['rang'] ?? '—')).'</b><br>'
+            .'Cote <span style="color:'.self::ACCENT.';">/ Grade</span> : <b>'.$this->e($bulletin['cote']).'</b></td>'
             .'<td class="left mini">'
             .'Absences NJ : <b>'.$this->nombre($bulletin['heures_non_justifiees'], 1).' h</b><br>'
             .'Absences J : <b>'.$this->nombre($bulletin['heures_justifiees'], 1).' h</b><br>'
             .'Sanction(s) : <span class="rouge">'.$this->e($sanctions).'</span></td>'
             .'<td class="left mini">'
-            .'Appréciation <i>/ Remark</i> : <b>'.$this->e($this->libelleAppreciation($bulletin['appreciation'])).'</b><br>'
+            .'Appréciation <span style="color:'.self::ACCENT.';">/ Remark</span> : <b>'.$this->e($this->libelleAppreciation($bulletin['appreciation'])).'</b><br>'
             .'Distinction : <b>'.$this->e($distinction).'</b><br>'
-            .'Conseil <i>/ Advice</i> :<br><b>'.$this->e($bulletin['conseil']).'</b></td>'
+            .'Conseil <span style="color:'.self::ACCENT.';">/ Advice</span> :<br><b>'.$this->e($bulletin['conseil']).'</b></td>'
             .'<td class="left mini">'
-            .'Évalués <i>/ Rated</i> : <b>'.$stats['evalues'].'</b><br>'
-            .'Moy <i>/ Av</i> ≥ 10 : <b>'.$stats['sup10'].' ('.$stats['pourcentage_reussite'].'%)</b><br>'
-            .'Premier <i>/ First</i> : <b>'.$this->nombre($stats['premier']).'</b><br>'
-            .'Dernier <i>/ Last</i> : <b>'.$this->nombre($stats['dernier']).'</b><br>'
-            .'MGC <i>/ Class av</i> : <b>'.$this->nombre($stats['moyenne_classe']).'</b></td>'
+            .'Évalués <span style="color:'.self::ACCENT.';">/ Rated</span> : <b>'.$stats['evalues'].'</b><br>'
+            .'Moy <span style="color:'.self::ACCENT.';">/ Av</span> ≥ 10 : <b>'.$stats['sup10'].' ('.$stats['pourcentage_reussite'].'%)</b><br>'
+            .'Premier <span style="color:'.self::ACCENT.';">/ First</span> : <b>'.$this->nombre($stats['premier']).'</b><br>'
+            .'Dernier <span style="color:'.self::ACCENT.';">/ Last</span> : <b>'.$this->nombre($stats['dernier']).'</b><br>'
+            .'MGC <span style="color:'.self::ACCENT.';">/ Class av</span> : <b>'.$this->nombre($stats['moyenne_classe']).'</b></td>'
             .'</tr></table>';
     }
 
@@ -269,11 +269,11 @@ class BulletinGenerator
         // Le parent signe avant que le titulaire ne vise, comme sur le bulletin
         // papier : la case précède donc « Prof. principal » plutôt que de la suivre.
         $entete .= '<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Signature Parent</th>'
-            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Prof. principal<br><i>Class master</i></th>'
-            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Visa chef d\'établ.<br><i>Principal\'s visa</i>'
+            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Prof. principal<br><span style="color:'.self::ARDOISE.';">Class master</span></th>'
+            .'<th rowspan="'.($nbLignes + 3).'" style="width:13%;">Visa chef d\'établ.<br><span style="color:'.self::ARDOISE.';">Principal\'s visa</span>'
             .$this->visa($school).'</th></tr><tr>';
         foreach ($trimestres as $unused) {
-            $entete .= '<th>Moy<i>/Av</i></th><th>Rang<i>/Pos</i></th>';
+            $entete .= '<th>Moy<span style="color:'.self::ARDOISE.';">/Av</span></th><th>Rang<span style="color:'.self::ARDOISE.';">/Pos</span></th>';
         }
         $entete .= '</tr>';
 
@@ -291,7 +291,7 @@ class BulletinGenerator
             $corps .= '</tr>';
         }
 
-        $corps .= '<tr><th>Trim. <i>/ Term</i></th>';
+        $corps .= '<tr><th>Trim. <span style="color:'.self::ARDOISE.';">/ Term</span></th>';
         foreach ($trimestres as $trimestre) {
             $corps .= '<th>'.$this->nombre($trimestre['trimestre']['moyenne']).'</th>'
                 .'<th>'.$this->e((string) ($trimestre['trimestre']['rang'] ?? '—')).'</th>';
@@ -319,8 +319,8 @@ class BulletinGenerator
         return '<table class="no-border" style="margin-top:1mm;"><tr>'
             .'<td style="width:12%;border:none;padding:0;"><img src="'.$qr->getDataUri().'" style="width:16mm;height:16mm;"></td>'
             .'<td style="border:none;padding:0 0 0 2mm;font-size:2.3mm;color:'.self::ARDOISE.';">'
-            .'Authenticité <i>/ Authenticity</i> : scannez ce code pour vérifier ce bulletin en ligne.<br>'
-            .'<i>Scan this code to verify this report card online.</i></td>'
+            .'Authenticité <span style="color:'.self::ACCENT.';">/ Authenticity</span> : scannez ce code pour vérifier ce bulletin en ligne.<br>'
+            .'<span style="color:'.self::ACCENT.';">Scan this code to verify this report card online.</span></td>'
             .'</tr></table>';
     }
 

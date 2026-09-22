@@ -19,8 +19,8 @@ class ListeElevesGenerator
     {
         return $this->rendre(
             $classe->school,
-            'Classe <i>/ Class</i> : '.$this->e($classe->nom)
-                .' &nbsp;|&nbsp; Année scolaire <i>/ Academic year</i> : '.$this->e(AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—'),
+            'Classe <span style="color:'.self::ACCENT.';">/ Class</span> : '.$this->e($classe->nom)
+                .' &nbsp;|&nbsp; Année scolaire <span style="color:'.self::ACCENT.';">/ Academic year</span> : '.$this->e(AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—'),
             $eleves,
             'Liste des élèves — '.$classe->nom,
         );
@@ -31,7 +31,7 @@ class ListeElevesGenerator
     {
         return $this->rendre(
             $school,
-            'Établissement <i>/ School</i> : '.$this->e($school->name),
+            'Établissement <span style="color:'.self::ACCENT.';">/ School</span> : '.$this->e($school->name),
             $eleves,
             'Liste des élèves — '.$school->name,
         );
@@ -78,7 +78,7 @@ class ListeElevesGenerator
             .'</div>'
             .'<div class="bandeau">'
             .$bandeauLibelle
-            .' &nbsp;|&nbsp; Effectif <i>/ Headcount</i> : '.$eleves->count()
+            .' &nbsp;|&nbsp; Effectif <span style="color:'.self::ACCENT.';">/ Headcount</span> : '.$eleves->count()
             .'</div>';
     }
 
@@ -108,12 +108,12 @@ class ListeElevesGenerator
 
         return '<table class="liste"><thead><tr>'
             .'<th style="width:5%;">N°</th>'
-            .'<th style="width:13%;">Matricule<br><i>ID number</i></th>'
-            .'<th style="width:25%;">Nom et prénoms<br><i>Full name</i></th>'
-            .'<th style="width:7%;">Sexe<br><i>Sex</i></th>'
-            .'<th style="width:7%;">Âge<br><i>Age</i></th>'
-            .'<th style="width:25%;">Tuteur / Parent<br><i>Guardian</i></th>'
-            .'<th style="width:18%;">Téléphone<br><i>Phone</i></th>'
+            .'<th style="width:13%;">Matricule<br><span style="color:'.self::ARDOISE.';">ID number</span></th>'
+            .'<th style="width:25%;">Nom et prénoms<br><span style="color:'.self::ARDOISE.';">Full name</span></th>'
+            .'<th style="width:7%;">Sexe<br><span style="color:'.self::ARDOISE.';">Sex</span></th>'
+            .'<th style="width:7%;">Âge<br><span style="color:'.self::ARDOISE.';">Age</span></th>'
+            .'<th style="width:25%;">Tuteur / Parent<br><span style="color:'.self::ARDOISE.';">Guardian</span></th>'
+            .'<th style="width:18%;">Téléphone<br><span style="color:'.self::ARDOISE.';">Phone</span></th>'
             .'</tr></thead><tbody>'.$lignes.'</tbody></table>';
     }
 
@@ -127,7 +127,7 @@ class ListeElevesGenerator
             .$this->e($lieu).date('d/m/Y')
             .'</td>'
             .'<td class="no-border" style="width:50%;text-align:center;font-size:2.8mm;">'
-            .'<b>Le Chef d\'Établissement</b><br><i>The Principal</i>'
+            .'<b>Le Chef d\'Établissement</b><br><span style="color:'.self::ACCENT.';">The Principal</span>'
             .$this->visa($school)
             .'<span style="border-top:0.4px solid #000;padding-top:1mm;">Signature et cachet</span>'
             .'</td></tr></table>';
