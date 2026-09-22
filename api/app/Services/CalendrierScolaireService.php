@@ -16,9 +16,9 @@ class CalendrierScolaireService extends BaseService
         $annee = $anneeId
             ? AnneeScolaire::whereKey($anneeId)->first()
             : AnneeScolaire::where('school_id', $classe->school_id)
-                ->whereDate('date_debut', '<=', $date->toDateString())
-                ->whereDate('date_fin', '>=', $date->toDateString())
-                ->orderByDesc('is_active')->first();
+            ->whereDate('date_debut', '<=', $date->toDateString())
+            ->whereDate('date_fin', '>=', $date->toDateString())
+            ->orderByDesc('is_active')->first();
 
         if (! $annee || $date->lt($annee->date_debut) || $date->gt($annee->date_fin)) {
             return false;
@@ -26,13 +26,13 @@ class CalendrierScolaireService extends BaseService
 
         $regles = CalendrierScolaire::where('annee_scolaire_id', $annee->id)
             ->where('date', $date->toDateString())
-            ->where(fn ($q) => $q->where('classe_id', $classe->id)
-                ->orWhere(fn ($q) => $q->whereNull('classe_id')->where('niveau_id', $classe->niveau_id))
-                ->orWhere(fn ($q) => $q->whereNull('classe_id')->whereNull('niveau_id')->where('sous_systeme_id', $classe->sous_systeme_id))
-                ->orWhere(fn ($q) => $q->whereNull('classe_id')->whereNull('niveau_id')->whereNull('sous_systeme_id')))
+            ->where(fn($q) => $q->where('classe_id', $classe->id)
+                ->orWhere(fn($q) => $q->whereNull('classe_id')->where('niveau_id', $classe->niveau_id))
+                ->orWhere(fn($q) => $q->whereNull('classe_id')->whereNull('niveau_id')->where('sous_systeme_id', $classe->sous_systeme_id))
+                ->orWhere(fn($q) => $q->whereNull('classe_id')->whereNull('niveau_id')->whereNull('sous_systeme_id')))
             ->get();
 
-        $regle = $regles->sortByDesc(fn (CalendrierScolaire $r) => $r->classe_id ? 3 : ($r->niveau_id ? 2 : ($r->sous_systeme_id ? 1 : 0)))->first();
+        $regle = $regles->sortByDesc(fn(CalendrierScolaire $r) => $r->classe_id ? 3 : ($r->niveau_id ? 2 : ($r->sous_systeme_id ? 1 : 0)))->first();
 
         return $regle ? $regle->est_ouvert : true;
     }
@@ -50,7 +50,7 @@ class CalendrierScolaireService extends BaseService
             foreach ($classe->classeMatieres()->where('statut', 'actif')->get() as $classeMatiere) {
                 $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
                     ->lecons()->whereNull('date_realisee')->orderBy('ordre')->orderBy('id')->get();
-                $slots = $creneaux->filter(fn (Collection $liste) => $liste->contains('classe_matiere_id', $classeMatiere->id));
+                $slots = $creneaux->filter(fn(Collection $liste) => $liste->contains('classe_matiere_id', $classeMatiere->id));
                 if ($lecons->isEmpty() || $slots->isEmpty()) {
                     continue;
                 }

@@ -249,7 +249,9 @@ export interface CalendrierAnnuel {
 }
 
 export async function fetchCalendrierScolaire(): Promise<CalendrierAnnuel> {
-  const { data } = await http.get<ApiResponse<CalendrierAnnuel>>('/calendrier-scolaire');
+  const { data } = await http.get<ApiResponse<CalendrierAnnuel>>(
+    "/calendrier-scolaire",
+  );
   return data.data;
 }
 
@@ -261,7 +263,10 @@ export async function enregistrerRegleCalendrier(payload: {
   niveau_id?: number | null;
   sous_systeme_id?: number | null;
 }): Promise<RegleCalendrier> {
-  const { data } = await http.post<ApiResponse<RegleCalendrier>>('/calendrier-scolaire', payload);
+  const { data } = await http.post<ApiResponse<RegleCalendrier>>(
+    "/calendrier-scolaire",
+    payload,
+  );
   return data.data;
 }
 
@@ -421,7 +426,10 @@ export interface HeuresCouverturePeriode {
   seances_en_retard: number;
 }
 
-export type HeuresCouverturePeriodes = Record<'jour' | 'semaine' | 'mois' | 'annee', HeuresCouverturePeriode>;
+export type HeuresCouverturePeriodes = Record<
+  "jour" | "semaine" | "mois" | "annee",
+  HeuresCouverturePeriode
+>;
 
 export async function fetchHeuresCouverturePeriodes(): Promise<HeuresCouverturePeriodes> {
   const { data } = await http.get<ApiResponse<HeuresCouverturePeriodes>>(

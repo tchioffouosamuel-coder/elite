@@ -146,15 +146,15 @@ class ProgressionController extends Controller
             ->with(['matiere.departement', 'enseignant', 'classe.school', 'classe.titulaire'])
             ->when(
                 request()->user()?->perimetre()->matieresRestreintesDans($classe->id),
-                fn ($q) => $q->where('personnel_id', request()->user()->perimetre()->personnelId())
+                fn($q) => $q->where('personnel_id', request()->user()->perimetre()->personnelId())
             )
             ->get()
-            ->sortBy(fn (ClasseMatiere $cm) => $cm->matiere->nom)
+            ->sortBy(fn(ClasseMatiere $cm) => $cm->matiere->nom)
             ->values();
 
         abort_if($affectations->isEmpty(), 404, "Aucune matière n'est affectée à cette classe.");
 
-        $nomFichier = 'modele-progression-'.Str::slug($classe->nom).'.xlsx';
+        $nomFichier = 'modele-progression-' . Str::slug($classe->nom) . '.xlsx';
 
         return Excel::download(
             new ProgressionModeleClasseExport($affectations, $cycle, $this->anneeScolaireActive($classe->school_id)),
@@ -238,12 +238,12 @@ class ProgressionController extends Controller
 
         Excel::import(new ProgressionImportClasseAdapter($imports), $fichier);
 
-        $creees = array_sum(array_map(fn (ProgressionImport $i) => $i->creees, $imports));
-        $completees = array_sum(array_map(fn (ProgressionImport $i) => $i->completees, $imports));
+        $creees = array_sum(array_map(fn(ProgressionImport $i) => $i->creees, $imports));
+        $completees = array_sum(array_map(fn(ProgressionImport $i) => $i->completees, $imports));
 
-        $message = "{$creees} leçon(s) créée(s), {$completees} complétée(s) sur ".count($imports).' matière(s).';
+        $message = "{$creees} leçon(s) créée(s), {$completees} complétée(s) sur " . count($imports) . ' matière(s).';
         if ($ignorees !== []) {
-            $message .= ' '.count($ignorees).' feuille(s) ignorée(s) : '.implode(', ', $ignorees).'.';
+            $message .= ' ' . count($ignorees) . ' feuille(s) ignorée(s) : ' . implode(', ', $ignorees) . '.';
         }
 
         return ApiResponse::success([
@@ -264,7 +264,7 @@ class ProgressionController extends Controller
         $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
             ->where('type', 'lecon')
             ->with('sequence.trimestre')
-            ->when($trimestreId, fn ($q, $id) => $q->whereHas('sequence', fn ($sq) => $sq->where('trimestre_id', $id)))
+            ->when($trimestreId, fn($q, $id) => $q->whereHas('sequence', fn($sq) => $sq->where('trimestre_id', $id)))
             ->orderBy('ordre')->orderBy('id')
             ->get();
 
@@ -284,11 +284,11 @@ class ProgressionController extends Controller
             $this->anneeScolaireActive($classeMatiere->classe->school_id),
         );
 
-        $nomFichier = 'progression-'.\Illuminate\Support\Str::slug($classeMatiere->classe->nom.'-'.$classeMatiere->matiere->nom).'.pdf';
+        $nomFichier = 'progression-' . \Illuminate\Support\Str::slug($classeMatiere->classe->nom . '-' . $classeMatiere->matiere->nom) . '.pdf';
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$nomFichier.'"',
+            'Content-Disposition' => 'inline; filename="' . $nomFichier . '"',
         ]);
     }
 
@@ -310,7 +310,7 @@ class ProgressionController extends Controller
         if ($trimestreId = $request->integer('trimestre_id') ?: null) {
             $trimestre = Trimestre::whereHas(
                 'anneeScolaire',
-                fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+                fn($q) => $q->whereIn('school_id', Tenant::schoolIds())
             )->findOrFail($trimestreId);
 
             return ApiResponse::success($this->service->tauxClasseTrimestre($classe, $trimestre, $personnelId));
@@ -327,7 +327,7 @@ class ProgressionController extends Controller
         return ApiResponse::success($this->service->tauxEtablissement(
             Tenant::schoolIds(),
             $perimetre->classes(),
-            fn (Classe $classe) => $perimetre->matieresRestreintesDans($classe->id) ? $perimetre->personnelId() : null,
+            fn(Classe $classe) => $perimetre->matieresRestreintesDans($classe->id) ? $perimetre->personnelId() : null,
         ));
     }
 
@@ -399,7 +399,7 @@ class ProgressionController extends Controller
         $classeMatiere = $this->affectation($classeMatiereId);
 
         $data = $request->validate([
-            'colonnes' => ['present', 'array', 'max:'.ProgressionColonne::MAX_PAR_MATIERE],
+            'colonnes' => ['present', 'array', 'max:' . ProgressionColonne::MAX_PAR_MATIERE],
             'colonnes.*.id' => ['nullable', 'integer'],
             'colonnes.*.libelle' => ['required', 'string', 'max:60'],
         ]);
@@ -435,8 +435,10 @@ class ProgressionController extends Controller
     /** @return list<array{id: int, libelle: string, ordre: int}> */
     private function colonnesArray(ClasseMatiere $classeMatiere): array
     {
-        return $classeMatiere->progressionColonnes->map(fn (ProgressionColonne $c) => [
-            'id' => $c->id, 'libelle' => $c->libelle, 'ordre' => $c->ordre,
+        return $classeMatiere->progressionColonnes->map(fn(ProgressionColonne $c) => [
+            'id' => $c->id,
+            'libelle' => $c->libelle,
+            'ordre' => $c->ordre,
         ])->values()->all();
     }
 

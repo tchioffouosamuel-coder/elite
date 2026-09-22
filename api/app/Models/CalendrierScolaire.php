@@ -9,8 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CalendrierScolaire extends Model
 {
     protected $fillable = [
-        'annee_scolaire_id', 'date', 'est_ouvert', 'motif',
-        'sous_systeme_id', 'niveau_id', 'classe_id',
+        'annee_scolaire_id',
+        'date',
+        'est_ouvert',
+        'motif',
+        'sous_systeme_id',
+        'niveau_id',
+        'classe_id',
     ];
 
     protected function casts(): array
@@ -40,7 +45,7 @@ class CalendrierScolaire extends Model
 
     public function scopeForSchool(Builder $query, int|array $schoolIds): Builder
     {
-        return $query->whereHas('anneeScolaire', fn ($q) => is_array($schoolIds)
+        return $query->whereHas('anneeScolaire', fn($q) => is_array($schoolIds)
             ? $q->whereIn('school_id', $schoolIds)
             : $q->where('school_id', $schoolIds));
     }
