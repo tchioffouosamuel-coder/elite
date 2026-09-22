@@ -770,6 +770,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:pedagogie.manage')->group(function () {
                 Route::post('calendrier-scolaire', [CalendrierScolaireController::class, 'store'])->name('calendrier-scolaire.store');
                 Route::delete('calendrier-scolaire/{id}', [CalendrierScolaireController::class, 'destroy'])->name('calendrier-scolaire.destroy');
+                Route::post('calendrier-scolaire/recalculer', [CalendrierScolaireController::class, 'recalculer'])->name('calendrier-scolaire.recalculer');
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
                 Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
                 Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe');
@@ -783,6 +784,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::get('calendrier-scolaire', [CalendrierScolaireController::class, 'index'])
                 ->name('calendrier-scolaire.index')->middleware('permission:pedagogie.view');
+            Route::get('calendrier-scolaire/{date}', [CalendrierScolaireController::class, 'jour'])
+                ->name('calendrier-scolaire.jour')->middleware('permission:pedagogie.view');
 
             /*
              * « Ma journée » : déclarer les leçons traitées et faire l'appel.

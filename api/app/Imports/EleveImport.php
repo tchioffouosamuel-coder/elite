@@ -68,6 +68,15 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         'etat_eleves' => 'statut',
         'statut' => 'statut',
 
+        // Santé
+        'groupe_sanguin' => 'groupe_sanguin',
+        'situation_sanitaire' => 'situation_sanitaire',
+        'aptitude' => 'aptitude',
+        'allergies' => 'allergies',
+        'handicap' => 'handicap',
+        'type_handicap' => 'type_handicap',
+        'type_de_handicap' => 'type_handicap',
+
         // Affectation
         'nom_classe' => 'classe',
         'classe' => 'classe',
@@ -117,6 +126,7 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'Adresse', 'Nom du père', 'Téléphone du père', 'Profession du père',
             'Nom de la mère', 'Téléphone de la mère', 'Profession de la mère',
             'Nom du tuteur', 'Téléphone du tuteur',
+            'Groupe sanguin', 'Situation sanitaire', 'Aptitude', 'Allergies', 'Handicap', 'Type de handicap',
         ];
     }
 
@@ -200,6 +210,12 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'refugie' => self::ouiNon($ligne['refugie'] ?? null),
             'deplace_interne' => self::ouiNon($ligne['deplace_interne'] ?? null),
             'statut' => self::statut($ligne['statut'] ?? null),
+            'groupe_sanguin' => isset($ligne['groupe_sanguin']) ? mb_strtoupper(self::texte($ligne['groupe_sanguin'])) : null,
+            'situation_sanitaire' => isset($ligne['situation_sanitaire']) ? self::texte($ligne['situation_sanitaire']) : null,
+            'aptitude' => isset($ligne['aptitude']) ? self::aptitude($ligne['aptitude']) : null,
+            'allergies' => isset($ligne['allergies']) ? self::texte($ligne['allergies']) : null,
+            'handicap' => isset($ligne['handicap']) ? self::ouiNon($ligne['handicap']) : null,
+            'type_handicap' => isset($ligne['type_handicap']) ? self::texte($ligne['type_handicap']) : null,
             'classe' => isset($ligne['classe']) ? self::texte($ligne['classe']) : null,
             'niveau_classe' => isset($ligne['niveau_classe']) ? self::texte($ligne['niveau_classe']) : null,
             'categorie_ecole' => isset($ligne['categorie_ecole']) ? self::texte($ligne['categorie_ecole']) : null,
@@ -247,6 +263,12 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'nom_complet' => ['required', 'string'],
             'sexe' => ['required', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
+            'groupe_sanguin' => ['nullable', 'string', 'max:10'],
+            'situation_sanitaire' => ['nullable', 'string', 'max:1000'],
+            'aptitude' => ['nullable', 'in:apte,inapte'],
+            'allergies' => ['nullable', 'string', 'max:1000'],
+            'handicap' => ['nullable', 'string', 'max:20'],
+            'type_handicap' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -319,6 +341,12 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             'refugie' => $ligne['refugie'],
             'deplace_interne' => $ligne['deplace_interne'],
             'statut' => $ligne['statut'],
+            'groupe_sanguin' => $ligne['groupe_sanguin'],
+            'situation_sanitaire' => $ligne['situation_sanitaire'],
+            'aptitude' => $ligne['aptitude'],
+            'allergies' => $ligne['allergies'],
+            'handicap' => $ligne['handicap'],
+            'type_handicap' => $ligne['type_handicap'],
         ], fn($valeur) => $valeur !== null);
 
         $eleve = Eleve::updateOrCreate([
@@ -602,6 +630,15 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
             true => 'Oui',
             false => 'Non',
             null => null,
+        };
+    }
+
+    private static function aptitude(mixed $valeur): ?string
+    {
+        return match (mb_strtolower(trim((string) ($valeur ?? '')))) {
+            'apte', 'oui', 'o', 'yes' => 'apte',
+            'inapte', 'non', 'n', 'no' => 'inapte',
+            default => null,
         };
     }
 

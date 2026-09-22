@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\CalendrierScolaire;
 use App\Models\Classe;
+use App\Models\EmploiDuTemps;
+use App\Models\ProgressionItem;
 use App\Services\CalendrierScolaireService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +52,71 @@ class CalendrierScolaireController extends Controller
         $service->recalculerDates($annee, $classes);
 
         return ApiResponse::success($this->presenter($regle->load(['classe:id,nom', 'sousSysteme:id,nom', 'niveau:id,code,name_fr'])), 'Calendrier mis à jour et leçons réajustées.');
+    }
+
+    /** Détail d'un jour : créneaux d'emploi du temps et leçons prévues, avec leurs enseignants. */
+    public function jour(Request $request, string $date, CalendrierScolaireService $service): JsonResponse
+    {
+        $annee = $this->annee($request);
+        abort_unless(Carbon::hasFormat($date, 'Y-m-d'), 422, 'Date invalide.');
+        $data = ['classe_id' => $request->integer('classe_id') ?: null, 'niveau_id' => $request->integer('niveau_id') ?: null, 'sous_systeme_id' => $request->integer('sous_systeme_id') ?: null];
+        $this->verifierCible($data);
+
+        $classes = Classe::where('school_id', $annee->school_id)
+            ->when($data['classe_id'], fn($q) => $q->whereKey($data['classe_id']))
+            ->when($data['niveau_id'], fn($q) => $q->where('niveau_id', $data['niveau_id']))
+            ->when($data['sous_systeme_id'], fn($q) => $q->where('sous_systeme_id', $data['sous_systeme_id']))
+            ->get();
+        $classeIds = $classes->pluck('id');
+
+        $jourSemaine = Carbon::parse($date)->dayOfWeekIso;
+        $cours = EmploiDuTemps::whereIn('classe_id', $classeIds)->where('jour', $jourSemaine)
+            ->whereNotNull('classe_matiere_id')
+            ->with(['classe:id,nom', 'classeMatiere.matiere:id,nom', 'classeMatiere.enseignant:id,nom_complet'])
+            ->orderBy('heure_debut')->get()
+            ->map(fn(EmploiDuTemps $c) => [
+                'id' => $c->id,
+                'heure_debut' => substr((string) $c->heure_debut, 0, 5),
+                'heure_fin' => substr((string) $c->heure_fin, 0, 5),
+                'classe_id' => $c->classe_id,
+                'classe' => $c->classe?->nom,
+                'matiere' => $c->classeMatiere?->matiere?->nom,
+                'enseignant' => $c->classeMatiere?->enseignant?->nom_complet,
+                'salle' => $c->salle,
+            ]);
+
+        $lecons = ProgressionItem::lecons()->whereDate('date_prevue', $date)
+            ->whereHas('classeMatiere.classe', fn($q) => $q->whereIn('id', $classeIds))
+            ->with(['classeMatiere.classe:id,nom', 'classeMatiere.matiere:id,nom', 'classeMatiere.enseignant:id,nom_complet'])
+            ->orderBy('ordre')->get()
+            ->map(fn(ProgressionItem $l) => [
+                'id' => $l->id,
+                'titre' => $l->titre,
+                'classe_id' => $l->classeMatiere?->classe_id,
+                'classe' => $l->classeMatiere?->classe?->nom,
+                'matiere' => $l->classeMatiere?->matiere?->nom,
+                'enseignant' => $l->classeMatiere?->enseignant?->nom_complet,
+                'date_realisee' => $l->date_realisee?->toDateString(),
+            ]);
+
+        $classesFermees = $classes->reject(fn(Classe $classe) => $service->estOuvert($classe, Carbon::parse($date), $annee->id))->pluck('nom')->values();
+
+        return ApiResponse::success([
+            'date' => $date,
+            'jour' => $jourSemaine,
+            'classes_fermees' => $classesFermees,
+            'cours' => $cours->values(),
+            'lecons' => $lecons->values(),
+        ]);
+    }
+
+    /** Recalcule les dates prévues de toutes les classes de l'école à partir de l'emploi du temps et du calendrier. */
+    public function recalculer(Request $request, CalendrierScolaireService $service): JsonResponse
+    {
+        $annee = $this->annee($request);
+        $modifiees = $service->recalculerDates($annee, Classe::where('school_id', $annee->school_id)->get());
+
+        return ApiResponse::success(['modifiees' => $modifiees], $modifiees > 0 ? "{$modifiees} leçon(s) replanifiée(s) selon l'emploi du temps." : 'Les dates prévues sont déjà à jour.');
     }
 
     public function destroy(Request $request, int $id, CalendrierScolaireService $service): JsonResponse

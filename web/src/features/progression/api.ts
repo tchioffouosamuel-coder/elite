@@ -290,6 +290,55 @@ export async function supprimerRegleCalendrier(id: number): Promise<void> {
   await http.delete(`/calendrier-scolaire/${id}`);
 }
 
+/** Un créneau de cours de l'emploi du temps, pour un jour donné. */
+export interface CoursDuJour {
+  id: number;
+  heure_debut: string;
+  heure_fin: string;
+  classe_id: number | null;
+  classe: string | null;
+  matiere: string | null;
+  enseignant: string | null;
+  salle: string | null;
+}
+
+/** Une leçon dont la date prévue tombe ce jour-là. */
+export interface LeconDuJour {
+  id: number;
+  titre: string;
+  classe_id: number | null;
+  classe: string | null;
+  matiere: string | null;
+  enseignant: string | null;
+  date_realisee: string | null;
+}
+
+export interface DetailJourCalendrier {
+  date: string;
+  jour: number;
+  classes_fermees: string[];
+  cours: CoursDuJour[];
+  lecons: LeconDuJour[];
+}
+
+export async function fetchJourCalendrier(
+  date: string,
+  cible: { classe_id?: number | null; niveau_id?: number | null; sous_systeme_id?: number | null } = {},
+): Promise<DetailJourCalendrier> {
+  const { data } = await http.get<ApiResponse<DetailJourCalendrier>>(
+    `/calendrier-scolaire/${date}`,
+    { params: cible },
+  );
+  return data.data;
+}
+
+export async function recalculerDatesPrevues(): Promise<{ modifiees: number }> {
+  const { data } = await http.post<ApiResponse<{ modifiees: number }>>(
+    "/calendrier-scolaire/recalculer",
+  );
+  return data.data;
+}
+
 /* ------------------------------------------------------------------ */
 /* Import groupé de la classe (une feuille par matière)                */
 /* ------------------------------------------------------------------ */

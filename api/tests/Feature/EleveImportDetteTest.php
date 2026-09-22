@@ -58,6 +58,7 @@ class EleveImportDetteTest extends TestCase
     {
         $entetes = [
             'IDEleves', 'nom_eleves', 'sexe_eleves', 'etat_eleves',
+            'Groupe sanguin', 'Situation sanitaire', 'Aptitude', 'Allergies', 'Handicap', 'Type de handicap',
             'frais_scolarite', 'montant_scolarite', 'remise_scol', 'annee_scol',
         ];
 
@@ -68,6 +69,9 @@ class EleveImportDetteTest extends TestCase
         foreach (array_values($lignes) as $index => $ligne) {
             $feuille->fromArray([
                 $ligne['matricule'], $ligne['nom'], $ligne['sexe'] ?? 'F', 'Actif',
+                $ligne['groupe_sanguin'] ?? null, $ligne['situation_sanitaire'] ?? null,
+                $ligne['aptitude'] ?? null, $ligne['allergies'] ?? null,
+                $ligne['handicap'] ?? null, $ligne['type_handicap'] ?? null,
                 $ligne['frais_scolarite'] ?? null, $ligne['montant_scolarite'] ?? null,
                 $ligne['remise_scol'] ?? null, $ligne['annee_scol'] ?? '2025/2026',
             ], null, 'A'.($index + 2));
@@ -104,6 +108,34 @@ class EleveImportDetteTest extends TestCase
         $this->assertSame(30000, $dette->montant);
         $this->assertNull($dette->imputee_dossier_id);
         $this->assertStringContainsString('2025/2026', $dette->motif);
+    }
+
+    public function test_les_donnees_de_sante_sont_importees_et_mises_a_jour(): void
+    {
+        $this->importer($this->fichier([[
+            'matricule' => '23SANTE1', 'nom' => 'NGON SANTE',
+            'groupe_sanguin' => 'o+', 'situation_sanitaire' => 'RAS',
+            'aptitude' => 'Apte', 'allergies' => 'Pénicilline',
+            'handicap' => 'Oui', 'type_handicap' => 'Visuel',
+        ]]))->assertOk();
+
+        $eleve = Eleve::where('matricule', '23SANTE1')->firstOrFail();
+        $this->assertSame('O+', $eleve->groupe_sanguin);
+        $this->assertSame('RAS', $eleve->situation_sanitaire);
+        $this->assertSame('apte', $eleve->aptitude);
+        $this->assertSame('Pénicilline', $eleve->allergies);
+        $this->assertSame('Oui', $eleve->handicap);
+        $this->assertSame('Visuel', $eleve->type_handicap);
+
+        $this->importer($this->fichier([[
+            'matricule' => '23SANTE1', 'nom' => 'NGON SANTE',
+            'aptitude' => 'Inapte', 'allergies' => 'Aucune',
+        ]]))->assertOk();
+
+        $eleve->refresh();
+        $this->assertSame('inapte', $eleve->aptitude);
+        $this->assertSame('Aucune', $eleve->allergies);
+        $this->assertSame('O+', $eleve->groupe_sanguin);
     }
 
     /** frais - payé - remise : la remise réduit ce qui est repris en dette. */
