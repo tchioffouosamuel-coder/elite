@@ -49,7 +49,12 @@ class UpdateEleveRequest extends FormRequest
         ];
     }
 
-    /** Même règle qu'à la création — cf. StoreEleveRequest::withValidator(). */
+    /**
+     * Contrairement à la création (cf. StoreEleveRequest::withValidator()),
+     * une simple modification ne doit pas exiger 3 numéros : la page rapide
+     * d'édition des tuteurs (TuteurEditPage) permet de ne renseigner qu'un
+     * seul numéro sans repasser par tout le formulaire d'inscription.
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
@@ -58,8 +63,8 @@ class UpdateEleveRequest extends FormRequest
                     continue;
                 }
 
-                if (count($tuteur['telephones'] ?? []) < 3) {
-                    $validator->errors()->add("tuteurs.{$index}.telephones", 'Chaque tuteur doit avoir au moins 3 numéros de téléphone.');
+                if (count($tuteur['telephones'] ?? []) < 1) {
+                    $validator->errors()->add("tuteurs.{$index}.telephones", 'Chaque tuteur doit avoir au moins un numéro de téléphone.');
                 }
             }
         });

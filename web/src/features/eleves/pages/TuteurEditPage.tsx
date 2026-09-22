@@ -107,7 +107,7 @@ export function TuteurEditPage() {
     const payload: EleveTuteurInput[] = tuteurs.map((t) => ({
       tuteur_id: t.tuteur_id,
       nom_complet: t.nom_complet,
-      telephones: t.telephones,
+      telephones: t.telephones.filter((tel) => tel.numero.trim() !== ''),
       profession: t.profession || undefined,
       lien_parente: t.lien_parente || undefined,
       is_principal: t.is_principal,
