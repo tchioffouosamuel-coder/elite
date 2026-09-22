@@ -14,6 +14,7 @@ import { AnciensReinscritsPage } from '@/features/dashboard/pages/AnciensReinscr
 import { PersonnelListPage } from '@/features/personnel/pages/PersonnelListPage'
 import { PersonnelFormPage } from '@/features/personnel/pages/PersonnelFormPage'
 import { PersonnelDetailPage } from '@/features/personnel/pages/PersonnelDetailPage'
+import { ListeEnseignantPersonnaliseePage } from '@/features/personnel/pages/ListeEnseignantPersonnaliseePage'
 import { SuiviActivitePage } from '@/features/personnel/pages/SuiviActivitePage'
 import { DepartementsPage } from '@/features/personnel/pages/DepartementsPage'
 import { DepartementDetailPage } from '@/features/personnel/pages/DepartementDetailPage'
@@ -188,6 +189,7 @@ export const router = createHashRouter([
       { path: 'personnel/nouveau', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'personnel/:id/edit', element: <ProtectedRoute permission="personnel.manage"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'personnel/suivi-activite', element: <ProtectedRoute permission="personnel.view"><SuiviActivitePage /></ProtectedRoute> },
+      { path: 'personnel/liste-personnalisee', element: <ProtectedRoute permission="personnel.view"><ListeEnseignantPersonnaliseePage /></ProtectedRoute> },
       { path: 'personnel/:id', element: <ProtectedRoute permission="personnel.view"><PersonnelDetailPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel', element: <ProtectedRoute superAdminOnly><FonctionsReferentielPage /></ProtectedRoute> },
       { path: 'fonctions-referentiel/:id', element: <ProtectedRoute superAdminOnly><FonctionReferentielDetailPage /></ProtectedRoute> },

@@ -1,4 +1,5 @@
 import { http } from "@/shared/lib/http";
+import { ouvrirDocument, telechargerFichier } from "@/shared/lib/download";
 import type { ApiResponse } from "@/shared/types/api";
 
 export interface School {
@@ -433,6 +434,158 @@ export async function fetchPersonnels(params?: {
     headers: schoolId ? { "X-School-Id": String(schoolId) } : undefined,
   });
   return data.data;
+}
+
+export type ColonneListeEnseignant =
+  | "numero"
+  | "matricule"
+  | "nom_prenom"
+  | "fonction"
+  | "departement"
+  | "telephone"
+  | "telephone_2"
+  | "email"
+  | "sexe"
+  | "date_naissance"
+  | "anciennete"
+  | "type_contrat"
+  | "statut_contrat"
+  | "grade_minedub"
+  | "categorie_echelon"
+  | "diplome_professionnel"
+  | "diplome_academique"
+  | "residence"
+  | "affectation"
+  | "compte"
+  | "statut"
+  | "ecole";
+
+export const COLONNES_LISTE_ENSEIGNANT: ColonneListeEnseignant[] = [
+  "numero",
+  "matricule",
+  "nom_prenom",
+  "fonction",
+  "departement",
+  "telephone",
+  "telephone_2",
+  "email",
+  "sexe",
+  "date_naissance",
+  "anciennete",
+  "type_contrat",
+  "statut_contrat",
+  "grade_minedub",
+  "categorie_echelon",
+  "diplome_professionnel",
+  "diplome_academique",
+  "residence",
+  "affectation",
+  "compte",
+  "statut",
+  "ecole",
+];
+
+export const LIBELLES_COLONNES_ENSEIGNANT: Record<ColonneListeEnseignant, string> = {
+  numero: "N°",
+  matricule: "Matricule",
+  nom_prenom: "Nom et prénom",
+  fonction: "Fonction",
+  departement: "Département",
+  telephone: "Téléphone",
+  telephone_2: "Téléphone 2",
+  email: "E-mail",
+  sexe: "Sexe",
+  date_naissance: "Date de naissance",
+  anciennete: "Ancienneté",
+  type_contrat: "Type contrat",
+  statut_contrat: "Statut contrat",
+  grade_minedub: "Grade",
+  categorie_echelon: "Catégorie/Échelon",
+  diplome_professionnel: "Diplôme professionnel",
+  diplome_academique: "Diplôme académique",
+  residence: "Résidence",
+  affectation: "Affectation",
+  compte: "Compte",
+  statut: "Statut",
+  ecole: "École",
+};
+
+export interface ListeEnseignantModele {
+  id: number;
+  titre_fr: string;
+  titre_en: string;
+  colonnes: ColonneListeEnseignant[];
+}
+
+export interface ListeEnseignantModelePayload {
+  titre_fr: string;
+  titre_en: string;
+  colonnes: ColonneListeEnseignant[];
+}
+
+export interface GenererListeEnseignantPayload {
+  titreFr: string;
+  titreEn: string;
+  colonnes: ColonneListeEnseignant[];
+  format: "pdf" | "word" | "excel";
+  search?: string;
+  departementId?: number | null;
+  statut?: "actif" | "ex_employe" | "";
+}
+
+export async function fetchListeEnseignantModeles(): Promise<ListeEnseignantModele[]> {
+  const { data } = await http.get<ApiResponse<ListeEnseignantModele[]>>(
+    "/personnels/liste-personnalisee/modeles",
+  );
+  return data.data;
+}
+
+export async function creerListeEnseignantModele(
+  payload: ListeEnseignantModelePayload,
+): Promise<ListeEnseignantModele> {
+  const { data } = await http.post<ApiResponse<ListeEnseignantModele>>(
+    "/personnels/liste-personnalisee/modeles",
+    payload,
+  );
+  return data.data;
+}
+
+export async function supprimerListeEnseignantModele(id: number): Promise<void> {
+  await http.delete(`/personnels/liste-personnalisee/modeles/${id}`);
+}
+
+function paramsGenerationListeEnseignant(payload: GenererListeEnseignantPayload) {
+  return {
+    titre_fr: payload.titreFr,
+    titre_en: payload.titreEn,
+    colonnes: payload.colonnes.join(","),
+    search: payload.search || undefined,
+    departement_id: payload.departementId || undefined,
+    statut: payload.statut || undefined,
+  };
+}
+
+export async function genererListePersonnaliseeEnseignants(
+  payload: GenererListeEnseignantPayload,
+): Promise<void> {
+  const params = paramsGenerationListeEnseignant(payload);
+
+  if (payload.format === "pdf") {
+    await ouvrirDocument(
+      "/personnels/liste-personnalisee/pdf",
+      params as Record<string, string | number | undefined>,
+      undefined,
+      "Liste personnalisée — enseignants",
+    );
+    return;
+  }
+
+  const extension = payload.format === "word" ? "docx" : "xlsx";
+  await telechargerFichier(
+    `/personnels/liste-personnalisee/${payload.format}`,
+    params,
+    `liste-personnalisee-enseignants.${extension}`,
+  );
 }
 
 export async function fetchPersonnel(id: number): Promise<Personnel> {

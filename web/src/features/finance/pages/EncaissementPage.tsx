@@ -50,7 +50,7 @@ export function EncaissementPage() {
   const [allocations, setAllocations] = useState<number[]>([])
   const [allocationsModifiees, setAllocationsModifiees] = useState(false)
   const [moratoireOuvert, setMoratoireOuvert] = useState(false)
-  const [canaux, setCanaux] = useState<CanalNotification[]>(['sms'])
+  const [canaux, setCanaux] = useState<CanalNotification[]>(['interne'])
   const [sortieRecu, setSortieRecu] = useState<SortieRecu>('preview')
 
   const {

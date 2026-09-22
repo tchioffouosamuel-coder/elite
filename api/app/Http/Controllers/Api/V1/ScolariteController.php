@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Exports\SituationCaisseExport;
 use App\Http\Resources\Api\V1\DossierScolariteResource;
 use App\Models\AnneeScolaire;
 use App\Models\DossierScolarite;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -43,6 +45,21 @@ class ScolariteController extends Controller
             'dossiers' => DossierScolariteResource::collection($situation['dossiers']),
             'totaux' => $situation['totaux'],
         ]);
+    }
+
+    /** Exporte exactement la situation affichée à la caisse, filtres compris. */
+    public function exportSituation(Request $request): Response
+    {
+        $filtres = [
+            'classe_id' => $request->integer('classe_id') ?: null,
+            'statut' => $request->string('statut')->toString() ?: null,
+        ];
+        $schoolIds = Tenant::schoolIds();
+        $situation = count($schoolIds) > 1
+            ? $this->service->situationAgregee($schoolIds, $filtres)
+            : $this->service->situation($schoolIds[0], $this->annee($request, $schoolIds[0])->id, $filtres);
+
+        return Excel::download(new SituationCaisseExport($situation['dossiers']), 'situation-caisse.xlsx');
     }
 
     /**

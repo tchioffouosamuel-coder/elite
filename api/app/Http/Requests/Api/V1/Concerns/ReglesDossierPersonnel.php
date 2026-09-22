@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Concerns;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Validation\Validator;
 
 /**
@@ -11,6 +12,44 @@ use Illuminate\Validation\Validator;
  */
 trait ReglesDossierPersonnel
 {
+    protected function prepareForValidation(): void
+    {
+        $normalisees = [];
+
+        if ($this->exists('civilite')) {
+            $normalisees['sexe'] = match ($this->input('civilite')) {
+                'M.', 'Mr' => 'M',
+                'Mme', 'Mlle', 'Mrs', 'Miss' => 'F',
+                default => null,
+            };
+        }
+
+        if ($this->exists('type_contrat')) {
+            $normalisees['statut_contrat'] = match ($this->input('type_contrat')) {
+                'CDI' => 'permanent',
+                'CDD' => 'vacataire',
+                default => null,
+            };
+        }
+
+        if ($this->exists('date_naissance')) {
+            $dateNaissance = $this->input('date_naissance');
+            $normalisees['date_retraite'] = null;
+
+            if (is_string($dateNaissance) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateNaissance)) {
+                try {
+                    $normalisees['date_retraite'] = CarbonImmutable::createFromFormat('!Y-m-d', $dateNaissance)
+                        ->addYearsNoOverflow(60)
+                        ->format('Y-m-d');
+                } catch (\Throwable) {
+                    // La règle de validation de date produira le message adapté.
+                }
+            }
+        }
+
+        $this->merge($normalisees);
+    }
+
     /**
      * @return array<string, array<int, mixed>>
      */

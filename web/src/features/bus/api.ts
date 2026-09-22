@@ -1,5 +1,5 @@
 import { http } from "@/shared/lib/http";
-import { ouvrirDocument } from "@/shared/lib/download";
+import { ouvrirDocument, telechargerFichier } from "@/shared/lib/download";
 import type { ApiResponse } from "@/shared/types/api";
 import type { CanalNotification } from "@/shared/ui/CanauxNotificationField";
 
@@ -370,6 +370,66 @@ export async function retirerAffectationsLot(
 
 export type GroupeListeBus = "classe" | "trajet" | "arret" | "option_trajet";
 
+export type ColonneListeTransport =
+  | "numero"
+  | "nom_prenom"
+  | "matricule"
+  | "classe"
+  | "trajet"
+  | "arret"
+  | "lieu_dit"
+  | "heure_passage"
+  | "option_trajet"
+  | "tarif_mensuel"
+  | "statut_paiement"
+  | "statut"
+  | "ecole";
+
+export const COLONNES_LISTE_TRANSPORT: ColonneListeTransport[] = [
+  "numero",
+  "nom_prenom",
+  "matricule",
+  "classe",
+  "trajet",
+  "arret",
+  "lieu_dit",
+  "heure_passage",
+  "option_trajet",
+  "tarif_mensuel",
+  "statut_paiement",
+  "statut",
+  "ecole",
+];
+
+export const LIBELLES_COLONNES_TRANSPORT: Record<ColonneListeTransport, string> = {
+  numero: "N°",
+  nom_prenom: "Nom et prénom",
+  matricule: "Matricule",
+  classe: "Classe",
+  trajet: "Trajet",
+  arret: "Arrêt",
+  lieu_dit: "Lieu-dit",
+  heure_passage: "Heure de passage",
+  option_trajet: "Sens",
+  tarif_mensuel: "Tarif mensuel",
+  statut_paiement: "Statut paiement",
+  statut: "Statut transport",
+  ecole: "École",
+};
+
+export interface ListeTransportModele {
+  id: number;
+  titre_fr: string;
+  titre_en: string;
+  colonnes: ColonneListeTransport[];
+}
+
+export interface ListeTransportModelePayload {
+  titre_fr: string;
+  titre_en: string;
+  colonnes: ColonneListeTransport[];
+}
+
 export interface FiltresListeBus {
   classe_id?: number;
   trajet_id?: number;
@@ -378,6 +438,14 @@ export interface FiltresListeBus {
   statut?: "actif" | "suspendu";
   nom?: string;
   group_by?: GroupeListeBus;
+}
+
+export interface GenererListeTransportPayload {
+  filtres: FiltresListeBus;
+  titreFr: string;
+  titreEn: string;
+  colonnes: ColonneListeTransport[];
+  format: "pdf" | "word" | "excel";
 }
 
 export interface ListePersonnaliseeBus {
@@ -408,6 +476,59 @@ export async function fetchListePersonnaliseeBus(
     { params: paramsListeBus(filtres) },
   );
   return data.data;
+}
+
+export async function fetchListeTransportModeles(): Promise<ListeTransportModele[]> {
+  const { data } = await http.get<ApiResponse<ListeTransportModele[]>>(
+    "/bus/affectations/liste-personnalisee/modeles",
+  );
+  return data.data;
+}
+
+export async function creerListeTransportModele(
+  payload: ListeTransportModelePayload,
+): Promise<ListeTransportModele> {
+  const { data } = await http.post<ApiResponse<ListeTransportModele>>(
+    "/bus/affectations/liste-personnalisee/modeles",
+    payload,
+  );
+  return data.data;
+}
+
+export async function supprimerListeTransportModele(id: number): Promise<void> {
+  await http.delete(`/bus/affectations/liste-personnalisee/modeles/${id}`);
+}
+
+function paramsGenerationListeTransport(payload: GenererListeTransportPayload) {
+  return {
+    ...paramsListeBus(payload.filtres),
+    titre_fr: payload.titreFr,
+    titre_en: payload.titreEn,
+    colonnes: payload.colonnes.join(","),
+  };
+}
+
+export async function genererListePersonnaliseeTransport(
+  payload: GenererListeTransportPayload,
+): Promise<void> {
+  const params = paramsGenerationListeTransport(payload);
+
+  if (payload.format === "pdf") {
+    await ouvrirDocument(
+      "/bus/affectations/liste-personnalisee/pdf",
+      params as Record<string, string | number | undefined>,
+      undefined,
+      "Liste personnalisée — transport scolaire",
+    );
+    return;
+  }
+
+  const extension = payload.format === "word" ? "docx" : "xlsx";
+  await telechargerFichier(
+    `/bus/affectations/liste-personnalisee/${payload.format}`,
+    params,
+    `liste-personnalisee-transport.${extension}`,
+  );
 }
 
 /** Aperçu PDF de la liste personnalisée, mêmes filtres — via `ouvrirDocument`, seul moyen de charger un PDF authentifié. */

@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\JustificationAbsenceAdminController;
 use App\Http\Controllers\Api\V1\ListeClassePersonnaliseeController;
+use App\Http\Controllers\Api\V1\ListeEnseignantPersonnaliseeController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MalaiseReferentielController;
@@ -273,6 +274,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/modele', [PersonnelController::class, 'modele'])->name('personnels.modele');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
+                Route::get('personnels/liste-personnalisee/modeles', [ListeEnseignantPersonnaliseeController::class, 'modeles'])->name('personnels.liste-personnalisee.modeles.index');
+                Route::post('personnels/liste-personnalisee/modeles', [ListeEnseignantPersonnaliseeController::class, 'storeModele'])->name('personnels.liste-personnalisee.modeles.store');
+                Route::put('personnels/liste-personnalisee/modeles/{id}', [ListeEnseignantPersonnaliseeController::class, 'updateModele'])->name('personnels.liste-personnalisee.modeles.update');
+                Route::delete('personnels/liste-personnalisee/modeles/{id}', [ListeEnseignantPersonnaliseeController::class, 'destroyModele'])->name('personnels.liste-personnalisee.modeles.destroy');
+                Route::get('personnels/liste-personnalisee/pdf', [ListeEnseignantPersonnaliseeController::class, 'pdf'])->name('personnels.liste-personnalisee.pdf');
+                Route::get('personnels/liste-personnalisee/word', [ListeEnseignantPersonnaliseeController::class, 'word'])->name('personnels.liste-personnalisee.word');
+                Route::get('personnels/liste-personnalisee/excel', [ListeEnseignantPersonnaliseeController::class, 'excel'])->name('personnels.liste-personnalisee.excel');
                 Route::get('personnels/rapport-mise-en-place', [PersonnelController::class, 'rapportMiseEnPlace'])->name('personnels.rapport-mise-en-place');
                 Route::get('personnels/suivi-activite', [SuiviActiviteController::class, 'parPersonnel'])->name('personnels.suivi-activite');
                 // Route littérale avant le paramètre générique {id} ci-dessous, sinon
@@ -937,6 +945,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             Route::middleware('permission:finance.view')->group(function () {
                 Route::get('scolarite/situation', [ScolariteController::class, 'situation'])->name('scolarite.situation');
+                Route::get('scolarite/situation/export', [ScolariteController::class, 'exportSituation'])->name('scolarite.situation.export');
                 Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
                 Route::get('versements/{id}/recu', [ScolariteController::class, 'recu'])->name('scolarite.recu');
                 Route::get('finance/versements/doublons', [ScolariteController::class, 'versementsDoublons'])->name('scolarite.versements.doublons');
@@ -1162,8 +1171,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
+                Route::get('bus/affectations/liste-personnalisee/modeles', [BusAffectationController::class, 'modelesListePersonnalisee'])->name('bus.affectations.liste-personnalisee.modeles.index');
+                Route::post('bus/affectations/liste-personnalisee/modeles', [BusAffectationController::class, 'storeModeleListePersonnalisee'])->name('bus.affectations.liste-personnalisee.modeles.store');
+                Route::put('bus/affectations/liste-personnalisee/modeles/{id}', [BusAffectationController::class, 'updateModeleListePersonnalisee'])->name('bus.affectations.liste-personnalisee.modeles.update');
+                Route::delete('bus/affectations/liste-personnalisee/modeles/{id}', [BusAffectationController::class, 'destroyModeleListePersonnalisee'])->name('bus.affectations.liste-personnalisee.modeles.destroy');
                 Route::get('bus/affectations/liste-personnalisee', [BusAffectationController::class, 'listePersonnalisee'])->name('bus.affectations.liste-personnalisee');
                 Route::get('bus/affectations/liste-personnalisee/pdf', [BusAffectationController::class, 'listePersonnaliseePdf'])->name('bus.affectations.liste-personnalisee-pdf');
+                Route::get('bus/affectations/liste-personnalisee/word', [BusAffectationController::class, 'listePersonnaliseeWord'])->name('bus.affectations.liste-personnalisee-word');
+                Route::get('bus/affectations/liste-personnalisee/excel', [BusAffectationController::class, 'listePersonnaliseeExcel'])->name('bus.affectations.liste-personnalisee-excel');
                 Route::get('bus/affectations/export', [BusAffectationController::class, 'export'])->name('bus.affectations.export');
                 Route::get('bus/affectations/modele', [BusAffectationController::class, 'modele'])->name('bus.affectations.modele');
                 Route::get('bus/eleves', [BusAffectationController::class, 'eleves'])->name('bus.eleves');

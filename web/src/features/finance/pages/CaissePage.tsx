@@ -11,7 +11,7 @@ import { Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
-import { ouvrirDocument } from '@/shared/lib/download'
+import { ouvrirDocument, telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
@@ -269,6 +269,16 @@ export function CaissePage() {
         actions={
           <>
             <ToggleMontantsMasques />
+            <Button
+              variant="secondary"
+              onClick={() => telechargerFichier('/scolarite/situation/export', {
+                classe_id: classeId || undefined,
+                statut: statut || undefined,
+              }, 'situation-caisse.xlsx')}
+            >
+              <FileDown className="h-4 w-4" />
+              Exporter
+            </Button>
             <Button variant="secondary" onClick={() => navigate('/caisse/dettes-anterieures')}>
               <History className="h-4 w-4" />
               Dettes antérieures

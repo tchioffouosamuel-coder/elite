@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Exports\BusSouscriptionExport;
+use App\Exports\ListePersonnaliseeExport;
 use App\Exports\ModeleGenerique;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
@@ -12,10 +13,13 @@ use App\Models\BusArret;
 use App\Models\BusTrajet;
 use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\ListePersonnaliseeModele;
 use App\Models\School;
 use App\Services\BusPaiementService;
 use App\Services\BusService;
+use App\Services\ListePersonnaliseeDocumentService;
 use App\Services\PreinscriptionService;
+use App\Support\ListeTransportColonnes;
 use App\Support\Pdf\ListePersonnaliseeBusGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -29,10 +33,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class BusAffectationController extends Controller
 {
+    private const DOMAINE_LISTE = 'transport';
+
     public function __construct(
         private readonly BusService $service,
         private readonly BusPaiementService $paiements,
         private readonly PreinscriptionService $preinscriptions,
+        private readonly ListePersonnaliseeDocumentService $documents,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -88,9 +95,58 @@ class BusAffectationController extends Controller
         ]);
     }
 
+    public function modelesListePersonnalisee(Request $request): JsonResponse
+    {
+        $modeles = ListePersonnaliseeModele::forSchool(Tenant::schoolIds())
+            ->where('user_id', $request->user()->id)
+            ->where('domaine', self::DOMAINE_LISTE)
+            ->orderByDesc('id')
+            ->get();
+
+        return ApiResponse::success($modeles);
+    }
+
+    public function storeModeleListePersonnalisee(Request $request): JsonResponse
+    {
+        $modele = ListePersonnaliseeModele::create([
+            ...$this->validerModeleListePersonnalisee($request),
+            'domaine' => self::DOMAINE_LISTE,
+            'school_id' => Tenant::schoolId(),
+            'user_id' => $request->user()->id,
+        ]);
+
+        return ApiResponse::created($modele, 'Modèle enregistré.');
+    }
+
+    public function updateModeleListePersonnalisee(Request $request, int $id): JsonResponse
+    {
+        $modele = $this->modeleListePersonnalisee($request, $id);
+        $modele->update($this->validerModeleListePersonnalisee($request));
+
+        return ApiResponse::success($modele, 'Modèle mis à jour.');
+    }
+
+    public function destroyModeleListePersonnalisee(Request $request, int $id): JsonResponse
+    {
+        $this->modeleListePersonnalisee($request, $id)->delete();
+
+        return ApiResponse::success(null, 'Modèle supprimé.');
+    }
+
     /** Même filtrage que `listePersonnalisee`, restitué en PDF imprimable. */
     public function listePersonnaliseePdf(Request $request): Response
     {
+        if ($request->has('colonnes')) {
+            [$ecole, $titreFr, $titreEn, $colonnes, $lignes, $meta] = $this->preparerListePersonnaliseeDocument($request);
+
+            $pdf = $this->documents->genererPdf($ecole, $titreFr, $titreEn, $colonnes, $lignes, ListeTransportColonnes::DEFINITIONS, $meta);
+
+            return response($pdf, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="liste-personnalisee-transport.pdf"',
+            ]);
+        }
+
         $filtres = $this->filtresListePersonnalisee($request);
         $groupePar = $this->groupePar($request);
 
@@ -108,6 +164,24 @@ class BusAffectationController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="liste-personnalisee-bus.pdf"',
         ]);
+    }
+
+    public function listePersonnaliseeWord(Request $request): BinaryFileResponse
+    {
+        [$ecole, $titreFr, $titreEn, $colonnes, $lignes, $meta] = $this->preparerListePersonnaliseeDocument($request);
+        $path = $this->documents->genererWord($ecole, $titreFr, $titreEn, $colonnes, $lignes, ListeTransportColonnes::DEFINITIONS, $meta);
+
+        return response()->download($path, 'liste-personnalisee-transport.docx')->deleteFileAfterSend();
+    }
+
+    public function listePersonnaliseeExcel(Request $request): BinaryFileResponse
+    {
+        [, $titreFr, , $colonnes, $lignes] = $this->preparerListePersonnaliseeDocument($request);
+
+        return Excel::download(
+            new ListePersonnaliseeExport($colonnes, $lignes, $this->entetesListeTransport(), $titreFr),
+            'liste-personnalisee-transport.xlsx',
+        );
     }
 
     public function store(Request $request): JsonResponse
@@ -361,6 +435,13 @@ class BusAffectationController extends Controller
         'aller_retour' => 'Aller-retour',
     ];
 
+    private const LIBELLES_STATUT_PAIEMENT = [
+        'sans_frais' => 'Sans frais',
+        'impaye' => 'Impayé',
+        'partiel' => 'Partiel',
+        'solde' => 'Soldé',
+    ];
+
     /** Libellés lisibles des filtres actifs, pour le bandeau du PDF. */
     private function filtresLabel(array $filtres): array
     {
@@ -386,6 +467,114 @@ class BusAffectationController extends Controller
         }
 
         return $labels;
+    }
+
+    /**
+     * @return array{0: School, 1: string, 2: string, 3: list<string>, 4: list<array<string, string>>, 5: array<string, string>}
+     */
+    private function preparerListePersonnaliseeDocument(Request $request): array
+    {
+        $data = $request->validate([
+            'titre_fr' => ['required', 'string', 'max:255'],
+            'titre_en' => ['required', 'string', 'max:255'],
+            'colonnes' => ['required', 'string'],
+            'classe_id' => ['nullable', 'integer'],
+            'trajet_id' => ['nullable', 'integer'],
+            'arret_id' => ['nullable', 'integer'],
+            'option_trajet' => ['nullable', Rule::in(BusAffectation::OPTIONS_TRAJET)],
+            'statut' => ['nullable', Rule::in(['actif', 'suspendu'])],
+            'nom' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $colonnes = $this->colonnesListeTransportValidees($data['colonnes']);
+        $filtres = $this->filtresListePersonnalisee($request);
+        $affectations = $this->service->listerPourImpression(Tenant::schoolIds(), $filtres);
+        $lignes = $this->lignesListeTransport($affectations, $colonnes);
+        $ecole = School::whereIn('id', Tenant::schoolIds())->orderBy('name')->firstOrFail();
+        $meta = $this->filtresLabel($filtres);
+
+        if (Tenant::isAggregate()) {
+            $meta = ['Écoles / Schools' => (string) count(Tenant::schoolIds()), ...$meta];
+        } else {
+            $meta = ['École / School' => $ecole->name, ...$meta];
+        }
+
+        return [$ecole, $data['titre_fr'], $data['titre_en'], $colonnes, $lignes, $meta];
+    }
+
+    /** @param \Illuminate\Support\Collection<int, BusAffectation> $affectations */
+    private function lignesListeTransport($affectations, array $colonnes): array
+    {
+        return $affectations->sortBy(fn(BusAffectation $a) => $a->eleve?->nom_complet)
+            ->values()
+            ->map(function (BusAffectation $affectation, int $index) use ($colonnes) {
+                $ligne = [];
+                foreach ($colonnes as $colonne) {
+                    $ligne[$colonne] = $this->valeurColonneTransport($colonne, $affectation, $index + 1);
+                }
+
+                return $ligne;
+            })
+            ->all();
+    }
+
+    private function valeurColonneTransport(string $colonne, BusAffectation $affectation, int $rang): string
+    {
+        $eleve = $affectation->eleve;
+
+        return match ($colonne) {
+            'numero' => (string) $rang,
+            'nom_prenom' => $eleve?->nom_complet ?: '—',
+            'matricule' => $eleve?->matricule ?: '—',
+            'classe' => $eleve?->classe?->nom ?: '—',
+            'trajet' => $affectation->trajet?->nom ?: '—',
+            'arret' => $affectation->arret?->nom ?: '—',
+            'lieu_dit' => $affectation->arret?->lieu_dit ?: '—',
+            'heure_passage' => $affectation->arret?->heure_passage ?: '—',
+            'option_trajet' => self::LIBELLES_OPTION_TRAJET[$affectation->option_trajet] ?? $affectation->option_trajet,
+            'tarif_mensuel' => $affectation->tarif_mensuel === null ? '—' : number_format($affectation->tarif_mensuel, 0, ',', ' '),
+            'statut_paiement' => self::LIBELLES_STATUT_PAIEMENT[$affectation->statut_paiement] ?? $affectation->statut_paiement,
+            'statut' => $affectation->statut === 'actif' ? 'Actif' : 'Suspendu',
+            'ecole' => $eleve?->school?->name ?: '—',
+            default => '—',
+        };
+    }
+
+    /** @return list<string> */
+    private function colonnesListeTransportValidees(string $colonnesBrutes): array
+    {
+        $colonnes = array_values(array_filter(array_map('trim', explode(',', $colonnesBrutes))));
+
+        abort_if($colonnes === [], 422, 'Au moins une colonne doit être choisie.');
+        abort_if(array_diff($colonnes, ListeTransportColonnes::clesValides()) !== [], 422, 'Colonne inconnue.');
+
+        return $colonnes;
+    }
+
+    private function validerModeleListePersonnalisee(Request $request): array
+    {
+        return $request->validate([
+            'titre_fr' => ['required', 'string', 'max:255'],
+            'titre_en' => ['required', 'string', 'max:255'],
+            'colonnes' => ['required', 'array', 'min:1'],
+            'colonnes.*' => [Rule::in(ListeTransportColonnes::clesValides())],
+        ]);
+    }
+
+    private function modeleListePersonnalisee(Request $request, int $id): ListePersonnaliseeModele
+    {
+        return ListePersonnaliseeModele::forSchool(Tenant::schoolIds())
+            ->where('user_id', $request->user()->id)
+            ->where('domaine', self::DOMAINE_LISTE)
+            ->findOrFail($id);
+    }
+
+    /** @return array<string, string> */
+    private function entetesListeTransport(): array
+    {
+        return collect(ListeTransportColonnes::clesValides())
+            ->mapWithKeys(fn(string $cle) => [$cle => ListeTransportColonnes::libelle($cle)])
+            ->all();
     }
 
     private function affectation(int $id): BusAffectation

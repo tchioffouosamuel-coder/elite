@@ -157,6 +157,7 @@ const navGroups = [
     label: 'nav.group.staff',
     items: [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
+      { to: '/personnel/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'personnel.view', keywords: ['liste personnalisée', 'enseignants', 'professeurs', 'export enseignants'] },
       { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
       { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
       { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'personnel.manage', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },

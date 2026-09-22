@@ -1,7 +1,7 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/shared/ui/Modal'
 import { Input, Select } from '@/shared/ui/Field'
@@ -27,6 +27,7 @@ export function EleveFormModal({
   const {
     register,
     control,
+    watch,
     handleSubmit,
     formState: { errors },
   } = useForm<ElevePayload>({
@@ -42,6 +43,15 @@ export function EleveFormModal({
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tuteurs' })
+  const dateNaissance = watch('date_naissance')
+  const age = useMemo(() => {
+    if (!dateNaissance) return ''
+    const naissance = new Date(`${dateNaissance}T00:00:00`)
+    if (Number.isNaN(naissance.getTime()) || naissance > new Date()) return ''
+
+    const annees = (Date.now() - naissance.getTime()) / (365.2425 * 24 * 60 * 60 * 1000)
+    return annees.toFixed(2)
+  }, [dateNaissance])
 
   const onSubmit = async (values: ElevePayload) => {
     setServerError(null)
@@ -77,13 +87,14 @@ export function EleveFormModal({
           {...register('nom_complet', { required: true })}
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Select label={t('eleves.sexe')} error={errors.sexe?.message} {...register('sexe', { required: true })}>
             <option value="">—</option>
             <option value="F">{t('eleves.feminin')}</option>
             <option value="M">{t('eleves.masculin')}</option>
           </Select>
           <Input label={t('eleves.date_naissance')} type="date" {...register('date_naissance')} />
+          <Input label="Âge (années)" value={age} readOnly placeholder="Calcul automatique" />
         </div>
 
         <Select label={t('eleves.classe')} {...register('classe_id')}>

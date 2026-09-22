@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users, Phone, Merge } from 'lucide-react'
+import { Plus, Eye, Pencil, KeyRound, Archive, BriefcaseBusiness, RotateCcw, Trash2, FileSpreadsheet, FileText, FileDown, Upload, Users, Phone, Merge, ClipboardList } from 'lucide-react'
 import {
   fetchPersonnels,
   fetchFonctionsReferentiel,
@@ -418,6 +418,11 @@ export function PersonnelListPage() {
                   titre: 'Documents',
                   items: [
                     { label: t('personnel.fichier'), icon: FileText, onClick: () => ouvrirDocument('/personnels/fichier') },
+                    {
+                      label: 'Liste personnalisée enseignants',
+                      icon: ClipboardList,
+                      onClick: () => navigate('/personnel/liste-personnalisee'),
+                    },
                     {
                       label: t('export.excel'),
                       icon: FileSpreadsheet,

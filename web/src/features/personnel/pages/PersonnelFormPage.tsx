@@ -42,7 +42,7 @@ import type { ApiError } from '@/shared/types/api'
 type Champ = keyof PersonnelPayload
 
 const ETAPES: { id: string; label: string; description: string; champs: Champ[] }[] = [
-  { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'numero_cni', 'numero_cnps'] },
+  { id: 'identite', label: 'Identité', description: "État civil de l'agent", champs: ['nom_complet', 'civilite', 'sexe', 'date_naissance', 'date_retraite', 'numero_cni', 'numero_cnps'] },
   { id: 'poste', label: 'Poste', description: 'Fonction et affectation', champs: ['school_id', 'fonction_id', 'departement_id', 'affectation', 'matricule', 'date_embauche', 'date_fin', 'type_contrat', 'statut_contrat', 'categorie_echelon', 'grade_minedub', 'banque_id', 'numero_compte', 'methode_validation_seance'] },
   { id: 'contact', label: 'Coordonnées', description: 'Contacts et situation', champs: ['telephone', 'telephone_2', 'email', 'residence', 'departement_origine', 'situation_matrimoniale', 'nombre_enfants', 'diplome_professionnel', 'diplome_academique'] },
   { id: 'famille', label: 'Famille', description: 'Parents et enfants', champs: ['pere_nom_complet', 'pere_statut', 'pere_telephone', 'mere_nom_complet', 'mere_statut', 'mere_telephone'] },
@@ -115,6 +115,19 @@ function calculerAnciennete(dateEmbauche: string | null | undefined, dateFin: st
   if (!anniversairePasse) annees -= 1
 
   return Math.max(0, annees)
+}
+
+function calculerDateRetraite(dateNaissance: string | null | undefined): string {
+  if (!dateNaissance) return ''
+
+  const morceaux = dateNaissance.split('-').map(Number)
+  if (morceaux.length !== 3 || morceaux.some(Number.isNaN)) return ''
+
+  const [annee, mois, jour] = morceaux
+  const retraite = new Date(Date.UTC(annee + 60, mois - 1, jour))
+  if (retraite.getUTCMonth() !== mois - 1) retraite.setUTCDate(0)
+
+  return retraite.toISOString().slice(0, 10)
 }
 
 function resumeParent(nom: string | null | undefined, statut: PersonnelPayload['pere_statut'] | null | undefined, telephone: string | null | undefined) {
@@ -201,6 +214,10 @@ export function PersonnelFormPage() {
   const ecoleChoisie = watch('school_id')
   const civiliteChoisie = watch('civilite')
   const sexeChoisi = watch('sexe')
+  const dateNaissance = watch('date_naissance')
+  const dateRetraite = watch('date_retraite')
+  const typeContrat = watch('type_contrat')
+  const statutContrat = watch('statut_contrat')
   const anciennete = calculerAnciennete(watch('date_embauche'), watch('date_fin'))
   // La fonction et le département dépendent de l'école choisie : en mode
   // agrégé, `fonctions`/`departements` couvrent tout le complexe, il faut
@@ -231,6 +248,23 @@ export function PersonnelFormPage() {
     setValue('departement_id', '' as never)
     setValue('banque_id', '' as never)
   }, [ecoleChoisie, setValue])
+
+  useEffect(() => {
+    const sexe = ['M.', 'Mr'].includes(civiliteChoisie ?? '')
+      ? 'M'
+      : ['Mme', 'Mlle', 'Mrs', 'Miss'].includes(civiliteChoisie ?? '')
+        ? 'F'
+        : undefined
+    setValue('sexe', sexe)
+  }, [civiliteChoisie, setValue])
+
+  useEffect(() => {
+    setValue('statut_contrat', typeContrat === 'CDI' ? 'permanent' : typeContrat === 'CDD' ? 'vacataire' : undefined)
+  }, [typeContrat, setValue])
+
+  useEffect(() => {
+    setValue('date_retraite', calculerDateRetraite(dateNaissance) || null)
+  }, [dateNaissance, setValue])
 
   // La fiche à modifier arrive après le premier rendu : le formulaire est
   // recalé quand elle est là, pas construit à vide puis laissé tel quel.
@@ -343,6 +377,7 @@ export function PersonnelFormPage() {
     [t('personnel.matricule'), valeurs.matricule],
     ['Sexe', valeurs.sexe === 'M' ? 'Masculin' : valeurs.sexe === 'F' ? 'Féminin' : null],
     ['Date de naissance', valeurs.date_naissance],
+    ['Départ à la retraite', valeurs.date_retraite],
     ['N° CNI', valeurs.numero_cni],
     ['N° CNPS', valeurs.numero_cnps],
     [t('personnel.telephone'), [valeurs.telephone, valeurs.telephone_2].filter(Boolean).join(' · ')],
@@ -419,13 +454,12 @@ export function PersonnelFormPage() {
                   {...register('nom_complet', { required: 'Le nom est obligatoire.' })}
                 />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Select label="Sexe" {...register('sexe')} value={sexeChoisi ?? ''}>
-                  <option value="">—</option>
-                  <option value="M">Masculin</option>
-                  <option value="F">Féminin</option>
-                </Select>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <input type="hidden" {...register('sexe')} />
+                <Input label="Sexe" value={sexeChoisi === 'M' ? 'Masculin' : sexeChoisi === 'F' ? 'Féminin' : ''} readOnly placeholder="Selon la civilité" />
                 <Input label="Date de naissance" type="date" {...register('date_naissance')} />
+                <input type="hidden" {...register('date_retraite')} />
+                <Input label="Départ à la retraite (60 ans)" type="date" value={dateRetraite ?? ''} readOnly />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input label="N° CNI" {...register('numero_cni')} />
@@ -530,12 +564,13 @@ export function PersonnelFormPage() {
                   <option value="CDI">CDI</option>
                   <option value="CDD">CDD</option>
                 </Select>
-                <Select label="Statut" {...register('statut_contrat')}>
-                  <option value="">—</option>
-                  <option value="essai">Essai</option>
-                  <option value="permanent">Permanent</option>
-                  <option value="vacataire">Vacataire</option>
-                </Select>
+                <input type="hidden" {...register('statut_contrat')} />
+                <Input
+                  label="Statut"
+                  value={statutContrat === 'permanent' ? 'Permanent' : statutContrat === 'vacataire' ? 'Vacataire' : ''}
+                  readOnly
+                  placeholder="Selon le type de contrat"
+                />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input label="Catégorie / échelon" placeholder="5C…" {...register('categorie_echelon')} />

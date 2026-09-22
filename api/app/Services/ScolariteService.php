@@ -707,7 +707,7 @@ class ScolariteService extends BaseService
             ->where('statut', 'actif')
             ->whereIn('id', $eleveIdsPreinscrits)
             ->when($filtres['classe_id'] ?? null, fn($q, $classeId) => $q->where('classe_id', $classeId))
-            ->with(['classe', 'tuteurs'])
+            ->with(['classe.niveau', 'classe.niveauScolaire', 'tuteurs'])
             ->orderBy('nom_complet')
             ->get();
 

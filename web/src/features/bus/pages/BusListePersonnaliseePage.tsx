@@ -1,14 +1,20 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, FileDown, MapPin } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ClipboardList, FileDown, FileSpreadsheet, FileText, MapPin, Save, Trash2 } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
-  apercuListePersonnaliseeBusPdf,
+  COLONNES_LISTE_TRANSPORT,
+  creerListeTransportModele,
   fetchListePersonnaliseeBus,
+  fetchListeTransportModeles,
   fetchTrajets,
+  genererListePersonnaliseeTransport,
+  LIBELLES_COLONNES_TRANSPORT,
   LIBELLES_OPTION_TRAJET,
+  supprimerListeTransportModele,
   type BusAffectation,
+  type ColonneListeTransport,
   type FiltresListeBus,
   type GroupeListeBus,
   type OptionTrajet,
@@ -18,7 +24,7 @@ import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
-import { erreur } from '@/shared/lib/alertes'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 const OPTIONS_GROUPE: { valeur: GroupeListeBus | ''; label: string }[] = [
@@ -38,13 +44,20 @@ const OPTIONS_GROUPE: { valeur: GroupeListeBus | ''; label: string }[] = [
  */
 export function BusListePersonnaliseePage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   const [filtres, setFiltres] = useState<FiltresListeBus>({})
   const [nomSaisi, setNomSaisi] = useState('')
   const [impressionEnCours, setImpressionEnCours] = useState(false)
+  const [titreFr, setTitreFr] = useState('Liste personnalisée — transport scolaire')
+  const [titreEn, setTitreEn] = useState('Custom transport list')
+  const [colonnes, setColonnes] = useState<Set<ColonneListeTransport>>(new Set(['numero', 'nom_prenom', 'classe', 'trajet', 'arret', 'option_trajet']))
+  const [format, setFormat] = useState<'pdf' | 'word' | 'excel'>('pdf')
+  const [modeleChoisiId, setModeleChoisiId] = useState<number | ''>('')
 
   const { data: classes } = useQuery({ queryKey: ['classes', 'select'], queryFn: () => fetchClasses() })
   const { data: trajets } = useQuery({ queryKey: ['bus-trajets'], queryFn: fetchTrajets })
+  const { data: modeles } = useQuery({ queryKey: ['liste-transport-modeles'], queryFn: fetchListeTransportModeles })
 
   const arrets = useMemo(
     () =>
@@ -71,9 +84,20 @@ export function BusListePersonnaliseePage() {
   }, [data])
 
   const imprimer = async () => {
+    if (colonnes.size === 0 || !titreFr.trim() || !titreEn.trim()) {
+      erreur('Renseignez le titre bilingue et au moins une colonne.')
+      return
+    }
+
     setImpressionEnCours(true)
     try {
-      await apercuListePersonnaliseeBusPdf(filtresActifs)
+      await genererListePersonnaliseeTransport({
+        filtres: filtresActifs,
+        titreFr,
+        titreEn,
+        colonnes: Array.from(colonnes),
+        format,
+      })
     } catch (err) {
       erreur((err as ApiError).message)
     } finally {
@@ -84,6 +108,56 @@ export function BusListePersonnaliseePage() {
   const modifierFiltre = <K extends keyof FiltresListeBus>(cle: K, valeur: FiltresListeBus[K]) =>
     setFiltres((f) => ({ ...f, [cle]: valeur || undefined }))
 
+  const toggleColonne = (colonne: ColonneListeTransport) => {
+    setColonnes((precedent) => {
+      const suivant = new Set(precedent)
+      if (suivant.has(colonne)) suivant.delete(colonne)
+      else suivant.add(colonne)
+      return suivant
+    })
+  }
+
+  const chargerModele = (modeleId: number | '') => {
+    setModeleChoisiId(modeleId)
+    if (modeleId === '') return
+    const modele = modeles?.find((m) => m.id === modeleId)
+    if (!modele) return
+    setTitreFr(modele.titre_fr)
+    setTitreEn(modele.titre_en)
+    setColonnes(new Set(modele.colonnes))
+  }
+
+  const enregistrerModele = async () => {
+    if (!titreFr.trim() || !titreEn.trim() || colonnes.size === 0) {
+      erreur('Renseignez le titre bilingue et au moins une colonne.')
+      return
+    }
+    try {
+      await creerListeTransportModele({ titre_fr: titreFr, titre_en: titreEn, colonnes: Array.from(colonnes) })
+      succes('Modèle enregistré.')
+      queryClient.invalidateQueries({ queryKey: ['liste-transport-modeles'] })
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
+  const supprimerModele = async (modeleId: number) => {
+    const ok = await confirmer({
+      titre: 'Supprimer ce modèle ?',
+      message: 'Il ne sera plus proposé dans la liste personnalisée du transport.',
+      action: 'Supprimer',
+    })
+    if (!ok) return
+    try {
+      await supprimerListeTransportModele(modeleId)
+      succes('Modèle supprimé.')
+      if (modeleChoisiId === modeleId) setModeleChoisiId('')
+      queryClient.invalidateQueries({ queryKey: ['liste-transport-modeles'] })
+    } catch (err) {
+      erreur((err as ApiError).message)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -91,9 +165,11 @@ export function BusListePersonnaliseePage() {
         sousTitre="Composez la liste des élèves transportés selon la classe, le trajet, la destination, le sens ou le nom — regroupez-la comme il vous faut."
         icon={ClipboardList}
         actions={
-          <Button onClick={() => void imprimer()} disabled={impressionEnCours}>
-            <FileDown className="h-4 w-4" />
-            {impressionEnCours ? t('common.loading') : 'Imprimer (PDF)'}
+          <Button onClick={() => void imprimer()} disabled={impressionEnCours || colonnes.size === 0 || !titreFr.trim() || !titreEn.trim()}>
+            {format === 'pdf' && <FileDown className="h-4 w-4" />}
+            {format === 'word' && <FileText className="h-4 w-4" />}
+            {format === 'excel' && <FileSpreadsheet className="h-4 w-4" />}
+            {impressionEnCours ? t('common.loading') : 'Générer'}
           </Button>
         }
       />
@@ -197,6 +273,82 @@ export function BusListePersonnaliseePage() {
           </Button>
         </div>
       </div>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-navy-200 bg-white p-4 shadow-soft">
+        {(modeles?.length ?? 0) > 0 && (
+          <Select label="Modèle enregistré" value={modeleChoisiId} onChange={(e) => chargerModele(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">Choisir un modèle</option>
+            {modeles?.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.titre_fr}
+              </option>
+            ))}
+          </Select>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input label="Titre français" value={titreFr} onChange={(e) => setTitreFr(e.target.value)} />
+          <Input label="Titre anglais" value={titreEn} onChange={(e) => setTitreEn(e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Colonnes à imprimer</span>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {COLONNES_LISTE_TRANSPORT.map((colonne) => (
+              <label key={colonne} className="flex items-center gap-2 rounded-lg border border-navy-100 bg-white px-3 py-2 text-sm text-navy-700">
+                <input
+                  type="checkbox"
+                  checked={colonnes.has(colonne)}
+                  onChange={() => toggleColonne(colonne)}
+                  className="h-4 w-4 rounded border-navy-300 text-navy-700 focus:ring-navy-200"
+                />
+                {LIBELLES_COLONNES_TRANSPORT[colonne]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <Select label="Format" value={format} onChange={(e) => setFormat(e.target.value as 'pdf' | 'word' | 'excel')}>
+            <option value="pdf">PDF</option>
+            <option value="word">Word</option>
+            <option value="excel">Excel</option>
+          </Select>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={enregistrerModele}>
+              <Save className="h-4 w-4" />
+              Enregistrer comme modèle
+            </Button>
+            <Button type="button" onClick={() => void imprimer()} disabled={impressionEnCours || colonnes.size === 0 || !titreFr.trim() || !titreEn.trim()}>
+              {format === 'pdf' && <FileDown className="h-4 w-4" />}
+              {format === 'word' && <FileText className="h-4 w-4" />}
+              {format === 'excel' && <FileSpreadsheet className="h-4 w-4" />}
+              {impressionEnCours ? t('common.loading') : 'Générer'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {(modeles?.length ?? 0) > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-navy-200 bg-white p-4 shadow-soft">
+          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Modèles transport</span>
+          <ul className="flex flex-col divide-y divide-navy-50">
+            {modeles?.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-2 py-2">
+                <span className="text-sm text-navy-700">{m.titre_fr}</span>
+                <button
+                  type="button"
+                  onClick={() => supprimerModele(m.id)}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('common.delete')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {isLoading ? (
         <Spinner />
