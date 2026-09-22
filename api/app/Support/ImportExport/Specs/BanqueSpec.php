@@ -33,7 +33,7 @@ class BanqueSpec implements SpecificationModele
 
     public function cleUnique(array $ligne, int $schoolId): array
     {
-        return ['school_id' => $schoolId, 'nom' => $ligne['nom']];
+        return ['nom' => $ligne['nom']];
     }
 
     public function transformer(array $ligne, int $schoolId): array
@@ -43,7 +43,7 @@ class BanqueSpec implements SpecificationModele
 
     public function pourExport(int|array $schoolId): Builder
     {
-        return Banque::forSchool($schoolId)->orderBy('nom');
+        return Banque::query()->orderBy('nom');
     }
 
     public function valeurExport(mixed $enregistrement, string $cle): mixed

@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CalendarClock, FileText, Upload } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Camera, FileSpreadsheet, FileText, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Button } from '@/shared/ui/Button'
+import { Modal } from '@/shared/ui/Modal'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { ImportPresenceOcrModal } from '@/features/personnel/components/ImportPresenceOcrModal'
 import { ExportButton } from '@/shared/ui/ExportButton'
 import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -53,7 +55,9 @@ export function SuiviActivitePage() {
   const [au, setAu] = useState(finDuMois())
   const [datePresence, setDatePresence] = useState(new Date().toISOString().slice(0, 10))
   const [granularite, setGranularite] = useState<GranulariteSuivi>('jour')
+  const [choixImportPresenceOuvert, setChoixImportPresenceOuvert] = useState(false)
   const [importPresenceOuvert, setImportPresenceOuvert] = useState(false)
+  const [importPresenceOcrOuvert, setImportPresenceOcrOuvert] = useState(false)
   // '' = tout le personnel, 'p:<id>' = un enseignant précis,
   // 's:<id>' = toute une section (sous-système), 'd:<id>' = tout un département.
   const [selection, setSelection] = useState('')
@@ -178,7 +182,7 @@ export function SuiviActivitePage() {
                 params={{ date_debut: du, date_fin: au }}
                 nomFichier="presences-personnel.xlsx"
               />
-              <Button type="button" variant="secondary" onClick={() => setImportPresenceOuvert(true)}>
+              <Button type="button" variant="secondary" onClick={() => setChoixImportPresenceOuvert(true)}>
                 <Upload className="h-4 w-4" />
                 {t('import.submit')}
               </Button>
@@ -187,6 +191,41 @@ export function SuiviActivitePage() {
         }
       />
 
+      {choixImportPresenceOuvert && (
+        <Modal title={t('personnel.suivi_activite.import_presence_title')} onClose={() => setChoixImportPresenceOuvert(false)}>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setChoixImportPresenceOuvert(false)
+                setImportPresenceOuvert(true)
+              }}
+              className="flex items-center gap-3 rounded-xl border border-navy-200 bg-white p-3.5 text-left shadow-soft transition-colors hover:border-navy-300 hover:bg-cream-50"
+            >
+              <FileSpreadsheet className="h-5 w-5 flex-none text-navy-500" />
+              <span>
+                <span className="block text-sm font-semibold text-navy-800">{t('personnel.suivi_activite.import_presence_fichier')}</span>
+                <span className="block text-xs text-navy-400">{t('import.template_hint')} {COLONNES_IMPORT_PRESENCE_PERSONNEL.join(', ')}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setChoixImportPresenceOuvert(false)
+                setImportPresenceOcrOuvert(true)
+              }}
+              className="flex items-center gap-3 rounded-xl border border-navy-200 bg-white p-3.5 text-left shadow-soft transition-colors hover:border-navy-300 hover:bg-cream-50"
+            >
+              <Camera className="h-5 w-5 flex-none text-navy-500" />
+              <span>
+                <span className="block text-sm font-semibold text-navy-800">{t('personnel.suivi_activite.import_presence_photo')}</span>
+                <span className="block text-xs text-navy-400">{t('personnel.suivi_activite.import_ocr_hint')}</span>
+              </span>
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {importPresenceOuvert && (
         <ImportModal
           title={t('personnel.suivi_activite.import_presence_title')}
@@ -194,6 +233,14 @@ export function SuiviActivitePage() {
           columns={COLONNES_IMPORT_PRESENCE_PERSONNEL}
           extraFields={{ date: datePresence }}
           onClose={() => setImportPresenceOuvert(false)}
+          onImported={rafraichirPresences}
+        />
+      )}
+
+      {importPresenceOcrOuvert && (
+        <ImportPresenceOcrModal
+          date={datePresence}
+          onClose={() => setImportPresenceOcrOuvert(false)}
           onImported={rafraichirPresences}
         />
       )}

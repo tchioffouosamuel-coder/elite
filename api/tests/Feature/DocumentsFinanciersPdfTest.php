@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\Banque;
 use App\Models\CompteComptable;
 use App\Models\EcritureComptable;
 use App\Models\Personnel;
@@ -183,9 +184,10 @@ class DocumentsFinanciersPdfTest extends TestCase
 
     private function agentPaye(string $nom, ?string $banque, ?string $compte): void
     {
+        $banqueId = $banque === null ? null : Banque::firstOrCreate(['nom' => $banque])->id;
         $personnel = Personnel::create([
             'school_id' => $this->school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
-            'banque' => $banque, 'numero_compte' => $compte,
+            'banque_id' => $banqueId, 'numero_compte' => $compte,
         ]);
 
         Remuneration::create([

@@ -43,12 +43,18 @@ class EleveImportDetteTest extends TestCase
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
 
         $this->school = School::create([
-            'name' => 'Elites College', 'code' => 'EBTC', 'type' => 'secondaire', 'is_active' => true,
+            'name' => 'Elites College',
+            'code' => 'EBTC',
+            'type' => 'secondaire',
+            'is_active' => true,
         ]);
 
         $this->admin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $this->admin->assignRole('super_admin');
     }
@@ -57,9 +63,20 @@ class EleveImportDetteTest extends TestCase
     private function fichier(array $lignes): UploadedFile
     {
         $entetes = [
-            'IDEleves', 'nom_eleves', 'sexe_eleves', 'etat_eleves',
-            'Groupe sanguin', 'Situation sanitaire', 'Aptitude', 'Allergies', 'Handicap', 'Type de handicap',
-            'frais_scolarite', 'montant_scolarite', 'remise_scol', 'annee_scol',
+            'IDEleves',
+            'nom_eleves',
+            'sexe_eleves',
+            'etat_eleves',
+            'Groupe sanguin',
+            'Situation sanitaire',
+            'Aptitude',
+            'Allergies',
+            'Handicap',
+            'Type de handicap',
+            'frais_scolarite',
+            'montant_scolarite',
+            'remise_scol',
+            'annee_scol',
         ];
 
         $tableur = new Spreadsheet;
@@ -68,16 +85,24 @@ class EleveImportDetteTest extends TestCase
 
         foreach (array_values($lignes) as $index => $ligne) {
             $feuille->fromArray([
-                $ligne['matricule'], $ligne['nom'], $ligne['sexe'] ?? 'F', 'Actif',
-                $ligne['groupe_sanguin'] ?? null, $ligne['situation_sanitaire'] ?? null,
-                $ligne['aptitude'] ?? null, $ligne['allergies'] ?? null,
-                $ligne['handicap'] ?? null, $ligne['type_handicap'] ?? null,
-                $ligne['frais_scolarite'] ?? null, $ligne['montant_scolarite'] ?? null,
-                $ligne['remise_scol'] ?? null, $ligne['annee_scol'] ?? '2025/2026',
-            ], null, 'A'.($index + 2));
+                $ligne['matricule'],
+                $ligne['nom'],
+                $ligne['sexe'] ?? 'F',
+                'Actif',
+                $ligne['groupe_sanguin'] ?? null,
+                $ligne['situation_sanitaire'] ?? null,
+                $ligne['aptitude'] ?? null,
+                $ligne['allergies'] ?? null,
+                $ligne['handicap'] ?? null,
+                $ligne['type_handicap'] ?? null,
+                $ligne['frais_scolarite'] ?? null,
+                $ligne['montant_scolarite'] ?? null,
+                $ligne['remise_scol'] ?? null,
+                $ligne['annee_scol'] ?? '2025/2026',
+            ], null, 'A' . ($index + 2));
         }
 
-        $chemin = tempnam(sys_get_temp_dir(), 'eleves').'.xlsx';
+        $chemin = tempnam(sys_get_temp_dir(), 'eleves') . '.xlsx';
         (new Xlsx($tableur))->save($chemin);
 
         return new UploadedFile($chemin, 'situation.xlsx', null, null, true);
@@ -93,8 +118,11 @@ class EleveImportDetteTest extends TestCase
     public function test_le_solde_du_est_repris_en_dette_anterieure(): void
     {
         $fichier = $this->fichier([[
-            'matricule' => '23MAT5', 'nom' => 'KENGNE NEIL',
-            'frais_scolarite' => 90000, 'montant_scolarite' => 60000, 'remise_scol' => 0,
+            'matricule' => '23MAT5',
+            'nom' => 'KENGNE NEIL',
+            'frais_scolarite' => 90000,
+            'montant_scolarite' => 60000,
+            'remise_scol' => 0,
         ]]);
 
         $this->importer($fichier)
@@ -113,10 +141,14 @@ class EleveImportDetteTest extends TestCase
     public function test_les_donnees_de_sante_sont_importees_et_mises_a_jour(): void
     {
         $this->importer($this->fichier([[
-            'matricule' => '23SANTE1', 'nom' => 'NGON SANTE',
-            'groupe_sanguin' => 'o+', 'situation_sanitaire' => 'RAS',
-            'aptitude' => 'Apte', 'allergies' => 'Pénicilline',
-            'handicap' => 'Oui', 'type_handicap' => 'Visuel',
+            'matricule' => '23SANTE1',
+            'nom' => 'NGON SANTE',
+            'groupe_sanguin' => 'o+',
+            'situation_sanitaire' => 'RAS',
+            'aptitude' => 'Apte',
+            'allergies' => 'Pénicilline',
+            'handicap' => 'Oui',
+            'type_handicap' => 'Visuel',
         ]]))->assertOk();
 
         $eleve = Eleve::where('matricule', '23SANTE1')->firstOrFail();
@@ -128,8 +160,10 @@ class EleveImportDetteTest extends TestCase
         $this->assertSame('Visuel', $eleve->type_handicap);
 
         $this->importer($this->fichier([[
-            'matricule' => '23SANTE1', 'nom' => 'NGON SANTE',
-            'aptitude' => 'Inapte', 'allergies' => 'Aucune',
+            'matricule' => '23SANTE1',
+            'nom' => 'NGON SANTE',
+            'aptitude' => 'Inapte',
+            'allergies' => 'Aucune',
         ]]))->assertOk();
 
         $eleve->refresh();
@@ -142,8 +176,11 @@ class EleveImportDetteTest extends TestCase
     public function test_la_remise_reduit_la_dette_reprise(): void
     {
         $fichier = $this->fichier([[
-            'matricule' => '23MAT9', 'nom' => 'NGON SARAH',
-            'frais_scolarite' => 90000, 'montant_scolarite' => 50000, 'remise_scol' => 20000,
+            'matricule' => '23MAT9',
+            'nom' => 'NGON SARAH',
+            'frais_scolarite' => 90000,
+            'montant_scolarite' => 50000,
+            'remise_scol' => 20000,
         ]]);
 
         $this->importer($fichier)->assertOk();
@@ -158,8 +195,11 @@ class EleveImportDetteTest extends TestCase
     public function test_une_ligne_soldee_ne_cree_pas_de_dette(): void
     {
         $fichier = $this->fichier([[
-            'matricule' => '23MAT7', 'nom' => 'TSOUNGUI MAEL',
-            'frais_scolarite' => 90000, 'montant_scolarite' => 90000, 'remise_scol' => 0,
+            'matricule' => '23MAT7',
+            'nom' => 'TSOUNGUI MAEL',
+            'frais_scolarite' => 90000,
+            'montant_scolarite' => 90000,
+            'remise_scol' => 0,
         ]]);
 
         $this->importer($fichier)->assertOk()->assertJsonPath('data.dettes', 0);
@@ -171,8 +211,11 @@ class EleveImportDetteTest extends TestCase
     public function test_un_trop_percu_ne_cree_pas_de_dette(): void
     {
         $fichier = $this->fichier([[
-            'matricule' => '24MAT2', 'nom' => 'MBIMINYENGONG QUEEN',
-            'frais_scolarite' => 90000, 'montant_scolarite' => 95000, 'remise_scol' => 0,
+            'matricule' => '24MAT2',
+            'nom' => 'MBIMINYENGONG QUEEN',
+            'frais_scolarite' => 90000,
+            'montant_scolarite' => 95000,
+            'remise_scol' => 0,
         ]]);
 
         $this->importer($fichier)->assertOk()->assertJsonPath('data.dettes', 0);
@@ -183,9 +226,12 @@ class EleveImportDetteTest extends TestCase
     /** Réimporter le même fichier de situation ne double pas le report. */
     public function test_reimporter_le_meme_fichier_ne_duplique_pas_la_dette(): void
     {
-        $fichier = fn () => $this->fichier([[
-            'matricule' => '23MAT13', 'nom' => 'ANUMBEB ERICA',
-            'frais_scolarite' => 84500, 'montant_scolarite' => 10000, 'remise_scol' => 0,
+        $fichier = fn() => $this->fichier([[
+            'matricule' => '23MAT13',
+            'nom' => 'ANUMBEB ERICA',
+            'frais_scolarite' => 84500,
+            'montant_scolarite' => 10000,
+            'remise_scol' => 0,
         ]]);
 
         $this->importer($fichier())->assertOk()->assertJsonPath('data.dettes', 1);
@@ -210,24 +256,39 @@ class EleveImportDetteTest extends TestCase
     public function test_la_dette_s_impute_a_un_dossier_deja_ouvert(): void
     {
         $annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create([
-            'school_id' => $this->school->id, 'nom' => 'ACCOUNTING 1',
+            'school_id' => $this->school->id,
+            'nom' => 'ACCOUNTING 1',
         ]);
         $eleve = Eleve::create([
-            'school_id' => $this->school->id, 'classe_id' => $classe->id,
-            'matricule' => '23MAT5', 'nom_complet' => 'KENGNE NEIL', 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'classe_id' => $classe->id,
+            'matricule' => '23MAT5',
+            'nom_complet' => 'KENGNE NEIL',
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
         $dossier = DossierScolarite::create([
-            'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'eleve_id' => $eleve->id,
-            'montant_scolarite' => 90000, 'remise' => 0, 'report_dette' => 0,
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $annee->id,
+            'eleve_id' => $eleve->id,
+            'montant_scolarite' => 90000,
+            'remise' => 0,
+            'report_dette' => 0,
         ]);
 
         $fichier = $this->fichier([[
-            'matricule' => '23MAT5', 'nom' => 'KENGNE NEIL',
-            'frais_scolarite' => 90000, 'montant_scolarite' => 60000, 'remise_scol' => 0,
+            'matricule' => '23MAT5',
+            'nom' => 'KENGNE NEIL',
+            'frais_scolarite' => 90000,
+            'montant_scolarite' => 60000,
+            'remise_scol' => 0,
         ]]);
 
         $this->importer($fichier)->assertOk();

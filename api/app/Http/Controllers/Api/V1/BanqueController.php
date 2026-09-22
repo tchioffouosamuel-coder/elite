@@ -9,7 +9,6 @@ use App\Http\Resources\Api\V1\BanqueResource;
 use App\Models\Banque;
 use App\Support\ImportExport\SpecificationModele;
 use App\Support\ImportExport\Specs\BanqueSpec;
-use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -26,8 +25,7 @@ class BanqueController extends Controller
 
     public function index(): JsonResponse
     {
-        $banques = Banque::forSchool(Tenant::schoolIds())
-            ->with('school:id,name,code,type')
+        $banques = Banque::query()
             ->withCount('personnels')
             ->orderBy('nom')
             ->get();
@@ -40,7 +38,6 @@ class BanqueController extends Controller
         $this->authorizeSuperAdmin($request);
 
         $data = $request->validate([
-            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
             'nom' => ['required', 'string', 'max:150'],
             'code' => ['nullable', 'string', 'max:50'],
             // Compte de l'établissement dans cette banque — celui débité au
@@ -49,25 +46,22 @@ class BanqueController extends Controller
             'numero_compte_ecole' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
-
         Validator::make($data, [
-            'nom' => [Rule::unique('banques', 'nom')->where('school_id', $schoolId)],
+            'nom' => [Rule::unique('banques', 'nom')],
         ])->validate();
 
         $banque = Banque::create([
             'nom' => $data['nom'],
             'code' => $data['code'] ?? null,
             'numero_compte_ecole' => $data['numero_compte_ecole'] ?? null,
-            'school_id' => $schoolId,
-        ])->load('school:id,name,code,type');
+        ]);
 
         return ApiResponse::created(new BanqueResource($banque), 'Banque créée.');
     }
 
     public function show(int $id): JsonResponse
     {
-        $banque = Banque::forSchool(Tenant::schoolIds())->withCount('personnels')->findOrFail($id);
+        $banque = Banque::withCount('personnels')->findOrFail($id);
 
         return ApiResponse::success(new BanqueResource($banque));
     }
@@ -76,8 +70,7 @@ class BanqueController extends Controller
     {
         $this->authorizeSuperAdmin($request);
 
-        $banque = Banque::forSchool(Tenant::schoolIds())->findOrFail($id);
-        $schoolId = $banque->school_id;
+        $banque = Banque::findOrFail($id);
 
         $data = $request->validate([
             'nom' => [
@@ -85,7 +78,7 @@ class BanqueController extends Controller
                 'required',
                 'string',
                 'max:150',
-                Rule::unique('banques', 'nom')->where('school_id', $schoolId)->ignore($id),
+                Rule::unique('banques', 'nom')->ignore($id),
             ],
             'code' => ['nullable', 'string', 'max:50'],
             'numero_compte_ecole' => ['nullable', 'string', 'max:50'],
@@ -100,9 +93,7 @@ class BanqueController extends Controller
     {
         $this->authorizeSuperAdmin($request);
 
-        $banque = Banque::forSchool(Tenant::schoolIds())
-            ->withCount('personnels')
-            ->findOrFail($id);
+        $banque = Banque::withCount('personnels')->findOrFail($id);
 
         if ($banque->personnels_count > 0) {
             return ApiResponse::error('Cette banque est utilisée par du personnel. Impossible de la supprimer.', 422);
@@ -122,12 +113,11 @@ class BanqueController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $schoolIds = Tenant::schoolIds();
         $deleted = 0;
         $ignorees = [];
 
         foreach ($data['ids'] as $id) {
-            $banque = Banque::forSchool($schoolIds)->withCount('personnels')->findOrFail($id);
+            $banque = Banque::withCount('personnels')->findOrFail($id);
 
             if ($banque->personnels_count > 0) {
                 $ignorees[] = $banque->nom;

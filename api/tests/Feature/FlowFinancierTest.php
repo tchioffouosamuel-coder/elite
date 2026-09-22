@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\Banque;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Matiere;
@@ -484,7 +485,8 @@ class FlowFinancierTest extends TestCase
     private function bulletinPaye(string $nom, ?string $banque, ?string $compte): void
     {
         $agent = $this->agent($nom);
-        $agent->update(['banque' => $banque, 'numero_compte' => $compte]);
+        $banqueId = $banque === null ? null : Banque::firstOrCreate(['nom' => $banque])->id;
+        $agent->update(['banque_id' => $banqueId, 'numero_compte' => $compte]);
 
         $service = app(PaieService::class);
         $service->arreter($service->preparer($agent, 2026, 1));
@@ -532,7 +534,8 @@ class FlowFinancierTest extends TestCase
     public function test_un_brouillon_ne_part_pas_au_bordereau(): void
     {
         $agent = $this->agent('NCHANG SYLVIE');
-        $agent->update(['banque' => 'NTARINKON', 'numero_compte' => '827508']);
+        $banque = Banque::firstOrCreate(['nom' => 'NTARINKON']);
+        $agent->update(['banque_id' => $banque->id, 'numero_compte' => '827508']);
         app(PaieService::class)->preparer($agent, 2026, 1);
 
         $bordereau = app(BordereauVirementService::class)->etablir($this->school->id, 2026, 1);

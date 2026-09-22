@@ -432,12 +432,11 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             return null;
         }
 
-        $banque = Banque::forSchool($this->schoolId)
+        $banque = Banque::query()
             ->whereRaw('LOWER(nom) = ?', [Str::lower($libelle)])
             ->first();
 
         return ($banque ?: Banque::create([
-            'school_id' => $this->schoolId,
             'nom' => $libelle,
         ]))->id;
     }

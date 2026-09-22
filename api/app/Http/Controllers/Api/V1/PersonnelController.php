@@ -26,6 +26,8 @@ use App\Support\Pdf\FicheIdentitePersonnelGenerator;
 use App\Support\Pdf\FichePresencePersonnelGenerator;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Pdf\PersonnelFichierGenerator;
+use App\Support\Ocr\ConfirmationImportOcrPresence;
+use App\Support\Ocr\PresenceOcrExtractor;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -335,6 +337,64 @@ class PersonnelController extends Controller
                 'errors' => $import->failures(),
             ],
             "{$import->importedCount} présence(s) créée(s), {$import->updatedCount} mise(s) à jour.",
+        );
+    }
+
+    /**
+     * Lit une photo de la fiche de présence papier signée à la main et
+     * renvoie, ligne par ligne, ce que l'OCR y a reconnu — sans rien
+     * enregistrer. Le résultat alimente une modale de prévisualisation où
+     * chaque ligne (agent, heure d'arrivée, heure de départ) reste
+     * modifiable avant confirmation (`importOcrPresenceJournaliere`).
+     */
+    public function apercuOcrPresenceJournaliere(Request $request): JsonResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant d'importer une photo de présence.");
+
+        $data = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,bmp', 'max:15360'],
+            'date' => ['nullable', 'date'],
+        ]);
+
+        $resultat = (new PresenceOcrExtractor)->extraire($request->file('image'), Tenant::schoolId());
+
+        return ApiResponse::success([
+            'date' => isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d'),
+            'lignes' => $resultat['lignes'],
+            'personnels' => $resultat['personnels'],
+        ]);
+    }
+
+    /**
+     * Enregistre les lignes relues/corrigées par l'utilisateur dans la
+     * modale de prévisualisation OCR — même résultat qu'un import Excel
+     * (`importPresenceJournaliere`), mais à partir d'un tableau déjà résolu
+     * plutôt que d'une feuille à parser.
+     */
+    public function importOcrPresenceJournaliere(Request $request): JsonResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant d'importer les présences.");
+
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'lignes' => ['required', 'array', 'min:1'],
+            'lignes.*.personnel_id' => ['required', 'integer'],
+            'lignes.*.nom_complet' => ['nullable', 'string'],
+            'lignes.*.heure_arrivee' => ['nullable', 'date_format:H:i'],
+            'lignes.*.heure_depart' => ['nullable', 'date_format:H:i'],
+        ]);
+
+        $confirmation = new ConfirmationImportOcrPresence(Tenant::schoolId(), date('Y-m-d', strtotime($data['date'])));
+        $confirmation->traiter($data['lignes']);
+
+        return ApiResponse::success(
+            [
+                'imported' => $confirmation->importedCount,
+                'updated' => $confirmation->updatedCount,
+                'failed' => count($confirmation->erreurs),
+                'errors' => $confirmation->erreurs,
+            ],
+            "{$confirmation->importedCount} présence(s) créée(s), {$confirmation->updatedCount} mise(s) à jour.",
         );
     }
 

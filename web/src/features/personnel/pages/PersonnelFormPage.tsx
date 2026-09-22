@@ -224,7 +224,7 @@ export function PersonnelFormPage() {
   // filtrer plutôt que de mélanger les référentiels de plusieurs écoles.
   const fonctionsFiltrees = ecoleChoisie ? fonctions?.filter((f) => f.school_id === Number(ecoleChoisie)) : fonctions
   const departementsFiltres = ecoleChoisie ? departements?.filter((d) => d.school_id === Number(ecoleChoisie)) : departements
-  const banquesFiltrees = ecoleChoisie ? banques?.filter((b) => b.school_id === Number(ecoleChoisie)) : banques
+  const banquesFiltrees = banques
   const typeEcoleFormulaire = ecoleChoisie
     ? schools?.find((s) => s.id === Number(ecoleChoisie))?.type
     : personnel?.school?.type

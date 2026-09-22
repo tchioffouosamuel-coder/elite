@@ -330,6 +330,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('personnels/fusion-parent', [PersonnelController::class, 'fusionnerComptesParent'])->name('personnels.fusion-parent');
                 Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
                 Route::post('personnels/presences-journalieres/import', [PersonnelController::class, 'importPresenceJournaliere'])->name('personnels.presences-journalieres.import');
+                Route::post('personnels/presences-journalieres/import-ocr/apercu', [PersonnelController::class, 'apercuOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr.apercu');
+                Route::post('personnels/presences-journalieres/import-ocr', [PersonnelController::class, 'importOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr');
                 Route::post('personnels/suivi-activite/incoherences-presence/{seanceId}/annuler-validation', [SuiviActiviteController::class, 'annulerValidationPresence'])->name('personnels.suivi-activite.incoherences-presence.annuler-validation');
                 Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
                 Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');

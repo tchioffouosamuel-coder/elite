@@ -127,13 +127,6 @@ export function BanquesPage() {
       cellule: (b) => <span className="text-navy-600">{b.code ?? '—'}</span>,
     },
     {
-      cle: 'school',
-      entete: t('classes.ecole'),
-      valeur: (b) => b.school?.name,
-      cellule: (b) => <span className="text-navy-600">{b.school?.name ?? '—'}</span>,
-      masquerMobile: true,
-    },
-    {
       cle: 'personnels_count',
       entete: t('personnel.title'),
       valeur: (b) => b.personnels_count,

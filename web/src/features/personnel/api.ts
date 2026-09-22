@@ -293,8 +293,6 @@ export async function batchDeleteFonctionsReferentiel(
 
 export interface Banque {
   id: number;
-  school_id: number;
-  school?: School | null;
   nom: string;
   code: string | null;
   /** Compte de l'établissement dans cette banque — celui débité pour le virement des salaires. */
@@ -316,7 +314,6 @@ export async function createBanque(payload: {
   nom: string;
   code?: string | null;
   numero_compte_ecole?: string | null;
-  school_id?: number | null;
 }): Promise<Banque> {
   const { data } = await http.post<ApiResponse<Banque>>("/banques", payload);
   return data.data;
@@ -805,4 +802,56 @@ export async function fetchIncoherencesPresencePersonnel(params: {
 
 export async function annulerValidationPresence(seanceId: number): Promise<void> {
   await http.post(`/personnels/suivi-activite/incoherences-presence/${seanceId}/annuler-validation`);
+}
+
+// --------------------------------------------- Import de présence par photo (OCR)
+
+export interface PersonnelOptionOcr {
+  id: number;
+  nom_complet: string;
+}
+
+export interface LignePresenceOcr {
+  personnel_id: number | null;
+  nom_complet: string;
+  texte_ocr: string;
+  heure_arrivee: string | null;
+  heure_depart: string | null;
+  confiance: "haute" | "faible";
+}
+
+export interface ApercuOcrPresence {
+  date: string;
+  lignes: LignePresenceOcr[];
+  personnels: PersonnelOptionOcr[];
+}
+
+export interface ResultatImportOcrPresence {
+  imported: number;
+  updated: number;
+  failed: number;
+  errors: Array<{ ligne: number; message: string; nom: string | null }>;
+}
+
+export async function apercuOcrPresencePersonnel(image: File, date: string): Promise<ApercuOcrPresence> {
+  const formData = new FormData();
+  formData.append("image", image);
+  formData.append("date", date);
+  const { data } = await http.post<ApiResponse<ApercuOcrPresence>>(
+    "/personnels/presences-journalieres/import-ocr/apercu",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data.data;
+}
+
+export async function confirmerImportOcrPresence(
+  date: string,
+  lignes: Array<{ personnel_id: number | null; nom_complet: string; heure_arrivee: string | null; heure_depart: string | null }>,
+): Promise<ResultatImportOcrPresence> {
+  const { data } = await http.post<ApiResponse<ResultatImportOcrPresence>>(
+    "/personnels/presences-journalieres/import-ocr",
+    { date, lignes },
+  );
+  return data.data;
 }

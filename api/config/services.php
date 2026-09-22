@@ -87,4 +87,18 @@ return [
         'sender_name' => env('ORANGE_SENDER_NAME'),
     ],
 
+    /*
+     * OCR des fiches de présence papier photographiées — voir
+     * App\Support\Ocr\PresenceOcrExtractor. Le binaire tesseract doit être
+     * installé sur la machine ; `executable` n'est nécessaire que s'il n'est
+     * pas dans le PATH (fréquent sous Windows : ex. "C:\Program
+     * Files\Tesseract-OCR\tesseract.exe"). Le pack de langue "fra" doit être
+     * installé (tesseract-ocr-fra) pour lire des fiches en français.
+     */
+    'tesseract' => [
+        'executable' => env('TESSERACT_PATH'),
+        'lang' => env('TESSERACT_LANG', 'fra'),
+        'psm' => env('TESSERACT_PSM', 6),
+    ],
+
 ];

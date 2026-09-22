@@ -49,12 +49,6 @@ export function BanqueDetailPage() {
             <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">Code / SWIFT</span>
             <span className="text-sm font-medium text-navy-800">{banque.code || '—'}</span>
           </div>
-          {banque.school?.name && (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">École</span>
-              <span className="text-sm font-medium text-navy-800">{banque.school.name}</span>
-            </div>
-          )}
         </div>
       </Card>
 
