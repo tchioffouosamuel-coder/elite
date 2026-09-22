@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\BusVehiculeController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
+use App\Http\Controllers\Api\V1\CalendrierScolaireController;
 use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\CompteController;
 use App\Http\Controllers\Api\V1\ConseilClasseController;
@@ -274,6 +275,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/export', [PersonnelController::class, 'export'])->name('personnels.export');
                 Route::get('personnels/modele', [PersonnelController::class, 'modele'])->name('personnels.modele');
                 Route::get('personnels/fichier', [PersonnelController::class, 'fichier'])->name('personnels.fichier');
+                Route::get('personnels/presences-journalieres/fiche', [PersonnelController::class, 'fichePresenceJournaliere'])->name('personnels.presences-journalieres.fiche');
+                Route::get('personnels/presences-journalieres/modele', [PersonnelController::class, 'modelePresenceJournaliere'])->name('personnels.presences-journalieres.modele');
+                Route::get('personnels/presences-journalieres/export', [PersonnelController::class, 'exportPresenceJournaliere'])->name('personnels.presences-journalieres.export');
                 Route::get('personnels/liste-personnalisee/modeles', [ListeEnseignantPersonnaliseeController::class, 'modeles'])->name('personnels.liste-personnalisee.modeles.index');
                 Route::post('personnels/liste-personnalisee/modeles', [ListeEnseignantPersonnaliseeController::class, 'storeModele'])->name('personnels.liste-personnalisee.modeles.store');
                 Route::put('personnels/liste-personnalisee/modeles/{id}', [ListeEnseignantPersonnaliseeController::class, 'updateModele'])->name('personnels.liste-personnalisee.modeles.update');
@@ -283,6 +287,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/liste-personnalisee/excel', [ListeEnseignantPersonnaliseeController::class, 'excel'])->name('personnels.liste-personnalisee.excel');
                 Route::get('personnels/rapport-mise-en-place', [PersonnelController::class, 'rapportMiseEnPlace'])->name('personnels.rapport-mise-en-place');
                 Route::get('personnels/suivi-activite', [SuiviActiviteController::class, 'parPersonnel'])->name('personnels.suivi-activite');
+                Route::get('personnels/suivi-activite/incoherences-presence', [SuiviActiviteController::class, 'incoherencesPresence'])->name('personnels.suivi-activite.incoherences-presence');
                 // Route littérale avant le paramètre générique {id} ci-dessous, sinon
                 // « identifiants » s'y ferait happer. Document sensible (mots de passe) :
                 // exige `.manage` en plus du `.view` du groupe.
@@ -324,6 +329,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/fusion-parent/apercu', [PersonnelController::class, 'apercuFusionComptesParent'])->name('personnels.fusion-parent.apercu');
                 Route::post('personnels/fusion-parent', [PersonnelController::class, 'fusionnerComptesParent'])->name('personnels.fusion-parent');
                 Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
+                Route::post('personnels/presences-journalieres/import', [PersonnelController::class, 'importPresenceJournaliere'])->name('personnels.presences-journalieres.import');
+                Route::post('personnels/suivi-activite/incoherences-presence/{seanceId}/annuler-validation', [SuiviActiviteController::class, 'annulerValidationPresence'])->name('personnels.suivi-activite.incoherences-presence.annuler-validation');
                 Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
                 Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
                 Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete');
@@ -760,6 +767,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::middleware('permission:pedagogie.manage')->group(function () {
+                Route::post('calendrier-scolaire', [CalendrierScolaireController::class, 'store'])->name('calendrier-scolaire.store');
+                Route::delete('calendrier-scolaire/{id}', [CalendrierScolaireController::class, 'destroy'])->name('calendrier-scolaire.destroy');
                 Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
                 Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
                 Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe');
@@ -770,6 +779,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');
                 Route::delete('evaluations/{id}', [EvaluationController::class, 'destroy'])->name('evaluations.destroy');
             });
+
+            Route::get('calendrier-scolaire', [CalendrierScolaireController::class, 'index'])
+                ->name('calendrier-scolaire.index')->middleware('permission:pedagogie.view');
 
             /*
              * « Ma journée » : déclarer les leçons traitées et faire l'appel.
@@ -1150,10 +1162,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:infirmerie.view')->group(function () {
                 Route::get('infirmerie/visites', [VisiteInfirmerieController::class, 'index'])->name('infirmerie.visites.index');
+                Route::get('infirmerie/visites/export', [VisiteInfirmerieController::class, 'export'])->name('infirmerie.visites.export');
+                Route::get('infirmerie/visites/modele', [VisiteInfirmerieController::class, 'modele'])->name('infirmerie.visites.modele');
                 Route::get('infirmerie/malaises', [MalaiseReferentielController::class, 'index'])->name('infirmerie.malaises.index');
             });
 
             Route::middleware('permission:infirmerie.manage')->group(function () {
+                Route::post('infirmerie/visites/import', [VisiteInfirmerieController::class, 'import'])->name('infirmerie.visites.import');
                 Route::post('infirmerie/visites', [VisiteInfirmerieController::class, 'store'])->name('infirmerie.visites.store');
                 Route::put('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'update'])->name('infirmerie.visites.update');
                 Route::delete('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'destroy'])->name('infirmerie.visites.destroy');

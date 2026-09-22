@@ -1,15 +1,29 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { CalendarClock } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, CalendarClock, FileText, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { Button } from '@/shared/ui/Button'
+import { ImportModal } from '@/shared/ui/ImportModal'
+import { ExportButton } from '@/shared/ui/ExportButton'
+import { TemplateDownloadButton } from '@/shared/ui/TemplateDownloadButton'
 import { useAuthStore } from '@/shared/store/authStore'
-import { fetchDepartements, fetchPersonnels, fetchSuiviActivite, type GranulariteSuivi } from '@/features/personnel/api'
+import {
+  COLONNES_IMPORT_PRESENCE_PERSONNEL,
+  annulerValidationPresence,
+  fetchDepartements,
+  fetchIncoherencesPresencePersonnel,
+  fetchPersonnels,
+  fetchSuiviActivite,
+  ouvrirFichePresencePersonnel,
+  type GranulariteSuivi,
+} from '@/features/personnel/api'
 import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
+import { confirmer, succes } from '@/shared/lib/alertes'
 
 function debutDuMois(): string {
   const d = new Date()
@@ -28,6 +42,7 @@ function finDuMois(): string {
  */
 export function SuiviActivitePage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
@@ -36,7 +51,9 @@ export function SuiviActivitePage() {
 
   const [du, setDu] = useState(debutDuMois())
   const [au, setAu] = useState(finDuMois())
+  const [datePresence, setDatePresence] = useState(new Date().toISOString().slice(0, 10))
   const [granularite, setGranularite] = useState<GranulariteSuivi>('jour')
+  const [importPresenceOuvert, setImportPresenceOuvert] = useState(false)
   // '' = tout le personnel, 'p:<id>' = un enseignant précis,
   // 's:<id>' = toute une section (sous-système), 'd:<id>' = tout un département.
   const [selection, setSelection] = useState('')
@@ -82,6 +99,17 @@ export function SuiviActivitePage() {
     enabled: activeSchoolId !== null,
   })
 
+  const { data: incoherences } = useQuery({
+    queryKey: ['suivi-activite-incoherences-presence', activeSchoolId, du, au, personnelId],
+    queryFn: () =>
+      fetchIncoherencesPresencePersonnel({
+        date_debut: du,
+        date_fin: au,
+        personnel_id: personnelId,
+      }),
+    enabled: activeSchoolId !== null,
+  })
+
   const periodes = Array.from(new Set(data?.flatMap((ligne) => ligne.periodes.map((p) => p.periode)) ?? [])).sort()
 
   const choisirEcole = (valeur: string) => {
@@ -103,9 +131,72 @@ export function SuiviActivitePage() {
     }
   }
 
+  const rafraichirPresences = () => {
+    void queryClient.invalidateQueries({ queryKey: ['suivi-activite'] })
+    void queryClient.invalidateQueries({ queryKey: ['suivi-activite-incoherences-presence'] })
+  }
+
+  const annulerValidation = async (seanceId: number) => {
+    const ok = await confirmer({
+      titre: t('personnel.suivi_activite.cancel_validation_title'),
+      message: t('personnel.suivi_activite.cancel_validation_message'),
+      action: t('personnel.suivi_activite.cancel_validation_action'),
+    })
+    if (!ok) return
+    await annulerValidationPresence(seanceId)
+    succes(t('personnel.suivi_activite.cancel_validation_success'))
+    rafraichirPresences()
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre={t('personnel.suivi_activite.title')} sousTitre={t('personnel.suivi_activite.subtitle')} icon={CalendarClock} />
+      <PageHeader
+        titre={t('personnel.suivi_activite.title')}
+        sousTitre={t('personnel.suivi_activite.subtitle')}
+        icon={CalendarClock}
+        actions={
+          activeSchoolId !== null ? (
+            <>
+              <Input
+                type="date"
+                value={datePresence}
+                onChange={(e) => setDatePresence(e.target.value)}
+                className="w-40"
+                title={t('personnel.suivi_activite.daily_sheet_date')}
+              />
+              <Button type="button" variant="secondary" onClick={() => void ouvrirFichePresencePersonnel(datePresence)}>
+                <FileText className="h-4 w-4" />
+                {t('personnel.suivi_activite.daily_sheet')}
+              </Button>
+              <TemplateDownloadButton
+                url="/personnels/presences-journalieres/modele"
+                params={{ date: datePresence }}
+                nomFichier={`modele-presence-personnel-${datePresence}.xlsx`}
+              />
+              <ExportButton
+                url="/personnels/presences-journalieres/export"
+                params={{ date_debut: du, date_fin: au }}
+                nomFichier="presences-personnel.xlsx"
+              />
+              <Button type="button" variant="secondary" onClick={() => setImportPresenceOuvert(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.submit')}
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
+
+      {importPresenceOuvert && (
+        <ImportModal
+          title={t('personnel.suivi_activite.import_presence_title')}
+          url="/personnels/presences-journalieres/import"
+          columns={COLONNES_IMPORT_PRESENCE_PERSONNEL}
+          extraFields={{ date: datePresence }}
+          onClose={() => setImportPresenceOuvert(false)}
+          onImported={rafraichirPresences}
+        />
+      )}
 
       <Card>
         <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${plusieursEcoles ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
@@ -173,6 +264,50 @@ export function SuiviActivitePage() {
         active={granularite}
         onChange={(cle) => setGranularite(cle as GranulariteSuivi)}
       />
+
+      {!!incoherences?.length && (
+        <Card>
+          <div className="mb-3 flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-4 w-4" />
+            <h2 className="text-sm font-bold">{t('personnel.suivi_activite.presence_alerts', { count: incoherences.length })}</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[54rem] text-sm">
+              <thead>
+                <tr className="border-b border-red-100 text-xs uppercase tracking-wide text-navy-400">
+                  <th className="py-2 text-left">{t('personnel.suivi_activite.column_staff')}</th>
+                  <th className="py-2 text-left">{t('personnel.suivi_activite.course')}</th>
+                  <th className="py-2 text-left">{t('personnel.suivi_activite.presence_interval')}</th>
+                  <th className="py-2 text-left">{t('personnel.suivi_activite.alert_reason')}</th>
+                  <th className="py-2 text-right">{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incoherences.map((alerte) => (
+                  <tr key={alerte.seance_id} className="border-b border-navy-50">
+                    <td className="py-2 font-semibold text-navy-700">{alerte.personnel}</td>
+                    <td className="py-2 text-navy-600">
+                      {alerte.date} · {alerte.heure_debut}-{alerte.heure_fin}
+                      <div className="text-xs text-navy-400">{alerte.classe ?? '—'} · {alerte.matiere ?? '—'}</div>
+                    </td>
+                    <td className="py-2 text-navy-600">
+                      {alerte.heure_arrivee ?? '—'} - {alerte.heure_depart ?? '—'}
+                    </td>
+                    <td className="py-2 text-red-600">
+                      {alerte.motifs.map((motif) => t(`personnel.suivi_activite.${motif}`)).join(', ')}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button type="button" size="sm" variant="secondary" onClick={() => void annulerValidation(alerte.seance_id)}>
+                        {t('personnel.suivi_activite.cancel_validation_action')}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {activeSchoolId === null ? (
         <Card>

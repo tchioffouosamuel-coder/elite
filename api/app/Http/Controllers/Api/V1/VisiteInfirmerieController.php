@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ModeleGenerique;
+use App\Exports\VisiteInfirmerieExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreVisiteInfirmerieRequest;
 use App\Http\Requests\Api\V1\UpdateVisiteInfirmerieRequest;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
+use App\Imports\VisiteInfirmerieImport;
 use App\Models\Eleve;
 use App\Models\User;
 use App\Models\VisiteInfirmerie;
@@ -14,6 +17,8 @@ use App\Services\InfirmerieService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VisiteInfirmerieController extends Controller
 {
@@ -103,6 +108,34 @@ class VisiteInfirmerieController extends Controller
         $this->service->supprimer($this->visite($id));
 
         return ApiResponse::success(message: 'Visite à l’infirmerie supprimée.');
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $import = new VisiteInfirmerieImport(Tenant::schoolId(), $this->service);
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success(
+            [
+                'imported' => $import->importedCount,
+                'updated' => $import->updatedCount,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+            ],
+            "{$import->importedCount} visite(s) créée(s), {$import->updatedCount} mise(s) à jour.",
+        );
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new VisiteInfirmerieExport(Tenant::schoolIds()), 'visites-infirmerie.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(VisiteInfirmerieImport::enTetes()), 'modele-visites-infirmerie.xlsx');
     }
 
     private function visite(int $id): VisiteInfirmerie

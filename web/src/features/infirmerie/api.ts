@@ -98,6 +98,23 @@ export async function deleteVisiteInfirmerie(id: number): Promise<void> {
   await http.delete(`/infirmerie/visites/${id}`)
 }
 
+export const COLONNES_IMPORT_VISITES_INFIRMERIE = [
+  'ID',
+  'Matricule élève',
+  'Nom élève',
+  'Date visite',
+  'Raison',
+  'Malaises',
+  'Soins prodigués',
+  'Type traitement',
+  'Structure externe',
+  'Coût soins',
+  'Matériels inventaire',
+  'Autre matériel',
+  'Coût autre matériel',
+  'Observations',
+]
+
 /**
  * Scopée à l'école de l'élève sélectionné (pas au périmètre ambiant) : un
  * super admin en mode agrégé verrait sinon les référentiels des 3 écoles du

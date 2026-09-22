@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exports\ModeleGenerique;
 use App\Exports\PersonnelExport;
+use App\Exports\PresencePersonnelJournaliereExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateLoginAccountRequest;
 use App\Http\Requests\Api\V1\StorePersonnelRequest;
 use App\Http\Requests\Api\V1\UpdatePersonnelRequest;
 use App\Http\Resources\Api\V1\PersonnelResource;
+use App\Imports\PresencePersonnelJournaliereImport;
 use App\Models\ActivityLog;
 use App\Models\AnneeScolaire;
 use App\Models\FonctionReferentiel;
@@ -21,6 +23,7 @@ use App\Services\FicheIdentitePersonnelService;
 use App\Services\FusionComptesPersonnelParentService;
 use App\Services\PersonnelService;
 use App\Support\Pdf\FicheIdentitePersonnelGenerator;
+use App\Support\Pdf\FichePresencePersonnelGenerator;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Pdf\PersonnelFichierGenerator;
 use App\Support\Tenant;
@@ -255,6 +258,83 @@ class PersonnelController extends Controller
         return Excel::download(
             new ModeleGenerique(\App\Imports\PersonnelImport::enTetes(), 3),
             'modele-personnel.xlsx',
+        );
+    }
+
+    public function fichePresenceJournaliere(Request $request): Response
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant de tirer la fiche.");
+
+        $data = $request->validate(['date' => ['nullable', 'date']]);
+        $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
+        $school = School::findOrFail(Tenant::schoolId());
+        $personnels = Personnel::forSchool($school->id)->where('statut', 'actif')->orderBy('nom_complet')->get();
+
+        $pdf = (new FichePresencePersonnelGenerator)->build($school, $date, $personnels);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="fiche-presence-personnel-' . $date . '.pdf"',
+        ]);
+    }
+
+    public function modelePresenceJournaliere(Request $request): BinaryFileResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant de télécharger le modèle.");
+
+        $data = $request->validate(['date' => ['nullable', 'date']]);
+        $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
+
+        return Excel::download(
+            new PresencePersonnelJournaliereExport(Tenant::schoolId(), date: $date, modeleDuJour: true),
+            'modele-presence-personnel-' . $date . '.xlsx',
+        );
+    }
+
+    public function exportPresenceJournaliere(Request $request): BinaryFileResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant d'exporter les présences.");
+
+        $data = $request->validate([
+            'date' => ['nullable', 'date'],
+            'date_debut' => ['nullable', 'date'],
+            'date_fin' => ['nullable', 'date', 'after_or_equal:date_debut'],
+        ]);
+
+        return Excel::download(
+            new PresencePersonnelJournaliereExport(
+                Tenant::schoolId(),
+                $data['date'] ?? null,
+                $data['date_debut'] ?? null,
+                $data['date_fin'] ?? null,
+            ),
+            'presences-personnel.xlsx',
+        );
+    }
+
+    public function importPresenceJournaliere(Request $request): JsonResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement avant d'importer les présences.");
+
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'date' => ['nullable', 'date'],
+        ]);
+
+        $import = new PresencePersonnelJournaliereImport(
+            Tenant::schoolId(),
+            isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : null,
+        );
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success(
+            [
+                'imported' => $import->importedCount,
+                'updated' => $import->updatedCount,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+            ],
+            "{$import->importedCount} présence(s) créée(s), {$import->updatedCount} mise(s) à jour.",
         );
     }
 

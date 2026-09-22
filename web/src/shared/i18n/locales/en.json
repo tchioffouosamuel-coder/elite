@@ -288,7 +288,21 @@
       "all_of_section": "All — {{nom}}",
       "group_departments": "— Departments —",
       "all_of_department": "All — {{nom}}",
-      "group_staff": "— Staff —"
+      "group_staff": "— Staff —",
+      "daily_sheet": "Daily sheet",
+      "daily_sheet_date": "Daily sheet date",
+      "import_presence_title": "Import daily staff attendance",
+      "presence_alerts": "{{count}} attendance/course inconsistency(ies)",
+      "course": "Validated course",
+      "presence_interval": "Imported attendance",
+      "alert_reason": "Inconsistency",
+      "presence_absente": "no imported attendance",
+      "cours_avant_arrivee": "course before arrival",
+      "cours_apres_depart": "course after departure",
+      "cancel_validation_title": "Cancel this validation?",
+      "cancel_validation_message": "The session will be set back to planned, and its checked lessons and attendance roll will be removed.",
+      "cancel_validation_action": "Cancel validation",
+      "cancel_validation_success": "Course validation cancelled."
     }
   },
   "fonctionsReferentiel": {
@@ -852,6 +866,7 @@
     "subtitle": "Log student visits, provided care, costs and medical observations.",
     "add_visit": "Record a visit",
     "edit_visit": "Edit a visit",
+    "import_title": "Import infirmary visits",
     "date_visite": "Date and time",
     "raison": "Reason for visit",
     "soins_prodiges": "Care provided",
@@ -1203,6 +1218,7 @@
   },
   "progression": {
     "title": "Teaching progress",
+    "calendrierScolaire": "Annual calendar",
     "hint": "Annual syllabus per subject and actual lesson coverage.",
     "vue_ensemble": "School overview",
     "lecons": "Lessons",

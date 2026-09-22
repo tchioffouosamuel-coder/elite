@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Coins, HeartPulse, Pencil, Plus, Trash2, Users } from 'lucide-react'
-import { deleteVisiteInfirmerie, fetchVisitesInfirmerie, type VisiteInfirmerie } from '@/features/infirmerie/api'
+import { COLONNES_IMPORT_VISITES_INFIRMERIE, deleteVisiteInfirmerie, fetchVisitesInfirmerie, type VisiteInfirmerie } from '@/features/infirmerie/api'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { StatCard } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
@@ -237,10 +238,21 @@ export function InfirmeriePage() {
           <p className="mt-1 max-w-2xl text-sm text-navy-500">{t('infirmerie.subtitle')}</p>
         </div>
         {can('infirmerie.manage') && (
-          <Button onClick={() => navigate('/infirmerie/nouvelle')}>
-            <Plus className="h-4 w-4" />
-            {t('infirmerie.add_visit')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportExportBar
+              titreImport={t('infirmerie.import_title')}
+              importUrl="/infirmerie/visites/import"
+              exportUrl="/infirmerie/visites/export"
+              modeleUrl="/infirmerie/visites/modele"
+              colonnes={COLONNES_IMPORT_VISITES_INFIRMERIE}
+              nomFichier="visites-infirmerie"
+              onImported={invalidate}
+            />
+            <Button onClick={() => navigate('/infirmerie/nouvelle')}>
+              <Plus className="h-4 w-4" />
+              {t('infirmerie.add_visit')}
+            </Button>
+          </div>
         )}
       </div>
 

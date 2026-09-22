@@ -19,6 +19,7 @@ class EmploiDuTempsService extends BaseService
         private readonly NotificationService $notifications,
         private readonly SmsService $sms,
         private readonly JustificationAbsenceService $justifications,
+        private readonly CalendrierScolaireService $calendrier,
     ) {}
 
     /**
@@ -228,6 +229,10 @@ class EmploiDuTempsService extends BaseService
 
         for ($jour = $debut->copy()->startOfDay(); $jour->lte($fin); $jour->addDay()) {
             foreach ($creneaux->get($jour->dayOfWeekIso) ?? [] as $creneau) {
+                if (! $this->calendrier->estOuvert($classe, $jour, $trimestre?->annee_scolaire_id)) {
+                    continue;
+                }
+
                 // whereDate plutôt qu'une égalité : la colonne porte une heure à
                 // zéro, qu'une comparaison avec 'Y-m-d' ne retrouverait pas.
                 $existe = Seance::where('classe_id', $classe->id)

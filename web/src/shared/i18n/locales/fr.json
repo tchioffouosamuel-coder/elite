@@ -288,7 +288,21 @@
       "all_of_section": "Toute la section — {{nom}}",
       "group_departments": "— Départements —",
       "all_of_department": "Tout le département — {{nom}}",
-      "group_staff": "— Personnel —"
+      "group_staff": "— Personnel —",
+      "daily_sheet": "Fiche journalière",
+      "daily_sheet_date": "Date de la fiche journalière",
+      "import_presence_title": "Importer les présences journalières du personnel",
+      "presence_alerts": "{{count}} incohérence(s) présence/cours",
+      "course": "Cours validé",
+      "presence_interval": "Présence importée",
+      "alert_reason": "Incohérence",
+      "presence_absente": "aucune présence importée",
+      "cours_avant_arrivee": "cours avant l'arrivée",
+      "cours_apres_depart": "cours après le départ",
+      "cancel_validation_title": "Annuler cette validation ?",
+      "cancel_validation_message": "La séance repassera en prévue, les leçons cochées et l'appel associé seront retirés.",
+      "cancel_validation_action": "Annuler la validation",
+      "cancel_validation_success": "Validation de cours annulée."
     }
   },
   "fonctionsReferentiel": {
@@ -879,6 +893,7 @@
     "subtitle": "Registre des passages, soins prodigués, coûts et observations médicales des élèves.",
     "add_visit": "Enregistrer une visite",
     "edit_visit": "Modifier une visite",
+    "import_title": "Importer des visites d'infirmerie",
     "date_visite": "Date et heure",
     "raison": "Raison de la visite",
     "soins_prodiges": "Soins prodigués",
@@ -1165,6 +1180,7 @@
   },
   "progression": {
     "title": "Progression pédagogique",
+    "calendrierScolaire": "Calendrier annuel",
     "hint": "Programme annuel par matière et avancement réel des leçons.",
     "vue_ensemble": "Vue d'ensemble de l'établissement",
     "lecons": "Leçons",

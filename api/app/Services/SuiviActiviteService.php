@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ClasseMatiere;
+use App\Models\PresencePersonnelJournaliere;
 use App\Models\Seance;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -134,6 +135,82 @@ class SuiviActiviteService
 
             return $this->resume($seances);
         })->all();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function incoherencesPresence(int $schoolId, CarbonImmutable $debut, CarbonImmutable $fin, array $filtres = []): Collection
+    {
+        $personnelId = $filtres['personnel_id'] ?? null;
+
+        $seances = Seance::forSchool($schoolId)
+            ->where('statut', 'effectuee')
+            ->whereBetween('date_seance', [$debut, $fin])
+            ->whereHas('classeMatiere', function ($q) use ($personnelId) {
+                if ($personnelId) {
+                    $q->where(fn ($q2) => $q2
+                        ->where('personnel_id', $personnelId)
+                        ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)));
+                }
+            })
+            ->with(['classeMatiere.enseignant', 'classeMatiere.matiere', 'classeMatiere.classe.titulaire', 'classe'])
+            ->orderByDesc('date_seance')
+            ->orderBy('heure_debut')
+            ->get();
+
+        $presences = PresencePersonnelJournaliere::forSchool($schoolId)
+            ->whereBetween('date_presence', [$debut, $fin])
+            ->get()
+            ->keyBy(fn (PresencePersonnelJournaliere $p) => $p->personnel_id.'|'.$p->date_presence->format('Y-m-d'));
+
+        return $seances
+            ->map(function (Seance $seance) use ($presences) {
+                $personnel = $seance->classeMatiere?->enseignant ?? $seance->classeMatiere?->classe?->titulaire;
+                if (! $personnel) {
+                    return null;
+                }
+
+                $date = $seance->date_seance->format('Y-m-d');
+                $presence = $presences->get($personnel->id.'|'.$date);
+                $motifs = [];
+
+                if (! $presence || ! $presence->heure_arrivee) {
+                    $motifs[] = 'presence_absente';
+                } else {
+                    $debut = substr((string) $seance->heure_debut, 0, 5);
+                    $fin = substr((string) $seance->heure_fin, 0, 5);
+                    $arrivee = substr((string) $presence->heure_arrivee, 0, 5);
+                    $depart = $presence->heure_depart ? substr((string) $presence->heure_depart, 0, 5) : null;
+
+                    if ($debut < $arrivee) {
+                        $motifs[] = 'cours_avant_arrivee';
+                    }
+                    if ($depart !== null && $fin > $depart) {
+                        $motifs[] = 'cours_apres_depart';
+                    }
+                }
+
+                if ($motifs === []) {
+                    return null;
+                }
+
+                return [
+                    'seance_id' => $seance->id,
+                    'date' => $date,
+                    'heure_debut' => substr((string) $seance->heure_debut, 0, 5),
+                    'heure_fin' => substr((string) $seance->heure_fin, 0, 5),
+                    'personnel_id' => $personnel->id,
+                    'personnel' => $personnel->nom_complet,
+                    'classe' => $seance->classe?->nom,
+                    'matiere' => $seance->classeMatiere?->matiere?->nom,
+                    'heure_arrivee' => $presence?->heure_arrivee ? substr((string) $presence->heure_arrivee, 0, 5) : null,
+                    'heure_depart' => $presence?->heure_depart ? substr((string) $presence->heure_depart, 0, 5) : null,
+                    'motifs' => $motifs,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     private function cle(\Illuminate\Support\Carbon $date, string $granularite): string

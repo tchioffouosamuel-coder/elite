@@ -16,6 +16,7 @@ use App\Models\Trimestre;
 use App\Imports\ProgressionImport;
 use App\Imports\ProgressionImportClasseAdapter;
 use App\Services\ProgressionService;
+use App\Services\CalendrierScolaireService;
 use App\Support\Pdf\ProgressionFicheGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
@@ -53,6 +54,7 @@ class ProgressionController extends Controller
     {
         $classeMatiere = $this->affectation($classeMatiereId);
         $compte = $this->service->remplacerArbre($classeMatiere, $request->input('items', []));
+        $this->recalculerDates($classeMatiere);
 
         return ApiResponse::success(
             ['items' => $this->service->arbre($classeMatiere), ...$this->service->tauxAffectation($classeMatiere)],
@@ -116,6 +118,7 @@ class ProgressionController extends Controller
 
         $import = new ProgressionImport($classeMatiere, $cycle);
         Excel::import($import, $fichier);
+        $this->recalculerDates($classeMatiere);
 
         $message = "{$import->creees} leçon(s) créée(s), {$import->completees} complétée(s)";
         $message .= $import->ignorees > 0 ? ", {$import->ignorees} ligne(s) ignorée(s)." : '.';
@@ -459,6 +462,16 @@ class ProgressionController extends Controller
     private function anneeScolaireActive(int $schoolId): ?string
     {
         return AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->value('libelle');
+    }
+
+    private function recalculerDates(ClasseMatiere $classeMatiere): void
+    {
+        $annee = AnneeScolaire::where('school_id', $classeMatiere->classe->school_id)
+            ->where('is_active', true)->first();
+
+        if ($annee) {
+            app(CalendrierScolaireService::class)->recalculerDates($annee, collect([$classeMatiere->classe]));
+        }
     }
 
     /** Classe bornée au tenant et au périmètre — pour les deux actions d'import/modèle groupés. */

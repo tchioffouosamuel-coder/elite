@@ -260,6 +260,13 @@ const navGroups = [
         permission: 'notes.view',
         types: ['primaire', 'maternelle'] as TypeEcole[],
       },
+      {
+        to: '/progression/calendrier',
+        label: 'nav.calendrierScolaire',
+        icon: CalendarRange,
+        permission: 'pedagogie.view',
+        masquerPourTitulaire: true,
+      },
       // Référentiel d'évaluation du primaire et de la maternelle : au
       // secondaire la matière se note elle-même, l'écran n'y a rien à montrer.
       {

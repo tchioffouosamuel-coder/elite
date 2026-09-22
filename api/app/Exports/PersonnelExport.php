@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Personnel;
+use App\Imports\PersonnelImport;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -15,24 +16,53 @@ class PersonnelExport implements FromCollection, ShouldAutoSize, WithHeadings, W
 
     public function collection(): Collection
     {
-        return Personnel::forSchool($this->schoolId)->with('departement')->orderBy('nom_complet')->get();
+        return Personnel::forSchool($this->schoolId)->with('departement', 'banqueReference')->orderBy('nom_complet')->get();
     }
 
     public function headings(): array
     {
-        return ['Matricule', 'Nom complet', 'Fonction', 'Département', 'Téléphone', 'Email', 'Statut'];
+        return PersonnelImport::enTetes();
     }
 
     public function map($personnel): array
     {
         return [
-            $personnel->matricule,
             $personnel->nom_complet,
-            $personnel->fonction,
-            $personnel->departement?->nom,
+            $personnel->civilite,
+            $personnel->matricule,
+            $personnel->numero_cni,
+            $personnel->numero_cnps,
+            $personnel->date_naissance?->format('Y-m-d'),
+            $personnel->date_embauche?->format('Y-m-d'),
+            $personnel->date_fin?->format('Y-m-d'),
+            $personnel->date_retraite?->format('Y-m-d'),
+            $personnel->departement_origine,
+            $personnel->residence,
             $personnel->telephone,
-            $personnel->email,
-            $personnel->statut,
+            $personnel->telephone_2,
+            $personnel->situation_matrimoniale,
+            $personnel->nombre_enfants,
+            $personnel->diplome_professionnel,
+            $personnel->diplome_academique,
+            $personnel->affectation,
+            $personnel->departement?->nom,
+            $personnel->numero_permis,
+            $personnel->type_contrat,
+            $personnel->statut_contrat,
+            $personnel->categorie_echelon,
+            $personnel->grade_minedub,
+            $personnel->absent_depuis?->format('Y-m-d'),
+            $personnel->motif_absence,
+            $personnel->dossier_disciplinaire ? 'Oui' : 'Non',
+            $personnel->date_deces?->format('Y-m-d'),
+            $personnel->banque,
+            $personnel->numero_compte,
+            $personnel->pere_nom_complet,
+            $personnel->pere_statut,
+            $personnel->pere_telephone,
+            $personnel->mere_nom_complet,
+            $personnel->mere_statut,
+            $personnel->mere_telephone,
         ];
     }
 }

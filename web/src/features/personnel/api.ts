@@ -758,3 +758,51 @@ export async function fetchSuiviActivite(params: {
   );
   return data.data;
 }
+
+export const COLONNES_IMPORT_PRESENCE_PERSONNEL = [
+  "ID",
+  "Date",
+  "Matricule",
+  "Nom",
+  "Heure d'arrivée",
+  "Heure de départ",
+];
+
+export interface IncoherencePresencePersonnel {
+  seance_id: number;
+  date: string;
+  heure_debut: string;
+  heure_fin: string;
+  personnel_id: number;
+  personnel: string;
+  classe: string | null;
+  matiere: string | null;
+  heure_arrivee: string | null;
+  heure_depart: string | null;
+  motifs: Array<"presence_absente" | "cours_avant_arrivee" | "cours_apres_depart">;
+}
+
+export async function ouvrirFichePresencePersonnel(date: string): Promise<void> {
+  await ouvrirDocument(
+    "/personnels/presences-journalieres/fiche",
+    { date },
+    undefined,
+    "Fiche de présence journalière",
+  );
+}
+
+export async function fetchIncoherencesPresencePersonnel(params: {
+  date_debut: string;
+  date_fin: string;
+  personnel_id?: number | null;
+}): Promise<IncoherencePresencePersonnel[]> {
+  const { data } = await http.get<ApiResponse<IncoherencePresencePersonnel[]>>(
+    "/personnels/suivi-activite/incoherences-presence",
+    { params },
+  );
+  return data.data;
+}
+
+export async function annulerValidationPresence(seanceId: number): Promise<void> {
+  await http.post(`/personnels/suivi-activite/incoherences-presence/${seanceId}/annuler-validation`);
+}

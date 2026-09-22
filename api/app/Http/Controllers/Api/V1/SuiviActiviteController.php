@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Seance;
 use App\Services\SuiviActiviteService;
 use App\Support\Tenant;
 use Carbon\CarbonImmutable;
@@ -50,5 +51,44 @@ class SuiviActiviteController extends Controller
                 ],
             )
         );
+    }
+
+    public function incoherencesPresence(Request $request): JsonResponse
+    {
+        abort_if(Tenant::isAggregate(), 422, "Veuillez sélectionner un établissement pour consulter ces alertes.");
+
+        $data = $request->validate([
+            'date_debut' => ['nullable', 'date'],
+            'date_fin' => ['nullable', 'date'],
+            'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
+        ]);
+
+        $debut = isset($data['date_debut']) ? CarbonImmutable::parse($data['date_debut']) : CarbonImmutable::now()->startOfMonth();
+        $fin = isset($data['date_fin']) ? CarbonImmutable::parse($data['date_fin']) : CarbonImmutable::now()->endOfMonth();
+
+        return ApiResponse::success(
+            $this->service->incoherencesPresence(
+                Tenant::schoolId(),
+                $debut->startOfDay(),
+                $fin->endOfDay(),
+                ['personnel_id' => $data['personnel_id'] ?? null],
+            )
+        );
+    }
+
+    public function annulerValidationPresence(Request $request, int $seanceId): JsonResponse
+    {
+        $seance = Seance::forSchool(Tenant::schoolIds())->findOrFail($seanceId);
+
+        $seance->lecons()->sync([]);
+        $seance->presences()->delete();
+        $seance->update([
+            'statut' => 'prevue',
+            'appel_verrouille_le' => null,
+            'qr_verifie_le' => null,
+            'observations' => trim(($seance->observations ? $seance->observations."\n" : '').'Validation annulée après incohérence avec la présence journalière.'),
+        ]);
+
+        return ApiResponse::success(['seance_id' => $seance->id], 'Validation de cours annulée.');
     }
 }

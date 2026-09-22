@@ -230,6 +230,45 @@ export async function fetchProgressionClasse(
   return data.data;
 }
 
+export interface RegleCalendrier {
+  id: number;
+  date: string;
+  est_ouvert: boolean;
+  motif: string | null;
+  classe_id: number | null;
+  classe: string | null;
+  niveau_id: number | null;
+  niveau: string | null;
+  sous_systeme_id: number | null;
+  sous_systeme: string | null;
+}
+
+export interface CalendrierAnnuel {
+  annee: { id: number; libelle: string; date_debut: string; date_fin: string };
+  regles: RegleCalendrier[];
+}
+
+export async function fetchCalendrierScolaire(): Promise<CalendrierAnnuel> {
+  const { data } = await http.get<ApiResponse<CalendrierAnnuel>>('/calendrier-scolaire');
+  return data.data;
+}
+
+export async function enregistrerRegleCalendrier(payload: {
+  date: string;
+  est_ouvert: boolean;
+  motif?: string | null;
+  classe_id?: number | null;
+  niveau_id?: number | null;
+  sous_systeme_id?: number | null;
+}): Promise<RegleCalendrier> {
+  const { data } = await http.post<ApiResponse<RegleCalendrier>>('/calendrier-scolaire', payload);
+  return data.data;
+}
+
+export async function supprimerRegleCalendrier(id: number): Promise<void> {
+  await http.delete(`/calendrier-scolaire/${id}`);
+}
+
 /* ------------------------------------------------------------------ */
 /* Import groupé de la classe (une feuille par matière)                */
 /* ------------------------------------------------------------------ */
