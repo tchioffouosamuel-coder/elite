@@ -113,6 +113,20 @@ export function TuteurEditPage() {
       is_principal: t.is_principal,
     }))
 
+    // Vérifiées côté client pour donner un message précis : l'API rejette en
+    // bloc (422 générique) un nom vide ou l'absence de tout numéro, sans dire
+    // lequel des tuteurs est en cause.
+    const sansNom = payload.findIndex((t) => t.nom_complet.trim() === '')
+    if (sansNom !== -1) {
+      erreur(`Le nom complet du tuteur ${sansNom + 1} est requis.`)
+      return
+    }
+    const sansTelephone = payload.findIndex((t) => t.telephones.length === 0)
+    if (sansTelephone !== -1) {
+      erreur(`Le tuteur ${sansTelephone + 1} doit avoir au moins un numéro de téléphone.`)
+      return
+    }
+
     setEnregistrement(true)
     try {
       // Payload volontairement partiel : `updateEleve()` exige tous les
