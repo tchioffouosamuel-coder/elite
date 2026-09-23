@@ -181,14 +181,22 @@ function LigneCreneau({ creneau, accentAppel, onDetail }: { creneau: CreneauPilo
   )
 }
 
-function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel, onDetail }: {
+/** Au-delà de cette taille, la liste est tronquée avec un lien « Voir plus » plutôt que de rallonger le tableau de bord. */
+const LIMITE_CRENEAUX_VISIBLES = 5
+
+function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel, onDetail, onVoirPlus }: {
   titre: string
   icon: typeof Clock
   creneaux: CreneauPilotage[]
   vide: string
   accentAppel?: boolean
   onDetail: (c: CreneauPilotage) => void
+  onVoirPlus: () => void
 }) {
+  const { t } = useTranslation()
+  const tronquee = creneaux.length > LIMITE_CRENEAUX_VISIBLES
+  const creneauxVisibles = tronquee ? creneaux.slice(0, LIMITE_CRENEAUX_VISIBLES) : creneaux
+
   return (
     <Card>
       <h3 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
@@ -201,13 +209,43 @@ function ListeCreneaux({ titre, icon: Icon, creneaux, vide, accentAppel, onDetai
       {creneaux.length === 0 ? (
         <p className="py-4 text-sm text-navy-300">{vide}</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-navy-50">
-          {creneaux.map((c) => (
-            <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} onDetail={onDetail} />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col divide-y divide-navy-50">
+            {creneauxVisibles.map((c) => (
+              <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} onDetail={onDetail} />
+            ))}
+          </ul>
+          {tronquee && (
+            <button
+              type="button"
+              onClick={onVoirPlus}
+              className="mt-2 w-full border-t border-navy-50 pt-2.5 text-center text-xs font-semibold text-navy-500 hover:text-navy-800"
+            >
+              {t('dashboard.see_more')} ({creneaux.length})
+            </button>
+          )}
+        </>
       )}
     </Card>
+  )
+}
+
+/** Modale listant l'intégralité des créneaux d'une catégorie, ouverte depuis « Voir plus ». */
+function ListeCreneauxModal({ titre, creneaux, accentAppel, onDetail, onClose }: {
+  titre: string
+  creneaux: CreneauPilotage[]
+  accentAppel?: boolean
+  onDetail: (c: CreneauPilotage) => void
+  onClose: () => void
+}) {
+  return (
+    <Modal title={titre} onClose={onClose} taille="lg">
+      <ul className="flex flex-col divide-y divide-navy-50">
+        {creneaux.map((c) => (
+          <LigneCreneau key={c.emploi_du_temps_id} creneau={c} accentAppel={accentAppel} onDetail={onDetail} />
+        ))}
+      </ul>
+    </Modal>
   )
 }
 
@@ -255,6 +293,11 @@ function PilotagePanel() {
   const { t } = useTranslation()
   const [ouvert, setOuvert] = useState(false)
   const [creneauDetail, setCreneauDetail] = useState<CreneauPilotage | null>(null)
+  const [listeElargie, setListeElargie] = useState<{
+    titre: string
+    creneaux: CreneauPilotage[]
+    accentAppel?: boolean
+  } | null>(null)
 
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['dashboard', 'pilotage'],
@@ -311,6 +354,7 @@ function PilotagePanel() {
               creneaux={data.cours_en_cours}
               vide={t('dashboard.no_ongoing_lessons')}
               onDetail={setCreneauDetail}
+              onVoirPlus={() => setListeElargie({ titre: t('dashboard.ongoing_lessons'), creneaux: data.cours_en_cours })}
             />
             <ListeCreneaux
               titre={t('dashboard.past_lessons')}
@@ -318,6 +362,7 @@ function PilotagePanel() {
               creneaux={data.cours_passes}
               vide={t('dashboard.no_past_lessons')}
               onDetail={setCreneauDetail}
+              onVoirPlus={() => setListeElargie({ titre: t('dashboard.past_lessons'), creneaux: data.cours_passes })}
             />
             <ListeCreneaux
               titre={t('dashboard.upcoming_lessons')}
@@ -325,6 +370,7 @@ function PilotagePanel() {
               creneaux={data.cours_a_venir}
               vide={t('dashboard.no_upcoming_lessons')}
               onDetail={setCreneauDetail}
+              onVoirPlus={() => setListeElargie({ titre: t('dashboard.upcoming_lessons'), creneaux: data.cours_a_venir })}
             />
             <ListeCreneaux
               titre={t('dashboard.overdue_calls')}
@@ -333,6 +379,7 @@ function PilotagePanel() {
               vide={t('dashboard.no_overdue_calls')}
               accentAppel
               onDetail={setCreneauDetail}
+              onVoirPlus={() => setListeElargie({ titre: t('dashboard.overdue_calls'), creneaux: data.appels_en_retard, accentAppel: true })}
             />
           </div>
 
@@ -394,6 +441,16 @@ function PilotagePanel() {
             </Card>
           </div>
         </>
+      )}
+
+      {listeElargie && (
+        <ListeCreneauxModal
+          titre={listeElargie.titre}
+          creneaux={listeElargie.creneaux}
+          accentAppel={listeElargie.accentAppel}
+          onDetail={setCreneauDetail}
+          onClose={() => setListeElargie(null)}
+        />
       )}
 
       {creneauDetail && <CreneauDetailModal creneau={creneauDetail} onClose={() => setCreneauDetail(null)} />}
