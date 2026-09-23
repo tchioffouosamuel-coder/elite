@@ -160,6 +160,26 @@ class PointDeVenteTest extends TestCase
         $this->assertSame(47, $article->fresh()->quantite);
     }
 
+    /**
+     * Un super admin sans X-School-Id (mode agrégé, plusieurs écoles
+     * accessibles) qui vend un article partagé (sans école propre) ne doit
+     * jamais être bloqué à l'encaissement : l'école se choisit en coulisse.
+     */
+    public function test_encaisser_un_article_partage_en_mode_agrege_ne_bloque_pas(): void
+    {
+        School::create(['name' => 'Elites Secondaire', 'code' => 'ES', 'type' => 'secondaire', 'is_active' => true]);
+        $articlePartage = $this->article(['school_id' => null, 'nom' => 'Ardoise A4']);
+
+        $reponse = $this->actingAs($this->vendeur, 'sanctum')
+            ->postJson('/api/v1/point-de-vente/ventes', [
+                'lignes' => [['article_id' => $articlePartage->id, 'quantite' => 1]],
+            ])
+            ->assertCreated();
+
+        $vente = VenteFourniture::findOrFail($reponse->json('data.id'));
+        $this->assertNotNull($vente->school_id);
+    }
+
     public function test_la_vente_ecrit_au_journal_comptable(): void
     {
         $article = $this->article();

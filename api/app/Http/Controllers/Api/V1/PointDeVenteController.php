@@ -96,16 +96,17 @@ class PointDeVenteController extends Controller
         ]);
 
         /*
-         * L'école se déduit des articles vendus : le comptoir ne doit pas avoir
-         * à la désigner — un super admin en mode « Toutes les écoles » serait
-         * sinon bloqué au moment d'encaisser, le pire endroit pour poser une
-         * question.
+         * L'école se déduit des articles vendus : le comptoir ne doit jamais
+         * avoir à la désigner — encaisser ne pose pas de question. Elle ne sert
+         * qu'en coulisse, pour rattacher la facture et ses écritures comptables
+         * à une école (numérotation, rapports financiers) ; le vendeur ne la
+         * voit jamais et n'a rien à choisir.
          *
          * Les articles partagés ne désignent aucune école : ils se glissent
          * dans n'importe quelle facture sans la contraindre, et `filter()` les
          * écarte du raisonnement. Une facture qui n'en contient que ceux-là
-         * n'apprend donc rien sur son école — d'où le repli sur le périmètre
-         * courant, qui redemandera de choisir en mode agrégé.
+         * n'apprend donc rien sur son école — on retombe alors sur le périmètre
+         * courant de l'utilisateur (jamais un blocage, même en mode agrégé).
          */
         $ecoles = InventaireArticle::whereIn('id', collect($donnees['lignes'])->pluck('article_id')->unique())
             ->pluck('school_id')
@@ -116,7 +117,8 @@ class PointDeVenteController extends Controller
             return ApiResponse::error('Une facture ne peut pas mélanger les articles de plusieurs écoles.', 422);
         }
 
-        $schoolId = Tenant::resolveWriteSchoolId($donnees['school_id'] ?? $ecoles->first());
+        $ecoleDesignee = $donnees['school_id'] ?? $ecoles->first();
+        $schoolId = $ecoleDesignee !== null ? Tenant::resolveWriteSchoolId($ecoleDesignee) : Tenant::schoolId();
         unset($donnees['school_id']);
 
         try {

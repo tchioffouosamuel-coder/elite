@@ -117,8 +117,11 @@ class PointDeVenteService extends BaseService
             foreach ($donnees['lignes'] as $ligne) {
                 // `lockForUpdate` : deux comptoirs qui vendent le dernier
                 // cahier au même instant doivent se départager ici, pas
-                // aboutir tous les deux à une quantité négative.
-                $article = InventaireArticle::where('school_id', $schoolId)
+                // aboutir tous les deux à une quantité négative. `forSchool` —
+                // et non `where('school_id', ...)` — pour que l'article
+                // partagé (sans école propre) reste trouvable ici comme il
+                // l'était déjà au catalogue.
+                $article = InventaireArticle::forSchool($schoolId)
                     ->lockForUpdate()
                     ->findOrFail($ligne['article_id']);
 
@@ -241,7 +244,9 @@ class PointDeVenteService extends BaseService
     public function entrerStock(int $schoolId, array $donnees, ?int $parUserId = null): EntreeStock
     {
         return $this->transaction(function () use ($schoolId, $donnees, $parUserId) {
-            $article = InventaireArticle::where('school_id', $schoolId)
+            // `forSchool`, comme à la vente : un article partagé (sans école
+            // propre) doit rester réapprovisionnable.
+            $article = InventaireArticle::forSchool($schoolId)
                 ->lockForUpdate()
                 ->findOrFail($donnees['article_id']);
 
