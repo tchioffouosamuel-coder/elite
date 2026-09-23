@@ -20,6 +20,7 @@ import {
 import { ReinitialiserMotDePasseModal } from '@/features/comptes/pages/ReinitialiserMotDePasseModal'
 import { ActiviteCompteModal } from '@/features/comptes/pages/ActiviteCompteModal'
 import { AttribuerEcolesModal } from '@/features/comptes/pages/AttribuerEcolesModal'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
@@ -159,6 +160,10 @@ export function ComptesPage() {
       setReinitialisationMasseEnCours(false)
     }
   }
+
+  const triComptes = triEcoleSousSystemeNiveauClasse<CompteUtilisateur>({
+    ecole: (c) => c.school?.name,
+  })
 
   const colonnes: Colonne<CompteUtilisateur>[] = [
     {
@@ -336,6 +341,7 @@ export function ComptesPage() {
             placeholderRecherche="Rechercher un compte…"
             messageVide="Aucun compte utilisateur."
             largeurMin={1080}
+            triDefaut={triComptes}
           />
         </>
       )}

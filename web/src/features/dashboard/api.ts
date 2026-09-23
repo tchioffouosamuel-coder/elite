@@ -56,7 +56,21 @@ export interface DashboardStatsClasse {
   activite_recente: ActiviteLog[];
 }
 
-export type DashboardStats = DashboardStatsEcole | DashboardStatsClasse;
+/** Une ligne par école du périmètre, avec les mêmes indicateurs qu'un tableau de bord d'école. */
+export interface DashboardStatsEcoleLigne extends Omit<DashboardStatsEcole, "scope"> {
+  id: number;
+  nom: string;
+  type: "maternelle" | "primaire" | "secondaire";
+}
+
+/** Super admin en mode agrégé ("Toutes les écoles") : un total par école plutôt qu'une somme opaque. */
+export interface DashboardStatsComplexe {
+  scope: "complexe";
+  ecoles: DashboardStatsEcoleLigne[];
+  activite_recente: ActiviteLog[];
+}
+
+export type DashboardStats = DashboardStatsEcole | DashboardStatsClasse | DashboardStatsComplexe;
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
   const { data } = await http.get<ApiResponse<DashboardStats>>("/dashboard");

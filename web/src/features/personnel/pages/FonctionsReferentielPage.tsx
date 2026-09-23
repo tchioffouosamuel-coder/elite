@@ -15,6 +15,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, erreur, succes, info } from '@/shared/lib/alertes'
 import { FonctionReferentielFormModal } from './FonctionReferentielFormModal'
 
@@ -93,6 +94,10 @@ export function FonctionsReferentielPage() {
       erreur(err.message || t('fonctionsReferentiel.delete_error'))
     }
   }
+
+  const triFonctions = triEcoleSousSystemeNiveauClasse<FonctionReferentiel>({
+    ecole: (f) => f.school?.name,
+  })
 
   const colonnes: Colonne<FonctionReferentiel>[] = [
     {
@@ -226,6 +231,7 @@ export function FonctionsReferentielPage() {
           placeholderRecherche={t('fonctionsReferentiel.search_placeholder')}
           messageVide={t('fonctionsReferentiel.empty')}
           largeurMin={760}
+          triDefaut={triFonctions}
         />
       )}
 

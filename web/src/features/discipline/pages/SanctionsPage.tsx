@@ -13,6 +13,7 @@ import { Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, confirmer, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -47,6 +48,11 @@ export function SanctionsPage() {
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['sanctions'] })
+
+  const triSanctions = triEcoleSousSystemeNiveauClasse<Sanction>({
+    ecole: (s) => s.school?.name,
+    classe: (s) => s.classe,
+  })
 
   const genererPv = async () => {
     if (!trimestreActif) {
@@ -208,6 +214,7 @@ export function SanctionsPage() {
           placeholderRecherche={t('discipline.search_placeholder')}
           messageVide={t('discipline.empty_sanctions')}
           largeurMin={860}
+          triDefaut={triSanctions}
         />
       )}
 

@@ -29,6 +29,7 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { Modal } from '@/shared/ui/Modal'
 import { AccorderAvanceModal } from '@/features/finance/AccorderAvanceModal'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 const TONE_STATUT: Record<StatutAvance, 'green' | 'gold' | 'red' | 'neutral'> = {
@@ -95,6 +96,10 @@ export function AvancesSalairePage() {
       if (err.status !== 403) erreur(err.message)
     }
   }
+
+  const triAvances = triEcoleSousSystemeNiveauClasse<AvanceSalaire>({
+    ecole: (a) => a.school?.name,
+  })
 
   const colonnes: Colonne<AvanceSalaire>[] = [
     {
@@ -249,6 +254,7 @@ export function AvancesSalairePage() {
           placeholderRecherche={t('finance.search_avance')}
           messageVide={t('finance.empty_avance')}
           largeurMin={900}
+          triDefaut={triAvances}
           outils={
             <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutAvance | '')}>
               {STATUTS.map((s) => (

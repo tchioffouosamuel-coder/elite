@@ -11,6 +11,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Card } from '@/shared/ui/Card'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
 type MatiereAvecDept = Matiere
 
@@ -80,6 +81,10 @@ export function AssignMatieresDepartementPage() {
             setSubmitting(false)
         }
     }
+
+    const triMatieres = triEcoleSousSystemeNiveauClasse<MatiereAvecDept>({
+        ecole: (m) => m.school?.name,
+    })
 
     const colonnes: Colonne<MatiereAvecDept>[] = [
         {
@@ -192,6 +197,7 @@ export function AssignMatieresDepartementPage() {
                     placeholderRecherche={t('personnel.assign_matieres_search_placeholder')}
                     messageVide={t('personnel.assign_matieres_empty_assignees')}
                     largeurMin={320}
+                    triDefaut={triMatieres}
                 />
             </div>
 
@@ -204,6 +210,7 @@ export function AssignMatieresDepartementPage() {
                     placeholderRecherche={t('personnel.assign_matieres_search_placeholder')}
                     messageVide={t('personnel.assign_matieres_empty_sans_dept')}
                     largeurMin={320}
+                    triDefaut={triMatieres}
                 />
             </div>
         </div>

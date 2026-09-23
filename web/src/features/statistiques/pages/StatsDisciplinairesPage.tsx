@@ -17,6 +17,7 @@ import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Select } from '@/shared/ui/Field'
 import { erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { useAuthStore } from '@/shared/store/authStore'
 
 /**
@@ -58,6 +59,10 @@ export function StatsDisciplinairesPage() {
     queryKey: ['stats-disciplinaires', ecoleFiltreId],
     queryFn: () => fetchStatsDisciplinaires(undefined, ecoleFiltreId),
     enabled: ecoleFiltreId != null,
+  })
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<StatsDisciplinairesClasse>({
+    classe: (c) => c.classe.nom,
   })
 
   const colonnes: Colonne<StatsDisciplinairesClasse>[] = [
@@ -237,6 +242,7 @@ export function StatsDisciplinairesPage() {
           placeholderRecherche={t('classes.search_placeholder')}
           messageVide={t('classes.empty')}
           largeurMin={900}
+          triDefaut={triClasses}
         />
       </div>
     </div>

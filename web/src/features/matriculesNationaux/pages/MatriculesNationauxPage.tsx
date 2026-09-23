@@ -16,6 +16,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { Input } from '@/shared/ui/Field'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /** Modifier ou effacer (valeur vide) le matricule national d'un seul élève. */
@@ -192,6 +193,11 @@ export function MatriculesNationauxPage() {
     }
   }
 
+  const triMatricules = triEcoleSousSystemeNiveauClasse<MatriculeNationalLigne>({
+    ecole: (l) => l.school,
+    classe: (l) => l.classe,
+  })
+
   const colonnes: Colonne<MatriculeNationalLigne>[] = [
     {
       cle: 'matricule',
@@ -302,6 +308,7 @@ export function MatriculesNationauxPage() {
             placeholderRecherche="Rechercher un nom, un matricule…"
             messageVide="Aucun élève du secondaire."
             largeurMin={860}
+            triDefaut={triMatricules}
           />
         </>
       )}

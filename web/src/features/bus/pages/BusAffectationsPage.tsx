@@ -21,6 +21,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -73,6 +74,11 @@ export function BusAffectationsPage() {
     ? elevesBruts?.filter((e) => !e.preinscrit_annee_active)
     : elevesBruts
   )?.slice().sort((a, b) => Number(!!b.bus) - Number(!!a.bus))
+
+  const triEleves = triEcoleSousSystemeNiveauClasse<EleveTransport>({
+    ecole: (e) => e.school?.name,
+    classe: (e) => e.classe?.nom,
+  })
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bus-eleves'] })
@@ -405,6 +411,7 @@ export function BusAffectationsPage() {
           placeholderRecherche={t('bus.search_eleve')}
           messageVide={t('bus.empty_eleves')}
           largeurMin={600}
+          triDefaut={triEleves}
           outils={
             <div className="flex flex-wrap items-center gap-2">
               <Select value={classeFiltre} onChange={(e) => setClasseFiltre(e.target.value ? Number(e.target.value) : '')}>

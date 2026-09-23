@@ -29,6 +29,7 @@ import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { Modal } from '@/shared/ui/Modal'
 import { ClasseFormModal } from '@/features/classes/pages/ClasseFormModal'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -104,6 +105,13 @@ export function ClassesListPage() {
 
     return sousSystemes.find((item) => item.id === classe.sous_systeme_id)?.nom ?? '—'
   }
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<Classe>({
+    ecole: (c) => c.school?.name,
+    sousSysteme: (c) => (getSousSystemeNom(c) === '—' ? null : getSousSystemeNom(c)),
+    niveau: (c) => c.niveau?.name_fr,
+    classe: (c) => c.nom,
+  })
 
   const toggleSelection = (classeId: number) => {
     const newSelection = new Set(selectedClasses)
@@ -446,6 +454,7 @@ export function ClassesListPage() {
           cleLigne={(c) => c.id}
           placeholderRecherche={t('classes.search_placeholder')}
           messageVide={t('classes.empty')}
+          triDefaut={triClasses}
           outils={
             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               {schools.length > 1 && (

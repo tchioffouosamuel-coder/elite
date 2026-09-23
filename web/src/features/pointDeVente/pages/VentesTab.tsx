@@ -14,6 +14,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /** Premier jour du mois courant, au format attendu par un champ date. */
@@ -40,6 +41,10 @@ export function VentesTab() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['pdv-ventes', du, au, avecAnnulees],
     queryFn: () => fetchVentes({ du, au, annulees: avecAnnulees || undefined }),
+  })
+
+  const triVentes = triEcoleSousSystemeNiveauClasse<VenteFourniture>({
+    ecole: (v) => v.school?.name,
   })
 
   const colonnes: Colonne<VenteFourniture>[] = [
@@ -168,6 +173,7 @@ export function VentesTab() {
           placeholderRecherche={t('pointDeVente.recherche_vente')}
           messageVide={t('pointDeVente.aucune_vente')}
           largeurMin={900}
+          triDefaut={triVentes}
           outils={
             <>
               <div className="w-full sm:w-40">

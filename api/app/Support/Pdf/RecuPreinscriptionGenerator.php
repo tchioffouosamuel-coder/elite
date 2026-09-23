@@ -16,7 +16,7 @@ class RecuPreinscriptionGenerator
         $school = $scolarite?->dossier?->school ?? $bus?->affectation?->trajet?->school;
         $eleve = $scolarite?->dossier?->eleve ?? $bus?->affectation?->eleve;
         $total = (int) ($scolarite?->montant ?? 0) + (int) ($bus?->montant ?? 0);
-        $mpdf = MpdfFactory::make(['format' => [80, 170], 'orientation' => 'L', 'margin_left' => 4, 'margin_right' => 4, 'margin_top' => 4, 'margin_bottom' => 4], $school);
+        $mpdf = MpdfFactory::make(['format' => [80, 170], 'orientation' => 'P', 'margin_left' => 4, 'margin_right' => 4, 'margin_top' => 4, 'margin_bottom' => 4], $school);
         $mpdf->SetTitle('Reçu préinscription');
         $html = '<style>body{font-family:montserrat,sans-serif;font-size:3.4mm}h1{text-align:center;font-size:4.2mm;text-decoration:underline}table{width:100%;border-collapse:collapse}td{padding:1.2mm 0;border-bottom:.2mm dotted #999}.right{text-align:right;font-weight:bold}.total{font-weight:bold;font-size:3.9mm}</style>';
         $html .= '<h1>REÇU DE PRÉINSCRIPTION<br>SCOLARITÉ + BUS</h1>';

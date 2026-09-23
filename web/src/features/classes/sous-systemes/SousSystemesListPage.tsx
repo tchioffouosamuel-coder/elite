@@ -9,6 +9,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, succes } from '@/shared/lib/alertes'
 import { SousSystemeFormModal } from './SousSystemeFormModal'
 
@@ -46,6 +47,10 @@ export function SousSystemesListPage() {
             console.error('Erreur:', errorMsg)
         }
     }
+
+    const triSousSystemes = triEcoleSousSystemeNiveauClasse<SousSysteme>({
+        ecole: (s) => s.school?.name,
+    })
 
     const colonnes: Colonne<SousSysteme>[] = [
         {
@@ -142,6 +147,7 @@ export function SousSystemesListPage() {
                     placeholderRecherche={t('sousSystemes.search_placeholder')}
                     messageVide={t('sousSystemes.empty')}
                     largeurMin={800}
+                    triDefaut={triSousSystemes}
                 />
             )}
 

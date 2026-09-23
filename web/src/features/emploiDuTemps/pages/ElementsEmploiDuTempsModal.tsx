@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import {
@@ -36,6 +36,7 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
     const [conflits, setConflits] = useState<CreneauIgnore[]>([])
     const { data: elements = [], isLoading } = useQuery({ queryKey: ['emploi-du-temps-elements'], queryFn: fetchEmploiDuTempsElements })
     const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: fetchClasses })
+    const arbreClasses = useArbreClasses(classes)
 
     const enregistrer = useMutation({
         mutationFn: () => edition
@@ -93,6 +94,16 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
 
     const basculerJour = (jour: number) => setForm((courant) => ({ ...courant, jours: courant.jours.includes(jour) ? courant.jours.filter((item) => item !== jour) : [...courant.jours, jour].sort() }))
     const basculerClasse = (id: number) => setForm((courant) => ({ ...courant, classe_ids: courant.classe_ids.includes(id) ? courant.classe_ids.filter((item) => item !== id) : [...courant.classe_ids, id] }))
+    // Coche tout le groupe s'il n'est pas déjà entièrement sélectionné, sinon le décoche entièrement.
+    const basculerGroupe = (ids: number[]) => setForm((courant) => {
+        const toutesCochees = ids.every((id) => courant.classe_ids.includes(id))
+        return {
+            ...courant,
+            classe_ids: toutesCochees
+                ? courant.classe_ids.filter((id) => !ids.includes(id))
+                : [...courant.classe_ids, ...ids.filter((id) => !courant.classe_ids.includes(id))],
+        }
+    })
 
     return (
         <Modal title="Pauses et activités" onClose={onClose}>
@@ -121,13 +132,47 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
                         ))}
                     </div>
                     <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-navy-500">Classes par défaut</p>
-                    <div className="mt-2 grid max-h-32 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
-                        {classes.map((classe: Classe) => (
-                            <label key={classe.id} className="flex items-center gap-1.5 text-sm text-navy-700">
-                                <input type="checkbox" checked={form.classe_ids.includes(classe.id)} onChange={() => basculerClasse(classe.id)} className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500" />
-                                <span className="truncate">{classe.nom}</span>
-                            </label>
+                    <div className="mt-2 flex max-h-64 flex-col gap-0.5 overflow-y-auto rounded-lg border border-navy-100 p-2">
+                        {arbreClasses.map((ecole) => (
+                            <GroupeClasses
+                                key={ecole.id}
+                                niveau={0}
+                                titre={ecole.nom}
+                                classeIds={ecole.classeIds}
+                                cochees={form.classe_ids}
+                                onBasculerGroupe={basculerGroupe}
+                            >
+                                {ecole.sousSystemes.map((sousSysteme) => (
+                                    <GroupeClasses
+                                        key={sousSysteme.id}
+                                        niveau={1}
+                                        titre={sousSysteme.nom}
+                                        classeIds={sousSysteme.classeIds}
+                                        cochees={form.classe_ids}
+                                        onBasculerGroupe={basculerGroupe}
+                                    >
+                                        {sousSysteme.niveaux.map((niveauItem) => (
+                                            <GroupeClasses
+                                                key={niveauItem.id}
+                                                niveau={2}
+                                                titre={niveauItem.nom}
+                                                classeIds={niveauItem.classes.map((classe) => classe.id)}
+                                                cochees={form.classe_ids}
+                                                onBasculerGroupe={basculerGroupe}
+                                            >
+                                                {niveauItem.classes.map((classe) => (
+                                                    <label key={classe.id} className="ml-4 flex items-center gap-1.5 border-l border-navy-100 py-1 pl-3 text-sm text-navy-700">
+                                                        <input type="checkbox" checked={form.classe_ids.includes(classe.id)} onChange={() => basculerClasse(classe.id)} className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500" />
+                                                        <span className="truncate">{classe.nom}</span>
+                                                    </label>
+                                                ))}
+                                            </GroupeClasses>
+                                        ))}
+                                    </GroupeClasses>
+                                ))}
+                            </GroupeClasses>
                         ))}
+                        {arbreClasses.length === 0 && <p className="py-2 text-sm text-navy-400">Aucune classe.</p>}
                     </div>
                     <div className="mt-3 flex justify-end">
                         <Button type="button" onClick={() => enregistrer.mutate()} disabled={enregistrer.isPending || !form.nom || form.jours.length === 0 || form.classe_ids.length === 0}>
@@ -173,5 +218,117 @@ export function ElementsEmploiDuTempsModal({ onClose, onChanged }: { onClose: ()
                 ))}
             </div>
         </Modal>
+    )
+}
+
+interface NoeudNiveau { id: number; nom: string; classes: Classe[] }
+interface NoeudSousSysteme { id: number; nom: string; classeIds: number[]; niveaux: NoeudNiveau[] }
+interface NoeudEcole { id: number; nom: string; classeIds: number[]; sousSystemes: NoeudSousSysteme[] }
+
+function grouperPar<T>(items: T[], cle: (item: T) => number | string): Map<number | string, T[]> {
+    const carte = new Map<number | string, T[]>()
+    for (const item of items) {
+        const groupe = carte.get(cle(item))
+        if (groupe) groupe.push(item)
+        else carte.set(cle(item), [item])
+    }
+    return carte
+}
+
+/** École > sous-système > niveau > classe — hiérarchie utilisée par les dropdowns de sélection des classes. */
+function useArbreClasses(classes: Classe[]): NoeudEcole[] {
+    return useMemo(() => {
+        const parEcole = grouperPar(classes, (c) => c.school_id ?? c.school?.id ?? 0)
+
+        return Array.from(parEcole.entries())
+            .map(([ecoleId, classesEcole]): NoeudEcole => {
+                const parSousSysteme = grouperPar(classesEcole, (c) => c.sous_systeme_id ?? 0)
+                const sousSystemes = Array.from(parSousSysteme.entries())
+                    .map(([sousSystemeId, classesSousSysteme]): NoeudSousSysteme => {
+                        const parNiveau = grouperPar(classesSousSysteme, (c) => c.niveau_id)
+                        const niveaux = Array.from(parNiveau.entries())
+                            .map(([niveauId, classesNiveau]): NoeudNiveau => ({
+                                id: Number(niveauId),
+                                nom: classesNiveau[0].niveau?.name_fr ?? 'Sans niveau',
+                                classes: [...classesNiveau].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true })),
+                            }))
+                            .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { numeric: true }))
+
+                        return {
+                            id: Number(sousSystemeId),
+                            nom: classesSousSysteme[0].sous_systeme?.nom ?? 'Sans sous-système',
+                            classeIds: classesSousSysteme.map((c) => c.id),
+                            niveaux,
+                        }
+                    })
+                    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+
+                return {
+                    id: Number(ecoleId),
+                    nom: classesEcole[0].school?.name ?? 'Sans école',
+                    classeIds: classesEcole.map((c) => c.id),
+                    sousSystemes,
+                }
+            })
+            .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+    }, [classes])
+}
+
+/**
+ * Section repliable d'un niveau de la hiérarchie (école, sous-système ou
+ * niveau), avec sa propre case « tout cocher/décocher » — cochée quand
+ * toutes les classes du groupe sont sélectionnées, indéterminée si certaines
+ * seulement le sont.
+ */
+function GroupeClasses({ niveau, titre, classeIds, cochees, onBasculerGroupe, children }: {
+    niveau: 0 | 1 | 2
+    titre: string
+    classeIds: number[]
+    cochees: number[]
+    onBasculerGroupe: (ids: number[]) => void
+    children: ReactNode
+}) {
+    const [ouvert, setOuvert] = useState(true)
+    const caseRef = useRef<HTMLInputElement>(null)
+    const nbCochees = classeIds.filter((id) => cochees.includes(id)).length
+    const toutesCochees = classeIds.length > 0 && nbCochees === classeIds.length
+    const partiel = nbCochees > 0 && !toutesCochees
+
+    useEffect(() => {
+        if (caseRef.current) caseRef.current.indeterminate = partiel
+    }, [partiel])
+
+    if (classeIds.length === 0) return null
+
+    return (
+        <div className={niveau > 0 ? 'ml-4 border-l border-navy-100 pl-3' : ''}>
+            <div className="flex items-center gap-1.5 py-1">
+                <button type="button" onClick={() => setOuvert((o) => !o)} className="text-navy-400 hover:text-navy-700">
+                    {ouvert ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                </button>
+                <input
+                    ref={caseRef}
+                    type="checkbox"
+                    checked={toutesCochees}
+                    onChange={() => onBasculerGroupe(classeIds)}
+                    className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                />
+                <button
+                    type="button"
+                    onClick={() => setOuvert((o) => !o)}
+                    className={
+                        niveau === 0
+                            ? 'text-sm font-bold text-navy-800'
+                            : niveau === 1
+                                ? 'text-sm font-semibold text-navy-700'
+                                : 'text-sm text-navy-600'
+                    }
+                >
+                    {titre}
+                </button>
+                <span className="ml-auto text-xs text-navy-400">{nbCochees}/{classeIds.length}</span>
+            </div>
+            {ouvert && <div className="flex flex-col gap-0.5">{children}</div>}
+        </div>
     )
 }

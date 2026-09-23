@@ -23,6 +23,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -94,6 +95,10 @@ export function CompetencesPage() {
       erreur(apiErr.message)
     }
   }
+
+  const triCompetences = triEcoleSousSystemeNiveauClasse<Competence>({
+    ecole: (c) => c.school?.name,
+  })
 
   const colonnes: Colonne<Competence>[] = [
     ...(can('pedagogie.manage')
@@ -288,6 +293,7 @@ export function CompetencesPage() {
           placeholderRecherche={t('competences.recherche')}
           messageVide={t('competences.vide')}
           largeurMin={860}
+          triDefaut={triCompetences}
         />
       )}
 

@@ -15,6 +15,7 @@ import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
 /** Vert au-delà de ce taux, rouge en dessous de la moitié — repère visuel de _smapp. */
 function couleurTaux(taux: number): string {
@@ -29,6 +30,9 @@ interface LigneClasse {
   nbMatieres: number | null
   responsable: string | null
   taux: number | null
+  ecole?: string
+  sousSysteme?: string
+  niveau?: string
 }
 
 export function RemplissagePage() {
@@ -97,11 +101,30 @@ export function RemplissagePage() {
             ? ((c as Classe).professeur_principal?.nom_complet ?? null)
             : ((c as Classe).titulaire?.nom_complet ?? null)
           : null
+        const ecole = !estEnseignant ? (c as Classe).school?.name : undefined
+        const sousSysteme = !estEnseignant ? (c as Classe).sous_systeme?.nom : undefined
+        const niveau = !estEnseignant ? (c as Classe).niveau?.name_fr : undefined
 
-        return { id: c.id, nom: c.nom, nbMatieres: matieres ? matieres.length : null, responsable, taux }
+        return {
+          id: c.id,
+          nom: c.nom,
+          nbMatieres: matieres ? matieres.length : null,
+          responsable,
+          taux,
+          ecole,
+          sousSysteme,
+          niveau,
+        }
       }),
     [classes, remplissageParClasse, estEnseignant],
   )
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<LigneClasse>({
+    ecole: (l) => l.ecole,
+    sousSysteme: (l) => l.sousSysteme,
+    niveau: (l) => l.niveau,
+    classe: (l) => l.nom,
+  })
 
   const colonnesClasses: Colonne<LigneClasse>[] = [
     {
@@ -264,6 +287,7 @@ export function RemplissagePage() {
           placeholderRecherche={t('resultats.search_classe')}
           messageVide={t('resultats.empty_classe')}
           onLigneClick={(l) => setClasseId(l.id)}
+          triDefaut={triClasses}
         />
       ) : isLoading ? (
         <Spinner />

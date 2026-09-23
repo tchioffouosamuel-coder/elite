@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -20,11 +20,12 @@ import {
   TrendingUp,
   Eye,
 } from 'lucide-react'
-import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog } from '@/features/dashboard/api'
+import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog, type DashboardStatsEcoleLigne } from '@/features/dashboard/api'
 import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
+import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -39,7 +40,9 @@ export function DashboardPage() {
   if (isLoading) return <Spinner />
   if (isError || !data) return <ErrorState />
 
-  return data.scope === 'classe' ? <TableauClasse data={data} /> : <TableauEcole data={data} />
+  if (data.scope === 'classe') return <TableauClasse data={data} />
+  if (data.scope === 'complexe') return <TableauComplexe data={data} />
+  return <TableauEcole data={data} />
 }
 
 function EnTete({ titre, sousTitre }: { titre: string; sousTitre?: string | null }) {
@@ -394,6 +397,125 @@ function PilotagePanel() {
       )}
 
       {creneauDetail && <CreneauDetailModal creneau={creneauDetail} onClose={() => setCreneauDetail(null)} />}
+    </div>
+  )
+}
+
+const LIBELLE_TYPE_ECOLE: Record<string, string> = {
+  maternelle: 'Maternelle',
+  primaire: 'Primaire',
+  secondaire: 'Secondaire',
+}
+
+/**
+ * Super admin en mode agrégé ("Toutes les écoles", cf. réglage actif dans la
+ * page Paramètres) : plus de total unique mêlant des établissements de
+ * tailles et de cycles différents, une ligne par école à la place. Cliquer
+ * une ligne bascule l'établissement actif pour ouvrir son propre tableau de
+ * bord, comme depuis le sélecteur d'école de la barre supérieure.
+ */
+function TableauComplexe({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'complexe' }> }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
+  const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
+  const { ecoles, activite_recente } = data
+
+  const ouvrirEcole = (ecole: DashboardStatsEcoleLigne) => {
+    setActiveSchool(ecole.id)
+    queryClient.clear()
+    navigate('/dashboard')
+  }
+
+  const colonnes: Colonne<DashboardStatsEcoleLigne>[] = [
+    {
+      cle: 'nom',
+      entete: t('classes.ecole'),
+      valeur: (e) => e.nom,
+      cellule: (e) => (
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-navy-900">{e.nom}</span>
+          <Badge tone="blue">{LIBELLE_TYPE_ECOLE[e.type] ?? e.type}</Badge>
+        </div>
+      ),
+    },
+    {
+      cle: 'annee',
+      entete: t('dashboard.active_year'),
+      valeur: (e) => e.annee_scolaire_active,
+      cellule: (e) => e.annee_scolaire_active ?? '—',
+      masquerMobile: true,
+    },
+    {
+      cle: 'eleves',
+      entete: t('dashboard.students'),
+      valeur: (e) => e.effectifs.eleves,
+      cellule: (e) => <span className="font-semibold tabular-nums text-navy-800">{e.effectifs.eleves}</span>,
+    },
+    {
+      cle: 'personnel',
+      entete: t('dashboard.staff'),
+      valeur: (e) => e.effectifs.personnel,
+      cellule: (e) => <span className="tabular-nums">{e.effectifs.personnel}</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'enseignants',
+      entete: t('dashboard.teachers'),
+      valeur: (e) => e.effectifs.enseignants,
+      cellule: (e) => <span className="tabular-nums">{e.effectifs.enseignants}</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'classes',
+      entete: t('dashboard.classes'),
+      valeur: (e) => e.effectifs.classes,
+      cellule: (e) => <span className="tabular-nums">{e.effectifs.classes}</span>,
+    },
+    {
+      cle: 'taux_filles',
+      entete: t('dashboard.girls_rate'),
+      valeur: (e) => e.indicateurs.taux_filles,
+      cellule: (e) => <span className="tabular-nums">{e.indicateurs.taux_filles}%</span>,
+      masquerMobile: true,
+    },
+    {
+      cle: 'taux_reinscription',
+      entete: t('dashboard.reinscription_rate'),
+      valeur: (e) => e.reinscription.taux_reinscription,
+      cellule: (e) => <span className="tabular-nums">{e.reinscription.taux_reinscription}%</span>,
+    },
+  ]
+
+  const totalEleves = ecoles.reduce((total, e) => total + e.effectifs.eleves, 0)
+  const totalPersonnel = ecoles.reduce((total, e) => total + e.effectifs.personnel, 0)
+  const totalClasses = ecoles.reduce((total, e) => total + e.effectifs.classes, 0)
+
+  return (
+    <div className="flex flex-col gap-6">
+      <EnTete titre={t('dashboard.title')} sousTitre={t('dashboard.complexe_subtitle', { count: ecoles.length })} />
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard label={t('dashboard.schools_count')} value={ecoles.length} icon={School} accent="navy" />
+        <StatCard label={t('dashboard.enrolled_students')} value={totalEleves} icon={UserRound} accent="navy" />
+        <StatCard label={t('dashboard.staff')} value={totalPersonnel} icon={Users} accent="green" />
+        <StatCard label={t('dashboard.classes')} value={totalClasses} icon={GraduationCap} accent="gold" />
+      </div>
+
+      <Card>
+        <h2 className="mb-4 font-display text-base font-bold tracking-tight text-navy-800">{t('dashboard.detail_by_school')}</h2>
+        <DataTable
+          colonnes={colonnes}
+          lignes={ecoles}
+          cleLigne={(e) => e.id}
+          recherche={false}
+          parPage={0}
+          onLigneClick={ouvrirEcole}
+        />
+      </Card>
+
+      {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
     </div>
   )
 }

@@ -19,6 +19,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Select } from '@/shared/ui/Field'
 import { erreur } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { useAuthStore } from '@/shared/store/authStore'
 
 const CATEGORIES = Object.keys(LIBELLES_CATEGORIE) as CleCategorie[]
@@ -59,6 +60,10 @@ export function StatsPedagogiquesPage() {
     queryKey: ['stats-pedagogiques', ecoleFiltreId],
     queryFn: () => fetchStatsPedagogiques(undefined, ecoleFiltreId),
     enabled: ecoleFiltreId != null,
+  })
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<StatsPedagogiquesClasse>({
+    classe: (c) => c.classe.nom,
   })
 
   const colonnes: Colonne<StatsPedagogiquesClasse>[] = [
@@ -226,6 +231,7 @@ export function StatsPedagogiquesPage() {
           placeholderRecherche={t('classes.search_placeholder')}
           messageVide={t('classes.empty')}
           largeurMin={820}
+          triDefaut={triClasses}
         />
       </div>
     </div>

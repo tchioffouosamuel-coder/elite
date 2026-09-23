@@ -10,6 +10,7 @@ use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
 use App\Models\Preinscription;
+use App\Models\School;
 use App\Models\Sequence;
 use App\Models\User;
 use App\Support\Perimetre;
@@ -44,7 +45,43 @@ class DashboardService extends BaseService
             }
         }
 
+        // Mode agrégé sur plusieurs écoles (super admin, "Toutes les écoles") :
+        // une ligne par école plutôt qu'un total qui mélangerait des
+        // établissements de tailles et de cycles différents.
+        if (is_array($schoolId) && count($schoolId) > 1) {
+            return $this->statsComplexe($schoolId);
+        }
+
         return $this->statsEcole($schoolId);
+    }
+
+    /**
+     * Une ligne par école du périmètre agrégé, chacune calculée par
+     * `statsEcole()` sur son seul id — l'activité récente reste, elle,
+     * commune à tout le complexe (cf. `statsEcole()` en mode mono-école).
+     *
+     * @param  list<int>  $schoolIds
+     */
+    private function statsComplexe(array $schoolIds): array
+    {
+        $schools = School::whereIn('id', $schoolIds)->orderBy('name')->get(['id', 'name', 'type']);
+
+        $ecoles = $schools->map(function (School $school) {
+            $stats = $this->statsEcole($school->id);
+            unset($stats['scope']);
+
+            return ['id' => $school->id, 'nom' => $school->name, 'type' => $school->type] + $stats;
+        })->values();
+
+        $activiteRecente = ActivityLog::forSchool($schoolIds)
+            ->latest('created_at')->limit(6)->get()
+            ->map(fn(ActivityLog $log) => $this->formaterLogActivite($log));
+
+        return [
+            'scope' => 'complexe',
+            'ecoles' => $ecoles,
+            'activite_recente' => $activiteRecente,
+        ];
     }
 
     /**

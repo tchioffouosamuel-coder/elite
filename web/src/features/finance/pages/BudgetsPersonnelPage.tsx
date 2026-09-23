@@ -19,6 +19,7 @@ import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 const TONE_STATUT: Record<StatutBudget, 'green' | 'gold' | 'neutral'> = {
@@ -44,6 +45,10 @@ export function BudgetsPersonnelPage() {
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['budgets-personnel'] })
+
+  const triBudgets = triEcoleSousSystemeNiveauClasse<BudgetPersonnel>({
+    ecole: (b) => b.school?.name,
+  })
 
   const colonnes: Colonne<BudgetPersonnel>[] = [
     {
@@ -146,6 +151,7 @@ export function BudgetsPersonnelPage() {
           placeholderRecherche="Rechercher un budget…"
           messageVide="Aucun budget alloué pour l'instant."
           largeurMin={840}
+          triDefaut={triBudgets}
         />
       )}
 

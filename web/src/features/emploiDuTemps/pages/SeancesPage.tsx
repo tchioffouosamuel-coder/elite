@@ -8,6 +8,7 @@ import { batchDeleteSeances, fetchSeances, type Seance } from '@/features/emploi
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -121,6 +122,13 @@ export function SeancesPage() {
 
   const seancesDuJour = seances?.filter((seance) => seance.date_seance === dateLocaleAujourdhui()) ?? []
   const autresSeances = seances?.filter((seance) => seance.date_seance !== dateLocaleAujourdhui()) ?? []
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<Classe>({
+    ecole: (c) => c.school?.name,
+    sousSysteme: (c) => c.sous_systeme?.nom,
+    niveau: (c) => c.niveau?.name_fr,
+    classe: (c) => c.nom,
+  })
 
   const colonnesClasses: Colonne<Classe>[] = [
     {
@@ -319,6 +327,7 @@ export function SeancesPage() {
           placeholderRecherche={t('emploiDuTemps.search_classe_placeholder')}
           messageVide={t('emploiDuTemps.empty_classes')}
           largeurMin={640}
+          triDefaut={triClasses}
         />
       ) : (
         <>

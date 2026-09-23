@@ -29,6 +29,7 @@ import { ActionsMenu } from '@/shared/ui/ActionsMenu'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 import { fetchSchools } from '@/features/classes/api'
 import { Select } from '@/shared/ui/Field'
@@ -228,6 +229,10 @@ export function PersonnelListPage() {
       erreur((err as ApiError).message)
     }
   }
+
+  const triPersonnels = triEcoleSousSystemeNiveauClasse<Personnel>({
+    ecole: (p) => p.school?.name,
+  })
 
   const colonnes: Colonne<Personnel>[] = [
     ...(can('personnel.manage')
@@ -528,6 +533,7 @@ export function PersonnelListPage() {
           placeholderRecherche={t('personnel.search_placeholder')}
           messageVide={t('personnel.empty')}
           largeurMin={760}
+          triDefaut={triPersonnels}
           outils={
             <Select value={schoolFilter} onChange={(event) => setSchoolFilter(event.target.value)}>
               <option value="">Toutes les écoles</option>

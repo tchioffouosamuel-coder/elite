@@ -21,6 +21,7 @@ import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -35,6 +36,10 @@ export function BusTrajetsPage() {
   const { data: trajets, isLoading } = useQuery({ queryKey: ['bus-trajets'], queryFn: fetchTrajets })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['bus-trajets'] })
+
+  const triTrajets = triEcoleSousSystemeNiveauClasse<BusTrajet>({
+    ecole: (r) => r.school?.name,
+  })
 
   const colonnes: Colonne<BusTrajet>[] = [
     {
@@ -167,6 +172,7 @@ export function BusTrajetsPage() {
           placeholderRecherche={t('bus.search_trajet')}
           messageVide={t('bus.empty_trajets')}
           largeurMin={760}
+          triDefaut={triTrajets}
         />
       )}
 

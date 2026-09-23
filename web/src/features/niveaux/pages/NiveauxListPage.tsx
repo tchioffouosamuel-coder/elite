@@ -11,6 +11,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 
 export function NiveauxListPage() {
@@ -41,6 +42,11 @@ export function NiveauxListPage() {
     const sousSysteme = sousSystemes.find((item) => item.id === niveau.sous_system_id)
     return sousSysteme?.nom ?? '—'
   }
+
+  const triNiveaux = triEcoleSousSystemeNiveauClasse<Niveau>({
+    ecole: (niveau) => niveau.school?.name,
+    sousSysteme: (niveau) => (getSousSystemeNom(niveau) === '—' ? null : getSousSystemeNom(niveau)),
+  })
 
   const handleSubmit = async (_payload: NiveauPayload) => {
     invalidate()
@@ -287,6 +293,7 @@ export function NiveauxListPage() {
           placeholderRecherche={t('niveauxGlobaux.search_placeholder')}
           messageVide={t('niveauxGlobaux.empty')}
           largeurMin={800}
+          triDefaut={triNiveaux}
         />
       )}
 

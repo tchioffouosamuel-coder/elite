@@ -16,6 +16,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
 type FiltreNombre = number | ''
 
@@ -132,6 +133,11 @@ export function InfirmeriePage() {
   }, [lignes])
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['infirmerie', 'visites'] })
+
+  const triVisites = triEcoleSousSystemeNiveauClasse<VisiteInfirmerie>({
+    ecole: (v) => v.school?.name,
+    classe: (v) => v.classe?.nom,
+  })
 
   const colonnes: Colonne<VisiteInfirmerie>[] = [
     {
@@ -284,6 +290,7 @@ export function InfirmeriePage() {
           placeholderRecherche={t('infirmerie.search_placeholder')}
           messageVide={t('infirmerie.empty')}
           largeurMin={980}
+          triDefaut={triVisites}
           outils={
             <>
               <Select

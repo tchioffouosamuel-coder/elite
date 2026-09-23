@@ -18,6 +18,7 @@ import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
 import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
@@ -118,6 +119,10 @@ export function CaissePage() {
       if (err.status !== 403) erreur(err.message)
     }
   }
+
+  const triDossiers = triEcoleSousSystemeNiveauClasse<DossierScolarite>({
+    classe: (d) => d.eleve.classe,
+  })
 
   const colonnes: Colonne<DossierScolarite>[] = [
     {
@@ -341,6 +346,7 @@ export function CaissePage() {
             placeholderRecherche={t('finance.search_caisse')}
             messageVide={t('finance.empty_caisse')}
             largeurMin={1250}
+            triDefaut={triDossiers}
             outils={
               <div className="flex flex-wrap gap-2">
                 <Select value={statut} onChange={(e) => setStatut(e.target.value as StatutPaiement | '')}>

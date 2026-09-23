@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { RegleValidationSeanceFormModal } from './RegleValidationSeanceFormModal'
 
@@ -61,6 +62,10 @@ export function ReglesValidationSeancePage() {
       erreur(err.message || 'Suppression impossible.')
     }
   }
+
+  const triRegles = triEcoleSousSystemeNiveauClasse<RegleValidationSeance>({
+    sousSysteme: (r) => r.sous_systeme,
+  })
 
   const colonnes: Colonne<RegleValidationSeance>[] = [
     {
@@ -134,6 +139,7 @@ export function ReglesValidationSeancePage() {
           cleLigne={(r) => r.id}
           messageVide="Aucune règle définie — le comportement par défaut (QR, 15 minutes) s'applique partout."
           largeurMin={640}
+          triDefaut={triRegles}
         />
       )}
 

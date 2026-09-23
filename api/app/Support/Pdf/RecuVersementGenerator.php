@@ -36,7 +36,7 @@ class RecuVersementGenerator
 
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,
-            'orientation' => 'L',
+            'orientation' => 'P',
             'margin_left' => 4,
             'margin_right' => 4,
             'margin_top' => 4,

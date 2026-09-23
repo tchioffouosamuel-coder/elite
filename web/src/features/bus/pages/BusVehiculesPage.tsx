@@ -23,6 +23,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -57,6 +58,10 @@ export function BusVehiculesPage() {
   const { data: vehicules, isLoading } = useQuery({ queryKey: ['bus-vehicules'], queryFn: fetchVehicules })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['bus-vehicules'] })
+
+  const triVehicules = triEcoleSousSystemeNiveauClasse<BusVehicule>({
+    ecole: (v) => v.school?.name,
+  })
 
   const colonnes: Colonne<BusVehicule>[] = [
     {
@@ -209,6 +214,7 @@ export function BusVehiculesPage() {
           placeholderRecherche={t('bus.search_vehicule')}
           messageVide={t('bus.empty_vehicules')}
           largeurMin={860}
+          triDefaut={triVehicules}
         />
       )}
 

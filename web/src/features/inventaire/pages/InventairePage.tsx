@@ -35,6 +35,7 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { Modal } from '@/shared/ui/Modal'
 import { BarcodeScannerModal } from '@/shared/ui/BarcodeScannerModal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 const TONE_DEMANDE: Record<StatutDemandeArticle, 'green' | 'gold' | 'red'> = {
@@ -137,6 +138,10 @@ export function InventairePage() {
       setImpressionEnCours(false)
     }
   }
+
+  const triArticles = triEcoleSousSystemeNiveauClasse<ArticleInventaire>({
+    ecole: (a) => a.school?.name,
+  })
 
   const colonnes: Colonne<ArticleInventaire>[] = [
     ...(can('inventaire.manage')
@@ -385,6 +390,7 @@ export function InventairePage() {
           largeurMin={760}
           terme={terme}
           onTermeChange={filtrer(setTerme)}
+          triDefaut={triArticles}
           pagination={
             data
               ? {

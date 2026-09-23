@@ -12,6 +12,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 
 export function DepartementsPage() {
@@ -56,6 +57,10 @@ export function DepartementsPage() {
       setSubmitting(false)
     }
   }
+
+  const triDepartements = triEcoleSousSystemeNiveauClasse<Departement>({
+    ecole: (d) => d.school?.name,
+  })
 
   const colonnes: Colonne<Departement>[] = [
     {
@@ -160,6 +165,7 @@ export function DepartementsPage() {
           placeholderRecherche={t('departements.search_placeholder')}
           messageVide={t('departements.empty')}
           largeurMin={320}
+          triDefaut={triDepartements}
         />
       )}
     </div>

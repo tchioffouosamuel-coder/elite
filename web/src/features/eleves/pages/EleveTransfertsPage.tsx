@@ -13,6 +13,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { Eleve } from '@/features/eleves/api'
 import type { ApiError } from '@/shared/types/api'
 
@@ -94,6 +95,12 @@ export function EleveTransfertsPage() {
       setSubmitting(false)
     }
   }
+
+  const triEleves = triEcoleSousSystemeNiveauClasse<Eleve>({
+    ecole: (e) => e.school?.name,
+    niveau: (e) => e.classe?.niveau,
+    classe: (e) => e.classe?.nom,
+  })
 
   const colonnes: Colonne<Eleve>[] = [
     {
@@ -255,6 +262,7 @@ export function EleveTransfertsPage() {
             cleLigne={(e) => e.id}
             placeholderRecherche={t('eleves.transferts_search_placeholder')}
             messageVide={t('eleves.empty_filtre')}
+            triDefaut={triEleves}
             largeurMin={700}
           />
         )}

@@ -19,6 +19,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -166,6 +167,10 @@ export function NiveauxScolairesPage() {
       erreur((err as ApiError).message ?? t('niveaux.delete_error'))
     }
   }
+
+  const triNiveaux = triEcoleSousSystemeNiveauClasse<NiveauScolaire>({
+    ecole: (n) => n.school?.name,
+  })
 
   const colonnes: Colonne<NiveauScolaire>[] = [
     ...(can('pedagogie.manage')
@@ -371,6 +376,7 @@ export function NiveauxScolairesPage() {
           placeholderRecherche={t('niveaux.search_placeholder')}
           messageVide={t('niveaux.empty')}
           largeurMin={780}
+          triDefaut={triNiveaux}
         />
       )}
     </div>

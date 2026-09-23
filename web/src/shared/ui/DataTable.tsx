@@ -63,6 +63,14 @@ interface DataTableProps<T> {
   /** Contenu additionnel dans la barre d'outils (filtres propres à la page). */
   outils?: ReactNode
   largeurMin?: number
+  /**
+   * Ordre appliqué tant qu'aucune colonne n'est triée manuellement — remplacé
+   * dès qu'on clique un en-tête (`tri` reprend la main), et rétabli si on
+   * revient à l'état neutre. Sert à regrouper des lignes par école > sous-
+   * système > niveau > classe sans dépendre d'une colonne dédiée à ce tri
+   * (cf. `triEcoleSousSystemeNiveauClasse`).
+   */
+  triDefaut?: (a: T, b: T) => number
 }
 
 type Sens = 'asc' | 'desc'
@@ -87,6 +95,7 @@ export function DataTable<T>({
   onLigneClick,
   outils,
   largeurMin = 640,
+  triDefaut,
 }: DataTableProps<T>) {
   const controle = onTermeChange !== undefined
   const [termeInterne, setTermeInterne] = useState('')
@@ -113,7 +122,7 @@ export function DataTable<T>({
   }, [lignes, colonnes, terme, controle])
 
   const triees = useMemo(() => {
-    if (!tri) return filtrees
+    if (!tri) return triDefaut ? [...filtrees].sort(triDefaut) : filtrees
     const colonne = colonnes.find((c) => c.cle === tri.cle)
     if (!colonne?.valeur) return filtrees
 
@@ -130,7 +139,7 @@ export function DataTable<T>({
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * signe
       return String(va).localeCompare(String(vb), 'fr', { numeric: true }) * signe
     })
-  }, [filtrees, tri, colonnes])
+  }, [filtrees, tri, colonnes, triDefaut])
 
   // En pagination serveur, `lignes` n'est déjà que la page courante : le
   // découpage local ne s'applique plus, sous peine d'en re-tronquer un

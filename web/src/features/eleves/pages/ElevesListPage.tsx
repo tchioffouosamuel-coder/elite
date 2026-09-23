@@ -39,6 +39,7 @@ import { DropdownMenu, type DropdownMenuItem } from '@/shared/ui/DropdownMenu'
 import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { Select } from '@/shared/ui/Select'
 import type { ApiError } from '@/shared/types/api'
 import { Modal } from '@/shared/ui/Modal'
@@ -239,6 +240,12 @@ export function ElevesListPage() {
     const ecoleCorrespond = schoolFilter === null || eleve.school_id === schoolFilter
     const classeCorrespond = classeFilter === null || eleve.classe?.id === classeFilter
     return ecoleCorrespond && classeCorrespond
+  })
+
+  const triEleves = triEcoleSousSystemeNiveauClasse<Eleve>({
+    ecole: (e) => e.school?.name,
+    niveau: (e) => e.classe?.niveau,
+    classe: (e) => e.classe?.nom,
   })
 
   const invalidate = () => {
@@ -630,6 +637,7 @@ export function ElevesListPage() {
           onLigneClick={(e) => navigate(`/eleves/${e.id}`)}
           placeholderRecherche={t('eleves.search_placeholder')}
           messageVide={t('eleves.empty')}
+          triDefaut={triEleves}
           outils={schools.length > 1 || classes.length > 0 ? (
             <>
               {schools.length > 1 && (

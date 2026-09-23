@@ -13,6 +13,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 function debutDuMois(): string {
@@ -38,6 +39,10 @@ export function EntreesTab() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['pdv-entrees', du, au],
     queryFn: () => fetchEntrees({ du, au }),
+  })
+
+  const triEntrees = triEcoleSousSystemeNiveauClasse<EntreeStock>({
+    ecole: (e) => e.school?.name,
   })
 
   const colonnes: Colonne<EntreeStock>[] = [
@@ -126,6 +131,7 @@ export function EntreesTab() {
           placeholderRecherche={t('pointDeVente.recherche_entree')}
           messageVide={t('pointDeVente.aucune_entree')}
           largeurMin={820}
+          triDefaut={triEntrees}
           outils={
             <>
               <div className="w-full sm:w-40">

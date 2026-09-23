@@ -24,6 +24,7 @@ import { ImportModal } from '@/shared/ui/ImportModal'
 import { telechargerFichier } from '@/shared/lib/download'
 import { Modal } from '@/shared/ui/Modal'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, succes, erreur } from '@/shared/lib/alertes'
 import type { Matiere } from '@/features/pedagogie/api'
 import type { ApiError } from '@/shared/types/api'
@@ -138,6 +139,10 @@ export function MatieresPage() {
       erreur((err as ApiError).message)
     }
   }
+
+  const triMatieres = triEcoleSousSystemeNiveauClasse<Matiere>({
+    ecole: (m) => m.school?.name,
+  })
 
   const colonnes: Colonne<Matiere>[] = [
     {
@@ -322,6 +327,7 @@ export function MatieresPage() {
           cleLigne={(m) => m.id}
           placeholderRecherche={t('matieres.search_placeholder')}
           messageVide={t('matieres.empty')}
+          triDefaut={triMatieres}
           outils={schools.length > 1 ? (
             <div className="w-full sm:w-56">
               <Select

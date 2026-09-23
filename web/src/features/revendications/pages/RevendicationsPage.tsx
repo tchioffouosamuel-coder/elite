@@ -21,6 +21,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUT_TONE: Record<StatutRevendication, 'gold' | 'blue' | 'green' | 'red'> = {
@@ -46,6 +47,10 @@ export function RevendicationsPage() {
   })
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['revendications'] })
+
+  const triRevendications = triEcoleSousSystemeNiveauClasse<Revendication>({
+    classe: (r) => r.eleve.classe,
+  })
 
   const colonnes: Colonne<Revendication>[] = [
     {
@@ -167,6 +172,7 @@ export function RevendicationsPage() {
           placeholderRecherche={t('revendications.search_placeholder')}
           messageVide={t('revendications.empty')}
           largeurMin={860}
+          triDefaut={triRevendications}
         />
       )}
 

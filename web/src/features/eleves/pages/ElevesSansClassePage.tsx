@@ -22,6 +22,7 @@ import { Select } from '@/shared/ui/Select'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { useAuthStore } from '@/shared/store/authStore'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { telechargerFichier } from '@/shared/lib/download'
 import type { ApiError } from '@/shared/types/api'
 
@@ -179,6 +180,10 @@ export function ElevesSansClassePage() {
     })
 
     const elevesSansClasse = (data?.items ?? []).filter((eleve) => eleve.classe === null)
+
+    const triEleves = triEcoleSousSystemeNiveauClasse<Eleve>({
+        ecole: (eleve) => eleve.school?.name,
+    })
 
     const invalidate = () => {
         queryClient.invalidateQueries({ queryKey: ['eleves', 'sans-classe'] })
@@ -347,6 +352,7 @@ export function ElevesSansClassePage() {
                     onLigneClick={(eleve) => navigate(`/eleves/${eleve.id}`)}
                     placeholderRecherche="Rechercher un élève…"
                     messageVide="Aucun élève ne correspond à cette recherche."
+                    triDefaut={triEleves}
                     largeurMin={760}
                 />
             )}

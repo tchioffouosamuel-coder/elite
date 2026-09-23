@@ -13,6 +13,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { Input } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /** Classes rattachées à un niveau d'enseignement du primaire (SIL, CP, CE1…). */
@@ -38,6 +39,13 @@ export function NiveauScolaireDetailPage() {
 
   const niveau = niveaux?.find((n) => n.id === niveauId)
   const classesDuNiveau = (classes ?? []).filter((c) => c.niveau_scolaire_id === niveauId)
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<Classe>({
+    ecole: (c) => c.school?.name,
+    sousSysteme: (c) => c.sous_systeme?.nom,
+    niveau: (c) => c.niveau?.name_fr,
+    classe: (c) => c.nom,
+  })
 
   const ouvrirAffectation = () => {
     setClassesSelectionnees(new Set(classesDuNiveau.map((c) => c.id)))
@@ -138,6 +146,7 @@ export function NiveauScolaireDetailPage() {
         placeholderRecherche={t('classes.search_placeholder')}
         messageVide={t('niveaux.empty_classes')}
         largeurMin={640}
+        triDefaut={triClasses}
       />
 
       {affectationOuverte && (

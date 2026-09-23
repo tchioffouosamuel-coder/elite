@@ -6,6 +6,7 @@ import { fetchClasses } from '@/features/classes/api'
 import { fetchEleves } from '@/features/eleves/api'
 import { Button } from '@/shared/ui/Button'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
 interface ResumeClasse {
   id: number
@@ -13,6 +14,9 @@ interface ResumeClasse {
   effectif: number
   photos: number
   pourcentage: number
+  ecole?: string
+  sousSysteme?: string
+  niveau?: string
 }
 
 /**
@@ -43,7 +47,17 @@ export function IdentificationPage() {
       effectif,
       photos,
       pourcentage: effectif > 0 ? Math.min(100, Math.round((photos / effectif) * 100)) : 0,
+      ecole: classe.school?.name,
+      sousSysteme: classe.sous_systeme?.nom,
+      niveau: classe.niveau?.name_fr,
     }
+  })
+
+  const triResumesClasses = triEcoleSousSystemeNiveauClasse<ResumeClasse>({
+    ecole: (r) => r.ecole,
+    sousSysteme: (r) => r.sousSysteme,
+    niveau: (r) => r.niveau,
+    classe: (r) => r.nom,
   })
 
   const colonnes: Colonne<ResumeClasse>[] = [
@@ -114,6 +128,7 @@ export function IdentificationPage() {
         placeholderRecherche={t('identification.search_classes_placeholder')}
         messageVide={t('identification.empty_classes')}
         largeurMin={760}
+        triDefaut={triResumesClasses}
       />
     </div>
   )

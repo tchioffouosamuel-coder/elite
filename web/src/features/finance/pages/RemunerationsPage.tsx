@@ -16,6 +16,7 @@ import { HistoriqueRemunerationModal } from '@/features/finance/pages/Historique
 import { CopierRemunerationModal } from '@/features/finance/pages/CopierRemunerationModal'
 import { telechargerFichier } from '@/shared/lib/download'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -92,6 +93,10 @@ export function RemunerationsPage() {
       setSelectedIds(new Set(personnels.map((p) => p.id)))
     }
   }
+
+  const triRemunerations = triEcoleSousSystemeNiveauClasse<LigneRemuneration>({
+    ecole: (p) => p.school?.name,
+  })
 
   const colonnes: Colonne<LigneRemuneration>[] = [
     ...(can('finance.paie')
@@ -333,6 +338,7 @@ export function RemunerationsPage() {
             placeholderRecherche={t('finance.search_remuneration')}
             messageVide={t('finance.empty_remuneration')}
             largeurMin={600}
+            triDefaut={triRemunerations}
           />
         </>
       )}

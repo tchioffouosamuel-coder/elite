@@ -9,6 +9,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { ClasseQrModal } from '@/features/classes/pages/ClasseQrModal'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
 /**
  * Un code QR par classe, à imprimer et afficher au mur de la salle : scanné
@@ -22,6 +23,13 @@ export function QrCodesPage() {
   const [classeQr, setClasseQr] = useState<Classe | null>(null)
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+
+  const triClasses = triEcoleSousSystemeNiveauClasse<Classe>({
+    ecole: (c) => c.school?.name,
+    sousSysteme: (c) => c.sous_systeme?.nom,
+    niveau: (c) => c.niveau?.name_fr,
+    classe: (c) => c.nom,
+  })
 
   const colonnes: Colonne<Classe>[] = [
     {
@@ -78,6 +86,7 @@ export function QrCodesPage() {
           cleLigne={(c) => c.id}
           placeholderRecherche={t('classes.search_placeholder')}
           messageVide={t('classes.empty')}
+          triDefaut={triClasses}
         />
       )}
 

@@ -23,6 +23,7 @@ import { EmojiPickerButton } from '@/shared/ui/EmojiPicker'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmer, confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
+import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import type { ApiError } from '@/shared/types/api'
 
 /**
@@ -84,6 +85,10 @@ export function AppreciationsPage() {
       erreur((err as ApiError).message)
     }
   }
+
+  const triAppreciations = triEcoleSousSystemeNiveauClasse<Appreciation>({
+    ecole: (a) => a.school?.name,
+  })
 
   const colonnes: Colonne<Appreciation>[] = [
     ...(can('pedagogie.manage')
@@ -246,6 +251,7 @@ export function AppreciationsPage() {
           placeholderRecherche={t('appreciations.recherche')}
           messageVide={t('appreciations.aucun_niveau')}
           largeurMin={720}
+          triDefaut={triAppreciations}
           outils={can('pedagogie.manage') && selectedIds.size > 0 ? (
             <Button variant="danger" onClick={supprimerSelection}>
               <Trash2 className="h-4 w-4" />
