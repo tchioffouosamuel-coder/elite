@@ -70,6 +70,13 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 
 WORKDIR /var/www/html
 
+# Cache Laravel sur le disque du conteneur plutôt qu'en base (défaut
+# `database` de config/cache.php) : le cache des privilèges spatie est relu à
+# chaque requête authentifiée, et le lire depuis MySQL ajoutait un aller-retour
+# réseau vers la base à chacune. Un seul conteneur, donc aucun partage de
+# cache à préserver. Une variable CACHE_STORE définie sur Render l'emporte.
+ENV CACHE_STORE=file
+
 COPY --from=vendor /app /var/www/html
 
 # Apache : document root sur public/, AllowOverride pour le .htaccess Laravel

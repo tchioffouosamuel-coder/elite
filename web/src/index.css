@@ -77,6 +77,35 @@ body {
   min-height: 100svh;
 }
 
+/*
+ * Client desktop (fenêtre sans cadre) : la barre de titre globale occupe les
+ * 2.25rem du haut (cf. DesktopTitleBar). #root devient la zone défilante en
+ * dessous, et les écrans pleine hauteur sont raccourcis d'autant — sans quoi
+ * chaque page déborderait de la hauteur de la barre.
+ */
+html.desktop-shell #root {
+  position: fixed;
+  inset: 2.25rem 0 0 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+html.desktop-shell .h-svh,
+html.desktop-shell .h-screen {
+  height: calc(100svh - 2.25rem);
+}
+
+html.desktop-shell .min-h-svh,
+html.desktop-shell .min-h-screen {
+  min-height: calc(100svh - 2.25rem);
+}
+
+@media (min-width: 40rem) {
+  html.desktop-shell .sm\:min-h-svh {
+    min-height: calc(100svh - 2.25rem);
+  }
+}
+
 ::selection {
   background: var(--color-gold-100);
 }

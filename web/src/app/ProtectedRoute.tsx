@@ -1,7 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
 import { fetchMe } from '@/features/auth/api'
+
+/** Dernier jeton dont le profil a été resynchronisé (cf. ProtectedRoute). */
+let jetonDejaRafraichi: string | null = null
 
 /**
  * Destination de repli d'un compte : le portail parent pour un rôle
@@ -95,14 +98,16 @@ export function ProtectedRoute({
   animateurNiveauOnly?: boolean
 }) {
   const { token, user, can, aAttribution, activeSchool, refreshUser } = useAuthStore()
-  const dejaRafraichi = useRef(false)
 
   // Le profil vient du stockage local et peut dater d'une version antérieure de
   // l'API (permissions ou établissements accessibles modifiés depuis). On le
-  // resynchronise une fois au montage plutôt que de faire confiance au cache.
+  // resynchronise une fois par jeton et par chargement de l'application — pas
+  // à chaque montage : chaque route enveloppe sa page dans son propre
+  // ProtectedRoute, et un simple `useRef` relançait donc `/auth/me` (une
+  // quinzaine de requêtes SQL côté API) à chaque changement de page.
   useEffect(() => {
-    if (!token || dejaRafraichi.current) return
-    dejaRafraichi.current = true
+    if (!token || jetonDejaRafraichi === token) return
+    jetonDejaRafraichi = token
 
     fetchMe()
       .then(refreshUser)
