@@ -187,6 +187,10 @@ class CompteController extends Controller
         $ecoles = collect($data['school_ids'] ?? [])->reject(fn($id) => $id === $compte->school_id)->values();
 
         $compte->schools()->sync($ecoles);
+        // Le pivot ne touche pas `users.updated_at` : sans ceci, la
+        // synchronisation desktop (delta sur `updated_at`) ne verrait jamais
+        // le changement (cf. RegistreSync, entité `utilisateurs`).
+        $compte->touch();
 
         ActivityLog::enregistrer(
             $request->user(),
@@ -220,6 +224,10 @@ class CompteController extends Controller
             $message = "Le rôle super administrateur a été retiré du compte de {$compte->name}.";
             $action = 'retrait_role_super_admin';
         }
+
+        // Même raison que dans attribuerEcoles() : un rôle ne touche pas
+        // `users.updated_at`, que suit la synchronisation desktop.
+        $compte->touch();
 
         ActivityLog::enregistrer($request->user(), $action, $message, $compte);
 

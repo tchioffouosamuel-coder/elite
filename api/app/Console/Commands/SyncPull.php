@@ -258,7 +258,7 @@ class SyncPull extends Command
      */
     private function tirerLot(DesktopProvisioning $provisioning, DesktopProvisioningEcole $ecoleProvisioning, array $lot, ?string $curseurDepart): array
     {
-        $modeles = collect($lot)->mapWithKeys(fn(string $cle) => [$cle => RegistreSync::entites()[$cle]['modele']]);
+        $definitions = collect($lot)->mapWithKeys(fn(string $cle) => [$cle => RegistreSync::entites()[$cle]]);
         $complet = false;
         $curseur = $curseurDepart;
         $dernierCurseurRecu = null;
@@ -269,7 +269,7 @@ class SyncPull extends Command
         while (! $complet) {
             $payload = $this->executerRequete($provisioning, $ecoleProvisioning->school_id, $lot, $curseur);
 
-            foreach ($modeles as $cle => $modele) {
+            foreach ($definitions as $cle => $definition) {
                 foreach ((array) ($payload['donnees'][$cle] ?? []) as $ligne) {
                     // Une ligne isolée qui viole une contrainte (ex. deux
                     // comptes comptables distincts partageant le même code,
@@ -278,7 +278,7 @@ class SyncPull extends Command
                     // milliers de lignes saines à côté d'une poignée déjà en
                     // défaut ailleurs.
                     try {
-                        if ($this->appliquerLigne($modele, $ligne)) {
+                        if ($this->appliquerLigne($definition, $ligne)) {
                             $this->mettreFichiersEnFileAttente($provisioning, $ligne);
                         }
                         $totalLignes++;
@@ -305,7 +305,7 @@ class SyncPull extends Command
 
             foreach ((array) ($payload['suppressions'] ?? []) as $suppression) {
                 if (in_array($suppression['entite'] ?? null, $lot, true)) {
-                    $modeles[$suppression['entite']]::query()->whereKey($suppression['id'])->delete();
+                    $definitions[$suppression['entite']]['modele']::query()->whereKey($suppression['id'])->delete();
                     $totalSuppressions++;
                 }
             }
@@ -403,11 +403,13 @@ class SyncPull extends Command
      *              faux si elle a été ignorée (conflit : la version locale
      *              est plus récente, pas encore poussée).
      */
-    private function appliquerLigne(string $modele, array $ligne): bool
+    private function appliquerLigne(array $definition, array $ligne): bool
     {
         if (! isset($ligne['id'])) {
             return false;
         }
+
+        $modele = $definition['modele'];
 
         $existante = $modele::query()->find($ligne['id']);
 
@@ -429,7 +431,10 @@ class SyncPull extends Command
         // colonne.
         $instance = $existante ?? new $modele();
         $instance->id = $ligne['id'];
-        $instance->fill(collect($ligne)->except(['id', 'updated_at'])->all());
+        // Seules les colonnes déclarées : les `extras` d'une entité (rôles
+        // et écoles d'un compte, cf. RegistreSync) ne sont pas des colonnes
+        // de sa table et sont appliqués après la sauvegarde.
+        $instance->fill(collect($ligne)->only($definition['colonnes'])->except(['id', 'updated_at'])->all());
 
         // `$instance->timestamps = false` : sans ça, Eloquent réécrit
         // `updated_at` à l'heure de CETTE sauvegarde locale à chaque appel —
@@ -464,7 +469,14 @@ class SyncPull extends Command
         if ($existante === null) {
             $instance->created_at = $instance->updated_at ?? now();
         }
+        if (isset($definition['avant_sauvegarde'])) {
+            ($definition['avant_sauvegarde'])($instance, $existante === null);
+        }
         $instance->save();
+
+        if (isset($definition['apres_sauvegarde'])) {
+            ($definition['apres_sauvegarde'])($instance, $ligne);
+        }
 
         return true;
     }

@@ -54,7 +54,7 @@ class SyncController extends Controller
         $comptages = [];
 
         foreach ($definitions as $cle => $definition) {
-            if ($definition['permission'] !== null && ! $user->can($definition['permission'])) {
+            if (! RegistreSync::autorise($definition, $user)) {
                 continue;
             }
 
@@ -96,7 +96,7 @@ class SyncController extends Controller
 
             // Le périmètre suit les privilèges : un enseignant qui n'a pas
             // `personnel.view` ne télécharge pas le fichier du personnel.
-            if ($definition['permission'] !== null && ! $user->can($definition['permission'])) {
+            if (! RegistreSync::autorise($definition, $user)) {
                 continue;
             }
 
@@ -111,7 +111,10 @@ class SyncController extends Controller
                 // sur lui que le client desktop (SyncPull) arbitre un conflit
                 // avec une ligne locale pas encore poussée (le plus récent
                 // gagne). Le mobile, qui l'ignorait déjà, n'est pas affecté.
-                $donnees[$cle] = $lignes->map(fn ($ligne) => $this->projeter($ligne, $definition['colonnes']))->all();
+                $donnees[$cle] = $lignes->map(fn ($ligne) => [
+                    ...$this->projeter($ligne, $definition['colonnes']),
+                    ...(isset($definition['extras']) ? ($definition['extras'])($ligne) : []),
+                ])->all();
             }
         }
 
@@ -320,7 +323,7 @@ class SyncController extends Controller
     /**
      * Un lot d'une entité, et la borne à retenir si le lot a été tronqué.
      *
-     * @param  array{modele: class-string, colonnes: list<string>, portee: callable, permission: ?string}  $definition
+     * @param  array{modele: class-string, colonnes: list<string>, portee: callable, permission: ?string, relations?: list<string>}  $definition
      * @return array{0: Collection, 1: ?Carbon}
      */
     private function lot(array $definition, int $schoolId, ?Carbon $depuis): array
@@ -331,6 +334,7 @@ class SyncController extends Controller
         $construire = function () use ($definition, $schoolId, $depuis) {
             $requete = $definition['modele']::query()
                 ->select(array_values(array_unique([...$definition['colonnes'], 'updated_at'])))
+                ->with($definition['relations'] ?? [])
                 ->orderBy('updated_at')
                 ->orderBy('id');
 
