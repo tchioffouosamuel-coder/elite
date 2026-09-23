@@ -103,3 +103,5 @@ EXPOSE 8080
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+FROM app AS runtime
