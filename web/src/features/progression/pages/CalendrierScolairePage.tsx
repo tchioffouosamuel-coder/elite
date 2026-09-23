@@ -123,7 +123,7 @@ export function CalendrierScolairePage() {
             queryClient.invalidateQueries({ queryKey: ['progression-classe'] })
             queryClient.invalidateQueries({ queryKey: ['calendrier-scolaire-jour'] })
         },
-        onError: (error) => alerteErreur((error as ApiError).message),
+        onError: (error) => alerteErreur((error as unknown as ApiError).message),
     })
 
     const enregistrer = async () => {

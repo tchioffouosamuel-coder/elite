@@ -30,6 +30,7 @@ use App\Models\DemandeAvanceSalaire;
 use App\Models\Departement;
 use App\Models\Depense;
 use App\Models\DetteAnterieure;
+use App\Models\DesktopProvisioning;
 use App\Models\DocumentReference;
 use App\Models\DossierFraisAnnexe;
 use App\Models\DossierScolarite;
@@ -84,6 +85,9 @@ use App\Models\VisiteAutorite;
 use App\Models\VisiteInfirmerie;
 use App\Models\VisiteInfirmerieMateriel;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * Catalogue des entités que le mobile réplique dans sa base locale.
@@ -112,7 +116,12 @@ class RegistreSync
      *     modele: class-string,
      *     colonnes: list<string>,
      *     portee: callable(Builder, int): Builder,
-     *     permission: ?string
+     *     permission: ?string,
+     *     reserve_super_admin?: bool,
+     *     relations?: list<string>,
+     *     extras?: callable(\Illuminate\Database\Eloquent\Model): array<string, mixed>,
+     *     avant_sauvegarde?: callable(\Illuminate\Database\Eloquent\Model, bool): void,
+     *     apres_sauvegarde?: callable(\Illuminate\Database\Eloquent\Model, array<string, mixed>): void
      * }>
      */
     public static function entites(?User $user = null): array
@@ -324,7 +333,10 @@ class RegistreSync
                 // afficher « qui enseigne quoi ». Le dossier RH complet (CNI,
                 // CNPS, salaire, situation matrimoniale) n'a rien à faire
                 // répliqué sur le téléphone de chaque enseignant.
-                'colonnes' => ['id', 'school_id', 'departement_id', 'fonction_id', 'matricule', 'nom_complet', 'civilite', 'sexe', 'telephone', 'email', 'statut', 'photo_path'],
+                // `user_id` : rattache la fiche à son compte, sans quoi l'écran
+                // « Comptes utilisateurs » du poste desktop ne reconnaît aucun
+                // compte du personnel (type, matricule, fonction).
+                'colonnes' => ['id', 'school_id', 'user_id', 'departement_id', 'fonction_id', 'matricule', 'nom_complet', 'civilite', 'sexe', 'telephone', 'email', 'statut', 'photo_path'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
             ],
@@ -344,10 +356,64 @@ class RegistreSync
                 'permission' => 'personnel.view',
             ],
 
-            // --- Tuteurs (comptes parents). Le compte `User` du portail
-            // parent lui-même n'entre pas dans le registre : un poste
-            // desktop mono-utilisateur n'a aucune raison de répliquer les
-            // identifiants de connexion de chaque tuteur.
+            // --- Comptes utilisateurs, pour l'écran « Comptes utilisateurs »
+            // du super administrateur (même périmètre que
+            // `CompteController::comptesAccessibles()`). Jamais les
+            // identifiants : ni mot de passe, ni jeton, ni OTP — une copie
+            // locale ne sert qu'à l'affichage, la connexion locale passant
+            // par `desktop_provisioning` (cf. DesktopProvisioningController).
+            'utilisateurs' => [
+                'modele' => User::class,
+                'colonnes' => ['id', 'school_id', 'niveau_id', 'name', 'email', 'phone', 'locale', 'is_active', 'doit_changer_mot_de_passe'],
+                'portee' => fn(Builder $q, int $s) => $q->where(fn(Builder $w) => $w
+                    ->where('school_id', $s)
+                    ->orWhereHas('schools', fn(Builder $e) => $e->where('schools.id', $s))
+                    ->orWhereHas('roles', fn(Builder $r) => $r->where('name', 'super_admin'))),
+                'permission' => null,
+                'reserve_super_admin' => true,
+                'relations' => ['roles:id,name', 'schools:id'],
+                // Rôles et écoles supplémentaires ne sont pas des colonnes de
+                // `users` : ajoutés à la ligne, puis réappliqués par
+                // `sync:pull` (cf. `apres_sauvegarde`).
+                'extras' => fn(User $u) => [
+                    'roles' => $u->roles->pluck('name')->values()->all(),
+                    'ecoles' => $u->schools->pluck('id')->values()->all(),
+                ],
+                'avant_sauvegarde' => function (User $u, bool $nouveau): void {
+                    if ($nouveau) {
+                        // Colonne obligatoire, jamais répliquée : un compte
+                        // sans provisioning ne peut de toute façon pas
+                        // ouvrir de session sur ce poste.
+                        $u->password = Hash::make(Str::random(40));
+                    }
+
+                    // Le compte lié à ce poste garde l'état posé au
+                    // provisioning : un renouvellement exigé côté serveur
+                    // bloquerait sinon toute la session locale (423).
+                    if (DesktopProvisioning::pourUtilisateur($u->id) !== null) {
+                        $u->doit_changer_mot_de_passe = false;
+                    }
+                },
+                'apres_sauvegarde' => function (User $u, array $ligne): void {
+                    $u->schools()->sync($ligne['ecoles'] ?? []);
+
+                    // Rôles et privilèges du compte lié à ce poste : posés au
+                    // provisioning (privilèges effectifs, fonction comprise),
+                    // dont dépendent toutes les vérifications locales — ne
+                    // jamais les écraser par les seuls rôles du serveur.
+                    if (DesktopProvisioning::pourUtilisateur($u->id) !== null) {
+                        return;
+                    }
+
+                    foreach ($ligne['roles'] ?? [] as $role) {
+                        Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
+                    }
+                    $u->syncRoles($ligne['roles'] ?? []);
+                },
+            ],
+
+            // --- Tuteurs (comptes parents). Leur compte `User` est répliqué
+            // ci-dessus pour le seul super administrateur ; ici, la fiche.
             'tuteurs' => [
                 'modele' => Tuteur::class,
                 'colonnes' => ['id', 'school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'lieu_service', 'adresse'],
@@ -769,6 +835,21 @@ class RegistreSync
         ];
     }
 
+    /**
+     * Le compte a-t-il droit à cette entité ? Même règle pour le comptage et
+     * pour le tirage (cf. SyncController).
+     *
+     * @param  array{permission: ?string, reserve_super_admin?: bool}  $definition
+     */
+    public static function autorise(array $definition, User $user): bool
+    {
+        if (($definition['reserve_super_admin'] ?? false) && ! $user->estSuperAdmin()) {
+            return false;
+        }
+
+        return $definition['permission'] === null || $user->can($definition['permission']);
+    }
+
     /** @return list<string> */
     public static function cles(): array
     {
@@ -807,7 +888,7 @@ class RegistreSync
     {
         return match ($entite) {
             'annee_scolaires', 'niveaux', 'sous_systemes', 'departements', 'matieres', 'classes',
-            'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'tuteurs', 'seances',
+            'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'utilisateurs', 'tuteurs', 'seances',
             'annonces', 'notifications_internes', 'competences', 'appreciations',
             'grilles_frais', 'frais_annexes', 'dossiers_scolarite',
             'versements', 'moratoires', 'remises', 'dettes_anterieures',

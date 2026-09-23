@@ -422,6 +422,8 @@ export interface FeuilleJournee {
     statut: string;
     observations: string | null;
     donnees_personnalisees: Record<string, string | number | boolean>;
+    /** Déclaration verrouillée (cf. `SeanceController`, `appelVerrouillePour`). */
+    verrouille?: boolean;
   };
   lecons: {
     id: number;
