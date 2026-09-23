@@ -62,8 +62,6 @@ import {
   CalendarX,
   MessageSquare,
   Route as RouteIcon,
-  Minus,
-  Square,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import logoWordmark from '@/assets/logo-wordmark.png'
@@ -473,34 +471,6 @@ function normaliserRecherche(texte: string): string {
     .toLowerCase()
 }
 
-function DesktopTitleBar() {
-  if (!window.desktop) return null
-
-  return (
-    <div
-      className="flex h-9 flex-none select-none items-center border-b border-white/10 bg-[#140d1d] px-3 text-white"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      onDoubleClick={() => window.desktop?.toggleMaximizeWindow()}
-    >
-      <div className="flex min-w-0 items-center gap-2 text-xs font-semibold tracking-wide text-white/80">
-        <img src={logoMark} alt="" className="h-5 w-5 rounded-md object-contain" />
-        <span className="truncate">Elites School</span>
-      </div>
-      <div className="ml-auto flex h-full items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <button type="button" onClick={() => window.desktop?.minimizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Réduire">
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" onClick={() => window.desktop?.toggleMaximizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Agrandir">
-          <Square className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={() => window.desktop?.closeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-red-500 hover:text-white" aria-label="Fermer">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -664,7 +634,6 @@ export function AppLayout() {
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-cream-50">
-      <DesktopTitleBar />
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {menuOuvert && (
           <div
