@@ -16,7 +16,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
-import { Spinner, EmptyState } from '@/shared/ui/Feedback'
+import { Spinner, EmptyState, ErrorState } from '@/shared/ui/Feedback'
 import { useAuthStore } from '@/shared/store/authStore'
 import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -255,7 +255,7 @@ export function JourneeEcolePage() {
   const [date, setDate] = useState(todayIso)
   const [coursOuvert, setCoursOuvert] = useState<CoursJourAdmin | null>(null)
 
-  const { data: cours, isLoading } = useQuery({
+  const { data: cours, isLoading, isError, error: erreurCours } = useQuery({
     queryKey: ['journee-ecole', date],
     queryFn: () => fetchJourneeEcole(date),
   })
@@ -313,6 +313,8 @@ export function JourneeEcolePage() {
 
       {isLoading ? (
         <Spinner />
+      ) : isError ? (
+        <ErrorState message={(erreurCours as ApiError)?.message} />
       ) : !cours || cours.length === 0 ? (
         <EmptyState label="Aucun cours prévu à l'emploi du temps pour cette date." />
       ) : (

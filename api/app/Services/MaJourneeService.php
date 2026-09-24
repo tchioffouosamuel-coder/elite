@@ -12,7 +12,9 @@ use App\Models\Trimestre;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * Journée de l'enseignant : ce qu'il a enseigné et qui était là.
@@ -159,34 +161,54 @@ class MaJourneeService extends BaseService
         $maintenant = Carbon::now()->format('H:i:s');
 
         return $creneaux
-            ->map(function (EmploiDuTemps $creneau) use ($seances, $estAujourdhui, $maintenant) {
-                $classeMatiere = $creneau->classeMatiere;
-                $classe = $creneau->classe;
-                $seance = $seances->get($creneau->classe_matiere_id);
-                $enseignant = $classeMatiere?->enseignant ?? $classe?->titulaire;
+            ->map(function (EmploiDuTemps $creneau) use ($schoolId, $date, $seances, $estAujourdhui, $maintenant) {
+                // Un seul créneau mal formé (donnée orpheline, relation
+                // inattendue) ne doit pas faire échouer toute la vue
+                // transverse de la direction — on l'écarte et on garde une
+                // trace exploitable plutôt que de laisser planter la requête.
+                try {
+                    $classeMatiere = $creneau->classeMatiere;
+                    $classe = $creneau->classe;
+                    $seance = $seances->get($creneau->classe_matiere_id);
+                    $enseignant = $classeMatiere?->enseignant ?? $classe?->titulaire;
 
-                // Sans séance déclarée, le cours reste « prévu » jusqu'à son
-                // heure de fin passée, au-delà de laquelle il est en retard —
-                // uniquement pertinent pour aujourd'hui, une date passée sans
-                // séance étant simplement restée non couverte.
-                $enRetard = $estAujourdhui && ! $seance && $maintenant > (string) $creneau->heure_fin;
+                    // Sans séance déclarée, le cours reste « prévu » jusqu'à
+                    // son heure de fin passée, au-delà de laquelle il est en
+                    // retard — uniquement pertinent pour aujourd'hui, une
+                    // date passée sans séance étant simplement restée non
+                    // couverte.
+                    $enRetard = $estAujourdhui && ! $seance && $maintenant > (string) $creneau->heure_fin;
 
-                return [
-                    'classe_matiere_id' => $creneau->classe_matiere_id,
-                    'classe_id' => $classe?->id,
-                    'classe' => $classe?->nom,
-                    'matiere' => $classeMatiere?->matiere?->nom,
-                    'enseignant' => $enseignant?->nom_complet,
-                    'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
-                    'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
-                    'salle' => $creneau->salle,
-                    'seance_id' => $seance?->id,
-                    'statut' => $seance?->statut ?? ($enRetard ? 'en_retard' : 'prevue'),
-                    'lecons_traitees' => $seance?->lecons_count ?? 0,
-                    'eleves_pointes' => $seance?->presences_count ?? 0,
-                    'verrouille' => $seance?->appelVerrouille() ?? false,
-                ];
+                    return [
+                        'classe_matiere_id' => $creneau->classe_matiere_id,
+                        'classe_id' => $classe?->id,
+                        'classe' => $classe?->nom,
+                        'matiere' => $classeMatiere?->matiere?->nom,
+                        'enseignant' => $enseignant?->nom_complet,
+                        'heure_debut' => substr((string) $creneau->heure_debut, 0, 5),
+                        'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
+                        'salle' => $creneau->salle,
+                        'seance_id' => $seance?->id,
+                        'statut' => $seance?->statut ?? ($enRetard ? 'en_retard' : 'prevue'),
+                        'lecons_traitees' => $seance?->lecons_count ?? 0,
+                        'eleves_pointes' => $seance?->presences_count ?? 0,
+                        'verrouille' => $seance?->appelVerrouille() ?? false,
+                    ];
+                } catch (Throwable $e) {
+                    Log::error('ma-journee.ecole : créneau ignoré après erreur', [
+                        'school_id' => $schoolId,
+                        'date' => $date,
+                        'emploi_du_temps_id' => $creneau->id,
+                        'classe_matiere_id' => $creneau->classe_matiere_id,
+                        'exception' => $e::class,
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile().':'.$e->getLine(),
+                    ]);
+
+                    return null;
+                }
             })
+            ->filter()
             ->sortBy('heure_debut')
             ->values();
     }
