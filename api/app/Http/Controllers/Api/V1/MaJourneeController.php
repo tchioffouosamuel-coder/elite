@@ -33,45 +33,45 @@ class MaJourneeController extends Controller
         // `date()` plante sur une valeur non scalaire (ex. `date[]=...`) au lieu
         // de la rejeter proprement : on valide nous-mêmes, comme `enregistrer()`
         // le fait déjà plus bas, pour ne renvoyer qu'un 422 dans ce cas.
-        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? null;
+        $date =$request->validate(['date' => ['nullable', 'date']])['date'] ?? null;
 
-        if ($date !== null && ! CarbonImmutable::parse($date)->isToday() && ! $request->user()->estPersonnelDirection()) {
+        if ($date !== null && ! CarbonImmutable::parse($date)->isToday() && !$request->user()->estPersonnelDirection()) {
             return ApiResponse::success([]);
         }
 
         return ApiResponse::success(
-            $this->service->mesAffectations($request->user(), app('tenant.school_id'), $date)
+            $this->service->mesAffectations($request->user(), app('tenant.school_id'),$date)
         );
     }
 
-    public function feuille(Request $request, int $classeMatiereId): JsonResponse
+    public function feuille(Request $request,$classeMatiereId): JsonResponse
     {
-        $classeMatiere = $this->affectation($request, $classeMatiereId);
+        $classeMatiere =$this->affectation($request, (int)$classeMatiereId);
 
         if ($classeMatiere instanceof JsonResponse) {
             return $classeMatiere;
         }
 
-        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
+        $date =$request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
 
         try {
-            $seance = $this->service->seanceDuJour($classeMatiere, $date);
+            $seance =$this->service->seanceDuJour($classeMatiere,$date);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
 
-        return ApiResponse::success($this->service->feuilleDuJour($classeMatiere, $seance, $request->user()));
+        return ApiResponse::success($this->service->feuilleDuJour($classeMatiere, $seance,$request->user()));
     }
 
-    public function enregistrer(Request $request, int $classeMatiereId): JsonResponse
+    public function enregistrer(Request $request,$classeMatiereId): JsonResponse
     {
-        $classeMatiere = $this->affectation($request, $classeMatiereId);
+        $classeMatiere =$this->affectation($request, (int)$classeMatiereId);
 
         if ($classeMatiere instanceof JsonResponse) {
             return $classeMatiere;
         }
 
-        $data = $request->validate([
+        $data =$request->validate([
             'date' => ['nullable', 'date'],
             'lecons' => ['present', 'array'],
             'lecons.*' => ['integer'],
@@ -92,9 +92,9 @@ class MaJourneeController extends Controller
             'code_salle' => ['nullable', 'string'],
         ]);
 
-        $preuveFournie = $classeMatiere->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
+        $preuveFournie =$classeMatiere->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
-        if ($request->user()->methodeValidationSeance($classeMatiere->classe) !== 'libre' && ! $preuveFournie) {
+        if ($request->user()->methodeValidationSeance($classeMatiere->classe) !== 'libre' && !$preuveFournie) {
             return ApiResponse::forbidden(
                 "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
             );
@@ -102,7 +102,7 @@ class MaJourneeController extends Controller
 
         $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
 
-        if ($request->user()->estEnseignant() && $date !== now()->format('Y-m-d')) {
+        if ($request->user()->estEnseignant() &&$date !== now()->format('Y-m-d')) {
             return ApiResponse::error(
                 "Vous ne pouvez déclarer que la journée en cours.",
                 403,
@@ -111,7 +111,7 @@ class MaJourneeController extends Controller
         }
 
         try {
-            $seance = $this->service->seanceDuJour($classeMatiere, $date);
+            $seance =$this->service->seanceDuJour($classeMatiere,$date);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
@@ -119,7 +119,7 @@ class MaJourneeController extends Controller
         // Un enseignant ne déclare que la journée en cours ; la direction, déjà
         // dispensée de la preuve de présence (cf. methodeValidationSeance()),
         // l'est aussi de cette contrainte pour pouvoir corriger une date antérieure.
-        if (! $seance->estAujourdhui() && ! $request->user()->estPersonnelDirection()) {
+        if (! $seance->estAujourdhui() && !$request->user()->estPersonnelDirection()) {
             return ApiResponse::error(
                 "Vous ne pouvez déclarer que la journée en cours. Contactez la direction pour une correction sur une autre date.",
                 403,
@@ -127,19 +127,15 @@ class MaJourneeController extends Controller
             );
         }
 
-        $resultat = $this->service->enregistrer(
-            $classeMatiere,
-            $seance,
-            $data['lecons'],
-            $data['appel'],
-            $request->user(),
-            $data['observations'] ?? null,
-            $data['donnees_personnalisees'] ?? [],
-            $preuveFournie,
+        $resultat =$this->service->enregistrer(
+            $classeMatiere,$seance,
+            $data['lecons'],$data['appel'],
+            $request->user(),$data['observations'] ?? null,
+            $data['donnees_personnalisees'] ?? [],$preuveFournie,
         );
 
         return ApiResponse::success(
-            [...$resultat, ...$this->service->feuilleDuJour($classeMatiere, $seance->refresh(), $request->user())],
+            [...$resultat, ...$this->service->feuilleDuJour($classeMatiere, $seance->refresh(),$request->user())],
             "Journée enregistrée : {$resultat['lecons']} leçon(s), {$resultat['eleves']} élève(s) pointé(s)."
         );
     }
@@ -149,18 +145,18 @@ class MaJourneeController extends Controller
      * de la marquer comme faite — mêmes champs que l'écran de progression
      * pédagogique, en lecture seule ici.
      */
-    public function lecon(Request $request, int $classeMatiereId, int $leconId): JsonResponse
+    public function lecon(Request $request, $classeMatiereId,$leconId): JsonResponse
     {
-        $classeMatiere = $this->affectation($request, $classeMatiereId);
+        $classeMatiere =$this->affectation($request, (int)$classeMatiereId);
 
         if ($classeMatiere instanceof JsonResponse) {
             return $classeMatiere;
         }
 
-        $lecon = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $lecon = ProgressionItem::where('classe_matiere_id',$classeMatiere->id)
             ->lecons()
             ->with('parent.parent', 'sequence')
-            ->find($leconId);
+            ->find((int) $leconId);
 
         if (! $lecon) {
             return ApiResponse::notFound("Cette leçon n'existe pas dans cette affectation.");
@@ -169,7 +165,7 @@ class MaJourneeController extends Controller
         return ApiResponse::success([
             'id' => $lecon->id,
             'titre' => $lecon->titre,
-            'chemin' => collect([$lecon->parent?->parent?->titre, $lecon->parent?->titre])
+            'chemin' => collect([$lecon->parent?->parent?->titre,$lecon->parent?->titre])
                 ->filter()->implode(' › '),
             'sequence' => $lecon->sequence?->libelle,
             'description' => $lecon->description,
@@ -189,9 +185,9 @@ class MaJourneeController extends Controller
      */
     public function ecole(Request $request): JsonResponse
     {
-        $date = $request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
+        $date =$request->validate(['date' => ['nullable', 'date']])['date'] ?? now()->format('Y-m-d');
 
-        return ApiResponse::success($this->service->coursDuJour(app('tenant.school_id'), $date));
+        return ApiResponse::success($this->service->coursDuJour(app('tenant.school_id'),$date));
     }
 
     /** Heures de cours prévues vs réalisées de l'enseignant connecté, depuis le début de l'année. */
@@ -203,16 +199,15 @@ class MaJourneeController extends Controller
     /** Heures prévues vs réalisées de l'enseignant connecté, pour le jour, la semaine, le mois et l'année en cours. */
     public function couverturePeriodes(Request $request): JsonResponse
     {
-        $personnelId = $request->user()->personnel?->id;
+        $personnelId =$request->user()->personnel?->id;
 
-        if ($personnelId === null) {
-            $vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_prevues' => 0, 'seances_realisees' => 0, 'seances_annulees' => 0, 'seances_en_retard' => 0];
+        if ($personnelId === null) {$vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_prevues' => 0, 'seances_realisees' => 0, 'seances_annulees' => 0, 'seances_en_retard' => 0];
 
             return ApiResponse::success(array_fill_keys(['jour', 'semaine', 'mois', 'annee'], $vide));
         }
 
         return ApiResponse::success(
-            $this->suiviActivite->resumePersonnel(app('tenant.school_id'), $personnelId, CarbonImmutable::now())
+            $this->suiviActivite->resumePersonnel(app('tenant.school_id'),$personnelId, CarbonImmutable::now())
         );
     }
 
@@ -220,9 +215,9 @@ class MaJourneeController extends Controller
      * Résout le cours en train de se tenir dans une salle, à partir du QR
      * code affiché au mur — c'est l'équivalent numérique du scan.
      */
-    public function resoudreQr(Request $request, string $token): JsonResponse
+    public function resoudreQr(Request $request, string$token): JsonResponse
     {
-        $classe = Classe::forSchool(app('tenant.school_id'))->where('qr_token', $token)->first();
+        $classe = Classe::forSchool(app('tenant.school_id'))->where('qr_token',$token)->first();
 
         if (! $classe) {
             return ApiResponse::notFound('Ce QR code ne correspond à aucune salle connue.');
@@ -234,7 +229,7 @@ class MaJourneeController extends Controller
             return ApiResponse::error("Aucun cours n'est prévu à cette heure dans {$classe->nom}.", 422);
         }
 
-        if (! $this->service->peutIntervenir($request->user(), $classeMatiere)) {
+        if (! $this->service->peutIntervenir($request->user(),$classeMatiere)) {
             return ApiResponse::forbidden("Ce cours n'est pas parmi vos affectations.");
         }
 
@@ -247,13 +242,13 @@ class MaJourneeController extends Controller
         ]);
     }
 
-    private function affectation(Request $request, int $id): ClasseMatiere|JsonResponse
+    private function affectation(Request $request, int$id): ClasseMatiere|JsonResponse
     {
         $classeMatiere = ClasseMatiere::forSchool(app('tenant.school_id'))
             ->with(['classe', 'matiere'])
             ->findOrFail($id);
 
-        if (! $this->service->peutIntervenir($request->user(), $classeMatiere)) {
+        if (! $this->service->peutIntervenir($request->user(),$classeMatiere)) {
             return ApiResponse::forbidden("Vous n'intervenez pas sur cette classe.");
         }
 
