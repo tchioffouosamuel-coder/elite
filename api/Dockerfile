@@ -94,6 +94,21 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# storage/ et bootstrap/cache/ ne contiennent que des sous-dossiers vides
+# (placeholders .gitignore) : selon la façon dont le contexte de build est
+# constitué (export/sync vers le dépôt de déploiement), ces dossiers vides
+# peuvent ne pas survivre — git ne suit pas les dossiers vides. On les recrée
+# explicitement pour ne jamais dépendre de ça.
+RUN mkdir -p \
+        /var/www/html/storage/app/private \
+        /var/www/html/storage/app/public \
+        /var/www/html/storage/framework/cache/data \
+        /var/www/html/storage/framework/sessions \
+        /var/www/html/storage/framework/testing \
+        /var/www/html/storage/framework/views \
+        /var/www/html/storage/logs \
+        /var/www/html/bootstrap/cache
+
 # storage/ et bootstrap/cache/ doivent rester inscriptibles par le compte qui
 # exécute PHP (www-data sous Apache).
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
