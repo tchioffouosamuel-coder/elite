@@ -90,7 +90,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*')) {
-                return ApiResponse::validationError($e->errors());
+                // Le `message` générique de Laravel ("The given data was
+                // invalid.") ne dit rien d'exploitable : la plupart des
+                // écrans n'affichent que ce champ (pas `errors`, qui reste
+                // dispo pour ceux qui l'exploitent champ par champ) — sans
+                // ça, l'utilisateur ne voit jamais la vraie raison du rejet.
+                $premiereErreur = collect($e->errors())->flatten()->first();
+
+                return ApiResponse::validationError($e->errors(), $premiereErreur ?? $e->getMessage());
             }
         });
 
@@ -114,25 +121,25 @@ return Application::configure(basePath: dirname(__DIR__))
 
         /*
          * Filet de sécurité : toute exception non prévue ci-dessus (une
-         * contrainte SQL non validée en amont, par exemple) ne doit jamais
-         * atteindre le client avec sa requête brute, ses valeurs liées et les
-         * identifiants de connexion à la base — cf. l'incident où un libellé
-         * d'année scolaire en doublon a renvoyé jusqu'à l'hôte et au port
-         * MySQL dans le message d'erreur affiché au guichet.
+         * contrainte SQL non validée en amont, par exemple).
          *
-         * `return null` en debug laisse Laravel afficher le détail complet
-         * (utile en local) ; ce renderer ne s'applique donc qu'en production,
-         * où `APP_DEBUG` est à `false`.
+         * Le message réel (+ classe de l'exception et fichier:ligne) est
+         * volontairement renvoyé à tout appelant, authentifié ou non, dans
+         * tous les environnements (avant, uniquement en production, le temps
+         * d'investiguer un bug — cf. l'incident où un libellé d'année
+         * scolaire en doublon avait fait fuiter l'hôte et le port MySQL
+         * jusqu'au message affiché au guichet : ce filet protège toujours
+         * contre la requête brute et les valeurs liées, seuls exposés avant
+         * lui). Personne n'a accès aux logs serveur pour ce projet — c'est le
+         * seul canal de diagnostic disponible, il reste donc actif en
+         * permanence plutôt que de retomber sur le rendu par défaut de
+         * Laravel en local.
          */
         $exceptions->render(function (\Throwable $e, Request $request) {
-            if (! $request->is('api/*') || config('app.debug')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            // DEBUG TEMPORAIRE : le message réel est renvoyé à tout appelant,
-            // authentifié ou non, le temps d'investiguer un bug en prod.
-            // À REVERT dès le débogage terminé — cf. l'incident décrit
-            // ci-dessus (fuite d'hôte/port MySQL) que ce filet protège.
             return ApiResponse::error($e->getMessage() ?: $e::class, 500, [
                 'exception' => $e::class,
                 'file' => $e->getFile().':'.$e->getLine(),
