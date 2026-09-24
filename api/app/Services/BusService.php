@@ -178,6 +178,11 @@ class BusService extends BaseService
             'lieu_dit' => $donnees['lieu_dit'] ?? null,
             'ordre' => $donnees['ordre'] ?? ($trajet->arrets()->max('ordre') + 1),
             'heure_passage' => $donnees['heure_passage'] ?? null,
+            // Un nouvel arrêt part de la grille du trajet, à ajuster ensuite
+            // arrêt par arrêt : c'est lui qui est facturé.
+            'tarif_aller_simple' => $donnees['tarif_aller_simple'] ?? $trajet->tarif_aller_simple,
+            'tarif_retour_simple' => $donnees['tarif_retour_simple'] ?? $trajet->tarif_retour_simple,
+            'tarif_aller_retour' => $donnees['tarif_aller_retour'] ?? $trajet->tarif_aller_retour,
         ]);
     }
 
@@ -279,6 +284,12 @@ class BusService extends BaseService
             $arret = array_key_exists('arret_nom', $donnees)
                 ? $this->trouverOuCreerArret($trajet, $donnees['arret_nom'])
                 : null;
+            $arret ??= isset($donnees['arret_id'])
+                ? $trajet->arrets()->find($donnees['arret_id'])
+                : null;
+            $tarif = $this->tarifSouscription($trajet, $arret, $option);
+            $remise = (int) ($donnees['remise'] ?? 0);
+            $this->verifierRemise($remise, $tarif);
 
             // Sans année précisée, celle qui compte est l'année active : c'est
             // elle que la caisse regarde pour savoir ce qu'un élève doit
@@ -290,12 +301,13 @@ class BusService extends BaseService
             $affectation = BusAffectation::create([
                 'eleve_id' => $eleve->id,
                 'trajet_id' => $trajet->id,
-                'arret_id' => $arret?->id ?? ($donnees['arret_id'] ?? null),
+                'arret_id' => $arret?->id,
                 'annee_scolaire_id' => $anneeScolaireId,
                 'option_trajet' => $option,
-                // Le tarif vient du trajet, jamais saisi à la main : il se fige
-                // ici pour ne plus bouger si le trajet change de prix ensuite.
-                'tarif_mensuel' => $trajet->tarifPour($option),
+                // Le tarif vient de l'arrêt, jamais saisi à la main : il se
+                // fige ici pour ne plus bouger si l'arrêt change de prix ensuite.
+                'tarif_mensuel' => $tarif,
+                'remise' => $remise,
                 'statut' => 'actif',
             ]);
 
@@ -388,7 +400,7 @@ class BusService extends BaseService
                 'arret_id' => $arret?->id,
                 'annee_scolaire_id' => $anneeScolaireId,
                 'option_trajet' => $optionTrajet,
-                'tarif_mensuel' => $tarifMensuel ?? $trajet->tarifPour($optionTrajet),
+                'tarif_mensuel' => $tarifMensuel ?? $this->tarifSouscription($trajet, $arret, $optionTrajet),
                 'statut' => 'actif',
             ]);
 
@@ -406,14 +418,43 @@ class BusService extends BaseService
             unset($donnees['arret_nom']);
         }
 
-        // Un changement d'option relit le tarif du trajet.
-        if (isset($donnees['option_trajet']) && $donnees['option_trajet'] !== $affectation->option_trajet) {
-            $donnees['tarif_mensuel'] = $affectation->trajet->tarifPour($donnees['option_trajet']);
+        // Un changement d'arrêt ou d'option relit le tarif : c'est l'arrêt
+        // qui est facturé, pour l'option choisie.
+        $option = $donnees['option_trajet'] ?? $affectation->option_trajet;
+        $arretActuel = $affectation->arret_id !== null ? (int) $affectation->arret_id : null;
+        $arretId = array_key_exists('arret_id', $donnees)
+            ? ($donnees['arret_id'] !== null ? (int) $donnees['arret_id'] : null)
+            : $arretActuel;
+        if ($option !== $affectation->option_trajet || $arretId !== $arretActuel) {
+            $arret = $arretId ? $affectation->trajet->arrets()->find($arretId) : null;
+            $donnees['tarif_mensuel'] = $this->tarifSouscription($affectation->trajet, $arret, $option);
         }
+
+        if (array_key_exists('remise', $donnees)) {
+            $donnees['remise'] = (int) ($donnees['remise'] ?? 0);
+        }
+        $this->verifierRemise(
+            $donnees['remise'] ?? (int) $affectation->remise,
+            $donnees['tarif_mensuel'] ?? $affectation->tarif_mensuel,
+        );
 
         $affectation->update($donnees);
 
         return $affectation->fresh(['eleve.classe', 'trajet', 'arret']);
+    }
+
+    /** L'arrêt est facturé ; le trajet ne l'est que pour une souscription sans arrêt. */
+    private function tarifSouscription(BusTrajet $trajet, ?BusArret $arret, string $option): ?int
+    {
+        return $arret ? $arret->tarifPour($option) : $trajet->tarifPour($option);
+    }
+
+    /** @throws RuntimeException si la remise mensuelle dépasse le tarif. */
+    private function verifierRemise(int $remise, ?int $tarif): void
+    {
+        if ($remise > (int) ($tarif ?? 0)) {
+            throw new RuntimeException('La remise ne peut pas dépasser le tarif mensuel.');
+        }
     }
 
     /**
@@ -509,7 +550,7 @@ class BusService extends BaseService
                 continue;
             }
 
-            $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+            $tarif = $affectation->tarif_net;
             $remiseMois = (int) $affectation->versements->sum('remise');
             $duMois = max(0, $tarif - $remiseMois);
 

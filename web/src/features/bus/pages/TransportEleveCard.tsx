@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Bus, MapPin, Clock } from 'lucide-react'
+import { Bus, MapPin, Clock, Wallet } from 'lucide-react'
 import { fetchElevesTransport } from '@/features/bus/api'
 import { francs } from '@/features/finance/api'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -39,8 +39,26 @@ export function TransportEleveCard({
   const ligne = eleves?.find((e) => e.id === eleveId)
   const bus = ligne?.bus ?? null
 
+  // Une souscription existante se modifie (même écran, prérempli) au lieu
+  // d'en créer une seconde, que l'API refuserait (élève déjà affecté).
   const souscrire = () =>
-    navigate(`/bus/souscription/${eleveId}`, retour ? { state: { retour } } : undefined)
+    bus && ligne
+      ? navigate('/bus/souscription', {
+        state: {
+          eleveIds: [eleveId],
+          eleveNoms: [ligne.nom_complet],
+          affectationId: bus.affectation_id,
+          affectationActuelle: {
+            trajet_id: bus.trajet.id,
+            arret_id: bus.arret?.id ?? null,
+            arret_nom: bus.arret?.nom ?? null,
+            option_trajet: bus.option_trajet,
+            remise: bus.remise,
+          },
+          retour,
+        },
+      })
+      : navigate(`/bus/souscription/${eleveId}`, retour ? { state: { retour } } : undefined)
 
   return (
     <Card>
@@ -51,6 +69,12 @@ export function TransportEleveCard({
         </h2>
         <div className="flex items-center gap-2">
           {bus && <Badge tone={bus.statut_paiement === 'solde' ? 'green' : 'gold'}>{t(`bus.statut_paiement_${bus.statut_paiement}`)}</Badge>}
+          {bus && (
+            <Button size="sm" onClick={() => navigate(`/bus/affectations/${bus.affectation_id}/paiements`)}>
+              <Wallet className="h-3.5 w-3.5" />
+              {t('bus.paiements')}
+            </Button>
+          )}
           {can('bus.souscrire') && (
             <Button size="sm" variant="secondary" onClick={souscrire}>
               <Bus className="h-3.5 w-3.5" />
@@ -90,8 +114,13 @@ export function TransportEleveCard({
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">{t('bus.tarif_mensuel')}</p>
             <p className="text-lg font-bold tabular-nums text-navy-900">
-              {bus.tarif_mensuel != null ? francs(bus.tarif_mensuel) : '—'}
+              {bus.tarif_mensuel != null ? francs(bus.tarif_net) : '—'}
             </p>
+            {bus.remise > 0 && bus.tarif_mensuel != null && (
+              <p className="text-xs text-navy-400">
+                {francs(bus.tarif_mensuel)} − {francs(bus.remise)} ({t('bus.remise_mensuelle').toLowerCase()})
+              </p>
+            )}
           </div>
         </div>
       )}

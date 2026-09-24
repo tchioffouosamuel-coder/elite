@@ -33,7 +33,11 @@ class BusTrajet extends Model
         return $query;
     }
 
-    /** Tarif du trajet pour l'option choisie — figé sur la souscription à sa création. */
+    /**
+     * Grille par défaut du trajet pour l'option choisie : reprise par chaque
+     * nouvel arrêt, et facturée seulement à une souscription sans arrêt
+     * (cf. `BusArret::tarifPour`, c'est l'arrêt qui est facturé).
+     */
     public function tarifPour(string $option): ?int
     {
         return match ($option) {

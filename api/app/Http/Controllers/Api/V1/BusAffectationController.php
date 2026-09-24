@@ -265,9 +265,14 @@ class BusAffectationController extends Controller
             'arret_nom' => ['nullable', 'string', 'max:150'],
             'statut' => ['nullable', 'in:actif,suspendu'],
             'option_trajet' => ['nullable', Rule::in(BusAffectation::OPTIONS_TRAJET)],
+            'remise' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $affectation = $this->service->modifierAffectation($affectation, $donnees);
+        try {
+            $affectation = $this->service->modifierAffectation($affectation, $donnees);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success($this->resumer($affectation), 'Affectation mise à jour.');
     }
@@ -298,7 +303,7 @@ class BusAffectationController extends Controller
 
     /**
      * Règles communes à la souscription individuelle et en lot — le tarif ne
-     * s'y trouve jamais : il vient du trajet, jamais d'une saisie.
+     * s'y trouve jamais : il vient de l'arrêt, jamais d'une saisie.
      */
     private function validerSouscription(Request $request): array
     {
@@ -317,6 +322,9 @@ class BusAffectationController extends Controller
             'arret_nom' => ['nullable', 'string', 'max:150'],
             'annee_scolaire_id' => ['nullable', 'integer', Rule::exists('annee_scolaires', 'id')->whereIn('school_id', Tenant::schoolIds())],
             'option_trajet' => ['required', Rule::in(BusAffectation::OPTIONS_TRAJET)],
+            // Remise mensuelle accordée à la souscription, déduite du tarif de
+            // l'arrêt chaque mois (cf. BusAffectation::tarif_net).
+            'remise' => ['nullable', 'integer', 'min:0'],
         ]);
     }
 
@@ -329,6 +337,8 @@ class BusAffectationController extends Controller
             'id' => $affectation->id,
             'statut' => $affectation->statut,
             'tarif_mensuel' => $affectation->tarif_mensuel,
+            'remise' => $affectation->remise,
+            'tarif_net' => $affectation->tarif_net,
             'statut_paiement' => $affectation->statut_paiement,
             'option_trajet' => $affectation->option_trajet,
             'eleve' => [
@@ -381,6 +391,8 @@ class BusAffectationController extends Controller
                 ] : null,
                 'option_trajet' => $affectation->option_trajet,
                 'tarif_mensuel' => $affectation->tarif_mensuel,
+                'remise' => $affectation->remise,
+                'tarif_net' => $affectation->tarif_net,
                 'statut_paiement' => $affectation->statut_paiement,
             ] : null,
             'moratoire' => $eleve->moratoire_valide ? [

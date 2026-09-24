@@ -120,7 +120,7 @@ class DossierScolarite extends Model
      */
     public function getMontantBusAttribute(): int
     {
-        return (int) ($this->bus_actif?->tarif_mensuel ?? 0);
+        return (int) ($this->bus_actif?->tarif_net ?? 0);
     }
 
     /** Tout ce que la famille doit sur l'année pour la scolarité, reliquat de l'an dernier compris — le bus se règle à part, au mois. */

@@ -10,14 +10,14 @@ import {
   souscrireEleve,
   souscrireLot,
   modifierAffectation,
-  tarifPourOption,
+  tarifSouscription,
   type OptionTrajet,
 } from '@/features/bus/api'
 import { fetchEleves, type Eleve } from '@/features/eleves/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, MontantInput, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -27,16 +27,24 @@ interface EtatNavigation {
   eleveNoms: string[]
   /** Modification d'une souscription existante plutôt qu'une nouvelle. */
   affectationId?: number
-  affectationActuelle?: { trajet_id: number; arret_id: number | null; arret_nom?: string | null; option_trajet: OptionTrajet }
+  affectationActuelle?: { trajet_id: number; arret_id: number | null; arret_nom?: string | null; option_trajet: OptionTrajet; remise?: number }
   /** Trajet déjà choisi si on arrive depuis la fiche d'un trajet précis. */
   trajetId?: number
   retour?: string
 }
 
+interface ValeursSouscription {
+  trajet_id: number
+  arret_nom?: string
+  option_trajet: OptionTrajet
+  remise: number
+}
+
 /**
  * Souscription au bus : un seul écran pour un élève ou pour un lot (fratrie,
- * classe entière) — le tarif ne s'y saisit jamais, il se lit sur le trajet
- * dès que l'option est choisie.
+ * classe entière) — le tarif ne s'y saisit jamais, il se lit sur l'arrêt
+ * (à défaut sur le trajet) dès que l'option est choisie. Seule la remise
+ * mensuelle se saisit, déduite du tarif chaque mois.
  */
 export function BusSouscriptionPage() {
   const { t } = useTranslation()
@@ -72,19 +80,23 @@ export function BusSouscriptionPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { isSubmitting, errors },
-  } = useForm<{ trajet_id: number; arret_nom?: string; option_trajet: OptionTrajet }>({
+  } = useForm<ValeursSouscription>({
     defaultValues: etat?.affectationActuelle
       ? {
         trajet_id: etat.affectationActuelle.trajet_id,
         arret_nom: etat.affectationActuelle.arret_nom ?? undefined,
         option_trajet: etat.affectationActuelle.option_trajet,
+        remise: etat.affectationActuelle.remise ?? 0,
       }
-      : { trajet_id: etat?.trajetId, option_trajet: 'aller_retour' },
+      : { trajet_id: etat?.trajetId, option_trajet: 'aller_retour', remise: 0 },
   })
 
   const trajetId = watch('trajet_id')
   const optionChoisie = watch('option_trajet')
+  const arretNom = watch('arret_nom')
+  const remise = Number(watch('remise') || 0)
   // Un trajet dessert souvent plusieurs écoles du même complexe sur le même
   // circuit : le restreindre à l'école de l'élève masquait des trajets
   // pourtant valides (cf. BusTrajet::scopeForSchool côté API).
@@ -97,10 +109,16 @@ export function BusSouscriptionPage() {
   })
 
   const trajetSelectionne = trajetsDisponibles?.find((tr) => tr.id === Number(trajetId))
-  const tarifApercu = useMemo(
-    () => (trajetSelectionne && optionChoisie ? tarifPourOption(trajetSelectionne, optionChoisie) : null),
-    [trajetSelectionne, optionChoisie],
+  // Un arrêt saisi qui n'existe pas encore sera créé avec la grille du
+  // trajet (cf. BusService::ajouterArret) : l'aperçu retombe donc dessus.
+  const arretSelectionne = trajetDetail?.arrets.find(
+    (a) => a.nom.trim().toLowerCase() === (arretNom ?? '').trim().toLowerCase(),
   )
+  const tarifApercu = useMemo(
+    () => (trajetSelectionne && optionChoisie ? tarifSouscription(trajetSelectionne, arretSelectionne, optionChoisie) : null),
+    [trajetSelectionne, arretSelectionne, optionChoisie],
+  )
+  const netApercu = tarifApercu != null ? Math.max(0, tarifApercu - remise) : null
 
   const queryClient = useQueryClient()
 
@@ -113,12 +131,13 @@ export function BusSouscriptionPage() {
     navigate(etat?.retour ?? '/bus/eleves')
   }
 
-  const onSubmit = async (values: { trajet_id: number; arret_nom?: string; option_trajet: OptionTrajet }) => {
+  const onSubmit = async (values: ValeursSouscription) => {
     setServerError(null)
     const payload = {
       trajet_id: Number(values.trajet_id),
       arret_nom: values.arret_nom?.trim() || null,
       option_trajet: values.option_trajet,
+      remise: Number(values.remise || 0),
     }
 
     try {
@@ -235,13 +254,32 @@ export function BusSouscriptionPage() {
             <option value="retour_simple">{t('bus.retour_simple')}</option>
           </Select>
 
+          <MontantInput
+            label={t('bus.remise_mensuelle')}
+            value={watch('remise')}
+            onChange={(v) => setValue('remise', v)}
+          />
+
           {trajetSelectionne && (
             <div className="rounded-xl bg-cream-100 px-3.5 py-2.5 text-sm text-navy-700">
               {tarifApercu ? (
-                <>
-                  {t('bus.tarif_mensuel')} :{' '}
-                  <span className="font-semibold tabular-nums">{tarifApercu.toLocaleString('fr-FR')} FCFA</span>
-                </>
+                <dl className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <dt>{t('bus.tarif_mensuel')}</dt>
+                    <dd className="tabular-nums">{tarifApercu.toLocaleString('fr-FR')} FCFA</dd>
+                  </div>
+                  {remise > 0 && (
+                    <div className="flex justify-between">
+                      <dt>{t('bus.remise_mensuelle')}</dt>
+                      <dd className="tabular-nums">− {remise.toLocaleString('fr-FR')} FCFA</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-navy-100 pt-1 font-semibold">
+                    <dt>{t('bus.total_du_mois')}</dt>
+                    <dd className="tabular-nums">{(netApercu ?? 0).toLocaleString('fr-FR')} FCFA</dd>
+                  </div>
+                  {remise > tarifApercu && <p className="text-xs text-red-500">{t('bus.remise_trop_elevee')}</p>}
+                </dl>
               ) : (
                 <span className="text-gold-700">{t('bus.no_tarif_defini')}</span>
               )}

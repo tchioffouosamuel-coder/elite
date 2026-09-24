@@ -59,13 +59,16 @@ class BusPaiementService extends BaseService
         }
 
         $affectation->loadMissing('versements', 'eleve.school');
-        $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+        // Même calcul que `BusAffectation::situation_mensuelle` : le tarif net
+        // de la remise de souscription, moins les remises et versements déjà
+        // enregistrés sur ce mois.
+        $tarif = $affectation->tarif_net;
         $resteParMois = $mois->mapWithKeys(function (Carbon $mois) use ($affectation, $tarif) {
-            $paye = (int) $affectation->versements
+            $versementsMois = $affectation->versements
                 ->whereNull('annule_le')
-                ->filter(fn(BusVersement $versement) => $versement->mois->isSameMonth($mois))
-                ->sum('montant');
-            return [$mois->format('Y-m') => max(0, $tarif - $paye)];
+                ->filter(fn(BusVersement $versement) => $versement->mois->isSameMonth($mois));
+            $du = max(0, $tarif - (int) $versementsMois->sum('remise'));
+            return [$mois->format('Y-m') => max(0, $du - (int) $versementsMois->sum('montant'))];
         });
         $totalDu = (int) $resteParMois->sum();
         if ($remise > $totalDu) {

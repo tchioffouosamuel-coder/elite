@@ -398,6 +398,7 @@ class ParentEspaceController extends Controller
                 'arret' => $bus->arret?->nom,
                 'option_trajet' => $bus->option_trajet,
                 'tarif_mensuel' => $bus->tarif_mensuel,
+                'remise' => $bus->remise,
                 'situation_mensuelle' => $bus->situation_mensuelle,
             ] : null,
         ]);

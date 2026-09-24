@@ -205,7 +205,7 @@ class BusSouscriptionImport implements SkipsEmptyRows, ToCollection, WithHeading
             // de saisie. L'écart devient une remise plutôt que de faire
             // échouer la ligne : `montant + remise = tarif` reste vérifié par
             // `BusPaiementService::encaisser()`, et la remise reste tracée.
-            $tarif = (int) ($affectation->tarif_mensuel ?? 0);
+            $tarif = $affectation->tarif_net;
             $remise = max(0, $tarif - (int) $donnees['montant']);
 
             $this->paiementService->encaisser($affectation, [

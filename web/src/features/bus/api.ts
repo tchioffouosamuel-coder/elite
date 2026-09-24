@@ -40,6 +40,10 @@ export interface BusArret {
   lieu_dit: string | null;
   ordre: number;
   heure_passage: string | null;
+  /** C'est l'arrêt qui est facturé (cf. BusArret::tarifPour côté API). */
+  tarif_aller_simple: number | null;
+  tarif_retour_simple: number | null;
+  tarif_aller_retour: number | null;
 }
 
 export interface BusArretPayload {
@@ -47,6 +51,9 @@ export interface BusArretPayload {
   lieu_dit?: string | null;
   ordre?: number | null;
   heure_passage?: string | null;
+  tarif_aller_simple?: number | null;
+  tarif_retour_simple?: number | null;
+  tarif_aller_retour?: number | null;
 }
 
 export type OptionTrajet = "aller_simple" | "retour_simple" | "aller_retour";
@@ -72,16 +79,37 @@ export interface BusTrajet {
   school?: School | null;
 }
 
-/** Tarif du trajet pour l'option choisie — même règle que côté serveur, pour l'aperçu avant envoi. */
+type GrilleTarifs = Pick<
+  BusTrajet,
+  "tarif_aller_simple" | "tarif_retour_simple" | "tarif_aller_retour"
+>;
+
+/** Tarif d'une grille (trajet ou arrêt) pour l'option choisie. */
 export function tarifPourOption(
-  trajet: BusTrajet,
+  grille: GrilleTarifs,
   option: OptionTrajet,
 ): number | null {
   return option === "aller_simple"
-    ? trajet.tarif_aller_simple
+    ? grille.tarif_aller_simple
     : option === "retour_simple"
-      ? trajet.tarif_retour_simple
-      : trajet.tarif_aller_retour;
+      ? grille.tarif_retour_simple
+      : grille.tarif_aller_retour;
+}
+
+/**
+ * Tarif facturé à la souscription — même règle que côté serveur, pour
+ * l'aperçu avant envoi : celui de l'arrêt, sinon celui du trajet (arrêt
+ * absent, ou sans prix pour cette option).
+ */
+export function tarifSouscription(
+  trajet: BusTrajet,
+  arret: BusArret | null | undefined,
+  option: OptionTrajet,
+): number | null {
+  return (
+    (arret ? tarifPourOption(arret, option) : null) ??
+    tarifPourOption(trajet, option)
+  );
 }
 
 export interface BusTrajetDetail extends BusTrajet {
@@ -89,6 +117,8 @@ export interface BusTrajetDetail extends BusTrajet {
     id: number;
     statut: "actif" | "suspendu";
     tarif_mensuel: number | null;
+    remise: number;
+    tarif_net: number;
     statut_paiement: StatutPaiementBus;
     option_trajet: OptionTrajet;
     eleve: { id: number; nom_complet: string; matricule: string | null };
@@ -114,6 +144,8 @@ export interface BusAffectation {
   id: number;
   statut: "actif" | "suspendu";
   tarif_mensuel: number | null;
+  remise: number;
+  tarif_net: number;
   statut_paiement: StatutPaiementBus;
   option_trajet: OptionTrajet;
   eleve: {
@@ -131,13 +163,15 @@ export interface BusAffectation {
   } | null;
 }
 
-/** Le tarif ne se saisit jamais : il vient du trajet, calculé côté serveur depuis l'option choisie. */
+/** Le tarif ne se saisit jamais : il vient de l'arrêt, calculé côté serveur depuis l'option choisie. */
 export interface BusSouscriptionPayload {
   trajet_id: number;
   arret_id?: number | null;
   arret_nom?: string | null;
   annee_scolaire_id?: number | null;
   option_trajet: OptionTrajet;
+  /** Remise mensuelle, déduite du tarif chaque mois. */
+  remise?: number;
 }
 
 export interface EleveTransport {
@@ -157,6 +191,8 @@ export interface EleveTransport {
     } | null;
     option_trajet: OptionTrajet;
     tarif_mensuel: number | null;
+    remise: number;
+    tarif_net: number;
     statut_paiement: StatutPaiementBus;
   } | null;
   moratoire?: { date_expiration: string; jours_restants: number } | null;
@@ -340,8 +376,10 @@ export async function modifierAffectation(
   id: number,
   payload: {
     arret_id?: number | null;
+    arret_nom?: string | null;
     statut?: BusAffectation["statut"];
     option_trajet?: OptionTrajet;
+    remise?: number;
   },
 ): Promise<BusAffectation> {
   const { data } = await http.put<ApiResponse<BusAffectation>>(

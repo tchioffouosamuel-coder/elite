@@ -19,13 +19,20 @@ class BusAffectation extends Model
         'arret_id',
         'annee_scolaire_id',
         'tarif_mensuel',
+        'remise',
         'option_trajet',
         'statut',
     ];
 
     protected function casts(): array
     {
-        return ['tarif_mensuel' => 'integer'];
+        return ['tarif_mensuel' => 'integer', 'remise' => 'integer'];
+    }
+
+    /** Ce que la famille doit chaque mois : le tarif de l'arrêt moins la remise accordée à la souscription. */
+    public function getTarifNetAttribute(): int
+    {
+        return max(0, (int) ($this->tarif_mensuel ?? 0) - (int) ($this->remise ?? 0));
     }
 
     /** Une affectation suspendue ne compte plus dans l'effectif transporté du trajet. */
@@ -109,7 +116,7 @@ class BusAffectation extends Model
             ->groupBy(fn(BusVersement $v) => $v->mois->format('Y-m'))
             ->map(fn($groupe) => (int) $groupe->sum('montant'));
 
-        $tarif = (int) ($this->tarif_mensuel ?? 0);
+        $tarif = $this->tarif_net;
         $remiseParMois = $this->versements
             ->whereNull('annule_le')
             ->groupBy(fn(BusVersement $v) => $v->mois->format('Y-m'))
@@ -153,7 +160,7 @@ class BusAffectation extends Model
 
     public function getStatutPaiementAttribute(): string
     {
-        if (! $this->tarif_mensuel) {
+        if (! $this->tarif_net) {
             return 'sans_frais';
         }
 

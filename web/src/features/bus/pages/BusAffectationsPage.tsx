@@ -112,6 +112,7 @@ export function BusAffectationsPage() {
             arret_id: eleve.bus.arret?.id ?? null,
             arret_nom: eleve.bus.arret?.nom ?? null,
             option_trajet: eleve.bus.option_trajet,
+            remise: eleve.bus.remise,
           }
           : undefined,
         retour: '/bus/eleves',

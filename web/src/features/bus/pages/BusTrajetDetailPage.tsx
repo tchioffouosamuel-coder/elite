@@ -24,6 +24,7 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { TarifsArretFields } from './TarifsArretFields'
 
 const TONE_PAIEMENT: Record<string, 'green' | 'gold' | 'red' | 'neutral'> = {
   solde: 'green',
@@ -118,6 +119,11 @@ export function BusTrajetDetailPage() {
                       <p className="flex items-center gap-1 text-xs text-navy-400">
                         <Clock className="h-3 w-3" />
                         {arret.heure_passage}
+                      </p>
+                    )}
+                    {arret.tarif_aller_retour != null && (
+                      <p className="text-xs font-semibold tabular-nums text-navy-600">
+                        {t('bus.aller_retour')} : {arret.tarif_aller_retour.toLocaleString('fr-FR')} FCFA
                       </p>
                     )}
                   </div>
@@ -231,6 +237,7 @@ export function BusTrajetDetailPage() {
                                     arret_id: a.arret?.id ?? null,
                                     arret_nom: a.arret?.nom ?? null,
                                     option_trajet: a.option_trajet,
+                                    remise: a.remise,
                                   },
                                   retour: `/bus/trajets/${trajetId}`,
                                 },
@@ -355,10 +362,20 @@ function ArretFormModal({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { isSubmitting, errors },
   } = useForm<BusArretPayload>({
     defaultValues: arret
-      ? { nom: arret.nom, lieu_dit: arret.lieu_dit ?? '', ordre: arret.ordre, heure_passage: arret.heure_passage ?? '' }
+      ? {
+        nom: arret.nom,
+        lieu_dit: arret.lieu_dit ?? '',
+        ordre: arret.ordre,
+        heure_passage: arret.heure_passage ?? '',
+        tarif_aller_simple: arret.tarif_aller_simple,
+        tarif_retour_simple: arret.tarif_retour_simple,
+        tarif_aller_retour: arret.tarif_aller_retour,
+      }
       : { ordre: 1 },
   })
 
@@ -369,6 +386,9 @@ function ArretFormModal({
       lieu_dit: values.lieu_dit || null,
       ordre: values.ordre ? Number(values.ordre) : null,
       heure_passage: values.heure_passage || null,
+      tarif_aller_simple: values.tarif_aller_simple || null,
+      tarif_retour_simple: values.tarif_retour_simple || null,
+      tarif_aller_retour: values.tarif_aller_retour || null,
     }
 
     try {
@@ -396,6 +416,14 @@ function ArretFormModal({
         <Input label={t('bus.lieu_dit')} {...register('lieu_dit')} />
         <Input label={t('bus.ordre')} type="number" min={1} {...register('ordre')} />
         <Input label={t('bus.heure_passage')} type="time" {...register('heure_passage')} />
+        <TarifsArretFields
+          valeurs={{
+            tarif_aller_simple: watch('tarif_aller_simple'),
+            tarif_retour_simple: watch('tarif_retour_simple'),
+            tarif_aller_retour: watch('tarif_aller_retour'),
+          }}
+          onChange={(cle, v) => setValue(cle, v)}
+        />
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

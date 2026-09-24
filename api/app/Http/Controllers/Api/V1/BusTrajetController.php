@@ -144,6 +144,9 @@ class BusTrajetController extends Controller
             'lieu_dit' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
+            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $arret = $this->service->ajouterArret($trajet, $donnees);
@@ -160,6 +163,9 @@ class BusTrajetController extends Controller
             'lieu_dit' => ['nullable', 'string', 'max:150'],
             'ordre' => ['nullable', 'integer', 'min:1'],
             'heure_passage' => ['nullable', 'date_format:H:i'],
+            'tarif_aller_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_retour_simple' => ['nullable', 'integer', 'min:0'],
+            'tarif_aller_retour' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $arret = $this->service->modifierArret($arret, $donnees);
@@ -208,6 +214,8 @@ class BusTrajetController extends Controller
                 'id' => $a->id,
                 'statut' => $a->statut,
                 'tarif_mensuel' => $a->tarif_mensuel,
+                'remise' => $a->remise,
+                'tarif_net' => $a->tarif_net,
                 'statut_paiement' => $a->statut_paiement,
                 'option_trajet' => $a->option_trajet,
                 'eleve' => [
@@ -234,6 +242,9 @@ class BusTrajetController extends Controller
             'lieu_dit' => $arret->lieu_dit,
             'ordre' => $arret->ordre,
             'heure_passage' => $arret->heure_passage,
+            'tarif_aller_simple' => $arret->tarif_aller_simple,
+            'tarif_retour_simple' => $arret->tarif_retour_simple,
+            'tarif_aller_retour' => $arret->tarif_aller_retour,
         ];
     }
 

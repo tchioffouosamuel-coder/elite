@@ -31,12 +31,16 @@ class BusPaiementController extends Controller
     public function situation(int $affectationId): JsonResponse
     {
         $affectation = $this->affectation($affectationId);
-        $affectation->load(['eleve.classe', 'trajet', 'versements' => fn($q) => $q->orderByDesc('mois')]);
+        $affectation->load(['eleve.classe', 'trajet', 'arret', 'versements' => fn($q) => $q->orderByDesc('mois')]);
 
         return ApiResponse::success([
             'affectation' => [
                 'id' => $affectation->id,
                 'tarif_mensuel' => $affectation->tarif_mensuel,
+                'remise' => $affectation->remise,
+                'tarif_net' => $affectation->tarif_net,
+                'option_trajet' => $affectation->option_trajet,
+                'arret' => $affectation->arret?->nom,
                 'eleve' => [
                     'id' => $affectation->eleve->id,
                     'nom_complet' => $affectation->eleve->nom_complet,
