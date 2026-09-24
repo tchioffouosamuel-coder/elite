@@ -24,7 +24,15 @@ class SeanceController extends Controller
     {
         $classe = $this->classe($classeId);
 
-        $seances = Seance::where('classe_id', $classe->id)
+        /*
+         * Comme EmploiDuTempsService::grille() : une classe associée à un
+         * créneau en tronc commun suit bien ce cours, même si la séance est
+         * portée par une autre classe — sans ce orWhereHas, ses cours en
+         * tronc commun n'apparaissaient jamais dans sa liste de séances.
+         */
+        $seances = Seance::where(fn($q) => $q
+            ->where('classe_id', $classe->id)
+            ->orWhereHas('emploiDuTemps.classesAssociees', fn($c) => $c->where('classes.id', $classe->id)))
             ->when($request->date('date_debut'), fn($q, $d) => $q->whereDate('date_seance', '>=', $d))
             ->when($request->date('date_fin'), fn($q, $d) => $q->whereDate('date_seance', '<=', $d))
             ->when($request->integer('trimestre_id'), fn($q, $id) => $q->where('trimestre_id', $id))

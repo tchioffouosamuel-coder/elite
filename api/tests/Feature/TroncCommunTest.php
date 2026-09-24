@@ -11,9 +11,13 @@ use App\Models\Matiere;
 use App\Models\Presence;
 use App\Models\School;
 use App\Models\Seance;
+use App\Models\User;
 use App\Services\EmploiDuTempsService;
+use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -268,6 +272,32 @@ class TroncCommunTest extends TestCase
 
         $this->assertSame(0, $enregistres);
         $this->assertSame(0, Presence::where('seance_id', $seance->id)->count());
+    }
+
+    // ------------------------------------------------------ liste des séances
+
+    public function test_la_seance_apparait_dans_la_liste_de_chaque_classe_associee(): void
+    {
+        $seance = $this->seanceAvecEleves();
+
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $admin = User::create([
+            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $admin->assignRole('super_admin');
+
+        foreach (['ACT F3', 'ACC F3', 'Marketing F3'] as $nom) {
+            $this->actingAs($admin, 'sanctum')
+                ->withHeader('X-School-Id', $this->school->id)
+                ->getJson("/api/v1/classes/{$this->classes[$nom]->id}/seances?date_debut=2026-09-07&date_fin=2026-09-07")
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $seance->id);
+        }
     }
 
     public function test_une_seance_sans_creneau_reste_sur_sa_seule_classe(): void

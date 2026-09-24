@@ -38,7 +38,7 @@ export function IdentificationPage() {
 
   const resumesClasses: ResumeClasse[] = (classes ?? []).map((classe, index) => {
     const elevesClasse = elevesParClasse[index]?.data?.items ?? []
-    const effectif = classe.effectif ?? elevesClasse.length
+    const effectif = elevesClasse.length
     const photos = elevesClasse.filter((eleve) => eleve.photo_url).length
 
     return {
