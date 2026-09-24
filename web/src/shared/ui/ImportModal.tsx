@@ -131,6 +131,14 @@ export function ImportModal({
   const [choisi, setChoisi] = useState(choix?.defaut ?? '')
   const [anneeChoisie, setAnneeChoisie] = useState(String(anneeScolaireId ?? ''))
   const [ecoleChoisie, setEcoleChoisie] = useState(String(ecoleId ?? ecoles?.[0]?.id ?? ''))
+  // `anneesScolaires` (prop) reflète l'école du contexte global de la page
+  // appelante, pas forcément celle choisie ci-dessous : chaque école a ses
+  // propres lignes `AnneeScolaire` (même « 2026-2027 » n'est pas le même id
+  // d'une école à l'autre), donc dès que `ecoles` est fourni on va chercher
+  // la vraie liste pour l'école sélectionnée plutôt que de se fier à ce
+  // qu'a chargé la page — sans quoi l'import échoue en toute légitimité
+  // côté serveur avec un id d'année qui n'appartient pas à cette école.
+  const [anneesPourEcole, setAnneesPourEcole] = useState<ImportAnneeScolaire[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -173,6 +181,28 @@ export function ImportModal({
 
     return () => window.clearInterval(timer)
   }, [progressToken, progressUrl, submitting])
+
+  useEffect(() => {
+    if (!ecoles || !ecoleChoisie) return
+    let annule = false
+    void http.get<{ data: ImportAnneeScolaire[] }>('/annees-scolaires', { headers: { 'X-School-Id': ecoleChoisie } })
+      .then(({ data }) => {
+        if (annule) return
+        setAnneesPourEcole(data.data)
+        setAnneeChoisie((actuelle) =>
+          data.data.some((a) => String(a.id) === actuelle)
+            ? actuelle
+            : String(data.data.find((a) => a.is_active)?.id ?? ''),
+        )
+      })
+      .catch(() => { if (!annule) setAnneesPourEcole([]) })
+    return () => { annule = true }
+  }, [ecoles, ecoleChoisie])
+
+  // Sans `ecoles` (la quasi-totalité des imports), rien ne change : la liste
+  // fournie par la page reste la source — elle correspond déjà à l'unique
+  // école du contexte, jamais choisie dans ce modal.
+  const anneesAffichees = ecoles ? anneesPourEcole : anneesScolaires
 
   // Les colonnes attendues dépendent du choix : afficher celles du primaire à
   // qui importe un fichier de secondaire l'enverrait corriger le mauvais.
@@ -285,13 +315,13 @@ export function ImportModal({
           </Select>
         )}
 
-        {anneesScolaires && anneesScolaires.length > 0 && (
+        {anneesAffichees && anneesAffichees.length > 0 && (
           <Select
             label="Année scolaire de l'import"
             value={anneeChoisie}
             onChange={(e) => setAnneeChoisie(e.target.value)}
           >
-            {anneesScolaires.map((annee) => (
+            {anneesAffichees.map((annee) => (
               <option key={annee.id} value={annee.id}>
                 {annee.libelle}{annee.is_active ? ' (active)' : ''}
               </option>
