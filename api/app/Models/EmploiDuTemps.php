@@ -66,6 +66,23 @@ class EmploiDuTemps extends Model
     }
 
     /**
+     * Remplace les classes associées, en faisant avancer `updated_at` si la
+     * liste change : le pivot n'a pas d'horodatage propre côté synchronisation
+     * mobile (cf. RegistreSync, `classes_associees`), c'est le créneau qui
+     * doit redescendre pour que le client apprenne le changement.
+     *
+     * @param  array<int, int>  $classeIds
+     */
+    public function synchroniserClassesAssociees(array $classeIds): void
+    {
+        $changements = $this->classesAssociees()->sync($classeIds);
+
+        if ($changements['attached'] !== [] || $changements['detached'] !== []) {
+            $this->touch();
+        }
+    }
+
+    /**
      * Un tronc commun ne se déclare pas, il se constate : dès qu'une classe
      * rejoint le créneau, le cours en est un. Pas de drapeau à maintenir en
      * accord avec le pivot.

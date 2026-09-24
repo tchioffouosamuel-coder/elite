@@ -213,15 +213,21 @@ class EmploiDuTempsService extends BaseService
     public function genererSeances(Classe $classe, Carbon $debut, Carbon $fin, ?Trimestre $trimestre): int
     {
         /*
-         * Seuls les créneaux *portés* par la classe engendrent des séances.
-         * Un cours en tronc commun est porté une fois et une seule : générer
-         * aussi depuis les classes associées créerait une séance par classe
-         * pour un cours unique, donc autant d'appels que de classes.
+         * Créneaux portés par la classe, et ceux qu'elle rejoint en tronc
+         * commun : sans ces derniers, le cours n'existait pour une classe
+         * associée que si sa porteuse avait déjà généré ses propres séances.
+         *
+         * Un cours en tronc commun reste une seule séance, rattachée à sa
+         * classe porteuse : l'existence se vérifie donc par créneau et date,
+         * quelle que soit la classe qui génère — sans quoi chaque classe
+         * associée créerait sa séance, donc autant d'appels que de classes.
          *
          * Un créneau de type pause/activité (sans classe_matiere_id) ne
          * correspond à aucun cours et ne doit pas produire de séance d'appel.
          */
-        $creneaux = EmploiDuTemps::where('classe_id', $classe->id)
+        $creneaux = EmploiDuTemps::where(fn($q) => $q
+            ->where('classe_id', $classe->id)
+            ->orWhereHas('classesAssociees', fn($c) => $c->where('classes.id', $classe->id)))
             ->whereNotNull('classe_matiere_id')
             ->get()
             ->groupBy('jour');
@@ -235,8 +241,7 @@ class EmploiDuTempsService extends BaseService
 
                 // whereDate plutôt qu'une égalité : la colonne porte une heure à
                 // zéro, qu'une comparaison avec 'Y-m-d' ne retrouverait pas.
-                $existe = Seance::where('classe_id', $classe->id)
-                    ->where('emploi_du_temps_id', $creneau->id)
+                $existe = Seance::where('emploi_du_temps_id', $creneau->id)
                     ->whereDate('date_seance', $jour->toDateString())
                     ->exists();
 
@@ -245,7 +250,7 @@ class EmploiDuTempsService extends BaseService
                 }
 
                 Seance::create([
-                    'classe_id' => $classe->id,
+                    'classe_id' => $creneau->classe_id,
                     'emploi_du_temps_id' => $creneau->id,
                     'date_seance' => $jour->toDateString(),
                     'school_id' => $classe->school_id,

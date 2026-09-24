@@ -7,13 +7,16 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
+use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
+use App\Models\Personnel;
 use App\Models\Presence;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\User;
 use App\Services\EmploiDuTempsService;
 use App\Support\CataloguePermissions;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
@@ -276,19 +279,56 @@ class TroncCommunTest extends TestCase
 
     // ------------------------------------------------------ liste des séances
 
-    public function test_la_seance_apparait_dans_la_liste_de_chaque_classe_associee(): void
+    private function permissions(): void
     {
-        $seance = $this->seanceAvecEleves();
-
         foreach (CataloguePermissions::codes() as $code) {
             Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
         }
+    }
+
+    private function admin(): User
+    {
+        $this->permissions();
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $admin = User::create([
             'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
         $admin->assignRole('super_admin');
+
+        return $admin;
+    }
+
+    /** Enseignant affecté à la seule classe donnée : un compte borné à son périmètre. */
+    private function enseignantDe(string $classe): User
+    {
+        $this->permissions();
+        $fonction = FonctionReferentiel::firstOrCreate([
+            'school_id' => $this->school->id, 'label_fr' => 'Enseignant',
+        ]);
+        $fonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['enseignant']);
+
+        $user = User::create([
+            'name' => 'Prof', 'email' => 'prof.tronc@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $personnel = Personnel::create([
+            'school_id' => $this->school->id, 'user_id' => $user->id, 'fonction_id' => $fonction->id,
+            'nom_complet' => 'Prof', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        ClasseMatiere::create([
+            'classe_id' => $this->classes[$classe]->id,
+            'matiere_id' => Matiere::create(['school_id' => $this->school->id, 'nom' => 'Anglais'])->id,
+            'personnel_id' => $personnel->id, 'statut' => 'actif',
+        ]);
+
+        return $user->fresh();
+    }
+
+    public function test_la_seance_apparait_dans_la_liste_de_chaque_classe_associee(): void
+    {
+        $seance = $this->seanceAvecEleves();
+        $admin = $this->admin();
 
         foreach (['ACT F3', 'ACC F3', 'Marketing F3'] as $nom) {
             $this->actingAs($admin, 'sanctum')
@@ -298,6 +338,68 @@ class TroncCommunTest extends TestCase
                 ->assertJsonCount(1, 'data')
                 ->assertJsonPath('data.0.id', $seance->id);
         }
+    }
+
+    // ------------------------------------------------ génération et synchro
+
+    public function test_generer_depuis_une_classe_associee_cree_la_seance_de_la_porteuse(): void
+    {
+        $creneau = $this->creneau('ACT F3', ['ACC F3']);
+        $lundi = Carbon::parse('2026-09-07');
+
+        $this->service()->genererSeances($this->classes['ACC F3'], $lundi, $lundi, null);
+        $this->service()->genererSeances($this->classes['ACT F3'], $lundi, $lundi, null);
+
+        // Une seule séance, rattachée à la porteuse : générer d'abord depuis
+        // la classe associée ne doit ni l'oublier ni la dédoubler.
+        $seance = Seance::sole();
+        $this->assertSame($creneau->id, $seance->emploi_du_temps_id);
+        $this->assertSame($this->classes['ACT F3']->id, $seance->classe_id);
+    }
+
+    public function test_la_synchro_des_creneaux_porte_les_classes_associees(): void
+    {
+        $creneau = $this->creneau('ACT F3', ['ACC F3', 'Marketing F3']);
+
+        $ligne = collect(
+            $this->actingAs($this->admin(), 'sanctum')
+                ->getJson('/api/v1/sync?entites=emplois_du_temps')
+                ->assertOk()
+                ->json('data.donnees.emplois_du_temps')
+        )->firstWhere('id', $creneau->id);
+
+        $this->assertEqualsCanonicalizing(
+            [$this->classes['ACC F3']->id, $this->classes['Marketing F3']->id],
+            $ligne['classes_associees'],
+        );
+    }
+
+    public function test_changer_les_classes_associees_fait_redescendre_le_creneau(): void
+    {
+        $creneau = $this->creneau('ACT F3', ['ACC F3']);
+        $avant = $creneau->updated_at;
+
+        Carbon::setTestNow(now()->addMinute());
+        $creneau->synchroniserClassesAssociees([$this->classes['ACC F3']->id]);
+        $this->assertEquals($avant, $creneau->fresh()->updated_at, 'Liste inchangée : pas de nouvelle synchro.');
+
+        $creneau->synchroniserClassesAssociees([$this->classes['ACC F3']->id, $this->classes['Marketing F3']->id]);
+        $this->assertTrue($creneau->fresh()->updated_at->gt($avant));
+        Carbon::setTestNow();
+    }
+
+    public function test_un_enseignant_d_une_classe_associee_recoit_la_seance_en_synchro(): void
+    {
+        $seance = $this->seanceAvecEleves();
+
+        $donnees = $this->actingAs($this->enseignantDe('ACC F3'), 'sanctum')
+            ->getJson('/api/v1/sync?entites=seances,classe_matieres')
+            ->assertOk()
+            ->json('data.donnees');
+
+        $this->assertContains($seance->id, collect($donnees['seances'])->pluck('id'));
+        // L'affectation de la porteuse suit : c'est elle qui nomme la matière.
+        $this->assertContains($seance->classe_matiere_id, collect($donnees['classe_matieres'])->pluck('id'));
     }
 
     public function test_une_seance_sans_creneau_reste_sur_sa_seule_classe(): void

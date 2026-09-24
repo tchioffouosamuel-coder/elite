@@ -196,7 +196,7 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
                     'salle' => $salle,
                     'salle_id' => $salleId,
                 ]);
-                $creneau->classesAssociees()->sync($associees);
+                $creneau->synchroniserClassesAssociees($associees);
 
                 $this->importedCount++;
             } catch (Throwable $e) {

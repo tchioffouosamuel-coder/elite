@@ -63,7 +63,7 @@ class EmploiDuTempsController extends Controller
         }
 
         $creneau = EmploiDuTemps::create([...$data, 'classe_id' => $classe->id, 'school_id' => $classe->school_id]);
-        $creneau->classesAssociees()->sync($associees);
+        $creneau->synchroniserClassesAssociees($associees);
 
         return ApiResponse::created(
             EmploiDuTempsService::presenter($creneau->load('classeMatiere.matiere', 'classesAssociees')),
@@ -95,7 +95,7 @@ class EmploiDuTempsController extends Controller
         }
 
         $creneau->update($data);
-        $creneau->classesAssociees()->sync($associees);
+        $creneau->synchroniserClassesAssociees($associees);
 
         return ApiResponse::success(
             EmploiDuTempsService::presenter($creneau->fresh(['classeMatiere.matiere', 'classesAssociees'])),

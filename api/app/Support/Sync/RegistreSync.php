@@ -234,9 +234,16 @@ class RegistreSync
             'classe_matieres' => [
                 'modele' => ClasseMatiere::class,
                 'colonnes' => ['id', 'classe_id', 'matiere_id', 'personnel_id', 'coefficient', 'quota_horaire', 'groupe', 'competences', 'statut'],
+                // Plus l'affectation des cours rejoints en tronc commun : elle
+                // appartient à la classe porteuse, mais c'est elle qui donne
+                // son nom de matière à la séance chez la classe associée.
                 'portee' => fn(Builder $q, int $s) => $q
                     ->whereHas('classe', fn($c) => $c->where('school_id', $s))
-                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->where(fn(Builder $w) => $w
+                        ->whereIn('classe_id', $classesPerimetre)
+                        ->orWhereIn('id', EmploiDuTemps::whereHas('classesAssociees', fn($c) => $c->whereIn('classes.id', $classesPerimetre))
+                            ->whereNotNull('classe_matiere_id')
+                            ->select('classe_matiere_id')))),
                 'permission' => 'pedagogie.view',
             ],
             'emplois_du_temps' => [
@@ -244,6 +251,21 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'jour', 'heure_debut', 'heure_fin', 'salle'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'emploi_du_temps.view',
+                // Tronc commun : les classes qui rejoignent la porteuse sur ce
+                // créneau. Sans elles, le client hors ligne ne rattache une
+                // séance qu'à sa classe porteuse, et le cours disparaît des
+                // écrans des classes associées. Un changement d'association
+                // fait avancer `updated_at` du créneau
+                // (EmploiDuTemps::synchroniserClassesAssociees()).
+                'relations' => ['classesAssociees:id'],
+                'extras' => fn(EmploiDuTemps $e) => [
+                    'classes_associees' => $e->classesAssociees->pluck('id')->values()->all(),
+                ],
+                'apres_sauvegarde' => function (EmploiDuTemps $e, array $ligne): void {
+                    if (is_array($ligne['classes_associees'] ?? null)) {
+                        $e->classesAssociees()->sync($ligne['classes_associees']);
+                    }
+                },
             ],
             'progression_items' => [
                 'modele' => ProgressionItem::class,
@@ -480,15 +502,17 @@ class RegistreSync
             'seances' => [
                 'modele' => Seance::class,
                 'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'trimestre_id', 'emploi_du_temps_id', 'date_seance', 'heure_debut', 'heure_fin', 'salle', 'contenu', 'observations', 'donnees_personnalisees', 'statut', 'appel_verrouille_le'],
+                // Une classe du périmètre suit aussi les cours qu'elle rejoint
+                // en tronc commun, portés par une autre classe.
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => self::seancesDesClasses($q2, $classesPerimetre)),
                 'permission' => 'emploi_du_temps.view',
             ],
             'presences' => [
                 'modele' => Presence::class,
                 'colonnes' => ['id', 'seance_id', 'eleve_id', 'statut', 'motif', 'justifie', 'remarque'],
                 'portee' => fn(Builder $q, int $s) => $q->whereHas('seance', fn($e) => $e->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn(Builder $e2) => $e2->whereIn('classe_id', $classesPerimetre))),
+                    ->when($classesPerimetre !== null, fn(Builder $e2) => self::seancesDesClasses($e2, $classesPerimetre))),
                 'permission' => 'emploi_du_temps.view',
             ],
             'notes' => [
@@ -833,6 +857,20 @@ class RegistreSync
                 'permission' => 'infrastructures.view',
             ],
         ];
+    }
+
+    /**
+     * Séances suivies par ces classes : celles qu'elles portent, et celles des
+     * créneaux qu'elles rejoignent en tronc commun — même règle que
+     * `SeanceController::index()` en ligne.
+     *
+     * @param  list<int>  $classeIds
+     */
+    private static function seancesDesClasses(Builder $q, array $classeIds): Builder
+    {
+        return $q->where(fn(Builder $w) => $w
+            ->whereIn('classe_id', $classeIds)
+            ->orWhereHas('emploiDuTemps.classesAssociees', fn($c) => $c->whereIn('classes.id', $classeIds)));
     }
 
     /**
