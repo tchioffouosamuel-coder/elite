@@ -94,7 +94,7 @@ class ProgressionItem extends Model
 
     public function seances(): BelongsToMany
     {
-        return $this->belongsToMany(Seance::class, 'lecon_seance')->withTimestamps();
+        return $this->belongsToMany(Seance::class, 'lecon_seance')->withPivot('valide_par')->withTimestamps();
     }
 
     /** Une leçon est traitée dès qu'une séance l'a couverte. */

@@ -1241,6 +1241,7 @@
     "recherche_classe": "Search for a class…",
     "sequence_libre": "No set sequence",
     "traitee": "Covered",
+    "validee_par": "Validated by {{nom}}",
     "avancement": "{{traitees}} of {{lecons}} lesson(s) covered",
     "saved": "Syllabus saved ({{count}} lesson(s)).",
     "lecon": "Lesson",

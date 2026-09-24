@@ -432,6 +432,8 @@ export interface FeuilleJournee {
     sequence: string | null;
     faite_aujourdhui: boolean;
     deja_traitee: boolean;
+    /** Auteur de la validation sur cette séance (enseignant ou direction) — null si inconnu. */
+    validee_par: string | null;
   }[];
   appel: LigneAppel[];
   champs_personnalises: ChampPersonnaliseDef[];

@@ -130,7 +130,7 @@ class Seance extends Model
     /** Leçons du programme traitées pendant la séance. */
     public function lecons(): BelongsToMany
     {
-        return $this->belongsToMany(ProgressionItem::class, 'lecon_seance')->withTimestamps();
+        return $this->belongsToMany(ProgressionItem::class, 'lecon_seance')->withPivot('valide_par')->withTimestamps();
     }
 
     /** Durée de la séance en heures, base du cumul d'absences. */

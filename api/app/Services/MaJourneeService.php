@@ -26,7 +26,13 @@ use Throwable;
  */
 class MaJourneeService extends BaseService
 {
-    public function __construct(private readonly EmploiDuTempsService $emploiDuTemps) {}
+    /** Rôles notifiés à chaque validation de leçon — cf. User::estPersonnelDirection(). */
+    private const ROLES_DIRECTION = ['super_admin', 'admin_ecole', 'admin_college', 'censeur_sg'];
+
+    public function __construct(
+        private readonly EmploiDuTempsService $emploiDuTemps,
+        private readonly NotificationService $notifications,
+    ) {}
 
     /**
      * Affectations sur lesquelles l'enseignant peut travailler à la date
@@ -106,12 +112,17 @@ class MaJourneeService extends BaseService
             );
         }
 
-        return Seance::firstOrCreate(
+        // whereDate plutôt que firstOrCreate() : le cast `date` écrit
+        // « Y-m-d H:i:s », qu'une égalité stricte sur « Y-m-d » ne retrouve pas
+        // hors MySQL — chaque enregistrement recréerait alors une séance.
+        $existante = Seance::where('classe_matiere_id', $classeMatiere->id)
+            ->whereDate('date_seance', $date)
+            ->first();
+
+        return $existante ?? Seance::create(
             [
                 'classe_matiere_id' => $classeMatiere->id,
                 'date_seance' => $date,
-            ],
-            [
                 'school_id' => $classe->school_id,
                 'classe_id' => $classe->id,
                 'trimestre_id' => $this->trimestreDe($classe, $date)?->id,
@@ -230,7 +241,12 @@ class MaJourneeService extends BaseService
      */
     public function feuilleDuJour(ClasseMatiere $classeMatiere, Seance $seance, User $user): array
     {
-        $faites = $seance->lecons()->pluck('progression_items.id')->flip();
+        // Leçon cochée sur cette séance => auteur de la validation (null pour
+        // les validations antérieures à la colonne `valide_par`).
+        $faites = $seance->lecons()->get(['progression_items.id'])
+            ->mapWithKeys(fn (ProgressionItem $l) => [$l->id => $l->pivot->valide_par]);
+        $validateurs = User::with('personnel')->whereIn('id', $faites->filter()->unique())->get()->keyBy('id');
+        $validees = $faites->map(fn (?int $userId) => $userId !== null && $validateurs->has($userId) ? self::nomDe($validateurs->get($userId)) : null);
 
         $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
             ->lecons()
@@ -247,6 +263,9 @@ class MaJourneeService extends BaseService
                     ->filter()->implode(' › '),
                 'sequence' => $lecon->sequence?->libelle,
                 'faite_aujourdhui' => $faites->has($lecon->id),
+                // Enseignant ou direction : la leçon peut être validée par l'un
+                // comme par l'autre, l'écran doit dire lequel.
+                'validee_par' => $validees->get($lecon->id),
                 'deja_traitee' => $lecon->seances_count > 0,
             ]);
 
@@ -316,14 +335,22 @@ class MaJourneeService extends BaseService
             'La déclaration de cette séance est verrouillée depuis plus de '.$seance->minutesVerrouillageAppel().' minutes. Contactez le Surveillant Général pour une correction.'
         );
 
-        return $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $observations, $donneesPersonnalisees, $qrVerifie) {
+        [$resultat, $nouvelles] = $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $user, $observations, $donneesPersonnalisees, $qrVerifie) {
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
             $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
                 ->lecons()
                 ->whereIn('id', $leconIds)
                 ->pluck('id');
 
-            $seance->lecons()->sync($valides);
+            // Pas de sync() : il réécrirait `valide_par` sur les leçons déjà
+            // cochées. Une correction ultérieure (par la direction, par
+            // exemple) ne doit pas s'approprier ce que l'enseignant a validé —
+            // seules les leçons nouvellement cochées portent l'auteur actuel.
+            $existantes = $seance->lecons()->pluck('progression_items.id');
+            $nouvelles = $valides->diff($existantes)->values();
+
+            $seance->lecons()->detach($existantes->diff($valides)->all());
+            $seance->lecons()->attach($nouvelles->all(), ['valide_par' => $user->id]);
 
             // « Date Taught » suit désormais la séance qui a réellement couvert
             // la leçon plutôt que de rester à la charge du professeur : c'est
@@ -346,8 +373,57 @@ class MaJourneeService extends BaseService
                 'qr_verifie_le' => $qrVerifie ? ($seance->qr_verifie_le ?? now()) : $seance->qr_verifie_le,
             ]);
 
-            return ['lecons' => $valides->count(), 'eleves' => $eleves];
+            return [['lecons' => $valides->count(), 'eleves' => $eleves], $nouvelles];
         });
+
+        // Hors transaction : un échec d'envoi (push) ne doit pas annuler la
+        // déclaration elle-même.
+        if ($nouvelles->isNotEmpty()) {
+            $this->notifierValidation($classeMatiere, $seance, $nouvelles, $user);
+        }
+
+        return $resultat;
+    }
+
+    /**
+     * Prévient la direction de l'école qu'une ou plusieurs leçons viennent
+     * d'être validées, en précisant qui l'a fait — l'enseignant lui-même ou un
+     * administrateur à sa place. L'auteur n'est pas notifié de sa propre action.
+     *
+     * @param  Collection<int, int>  $leconIds
+     */
+    private function notifierValidation(ClasseMatiere $classeMatiere, Seance $seance, Collection $leconIds, User $auteur): void
+    {
+        $destinataires = User::where('school_id', $seance->school_id)
+            ->where('id', '!=', $auteur->id)
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', self::ROLES_DIRECTION))
+            ->pluck('id');
+
+        if ($destinataires->isEmpty()) {
+            return;
+        }
+
+        $titres = ProgressionItem::whereIn('id', $leconIds)->orderBy('ordre')->orderBy('id')->pluck('titre');
+        $classeMatiere->loadMissing('classe', 'matiere');
+        $cours = "{$classeMatiere->classe?->nom} — {$classeMatiere->matiere?->nom}";
+        $date = $seance->date_seance->format('Y-m-d');
+
+        $this->notifications->notifier(
+            $seance->school_id,
+            $destinataires,
+            'lecon_validee',
+            $titres->count() === 1 ? 'Leçon validée' : "{$titres->count()} leçons validées",
+            self::nomDe($auteur)." a validé en {$cours} (séance du ".$seance->date_seance->format('d/m/Y').') : '
+                .$titres->implode(', ').'.',
+            "/journee-ecole?date={$date}&classe_matiere_id={$classeMatiere->id}",
+        );
+    }
+
+    /** Nom affiché d'un utilisateur : celui de sa fiche personnel, à défaut celui du compte. */
+    private static function nomDe(User $user): string
+    {
+        return $user->personnel?->nom_complet ?? $user->name;
     }
 
     /**

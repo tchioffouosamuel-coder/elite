@@ -329,6 +329,11 @@ export function MaJourneePage() {
                           <span className="block text-xs text-navy-400">
                             {[lecon.chemin, lecon.sequence].filter(Boolean).join(' · ')}
                           </span>
+                          {lecon.faite_aujourdhui && lecon.validee_par && (
+                            <span className="block text-xs font-medium text-green-600">
+                              {t('progression.validee_par', { nom: lecon.validee_par })}
+                            </span>
+                          )}
                         </span>
                       </label>
                     ))}

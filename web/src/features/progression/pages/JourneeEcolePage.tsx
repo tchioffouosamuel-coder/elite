@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, ScanLine, ShieldCheck, Users } from 'lucide-react'
 import {
@@ -180,6 +180,9 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
                         <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">Traitée</span>
                       )}
                       <span className="block text-xs text-navy-400">{[lecon.chemin, lecon.sequence].filter(Boolean).join(' · ')}</span>
+                      {lecon.faite_aujourdhui && lecon.validee_par && (
+                        <span className="block text-xs font-medium text-green-600">Validée par {lecon.validee_par}</span>
+                      )}
                     </span>
                   </label>
                 ))}
@@ -252,13 +255,30 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
 export function JourneeEcolePage() {
   const queryClient = useQueryClient()
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), [])
-  const [date, setDate] = useState(todayIso)
+  // Lien d'une notification « leçon validée » : `?date=…&classe_matiere_id=…`
+  // ouvre directement le cours concerné (cf. MaJourneeService::notifierValidation()).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [date, setDate] = useState(() => searchParams.get('date') ?? todayIso)
   const [coursOuvert, setCoursOuvert] = useState<CoursJourAdmin | null>(null)
 
   const { data: cours, isLoading, isError, error: erreurCours } = useQuery({
     queryKey: ['journee-ecole', date],
     queryFn: () => fetchJourneeEcole(date),
   })
+
+  useEffect(() => {
+    const dateLien = searchParams.get('date')
+    if (!dateLien) return
+    if (dateLien !== date) {
+      setDate(dateLien)
+      return
+    }
+    if (!cours) return
+    const cible = Number(searchParams.get('classe_matiere_id'))
+    const trouve = cours.find((c) => c.classe_matiere_id === cible)
+    if (trouve) setCoursOuvert(trouve)
+    setSearchParams({}, { replace: true })
+  }, [cours, searchParams, date, setSearchParams])
 
   const resume = useMemo(() => {
     const liste = cours ?? []

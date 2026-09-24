@@ -1219,6 +1219,7 @@
     "recherche_classe": "Rechercher une classe…",
     "sequence_libre": "Sans séquence imposée",
     "traitee": "Traitée",
+    "validee_par": "Validée par {{nom}}",
     "avancement": "{{traitees}} leçon(s) traitée(s) sur {{lecons}}",
     "saved": "Programme enregistré ({{count}} leçon(s)).",
     "lecon": "Leçon",
