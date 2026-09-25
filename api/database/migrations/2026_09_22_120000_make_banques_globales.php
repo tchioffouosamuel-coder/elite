@@ -28,8 +28,11 @@ return new class extends Migration
         }
 
         Schema::table('banques', function (Blueprint $table) {
-            $table->dropUnique('banques_school_id_nom_unique');
+            // La clé étrangère d'abord : MySQL s'appuie sur l'index unique
+            // (school_id, nom) pour la contrainte sur school_id et refuse de le
+            // supprimer tant qu'elle existe (erreur 1553).
             $table->dropForeign(['school_id']);
+            $table->dropUnique('banques_school_id_nom_unique');
             $table->dropColumn('school_id');
             $table->unique('nom');
         });
