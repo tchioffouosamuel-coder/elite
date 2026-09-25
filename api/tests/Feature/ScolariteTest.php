@@ -156,6 +156,19 @@ class ScolariteTest extends TestCase
         $this->assertSame(10000, $lignes['scolarite']->montant);
     }
 
+    public function test_la_situation_separe_le_reliquat_precedent_du_reste_de_l_annee(): void
+    {
+        $dossier = $this->service()->dossier($this->eleve(), $this->annee);
+        $dossier->update(['report_dette' => 50000]);
+        $this->service()->encaisser($dossier->fresh(), ['montant' => 20000]);
+
+        $dossier = $dossier->fresh()->load(['fraisAnnexes', 'versements.lignes']);
+
+        $this->assertSame(30000, $dossier->dette_anterieure_restante);
+        $this->assertSame(359000, $dossier->reste_scolarite_a_payer);
+        $this->assertSame(389000, $dossier->reste_a_payer);
+    }
+
     public function test_le_trop_percu_ressort_en_avance(): void
     {
         $dossier = $this->service()->dossier($this->eleve(), $this->annee);

@@ -47,6 +47,8 @@ class DossierScolariteResource extends JsonResource
             'total_du' => $this->total_du,
             'total_paye' => $this->total_paye,
             'reste_a_payer' => $this->reste_a_payer,
+            'dette_anterieure_restante' => $this->dette_anterieure_restante,
+            'reste_scolarite_a_payer' => $this->reste_scolarite_a_payer,
             'avance' => $this->avance,
             'statut_paiement' => $this->statut_paiement,
             'taux_recouvrement' => $this->taux_recouvrement,

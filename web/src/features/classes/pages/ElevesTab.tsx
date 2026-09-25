@@ -358,7 +358,10 @@ function InsolvablesClasse({ classeId }: { classeId: number }) {
           {data.lignes.map((ligne) => (
             <li key={ligne.eleve.id} className="flex items-center justify-between gap-2 py-2">
               <span className="font-medium text-navy-800">{ligne.eleve.nom_complet}</span>
-              <span className="font-semibold tabular-nums text-red-500">{francs(ligne.reste_a_payer)}</span>
+              <span className="text-right text-xs tabular-nums text-red-500">
+                <span className="block font-semibold">Dette antérieure : {francs(ligne.dette_anterieure_restante)}</span>
+                <span className="block">Reste de l’année : {francs(ligne.reste_scolarite_a_payer)}</span>
+              </span>
             </li>
           ))}
         </ul>

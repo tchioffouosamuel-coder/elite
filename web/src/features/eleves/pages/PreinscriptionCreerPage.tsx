@@ -514,8 +514,12 @@ export function PreinscriptionCreerPage() {
                       <dd className="text-sm font-bold tabular-nums text-green-600">{francs(dossier.total_paye)}</dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Reste à payer</dt>
-                      <dd className="text-sm font-bold tabular-nums text-red-500">{francs(dossier.reste_a_payer)}</dd>
+                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Dette antérieure restante</dt>
+                      <dd className="text-sm font-bold tabular-nums text-red-500">{francs(dossier.dette_anterieure_restante)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Reste de l'année</dt>
+                      <dd className="text-sm font-bold tabular-nums text-red-500">{francs(dossier.reste_scolarite_a_payer)}</dd>
                     </div>
                   </dl>
                 ) : null}

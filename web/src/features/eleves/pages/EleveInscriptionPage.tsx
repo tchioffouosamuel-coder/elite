@@ -802,7 +802,8 @@ export function EleveInscriptionPage() {
                                         {[
                                             [t('eleves.inscription.paiement_total_du'), francs(dossier.total_du), 'text-navy-700'],
                                             [t('eleves.inscription.paiement_deja_verse'), francs(dossier.total_paye), 'text-green-600'],
-                                            [t('eleves.inscription.paiement_reste'), francs(dossier.reste_a_payer), 'text-red-500'],
+                                            [t('eleves.inscription.paiement_dette_anterieure'), francs(dossier.dette_anterieure_restante), 'text-red-500'],
+                                            [t('eleves.inscription.paiement_reste_scolarite'), francs(dossier.reste_scolarite_a_payer), 'text-red-500'],
                                         ].map(([libelle, valeur, couleur]) => (
                                             <div key={libelle}>
                                                 <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>

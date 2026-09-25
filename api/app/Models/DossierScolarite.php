@@ -50,7 +50,7 @@ class DossierScolarite extends Model
     {
         return $query->with([
             'fraisAnnexes',
-            'versements' => fn ($q) => $q->valides()->with('lignes'),
+            'versements' => fn($q) => $q->valides()->with('lignes'),
             'busAffectations.trajet',
         ]);
     }
@@ -145,6 +145,24 @@ class DossierScolarite extends Model
         return max(0, $this->solde);
     }
 
+    /** Reliquat antérieur encore dû, y compris s'il a été repris comme frais annexe. */
+    public function getDetteAnterieureRestanteAttribute(): int
+    {
+        if (! $this->exists) {
+            return 0;
+        }
+
+        return (int) collect($this->rubriques)
+            ->filter(fn(array $rubrique) => $rubrique['cle'] === 'report_dette' || $rubrique['libelle'] === 'Dette antérieure')
+            ->sum('reste');
+    }
+
+    /** Reste dû au titre de l'année courante, hors reliquat antérieur. */
+    public function getResteScolariteAPayerAttribute(): int
+    {
+        return max(0, $this->reste_a_payer - $this->dette_anterieure_restante);
+    }
+
     /** Trop-perçu, à reporter ou à rembourser. */
     public function getAvanceAttribute(): int
     {
@@ -202,14 +220,14 @@ class DossierScolarite extends Model
         $regle = [];
         foreach ($this->versements->whereNull('annule_le') as $versement) {
             foreach ($versement->lignes as $ligne) {
-                $cle = $ligne->affectation.':'.($ligne->dossier_frais_annexe_id ?? '');
+                $cle = $ligne->affectation . ':' . ($ligne->dossier_frais_annexe_id ?? '');
                 $regle[$cle] = ($regle[$cle] ?? 0) + $ligne->montant;
             }
         }
 
         return array_map(function (array $poste) use ($regle) {
             [$affectation, $fraisId, $libelle, $du] = $poste;
-            $cle = $affectation.':'.($fraisId ?? '');
+            $cle = $affectation . ':' . ($fraisId ?? '');
             $paye = min($du, $regle[$cle] ?? 0);
 
             return [

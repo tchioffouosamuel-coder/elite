@@ -435,15 +435,17 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
         <p className="text-sm text-navy-400">Aucune année scolaire active pour l'instant. / No active school year at the moment.</p>
       ) : (
         <>
-          <dl className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-cream-100 p-3 text-center sm:grid-cols-4">
+          <dl className="mb-4 grid grid-cols-2 gap-4 rounded-xl bg-cream-100 p-3 text-center sm:grid-cols-3 xl:grid-cols-5">
             {[
               ['Total dû / Total due', francs(finance.total_du), 'text-navy-700'],
               ['Déjà versé / Already paid', francs(finance.total_paye), 'text-green-600'],
               [
-                'Dette / Debt',
-                finance.reste_a_payer > 0 ? `Oui / Yes : ${francs(finance.reste_a_payer)}` : 'Non / No',
-                finance.reste_a_payer > 0 ? 'text-red-500' : 'text-green-600',
+                'Dette antérieure / Previous debt',
+                francs(finance.dette_anterieure_restante),
+                finance.dette_anterieure_restante > 0 ? 'text-red-500' : 'text-green-600',
               ],
+              ['Reste de l’année / Current year balance', francs(finance.reste_scolarite_a_payer), finance.reste_scolarite_a_payer > 0 ? 'text-red-500' : 'text-green-600'],
+              ['Reste total / Total remaining', francs(finance.reste_a_payer), finance.reste_a_payer > 0 ? 'text-red-500' : 'text-green-600'],
               ['Statut / Status', finance.statut_paiement, 'text-navy-700'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>

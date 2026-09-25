@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { peutVoirFinancesEcole } from '@/app/financesEcole'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
 import { fetchMe } from '@/features/auth/api'
@@ -42,6 +43,7 @@ export function ProtectedRoute({
   chefDepartementOnly = false,
   professeurPrincipalOnly = false,
   animateurNiveauOnly = false,
+  financesEcole = false,
 }: {
   children: ReactNode
   permission?: string
@@ -78,6 +80,11 @@ export function ProtectedRoute({
    * de toute façon 404 (cf. PersonnelEspaceController::moi()).
    */
   personnelOnly?: boolean
+  /**
+   * Finances de l'établissement (caisse, tarifs, dépenses…) : fermées à
+   * l'enseignant qui ne tient pas la caisse — cf. `peutVoirFinancesEcole`.
+   */
+  financesEcole?: boolean
   /**
    * Réservé aux comptes qui dirigent au moins un département — masquer le
    * lien du menu n'empêcherait pas d'y entrer par une URL directe, et l'API
@@ -147,6 +154,7 @@ export function ProtectedRoute({
     return <Navigate to={redirectionParDefaut(user)} replace />
   }
   if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (financesEcole && !peutVoirFinancesEcole(user, can)) return <Navigate to={redirectionParDefaut(user)} replace />
   if (chefDepartementOnly && !aAttribution('chef_departement')) return <Navigate to={redirectionParDefaut(user)} replace />
   if (professeurPrincipalOnly && !aAttribution('professeur_principal')) return <Navigate to={redirectionParDefaut(user)} replace />
   if (animateurNiveauOnly && !aAttribution('animateur_niveau')) return <Navigate to={redirectionParDefaut(user)} replace />

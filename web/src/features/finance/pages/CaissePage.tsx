@@ -203,12 +203,22 @@ export function CaissePage() {
       cellule: (d) => <span className="tabular-nums text-green-600">{francs(d.total_paye)}</span>,
     },
     {
-      cle: 'reste',
-      entete: 'Reste',
-      valeur: (d) => d.reste_a_payer,
+      cle: 'dette_anterieure',
+      entete: 'Dette antérieure',
+      valeur: (d) => d.dette_anterieure_restante,
       cellule: (d) => (
-        <span className={d.reste_a_payer > 0 ? 'font-semibold tabular-nums text-red-500' : 'tabular-nums text-navy-300'}>
-          {d.reste_a_payer > 0 ? francs(d.reste_a_payer) : '—'}
+        <span className={d.dette_anterieure_restante > 0 ? 'font-semibold tabular-nums text-red-500' : 'tabular-nums text-navy-300'}>
+          {d.dette_anterieure_restante > 0 ? francs(d.dette_anterieure_restante) : '—'}
+        </span>
+      ),
+    },
+    {
+      cle: 'reste',
+      entete: "Reste de l'année",
+      valeur: (d) => d.reste_scolarite_a_payer,
+      cellule: (d) => (
+        <span className={d.reste_scolarite_a_payer > 0 ? 'font-semibold tabular-nums text-red-500' : 'tabular-nums text-navy-300'}>
+          {d.reste_scolarite_a_payer > 0 ? francs(d.reste_scolarite_a_payer) : '—'}
         </span>
       ),
     },

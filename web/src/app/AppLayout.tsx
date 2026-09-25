@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { peutVoirFinancesEcole } from '@/app/financesEcole'
 import { createPortal } from 'react-dom'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -430,10 +431,10 @@ const navGroups = [
   {
     label: 'nav.group.finance',
     items: [
-      { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view', keywords: ['paiement', 'encaissement', 'payment', 'frais de scolarite'] },
-      { to: '/caisse/doublons', label: 'nav.versementsDoublons', icon: GitMerge, permission: 'finance.view', keywords: ['doublons', 'paiement en double', 'reçu en double'] },
-      { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view', keywords: ['prix', 'frais', 'pricing'] },
-      { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view', keywords: ['charges', 'expenses', 'factures'] },
+      { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view', financesEcole: true, keywords: ['paiement', 'encaissement', 'payment', 'frais de scolarite'] },
+      { to: '/caisse/doublons', label: 'nav.versementsDoublons', icon: GitMerge, permission: 'finance.view', financesEcole: true, keywords: ['doublons', 'paiement en double', 'reçu en double'] },
+      { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view', financesEcole: true, keywords: ['prix', 'frais', 'pricing'] },
+      { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view', financesEcole: true, keywords: ['charges', 'expenses', 'factures'] },
       { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie', keywords: ['salary', 'remuneration'] },
       { to: '/paie', label: 'nav.paie', icon: Banknote, permission: 'finance.paie', keywords: ['payroll', 'fiche de paie', 'bulletin de salaire'] },
       { to: '/avances-salaire', label: 'nav.avancesSalaire', icon: PiggyBank, permission: 'finance.paie', keywords: ['acompte', 'advance'] },
@@ -549,6 +550,11 @@ export function AppLayout() {
   // depuis l'interface personnel — un lien direct, pas une redirection.
   const estParentEtPersonnel = estPersonnel && Boolean(user?.roles.includes('parent'))
 
+  // Finances de l'établissement (caisse, tarifs, dépenses) : fermées à
+  // l'enseignant qui ne tient pas la caisse, même s'il porte `finance.view`
+  // (hérité par exemple du rôle parent d'un compte fusionné).
+  const voitFinancesEcole = peutVoirFinancesEcole(user, can)
+
   // Dirige au moins un département : ouvre « Mon département », sur son seul
   // département (cf. EnseignantController::monDepartement()).
   const estChefDepartement = aAttribution('chef_departement')
@@ -581,7 +587,8 @@ export function AppLayout() {
               (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
               (!('enseignantPrimaireOnly' in item) || !item.enseignantPrimaireOnly || user?.is_super_admin || can('pedagogie.manage') || estTitulaireDeClasse) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse) &&
-              (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur),
+              (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur) &&
+              (!('financesEcole' in item) || !item.financesEcole || voitFinancesEcole),
           )
           const items = requeteMenu
             ? itemsAutorises.filter(
@@ -602,7 +609,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole],
   )
 
   /**

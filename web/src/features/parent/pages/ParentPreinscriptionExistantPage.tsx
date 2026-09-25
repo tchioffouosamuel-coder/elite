@@ -340,7 +340,8 @@ export function ParentPreinscriptionExistantPage() {
                     {[
                       ['Total dû / Total due', francs(finance.total_du), 'text-navy-700'],
                       ['Déjà versé / Already paid', francs(finance.total_paye), 'text-green-600'],
-                      ['Reste / Remaining', francs(finance.reste_a_payer), 'text-red-500'],
+                      ['Dette antérieure / Previous debt', francs(finance.dette_anterieure_restante), 'text-red-500'],
+                      ['Reste de l’année / Current year balance', francs(finance.reste_scolarite_a_payer), 'text-red-500'],
                     ].map(([libelle, valeur, couleur]) => (
                       <div key={libelle}>
                         <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>

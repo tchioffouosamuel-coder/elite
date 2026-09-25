@@ -375,6 +375,8 @@ class ParentEspaceController extends Controller
             'total_du' => $dossier->total_du,
             'total_paye' => $dossier->total_paye,
             'reste_a_payer' => $dossier->reste_a_payer,
+            'dette_anterieure_restante' => $dossier->dette_anterieure_restante,
+            'reste_scolarite_a_payer' => $dossier->reste_scolarite_a_payer,
             'statut_paiement' => $dossier->statut_paiement,
             'rubriques' => $dossier->rubriques,
             // Échéancier de la scolarité : ce que la famille doit, quand, et ce

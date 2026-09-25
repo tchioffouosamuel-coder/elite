@@ -61,6 +61,8 @@ export interface DossierScolarite {
   total_du: number;
   total_paye: number;
   reste_a_payer: number;
+  dette_anterieure_restante: number;
+  reste_scolarite_a_payer: number;
   avance: number;
   statut_paiement: StatutPaiement;
   taux_recouvrement: number;
@@ -281,8 +283,19 @@ export async function fetchDepenses(params: {
   const { data } = await http.get<
     ApiResponse<{
       depenses: Depense[];
-      par_compte: { code: string; libelle: string; nombre: number; montant: number }[];
-      totaux: { nombre: number; engage: number; paye: number; total: number; annule: number };
+      par_compte: {
+        code: string;
+        libelle: string;
+        nombre: number;
+        montant: number;
+      }[];
+      totaux: {
+        nombre: number;
+        engage: number;
+        paye: number;
+        total: number;
+        annule: number;
+      };
     }>
   >("/depenses", { params });
   return { ...data.data, pagination: data.meta!.pagination! };
@@ -416,7 +429,11 @@ export async function preparerPaie(
 export async function preparerBulletinAgent(
   personnelId: number,
   params: { annee: number; mois: number },
-  payload: { heures?: number; extra_montant?: number; extra_motif?: string | null },
+  payload: {
+    heures?: number;
+    extra_montant?: number;
+    extra_motif?: string | null;
+  },
 ): Promise<BulletinPaie> {
   const { data } = await http.post<ApiResponse<BulletinPaie>>(
     `/paie/personnels/${personnelId}/preparer`,
@@ -1160,6 +1177,8 @@ export interface Insolvable {
   total_du: number;
   total_paye: number;
   reste_a_payer: number;
+  dette_anterieure_restante: number;
+  reste_scolarite_a_payer: number;
   /** Faux quand l'école n'a pas d'échéancier : le retard vaut alors le reste à payer. */
   echeancier_actif: boolean;
   /** Ce qui aurait dû être versé à ce jour, d'après les échéances passées. */
@@ -1265,7 +1284,10 @@ export async function modifierRemise(
   id: number,
   payload: { montant: number; motif?: string },
 ): Promise<RemiseIndividuelle> {
-  const { data } = await http.put<ApiResponse<RemiseIndividuelle>>(`/remises/${id}`, payload);
+  const { data } = await http.put<ApiResponse<RemiseIndividuelle>>(
+    `/remises/${id}`,
+    payload,
+  );
   return data.data;
 }
 

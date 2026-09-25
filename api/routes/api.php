@@ -59,7 +59,9 @@ use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MalaiseReferentielController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\MatriculeNationalController;
+use App\Http\Controllers\Api\V1\MigrationStatusController;
 use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
+use App\Http\Controllers\Api\V1\RouteListController;
 use App\Http\Controllers\Api\V1\MoratoireController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
@@ -193,6 +195,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('auth/mot-de-passe', [AuthController::class, 'changerMotDePasse'])->name('auth.mot-de-passe');
         Route::put('auth/profil', [AuthController::class, 'updateProfil'])->name('auth.profil');
+
+        Route::get('system/migrations/status', MigrationStatusController::class)
+            ->middleware('super_admin')
+            ->name('system.migrations.status');
+        Route::get('system/routes', RouteListController::class)
+            ->middleware('super_admin')
+            ->name('system.routes');
 
         // Référentiel global, non scopé par établissement.
         Route::get('niveaux', [NiveauController::class, 'index'])->name('niveaux.index')->middleware('permission:niveaux.view');

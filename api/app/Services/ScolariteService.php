@@ -897,6 +897,8 @@ class ScolariteService extends BaseService
                     'total_du' => $dossier->total_du,
                     'total_paye' => $dossier->total_paye,
                     'reste_a_payer' => $dossier->reste_a_payer,
+                    'dette_anterieure_restante' => $dossier->dette_anterieure_restante,
+                    'reste_scolarite_a_payer' => $dossier->reste_scolarite_a_payer,
                     // Ce qui motive réellement la relance quand l'école a
                     // découpé son année : le retard sur les échéances déjà
                     // passées, distinct du reste à payer sur l'année entière.

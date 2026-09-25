@@ -76,12 +76,12 @@ export function EncaissementPage() {
   } = useForm<FormValues>({
     values: dossier
       ? {
-          montant: dossier.reste_a_payer || (undefined as unknown as number),
-          mode: 'especes',
-          date_versement: new Date().toISOString().slice(0, 10),
-          reference_externe: '',
-          note: '',
-        }
+        montant: dossier.reste_a_payer || (undefined as unknown as number),
+        mode: 'especes',
+        date_versement: new Date().toISOString().slice(0, 10),
+        reference_externe: '',
+        note: '',
+      }
       : undefined,
   })
 
@@ -117,13 +117,13 @@ export function EncaissementPage() {
       const lignes: LigneVentilation[] | undefined =
         rubriques.length > 0
           ? rubriques
-              .map((r, i) => ({
-                affectation: r.cle,
-                dossier_frais_annexe_id: r.dossier_frais_annexe_id,
-                libelle: r.libelle,
-                montant: allocations[i] || 0,
-              }))
-              .filter((l) => l.montant > 0)
+            .map((r, i) => ({
+              affectation: r.cle,
+              dossier_frais_annexe_id: r.dossier_frais_annexe_id,
+              libelle: r.libelle,
+              montant: allocations[i] || 0,
+            }))
+            .filter((l) => l.montant > 0)
           : undefined
 
       const { versement_id, numero_recu } = await encaisser(dossier.id, {
@@ -170,11 +170,12 @@ export function EncaissementPage() {
 
       <Card className="max-w-2xl p-5">
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <dl className="grid grid-cols-3 gap-2 rounded-xl bg-cream-100 p-3 text-center">
+          <dl className="grid grid-cols-2 gap-2 rounded-xl bg-cream-100 p-3 text-center sm:grid-cols-4">
             {[
               ['Total dû', francs(dossier.total_du), 'text-navy-700'],
               ['Déjà versé', francs(dossier.total_paye), 'text-green-600'],
-              ['Reste', francs(dossier.reste_a_payer), 'text-red-500'],
+              ['Dette antérieure restante', francs(dossier.dette_anterieure_restante), 'text-red-500'],
+              [t('eleves.financier.reste_scolarite_a_payer'), francs(dossier.reste_scolarite_a_payer), 'text-red-500'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>
                 <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
@@ -338,11 +339,10 @@ export function EncaissementPage() {
               <button
                 type="button"
                 onClick={() => setSortieRecu('preview')}
-                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
-                  sortieRecu === 'preview'
+                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'preview'
                     ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
                     : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
-                }`}
+                  }`}
               >
                 <Eye className="h-5 w-5 flex-none" />
                 <span>
@@ -353,11 +353,10 @@ export function EncaissementPage() {
               <button
                 type="button"
                 onClick={() => setSortieRecu('print')}
-                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
-                  sortieRecu === 'print'
+                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'print'
                     ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
                     : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
-                }`}
+                  }`}
               >
                 <Printer className="h-5 w-5 flex-none" />
                 <span>
@@ -403,7 +402,7 @@ export function EncaissementPage() {
         </button>
         {moratoireOuvert && (
           <div className="mt-4">
-            <SectionMoratoires eleveId={dossier.eleve.id} onChange={() => {}} />
+            <SectionMoratoires eleveId={dossier.eleve.id} onChange={() => { }} />
           </div>
         )}
       </Card>

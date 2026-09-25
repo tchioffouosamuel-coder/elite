@@ -99,6 +99,8 @@ export interface FinanceEnfant {
   total_du: number;
   total_paye: number;
   reste_a_payer: number;
+  dette_anterieure_restante: number;
+  reste_scolarite_a_payer: number;
   statut_paiement: StatutPaiement;
   rubriques: RubriqueScolarite[];
   versements: {

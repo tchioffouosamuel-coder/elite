@@ -61,7 +61,7 @@ class ListeClassePersonnaliseeService extends BaseService
         $eleves = Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
             ->where('statut', 'actif')
-            ->when($besoinParents, fn ($q) => $q->with('tuteurs'))
+            ->when($besoinParents, fn($q) => $q->with('tuteurs'))
             ->orderBy('nom_complet')
             ->get();
 
@@ -104,7 +104,7 @@ class ListeClassePersonnaliseeService extends BaseService
 
         return $this->scolariteService
             ->situation($classe->school_id, $annee->id, ['classe_id' => $classe->id])['dossiers']
-            ->keyBy(fn ($dossier) => $dossier->eleve_id ?? $dossier->eleve->id);
+            ->keyBy(fn($dossier) => $dossier->eleve_id ?? $dossier->eleve->id);
     }
 
     /** @return Collection<int, bool> vrai si l'élève a une souscription bus active, keyé par eleve_id */
@@ -121,7 +121,7 @@ class ListeClassePersonnaliseeService extends BaseService
             ->actives()
             ->pluck('eleve_id')
             ->flip()
-            ->map(fn () => true);
+            ->map(fn() => true);
     }
 
     /** @return Collection<int, ?float> moyenne keyée par eleve_id */
@@ -154,7 +154,7 @@ class ListeClassePersonnaliseeService extends BaseService
     /** @return Collection<int, ?float> */
     private function calculerMoyennes(Collection $eleves, \Closure $moyenne): Collection
     {
-        return $eleves->mapWithKeys(fn (Eleve $eleve) => [$eleve->id => $moyenne($eleve)]);
+        return $eleves->mapWithKeys(fn(Eleve $eleve) => [$eleve->id => $moyenne($eleve)]);
     }
 
     /**
@@ -183,7 +183,7 @@ class ListeClassePersonnaliseeService extends BaseService
         }
 
         return $this->disciplineService->grille($classe, $trimestre)
-            ->mapWithKeys(fn (array $ligne) => [$ligne['eleve_id'] => $ligne['non_justifiees']]);
+            ->mapWithKeys(fn(array $ligne) => [$ligne['eleve_id'] => $ligne['non_justifiees']]);
     }
 
     /** @return Collection<int, float> */
@@ -214,14 +214,14 @@ class ListeClassePersonnaliseeService extends BaseService
         return $eleve->tuteurs->first(function (Tuteur $tuteur) use ($prefixes) {
             $lien = mb_strtolower(trim((string) $tuteur->pivot->lien_parente));
 
-            return $lien !== '' && collect($prefixes)->contains(fn (string $p) => str_starts_with($lien, $p));
+            return $lien !== '' && collect($prefixes)->contains(fn(string $p) => str_starts_with($lien, $p));
         });
     }
 
     /** Contact principal (pivot `is_principal`), ou à défaut le premier tuteur rattaché. */
     private function tuteurPrincipal(Eleve $eleve): ?Tuteur
     {
-        return $eleve->tuteurs->first(fn (Tuteur $t) => (bool) $t->pivot->is_principal) ?? $eleve->tuteurs->first();
+        return $eleve->tuteurs->first(fn(Tuteur $t) => (bool) $t->pivot->is_principal) ?? $eleve->tuteurs->first();
     }
 
     /**
@@ -254,10 +254,10 @@ class ListeClassePersonnaliseeService extends BaseService
             'nom_mere' => $this->tuteurParRole($eleve, 'mere')?->nom_complet ?: '—',
             'numero_mere' => $this->tuteurParRole($eleve, 'mere')?->telephone ?: '—',
             'statut_solvabilite' => $this->libelleStatutPaiement($dossiersParEleve->get($eleve->id)?->statut_paiement),
-            'reste_scolarite_a_payer' => $this->montant($dossiersParEleve->get($eleve->id)?->reste_a_payer),
+            'reste_scolarite_a_payer' => $this->montant($dossiersParEleve->get($eleve->id)?->reste_scolarite_a_payer),
             'situation_transport' => $abonnesBus->get($eleve->id) ? 'Abonné' : 'Non abonné',
-            'dette_anterieure' => $this->montant($dossiersParEleve->get($eleve->id)?->report_dette),
-            'absences' => $absences->has($eleve->id) ? number_format($absences->get($eleve->id), 1, ',', ' ').' '.$uniteAbsence : '—',
+            'dette_anterieure' => $this->montant($dossiersParEleve->get($eleve->id)?->dette_anterieure_restante),
+            'absences' => $absences->has($eleve->id) ? number_format($absences->get($eleve->id), 1, ',', ' ') . ' ' . $uniteAbsence : '—',
             'moyenne' => $moyennes->get($eleve->id) !== null ? number_format((float) $moyennes->get($eleve->id), 2, ',', ' ') : '—',
             default => '—',
         };
@@ -356,7 +356,7 @@ class ListeClassePersonnaliseeService extends BaseService
             mkdir($directory, 0755, true);
         }
 
-        $path = $directory.'/liste-classe-personnalisee-'.uniqid().'.docx';
+        $path = $directory . '/liste-classe-personnalisee-' . uniqid() . '.docx';
         IOFactory::createWriter($phpWord, 'Word2007')->save($path);
 
         return $path;
@@ -370,9 +370,9 @@ class ListeClassePersonnaliseeService extends BaseService
             ->addTextRun(['alignment' => JcTable::CENTER, 'spaceAfter' => 0]);
 
         $mentions = [
-            ['Classe ', '/ Class', ' : '.$classe->nom],
-            ['Année scolaire ', '/ Academic year', ' : '.(AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—')],
-            ['Effectif ', '/ Headcount', ' : '.$effectif],
+            ['Classe ', '/ Class', ' : ' . $classe->nom],
+            ['Année scolaire ', '/ Academic year', ' : ' . (AnneeScolaire::where('school_id', $classe->school_id)->where('is_active', true)->value('libelle') ?? '—')],
+            ['Effectif ', '/ Headcount', ' : ' . $effectif],
         ];
 
         foreach ($mentions as $i => [$fr, $en, $valeur]) {
@@ -399,7 +399,7 @@ class ListeClassePersonnaliseeService extends BaseService
         $table->addRow();
 
         $table->addCell(5000, ['valign' => 'top'])
-            ->addText($lieu.now()->format('d/m/Y'), ['size' => 9], ['spaceAfter' => 0]);
+            ->addText($lieu . now()->format('d/m/Y'), ['size' => 9], ['spaceAfter' => 0]);
 
         $droite = $table->addCell(5000, ['valign' => 'top']);
         $titre = $droite->addTextRun(['alignment' => JcTable::CENTER, 'spaceAfter' => 0]);

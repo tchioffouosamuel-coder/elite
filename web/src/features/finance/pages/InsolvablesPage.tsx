@@ -115,7 +115,8 @@ export function InsolvablesPage() {
                     <th className="px-3 py-2.5 text-left">École</th>
                     <th className="px-3 py-2.5 text-left">Classe</th>
                     <th className="px-3 py-2.5 text-right">Retard</th>
-                    <th className="px-3 py-2.5 text-right">Reste à payer</th>
+                    <th className="px-3 py-2.5 text-right">Dette antérieure</th>
+                    <th className="px-3 py-2.5 text-right">Reste de l'année</th>
                     <th className="px-3 py-2.5 text-left">Moratoire</th>
                     <th className="px-3 py-2.5"></th>
                   </tr>
@@ -144,7 +145,8 @@ export function InsolvablesPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-navy-600">{francs(ligne.reste_a_payer)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-red-500">{francs(ligne.dette_anterieure_restante)}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums text-navy-600">{francs(ligne.reste_scolarite_a_payer)}</td>
                           <td className="px-3 py-2.5">
                             {ligne.moratoire ? (
                               <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 ring-1 ring-green-100">
