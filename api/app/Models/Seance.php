@@ -172,8 +172,12 @@ class Seance extends Model
      */
     public function elevesAttendus(): Collection
     {
+        // Seuls les inscrits de l'année active sont appelés, comme dans la
+        // liste des élèves : une fiche restée dans la classe sans
+        // préinscription n'a rien à faire sur la feuille d'appel.
         return Eleve::whereIn('classe_id', $this->classesConcernees()->pluck('id'))
             ->where('statut', 'actif')
+            ->preinscritAnneeActive()
             ->orderBy('nom_complet')
             ->get();
     }

@@ -10,6 +10,7 @@ use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\Presence;
 use App\Models\School;
 use App\Models\Seance;
@@ -63,15 +64,25 @@ class TroncCommunTest extends TestCase
         }
     }
 
-    private function eleve(string $nom, string $classe): Eleve
+    private function eleve(string $nom, string $classe, bool $inscrit = true): Eleve
     {
-        return Eleve::create([
+        $eleve = Eleve::create([
             'school_id' => $this->school->id,
             'classe_id' => $this->classes[$classe]->id,
             'nom_complet' => $nom,
             'sexe' => 'M',
             'statut' => 'actif',
         ]);
+
+        // Seuls les inscrits de l'année active sont appelés (Seance::elevesAttendus).
+        if ($inscrit) {
+            Preinscription::create([
+                'school_id' => $this->school->id, 'eleve_id' => $eleve->id, 'annee_scolaire_id' => $this->annee->id,
+                'type' => 'existant', 'statut' => 'validee', 'donnees_eleve' => [], 'donnees_tuteurs' => [],
+            ]);
+        }
+
+        return $eleve;
     }
 
     /** @param list<string> $associees */
@@ -234,6 +245,18 @@ class TroncCommunTest extends TestCase
         Eleve::where('nom_complet', 'BEKONO MARIE')->update(['statut' => 'inactif']);
 
         $this->assertCount(2, $this->service()->feuilleAppel($seance));
+    }
+
+    /** Une fiche restée dans la classe sans inscription pour l'année active n'est pas appelée. */
+    public function test_un_eleve_non_inscrit_ne_figure_pas_a_l_appel(): void
+    {
+        $seance = $this->seanceAvecEleves();
+        $this->eleve('NON INSCRIT', 'ACT F3', inscrit: false);
+
+        $feuille = $this->service()->feuilleAppel($seance);
+
+        $this->assertCount(3, $feuille);
+        $this->assertNotContains('NON INSCRIT', $feuille->pluck('eleve.nom_complet')->all());
     }
 
     // ------------------------------------------- enregistrement du pointage
