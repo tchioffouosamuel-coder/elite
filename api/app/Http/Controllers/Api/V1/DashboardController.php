@@ -27,6 +27,15 @@ class DashboardController extends Controller
     }
 
     /**
+     * Détail matière par matière de la carte « Indicateurs pédagogiques »
+     * (remplissage des notes, avancement du programme) de l'enseignant.
+     */
+    public function indicateursPedagogiques(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->detailIndicateursPedagogiques(Tenant::schoolIds(), $request->user()));
+    }
+
+    /**
      * Pilotage en temps réel (cours en cours, classes sans enseignant,
      * couverture du programme) : bloc coûteux chargé à la demande, séparé de
      * `index()` pour ne pas alourdir l'ouverture du tableau de bord.

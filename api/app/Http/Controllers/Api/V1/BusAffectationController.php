@@ -64,6 +64,21 @@ class BusAffectationController extends Controller
         return ApiResponse::success($eleves->map(fn(Eleve $e) => $this->resumerEleve($e))->values());
     }
 
+    /**
+     * Transport d'un seul élève, pour sa fiche — `null` s'il n'est pas
+     * souscrit. Borné au périmètre du compte : un enseignant n'y lit que
+     * les élèves de ses classes.
+     */
+    public function eleve(Request $request, int $eleveId): JsonResponse
+    {
+        Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
+
+        $eleve = $this->service->listerElevesTransport(Tenant::schoolIds(), null, null, $eleveId)
+            ->first(fn(Eleve $e) => $e->id === $eleveId);
+
+        return ApiResponse::success($eleve ? $this->resumerEleve($eleve) : null);
+    }
+
     /** Effectif souscrit par école et situation financière du mois en cours — les tuiles au-dessus de la liste. */
     public function stats(): JsonResponse
     {

@@ -355,9 +355,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
-                Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
+                Route::get('dashboard/indicateurs-pedagogiques', [DashboardController::class, 'indicateursPedagogiques'])->name('dashboard.indicateurs-pedagogiques');
                 Route::get('dashboard/anciens-reinscrits', [DashboardController::class, 'anciensReinscrits'])->name('dashboard.anciens-reinscrits');
                 Route::get('dashboard/anciens-reinscrits/export', [DashboardController::class, 'exportAnciensReinscrits'])->name('dashboard.anciens-reinscrits.export');
+            });
+
+            // Pilotage en temps réel (cours en cours, appels en retard) :
+            // réservé à la direction, pas à tous ceux qui voient le tableau de bord.
+            Route::middleware('permission:dashboard.pilotage')->group(function () {
+                Route::get('dashboard/pilotage', [DashboardController::class, 'pilotage'])->name('dashboard.pilotage');
             });
 
             // Journal complet des connexions/actions : réservé au super admin,
@@ -992,7 +998,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:finance.view')->group(function () {
                 Route::get('scolarite/situation', [ScolariteController::class, 'situation'])->name('scolarite.situation');
                 Route::get('scolarite/situation/export', [ScolariteController::class, 'exportSituation'])->name('scolarite.situation.export');
-                Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
                 Route::get('versements/{id}/recu', [ScolariteController::class, 'recu'])->name('scolarite.recu');
                 Route::get('finance/versements/doublons', [ScolariteController::class, 'versementsDoublons'])->name('scolarite.versements.doublons');
 
@@ -1008,6 +1013,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/{eleveId}/moratoires', [MoratoireController::class, 'index'])->name('moratoires.index');
                 Route::get('eleves/{eleveId}/remises', [RemiseController::class, 'index'])->name('remises.index');
                 Route::get('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'index'])->name('dettes-anterieures.index');
+            });
+
+            /*
+             * Fiche élève : situation financière et transport en lecture
+             * seule. `eleves.situation` les ouvre à l'enseignant sans lui
+             * donner la caisse ni la flotte ; le contrôleur borne l'élève au
+             * périmètre du compte (ses classes).
+             */
+            Route::middleware('permission:finance.view|eleves.situation')->group(function () {
+                Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
+            });
+            Route::middleware('permission:bus.view|eleves.situation')->group(function () {
+                Route::get('eleves/{eleveId}/transport', [BusAffectationController::class, 'eleve'])->name('bus.eleve');
             });
 
             Route::middleware('permission:finance.encaisser')->group(function () {

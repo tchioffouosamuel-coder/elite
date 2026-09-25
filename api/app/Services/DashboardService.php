@@ -252,12 +252,7 @@ class DashboardService extends BaseService
             return [null, null];
         }
 
-        $mesAffectations = ClasseMatiere::whereIn('classe_id', $classeIds)
-            ->where('statut', 'actif')
-            ->where(fn($q) => $q
-                ->where('personnel_id', $personnelId)
-                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)))
-            ->get();
+        $mesAffectations = $this->mesAffectations($classeIds, $personnelId);
 
         if ($mesAffectations->isEmpty()) {
             return [null, null];
@@ -265,10 +260,7 @@ class DashboardService extends BaseService
 
         $tauxProgression = (int) round($mesAffectations->avg(fn(ClasseMatiere $cm) => $this->progression->tauxAffectation($cm)['taux']));
 
-        $sequenceActive = Sequence::whereHas(
-            'trimestre',
-            fn($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn($aq) => $aq->whereIn('school_id', (array) $schoolId))
-        )->first();
+        $sequenceActive = $this->sequenceActive($schoolId);
 
         if ($sequenceActive === null) {
             return [null, $tauxProgression];
@@ -280,13 +272,7 @@ class DashboardService extends BaseService
         $primaireOuMaternelle = ! (Classe::find($classeIds[0])?->school?->estSecondaire() ?? true);
 
         if ($primaireOuMaternelle) {
-            // Seul le titulaire saisit les notes de compétence : plus besoin de
-            // vérifier un `personnel_id` propre à `classe_competences`, qui
-            // n'existe plus (l'enseignant vit désormais sur `classe_matieres`).
-            $mesCompetences = ClasseCompetence::whereIn('classe_id', $classeIds)
-                ->where('statut', 'actif')
-                ->whereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId))
-                ->get();
+            $mesCompetences = $this->mesCompetences($classeIds, $personnelId);
 
             $tauxRemplissageNotes = $mesCompetences->isEmpty()
                 ? null
@@ -296,6 +282,113 @@ class DashboardService extends BaseService
         }
 
         return [$tauxRemplissageNotes, $tauxProgression];
+    }
+
+    /**
+     * Détail, matière par matière (et compétence par compétence au
+     * primaire/maternelle), des deux taux que résume la carte « Indicateurs
+     * pédagogiques » du tableau de bord enseignant — mêmes affectations et
+     * même séquence active que {@see indicateursPedagogiques()}, pour que la
+     * moyenne affichée sur la carte se retrouve dans ce détail.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{sequence: ?string, matieres: list<array<string, mixed>>, competences: list<array<string, mixed>>}
+     */
+    public function detailIndicateursPedagogiques(int|array $schoolId, User $user): array
+    {
+        $personnelId = $user->personnel?->id;
+        $classeIds = $user->estEnseignant() ? (new Perimetre($user))->classesEnseignees() : [];
+
+        if ($personnelId === null || $classeIds === []) {
+            return ['sequence' => null, 'matieres' => [], 'competences' => []];
+        }
+
+        $sequenceActive = $this->sequenceActive($schoolId);
+
+        $matieres = $this->mesAffectations($classeIds, $personnelId)
+            ->load(['classe.school', 'matiere'])
+            ->map(function (ClasseMatiere $cm) use ($sequenceActive) {
+                $progression = $this->progression->tauxAffectation($cm);
+                $secondaire = $cm->classe?->school?->estSecondaire() ?? true;
+
+                return [
+                    'classe_matiere_id' => $cm->id,
+                    'classe' => $cm->classe?->nom,
+                    'matiere' => $cm->matiere?->nom,
+                    'lecons' => $progression['lecons'],
+                    'lecons_traitees' => $progression['traitees'],
+                    'taux_progression' => (int) round($progression['taux']),
+                    // Au primaire/maternelle, les notes vivent sur la
+                    // compétence : le remplissage figure dans `competences`.
+                    'taux_remplissage_notes' => $sequenceActive !== null && $secondaire
+                        ? $this->notes->tauxRemplissage($cm, $sequenceActive->id)
+                        : null,
+                ];
+            })
+            ->sortBy([['classe', 'asc'], ['matiere', 'asc']])
+            ->values()
+            ->all();
+
+        $competences = $sequenceActive === null ? [] : $this->mesCompetences($classeIds, $personnelId)
+            ->load(['classe', 'competence'])
+            ->map(fn(ClasseCompetence $cc) => [
+                'classe_competence_id' => $cc->id,
+                'classe' => $cc->classe?->nom,
+                'competence' => app()->getLocale() === 'en' && $cc->competence?->label_en
+                    ? $cc->competence->label_en
+                    : $cc->competence?->label_fr,
+                'taux_remplissage_notes' => $this->notesPrimaire->tauxRemplissage($cc, $sequenceActive),
+            ])
+            ->sortBy([['classe', 'asc'], ['competence', 'asc']])
+            ->values()
+            ->all();
+
+        return [
+            'sequence' => $sequenceActive?->libelle,
+            'matieres' => $matieres,
+            'competences' => $competences,
+        ];
+    }
+
+    /**
+     * Affectations de l'agent : ses matières, plus toutes celles des classes
+     * dont il est titulaire.
+     *
+     * @param  list<int>  $classeIds
+     * @return Collection<int, ClasseMatiere>
+     */
+    private function mesAffectations(array $classeIds, int $personnelId): Collection
+    {
+        return ClasseMatiere::whereIn('classe_id', $classeIds)
+            ->where('statut', 'actif')
+            ->where(fn($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)))
+            ->get();
+    }
+
+    /**
+     * Compétences notées par l'agent : seul le titulaire saisit les notes de
+     * compétence (plus de `personnel_id` propre à `classe_competences`).
+     *
+     * @param  list<int>  $classeIds
+     * @return Collection<int, ClasseCompetence>
+     */
+    private function mesCompetences(array $classeIds, int $personnelId): Collection
+    {
+        return ClasseCompetence::whereIn('classe_id', $classeIds)
+            ->where('statut', 'actif')
+            ->whereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId))
+            ->get();
+    }
+
+    /** @param int|array<int> $schoolId */
+    private function sequenceActive(int|array $schoolId): ?Sequence
+    {
+        return Sequence::whereHas(
+            'trimestre',
+            fn($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn($aq) => $aq->whereIn('school_id', (array) $schoolId))
+        )->first();
     }
 
     /** @return array{type: string, libelle: string, date: string} */

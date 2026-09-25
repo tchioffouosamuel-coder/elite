@@ -31,6 +31,7 @@ class CataloguePermissions
     private const MODULES = [
         'dashboard' => ['Tableau de bord', 'Dashboard', [
             'dashboard.view' => ['Consulter le tableau de bord', 'View the dashboard'],
+            'dashboard.pilotage' => ['Accéder au pilotage en temps réel', 'Access real-time monitoring'],
         ]],
         'ecoles' => ['Établissement', 'School', [
             'ecoles.manage' => ["Administrer l'établissement (année scolaire, trimestres, paramètres)", 'Administer the school'],
@@ -50,6 +51,7 @@ class CataloguePermissions
         'eleves' => ['Élèves', 'Pupils', [
             'eleves.view' => ['Consulter les élèves', 'View pupils'],
             'eleves.manage' => ['Inscrire, modifier, transférer et importer des élèves', 'Manage pupils'],
+            'eleves.situation' => ["Consulter la situation financière et le transport des élèves de ses classes (lecture seule)", "View the fees and transport of one's own pupils (read-only)"],
         ]],
         'pedagogie' => ['Pédagogie', 'Teaching', [
             'pedagogie.view' => ['Consulter matières, affectations et progression', 'View teaching data'],

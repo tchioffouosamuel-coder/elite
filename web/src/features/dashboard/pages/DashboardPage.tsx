@@ -581,6 +581,8 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
   const { t } = useTranslation()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const nomEcoleActive = useAuthStore((s) => s.activeSchool()?.name)
+  // Pilotage en temps réel : privilège dédié, réservé par défaut à la direction.
+  const voirPilotage = useAuthStore((s) => s.can('dashboard.pilotage'))
   const [voirClassement, setVoirClassement] = useState(false)
   const { effectifs, repartition_genre, top_classes, classement_classes, indicateurs, activite_recente, annee_scolaire_active, reinscription } = data
   const maxClasseEffectif = Math.max(1, ...top_classes.map((c) => c.effectif))
@@ -679,7 +681,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
         </Card>
       </div>
 
-      <PilotagePanel />
+      {voirPilotage && <PilotagePanel />}
 
       {isSuperAdmin && <ActiviteRecente activite={activite_recente} />}
 

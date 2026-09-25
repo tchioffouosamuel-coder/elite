@@ -32,6 +32,30 @@ class DashboardPilotageTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_le_pilotage_exige_son_propre_privilege_et_pas_seulement_le_tableau_de_bord(): void
+    {
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+
+        $ecole = School::create(['name' => 'Elites Secondaire', 'code' => 'ES', 'type' => 'secondaire', 'is_active' => true]);
+        $agent = User::create([
+            'name' => 'Agent', 'email' => 'agent@test.local', 'password' => 'password',
+            'school_id' => $ecole->id, 'is_active' => true,
+        ]);
+        $agent->givePermissionTo('dashboard.view');
+
+        $this->actingAs($agent, 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage')
+            ->assertForbidden();
+
+        $agent->givePermissionTo('dashboard.pilotage');
+
+        $this->actingAs($agent->fresh(), 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage')
+            ->assertOk();
+    }
+
     public function test_le_pilotage_expose_les_creneaux_du_jour_les_manques_et_la_couverture(): void
     {
         // Lundi 08:30 : le créneau fabriqué (08:00-09:00) doit tomber « en cours ».
