@@ -17,14 +17,15 @@ import { useAuthStore } from '@/shared/store/authStore'
 import {
   COLONNES_IMPORT_PRESENCE_PERSONNEL,
   annulerValidationPresence,
-  fetchDepartements,
+  enTeteEcoleSuivi,
+  fetchDepartementsEcole,
   fetchIncoherencesPresencePersonnel,
   fetchPersonnels,
   fetchSuiviActivite,
   ouvrirFichePresencePersonnel,
   type GranulariteSuivi,
 } from '@/features/personnel/api'
-import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
+import { fetchSousSystemesEcole } from '@/features/classes/sous-systemes/api'
 import { confirmer, succes } from '@/shared/lib/alertes'
 
 function debutDuMois(): string {
@@ -47,9 +48,19 @@ export function SuiviActivitePage() {
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
-  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const ecoles = user?.ecoles_accessibles ?? []
-  const plusieursEcoles = user?.is_super_admin && ecoles.length > 1
+  const plusieursEcoles = ecoles.length > 1
+
+  // Le suivi est propre à une école : un onglet par école accessible, dont
+  // l'id part en `X-School-Id` sur chaque requête de la page — sans dépendre
+  // de l'école active du reste de l'application (ni la modifier). Ouvre par
+  // défaut sur l'école active si elle en fait partie, sinon la première.
+  const [ongletEcole, setOngletEcole] = useState<number | null>(() =>
+    ecoles.some((e) => e.id === activeSchoolId) ? activeSchoolId : (ecoles[0]?.id ?? null),
+  )
+  // Compte mono-école : aucun en-tête, l'API retient d'elle-même son école.
+  const ecoleId = plusieursEcoles ? ongletEcole : null
+  const enTete = enTeteEcoleSuivi(ecoleId)
 
   const [du, setDu] = useState(debutDuMois())
   const [au, setAu] = useState(finDuMois())
@@ -62,25 +73,22 @@ export function SuiviActivitePage() {
   // 's:<id>' = toute une section (sous-système), 'd:<id>' = tout un département.
   const [selection, setSelection] = useState('')
 
-  // Portée à l'école active : quand elle change de vraie source (le select
-  // école lui-même), la liste ne doit garder que son personnel — sinon un
-  // enseignant d'une autre école resterait sélectionnable puis introuvable
-  // une fois le suivi filtré côté API.
+  // Filtres bornés à l'école de l'onglet : un enseignant, une section ou un
+  // département d'une autre école resterait sinon sélectionnable puis
+  // introuvable une fois le suivi filtré côté API.
   const { data: personnels } = useQuery({
-    queryKey: ['personnels-suivi-activite-filtre', activeSchoolId],
-    queryFn: () => fetchPersonnels({ per_page: 500, schoolId: activeSchoolId ?? undefined }),
+    queryKey: ['personnels-suivi-activite-filtre', ecoleId],
+    queryFn: () => fetchPersonnels({ per_page: 500, schoolId: ecoleId ?? undefined }),
   })
 
   const { data: sousSystemes } = useQuery({
-    queryKey: ['sous-systemes-suivi-activite-filtre', activeSchoolId],
-    queryFn: fetchSousSystemes,
-    enabled: activeSchoolId !== null,
+    queryKey: ['sous-systemes-suivi-activite-filtre', ecoleId],
+    queryFn: () => fetchSousSystemesEcole(ecoleId),
   })
 
   const { data: departements } = useQuery({
-    queryKey: ['departements-suivi-activite-filtre', activeSchoolId],
-    queryFn: fetchDepartements,
-    enabled: activeSchoolId !== null,
+    queryKey: ['departements-suivi-activite-filtre', ecoleId],
+    queryFn: () => fetchDepartementsEcole(ecoleId),
   })
 
   const [type, idBrut] = selection.split(':')
@@ -90,50 +98,45 @@ export function SuiviActivitePage() {
   const departementId = type === 'd' ? idSelection : null
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['suivi-activite', activeSchoolId, du, au, granularite, selection],
+    queryKey: ['suivi-activite', ecoleId, du, au, granularite, selection],
     queryFn: () =>
-      fetchSuiviActivite({
-        date_debut: du,
-        date_fin: au,
-        granularite,
-        personnel_id: personnelId,
-        sous_systeme_id: sousSystemeId,
-        departement_id: departementId,
-      }),
-    enabled: activeSchoolId !== null,
+      fetchSuiviActivite(
+        {
+          date_debut: du,
+          date_fin: au,
+          granularite,
+          personnel_id: personnelId,
+          sous_systeme_id: sousSystemeId,
+          departement_id: departementId,
+        },
+        ecoleId,
+      ),
   })
 
   const { data: incoherences } = useQuery({
-    queryKey: ['suivi-activite-incoherences-presence', activeSchoolId, du, au, personnelId],
+    queryKey: ['suivi-activite-incoherences-presence', ecoleId, du, au, personnelId],
     queryFn: () =>
-      fetchIncoherencesPresencePersonnel({
-        date_debut: du,
-        date_fin: au,
-        personnel_id: personnelId,
-      }),
-    enabled: activeSchoolId !== null,
+      fetchIncoherencesPresencePersonnel(
+        {
+          date_debut: du,
+          date_fin: au,
+          personnel_id: personnelId,
+        },
+        ecoleId,
+      ),
   })
 
   const periodes = Array.from(new Set(data?.flatMap((ligne) => ligne.periodes.map((p) => p.periode)) ?? [])).sort()
 
-  const choisirEcole = (valeur: string) => {
-    setActiveSchool(valeur ? Number(valeur) : null)
+  const choisirEcole = (id: number) => {
+    setOngletEcole(id)
     // Change de source : la sélection précédente n'a plus de raison
     // d'appartenir à la nouvelle école, on efface plutôt que de garder une
     // sélection incohérente.
     setSelection('')
   }
 
-  const choisirSelection = (valeur: string) => {
-    setSelection(valeur)
-    // Un enseignant précis pilote l'école plutôt que de forcer l'utilisateur
-    // à le refaire à la main ; une section ou un département reste dans
-    // l'école déjà active, à laquelle ces listes sont déjà bornées.
-    if (valeur.startsWith('p:')) {
-      const ecoleDuPersonnel = personnels?.find((p) => String(p.id) === valeur.slice(2))?.school_id
-      if (ecoleDuPersonnel && ecoleDuPersonnel !== activeSchoolId) setActiveSchool(ecoleDuPersonnel)
-    }
-  }
+  const choisirSelection = (valeur: string) => setSelection(valeur)
 
   const rafraichirPresences = () => {
     void queryClient.invalidateQueries({ queryKey: ['suivi-activite'] })
@@ -147,7 +150,7 @@ export function SuiviActivitePage() {
       action: t('personnel.suivi_activite.cancel_validation_action'),
     })
     if (!ok) return
-    await annulerValidationPresence(seanceId)
+    await annulerValidationPresence(seanceId, ecoleId)
     succes(t('personnel.suivi_activite.cancel_validation_success'))
     rafraichirPresences()
   }
@@ -159,8 +162,7 @@ export function SuiviActivitePage() {
         sousTitre={t('personnel.suivi_activite.subtitle')}
         icon={CalendarClock}
         actions={
-          activeSchoolId !== null ? (
-            <>
+          <>
               <Input
                 type="date"
                 value={datePresence}
@@ -168,7 +170,7 @@ export function SuiviActivitePage() {
                 className="w-40"
                 title={t('personnel.suivi_activite.daily_sheet_date')}
               />
-              <Button type="button" variant="secondary" onClick={() => void ouvrirFichePresencePersonnel(datePresence)}>
+              <Button type="button" variant="secondary" onClick={() => void ouvrirFichePresencePersonnel(datePresence, ecoleId)}>
                 <FileText className="h-4 w-4" />
                 {t('personnel.suivi_activite.daily_sheet')}
               </Button>
@@ -176,20 +178,29 @@ export function SuiviActivitePage() {
                 url="/personnels/presences-journalieres/modele"
                 params={{ date: datePresence }}
                 nomFichier={`modele-presence-personnel-${datePresence}.xlsx`}
+                headers={enTete}
               />
               <ExportButton
                 url="/personnels/presences-journalieres/export"
                 params={{ date_debut: du, date_fin: au }}
                 nomFichier="presences-personnel.xlsx"
+                headers={enTete}
               />
               <Button type="button" variant="secondary" onClick={() => setChoixImportPresenceOuvert(true)}>
                 <Upload className="h-4 w-4" />
                 {t('import.submit')}
               </Button>
             </>
-          ) : undefined
         }
       />
+
+      {plusieursEcoles && (
+        <Tabs
+          tabs={ecoles.map((ecole) => ({ key: String(ecole.id), label: ecole.name }))}
+          active={String(ongletEcole ?? '')}
+          onChange={(cle) => choisirEcole(Number(cle))}
+        />
+      )}
 
       {choixImportPresenceOuvert && (
         <Modal title={t('personnel.suivi_activite.import_presence_title')} onClose={() => setChoixImportPresenceOuvert(false)}>
@@ -232,6 +243,12 @@ export function SuiviActivitePage() {
           url="/personnels/presences-journalieres/import"
           columns={COLONNES_IMPORT_PRESENCE_PERSONNEL}
           extraFields={{ date: datePresence }}
+          ecoles={
+            plusieursEcoles
+              ? ecoles.filter((e) => e.id === ecoleId).map((e) => ({ id: e.id, nom: e.name }))
+              : undefined
+          }
+          ecoleId={ecoleId ?? undefined}
           onClose={() => setImportPresenceOuvert(false)}
           onImported={rafraichirPresences}
         />
@@ -240,23 +257,14 @@ export function SuiviActivitePage() {
       {importPresenceOcrOuvert && (
         <ImportPresenceOcrModal
           date={datePresence}
+          schoolId={ecoleId}
           onClose={() => setImportPresenceOcrOuvert(false)}
           onImported={rafraichirPresences}
         />
       )}
 
       <Card>
-        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${plusieursEcoles ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-          {plusieursEcoles && (
-            <Select label={t('personnel.suivi_activite.school')} value={activeSchoolId ?? ''} onChange={(e) => choisirEcole(e.target.value)}>
-              <option value="">{t('personnel.suivi_activite.all_schools')}</option>
-              {ecoles.map((ecole) => (
-                <option key={ecole.id} value={ecole.id}>
-                  {ecole.name}
-                </option>
-              ))}
-            </Select>
-          )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Input label={t('personnel.suivi_activite.from')} type="date" value={du} onChange={(e) => setDu(e.target.value)} />
           <Input label={t('personnel.suivi_activite.to')} type="date" value={au} onChange={(e) => setAu(e.target.value)} />
           <Select label={t('personnel.enseignant')} value={selection} onChange={(e) => choisirSelection(e.target.value)}>
@@ -356,11 +364,7 @@ export function SuiviActivitePage() {
         </Card>
       )}
 
-      {activeSchoolId === null ? (
-        <Card>
-          <p className="text-sm text-navy-400">{t('personnel.suivi_activite.select_school')}</p>
-        </Card>
-      ) : isLoading ? (
+      {isLoading ? (
         <Spinner />
       ) : isError ? (
         <ErrorState />

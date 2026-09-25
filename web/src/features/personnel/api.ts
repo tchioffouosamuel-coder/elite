@@ -131,6 +131,16 @@ export async function fetchDepartements(): Promise<Departement[]> {
   return data.data;
 }
 
+/** Départements d'une école précise, sans toucher à l'école active. */
+export async function fetchDepartementsEcole(
+  schoolId: number | null,
+): Promise<Departement[]> {
+  const { data } = await http.get<ApiResponse<Departement[]>>("/departements", {
+    headers: enTeteEcoleSuivi(schoolId),
+  });
+  return data.data;
+}
+
 export async function createDepartement(
   nom: string,
   schoolId?: number | null,
@@ -757,17 +767,31 @@ export interface SuiviActivitePersonnel {
   totaux: SuiviActiviteResume;
 }
 
-export async function fetchSuiviActivite(params: {
-  date_debut: string;
-  date_fin: string;
-  granularite: GranulariteSuivi;
-  personnel_id?: number | null;
-  sous_systeme_id?: number | null;
-  departement_id?: number | null;
-}): Promise<SuiviActivitePersonnel[]> {
+/**
+ * En-tête d'école posé sur une seule requête : le suivi d'activité est
+ * propre à une école, choisie par onglet sur la page — sans toucher à l'école
+ * active du reste de l'application.
+ */
+export function enTeteEcoleSuivi(
+  schoolId?: number | null,
+): Record<string, string> | undefined {
+  return schoolId ? { "X-School-Id": String(schoolId) } : undefined;
+}
+
+export async function fetchSuiviActivite(
+  params: {
+    date_debut: string;
+    date_fin: string;
+    granularite: GranulariteSuivi;
+    personnel_id?: number | null;
+    sous_systeme_id?: number | null;
+    departement_id?: number | null;
+  },
+  schoolId?: number | null,
+): Promise<SuiviActivitePersonnel[]> {
   const { data } = await http.get<ApiResponse<SuiviActivitePersonnel[]>>(
     "/personnels/suivi-activite",
-    { params },
+    { params, headers: enTeteEcoleSuivi(schoolId) },
   );
   return data.data;
 }
@@ -799,32 +823,39 @@ export interface IncoherencePresencePersonnel {
 
 export async function ouvrirFichePresencePersonnel(
   date: string,
+  schoolId?: number | null,
 ): Promise<void> {
   await ouvrirDocument(
     "/personnels/presences-journalieres/fiche",
     { date },
-    undefined,
+    enTeteEcoleSuivi(schoolId),
     "Fiche de présence journalière",
   );
 }
 
-export async function fetchIncoherencesPresencePersonnel(params: {
-  date_debut: string;
-  date_fin: string;
-  personnel_id?: number | null;
-}): Promise<IncoherencePresencePersonnel[]> {
+export async function fetchIncoherencesPresencePersonnel(
+  params: {
+    date_debut: string;
+    date_fin: string;
+    personnel_id?: number | null;
+  },
+  schoolId?: number | null,
+): Promise<IncoherencePresencePersonnel[]> {
   const { data } = await http.get<ApiResponse<IncoherencePresencePersonnel[]>>(
     "/personnels/suivi-activite/incoherences-presence",
-    { params },
+    { params, headers: enTeteEcoleSuivi(schoolId) },
   );
   return data.data;
 }
 
 export async function annulerValidationPresence(
   seanceId: number,
+  schoolId?: number | null,
 ): Promise<void> {
   await http.post(
     `/personnels/suivi-activite/incoherences-presence/${seanceId}/annuler-validation`,
+    undefined,
+    { headers: enTeteEcoleSuivi(schoolId) },
   );
 }
 
@@ -860,6 +891,7 @@ export interface ResultatImportOcrPresence {
 export async function apercuOcrPresencePersonnel(
   image: File,
   date: string,
+  schoolId?: number | null,
 ): Promise<ApercuOcrPresence> {
   const formData = new FormData();
   formData.append("image", image);
@@ -867,7 +899,12 @@ export async function apercuOcrPresencePersonnel(
   const { data } = await http.post<ApiResponse<ApercuOcrPresence>>(
     "/personnels/presences-journalieres/import-ocr/apercu",
     formData,
-    { headers: { "Content-Type": "multipart/form-data" } },
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        ...enTeteEcoleSuivi(schoolId),
+      },
+    },
   );
   return data.data;
 }
@@ -880,10 +917,12 @@ export async function confirmerImportOcrPresence(
     heure_arrivee: string | null;
     heure_depart: string | null;
   }>,
+  schoolId?: number | null,
 ): Promise<ResultatImportOcrPresence> {
   const { data } = await http.post<ApiResponse<ResultatImportOcrPresence>>(
     "/personnels/presences-journalieres/import-ocr",
     { date, lignes },
+    { headers: enTeteEcoleSuivi(schoolId) },
   );
   return data.data;
 }

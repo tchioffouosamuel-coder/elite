@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\Settings;
 
 class BibliothequeService extends BaseService
 {
@@ -70,6 +72,29 @@ class BibliothequeService extends BaseService
     }
 
     /** @param array{titre: string, description?: ?string, school_ids: array<int>, classe_ids?: array<int>, cibles?: ?array<string>} $donnees */
+    /**
+     * Chemin (disque local) de l'aperçu PDF d'un document Word, converti à la
+     * première demande puis conservé : la conversion coûte, pas la relecture.
+     * La clé porte le chemin du fichier source, si bien qu'un fichier remplacé
+     * n'est jamais servi avec l'aperçu de l'ancien.
+     */
+    public function apercuPdf(BibliothequeDocument $document): string
+    {
+        $chemin = 'bibliotheque-apercus/'.$document->id.'-'.substr(sha1($document->fichier_path), 0, 12).'.pdf';
+        $disque = Storage::disk('local');
+
+        if (! $disque->exists($chemin)) {
+            Settings::setPdfRenderer(Settings::PDF_RENDERER_MPDF, base_path('vendor/mpdf/mpdf'));
+            $source = Storage::disk('public')->path($document->fichier_path);
+            $lecteur = $document->extension() === 'doc' ? 'MsDoc' : 'Word2007';
+
+            $disque->makeDirectory('bibliotheque-apercus');
+            IOFactory::createWriter(IOFactory::load($source, $lecteur), 'PDF')->save($disque->path($chemin));
+        }
+
+        return $disque->path($chemin);
+    }
+
     public function uploader(array $donnees, UploadedFile $fichier, ?int $uploadePar): BibliothequeDocument
     {
         return $this->transaction(function () use ($donnees, $fichier, $uploadePar) {

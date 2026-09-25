@@ -9,7 +9,10 @@ use App\Services\BibliothequeService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 /**
  * Bibliothèque numérique : documents déposés par l'administration, visibles
@@ -169,6 +172,29 @@ class BibliothequeController extends Controller
         ];
     }
 
+    /**
+     * Aperçu PDF d'un document Word (cf. BibliothequeDocument::apercu_url).
+     * Route sans compte mais signée : l'URL, temporaire, n'est distribuée
+     * qu'avec la liste des documents que le demandeur voit déjà.
+     */
+    public function apercu(int $id): BinaryFileResponse
+    {
+        $document = BibliothequeDocument::findOrFail($id);
+        abort_unless(in_array($document->extension(), BibliothequeDocument::EXTENSIONS_CONVERTIBLES, true), 404);
+
+        try {
+            $chemin = $this->service->apercuPdf($document);
+        } catch (Throwable $e) {
+            report($e);
+            abort(422, "Ce document n'a pas pu être converti pour l'aperçu.");
+        }
+
+        return response()->file($chemin, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.Str::slug($document->titre).'.pdf"',
+        ]);
+    }
+
     /** @return array<string, mixed> */
     private function resumer(BibliothequeDocument $document): array
     {
@@ -179,6 +205,7 @@ class BibliothequeController extends Controller
             'titre' => $document->titre,
             'description' => $document->description,
             'fichier_url' => $document->fichier_url,
+            'apercu_url' => $document->apercu_url,
             'fichier_nom_original' => $document->fichier_nom_original,
             'taille' => $document->taille,
             'type_mime' => $document->type_mime,

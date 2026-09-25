@@ -16,6 +16,14 @@ export async function fetchSousSystemes(): Promise<SousSysteme[]> {
   return data.data;
 }
 
+/** Sections d'une école précise, sans toucher à l'école active. */
+export async function fetchSousSystemesEcole(schoolId: number | null): Promise<SousSysteme[]> {
+  const { data } = await http.get<ApiResponse<SousSysteme[]>>("/sous-systemes", {
+    headers: schoolId ? { "X-School-Id": String(schoolId) } : undefined,
+  });
+  return data.data;
+}
+
 export async function createSousSysteme(payload: {
   code: string;
   nom: string;

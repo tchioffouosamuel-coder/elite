@@ -10,12 +10,21 @@ use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Trimestre;
 use App\Models\Versement;
+use App\Services\BulletinPrimaireService;
 use App\Services\BulletinService;
+use App\Services\EmploiDuTempsService;
+use App\Support\Pdf\BulletinGenerator;
+use App\Support\Pdf\BulletinPrimaireGenerator;
+use App\Support\Pdf\EmploiDuTempsGenerator;
+use App\Support\Pdf\RecuVersementBusGenerator;
+use App\Support\Pdf\RecuVersementGenerator;
 use App\Support\SignatureBulletin;
 use App\Support\SignatureEmploiDuTemps;
 use App\Support\SignatureVersement;
 use App\Support\SignatureVersementBus;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 
 /**
  * Point d'entrée unique de vérification publique (QR code), pour l'app
@@ -29,7 +38,12 @@ use Illuminate\Http\JsonResponse;
  */
 class VerificationController extends Controller
 {
-    public function __construct(private readonly BulletinService $bulletinService) {}
+    public function __construct(
+        private readonly BulletinService $bulletinService,
+        private readonly BulletinPrimaireService $bulletinPrimaireService,
+        private readonly EmploiDuTempsService $emploiDuTemps,
+        private readonly EmploiDuTempsGenerator $emploiDuTempsGenerator,
+    ) {}
 
     public function show(string $path): JsonResponse
     {
@@ -43,6 +57,90 @@ class VerificationController extends Controller
             'verification-emploi-du-temps' => $this->emploiDuTemps($segments),
             default => ApiResponse::notFound('Type de document inconnu.'),
         };
+    }
+
+    /**
+     * Le document lui-même, régénéré à l'identique, pour que la personne qui
+     * scanne le compare au papier qu'on lui présente : une signature valide
+     * prouve que le lien est authentique, pas que le papier n'a pas été
+     * retouché (note, montant, nom…). Même chemin signé que `show()` — qui
+     * tient le QR tient déjà le document, rien de plus n'est divulgué.
+     */
+    public function document(string $path): Response
+    {
+        $segments = array_values(array_filter(explode('/', $path), fn ($segment) => $segment !== ''));
+        $type = array_shift($segments);
+
+        [$pdf, $nom] = match ($type) {
+            'verification-bulletin' => $this->bulletinPdf($segments),
+            'verification-versement' => $this->versementPdf($segments),
+            'verification-versement-bus' => $this->versementBusPdf($segments),
+            'verification-emploi-du-temps' => $this->emploiDuTempsPdf($segments),
+            default => abort(404, 'Type de document inconnu.'),
+        };
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$nom.'.pdf"',
+        ]);
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function bulletinPdf(array $segments): array
+    {
+        abort_unless(count($segments) === 3, 404, 'Bulletin introuvable.');
+        [$eleveId, $trimestreId, $signature] = $segments;
+        abort_unless(SignatureBulletin::verifier((int) $eleveId, (int) $trimestreId, $signature), 422, 'Signature invalide : ce lien ne correspond à aucun bulletin authentique.');
+
+        $eleve = Eleve::with('classe.school')->find((int) $eleveId);
+        $trimestre = Trimestre::find((int) $trimestreId);
+        abort_unless($eleve?->classe && $trimestre, 404, 'Bulletin introuvable.');
+
+        $pdf = $eleve->classe->school?->type === 'secondaire'
+            ? (new BulletinGenerator)->build($this->bulletinService->donneesClasse($eleve->classe, $trimestre, [$eleve->id]))
+            : (new BulletinPrimaireGenerator)->build($this->bulletinPrimaireService->donneesClasse($eleve->classe, $trimestre, [$eleve->id]));
+
+        return [$pdf, 'bulletin-'.Str::slug($eleve->nom_complet).'-'.Str::slug($trimestre->libelle)];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function versementPdf(array $segments): array
+    {
+        abort_unless(count($segments) === 2, 404, 'Reçu introuvable.');
+        [$versementId, $signature] = $segments;
+        abort_unless(SignatureVersement::verifier((int) $versementId, $signature), 422, 'Signature invalide : ce lien ne correspond à aucun reçu authentique.');
+
+        $versement = Versement::findOrFail((int) $versementId);
+
+        return [(new RecuVersementGenerator)->build($versement), 'recu-'.Str::slug($versement->numero_recu)];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function versementBusPdf(array $segments): array
+    {
+        abort_unless(count($segments) === 2, 404, 'Reçu introuvable.');
+        [$versementId, $signature] = $segments;
+        abort_unless(SignatureVersementBus::verifier((int) $versementId, $signature), 422, 'Signature invalide : ce lien ne correspond à aucun reçu authentique.');
+
+        $versement = BusVersement::findOrFail((int) $versementId);
+
+        return [(new RecuVersementBusGenerator)->build($versement), 'recu-bus-'.Str::slug($versement->numero_recu)];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function emploiDuTempsPdf(array $segments): array
+    {
+        abort_unless(count($segments) === 3, 404, 'Document introuvable.');
+        [$classeId, $anneeId, $signature] = $segments;
+        abort_unless(SignatureEmploiDuTemps::verifier((int) $classeId, (int) $anneeId, $signature), 422, 'Signature invalide : ce lien ne correspond à aucun emploi du temps authentique.');
+
+        $classe = Classe::with('school')->findOrFail((int) $classeId);
+        $annee = AnneeScolaire::where('school_id', $classe->school_id)->findOrFail((int) $anneeId);
+
+        return [
+            $this->emploiDuTempsGenerator->build($classe, $annee, $this->emploiDuTemps->grille($classe)),
+            'emploi-du-temps-'.Str::slug($classe->nom),
+        ];
     }
 
     private function bulletin(array $segments): JsonResponse

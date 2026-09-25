@@ -17,11 +17,14 @@ export function ExportButton({
   params,
   nomFichier,
   label,
+  headers,
 }: {
   url: string
   params?: Record<string, string | number | undefined>
   nomFichier: string
   label?: string
+  /** En-têtes propres à cet export (ex. `X-School-Id` d'un onglet d'école). */
+  headers?: Record<string, string>
 }) {
   const { t } = useTranslation()
   const [telechargement, setTelechargement] = useState(false)
@@ -29,7 +32,7 @@ export function ExportButton({
   const onClick = async () => {
     setTelechargement(true)
     try {
-      await telechargerFichier(url, params, nomFichier)
+      await telechargerFichier(url, params, nomFichier, headers)
     } catch (err) {
       erreur((err as ApiError).message)
     } finally {

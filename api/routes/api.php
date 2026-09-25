@@ -163,6 +163,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->where('path', '.*')
         ->name('verify.show');
 
+    // Le PDF lui-même, derrière le même chemin signé, pour comparer le papier
+    // présenté au document authentique (cf. VerificationController::document).
+    Route::get('verify-document/{path}', [VerificationController::class, 'document'])
+        ->where('path', '.*')
+        ->name('verify.document');
+
+    // Aperçu PDF d'un document Word de la bibliothèque : lien signé et
+    // temporaire, remis uniquement dans les listes que le compte voit déjà
+    // (cf. BibliothequeDocument::apercu_url).
+    Route::get('bibliotheque/{id}/apercu', [BibliothequeController::class, 'apercu'])
+        ->whereNumber('id')
+        ->middleware('signed')
+        ->name('bibliotheque.apercu');
+
     // Callback DLR d'Orange (delivery report) : Orange n'authentifie pas cet
     // appel ("No authentication" côté portail Orange), donc pas de
     // middleware d'auth ici — le contrôleur ne fait qu'écrire un log

@@ -36,10 +36,13 @@ function nouvelleCle() {
  */
 export function ImportPresenceOcrModal({
   date,
+  schoolId,
   onClose,
   onImported,
 }: {
   date: string
+  /** École visée (onglet de la page) — sinon l'école active de l'application. */
+  schoolId?: number | null
   onClose: () => void
   onImported: () => void
 }) {
@@ -66,7 +69,7 @@ export function ImportPresenceOcrModal({
     setAnalyse(true)
     setErreur(null)
     try {
-      const donnees = await apercuOcrPresencePersonnel(fichier, date)
+      const donnees = await apercuOcrPresencePersonnel(fichier, date, schoolId)
       setPersonnels(donnees.personnels)
       setLignes(donnees.lignes.map((ligne) => ({ ...ligne, cle: nouvelleCle() })))
     } catch (err) {
@@ -110,6 +113,7 @@ export function ImportPresenceOcrModal({
           heure_arrivee: ligne.heure_arrivee,
           heure_depart: ligne.heure_depart,
         })),
+        schoolId,
       )
       setResultat(donnees)
       onImported()

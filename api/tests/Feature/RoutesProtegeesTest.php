@@ -79,6 +79,15 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.verification-versement.show',
         // Idem pour le reçu de versement bus.
         'api.v1.verification-versement-bus.show',
+        // Idem pour l'emploi du temps, et pour le point d'entrée unique de
+        // l'app mobile (scan QR) qui délègue à ces vérifications, ainsi que le
+        // PDF authentique servi derrière le même chemin signé.
+        'api.v1.verification-emploi-du-temps.show',
+        'api.v1.verify.show',
+        'api.v1.verify.document',
+        // Aperçu PDF d'un document de bibliothèque : URL signée et
+        // temporaire, distribuée seulement avec la liste que le compte voit.
+        'api.v1.bibliotheque.apercu',
 
         // Rapport de livraison SMS : rappelé par la passerelle SMS elle-même,
         // jamais par un compte de l'application — son authenticité vient de
@@ -185,6 +194,10 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.verification-bulletin.show',
         'api.v1.verification-versement.show',
         'api.v1.verification-versement-bus.show',
+        'api.v1.verification-emploi-du-temps.show',
+        'api.v1.verify.show',
+        'api.v1.verify.document',
+        'api.v1.bibliotheque.apercu',
         'api.v1.sms.dlr-callback',
 
         // Bootstrap d'une instance locale desktop : aucun jeton n'existe

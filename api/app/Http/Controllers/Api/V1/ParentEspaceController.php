@@ -168,6 +168,7 @@ class ParentEspaceController extends Controller
             'titre' => $d->titre,
             'description' => $d->description,
             'fichier_url' => $d->fichier_url,
+            'apercu_url' => $d->apercu_url,
             'fichier_nom_original' => $d->fichier_nom_original,
             'taille' => $d->taille,
             'type_mime' => $d->type_mime,
