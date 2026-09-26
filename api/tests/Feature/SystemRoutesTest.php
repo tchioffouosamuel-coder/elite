@@ -40,14 +40,14 @@ class SystemRoutesTest extends TestCase
             ->getJson('/api/v1/system/routes')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.count', fn (int $count) => $count > 0);
+            ->assertJsonPath('data.count', fn(int $count) => $count > 0);
 
         $this->assertSame(
             $response->json('data.count'),
             count($response->json('data.routes')),
         );
         $this->assertTrue(collect($response->json('data.routes'))->contains(
-            fn (array $route) => $route['uri'] === 'api/v1/system/routes',
+            fn(array $route) => $route['uri'] === 'api/v1/system/routes',
         ));
     }
 }

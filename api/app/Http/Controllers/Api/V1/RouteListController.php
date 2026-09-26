@@ -13,7 +13,7 @@ class RouteListController extends Controller
     public function __invoke(): JsonResponse
     {
         $routes = collect(Route::getRoutes()->getRoutes())
-            ->map(fn (IlluminateRoute $route) => [
+            ->map(fn(IlluminateRoute $route) => [
                 'domain' => $route->domain(),
                 'method' => implode('|', $route->methods()),
                 'uri' => $route->uri(),

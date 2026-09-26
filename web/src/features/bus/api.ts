@@ -336,6 +336,16 @@ export async function fetchElevesTransport(
   return data.data;
 }
 
+/** Transport d'un élève pour sa fiche — autorisé en lecture seule par `eleves.situation`. */
+export async function fetchTransportEleve(
+  eleveId: number,
+): Promise<EleveTransport | null> {
+  const { data } = await http.get<ApiResponse<EleveTransport | null>>(
+    `/eleves/${eleveId}/transport`,
+  );
+  return data.data;
+}
+
 export interface BusStats {
   total_souscrits: number;
   par_ecole: { school: School | null; souscrits: number }[];

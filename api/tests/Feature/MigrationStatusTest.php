@@ -41,6 +41,6 @@ class MigrationStatusTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.exit_code', 0)
-            ->assertJsonPath('data.output', fn (string $output) => str_contains($output, '0001_01_01_000000_create_users_table'));
+            ->assertJsonPath('data.output', fn(string $output) => str_contains($output, '0001_01_01_000000_create_users_table'));
     }
 }

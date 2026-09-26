@@ -174,11 +174,13 @@ export function EleveDetailPage() {
   if (isLoading) return <Spinner />
   if (isError || !eleve) return <ErrorState />
 
-  // Les onglets suivent les privilèges : inutile de proposer « Finance » à un
-  // surveillant, il n'obtiendrait qu'une carte en erreur.
+  const peutVoirSituation = can('eleves.situation')
+
+  // L'enseignant a accès à la lecture seule finance/transport via
+  // `eleves.situation`, sans les privilèges de gestion des modules.
   const onglets = [
     { key: 'profil', label: t('hub.tab.profil') },
-    can('finance.view') && { key: 'finance', label: t('hub.tab.finance') },
+    (can('finance.view') || peutVoirSituation) && { key: 'finance', label: t('hub.tab.finance') },
     can('infirmerie.view') && { key: 'sante', label: t('hub.tab.sante') },
     secondaire && can('discipline.view') && { key: 'discipline', label: t('hub.tab.discipline') },
     can('bus.view') && { key: 'transport', label: t('hub.tab.transport') },
@@ -582,6 +584,11 @@ export function EleveDetailPage() {
             </div>
           )}
           <StatutFinancierCard eleveId={eleve.id} />
+          {peutVoirSituation && !can('bus.view') && (
+            <div className="mt-4">
+              <TransportEleveCard eleveId={eleve.id} lectureSeule />
+            </div>
+          )}
         </>
       )}
 

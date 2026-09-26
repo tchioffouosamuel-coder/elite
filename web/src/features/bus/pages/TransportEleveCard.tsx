@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Bus, MapPin, Clock, Wallet } from 'lucide-react'
-import { fetchElevesTransport } from '@/features/bus/api'
+import { fetchElevesTransport, fetchTransportEleve } from '@/features/bus/api'
 import { francs } from '@/features/finance/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Card } from '@/shared/ui/Card'
@@ -15,28 +15,36 @@ import { Spinner } from '@/shared/ui/Feedback'
  * fallait passer par « Transport › Élèves » et retrouver l'élève dans la
  * liste de l'établissement pour savoir s'il prend le bus.
  *
- * La liste est demandée classe par classe — l'API n'expose pas de lecture par
- * élève, et charger l'effectif entier pour une seule ligne serait coûteux.
+ * La gestion utilise la liste de classe; le mode lecture seule de l'enseignant
+ * utilise l'endpoint individuel, borné au périmètre de ses classes.
  */
 export function TransportEleveCard({
   eleveId,
   classeId,
   retour,
+  lectureSeule = false,
 }: {
   eleveId: number
   classeId?: number | null
   retour?: string
+  lectureSeule?: boolean
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
 
   const { data: eleves, isLoading } = useQuery({
-    queryKey: ['bus-eleves', classeId ?? null],
-    queryFn: () => fetchElevesTransport(classeId ?? undefined),
+    queryKey: lectureSeule
+      ? ['bus-eleve', eleveId]
+      : ['bus-eleves', classeId ?? null],
+    queryFn: async () => {
+      if (lectureSeule) return fetchTransportEleve(eleveId)
+      const liste = await fetchElevesTransport(classeId ?? undefined)
+      return liste.find((e) => e.id === eleveId) ?? null
+    },
   })
 
-  const ligne = eleves?.find((e) => e.id === eleveId)
+  const ligne = eleves
   const bus = ligne?.bus ?? null
 
   // Une souscription existante se modifie (même écran, prérempli) au lieu
@@ -69,13 +77,13 @@ export function TransportEleveCard({
         </h2>
         <div className="flex items-center gap-2">
           {bus && <Badge tone={bus.statut_paiement === 'solde' ? 'green' : 'gold'}>{t(`bus.statut_paiement_${bus.statut_paiement}`)}</Badge>}
-          {bus && (
+          {bus && !lectureSeule && (
             <Button size="sm" onClick={() => navigate(`/bus/affectations/${bus.affectation_id}/paiements`)}>
               <Wallet className="h-3.5 w-3.5" />
               {t('bus.paiements')}
             </Button>
           )}
-          {can('bus.souscrire') && (
+          {!lectureSeule && can('bus.souscrire') && (
             <Button size="sm" variant="secondary" onClick={souscrire}>
               <Bus className="h-3.5 w-3.5" />
               {bus ? t('common.edit') : t('bus.souscrire')}
