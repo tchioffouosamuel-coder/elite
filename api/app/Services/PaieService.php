@@ -305,12 +305,12 @@ class PaieService extends BaseService
      */
     private function heuresValidees(Personnel $personnel, int $annee, int $mois): int
     {
-        $minutes = Seance::whereHas('classeMatiere', fn ($q) => $q->where('personnel_id', $personnel->id))
+        $minutes = Seance::whereHas('classeMatiere', fn($q) => $q->where('personnel_id', $personnel->id))
             ->where('statut', 'effectuee')
             ->whereYear('date_seance', $annee)
             ->whereMonth('date_seance', $mois)
             ->get()
-            ->sum(fn (Seance $s) => $s->dureeHeures() * 60);
+            ->sum(fn(Seance $s) => $s->dureeHeures() * 60);
 
         return (int) round($minutes / self::MINUTES_PAR_HEURE_PEDAGOGIQUE);
     }
@@ -446,7 +446,7 @@ class PaieService extends BaseService
                 $bulletin->personnel_id,
                 $bulletin->deduction_pret,
                 $bulletin->periode_fin->toDateString(),
-                'Retenue sur salaire — '.$bulletin->numero,
+                'Retenue sur salaire — ' . $bulletin->numero,
             );
 
             if ($impute !== $bulletin->deduction_pret) {
@@ -490,9 +490,11 @@ class PaieService extends BaseService
             // Décaissement : la dette envers l'agent s'éteint, la trésorerie baisse.
             $this->ecrire($bulletin, 'debit', self::COMPTE_PERSONNEL, $bulletin->net_a_payer, 'Règlement du salaire');
             $this->ecrire(
-                $bulletin, 'credit',
+                $bulletin,
+                'credit',
                 self::COMPTES_TRESORERIE[$mode] ?? '571',
-                $bulletin->net_a_payer, 'Règlement du salaire',
+                $bulletin->net_a_payer,
+                'Règlement du salaire',
             );
 
             return $bulletin->fresh();
@@ -534,9 +536,9 @@ class PaieService extends BaseService
     private function comptabiliser(BulletinPaie $bulletin): void
     {
         $cotisations = $bulletin->lignes()->where('type', 'retenue')->get();
-        $estCnps = fn ($ligne) => str_contains($ligne->libelle, 'CNPS');
+        $estCnps = fn($ligne) => str_contains($ligne->libelle, 'CNPS');
 
-        $part = fn ($lignes, string $colonne) => (int) $lignes->sum($colonne);
+        $part = fn($lignes, string $colonne) => (int) $lignes->sum($colonne);
 
         $cnpsSalarial = $part($cotisations->filter($estCnps), 'montant_salarial');
         $cnpsPatronal = $part($cotisations->filter($estCnps), 'montant_patronal');
@@ -573,7 +575,7 @@ class PaieService extends BaseService
             'school_id' => $bulletin->school_id,
             'annee_scolaire_id' => $bulletin->annee_scolaire_id,
             'date_ecriture' => $bulletin->periode_fin,
-            'libelle' => $libelle.' — '.$bulletin->numero,
+            'libelle' => $libelle . ' — ' . $bulletin->numero,
             'montant' => $montant,
             'sens' => $sens,
             'compte_comptable_id' => CompteComptable::where('code', $codeCompte)->value('id'),
@@ -603,7 +605,7 @@ class PaieService extends BaseService
      */
     public function masseSalariale(int|array $schoolId, int $annee, int $mois, ?string $recherche = null, ?int $perPage = 30): array
     {
-        $requete = fn () => BulletinPaie::forSchool($schoolId)
+        $requete = fn() => BulletinPaie::forSchool($schoolId)
             ->where('annee', $annee)->where('mois', $mois)
             ->when($recherche, fn($q, $terme) => $q->whereHas(
                 'personnel',

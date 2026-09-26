@@ -45,15 +45,22 @@ class PaieTest extends TestCase
         $school ??= $this->school;
 
         $personnel = Personnel::create([
-            'school_id' => $school->id, 'nom_complet' => $nom, 'sexe' => 'F', 'statut' => 'actif',
+            'school_id' => $school->id,
+            'nom_complet' => $nom,
+            'sexe' => 'F',
+            'statut' => 'actif',
         ]);
 
         // Le bulletin d'avril 2024 de l'établissement : 42 000 de base,
         // 1 000 d'ancienneté, 2 500 de communication, 2 500 de transport.
         Remuneration::create([
-            'school_id' => $school->id, 'personnel_id' => $personnel->id, 'date_effet' => '2024-01-01',
-            'salaire_base' => 42000, 'prime_anciennete' => 1000,
-            'prime_communication' => 2500, 'prime_transport' => 2500,
+            'school_id' => $school->id,
+            'personnel_id' => $personnel->id,
+            'date_effet' => '2024-01-01',
+            'salaire_base' => 42000,
+            'prime_anciennete' => 1000,
+            'prime_communication' => 2500,
+            'prime_transport' => 2500,
         ]);
 
         return $personnel;
@@ -91,7 +98,8 @@ class PaieTest extends TestCase
     public function test_les_absences_sont_retenues_au_prorata(): void
     {
         $bulletin = $this->service()->preparer($this->agent, 2024, 4, [
-            'jours_ouvrables' => 22, 'jours_travailles' => 19,
+            'jours_ouvrables' => 22,
+            'jours_travailles' => 19,
         ]);
 
         // 3 jours sur 22 : 48 000 × 3/22 = 6 545.
@@ -131,7 +139,7 @@ class PaieTest extends TestCase
         $this->service()->arreter($bulletin);
 
         $ecritures = EcritureComptable::where('origine_id', $bulletin->id)->with('compte')->get();
-        $parCompte = $ecritures->keyBy(fn ($e) => $e->compte->code);
+        $parCompte = $ecritures->keyBy(fn($e) => $e->compte->code);
 
         $this->assertSame(48000, $parCompte['661']->montant);                     // salaires
         // Les charges patronales se ventilent comme l'état de synthèse les
@@ -190,7 +198,7 @@ class PaieTest extends TestCase
         try {
             $this->service()->payer($bulletin, 'virement');
             $this->fail('Un bulletin payé ne doit pas être débité une seconde fois.');
-        } catch (ValidationException|\RuntimeException) {
+        } catch (ValidationException | \RuntimeException) {
             $this->assertSame(1, $banque->mouvements()->where('bulletin_paie_id', $bulletin->id)->count());
         }
     }
@@ -217,7 +225,10 @@ class PaieTest extends TestCase
     {
         $this->personnel('AGBORNDE CATHERINE');
         Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'SANS SALAIRE', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'SANS SALAIRE',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
 
         $lot = $this->service()->preparerLot($this->school->id, 2024, 4);
@@ -232,11 +243,18 @@ class PaieTest extends TestCase
     public function test_le_lot_distingue_un_vacataire_sans_heures(): void
     {
         $vacataire = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'SONG ERIC MUNYAM', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'SONG ERIC MUNYAM',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
         Remuneration::create([
-            'school_id' => $this->school->id, 'personnel_id' => $vacataire->id,
-            'date_effet' => '2024-01-01', 'mode' => 'horaire', 'taux_horaire' => 1000, 'salaire_base' => 0,
+            'school_id' => $this->school->id,
+            'personnel_id' => $vacataire->id,
+            'date_effet' => '2024-01-01',
+            'mode' => 'horaire',
+            'taux_horaire' => 1000,
+            'salaire_base' => 0,
         ]);
 
         $lot = $this->service()->preparerLot($this->school->id, 2024, 4);
@@ -249,7 +267,10 @@ class PaieTest extends TestCase
     public function test_le_lot_agrege_prepare_les_agents_de_plusieurs_ecoles(): void
     {
         $autreEcole = School::create([
-            'name' => 'Elites Primary', 'code' => 'EBP', 'type' => 'primaire', 'is_active' => true,
+            'name' => 'Elites Primary',
+            'code' => 'EBP',
+            'type' => 'primaire',
+            'is_active' => true,
         ]);
         $this->personnel('AGBORNDE CATHERINE', $autreEcole);
 

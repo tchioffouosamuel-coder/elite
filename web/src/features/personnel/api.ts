@@ -314,7 +314,7 @@ export interface Banque {
 
 export interface BanqueMouvement {
   id: number;
-  type: 'depot' | 'retrait' | 'paie';
+  type: "depot" | "retrait" | "paie";
   montant: number;
   date: string;
   libelle: string;
@@ -335,8 +335,13 @@ export async function fetchBanque(id: number): Promise<Banque> {
 
 export async function enregistrerMouvementBanque(
   id: number,
-  type: 'depot' | 'retrait',
-  payload: { montant: number; date?: string; libelle?: string; reference?: string },
+  type: "depot" | "retrait",
+  payload: {
+    montant: number;
+    date?: string;
+    libelle?: string;
+    reference?: string;
+  },
 ): Promise<void> {
   await http.post(`/banques/${id}/${type}`, payload);
 }

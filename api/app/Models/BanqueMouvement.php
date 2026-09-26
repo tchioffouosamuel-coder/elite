@@ -8,8 +8,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BanqueMouvement extends Model
 {
     protected $fillable = [
-        'banque_id', 'type', 'montant', 'date_mouvement', 'libelle', 'reference',
-        'cle_idempotence', 'bulletin_paie_id', 'effectue_par',
+        'banque_id',
+        'type',
+        'montant',
+        'date_mouvement',
+        'libelle',
+        'reference',
+        'cle_idempotence',
+        'bulletin_paie_id',
+        'effectue_par',
     ];
 
     protected function casts(): array

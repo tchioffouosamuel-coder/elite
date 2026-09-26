@@ -79,7 +79,7 @@ class BanqueService
             $bulletin->numero,
             null,
             $bulletin->id,
-            'paie:'.$bulletin->id,
+            'paie:' . $bulletin->id,
         );
     }
 
