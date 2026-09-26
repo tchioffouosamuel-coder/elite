@@ -46,25 +46,38 @@ class SeanceAppelHoraireTest extends TestCase
 
         $niveau = Niveau::create(['code' => 'college', 'name_fr' => 'Collège', 'name_en' => 'College', 'ordre' => 1]);
         $annee = AnneeScolaire::create([
-            'school_id' => $this->school->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-31', 'is_active' => true,
+            'school_id' => $this->school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-31',
+            'is_active' => true,
         ]);
         $classe = Classe::create([
-            'school_id' => $this->school->id, 'niveau_id' => $niveau->id, 'annee_scolaire_id' => $annee->id,
+            'school_id' => $this->school->id,
+            'niveau_id' => $niveau->id,
+            'annee_scolaire_id' => $annee->id,
             'nom' => '6ème A',
         ]);
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
         $enseignant = Personnel::create([
-            'school_id' => $this->school->id, 'nom_complet' => 'SONG ERIC MUNYAM', 'sexe' => 'M', 'statut' => 'actif',
+            'school_id' => $this->school->id,
+            'nom_complet' => 'SONG ERIC MUNYAM',
+            'sexe' => 'M',
+            'statut' => 'actif',
         ]);
         $this->classeMatiere = ClasseMatiere::create([
-            'classe_id' => $classe->id, 'matiere_id' => $matiere->id, 'personnel_id' => $enseignant->id,
+            'classe_id' => $classe->id,
+            'matiere_id' => $matiere->id,
+            'personnel_id' => $enseignant->id,
             'statut' => 'actif',
         ]);
 
         $this->admin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $this->admin->assignRole('super_admin');
     }
@@ -107,8 +120,11 @@ class SeanceAppelHoraireTest extends TestCase
     public function test_expose_la_methode_de_validation_applicable_a_la_seance(): void
     {
         $enseignant = User::create([
-            'name' => 'Enseignant', 'email' => 'enseignant@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'name' => 'Enseignant',
+            'email' => 'enseignant@test.local',
+            'password' => 'password',
+            'school_id' => $this->school->id,
+            'is_active' => true,
         ]);
         $enseignant->givePermissionTo('emploi_du_temps.view');
         Personnel::where('school_id', $this->school->id)
