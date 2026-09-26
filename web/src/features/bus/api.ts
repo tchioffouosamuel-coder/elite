@@ -449,7 +449,10 @@ export const COLONNES_LISTE_TRANSPORT: ColonneListeTransport[] = [
   "ecole",
 ];
 
-export const LIBELLES_COLONNES_TRANSPORT: Record<ColonneListeTransport, string> = {
+export const LIBELLES_COLONNES_TRANSPORT: Record<
+  ColonneListeTransport,
+  string
+> = {
   numero: "N°",
   nom_prenom: "Nom et prénom",
   matricule: "Matricule",
@@ -526,7 +529,9 @@ export async function fetchListePersonnaliseeBus(
   return data.data;
 }
 
-export async function fetchListeTransportModeles(): Promise<ListeTransportModele[]> {
+export async function fetchListeTransportModeles(): Promise<
+  ListeTransportModele[]
+> {
   const { data } = await http.get<ApiResponse<ListeTransportModele[]>>(
     "/bus/affectations/liste-personnalisee/modeles",
   );

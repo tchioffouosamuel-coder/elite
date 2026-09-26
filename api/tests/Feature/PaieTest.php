@@ -3,13 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\BulletinPaie;
+use App\Models\Banque;
 use App\Models\EcritureComptable;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\School;
+use App\Services\BanqueService;
 use App\Services\PaieService;
 use Database\Seeders\PlanComptableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class PaieTest extends TestCase
@@ -165,6 +168,49 @@ class PaieTest extends TestCase
         $this->assertSame('2024-04-30', $bulletin->date_paiement->toDateString());
         $this->assertNotNull($bulletin->emarge_le);
         $this->assertSame('Registre p. 12', $bulletin->emargement_reference);
+    }
+
+    public function test_un_virement_de_paies_debite_automatiquement_la_banque_du_personnel(): void
+    {
+        $banque = Banque::create(['nom' => 'Banque Paie']);
+        $this->agent->update(['banque_id' => $banque->id]);
+        $bulletin = $this->service()->preparer($this->agent, 2024, 4);
+        $bulletin = $this->service()->arreter($bulletin);
+        $soldeInitial = $bulletin->net_a_payer + 1000;
+        app(BanqueService::class)->deposer($banque->id, $soldeInitial, '2024-04-01', 'Solde initial', null, null);
+
+        $bulletin = $this->service()->payer($bulletin, 'virement', '2024-04-30');
+
+        $this->assertSame('paye', $bulletin->statut);
+        $this->assertSame(1000, $banque->fresh()->solde);
+        $mouvement = $banque->mouvements()->where('bulletin_paie_id', $bulletin->id)->sole();
+        $this->assertSame('paie', $mouvement->type);
+        $this->assertSame($bulletin->net_a_payer, $mouvement->montant);
+
+        try {
+            $this->service()->payer($bulletin, 'virement');
+            $this->fail('Un bulletin payé ne doit pas être débité une seconde fois.');
+        } catch (ValidationException|\RuntimeException) {
+            $this->assertSame(1, $banque->mouvements()->where('bulletin_paie_id', $bulletin->id)->count());
+        }
+    }
+
+    public function test_un_virement_est_refuse_si_le_solde_bancaire_est_insuffisant(): void
+    {
+        $banque = Banque::create(['nom' => 'Banque Insuffisante']);
+        $this->agent->update(['banque_id' => $banque->id]);
+        $bulletin = $this->service()->preparer($this->agent, 2024, 4);
+        $bulletin = $this->service()->arreter($bulletin);
+        app(BanqueService::class)->deposer($banque->id, 1, '2024-04-01', 'Ouverture', null, null);
+
+        try {
+            $this->service()->payer($bulletin, 'virement', '2024-04-30');
+            $this->fail('Le virement aurait dû être refusé faute de provision.');
+        } catch (ValidationException) {
+            $this->assertSame('valide', $bulletin->fresh()->statut);
+            $this->assertSame(1, $banque->fresh()->solde);
+            $this->assertSame(0, $banque->mouvements()->where('type', 'paie')->count());
+        }
     }
 
     public function test_le_lot_signale_les_agents_sans_remuneration(): void

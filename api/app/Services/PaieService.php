@@ -76,6 +76,7 @@ class PaieService extends BaseService
         private readonly CalculateurVacataire $vacataire,
         private readonly DocumentReferenceService $references,
         private readonly AvanceSalaireService $avances,
+        private readonly BanqueService $banques,
     ) {}
 
     /**
@@ -472,11 +473,19 @@ class PaieService extends BaseService
         }
 
         return $this->transaction(function () use ($bulletin, $mode, $date) {
+            $bulletin = BulletinPaie::query()->lockForUpdate()->findOrFail($bulletin->id);
+            if ($bulletin->statut !== 'valide') {
+                throw new RuntimeException('Ce bulletin a déjà été réglé.');
+            }
+
             $bulletin->update([
                 'statut' => 'paye',
                 'mode_paiement' => $mode,
                 'date_paiement' => $date ?? Carbon::today()->toDateString(),
             ]);
+
+            $bulletin->refresh();
+            $this->banques->payerBulletin($bulletin);
 
             // Décaissement : la dette envers l'agent s'éteint, la trésorerie baisse.
             $this->ecrire($bulletin, 'debit', self::COMPTE_PERSONNEL, $bulletin->net_a_payer, 'Règlement du salaire');

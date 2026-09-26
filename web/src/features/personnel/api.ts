@@ -307,7 +307,20 @@ export interface Banque {
   code: string | null;
   /** Compte de l'établissement dans cette banque — celui débité pour le virement des salaires. */
   numero_compte_ecole: string | null;
+  solde: number;
   personnels_count?: number;
+  mouvements?: BanqueMouvement[];
+}
+
+export interface BanqueMouvement {
+  id: number;
+  type: 'depot' | 'retrait' | 'paie';
+  montant: number;
+  date: string;
+  libelle: string;
+  reference: string | null;
+  bulletin_paie_id: number | null;
+  created_at: string;
 }
 
 export async function fetchBanques(): Promise<Banque[]> {
@@ -318,6 +331,14 @@ export async function fetchBanques(): Promise<Banque[]> {
 export async function fetchBanque(id: number): Promise<Banque> {
   const { data } = await http.get<ApiResponse<Banque>>(`/banques/${id}`);
   return data.data;
+}
+
+export async function enregistrerMouvementBanque(
+  id: number,
+  type: 'depot' | 'retrait',
+  payload: { montant: number; date?: string; libelle?: string; reference?: string },
+): Promise<void> {
+  await http.post(`/banques/${id}/${type}`, payload);
 }
 
 export async function createBanque(payload: {

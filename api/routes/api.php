@@ -335,6 +335,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::post('banques', [BanqueController::class, 'store'])->name('banques.store');
                 Route::post('banques/import', [BanqueController::class, 'import'])->name('banques.import');
+                Route::post('banques/{id}/depot', [BanqueController::class, 'deposer'])->name('banques.depot');
+                Route::post('banques/{id}/retrait', [BanqueController::class, 'retirer'])->name('banques.retrait');
                 Route::put('banques/{id}', [BanqueController::class, 'update'])->name('banques.update');
                 Route::delete('banques/{id}', [BanqueController::class, 'destroy'])->name('banques.destroy');
                 Route::post('banques/batch-delete', [BanqueController::class, 'batchDelete'])->name('banques.batch-delete');

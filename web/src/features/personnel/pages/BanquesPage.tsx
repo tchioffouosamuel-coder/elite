@@ -17,6 +17,7 @@ import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes, info } from '@/shared/lib/alertes'
 import { BanqueFormModal } from './BanqueFormModal'
+import { francs } from '@/features/finance/api'
 
 export function BanquesPage() {
   const { t } = useTranslation()
@@ -125,6 +126,16 @@ export function BanquesPage() {
       entete: t('banques.code'),
       valeur: (b) => b.code,
       cellule: (b) => <span className="text-navy-600">{b.code ?? '—'}</span>,
+    },
+    {
+      cle: 'solde',
+      entete: 'Solde',
+      valeur: (b) => b.solde,
+      cellule: (b) => (
+        <span className={`font-semibold tabular-nums ${b.solde < 0 ? 'text-red-600' : 'text-navy-700'}`}>
+          {francs(b.solde)}
+        </span>
+      ),
     },
     {
       cle: 'personnels_count',
