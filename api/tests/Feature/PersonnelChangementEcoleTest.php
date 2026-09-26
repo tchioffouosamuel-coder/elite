@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\Banque;
 use App\Models\Classe;
 use App\Models\FonctionReferentiel;
 use App\Models\Niveau;
@@ -35,25 +36,36 @@ class PersonnelChangementEcoleTest extends TestCase
         $arrivee = School::create(['name' => 'Elites Primaire', 'code' => 'EP', 'type' => 'primaire', 'is_active' => true]);
 
         $superAdmin = User::create([
-            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
-            'school_id' => $depart->id, 'is_active' => true,
+            'name' => 'Root',
+            'email' => 'root@test.local',
+            'password' => 'password',
+            'school_id' => $depart->id,
+            'is_active' => true,
         ]);
         $superAdmin->assignRole('super_admin');
 
         $fonctionDepart = FonctionReferentiel::create(['school_id' => $depart->id, 'label_fr' => 'Enseignant']);
         $fonctionArrivee = FonctionReferentiel::create(['school_id' => $arrivee->id, 'label_fr' => 'Enseignant']);
+        $banque = Banque::create(['nom' => 'Banque globale']);
 
         $agent = app(PersonnelService::class)->create($depart->id, [
-            'nom_complet' => 'AGENT MUTE', 'fonction_id' => $fonctionDepart->id, 'statut' => 'actif',
+            'nom_complet' => 'AGENT MUTE',
+            'fonction_id' => $fonctionDepart->id,
+            'statut' => 'actif',
         ]);
 
         $niveau = Niveau::create(['code' => 'college', 'name_fr' => 'Collège', 'name_en' => 'Secondary']);
         AnneeScolaire::create([
-            'school_id' => $depart->id, 'libelle' => '2026-2027',
-            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+            'school_id' => $depart->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-07-15',
+            'is_active' => true,
         ]);
         $classe = Classe::create([
-            'school_id' => $depart->id, 'niveau_id' => $niveau->id, 'nom' => '6e A',
+            'school_id' => $depart->id,
+            'niveau_id' => $niveau->id,
+            'nom' => '6e A',
             'professeur_principal_id' => $agent->id,
         ]);
 
@@ -63,10 +75,16 @@ class PersonnelChangementEcoleTest extends TestCase
                 'nom_complet' => 'AGENT MUTE',
                 'school_id' => $arrivee->id,
                 'fonction_id' => $fonctionArrivee->id,
+                'banque_id' => $banque->id,
             ])
             ->assertOk();
 
-        $this->assertDatabaseHas('personnels', ['id' => $agent->id, 'school_id' => $arrivee->id, 'fonction_id' => $fonctionArrivee->id]);
+        $this->assertDatabaseHas('personnels', [
+            'id' => $agent->id,
+            'school_id' => $arrivee->id,
+            'fonction_id' => $fonctionArrivee->id,
+            'banque_id' => $banque->id,
+        ]);
         $this->assertDatabaseHas('users', ['id' => $agent->refresh()->user_id, 'school_id' => $arrivee->id]);
         $this->assertDatabaseHas('classes', ['id' => $classe->id, 'professeur_principal_id' => null]);
     }
@@ -82,14 +100,19 @@ class PersonnelChangementEcoleTest extends TestCase
         $etrangere = School::create(['name' => 'Autre complexe', 'code' => 'AC', 'type' => 'primaire', 'is_active' => false]);
 
         $admin = User::create([
-            'name' => 'Admin', 'email' => 'admin@test.local', 'password' => 'password',
-            'school_id' => $ecole->id, 'is_active' => true,
+            'name' => 'Admin',
+            'email' => 'admin@test.local',
+            'password' => 'password',
+            'school_id' => $ecole->id,
+            'is_active' => true,
         ]);
         $admin->assignRole('super_admin');
 
         $fonction = FonctionReferentiel::create(['school_id' => $ecole->id, 'label_fr' => 'Enseignant']);
         $agent = app(PersonnelService::class)->create($ecole->id, [
-            'nom_complet' => 'AGENT', 'fonction_id' => $fonction->id, 'statut' => 'actif',
+            'nom_complet' => 'AGENT',
+            'fonction_id' => $fonction->id,
+            'statut' => 'actif',
         ]);
 
         $this->actingAs($admin, 'sanctum')

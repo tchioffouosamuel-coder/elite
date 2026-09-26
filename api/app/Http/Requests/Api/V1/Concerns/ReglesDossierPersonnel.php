@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Concerns;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
@@ -69,7 +70,7 @@ trait ReglesDossierPersonnel
             'telephone' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'numero_permis' => ['nullable', 'string', 'max:50'],
-            'banque_id' => ['nullable', $this->scopedExists('banques')],
+            'banque_id' => ['nullable', Rule::exists('banques', 'id')],
             'numero_compte' => ['nullable', 'string', 'max:100'],
             'methode_validation_seance' => ['nullable', 'in:qr,code,libre'],
             'situation_matrimoniale' => ['nullable', 'in:celibataire,marie,divorce,veuf'],
