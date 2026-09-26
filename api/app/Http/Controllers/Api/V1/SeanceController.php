@@ -225,6 +225,7 @@ class SeanceController extends Controller
             'classe_matiere_id' => $seance->classe_matiere_id,
             'matiere' => $seance->classeMatiere?->matiere?->nom,
             'enseignant' => $seance->classeMatiere?->enseignant?->nom_complet,
+            'methode_validation_seance' => $user->methodeValidationSeance($seance->classe),
             'date_seance' => $seance->date_seance?->toDateString(),
             'heure_debut' => substr((string) $seance->heure_debut, 0, 5),
             'heure_fin' => substr((string) $seance->heure_fin, 0, 5),

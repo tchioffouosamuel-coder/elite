@@ -8,6 +8,7 @@ use App\Models\ClasseMatiere;
 use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
+use App\Models\RegleValidationSeance;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\User;
@@ -101,5 +102,31 @@ class SeanceAppelHoraireTest extends TestCase
             ->withHeader('X-School-Id', $this->school->id)
             ->postJson("/api/v1/seances/{$seance->id}/appel", ['lignes' => []])
             ->assertStatus(422); // lignes vide refusé par la validation, mais on a passé le contrôle d'horaire.
+    }
+
+    public function test_expose_la_methode_de_validation_applicable_a_la_seance(): void
+    {
+        $enseignant = User::create([
+            'name' => 'Enseignant', 'email' => 'enseignant@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $enseignant->givePermissionTo('emploi_du_temps.view');
+        Personnel::where('school_id', $this->school->id)
+            ->firstOrFail()
+            ->update(['user_id' => $enseignant->id]);
+
+        RegleValidationSeance::create([
+            'school_id' => $this->school->id,
+            'methode_validation' => 'libre',
+            'delai_valeur' => 15,
+            'delai_unite' => 'jours',
+        ]);
+        $seance = $this->creerSeance(Carbon::now()->toDateString(), '08:00');
+
+        $this->actingAs($enseignant, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/seances/{$seance->id}/appel")
+            ->assertOk()
+            ->assertJsonPath('data.seance.methode_validation_seance', 'libre');
     }
 }
