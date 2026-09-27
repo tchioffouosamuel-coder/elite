@@ -6,6 +6,7 @@ import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
 import { francs, fetchDossier, MODES, type ModePaiement } from '@/features/finance/api'
 import { rechercheGlobaleEleves, rechercherMatriculeNational, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
+import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
 import { fetchTrajets, tarifPourOption, LIBELLES_OPTION_TRAJET, type OptionTrajet } from '@/features/bus/api'
 import { CHAMPS_ELEVE, type PreinscriptionResume } from '@/features/eleves/pages/PreinscriptionsAdminPage'
@@ -106,6 +107,7 @@ function EleveAutocomplete({ onChoisir, onNouveau }: { onChoisir: (eleve: Eleve)
                 className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-cream-100"
               >
                 <span className="font-medium text-navy-900">{eleve.nom_complet}</span>
+                <EleveParentsPhones tuteurs={eleve.tuteurs} />
                 <span className="text-xs text-navy-400">
                   {[eleve.matricule, eleve.classe?.nom].filter(Boolean).join(' · ') || 'Non affecté à une classe'}
                 </span>

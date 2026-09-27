@@ -23,7 +23,8 @@ import {
   Search,
   GitMerge,
 } from 'lucide-react'
-import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
+import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, telephonesTuteur, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
+import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -415,9 +416,12 @@ export function ElevesListPage() {
       entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,
       cellule: (e) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`font-semibold ${e.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>{e.nom_complet}</span>
-          {e.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`font-semibold ${e.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>{e.nom_complet}</span>
+            {e.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
+          </div>
+          <EleveParentsPhones tuteurs={e.tuteurs} />
         </div>
       ),
     },
@@ -457,7 +461,7 @@ export function ElevesListPage() {
       valeur: (e) => e.tuteurs?.[0]?.nom_complet,
       cellule: (e) => (
         <span className="text-navy-500">
-          {e.tuteurs?.[0] ? `${e.tuteurs[0].nom_complet} · ${e.tuteurs[0].telephone ?? '—'}` : '—'}
+          {e.tuteurs?.length ? e.tuteurs.map((tuteur) => [tuteur.nom_complet, ...telephonesTuteur(tuteur)].join(' · ')).join(' | ') : '—'}
         </span>
       ),
       masquerMobile: true,

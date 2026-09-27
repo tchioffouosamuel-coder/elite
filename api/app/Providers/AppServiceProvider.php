@@ -7,6 +7,9 @@ use App\Services\Paie\BaremeMaison;
 use App\Services\Paie\BaremePaie;
 
 use App\Models\User;
+use App\Models\Tuteur;
+use App\Models\TuteurTelephone;
+use App\Observers\ContactsTuteurObserver;
 use App\Observers\TombstoneObserver;
 use App\Support\Sync\RegistreSync;
 use Dedoc\Scramble\Scramble;
@@ -28,7 +31,7 @@ class AppServiceProvider extends ServiceProvider
          * accessible sans toucher au code — c'est le même calcul qui répond
          * devant la CNPS et le fisc.
          */
-        $this->app->bind(Bareme::class, fn () => config('paie.bareme') === 'legal'
+        $this->app->bind(Bareme::class, fn() => config('paie.bareme') === 'legal'
             ? new BaremePaie
             : new BaremeMaison);
     }
@@ -46,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
         foreach (RegistreSync::entites() as $definition) {
             $definition['modele']::observe(TombstoneObserver::class);
         }
+        Tuteur::observe(ContactsTuteurObserver::class);
+        TuteurTelephone::observe(ContactsTuteurObserver::class);
 
         /*
          * L'API n'authentifie qu'en Bearer token (Sanctum) mais Scramble ne le

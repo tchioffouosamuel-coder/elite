@@ -7,6 +7,7 @@ import { COLONNES_IMPORT_VISITES_INFIRMERIE, deleteVisiteInfirmerie, fetchVisite
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
 import { fetchSousSystemes } from '@/features/classes/sous-systemes/api'
 import { fetchEleves } from '@/features/eleves/api'
+import { telephonesTuteur } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -201,38 +202,38 @@ export function InfirmeriePage() {
     },
     ...(can('infirmerie.manage')
       ? [
-          {
-            cle: 'actions',
-            entete: t('common.actions'),
-            cellule: (v: VisiteInfirmerie) => (
-              <div className="flex justify-end gap-1">
-                <button
-                  type="button"
-                  title={t('common.edit')}
-                  onClick={() => navigate(`/infirmerie/${v.id}/edit`)}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  title={t('common.delete')}
-                  onClick={async () => {
-                    if (!(await confirmerSuppression(t('infirmerie.delete_target', { eleve: v.eleve.nom_complet })))) return
-                    await deleteVisiteInfirmerie(v.id)
-                    invalidate()
-                    succes(t('infirmerie.deleted'))
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ),
-            className: 'text-right',
-            largeur: '110px',
-          } satisfies Colonne<VisiteInfirmerie>,
-        ]
+        {
+          cle: 'actions',
+          entete: t('common.actions'),
+          cellule: (v: VisiteInfirmerie) => (
+            <div className="flex justify-end gap-1">
+              <button
+                type="button"
+                title={t('common.edit')}
+                onClick={() => navigate(`/infirmerie/${v.id}/edit`)}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                title={t('common.delete')}
+                onClick={async () => {
+                  if (!(await confirmerSuppression(t('infirmerie.delete_target', { eleve: v.eleve.nom_complet })))) return
+                  await deleteVisiteInfirmerie(v.id)
+                  invalidate()
+                  succes(t('infirmerie.deleted'))
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+          className: 'text-right',
+          largeur: '110px',
+        } satisfies Colonne<VisiteInfirmerie>,
+      ]
       : []),
   ]
 
@@ -329,7 +330,7 @@ export function InfirmeriePage() {
                 <option value="">{t('infirmerie.all_students')}</option>
                 {eleves?.items.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.nom_complet} — {e.classe?.nom ?? '—'}
+                    {e.nom_complet} — {e.classe?.nom ?? '—'} · {e.tuteurs.flatMap(telephonesTuteur).join(', ') || '—'}
                   </option>
                 ))}
               </Select>

@@ -19,6 +19,21 @@ export interface Tuteur {
   is_principal: boolean;
 }
 
+export function telephonesTuteur(
+  tuteur: Pick<Tuteur, "telephone" | "telephones">,
+): string[] {
+  return [
+    ...new Set(
+      [
+        ...(tuteur.telephones ?? []).map((telephone) => telephone.numero),
+        tuteur.telephone,
+      ]
+        .map((numero) => numero?.trim())
+        .filter((numero): numero is string => Boolean(numero)),
+    ),
+  ];
+}
+
 /** Résultat de la recherche par similarité de nom, pour l'autocomplétion à l'inscription. */
 export interface TuteurSuggestion {
   id: number;

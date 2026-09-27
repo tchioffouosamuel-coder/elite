@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, FileDown, FileText, FileSpreadsheet, AlertTriangle, Bus, Clock } from 'lucide-react'
-import { fetchEleves, fetchTableauAges, type Eleve } from '@/features/eleves/api'
+import { fetchEleves, fetchTableauAges, telephonesTuteur, type Eleve } from '@/features/eleves/api'
+import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { fetchInsolvables, francs } from '@/features/finance/api'
 import { fetchElevesTransport, LIBELLES_OPTION_TRAJET } from '@/features/bus/api'
@@ -47,9 +48,12 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
       entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,
       cellule: (e) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`font-semibold ${e.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>{e.nom_complet}</span>
-          {e.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`font-semibold ${e.non_reinscrit_annee_active ? 'text-red-700' : 'text-navy-900'}`}>{e.nom_complet}</span>
+            {e.non_reinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
+          </div>
+          <EleveParentsPhones tuteurs={e.tuteurs} />
         </div>
       ),
     },
@@ -66,7 +70,9 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
       entete: t('eleves.tuteur'),
       valeur: (e) => e.tuteurs?.[0]?.nom_complet,
       cellule: (e) => (
-        <span className="text-navy-500">{e.tuteurs?.[0] ? `${e.tuteurs[0].nom_complet} · ${e.tuteurs[0].telephone ?? '—'}` : '—'}</span>
+        <span className="text-navy-500">
+          {e.tuteurs?.length ? e.tuteurs.map((tuteur) => [tuteur.nom_complet, ...telephonesTuteur(tuteur)].join(' · ')).join(' | ') : '—'}
+        </span>
       ),
       masquerMobile: true,
     },

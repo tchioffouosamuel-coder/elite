@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Repeat } from 'lucide-react'
-import { fetchEleves, batchChangerClasseEleves, batchTransfererEleveEcole } from '@/features/eleves/api'
+import { fetchEleves, batchChangerClasseEleves, batchTransfererEleveEcole, telephonesTuteur } from '@/features/eleves/api'
 import { fetchClasses, fetchClassesForSchool } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
@@ -132,7 +132,12 @@ export function EleveTransfertsPage() {
       cle: 'nom',
       entete: t('eleves.nom_complet'),
       valeur: (e) => e.nom_complet,
-      cellule: (e) => <span className="font-semibold text-navy-900">{e.nom_complet}</span>,
+      cellule: (e) => (
+        <span className="flex flex-col gap-1 font-semibold text-navy-900">
+          {e.nom_complet}
+          <span className="text-xs font-normal text-navy-500">{e.tuteurs.flatMap(telephonesTuteur).join(' · ')}</span>
+        </span>
+      ),
     },
     {
       cle: 'classe',

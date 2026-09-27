@@ -345,6 +345,17 @@ class RegistreSync
             'eleves' => [
                 'modele' => Eleve::class,
                 'colonnes' => ['id', 'school_id', 'user_id', 'classe_id', 'matricule', 'nom_complet', 'sexe', 'date_naissance', 'lieu_naissance', 'nationalite', 'redoublant', 'statut', 'photo_path'],
+                'relations' => ['tuteurs.telephones'],
+                'extras' => fn(Eleve $e) => [
+                    'tuteurs' => $e->tuteurs->map(fn($tuteur) => [
+                        'id' => $tuteur->id,
+                        'nom_complet' => $tuteur->nom_complet,
+                        'telephone' => $tuteur->telephones->pluck('numero')->filter()->unique()->values()->implode(', ')
+                            ?: $tuteur->telephone,
+                        'lien_parente' => $tuteur->pivot->lien_parente,
+                        'is_principal' => (bool) $tuteur->pivot->is_principal,
+                    ])->values()->all(),
+                ],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
                     ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
                 'permission' => 'eleves.view',

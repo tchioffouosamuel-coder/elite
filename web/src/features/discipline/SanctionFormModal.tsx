@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { createSanction } from '@/features/discipline/api'
 import type { SanctionPayload, TypeSanction } from '@/features/discipline/api'
-import { fetchEleves } from '@/features/eleves/api'
+import { fetchEleves, telephonesTuteur } from '@/features/eleves/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
@@ -81,6 +81,11 @@ export function SanctionFormModal({
             <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm font-semibold text-navy-800">
               {eleve.nom_complet}
               {eleve.classe?.nom && <span className="font-normal text-navy-400"> — {eleve.classe.nom}</span>}
+              {eleve.tuteurs?.flatMap(telephonesTuteur).length > 0 && (
+                <span className="mt-1 block text-xs font-normal text-navy-500">
+                  {eleve.tuteurs.flatMap(telephonesTuteur).join(' · ')}
+                </span>
+              )}
             </p>
           </FieldWrapper>
         ) : (
@@ -88,7 +93,7 @@ export function SanctionFormModal({
             <option value="">—</option>
             {eleves?.items.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.nom_complet} — {e.classe?.nom}
+                {e.nom_complet} — {e.classe?.nom} · {e.tuteurs.flatMap(telephonesTuteur).join(', ') || '—'}
               </option>
             ))}
           </Select>

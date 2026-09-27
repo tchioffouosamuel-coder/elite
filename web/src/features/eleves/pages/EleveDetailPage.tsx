@@ -37,6 +37,7 @@ import {
   deleteElevePhoto,
   uploadElevePhoto,
   fetchParcoursEleve,
+  telephonesTuteur,
   type ParcoursAnnee,
   type MatriculeNationalResult,
 } from '@/features/eleves/api'
@@ -535,10 +536,10 @@ export function EleveDetailPage() {
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-navy-500">
-                      {tuteur.telephone && (
+                      {telephonesTuteur(tuteur).length > 0 && (
                         <span className="flex items-center gap-1">
                           <Phone className="h-3.5 w-3.5" />
-                          {tuteur.telephone}
+                          {telephonesTuteur(tuteur).join(' · ')}
                         </span>
                       )}
                       {tuteur.email && (

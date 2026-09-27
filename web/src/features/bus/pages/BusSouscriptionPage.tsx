@@ -14,6 +14,7 @@ import {
   type OptionTrajet,
 } from '@/features/bus/api'
 import { fetchEleves, type Eleve } from '@/features/eleves/api'
+import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -191,6 +192,7 @@ export function BusSouscriptionPage() {
                   className="flex flex-col items-start px-1 py-2 text-left hover:bg-cream-50"
                 >
                   <span className="text-sm font-semibold text-navy-900">{e.nom_complet}</span>
+                  <EleveParentsPhones tuteurs={e.tuteurs} />
                   <span className="text-xs text-navy-400">{e.matricule ?? '—'} · {e.classe?.nom ?? '—'}</span>
                 </button>
               ))}

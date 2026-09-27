@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, FileSpreadsheet, Sparkles, Trash2, UserRound, Upload } from 'lucide-react'
 import {
-  batchDeleteEleves,
-  changerClasseEleve,
-  fetchDiagnosticNonPreinscritsSansHistorique,
-  fetchEleves,
-  fetchNonPreinscritsSansHistorique,
-  supprimerNonPreinscritsSansHistorique,
-  type Eleve,
+    batchDeleteEleves,
+    changerClasseEleve,
+    fetchDiagnosticNonPreinscritsSansHistorique,
+    fetchEleves,
+    fetchNonPreinscritsSansHistorique,
+    supprimerNonPreinscritsSansHistorique,
+    type Eleve,
 } from '@/features/eleves/api'
+import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
@@ -34,98 +35,101 @@ import type { ApiError } from '@/shared/types/api'
  * mais la liste reste affichée pour revue avant le clic de confirmation.
  */
 function NettoyageDoublonsModal({ onClose, onSupprime }: { onClose: () => void; onSupprime: () => void }) {
-  const [suppression, setSuppression] = useState(false)
-  const { data: candidats, isLoading, isError } = useQuery({
-    queryKey: ['eleves', 'non-preinscrits-sans-historique'],
-    queryFn: () => fetchNonPreinscritsSansHistorique(),
-  })
-  // Chargé seulement si l'aperçu revient vide : explique pourquoi, plutôt que
-  // de laisser croire qu'il n'y a vraiment rien à nettoyer.
-  const { data: diagnostic } = useQuery({
-    queryKey: ['eleves', 'non-preinscrits-sans-historique', 'diagnostic'],
-    queryFn: () => fetchDiagnosticNonPreinscritsSansHistorique(),
-    enabled: !isLoading && (candidats?.length ?? 0) === 0,
-  })
+    const [suppression, setSuppression] = useState(false)
+    const { data: candidats, isLoading, isError } = useQuery({
+        queryKey: ['eleves', 'non-preinscrits-sans-historique'],
+        queryFn: () => fetchNonPreinscritsSansHistorique(),
+    })
+    // Chargé seulement si l'aperçu revient vide : explique pourquoi, plutôt que
+    // de laisser croire qu'il n'y a vraiment rien à nettoyer.
+    const { data: diagnostic } = useQuery({
+        queryKey: ['eleves', 'non-preinscrits-sans-historique', 'diagnostic'],
+        queryFn: () => fetchDiagnosticNonPreinscritsSansHistorique(),
+        enabled: !isLoading && (candidats?.length ?? 0) === 0,
+    })
 
-  const supprimer = async () => {
-    if (!candidats || candidats.length === 0) return
-    if (!(await confirmerSuppression(
-      `${candidats.length} fiche(s) sans historique`,
-      'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible.',
-    ))) return
+    const supprimer = async () => {
+        if (!candidats || candidats.length === 0) return
+        if (!(await confirmerSuppression(
+            `${candidats.length} fiche(s) sans historique`,
+            'Ces fiches seront définitivement supprimées — action irréversible, sans sauvegarde possible.',
+        ))) return
 
-    setSuppression(true)
-    try {
-      const { deleted } = await supprimerNonPreinscritsSansHistorique()
-      succes(`${deleted} fiche(s) supprimée(s).`)
-      onSupprime()
-      onClose()
-    } catch (err) {
-      erreur((err as ApiError).message)
-    } finally {
-      setSuppression(false)
+        setSuppression(true)
+        try {
+            const { deleted } = await supprimerNonPreinscritsSansHistorique()
+            succes(`${deleted} fiche(s) supprimée(s).`)
+            onSupprime()
+            onClose()
+        } catch (err) {
+            erreur((err as ApiError).message)
+        } finally {
+            setSuppression(false)
+        }
     }
-  }
 
-  return (
-    <Modal title="Nettoyer les doublons sans historique" onClose={onClose} taille="lg">
-      <div className="flex flex-col gap-4">
-        <p className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">
-          Fiches sans classe, jamais préinscrites et sans la moindre trace d'activité (aucune note,
-          présence, versement, sanction…) — typiquement des doublons laissés par un import massif.
-          Un ancien élève réellement parti garde, lui, son historique et n'apparaît jamais ici.
-        </p>
-
-        {isLoading ? (
-          <Spinner />
-        ) : isError || !candidats ? (
-          <ErrorState />
-        ) : candidats.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            <EmptyState label="Aucune fiche sans historique à supprimer." />
-            {diagnostic && diagnostic.sans_classe > 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                <p className="font-semibold">
-                  Pourtant {diagnostic.sans_classe} fiche(s) sont sans classe — chacune est retenue par au moins
-                  une des tables ci-dessous (elle y a une ligne, donc une vraie trace d'activité) :
+    return (
+        <Modal title="Nettoyer les doublons sans historique" onClose={onClose} taille="lg">
+            <div className="flex flex-col gap-4">
+                <p className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">
+                    Fiches sans classe, jamais préinscrites et sans la moindre trace d'activité (aucune note,
+                    présence, versement, sanction…) — typiquement des doublons laissés par un import massif.
+                    Un ancien élève réellement parti garde, lui, son historique et n'apparaît jamais ici.
                 </p>
-                <ul className="mt-1.5 list-disc pl-4">
-                  {Object.entries(diagnostic.blocages).map(([table, n]) => (
-                    <li key={table}>
-                      <span className="font-mono">{table}</span> : {n} fiche(s)
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <p className="text-sm font-semibold text-navy-800">{candidats.length} fiche(s) trouvée(s) :</p>
-            <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
-              {candidats.map((eleve) => (
-                <div key={eleve.id} className="flex items-center justify-between gap-3 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
-                  <span className="font-medium text-navy-800">{eleve.nom_complet}</span>
-                  <span className="font-mono text-xs text-navy-400">{eleve.matricule ?? '—'}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Annuler
-          </Button>
-          {candidats && candidats.length > 0 && (
-            <Button type="button" onClick={supprimer} disabled={suppression}>
-              Supprimer ces {candidats.length} fiche(s)
-            </Button>
-          )}
-        </div>
-      </div>
-    </Modal>
-  )
+                {isLoading ? (
+                    <Spinner />
+                ) : isError || !candidats ? (
+                    <ErrorState />
+                ) : candidats.length === 0 ? (
+                    <div className="flex flex-col gap-3">
+                        <EmptyState label="Aucune fiche sans historique à supprimer." />
+                        {diagnostic && diagnostic.sans_classe > 0 && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                <p className="font-semibold">
+                                    Pourtant {diagnostic.sans_classe} fiche(s) sont sans classe — chacune est retenue par au moins
+                                    une des tables ci-dessous (elle y a une ligne, donc une vraie trace d'activité) :
+                                </p>
+                                <ul className="mt-1.5 list-disc pl-4">
+                                    {Object.entries(diagnostic.blocages).map(([table, n]) => (
+                                        <li key={table}>
+                                            <span className="font-mono">{table}</span> : {n} fiche(s)
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <p className="text-sm font-semibold text-navy-800">{candidats.length} fiche(s) trouvée(s) :</p>
+                        <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
+                            {candidats.map((eleve) => (
+                                <div key={eleve.id} className="flex items-center justify-between gap-3 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+                                    <span className="flex min-w-0 flex-col gap-1 font-medium text-navy-800">
+                                        {eleve.nom_complet}
+                                        <EleveParentsPhones tuteurs={eleve.tuteurs} />
+                                    </span>
+                                    <span className="font-mono text-xs text-navy-400">{eleve.matricule ?? '—'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                <div className="mt-2 flex justify-end gap-2">
+                    <Button type="button" variant="secondary" onClick={onClose}>
+                        Annuler
+                    </Button>
+                    {candidats && candidats.length > 0 && (
+                        <Button type="button" onClick={supprimer} disabled={suppression}>
+                            Supprimer ces {candidats.length} fiche(s)
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </Modal>
+    )
 }
 
 function ClasseSelect({ eleve, classes }: { eleve: Eleve; classes: Classe[] }) {

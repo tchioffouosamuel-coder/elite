@@ -16,7 +16,7 @@ import {
   type TypeTraitement,
   type VisiteInfirmeriePayload,
 } from '@/features/infirmerie/api'
-import { fetchEleves } from '@/features/eleves/api'
+import { fetchEleves, telephonesTuteur } from '@/features/eleves/api'
 import { fetchInventaire } from '@/features/inventaire/api'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
@@ -98,29 +98,29 @@ export function VisiteInfirmerieFormPage() {
   const { register, handleSubmit, control, watch, reset } = useForm<VisiteFormValues>({
     defaultValues: visite
       ? {
-          eleve_id: visite.eleve.id,
-          date_visite: visite.date_visite,
-          raison: visite.raison,
-          soins_prodiges: visite.soins_prodiges,
-          type_traitement: visite.type_traitement,
-          structure_externe: visite.structure_externe ?? '',
-          cout_soins: visite.cout_soins,
-          materiels: visite.materiels
-            .filter((m) => m.inventaire_article_id !== null)
-            .map((m) => ({ inventaire_article_id: m.inventaire_article_id as number, quantite: m.quantite })),
-          autre_materiel: visite.autre_materiel ?? '',
-          cout_autre_materiel: visite.cout_autre_materiel,
-          observations: visite.observations ?? '',
-        }
+        eleve_id: visite.eleve.id,
+        date_visite: visite.date_visite,
+        raison: visite.raison,
+        soins_prodiges: visite.soins_prodiges,
+        type_traitement: visite.type_traitement,
+        structure_externe: visite.structure_externe ?? '',
+        cout_soins: visite.cout_soins,
+        materiels: visite.materiels
+          .filter((m) => m.inventaire_article_id !== null)
+          .map((m) => ({ inventaire_article_id: m.inventaire_article_id as number, quantite: m.quantite })),
+        autre_materiel: visite.autre_materiel ?? '',
+        cout_autre_materiel: visite.cout_autre_materiel,
+        observations: visite.observations ?? '',
+      }
       : {
-          ...(elevePreselectionne ? { eleve_id: elevePreselectionne } : {}),
-          date_visite: maintenantLocal(),
-          type_traitement: 'interne',
-          cout_soins: 0,
-          materiels: [],
-          cout_autre_materiel: 0,
-          observations: '',
-        },
+        ...(elevePreselectionne ? { eleve_id: elevePreselectionne } : {}),
+        date_visite: maintenantLocal(),
+        type_traitement: 'interne',
+        cout_soins: 0,
+        materiels: [],
+        cout_autre_materiel: 0,
+        observations: '',
+      },
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'materiels' })
 
@@ -302,7 +302,7 @@ export function VisiteInfirmerieFormPage() {
               <option value="">—</option>
               {eleves?.items.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.nom_complet} — {e.classe?.nom ?? '—'}
+                  {e.nom_complet} — {e.classe?.nom ?? '—'} · {e.tuteurs.flatMap(telephonesTuteur).join(', ') || '—'}
                 </option>
               ))}
             </Select>

@@ -1030,6 +1030,8 @@ class EleveService extends BaseService
                 'is_principal' => $data['is_principal'] ?? false,
             ]);
         }
+
+        $eleve->newQuery()->whereKey($eleve->id)->update(['updated_at' => now()]);
     }
 
     /**
