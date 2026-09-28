@@ -101,20 +101,25 @@ class CompteAgentTest extends TestCase
 
     public function test_un_agent_sorti_des_effectifs_ne_recoit_pas_d_acces(): void
     {
+        // La migration `create_super_admin_user` ouvre déjà un compte : on
+        // compte l'écart, pas le total.
+        $comptesAvant = User::count();
+
         $personnel = $this->creer(['statut' => 'ex_employe']);
 
         $this->assertNull($personnel->user_id);
-        $this->assertSame(0, User::count());
+        $this->assertSame($comptesAvant, User::count());
     }
 
     public function test_l_ouverture_est_idempotente(): void
     {
         $personnel = $this->creer();
         $userId = $personnel->user_id;
+        $comptesApresOuverture = User::count();
 
         app(CompteAgentService::class)->assurer($personnel->fresh());
 
         $this->assertSame($userId, $personnel->fresh()->user_id);
-        $this->assertSame(1, User::count());
+        $this->assertSame($comptesApresOuverture, User::count());
     }
 }

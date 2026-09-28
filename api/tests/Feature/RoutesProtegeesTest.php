@@ -116,6 +116,10 @@ class RoutesProtegeesTest extends TestCase
         // personnel connecté (cf. PersonnelEspaceController::bibliotheque) —
         // même principe que les avances/budgets ci-dessus.
         'api.v1.mon-espace.bibliotheque.index',
+        // Ses propres demandes d'ajout à l'inventaire : bornées à la fiche du
+        // compte connecté (cf. PersonnelEspaceController::moi).
+        'api.v1.mon-espace.inventaire.demandes.index',
+        'api.v1.mon-espace.inventaire.demandes.store',
 
         // Portail parent : gardé par le rôle `role:parent` (pas un privilège
         // `X.view`) et borné aux seuls enfants du compte par ParentAccess.
@@ -129,6 +133,7 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.parent.enfants.absences',
         'api.v1.parent.enfants.assiduite',
         'api.v1.parent.enfants.emploi-du-temps',
+        'api.v1.parent.enfants.emploi-du-temps.pdf',
         'api.v1.parent.enfants.visites-infirmerie',
         'api.v1.parent.enfants.sanctions',
         'api.v1.parent.enfants.justifications.index',

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\School;
@@ -39,6 +40,14 @@ class MatriculeNationalTest extends TestCase
         $this->secondaire = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $this->primaire = School::create(['name' => 'Elites Primaire', 'code' => 'EP', 'type' => 'primaire', 'is_active' => true]);
 
+        // La liste ne montre que les inscrits de l'année active (cf. `inscrireAnneeActive()`).
+        foreach ([$this->secondaire, $this->primaire] as $ecole) {
+            AnneeScolaire::create([
+                'school_id' => $ecole->id, 'libelle' => '2025-2026',
+                'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+            ]);
+        }
+
         $this->admin = User::create([
             'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
             'school_id' => $this->secondaire->id, 'is_active' => true,
@@ -48,11 +57,11 @@ class MatriculeNationalTest extends TestCase
 
     private function eleve(School $school, string $matricule, string $nom, ?string $matriculeNational = null): Eleve
     {
-        return Eleve::create([
+        return $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $school->id, 'matricule' => $matricule, 'nom_complet' => $nom,
             'sexe' => 'M', 'date_naissance' => '2010-01-01', 'statut' => 'actif',
             'matricule_national' => $matriculeNational,
-        ]);
+        ]));
     }
 
     public function test_liste_uniquement_les_eleves_du_secondaire(): void

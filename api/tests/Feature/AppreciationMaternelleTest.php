@@ -130,13 +130,13 @@ class AppreciationMaternelleTest extends TestCase
 
     private function eleve(string $nom = 'ENFANT UN'): Eleve
     {
-        return Eleve::create([
+        return $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id,
             'classe_id' => $this->classe->id,
             'nom_complet' => $nom,
             'sexe' => 'M',
             'statut' => 'actif',
-        ]);
+        ]));
     }
 
     // ----------------------------------------------------------- Référentiel

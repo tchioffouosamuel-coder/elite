@@ -47,7 +47,9 @@ class CalculateurVacataire
 
         return new ResultatPaie(
             brut: $brut,
-            baseTaxable: $brut,
+            // Non déclaré, le vacataire n'a pas d'assiette : le bulletin reste
+            // un reçu d'heures, sans « net taxable » (comme avant d61ba1e).
+            baseTaxable: $cnpsActif ? $brut : 0,
             chargesSalariales: array_sum(array_column($lignes, 'montant_salarial')),
             chargesPatronales: array_sum(array_column($lignes, 'montant_patronal')),
             gains: [],

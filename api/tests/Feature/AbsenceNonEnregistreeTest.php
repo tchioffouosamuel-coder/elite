@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
@@ -42,6 +43,11 @@ class AbsenceNonEnregistreeTest extends TestCase
 
         $this->school = School::create(['name' => 'Elites Test', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $this->classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'Terminale D']);
+        // Seuls les inscrits de l'année active sont surveillés (cf. `inscrireAnneeActive()`).
+        AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+        ]);
 
         $censeur = User::create([
             'school_id' => $this->school->id, 'name' => 'Censeur', 'email' => 'censeur@elites.test',
@@ -57,10 +63,10 @@ class AbsenceNonEnregistreeTest extends TestCase
 
     private function eleve(string $nom): Eleve
     {
-        return Eleve::create([
+        return $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => $nom, 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
     }
 
     private function tuteurAvecCompte(Eleve $eleve): Tuteur

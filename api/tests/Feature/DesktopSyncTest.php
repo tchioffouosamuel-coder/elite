@@ -526,9 +526,11 @@ class DesktopSyncTest extends TestCase
         $this->assertSame($ecole->id, $debutEcole['school_id']);
         $this->assertSame('École Test', $debutEcole['nom']);
 
-        $debutEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_debut' && $e['cle'] === 'eleves');
+        // Depuis le pull par lots, un évènement couvre plusieurs entités
+        // (`cles`) ; `cle` n'est que la première du lot.
+        $debutEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_debut' && in_array('eleves', $e['cles'], true));
         $this->assertNotNull($debutEleves);
-        $finEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_fin' && $e['cle'] === 'eleves');
+        $finEleves = $evenements->first(fn ($e) => $e['type'] === 'entite_fin' && in_array('eleves', $e['cles'], true));
         $this->assertNotNull($finEleves);
         $this->assertSame(1, $finEleves['lignes']);
 

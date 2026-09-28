@@ -490,6 +490,22 @@ class FlowFinancierTest extends TestCase
         $this->assertStringContainsString('Vacation', $bulletin->gains->first()->libelle);
     }
 
+    /** Déclaré à la CNPS par son contrat, le vacataire retrouve une assiette : son brut. */
+    public function test_un_vacataire_declare_a_la_cnps_a_son_brut_pour_assiette(): void
+    {
+        $agent = $this->agent('SONG ERIC MUNYAM', [
+            'mode' => 'horaire',
+            'taux_horaire' => 5000,
+            'salaire_base' => 0,
+            'cnps_actif' => true,
+        ]);
+
+        $bulletin = app(PaieService::class)->preparer($agent, 2026, 1, ['heures' => 100]);
+
+        $this->assertSame(500000, $bulletin->salaire_brut);
+        $this->assertSame(500000, $bulletin->net_taxable);
+    }
+
     public function test_le_mensuel_ignore_les_heures(): void
     {
         $bulletin = app(PaieService::class)->preparer($this->agent(), 2026, 1, ['heures' => 999]);

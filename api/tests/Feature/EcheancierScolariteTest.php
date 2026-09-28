@@ -93,10 +93,11 @@ class EcheancierScolariteTest extends TestCase
 
     private function dossier(int $verse = 0): DossierScolarite
     {
-        $eleve = Eleve::create([
+        // `insolvables()` ne retient que les inscrits de l'année (préinscription validée).
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => 'ELEVE UN', 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
 
         // `dossier()` ouvre le dossier au premier accès — c'est le point
         // d'entrée réel du service, pas une méthode de création dédiée.

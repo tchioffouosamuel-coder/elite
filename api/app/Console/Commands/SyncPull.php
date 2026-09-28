@@ -50,7 +50,7 @@ class SyncPull extends Command
         $provisionings = DesktopProvisioning::all();
 
         if ($provisionings->isEmpty()) {
-            $this->error('Aucune instance provisionnée : rien à synchroniser.');
+            $this->message('Aucune instance provisionnée : rien à synchroniser.', erreur: true);
 
             return self::FAILURE;
         }
@@ -113,7 +113,7 @@ class SyncPull extends Command
                             'school_id' => $ecoleProvisioning->school_id,
                             'erreur' => $e->getMessage(),
                         ]);
-                        $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.");
+                        $this->message("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : erreur réseau, réessaiera au prochain sync.", erreur: true);
                         $this->emettre(['type' => 'ecole_erreur', 'school_id' => $ecoleProvisioning->school_id, 'message' => 'Erreur réseau, nouvelle tentative au prochain cycle.']);
                         $echec = true;
                         $echecProvisioning = true;
@@ -137,7 +137,7 @@ class SyncPull extends Command
                             'school_id' => $ecoleProvisioning->school_id,
                             'statut' => $e->response?->status(),
                         ]);
-                        $this->error("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : le serveur distant a refusé la requête ({$e->response?->status()}).");
+                        $this->message("Compte #{$provisioning->user_id}, école #{$ecoleProvisioning->school_id} : le serveur distant a refusé la requête ({$e->response?->status()}).", erreur: true);
                         $this->emettre(['type' => 'ecole_erreur', 'school_id' => $ecoleProvisioning->school_id, 'message' => 'Le serveur distant a refusé la requête.']);
                         $echec = true;
                         $echecProvisioning = true;
@@ -229,7 +229,7 @@ class SyncPull extends Command
             'dernier_pull_le' => now(),
         ]);
 
-        $this->info("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
+        $this->message("École #{$ecoleProvisioning->school_id} : {$totalLignes} ligne(s), {$totalSuppressions} suppression(s).");
 
         return true;
     }
@@ -519,6 +519,25 @@ class SyncPull extends Command
         if ($chemins !== []) {
             SyncFichierEnAttente::query()->upsert($chemins, ['chemin'], ['serveur_url']);
         }
+    }
+
+    /**
+     * Message lisible pour un humain. En `--json`, stdout est réservé au flux
+     * d'évènements (cf. `emettre()`) : le texte passe alors sur stderr, que
+     * `main.cjs` journalise déjà, plutôt que de s'intercaler entre deux
+     * lignes JSON.
+     */
+    private function message(string $texte, bool $erreur = false): void
+    {
+        if ($this->json) {
+            if (defined('STDERR')) {
+                fwrite(STDERR, $texte . PHP_EOL);
+            }
+
+            return;
+        }
+
+        $erreur ? $this->error($texte) : $this->info($texte);
     }
 
     private function emettre(array $evenement): void

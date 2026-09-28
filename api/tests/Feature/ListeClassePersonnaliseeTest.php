@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\School;
@@ -45,17 +46,22 @@ class ListeClassePersonnaliseeTest extends TestCase
         $this->admin->assignRole('super_admin');
 
         $this->classe = Classe::create(['school_id' => $this->school->id, 'nom' => '3ème A']);
+        // La liste ne reprend que les inscrits de l'année active (cf. `inscrireAnneeActive()`).
+        AnneeScolaire::create([
+            'school_id' => $this->school->id, 'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01', 'date_fin' => '2026-07-31', 'is_active' => true,
+        ]);
 
-        Eleve::create([
+        $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'matricule' => 'M1', 'nom_complet' => 'Kamga Paul', 'sexe' => 'M',
             'date_naissance' => '2010-05-12', 'lieu_naissance' => 'Douala', 'statut' => 'actif',
-        ]);
-        Eleve::create([
+        ]));
+        $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'matricule' => 'M2', 'nom_complet' => 'Fotso Alice', 'sexe' => 'F',
             'date_naissance' => '2011-02-03', 'lieu_naissance' => 'Yaoundé', 'statut' => 'actif',
-        ]);
+        ]));
     }
 
     private function acteur()

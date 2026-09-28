@@ -82,10 +82,10 @@ class OrdreMeriteBulletinsTest extends TestCase
     /** Crée un élève et, si une note est fournie, la saisit pour la séquence. */
     private function eleve(string $nom, ?float $note = null): Eleve
     {
-        $eleve = Eleve::create([
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => $nom, 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
 
         if ($note !== null) {
             Note::create([

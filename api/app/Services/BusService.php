@@ -485,8 +485,10 @@ class BusService extends BaseService
     public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId, ?int $eleveId = null): Collection
     {
         $eleves = Eleve::forSchool($schoolId)
-            ->where('statut', 'actif')->inscritAnneeActive()
-            ->when($eleveId, fn($q, $id) => $q->whereKey($id))
+            ->where('statut', 'actif')
+            // La liste ne montre que les inscrits ; la fiche d'un élève
+            // précis (`$eleveId`) reste consultable, inscrit ou non.
+            ->when($eleveId, fn($q, $id) => $q->whereKey($id), fn($q) => $q->inscritAnneeActive())
             ->when($classeId, fn($q, $id) => $q->where('classe_id', $id))
             ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn($q) => $q
                 ->when($anneeScolaireId, fn($qq, $id) => $qq->where('annee_scolaire_id', $id))

@@ -207,10 +207,10 @@ class DepenseBilanTest extends TestCase
             'school_id' => $this->school->id, 'annee_scolaire_id' => $this->annee->id,
             'classe_id' => $classe->id, 'montant' => 800000,
         ]);
-        $eleve = Eleve::create([
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $classe->id,
             'nom_complet' => 'TEST ELEVE', 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
 
         $scolarite = app(ScolariteService::class);
         $dossier = $scolarite->dossier($eleve, $this->annee);

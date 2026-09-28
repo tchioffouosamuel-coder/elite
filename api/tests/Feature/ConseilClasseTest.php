@@ -85,10 +85,10 @@ class ConseilClasseTest extends TestCase
 
     private function eleve(string $nom, ?float $note): Eleve
     {
-        $eleve = Eleve::create([
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => $nom, 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
 
         if ($note !== null) {
             Note::create([

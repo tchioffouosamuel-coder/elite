@@ -82,10 +82,10 @@ class BulletinArchiveTest extends TestCase
 
     public function test_le_bulletin_archive_ne_change_pas_apres_modification_du_coefficient(): void
     {
-        $eleve = Eleve::create([
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => 'Eleve Archive', 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
         Note::create([
             'eleve_id' => $eleve->id, 'classe_matiere_id' => $this->affectation->id,
             'sequence_id' => $this->sequence->id, 'composante' => 'unique', 'valeur' => 14.0,
@@ -116,14 +116,14 @@ class BulletinArchiveTest extends TestCase
 
     public function test_le_bulletin_archive_porte_la_moyenne_et_le_rang_annuels(): void
     {
-        $fort = Eleve::create([
+        $fort = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => 'Eleve Fort', 'sexe' => 'M', 'statut' => 'actif',
-        ]);
-        $faible = Eleve::create([
+        ]));
+        $faible = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => 'Eleve Faible', 'sexe' => 'M', 'statut' => 'actif',
-        ]);
+        ]));
         Note::create(['eleve_id' => $fort->id, 'classe_matiere_id' => $this->affectation->id, 'sequence_id' => $this->sequence->id, 'composante' => 'unique', 'valeur' => 18.0]);
         Note::create(['eleve_id' => $faible->id, 'classe_matiere_id' => $this->affectation->id, 'sequence_id' => $this->sequence->id, 'composante' => 'unique', 'valeur' => 8.0]);
 
@@ -143,10 +143,10 @@ class BulletinArchiveTest extends TestCase
 
     public function test_les_routes_darchive_servent_le_pdf(): void
     {
-        $eleve = Eleve::create([
+        $eleve = $this->inscrireAnneeActive(Eleve::create([
             'school_id' => $this->school->id, 'classe_id' => $this->classe->id,
             'nom_complet' => 'Eleve Route', 'sexe' => 'F', 'statut' => 'actif',
-        ]);
+        ]));
         Note::create(['eleve_id' => $eleve->id, 'classe_matiere_id' => $this->affectation->id, 'sequence_id' => $this->sequence->id, 'composante' => 'unique', 'valeur' => 12.0]);
 
         $conseil = app(ConseilClasseService::class)->preparer($this->classe, $this->annee);

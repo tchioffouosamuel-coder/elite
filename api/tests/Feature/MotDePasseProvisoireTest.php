@@ -53,7 +53,7 @@ class MotDePasseProvisoireTest extends TestCase
     public function test_la_connexion_signale_le_renouvellement_a_faire(): void
     {
         $this->postJson('/api/v1/auth/login', [
-            'email' => $this->agent->email,
+            'identifiant' => $this->agent->email,
             'password' => SettingsCatalog::default('mot_de_passe_defaut'),
         ])
             ->assertOk()

@@ -45,7 +45,8 @@ class ProgressionPerimetreTest extends TestCase
         $fonction = FonctionReferentiel::firstOrCreate(
             ['school_id' => $this->school->id, 'label_fr' => 'Enseignant'],
         );
-        $fonction->synchroniserPermissions(['pedagogie.view', 'pedagogie.manage']);
+        // La progression se consulte avec `notes.view` depuis c0353f3.
+        $fonction->synchroniserPermissions(['notes.view', 'pedagogie.view', 'pedagogie.manage']);
 
         $user = User::create([
             'name' => $nom, 'email' => strtolower(str_replace(' ', '.', $nom)).'@test.local',
