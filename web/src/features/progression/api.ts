@@ -420,6 +420,8 @@ export interface FeuilleJournee {
     heure_debut: string;
     heure_fin: string;
     statut: string;
+    /** Leçon saisie à la main (matière sans programme ou leçon hors programme). */
+    contenu: string | null;
     observations: string | null;
     donnees_personnalisees: Record<string, string | number | boolean>;
     /** Déclaration verrouillée (cf. `SeanceController`, `appelVerrouillePour`). */
@@ -469,6 +471,7 @@ export async function enregistrerJournee(
   payload: {
     date?: string;
     lecons: number[];
+    contenu?: string | null;
     appel: { eleve_id: number; statut: string; motif: MotifAbsence | null }[];
     observations?: string | null;
     donnees_personnalisees?: Record<string, string | number | boolean>;
@@ -526,6 +529,7 @@ export interface CoursJourAdmin {
   seance_id: number | null;
   statut: StatutCoursJour;
   lecons_traitees: number;
+  contenu: string | null;
   eleves_pointes: number;
   verrouille: boolean;
 }

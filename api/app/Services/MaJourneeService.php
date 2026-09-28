@@ -202,6 +202,7 @@ class MaJourneeService extends BaseService
                         'seance_id' => $seance?->id,
                         'statut' => $seance?->statut ?? ($enRetard ? 'en_retard' : 'prevue'),
                         'lecons_traitees' => $seance?->lecons_count ?? 0,
+                        'contenu' => $seance?->contenu,
                         'eleves_pointes' => $seance?->presences_count ?? 0,
                         'verrouille' => $seance?->appelVerrouille() ?? false,
                     ];
@@ -276,6 +277,7 @@ class MaJourneeService extends BaseService
                 'heure_debut' => $seance->heure_debut,
                 'heure_fin' => $seance->heure_fin,
                 'statut' => $seance->statut,
+                'contenu' => $seance->contenu,
                 'observations' => $seance->observations,
                 'donnees_personnalisees' => $seance->donnees_personnalisees ?? [],
                 // L'appel ET les leçons cochées se soumettent ensemble ici : le
@@ -306,8 +308,8 @@ class MaJourneeService extends BaseService
     }
 
     /**
-     * Enregistre la journée : leçons traitées, appel, observations et champs
-     * personnalisés.
+     * Enregistre la journée : leçons traitées (cochées au programme ou saisies
+     * à la main dans `$contenu`), appel, observations et champs personnalisés.
      *
      * @param  array<int, int>  $leconIds
      * @param  array<int, array<string, mixed>>  $appel
@@ -323,6 +325,7 @@ class MaJourneeService extends BaseService
         ?string $observations = null,
         array $donneesPersonnalisees = [],
         bool $qrVerifie = false,
+        ?string $contenu = null,
     ): array {
         // L'appel et les leçons cochées se soumettent depuis le même écran :
         // un seul verrou couvre les deux, sans quoi un enseignant pourrait
@@ -335,7 +338,7 @@ class MaJourneeService extends BaseService
             'La déclaration de cette séance est verrouillée depuis plus de '.$seance->minutesVerrouillageAppel().' minutes. Contactez le Surveillant Général pour une correction.'
         );
 
-        [$resultat, $nouvelles] = $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $user, $observations, $donneesPersonnalisees, $qrVerifie) {
+        [$resultat, $nouvelles] = $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $user, $observations, $donneesPersonnalisees, $qrVerifie, $contenu) {
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
             $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
                 ->lecons()
@@ -363,6 +366,7 @@ class MaJourneeService extends BaseService
 
             $seance->update([
                 'statut' => 'effectuee',
+                'contenu' => $contenu,
                 'observations' => $observations,
                 'donnees_personnalisees' => $donneesPersonnalisees ?: null,
                 // Figé une seule fois, que l'appel ait été rempli ou non : une

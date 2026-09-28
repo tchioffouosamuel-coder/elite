@@ -48,6 +48,7 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
   const methodeValidation = useAuthStore((s) => s.user?.methode_validation_seance ?? 'libre')
   const navigate = useNavigate()
   const [lecons, setLecons] = useState<Set<number>>(new Set())
+  const [contenu, setContenu] = useState('')
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
   const [codeSalle, setCodeSalle] = useState('')
@@ -63,6 +64,7 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
     if (!feuille) return
     setLecons(new Set(feuille.lecons.filter((l) => l.faite_aujourdhui).map((l) => l.id)))
     setAppel(feuille.appel)
+    setContenu(feuille.seance.contenu ?? '')
     setObservations(feuille.seance.observations ?? '')
   }, [feuille])
 
@@ -94,6 +96,7 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
       await enregistrerJournee(cours.classe_matiere_id, {
         date,
         lecons: [...lecons],
+        contenu: contenu.trim() || null,
         code_salle: codeSalle || undefined,
         appel: appel.map((l) => ({ eleve_id: l.eleve_id, statut: l.statut, motif: l.motif })),
         observations: observations || null,
@@ -163,7 +166,7 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
           <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
             <h3 className="mb-3 font-display text-base font-bold text-navy-800">Leçons traitées</h3>
             {feuille.lecons.length === 0 ? (
-              <p className="py-4 text-center text-sm text-navy-400">Aucune leçon au programme de cette matière.</p>
+              <p className="pb-2 text-sm text-navy-400">Aucune leçon au programme de cette matière.</p>
             ) : (
               <div className="flex flex-col gap-1.5">
                 {feuille.lecons.map((lecon) => (
@@ -188,6 +191,14 @@ function FeuilleModal({ cours, date, onClose, onEnregistre }: { cours: CoursJour
                 ))}
               </div>
             )}
+            <Textarea
+              className="mt-3"
+              value={contenu}
+              onChange={(e) => setContenu(e.target.value)}
+              maxLength={2000}
+              rows={2}
+              placeholder={feuille.lecons.length === 0 ? 'Saisissez la leçon traitée (titre, contenu)…' : 'Autre leçon traitée, hors programme (facultatif)…'}
+            />
           </div>
 
           <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
@@ -360,7 +371,10 @@ export function JourneeEcolePage() {
                   <td className="px-4 py-3 text-navy-600">{c.matiere ?? '—'}</td>
                   <td className="px-4 py-3 text-navy-500">{c.enseignant ?? 'Non assigné'}</td>
                   <td className="px-4 py-3"><BadgeStatut statut={c.statut} /></td>
-                  <td className="px-4 py-3 text-navy-500">{c.lecons_traitees}</td>
+                  <td className="px-4 py-3 text-navy-500">
+                    {c.lecons_traitees}
+                    {c.contenu && <span className="block max-w-[14rem] truncate text-xs text-navy-400" title={c.contenu}>{c.contenu}</span>}
+                  </td>
                   <td className="px-4 py-3 text-navy-500">
                     {c.statut === 'effectuee' ? (
                       <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" />{c.eleves_pointes}</span>

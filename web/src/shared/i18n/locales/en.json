@@ -1287,6 +1287,8 @@
     "aucune_affectation": "No subject is assigned to you yet.",
     "aucun_creneau_ce_jour": "No class is scheduled on your timetable for this date.",
     "aucun_programme": "No lesson in this subject syllabus.",
+    "contenu_placeholder": "Type the lesson covered (title, content)…",
+    "contenu_hors_programme": "Other lesson covered, outside the syllabus (optional)…",
     "horaire": "Time",
     "lecons": "Lessons covered",
     "appel": "Register",

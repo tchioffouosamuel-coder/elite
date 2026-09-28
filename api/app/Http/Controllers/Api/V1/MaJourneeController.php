@@ -75,6 +75,9 @@ class MaJourneeController extends Controller
             'date' => ['nullable', 'date'],
             'lecons' => ['present', 'array'],
             'lecons.*' => ['integer'],
+            // Leçon saisie à la main : matière sans programme, ou leçon hors
+            // programme — sans quoi la séance ne dirait pas ce qui a été fait.
+            'contenu' => ['nullable', 'string', 'max:2000'],
             'appel' => ['present', 'array'],
             'appel.*.eleve_id' => ['required', 'integer'],
             'appel.*.statut' => ['required', 'in:present,absent'],
@@ -132,6 +135,8 @@ class MaJourneeController extends Controller
             $data['lecons'],$data['appel'],
             $request->user(),$data['observations'] ?? null,
             $data['donnees_personnalisees'] ?? [],$preuveFournie,
+            // Absent de la requête (client plus ancien) : on garde la saisie existante.
+            array_key_exists('contenu', $data) ? $data['contenu'] : $seance->contenu,
         );
 
         return ApiResponse::success(

@@ -1265,6 +1265,8 @@
     "aucune_affectation": "Aucune matière ne vous est affectée pour le moment.",
     "aucun_creneau_ce_jour": "Aucun cours ne figure à votre emploi du temps pour cette date.",
     "aucun_programme": "Aucune leçon au programme de cette matière.",
+    "contenu_placeholder": "Saisissez la leçon traitée (titre, contenu)…",
+    "contenu_hors_programme": "Autre leçon traitée, hors programme (facultatif)…",
     "horaire": "Horaire",
     "lecons": "Leçons traitées",
     "appel": "Appel",

@@ -102,6 +102,7 @@ export function MaJourneePage() {
   const [qrToken, setQrToken] = useState<string | null>(tokenScanne)
   const [codeSalle, setCodeSalle] = useState('')
   const [lecons, setLecons] = useState<Set<number>>(new Set())
+  const [contenu, setContenu] = useState('')
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
   const [donneesPersonnalisees, setDonneesPersonnalisees] = useState<Record<string, string | number | boolean>>({})
@@ -145,6 +146,7 @@ export function MaJourneePage() {
     if (!feuille) return
     setLecons(new Set(feuille.lecons.filter((l) => l.faite_aujourdhui).map((l) => l.id)))
     setAppel(feuille.appel)
+    setContenu(feuille.seance.contenu ?? '')
     setObservations(feuille.seance.observations ?? '')
     setDonneesPersonnalisees(feuille.seance.donnees_personnalisees ?? {})
   }, [feuille])
@@ -190,6 +192,7 @@ export function MaJourneePage() {
       await enregistrerJournee(Number(affectationId), {
         date,
         lecons: [...lecons],
+        contenu: contenu.trim() || null,
         qr_token: qrToken,
         code_salle: codeSalle || undefined,
         appel: appel.map((l) => ({ eleve_id: l.eleve_id, statut: l.statut, motif: l.motif })),
@@ -305,7 +308,7 @@ export function MaJourneePage() {
               <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
                 <h2 className="mb-3 font-display text-base font-bold text-navy-800">{t('journee.lecons')}</h2>
                 {feuille.lecons.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-navy-400">{t('journee.aucun_programme')}</p>
+                  <p className="pb-2 text-sm text-navy-400">{t('journee.aucun_programme')}</p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
                     {feuille.lecons.map((lecon) => (
@@ -339,6 +342,14 @@ export function MaJourneePage() {
                     ))}
                   </div>
                 )}
+                <Textarea
+                  className="mt-3"
+                  value={contenu}
+                  onChange={(e) => setContenu(e.target.value)}
+                  maxLength={2000}
+                  rows={2}
+                  placeholder={t(feuille.lecons.length === 0 ? 'journee.contenu_placeholder' : 'journee.contenu_hors_programme')}
+                />
               </div>
 
               <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
