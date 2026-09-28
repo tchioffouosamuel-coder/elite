@@ -410,10 +410,11 @@ class PreinscriptionAdminTest extends TestCase
         $service->creerEtValiderParAdmin($eleve, $donnees, $this->admin()->id);
     }
 
-    public function test_import_refuse_un_nouvel_eleve_du_meme_nom_meme_si_la_date_de_naissance_differe(): void
+    public function test_import_ignore_un_nouvel_eleve_du_meme_nom_meme_si_la_date_de_naissance_differe(): void
     {
         $this->anneeActive();
         Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $adminId = $this->admin()->id;
 
         $service = app(PreinscriptionService::class);
         $ligne = [
@@ -424,12 +425,12 @@ class PreinscriptionAdminTest extends TestCase
             'tuteurs' => [],
         ];
 
-        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+        $service->importerLigne($this->school->id, $ligne, $adminId);
 
         $ligne['date_naissance'] = '2016-02-02';
 
-        $this->expectException(\RuntimeException::class);
-        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+        $this->assertSame(PreinscriptionService::IMPORT_IGNOREE, $service->importerLigne($this->school->id, $ligne, $adminId));
+        $this->assertSame(1, Preinscription::count());
     }
 
     /** Sans tuteur au dossier, il n'y a personne à qui rattacher la demande : refusé plutôt que planté sur une contrainte de base. */
@@ -699,7 +700,7 @@ class PreinscriptionAdminTest extends TestCase
         $this->assertNotNull(Eleve::where('nom_complet', 'Nouvel Eleve')->first());
     }
 
-    public function test_import_ne_peut_pas_reinscrire_un_eleve_deja_preinscrit_cette_annee(): void
+    public function test_import_ignore_un_eleve_deja_preinscrit_cette_annee_paiement_compris(): void
     {
         $this->anneeActive();
         Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
@@ -721,12 +722,95 @@ class PreinscriptionAdminTest extends TestCase
             'sexe' => 'M',
             'date_naissance' => '2015-01-01',
             'tuteurs' => [],
+            'scolarite_payee' => 10000,
         ];
+        $adminId = $this->admin()->id;
 
-        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+        $this->assertSame(PreinscriptionService::IMPORT_PREINSCRITE, $service->importerLigne($this->school->id, $ligne, $adminId));
+        $this->assertSame(PreinscriptionService::IMPORT_IGNOREE, $service->importerLigne($this->school->id, $ligne, $adminId));
 
-        $this->expectException(\RuntimeException::class);
-        $service->importerLigne($this->school->id, $ligne, $this->admin()->id);
+        $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
+        $this->assertSame(1, Versement::count());
+    }
+
+    /**
+     * Import général : un élève répété plus bas dans le fichier n'est pas
+     * préinscrit une seconde fois — chaque ligne répétée est un paiement de
+     * plus sur son dossier, et un réimport du même fichier ne les double pas.
+     */
+    public function test_import_enregistre_les_lignes_repetees_comme_paiements_supplementaires(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $service = app(PreinscriptionService::class);
+        $adminId = $this->admin()->id;
+
+        $ligne = fn(string $montant) => collect([
+            'nom_eleves' => 'Eleve  Paiements Multiples',
+            'sexe_eleves' => 'F',
+            'nom_classe' => 'CM2',
+            'montant_scolarite' => $montant,
+        ]);
+        $fichier = collect([
+            $ligne('20000'),
+            collect(['nom_eleves' => 'Autre Eleve', 'nom_classe' => 'CM2', 'montant_scolarite' => '5000']),
+            $ligne('15000'),
+            // Même nom, casse différente : toujours le même élève.
+            $ligne('7500')->put('nom_eleves', 'ELEVE PAIEMENTS MULTIPLES'),
+        ]);
+
+        $import = new PreinscriptionImport($this->school->id, $service, $adminId);
+        $import->collection($fichier);
+
+        $this->assertSame(2, $import->importees);
+        $this->assertSame(2, $import->paiements);
+        $this->assertSame([], $import->erreurs);
+
+        $eleve = Eleve::where('nom_complet', 'Eleve Paiements Multiples')->firstOrFail();
+        $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
+        $versements = Versement::whereHas('dossier', fn($q) => $q->where('eleve_id', $eleve->id))->orderBy('id')->pluck('montant')->all();
+        $this->assertSame([20000, 15000, 7500], $versements);
+
+        // Réimport du même fichier : rien de neuf.
+        $reimport = new PreinscriptionImport($this->school->id, $service, $adminId);
+        $reimport->collection($fichier);
+
+        $this->assertSame(0, $reimport->importees);
+        $this->assertSame(0, $reimport->paiements);
+        $this->assertSame(4, $reimport->ignorees);
+        $this->assertSame(4, Versement::count());
+    }
+
+    /** Un élève déjà préinscrit avant l'import : sa première ligne est ignorée, les suivantes restent des paiements. */
+    public function test_import_eleve_deja_preinscrit_ignore_la_premiere_ligne_mais_garde_les_paiements_suivants(): void
+    {
+        $this->anneeActive();
+        Classe::create(['school_id' => $this->school->id, 'nom' => 'CM2']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id,
+            'matricule' => 'IMP-PAIE',
+            'nom_complet' => 'Eleve Deja La',
+            'sexe' => 'M',
+            'statut' => 'actif',
+        ]);
+        $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+        $service = app(PreinscriptionService::class);
+        $adminId = $this->admin()->id;
+        $service->creerEtValiderParAdmin($eleve, [
+            'donnees_eleve' => ['nom_complet' => 'Eleve Deja La'],
+            'donnees_tuteurs' => [],
+        ], $adminId);
+
+        $import = new PreinscriptionImport($this->school->id, $service, $adminId);
+        $import->collection(collect([
+            collect(['ideleves' => 'IMP-PAIE', 'nom_eleves' => 'Eleve Deja La', 'nom_classe' => 'CM2', 'montant_scolarite' => '30000']),
+            collect(['ideleves' => 'IMP-PAIE', 'nom_eleves' => 'Eleve Deja La', 'nom_classe' => 'CM2', 'montant_scolarite' => '12000']),
+        ]));
+
+        $this->assertSame(1, $import->ignorees);
+        $this->assertSame(1, $import->paiements);
+        $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
+        $this->assertSame([12000], Versement::pluck('montant')->all());
     }
 
     public function test_import_reinscrit_un_eleve_avec_dossier_financier_sans_le_traiter_comme_doublon(): void
@@ -801,7 +885,8 @@ class PreinscriptionAdminTest extends TestCase
         ]));
 
         $this->assertSame(0, $import->importees);
-        $this->assertCount(1, $import->erreurs);
+        $this->assertSame(1, $import->ignorees);
+        $this->assertSame([], $import->erreurs);
         $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
     }
 

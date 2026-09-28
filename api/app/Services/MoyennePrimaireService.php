@@ -171,7 +171,7 @@ class MoyennePrimaireService extends BaseService
      */
     public function classementCompetence(ClasseCompetence $classeCompetence, Trimestre $trimestre): Collection
     {
-        $eleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->get();
+        $eleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get();
 
         $rows = $eleves->map(fn (Eleve $eleve) => [
             'eleve_id' => $eleve->id,
@@ -205,7 +205,7 @@ class MoyennePrimaireService extends BaseService
      */
     public function classementAnnuel(Classe $classe, int $anneeScolaireId): Collection
     {
-        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(fn (Eleve $eleve) => [
+        $rows = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->map(fn (Eleve $eleve) => [
             'eleve' => $eleve,
             'moyenne' => $this->moyenneAnnuelleEleve($eleve, $anneeScolaireId),
         ]);
@@ -244,7 +244,7 @@ class MoyennePrimaireService extends BaseService
      */
     public function classementGeneral(Classe $classe, Trimestre $trimestre): Collection
     {
-        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(fn (Eleve $eleve) => [
+        $rows = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->map(fn (Eleve $eleve) => [
             'eleve' => $eleve,
             'moyenne' => $this->moyenneGeneraleEleve($eleve, $trimestre)['moyenne'],
         ]);
@@ -263,7 +263,7 @@ class MoyennePrimaireService extends BaseService
     {
         $seuil = (float) Setting::get($classe->school_id, 'passage_moyenne_min', 10);
 
-        return $classe->eleves()->where('statut', 'actif')->get()->map(function (Eleve $eleve) use ($anneeScolaireId, $seuil) {
+        return $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->map(function (Eleve $eleve) use ($anneeScolaireId, $seuil) {
             $moyenne = $this->moyenneAnnuelleEleve($eleve, $anneeScolaireId);
 
             return [
@@ -284,7 +284,7 @@ class MoyennePrimaireService extends BaseService
      */
     public function tauxRemplissage(ClasseCompetence $classeCompetence, Trimestre $trimestre): float
     {
-        $nbEleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
+        $nbEleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->count();
         $sequences = $trimestre->sequencesRetenues();
         $nbComposantes = count($classeCompetence->competence->voletsNotes());
 

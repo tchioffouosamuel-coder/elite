@@ -1203,6 +1203,7 @@
     "enseignants_introuvables": "Enseignants non trouvés :",
     "dettes": "{{count}} dette(s) antérieure(s) reprise(s) ({{montant}} FCFA).",
     "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s).",
+    "paiements": "{{count}} paiement(s) supplémentaire(s) enregistré(s).",
     "processing": "Importation en cours…",
     "erreurs_detail": "Motifs d'échec les plus fréquents :"
   },

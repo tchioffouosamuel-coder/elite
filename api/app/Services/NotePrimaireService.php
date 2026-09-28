@@ -62,7 +62,7 @@ class NotePrimaireService extends BaseService
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->get();
 
-        $lignes = $classeCompetence->classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get()
+        $lignes = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
             ->map(function ($eleve) use ($notes, $composantes, $sequences) {
                 $parEleve = $notes->where('eleve_id', $eleve->id);
 
@@ -201,7 +201,7 @@ class NotePrimaireService extends BaseService
     public function tauxRemplissage(ClasseCompetence $classeCompetence, Sequence $sequence): int
     {
         $composantes = $classeCompetence->competence->voletsNotes();
-        $effectif = $classeCompetence->classe->eleves()->where('statut', 'actif')->count();
+        $effectif = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->count();
         $total = $effectif * count($composantes);
 
         if ($total === 0) {

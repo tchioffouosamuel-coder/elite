@@ -6,21 +6,34 @@ use App\Models\Eleve;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
 
+/**
+ * Branché à la fois sur `Tuteur` et sur `TuteurTelephone` (cf.
+ * AppServiceProvider) : chaque événement reçoit donc l'un ou l'autre modèle,
+ * d'où les signatures en union — typer un seul des deux faisait lever une
+ * TypeError à chaque sauvegarde de l'autre.
+ */
 class ContactsTuteurObserver
 {
-    public function updated(Tuteur $tuteur): void
+    public function updated(Tuteur|TuteurTelephone $modele): void
     {
-        $this->marquerElevesModifies($tuteur->eleves()->pluck('eleves.id'));
+        // Côté téléphone, `saved()` couvre déjà la mise à jour.
+        if ($modele instanceof Tuteur) {
+            $this->marquerElevesModifies($modele->eleves()->pluck('eleves.id'));
+        }
     }
 
-    public function saved(TuteurTelephone $telephone): void
+    public function saved(Tuteur|TuteurTelephone $modele): void
     {
-        $this->marquerTuteurModifie($telephone->tuteur_id);
+        if ($modele instanceof TuteurTelephone) {
+            $this->marquerTuteurModifie($modele->tuteur_id);
+        }
     }
 
-    public function deleted(TuteurTelephone $telephone): void
+    public function deleted(Tuteur|TuteurTelephone $modele): void
     {
-        $this->marquerTuteurModifie($telephone->tuteur_id);
+        if ($modele instanceof TuteurTelephone) {
+            $this->marquerTuteurModifie($modele->tuteur_id);
+        }
     }
 
     private function marquerTuteurModifie(int $tuteurId): void

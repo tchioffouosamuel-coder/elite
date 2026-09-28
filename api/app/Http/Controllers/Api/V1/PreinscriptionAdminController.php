@@ -386,7 +386,12 @@ class PreinscriptionAdminController extends Controller
         return Excel::download(new ModeleGenerique(PreinscriptionImport::enTetes()), 'modele-preinscriptions.xlsx');
     }
 
-    /** Import massif d'une campagne de réinscription — chaque ligne validée immédiatement, cf. `PreinscriptionService::importerLigne()`. */
+    /**
+     * Import massif d'une campagne de réinscription — chaque ligne validée
+     * immédiatement ; un élève déjà préinscrit est ignoré, ses lignes
+     * répétées plus bas deviennent des paiements supplémentaires. Cf.
+     * `PreinscriptionService::importerLigne()`.
+     */
     public function import(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -406,8 +411,10 @@ class PreinscriptionAdminController extends Controller
         return ApiResponse::success([
             'imported' => $import->importees,
             'failed' => count($import->erreurs),
+            'ignored' => $import->ignorees,
+            'paiements' => $import->paiements,
             'erreurs' => $import->erreurs,
-        ], "{$import->importees} préinscription(s) importée(s) et validée(s).");
+        ], "{$import->importees} préinscription(s) importée(s) et validée(s), {$import->paiements} paiement(s) supplémentaire(s), {$import->ignorees} ligne(s) ignorée(s).");
     }
 
     /**

@@ -103,6 +103,32 @@ class BanqueController extends Controller
         ], $type === 'depot' ? 'Dépôt enregistré.' : 'Retrait enregistré.');
     }
 
+    public function modifierDepot(Request $request, int $id, int $mouvementId, BanqueService $service): JsonResponse
+    {
+        $this->authorizeSuperAdmin($request);
+
+        $data = $request->validate([
+            'montant' => ['required', 'integer', 'min:1'],
+            'date' => ['nullable', 'date'],
+            'libelle' => ['nullable', 'string', 'max:255'],
+            'reference' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $mouvement = $service->modifierDepot(
+            $id,
+            $mouvementId,
+            $data['montant'],
+            $data['date'] ?? null,
+            $data['libelle'] ?? 'Dépôt manuel',
+            $data['reference'] ?? null,
+        );
+
+        return ApiResponse::success([
+            'mouvement' => $mouvement,
+            'banque' => new BanqueResource($mouvement->banque()->withCount('personnels')->firstOrFail()),
+        ], 'Dépôt modifié.');
+    }
+
     public function update(Request $request, int $id): JsonResponse
     {
         $this->authorizeSuperAdmin($request);

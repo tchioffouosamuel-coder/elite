@@ -25,9 +25,9 @@ class ClasseRepository extends BaseRepository
             ->dansPerimetre($user)
             ->when($filters['niveau_id'] ?? null, fn ($query, $id) => $query->where('niveau_id', $id))
             ->withCount([
-                'eleves',
-                'eleves as garcons_count' => fn ($query) => $query->where('sexe', 'M'),
-                'eleves as filles_count' => fn ($query) => $query->where('sexe', 'F'),
+                'eleves' => fn ($query) => $query->inscritAnneeActive(),
+                'eleves as garcons_count' => fn ($query) => $query->inscritAnneeActive()->where('sexe', 'M'),
+                'eleves as filles_count' => fn ($query) => $query->inscritAnneeActive()->where('sexe', 'F'),
                 // Sert la page « Séances & appel » : le trimestre actif borne
                 // le compte, sinon une classe affiche toujours le cumul de
                 // toute sa scolarité au lieu de « ce qu'il reste à faire ».

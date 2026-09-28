@@ -38,9 +38,9 @@ class EleveService extends BaseService
     }
 
     /** @param int|array<int> $schoolId */
-    public function rechercheGlobale(?User $user, int|array $schoolId, string $terme, bool $tous = false): Collection
+    public function rechercheGlobale(?User $user, int|array $schoolId, string $terme): Collection
     {
-        return $this->repository->rechercheGlobale($schoolId, $user, $terme, tous: $tous);
+        return $this->repository->rechercheGlobale($schoolId, $user, $terme);
     }
 
     /** @param int|array<int> $schoolId */

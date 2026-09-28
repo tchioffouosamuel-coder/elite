@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Phone, Mail, UserRound } from 'lucide-react'
-import { enregistrerMouvementBanque, fetchBanque, fetchPersonnels, type BanqueMouvement } from '@/features/personnel/api'
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Pencil, Phone, Mail, UserRound } from 'lucide-react'
+import { enregistrerMouvementBanque, fetchBanque, fetchPersonnels, modifierDepotBanque, type BanqueMouvement } from '@/features/personnel/api'
 import { francs } from '@/features/finance/api'
 import { Card } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
@@ -17,20 +17,24 @@ type TypeMouvementManuel = 'depot' | 'retrait'
 function MouvementBanqueModal({
   banqueId,
   type,
+  mouvement,
   onClose,
   onSaved,
 }: {
   banqueId: number
   type: TypeMouvementManuel
+  /** Dépôt existant à corriger ; absent pour un nouveau mouvement. */
+  mouvement?: BanqueMouvement
   onClose: () => void
   onSaved: () => void
 }) {
-  const [montant, setMontant] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [libelle, setLibelle] = useState('')
-  const [reference, setReference] = useState('')
+  const [montant, setMontant] = useState(mouvement ? String(mouvement.montant) : '')
+  const [date, setDate] = useState((mouvement?.date ?? new Date().toISOString()).slice(0, 10))
+  const [libelle, setLibelle] = useState(mouvement?.libelle ?? '')
+  const [reference, setReference] = useState(mouvement?.reference ?? '')
   const [submitting, setSubmitting] = useState(false)
   const depot = type === 'depot'
+  const edition = !!mouvement
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -42,13 +46,18 @@ function MouvementBanqueModal({
 
     setSubmitting(true)
     try {
-      await enregistrerMouvementBanque(banqueId, type, {
+      const payload = {
         montant: montantNombre,
         date: date || undefined,
         libelle: libelle.trim() || undefined,
         reference: reference.trim() || undefined,
-      })
-      succes(depot ? 'Dépôt enregistré.' : 'Retrait enregistré.')
+      }
+      if (mouvement) {
+        await modifierDepotBanque(banqueId, mouvement.id, payload)
+      } else {
+        await enregistrerMouvementBanque(banqueId, type, payload)
+      }
+      succes(edition ? 'Dépôt modifié.' : depot ? 'Dépôt enregistré.' : 'Retrait enregistré.')
       onSaved()
       onClose()
     } catch (err: any) {
@@ -59,7 +68,7 @@ function MouvementBanqueModal({
   }
 
   return (
-    <Modal title={depot ? 'Dépôt bancaire' : 'Retrait bancaire'} onClose={onClose}>
+    <Modal title={edition ? 'Modifier le dépôt' : depot ? 'Dépôt bancaire' : 'Retrait bancaire'} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <Input
           label="Montant (F CFA)"
@@ -86,7 +95,7 @@ function MouvementBanqueModal({
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Enregistrement…' : depot ? 'Enregistrer le dépôt' : 'Enregistrer le retrait'}
+            {submitting ? 'Enregistrement…' : edition ? 'Enregistrer les modifications' : depot ? 'Enregistrer le dépôt' : 'Enregistrer le retrait'}
           </Button>
         </div>
       </form>
@@ -104,6 +113,11 @@ export function BanqueDetailPage() {
   const banqueId = Number(id)
   const queryClient = useQueryClient()
   const [typeMouvement, setTypeMouvement] = useState<TypeMouvementManuel | null>(null)
+  const [depotEnEdition, setDepotEnEdition] = useState<BanqueMouvement | null>(null)
+  const rafraichir = () => {
+    queryClient.invalidateQueries({ queryKey: ['banque', banqueId] })
+    queryClient.invalidateQueries({ queryKey: ['banques'] })
+  }
 
   const { data: banque, isLoading, isError } = useQuery({
     queryKey: ['banque', banqueId],
@@ -181,9 +195,22 @@ export function BanqueDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <span className={`font-semibold tabular-nums ${entree ? 'text-green-600' : 'text-red-500'}`}>
-                    {entree ? '+' : '−'} {francs(mouvement.montant)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-semibold tabular-nums ${entree ? 'text-green-600' : 'text-red-500'}`}>
+                      {entree ? '+' : '−'} {francs(mouvement.montant)}
+                    </span>
+                    {entree && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Modifier le dépôt"
+                        title="Modifier le dépôt"
+                        onClick={() => setDepotEnEdition(mouvement)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -240,10 +267,17 @@ export function BanqueDetailPage() {
           banqueId={banqueId}
           type={typeMouvement}
           onClose={() => setTypeMouvement(null)}
-          onSaved={() => {
-            queryClient.invalidateQueries({ queryKey: ['banque', banqueId] })
-            queryClient.invalidateQueries({ queryKey: ['banques'] })
-          }}
+          onSaved={rafraichir}
+        />
+      )}
+
+      {depotEnEdition && (
+        <MouvementBanqueModal
+          banqueId={banqueId}
+          type="depot"
+          mouvement={depotEnEdition}
+          onClose={() => setDepotEnEdition(null)}
+          onSaved={rafraichir}
         />
       )}
     </div>

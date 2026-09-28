@@ -51,7 +51,7 @@ class AbsenceNonEnregistreeService extends BaseService
                 return;
             }
 
-            $eleves = $classe->eleves()->where('statut', 'actif')->with('tuteurs')->get();
+            $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->with('tuteurs')->get();
             if ($eleves->isEmpty()) {
                 return;
             }

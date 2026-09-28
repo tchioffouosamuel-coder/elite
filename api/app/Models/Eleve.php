@@ -78,11 +78,31 @@ class Eleve extends Model
      */
     public function scopePreinscritAnneeActive(Builder $query): Builder
     {
-        return $query->whereExists(function ($sous) {
+        return $this->filtrerPreinscriptionAnneeActive($query, ['en_attente', 'validee']);
+    }
+
+    /**
+     * Élèves inscrits pour l'année active : préinscription **validée** pour
+     * l'année scolaire active de leur école. C'est le filtre de toutes les
+     * listes de travail (classes, notes, appels, bulletins, discipline,
+     * transport, listes imprimées…) — une préinscription encore en attente
+     * n'y fait pas encore apparaître l'élève. Seuls l'infirmerie, les
+     * archives, les préinscriptions, la recherche globale, le tableau de bord
+     * et les outils de correction de données voient tout le monde.
+     */
+    public function scopeInscritAnneeActive(Builder $query): Builder
+    {
+        return $this->filtrerPreinscriptionAnneeActive($query, ['validee']);
+    }
+
+    /** @param  list<string>  $statuts */
+    private function filtrerPreinscriptionAnneeActive(Builder $query, array $statuts): Builder
+    {
+        return $query->whereExists(function ($sous) use ($statuts) {
             $sous->selectRaw('1')
                 ->from('preinscriptions')
                 ->whereColumn('preinscriptions.eleve_id', 'eleves.id')
-                ->whereIn('preinscriptions.statut', ['en_attente', 'validee'])
+                ->whereIn('preinscriptions.statut', $statuts)
                 ->whereExists(function ($annee) {
                     $annee->selectRaw('1')
                         ->from('annee_scolaires')

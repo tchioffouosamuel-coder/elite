@@ -117,7 +117,7 @@ class MoyenneService extends BaseService
      */
     public function classementGeneral(Classe $classe, Trimestre $trimestre): Collection
     {
-        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(function (Eleve $eleve) use ($trimestre) {
+        $rows = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->map(function (Eleve $eleve) use ($trimestre) {
             return ['eleve' => $eleve, 'moyenne' => $this->moyenneGeneraleEleve($eleve, $trimestre)['moyenne']];
         });
 
@@ -148,7 +148,7 @@ class MoyenneService extends BaseService
      */
     public function classementAnnuel(Classe $classe, int $anneeScolaireId): Collection
     {
-        $rows = $classe->eleves()->where('statut', 'actif')->get()->map(fn (Eleve $eleve) => [
+        $rows = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->map(fn (Eleve $eleve) => [
             'eleve' => $eleve,
             'moyenne' => $this->moyenneAnnuelleEleve($eleve, $anneeScolaireId),
         ]);
@@ -164,7 +164,7 @@ class MoyenneService extends BaseService
      */
     public function classementMatiere(ClasseMatiere $classeMatiere, Trimestre $trimestre): Collection
     {
-        $eleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->get();
+        $eleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get();
 
         $rows = $eleves->map(fn (Eleve $eleve) => [
             'eleve_id' => $eleve->id,
@@ -176,7 +176,7 @@ class MoyenneService extends BaseService
 
     public function tauxRemplissage(ClasseMatiere $classeMatiere, Trimestre $trimestre): float
     {
-        $nbEleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->count();
+        $nbEleves = $classeMatiere->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->count();
         $sequenceIds = $trimestre->sequencesRetenues()->pluck('id');
         $nbSequences = $sequenceIds->count();
 
@@ -224,7 +224,7 @@ class MoyenneService extends BaseService
         $seuilMoyenne = (float) Setting::get($schoolId, 'honour_roll', 14);
         $seuilAbsences = (float) Setting::get($schoolId, 'honour_attendance_max', 20);
 
-        $eleves = Eleve::forSchool($schoolId)->where('statut', 'actif')
+        $eleves = Eleve::forSchool($schoolId)->where('statut', 'actif')->inscritAnneeActive()
             ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
             ->with('classe')
             ->get();

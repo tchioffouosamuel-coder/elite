@@ -1160,6 +1160,7 @@
     "enseignants_introuvables": "Teachers not found:",
     "dettes": "{{count}} prior debt(s) carried over ({{montant}} XAF).",
     "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated.",
+    "paiements": "{{count}} additional payment(s) recorded.",
     "processing": "Import in progress…",
     "erreurs_detail": "Most common failure reasons:"
   },

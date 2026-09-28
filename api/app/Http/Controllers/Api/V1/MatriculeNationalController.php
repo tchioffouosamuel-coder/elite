@@ -71,7 +71,7 @@ class MatriculeNationalController extends Controller
 
         $eleves = Eleve::forSchool(Tenant::schoolIds())
             ->whereHas('school', fn ($q) => $q->where('type', 'secondaire'))
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->with(['classe:id,nom', 'school:id,name'])
             ->when($recherche !== '', fn ($q) => $q->where(
                 fn ($q2) => $q2->where('nom_complet', 'like', "%{$recherche}%")

@@ -177,7 +177,7 @@ class Seance extends Model
         // préinscription n'a rien à faire sur la feuille d'appel.
         return Eleve::whereIn('classe_id', $this->classesConcernees()->pluck('id'))
             ->where('statut', 'actif')
-            ->preinscritAnneeActive()
+            ->inscritAnneeActive()
             ->orderBy('nom_complet')
             ->get();
     }

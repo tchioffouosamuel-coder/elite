@@ -27,6 +27,9 @@ class EleveExport implements WithMultipleSheets
         $this->eleves = Eleve::forSchool($schoolId)
             ->when($classeId, fn ($q, $id) => $q->where('classe_id', $id))
             ->when($sansClasse, fn ($q) => $q->whereNull('classe_id'))
+            // L'export des fiches sans classe est un outil de correction de
+            // données : il doit voir tout le monde, pas seulement les inscrits.
+            ->when(! $sansClasse, fn ($q) => $q->inscritAnneeActive())
             ->with(['classe', 'school', 'tuteurs.telephones'])
             ->orderBy('nom_complet')
             ->get();

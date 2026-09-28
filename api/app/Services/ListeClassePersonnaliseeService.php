@@ -60,7 +60,7 @@ class ListeClassePersonnaliseeService extends BaseService
 
         $eleves = Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->when($besoinParents, fn($q) => $q->with('tuteurs'))
             ->orderBy('nom_complet')
             ->get();

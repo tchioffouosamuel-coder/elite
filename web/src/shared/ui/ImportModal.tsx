@@ -21,6 +21,8 @@ interface ImportResult {
   dettes?: number
   dettes_montant?: number
   dettes_ignorees?: number
+  /** Versements supplémentaires d'un élève répété dans le fichier (import des préinscriptions). */
+  paiements?: number
   /** Libellés que l'import n'a pas su rattacher, avec le nombre de lignes concernées. */
   classes_introuvables?: Record<string, number>
   enseignants_introuvables?: Record<string, number>
@@ -243,7 +245,7 @@ export function ImportModal({
       )
       const r = lot.data
 
-      for (const cle of ['imported', 'failed', 'updated', 'ignored', 'dettes', 'dettes_montant', 'dettes_ignorees', 'affectations', 'comptes_ouverts'] as const) {
+      for (const cle of ['imported', 'failed', 'updated', 'ignored', 'dettes', 'dettes_montant', 'dettes_ignorees', 'affectations', 'comptes_ouverts', 'paiements'] as const) {
         if (r[cle] !== undefined) agrege[cle] = (agrege[cle] ?? 0) + r[cle]!
       }
       for (const cle of cartes) {
@@ -392,6 +394,7 @@ export function ImportModal({
             {!!result.dettes_ignorees && (
               <p className="text-navy-400">{t('import.dettes_ignorees', { count: result.dettes_ignorees })}</p>
             )}
+            {!!result.paiements && <p className="text-navy-500">{t('import.paiements', { count: result.paiements })}</p>}
             {!!result.ignored && <p className="text-navy-500">{t('import.ignored', { count: result.ignored })}</p>}
             {!!result.comptes_ouverts && (
               <p className="text-navy-500">{t('import.comptes_ouverts', { count: result.comptes_ouverts })}</p>

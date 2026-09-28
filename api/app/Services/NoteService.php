@@ -26,7 +26,7 @@ class NoteService extends BaseService
             ->get()
             ->keyBy('eleve_id');
 
-        return $classeMatiere->classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get()
+        return $classeMatiere->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
             ->map(fn ($eleve) => [
                 'eleve_id' => $eleve->id,
                 'nom_complet' => $eleve->nom_complet,

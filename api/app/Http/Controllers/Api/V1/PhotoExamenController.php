@@ -26,8 +26,8 @@ class PhotoExamenController extends Controller
         $classes = Classe::forSchool(Tenant::schoolIds())
             ->whereNotNull('code_examen')
             ->where('code_examen', '!=', '')
-            ->withCount(['eleves as effectif' => fn($q) => $q->where('statut', 'actif')])
-            ->withCount(['eleves as photos' => fn($q) => $q->where('statut', 'actif')->whereNotNull('photo_path')])
+            ->withCount(['eleves as effectif' => fn($q) => $q->where('statut', 'actif')->inscritAnneeActive()])
+            ->withCount(['eleves as photos' => fn($q) => $q->where('statut', 'actif')->inscritAnneeActive()->whereNotNull('photo_path')])
             ->orderBy('nom')
             ->get()
             // Le sélecteur n'a besoin que de ces quatre champs : renvoyer le

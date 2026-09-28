@@ -560,7 +560,7 @@ class EmploiDuTempsService extends BaseService
             $jours[] = $lundi->copy()->addDays($i);
         }
 
-        $eleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get();
 
         $lignes = $eleves->map(function (Eleve $eleve) use ($jours, $seancesParJour) {
             $joursData = [];

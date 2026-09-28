@@ -109,7 +109,12 @@ export function InfirmeriePage() {
   const { data: schools } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: sousSystemes } = useQuery({ queryKey: ['sous-systemes'], queryFn: fetchSousSystemes })
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
-  const { data: eleves } = useQuery({ queryKey: ['eleves', 'infirmerie'], queryFn: () => fetchEleves({ per_page: 500 }) })
+  const { data: eleves } = useQuery({
+    queryKey: ['eleves', 'infirmerie'],
+    // L'infirmerie soigne tout enfant présent dans l'établissement, inscrit
+    // ou non pour l'année active : seul module à lever ce filtre.
+    queryFn: () => fetchEleves({ per_page: 10000, tous: true }),
+  })
 
   const sousSystemesFiltres = ecoleFiltre
     ? sousSystemes?.filter((s) => s.school_id === Number(ecoleFiltre))

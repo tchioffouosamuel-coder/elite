@@ -485,7 +485,7 @@ class BusService extends BaseService
     public function listerElevesTransport(int|array $schoolId, ?int $classeId, ?int $anneeScolaireId, ?int $eleveId = null): Collection
     {
         $eleves = Eleve::forSchool($schoolId)
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->when($eleveId, fn($q, $id) => $q->whereKey($id))
             ->when($classeId, fn($q, $id) => $q->where('classe_id', $id))
             ->with(['classe', 'school:id,name,code,type', 'busAffectations' => fn($q) => $q

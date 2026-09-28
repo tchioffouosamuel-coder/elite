@@ -49,7 +49,7 @@ class ListeElevesController extends Controller
         $school = School::findOrFail($schoolIds[0]);
 
         $eleves = Eleve::forSchool($schoolIds)
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->with(['tuteurs', 'classe'])
             ->orderBy('nom_complet')
             ->get();
@@ -81,7 +81,7 @@ class ListeElevesController extends Controller
     {
         return Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->with('tuteurs')
             ->orderBy('nom_complet')
             ->get();

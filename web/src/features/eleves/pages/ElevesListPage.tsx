@@ -219,17 +219,16 @@ export function ElevesListPage() {
   )
 
   // Recherche, tri et pagination sont assurés par DataTable côté client : on
-  // charge donc l'effectif complet de l'établissement. `tous: true` lève le
-  // filtre par défaut de l'API (préinscrits de l'année active uniquement,
-  // cf. `Eleve::scopePreinscritAnneeActive()`) : la page « Élèves » doit
-  // rester l'endroit où on voit tout le monde, badge « Non préinscrit » à
-  // l'appui — les écrans qui veulent au contraire se concentrer sur les
-  // seuls engagés pour l'année (ex. bulletins) appellent l'API sans ce
-  // paramètre. Le complexe dépasse déjà 2000 élèves au total — 10000 laisse
-  // une marge large avant qu'il faille rebasculer sur une pagination serveur.
+  // charge donc l'effectif complet de l'établissement — limité, comme toutes
+  // les listes d'élèves, aux inscrits de l'année active (préinscription
+  // validée, cf. `Eleve::scopeInscritAnneeActive()` côté API). Un ancien
+  // élève pas encore réinscrit se retrouve via la recherche globale ou
+  // l'écran des préinscriptions. Le complexe dépasse déjà 2000 élèves au
+  // total — 10000 laisse une marge large avant qu'il faille rebasculer sur
+  // une pagination serveur.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['eleves', 'tous'],
-    queryFn: () => fetchEleves({ per_page: 10000, tous: true }),
+    queryKey: ['eleves', 'inscrits'],
+    queryFn: () => fetchEleves({ per_page: 10000 }),
   })
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
   const { data: classes = [] } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })

@@ -19,7 +19,7 @@ class MatriculeNationalExport implements FromCollection, ShouldAutoSize, WithHea
     {
         return Eleve::forSchool($this->schoolId)
             ->whereHas('school', fn ($q) => $q->where('type', 'secondaire'))
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->with(['classe:id,nom', 'school:id,name'])
             ->orderBy('nom_complet')
             ->get();

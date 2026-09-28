@@ -55,7 +55,7 @@ class CarteScolaireGenerator extends FPDF
 
         $eleves = Eleve::forSchool($classe->school_id)
             ->where('classe_id', $classe->id)
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->orderBy('nom_complet')
             ->get();
 

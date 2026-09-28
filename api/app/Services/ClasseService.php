@@ -48,7 +48,7 @@ class ClasseService extends BaseService
             ->forSchool($schoolId)
             ->whereIn('id', collect($resume)->pluck('classes')->flatten()->unique()->all())
             ->with([...self::RESPONSABLES, 'school:id,name,code,type'])
-            ->withCount('eleves')
+            ->withCount(['eleves' => fn ($query) => $query->inscritAnneeActive()])
             ->orderBy('nom')
             ->get()
             ->keyBy('id');

@@ -16,6 +16,7 @@ use App\Models\TuteurTelephone;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Imports\HeadingRowFormatter;
 use RuntimeException;
 
 /**
@@ -30,6 +31,13 @@ use RuntimeException;
  */
 class PreinscriptionService extends BaseService
 {
+    /** Issues possibles d'une ligne d'import, cf. {@see importerLigne()}. */
+    public const IMPORT_PREINSCRITE = 'preinscrite';
+
+    public const IMPORT_IGNOREE = 'ignoree';
+
+    public const IMPORT_PAIEMENT = 'paiement';
+
     public function __construct(
         private readonly ScolariteService $scolarite,
         private readonly NotificationService $notifications,
@@ -435,6 +443,15 @@ class PreinscriptionService extends BaseService
      * Ancien élève ou nouveau : jamais une colonne dédiée, toujours une
      * comparaison — cf. {@see rapprocherEleveExistant()}.
      *
+     * `$rang` est le rang d'apparition de l'élève dans le fichier (cf.
+     * `PreinscriptionImport::rang()`). À sa première ligne, un élève qui a
+     * déjà une préinscription pour l'année est ignoré, paiement compris —
+     * c'est un réimport, pas une nouvelle inscription. Chaque ligne suivante
+     * du même élève n'est qu'un paiement de plus : cf.
+     * {@see importerPaiementSupplementaire()}.
+     *
+     * @return self::IMPORT_*
+     *
      * @param  array{
      *   matricule?: ?string, nom_complet?: ?string, sexe?: ?string, date_naissance?: ?string,
      *   lieu_naissance?: ?string, nationalite?: ?string, numero_acte_naissance?: ?string, adresse?: ?string,
@@ -444,9 +461,14 @@ class PreinscriptionService extends BaseService
      *   scolarite_due?: ?int, scolarite_payee?: ?int, scolarite_remise?: ?int, dette_declaree?: ?int, annee_source?: ?string,
      * }  $ligne
      */
-    public function importerLigne(int $schoolId, array $ligne, int $adminUserId, ?int $anneeScolaireId = null): Preinscription
+    public function importerLigne(int $schoolId, array $ligne, int $adminUserId, ?int $anneeScolaireId = null, int $rang = 1): string
     {
         $annee = $this->verifierAnneeScolaire($schoolId, $anneeScolaireId);
+
+        if ($rang > 1) {
+            return $this->importerPaiementSupplementaire($schoolId, $ligne, $adminUserId, $annee, $rang);
+        }
+
         $classeId = $this->resoudreClasse($schoolId, [$ligne['classe'] ?? null, $ligne['niveau_classe'] ?? null]);
 
         $donneesEleve = array_filter([
@@ -476,16 +498,21 @@ class PreinscriptionService extends BaseService
         $eleve = $this->rapprocherEleveExistant($schoolId, $ligne);
 
         if ($eleve !== null) {
-            $this->verifierPasDePreinscriptionAnnee($eleve, $annee);
+            if ($this->aPreinscriptionAnnee($eleve, $annee)) {
+                return self::IMPORT_IGNOREE;
+            }
+
             $this->enregistrerDetteImport($eleve, $ligne);
 
-            return $this->creerEtValiderParAdmin($eleve, [
+            $this->creerEtValiderParAdmin($eleve, [
                 'donnees_eleve' => $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne),
                 'donnees_tuteurs' => $donneesTuteurs,
                 'classe_id' => $classeId,
                 'montant_verser' => max(0, (int) ($ligne['scolarite_payee'] ?? 0)) ?: null,
                 'mode_versement' => 'especes',
             ], $adminUserId, $annee);
+
+            return self::IMPORT_PREINSCRITE;
         }
 
         $donneesEleve = $this->ajouterDonneesFinancieresImport($donneesEleve, $ligne);
@@ -506,11 +533,13 @@ class PreinscriptionService extends BaseService
             throw new RuntimeException("Classe introuvable pour un nouvel élève.");
         }
 
-        $this->verifierPasDePreinscriptionNouvelEleveAnnee($schoolId, $donneesEleve, $annee);
+        if ($this->nouvelElevePreinscritAnnee($schoolId, $donneesEleve, $annee)) {
+            return self::IMPORT_IGNOREE;
+        }
 
         $tuteur = $donneesTuteurs === [] ? null : $this->resoudreOuCreerTuteur($schoolId, $donneesTuteurs[0]);
 
-        return $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId, $annee) {
+        $this->transaction(function () use ($schoolId, $classeId, $donneesEleve, $donneesTuteurs, $tuteur, $adminUserId, $annee) {
             $preinscription = Preinscription::create([
                 'school_id' => $schoolId,
                 'annee_scolaire_id' => $annee?->id,
@@ -527,6 +556,57 @@ class PreinscriptionService extends BaseService
 
             return $this->valider($preinscription, $adminUserId);
         });
+
+        return self::IMPORT_PREINSCRITE;
+    }
+
+    /**
+     * Ligne répétée d'un élève déjà rencontré plus haut dans le fichier :
+     * « MONTANT_SCOLARITE » y est un paiement de plus, encaissé sur son
+     * dossier de l'année sans toucher à sa préinscription. La référence
+     * externe porte le rang de la ligne : un réimport du même fichier
+     * retrouve le versement déjà enregistré au lieu de le doubler.
+     */
+    private function importerPaiementSupplementaire(int $schoolId, array $ligne, int $adminUserId, ?AnneeScolaire $annee, int $rang): string
+    {
+        $montant = (int) ($ligne['scolarite_payee'] ?? 0);
+
+        if ($montant <= 0) {
+            return self::IMPORT_IGNOREE;
+        }
+
+        if ($annee === null) {
+            throw new RuntimeException("Aucune année scolaire active pour cet établissement.");
+        }
+
+        $eleve = $this->rapprocherEleveExistant($schoolId, $ligne);
+
+        if ($eleve === null) {
+            throw new RuntimeException(
+                "Paiement supplémentaire non enregistré : aucune fiche élève pour ce nom (la première ligne de l'élève a-t-elle échoué, ou sa préinscription est-elle encore en attente ?)."
+            );
+        }
+
+        $dossier = $this->scolarite->dossier($eleve, $annee);
+        $reference = "IMPORT-PREINSCRIPTION #{$rang}";
+
+        $dejaImporte = $dossier->versements()
+            ->where('reference_externe', $reference)
+            ->whereNull('annule_le')
+            ->exists();
+
+        if ($dejaImporte) {
+            return self::IMPORT_IGNOREE;
+        }
+
+        $this->scolarite->encaisser($dossier, [
+            'montant' => $montant,
+            'mode' => 'especes',
+            'reference_externe' => $reference,
+            'note' => "Paiement importé (ligne n°{$rang} de l'élève dans le fichier de préinscription).",
+        ], $adminUserId);
+
+        return self::IMPORT_PAIEMENT;
     }
 
     /** Conserve une ligne payée mais incomplète dans la file admin plutôt que de la rejeter. */
@@ -594,10 +674,7 @@ class PreinscriptionService extends BaseService
     /** Une seule préinscription active par élève et par année scolaire. */
     private function verifierPasDePreinscriptionAnnee(Eleve $eleve, ?AnneeScolaire $anneeActive, bool $inclureDossier = false): void
     {
-        $dejaPreinscrit = Preinscription::where('eleve_id', $eleve->id)
-            ->whereIn('statut', ['en_attente', 'validee'])
-            ->when($anneeActive !== null, fn($query) => $query->where('annee_scolaire_id', $anneeActive->id))
-            ->exists();
+        $dejaPreinscrit = $this->aPreinscriptionAnnee($eleve, $anneeActive);
 
         $dejaDossier = $inclureDossier && $anneeActive !== null
             ? DossierScolarite::where('eleve_id', $eleve->id)
@@ -612,16 +689,39 @@ class PreinscriptionService extends BaseService
         }
     }
 
+    /** Préinscription en attente ou validée pour cet élève et cette année (toutes années si `$annee` est nulle). */
+    private function aPreinscriptionAnnee(Eleve $eleve, ?AnneeScolaire $annee): bool
+    {
+        return Preinscription::where('eleve_id', $eleve->id)
+            ->whereIn('statut', ['en_attente', 'validee'])
+            ->when($annee !== null, fn($query) => $query->where('annee_scolaire_id', $annee->id))
+            ->exists();
+    }
+
     /** Une seule préinscription d'un nouvel enfant identifié par nom, par école et année. */
     private function verifierPasDePreinscriptionNouvelEleveAnnee(int $schoolId, array $donneesEleve, ?AnneeScolaire $anneeActive): void
+    {
+        if ($this->nouvelElevePreinscritAnnee($schoolId, $donneesEleve, $anneeActive)) {
+            throw new RuntimeException(
+                "Cet enfant a déjà une préinscription pour l'année scolaire active. La demande existante doit être modifiée ou traitée, pas recréée."
+            );
+        }
+    }
+
+    /**
+     * Un nouvel enfant, identifié par son seul nom, a-t-il déjà une
+     * préinscription en attente ou validée pour l'école et l'année ? Une
+     * seule par enfant : l'import la saute plutôt que de la recréer.
+     */
+    private function nouvelElevePreinscritAnnee(int $schoolId, array $donneesEleve, ?AnneeScolaire $anneeActive): bool
     {
         $nom = $this->normaliserIdentite($donneesEleve['nom_complet'] ?? null);
 
         if ($anneeActive === null || $nom === '') {
-            return;
+            return false;
         }
 
-        $doublon = Preinscription::where('school_id', $schoolId)
+        return Preinscription::where('school_id', $schoolId)
             ->where('annee_scolaire_id', $anneeActive->id)
             ->whereIn('statut', ['en_attente', 'validee'])
             ->where('type', 'nouveau')
@@ -631,12 +731,6 @@ class PreinscriptionService extends BaseService
 
                 return $this->normaliserIdentite($donnees['nom_complet'] ?? null) === $nom;
             });
-
-        if ($doublon) {
-            throw new RuntimeException(
-                "Cet enfant a déjà une préinscription pour l'année scolaire active. La demande existante doit être modifiée ou traitée, pas recréée."
-            );
-        }
     }
 
     private function normaliserIdentite(?string $valeur): string
@@ -690,6 +784,7 @@ class PreinscriptionService extends BaseService
         // `PreinscriptionImport::date()` sait déjà convertir cette valeur.
         $lignes = $feuille->toArray(null, true, false, false);
         $entetes = array_shift($lignes) ?? [];
+        [$entetes, $lignes] = $this->ajouterRangsImport($entetes, $lignes);
 
         $dossier = $this->dossierImportDecoupe($token);
         if (! is_dir($dossier)) {
@@ -708,6 +803,35 @@ class PreinscriptionService extends BaseService
         }
 
         return count($lots);
+    }
+
+    /**
+     * Ajoute à chaque ligne le rang d'apparition de son élève dans le fichier
+     * entier (colonne `PreinscriptionImport::COLONNE_RANG`) : une fois le
+     * fichier découpé, un lot ne sait plus si l'élève est déjà apparu dans un
+     * lot précédent. Une ligne sans nom ni matricule garde une case vide,
+     * pour rester une ligne vide aux yeux de `SkipsEmptyRows`.
+     *
+     * @param  list<mixed>  $entetes
+     * @param  list<list<mixed>>  $lignes
+     * @return array{0: list<mixed>, 1: list<list<mixed>>}
+     */
+    private function ajouterRangsImport(array $entetes, array $lignes): array
+    {
+        $cles = HeadingRowFormatter::format($entetes);
+        $apparitions = [];
+
+        foreach ($lignes as $i => $ligne) {
+            $brute = [];
+            foreach ($cles as $colonne => $cle) {
+                $brute[(string) $cle] = $ligne[$colonne] ?? null;
+            }
+
+            $cleEleve = PreinscriptionImport::cleEleve($brute);
+            $lignes[$i][] = $cleEleve === null ? null : ($apparitions[$cleEleve] = ($apparitions[$cleEleve] ?? 0) + 1);
+        }
+
+        return [[...$entetes, PreinscriptionImport::COLONNE_RANG], $lignes];
     }
 
     /**
@@ -737,7 +861,13 @@ class PreinscriptionService extends BaseService
         }
 
         return [
-            'resultat' => ['imported' => $import->importees, 'failed' => count($import->erreurs), 'erreurs' => $import->erreurs],
+            'resultat' => [
+                'imported' => $import->importees,
+                'failed' => count($import->erreurs),
+                'ignored' => $import->ignorees,
+                'paiements' => $import->paiements,
+                'erreurs' => $import->erreurs,
+            ],
             'dernier' => $dernier,
         ];
     }

@@ -51,7 +51,7 @@ class ConseilClasseService extends BaseService
                 'statut' => 'brouillon',
             ]);
 
-            $eleves = Eleve::where('classe_id', $classe->id)->where('statut', 'actif')->get();
+            $eleves = Eleve::where('classe_id', $classe->id)->where('statut', 'actif')->inscritAnneeActive()->get();
             $secondaire = $classe->school->estSecondaire();
 
             foreach ($eleves as $eleve) {

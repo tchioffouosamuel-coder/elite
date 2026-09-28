@@ -43,7 +43,7 @@ class DisciplineService extends BaseService
      */
     public function grille(Classe $classe, Trimestre $trimestre): Collection
     {
-        $eleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get();
 
         if (! $classe->school->estSecondaire()) {
             $jours = $this->joursAbsence($classe, $trimestre);
@@ -232,7 +232,7 @@ class DisciplineService extends BaseService
      */
     public function lignesDetail(Classe $classe, Trimestre $trimestre): Collection
     {
-        $eleves = $classe->eleves()->where('statut', 'actif')->get()->keyBy('id');
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->keyBy('id');
 
         // `hj`/`hnj` gardent leur nom d'origine (heures) : au primaire ils
         // portent des journées, et c'est `unite` du bilan qui l'annonce.
@@ -295,7 +295,7 @@ class DisciplineService extends BaseService
     public function tauxFrequentation(Classe $classe, Trimestre $trimestre): array
     {
         $lignes = $this->grille($classe, $trimestre);
-        $eleves = $classe->eleves()->where('statut', 'actif')->get()->keyBy('id');
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get()->keyBy('id');
         $prevu = $this->joursOuHeuresPrevus($classe, $trimestre);
 
         return [
@@ -318,7 +318,7 @@ class DisciplineService extends BaseService
     public function tauxFrequentationMinorites(Classe $classe, Trimestre $trimestre): array
     {
         $lignes = $this->grille($classe, $trimestre)->keyBy('eleve_id');
-        $eleves = $classe->eleves()->where('statut', 'actif')->get();
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get();
         $prevu = $this->joursOuHeuresPrevus($classe, $trimestre);
 
         $categories = [

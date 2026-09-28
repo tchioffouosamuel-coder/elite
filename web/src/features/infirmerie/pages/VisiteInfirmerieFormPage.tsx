@@ -84,7 +84,11 @@ export function VisiteInfirmerieFormPage() {
     queryKey: ['infirmerie', 'visites', {}],
     queryFn: () => fetchVisitesInfirmerie(),
   })
-  const { data: eleves } = useQuery({ queryKey: ['eleves', 'infirmerie-form'], queryFn: () => fetchEleves({ per_page: 500 }) })
+  const { data: eleves } = useQuery({
+    queryKey: ['eleves', 'infirmerie-form'],
+    // Tout enfant présent peut passer à l'infirmerie, inscrit ou non.
+    queryFn: () => fetchEleves({ per_page: 10000, tous: true }),
+  })
 
   const visite = visiteId ? visites?.find((v) => v.id === visiteId) : undefined
 

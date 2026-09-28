@@ -23,6 +23,11 @@ use RuntimeException;
  * l'école), puis nom complet seul. Sans correspondance, c'est un nouvel
  * élève. Cf. `PreinscriptionService::importerLigne()` pour la comparaison
  * elle-même.
+ *
+ * Import général : un même élève peut apparaître sur plusieurs lignes, une
+ * par paiement. Sa première apparition crée la préinscription (ignorée, avec
+ * son paiement, s'il en a déjà une pour l'année) ; chaque apparition suivante
+ * du même nom n'enregistre qu'un versement de plus — cf. `rang()`.
  */
 class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingRow
 {
@@ -117,10 +122,28 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
         ];
     }
 
+    /**
+     * Colonne technique ajoutée à chaque lot par
+     * `PreinscriptionService::preparerImportDecoupe()` : le rang d'apparition
+     * de l'élève dans le fichier **entier**, qu'un lot isolé ne peut pas
+     * recalculer seul (la première apparition peut se trouver dans un lot
+     * précédent). Déjà au format des en-têtes normalisés par `WithHeadingRow`.
+     */
+    public const COLONNE_RANG = 'rang_import_elites';
+
     public int $importees = 0;
+
+    /** Lignes sautées : élève déjà préinscrit pour l'année, ou paiement déjà importé. */
+    public int $ignorees = 0;
+
+    /** Versements supplémentaires enregistrés pour un élève réapparu plus bas dans le fichier. */
+    public int $paiements = 0;
 
     /** @var list<array{ligne: int, message: string, nom: ?string, donnees: array<string, mixed>}> */
     public array $erreurs = [];
+
+    /** @var array<string, int> Apparitions déjà vues par élève, quand le fichier est importé d'un seul tenant. */
+    private array $apparitions = [];
 
     public function __construct(
         private readonly int $schoolId,
@@ -133,11 +156,17 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
     {
         foreach ($rows as $index => $row) {
             $numeroLigne = $index + 2; // +1 pour l'en-tête, +1 pour repasser en base 1.
-            $ligne = $this->normaliser($row instanceof Collection ? $row->all() : $row);
+            $brute = $row instanceof Collection ? $row->all() : $row;
+            $ligne = $this->normaliser($brute);
 
             try {
-                $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId, $this->anneeScolaireId);
-                $this->importees++;
+                $resultat = $this->service->importerLigne($this->schoolId, $ligne, $this->adminUserId, $this->anneeScolaireId, $this->rang($brute));
+
+                match ($resultat) {
+                    PreinscriptionService::IMPORT_IGNOREE => $this->ignorees++,
+                    PreinscriptionService::IMPORT_PAIEMENT => $this->paiements++,
+                    default => $this->importees++,
+                };
             } catch (RuntimeException $e) {
                 $this->erreurs[] = [
                     'ligne' => $numeroLigne,
@@ -147,6 +176,56 @@ class PreinscriptionImport implements SkipsEmptyRows, ToCollection, WithHeadingR
                 ];
             }
         }
+    }
+
+    /**
+     * Rang d'apparition de l'élève dans le fichier : 1 pour sa première
+     * ligne, 2 pour la suivante, etc. Fourni par la colonne technique d'un
+     * lot découpé ; à défaut (fichier importé d'un seul tenant), compté ici.
+     *
+     * @param  array<string, mixed>  $brute
+     */
+    private function rang(array $brute): int
+    {
+        $rangFourni = (int) ($brute[self::COLONNE_RANG] ?? 0);
+
+        if ($rangFourni > 0) {
+            return $rangFourni;
+        }
+
+        $cle = self::cleEleve($brute);
+
+        return $cle === null ? 1 : ($this->apparitions[$cle] = ($this->apparitions[$cle] ?? 0) + 1);
+    }
+
+    /**
+     * Identité d'un élève dans le fichier, pour reconnaître ses lignes
+     * répétées : son nom (insensible à la casse et aux espaces), à défaut son
+     * matricule. Sans l'un ni l'autre, la ligne n'est rapprochée de rien.
+     *
+     * @param  array<string, mixed>  $brute  ligne indexée par en-têtes normalisés
+     */
+    public static function cleEleve(array $brute): ?string
+    {
+        $matricule = null;
+
+        foreach ($brute as $entete => $valeur) {
+            $valeur = self::nettoyer($valeur);
+
+            if ($valeur === null) {
+                continue;
+            }
+
+            if ((self::COLONNES[$entete] ?? null) === 'nom_complet') {
+                return 'nom:' . mb_strtolower((string) self::texte($valeur));
+            }
+
+            if ((self::COLONNES[$entete] ?? null) === 'matricule') {
+                $matricule ??= 'matricule:' . mb_strtolower(trim((string) $valeur));
+            }
+        }
+
+        return $matricule;
     }
 
     /**

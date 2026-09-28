@@ -51,11 +51,11 @@ class EleveController extends Controller
             Tenant::schoolIds(),
             [
                 ...$request->only(['search', 'classe_id', 'sexe', 'statut']),
-                // Par défaut, seuls les élèves préinscrits pour l'année active
-                // apparaissent (cf. Eleve::scopePreinscritAnneeActive()) — les
-                // écrans qui doivent voir tout le monde (tableau de bord, page
-                // des dettes antérieures, outils de correction de données)
-                // passent `tous=1` pour lever ce filtre.
+                // Par défaut, seuls les élèves inscrits pour l'année active
+                // apparaissent (cf. Eleve::scopeInscritAnneeActive()) — les
+                // écrans qui doivent voir tout le monde (tableau de bord,
+                // infirmerie, page des dettes antérieures, outils de
+                // correction de données) passent `tous=1` pour lever ce filtre.
                 'tous' => $request->boolean('tous'),
             ],
             (int) $request->integer('per_page', 20),
@@ -256,7 +256,7 @@ class EleveController extends Controller
             'q' => ['required', 'string', 'min:2', 'max:100'],
         ]);
 
-        $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q'], $request->boolean('tous'));
+        $eleves = $this->service->rechercheGlobale($request->user(), Tenant::schoolIds(), $data['q']);
 
         $this->marquerNonReinscrits($eleves);
         $eleves->each(fn(Eleve $eleve) => $eleve->setAttribute(

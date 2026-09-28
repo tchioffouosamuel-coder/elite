@@ -47,7 +47,7 @@ class BulletinPrimaireService extends BaseService
             ->get();
 
         $sequences = $trimestre->sequencesRetenues();
-        $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
+        $tousEleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get();
 
         // La maternelle n'a ni moyenne, ni rang, ni classement : on ne les
         // calcule même pas, plutôt que de les produire pour ne pas les afficher.

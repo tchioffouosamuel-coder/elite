@@ -55,6 +55,54 @@ class BanqueService
         );
     }
 
+    /**
+     * Corrige un dépôt manuel (montant, date, libellé, référence). Le solde
+     * est réajusté de l'écart de montant seulement — les mouvements survenus
+     * depuis restent intacts. Une baisse qui ferait passer le solde sous zéro
+     * est refusée : l'argent a déjà été retiré ou versé en salaires.
+     * Seuls les dépôts se modifient : un retrait ou un salaire payé se
+     * corrige par un mouvement inverse, pas par réécriture.
+     */
+    public function modifierDepot(
+        int $banqueId,
+        int $mouvementId,
+        int $montant,
+        ?string $date,
+        string $libelle,
+        ?string $reference,
+    ): BanqueMouvement {
+        return DB::transaction(function () use ($banqueId, $mouvementId, $montant, $date, $libelle, $reference) {
+            $banque = Banque::query()->lockForUpdate()->findOrFail($banqueId);
+            $mouvement = $banque->mouvements()->lockForUpdate()->findOrFail($mouvementId);
+
+            if ($mouvement->type !== 'depot') {
+                throw ValidationException::withMessages([
+                    'mouvement' => 'Seuls les dépôts peuvent être modifiés.',
+                ]);
+            }
+
+            $ecart = $montant - $mouvement->montant;
+
+            if ($banque->solde + $ecart < 0) {
+                throw ValidationException::withMessages([
+                    'montant' => "Montant trop faible : le solde de {$banque->nom} deviendrait négatif ({$banque->solde} FCFA disponible(s), dépôt initial de {$mouvement->montant} FCFA).",
+                ]);
+            }
+
+            $banque->solde += $ecart;
+            $banque->save();
+
+            $mouvement->update([
+                'montant' => $montant,
+                'date_mouvement' => $date ?? $mouvement->date_mouvement,
+                'libelle' => $libelle,
+                'reference' => $reference,
+            ]);
+
+            return $mouvement;
+        });
+    }
+
     /** Débite la banque domiciliataire quand le salaire part par le circuit bancaire. */
     public function payerBulletin(BulletinPaie $bulletin): ?BanqueMouvement
     {

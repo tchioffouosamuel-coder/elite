@@ -32,7 +32,7 @@ class BulletinService extends BaseService
             ->with(['matiere', 'enseignant'])->orderBy('groupe')->orderBy('id')->get();
 
         $sequences = $trimestre->sequencesRetenues();
-        $tousEleves = $classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get();
+        $tousEleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get();
 
         $classementGeneral = $this->moyennes->classementGeneral($classe, $trimestre);
         $classementsMatiere = $affectations->mapWithKeys(
@@ -257,7 +257,7 @@ class BulletinService extends BaseService
             ->get()
             ->groupBy('eleve_id');
 
-        $rows = $classe->eleves()->where('statut', 'actif')->pluck('id')->map(function (int $eleveId) use ($notesParEleve, $affectations) {
+        $rows = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->pluck('id')->map(function (int $eleveId) use ($notesParEleve, $affectations) {
             $points = 0.0;
             $coefs = 0.0;
 

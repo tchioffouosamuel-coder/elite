@@ -42,7 +42,7 @@ class StatistiquesService extends BaseService
     {
         $seuilHonneur = (float) Setting::get($classe->school_id, 'honour_roll', 14);
 
-        $eleves = $classe->eleves()->where('statut', 'actif')->get();
+        $eleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->get();
         // classementGeneral renvoie des lignes ['eleve' => Eleve, 'moyenne' => ?float].
         $classement = $this->moyennes
             ->classementGeneral($classe, $trimestre)

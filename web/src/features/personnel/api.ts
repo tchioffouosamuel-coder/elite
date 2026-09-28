@@ -346,6 +346,20 @@ export async function enregistrerMouvementBanque(
   await http.post(`/banques/${id}/${type}`, payload);
 }
 
+/** Corrige un dépôt manuel ; le solde est réajusté de l'écart de montant côté API. */
+export async function modifierDepotBanque(
+  id: number,
+  mouvementId: number,
+  payload: {
+    montant: number;
+    date?: string;
+    libelle?: string;
+    reference?: string;
+  },
+): Promise<void> {
+  await http.put(`/banques/${id}/depots/${mouvementId}`, payload);
+}
+
 export async function createBanque(payload: {
   nom: string;
   code?: string | null;

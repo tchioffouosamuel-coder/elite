@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Eleve;
+use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Models\User;
+use App\Models\Versement;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -118,6 +120,48 @@ class PreinscriptionImportDecoupeTest extends TestCase
         $this->assertSame(130, $totalImporte);
         $this->assertSame($this->classe->id, Eleve::where('matricule', 'E1')->first()->classe_id);
         $this->assertSame($this->classe->id, Eleve::where('matricule', 'E130')->first()->classe_id);
+    }
+
+    /**
+     * Un élève répété dans un lot ultérieur (sa première ligne étant dans un
+     * lot précédent) doit être reconnu comme paiement supplémentaire : le
+     * rang d'apparition est calculé sur le fichier entier, avant découpe.
+     */
+    public function test_une_ligne_repetee_dans_un_autre_lot_devient_un_paiement(): void
+    {
+        $tableur = new Spreadsheet;
+        $feuille = $tableur->getActiveSheet();
+        $feuille->fromArray(['IDEleves', 'nom_eleves', 'Nom_classe', 'MONTANT_SCOLARITE'], null, 'A1');
+
+        for ($i = 1; $i <= 60; $i++) {
+            $eleve = Eleve::create([
+                'school_id' => $this->school->id, 'matricule' => "E{$i}", 'nom_complet' => "ELEVE {$i}",
+                'sexe' => 'M', 'date_naissance' => '2014-01-01', 'statut' => 'actif',
+            ]);
+            $eleve->tuteurs()->attach($this->tuteur->id, ['is_principal' => true]);
+            $feuille->fromArray(["E{$i}", "ELEVE {$i}", 'CM2', $i === 1 ? 10000 : null], null, 'A'.($i + 1));
+        }
+        // Ligne 62 : deuxième lot, même élève que la ligne 2.
+        $feuille->fromArray(['E1', 'ELEVE 1', 'CM2', 4000], null, 'A62');
+
+        $chemin = tempnam(sys_get_temp_dir(), 'preinscriptions').'.xlsx';
+        (new Xlsx($tableur))->save($chemin);
+
+        ['token' => $token, 'lots' => $lots] = $this->preparer(new UploadedFile($chemin, 'situation.xlsx', null, null, true));
+        $this->assertSame(2, $lots);
+
+        $this->traiterLot($token, 0)->assertOk()->assertJsonPath('data.imported', 60);
+        $this->traiterLot($token, 1)->assertOk()
+            ->assertJsonPath('data.imported', 0)
+            ->assertJsonPath('data.paiements', 1)
+            ->assertJsonPath('data.failed', 0);
+
+        $eleve = Eleve::where('matricule', 'E1')->first();
+        $this->assertSame(1, Preinscription::where('eleve_id', $eleve->id)->count());
+        $this->assertSame(
+            [10000, 4000],
+            Versement::whereHas('dossier', fn($q) => $q->where('eleve_id', $eleve->id))->orderBy('id')->pluck('montant')->all(),
+        );
     }
 
     /** Le lot déjà traité est supprimé : le rejouer échoue proprement plutôt que de repasser deux fois la même ligne. */

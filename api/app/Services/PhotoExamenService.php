@@ -45,7 +45,7 @@ class PhotoExamenService extends BaseService
     public function candidats(Classe $classe): array
     {
         $eleves = $classe->eleves()
-            ->where('statut', 'actif')
+            ->where('statut', 'actif')->inscritAnneeActive()
             ->orderBy('nom_complet')
             ->get();
 
@@ -90,7 +90,7 @@ class PhotoExamenService extends BaseService
         $ignores = [];
         $utilises = [];
 
-        foreach ($classe->eleves()->where('statut', 'actif')->orderBy('nom_complet')->get() as $eleve) {
+        foreach ($classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get() as $eleve) {
             if (! $this->photoUtilisable($eleve)) {
                 $ignores[] = $eleve->nom_complet;
 
