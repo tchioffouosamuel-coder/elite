@@ -96,6 +96,7 @@ use App\Http\Controllers\Api\V1\RevendicationController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
 use App\Http\Controllers\Api\V1\SmsCallbackController;
+use App\Http\Controllers\Api\V1\SituationEnseignantController;
 use App\Http\Controllers\Api\V1\ScolariteController;
 use App\Http\Controllers\Api\V1\SeanceController;
 use App\Http\Controllers\Api\V1\SettingController;
@@ -1038,6 +1039,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
             Route::middleware('permission:bus.view|eleves.situation')->group(function () {
                 Route::get('eleves/{eleveId}/transport', [BusAffectationController::class, 'eleve'])->name('bus.eleve');
+            });
+
+            /*
+             * Vue enseignant : insolvables et élèves transportés de ses
+             * classes, sans aucun montant (cf. SituationEnseignantController).
+             */
+            Route::middleware('permission:eleves.situation')->group(function () {
+                Route::get('enseignant/insolvables', [SituationEnseignantController::class, 'insolvables'])->name('enseignant.insolvables');
+                Route::get('enseignant/bus', [SituationEnseignantController::class, 'bus'])->name('enseignant.bus');
             });
 
             Route::middleware('permission:finance.encaisser')->group(function () {

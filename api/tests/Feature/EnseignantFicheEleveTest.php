@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\AnneeScolaire;
+use App\Models\BusAffectation;
+use App\Models\BusArret;
+use App\Models\BusTrajet;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
@@ -117,6 +120,38 @@ class EnseignantFicheEleveTest extends TestCase
         $this->actingAs($this->prof, 'sanctum')
             ->getJson('/api/v1/bus/eleves')
             ->assertForbidden();
+    }
+
+    public function test_l_enseignant_voit_les_eleves_transportes_de_ses_classes_sans_montant(): void
+    {
+        $annee = AnneeScolaire::where('school_id', $this->school->id)->firstOrFail();
+        $trajet = BusTrajet::create(['school_id' => $this->school->id, 'nom' => 'Ligne Nord']);
+        $arret = BusArret::create(['trajet_id' => $trajet->id, 'nom' => 'Carrefour', 'ordre' => 1]);
+        foreach ([$this->eleveAMoi, $this->elevePasAMoi] as $eleve) {
+            BusAffectation::create([
+                'eleve_id' => $eleve->id, 'trajet_id' => $trajet->id, 'arret_id' => $arret->id,
+                'annee_scolaire_id' => $annee->id, 'tarif_mensuel' => 10000, 'statut' => 'actif',
+            ]);
+        }
+
+        $reponse = $this->actingAs($this->prof, 'sanctum')->getJson('/api/v1/enseignant/bus');
+
+        $reponse->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $this->eleveAMoi->id)
+            ->assertJsonPath('data.0.trajet', 'Ligne Nord')
+            ->assertJsonPath('data.0.arret', 'Carrefour');
+        $this->assertSame(['id', 'matricule', 'nom_complet', 'classe', 'trajet', 'arret'], array_keys($reponse->json('data.0')));
+    }
+
+    public function test_la_liste_des_insolvables_de_l_enseignant_ne_porte_aucun_montant(): void
+    {
+        $reponse = $this->actingAs($this->prof, 'sanctum')->getJson('/api/v1/enseignant/insolvables');
+
+        $reponse->assertOk();
+        foreach ($reponse->json('data') as $ligne) {
+            $this->assertSame(['id', 'matricule', 'nom_complet', 'classe'], array_keys($ligne));
+        }
     }
 
     public function test_le_detail_des_indicateurs_pedagogiques_liste_les_matieres_de_l_enseignant(): void
