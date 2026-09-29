@@ -15,17 +15,30 @@ use Mpdf\Output\Destination;
  * rouleau de 80 mm, deux colonnes de mentions, puis l'historique des
  * versements et un code QR pour traçabilité.
  *
- * Le ticket est repris tel quel parce que c'est lui que la famille conserve et
- * présente au comptoir : en changer la forme obligerait le caissier à
- * réapprendre à lire ce qu'il remet, et rendrait incomparables les reçus émis
- * avant et après la reprise.
+ * Le ticket est composé à l'italienne : le texte court le long du rouleau
+ * (80 mm de haut, lu en tenant le reçu dans sa largeur), en quatre colonnes
+ * — en-tête, mentions et montants, répartition et historique, QR et pied.
+ * En portrait, les libellés bilingues n'avaient que 72 mm de large et se
+ * repliaient sur deux lignes, allongeant le ticket sans rien y ajouter.
+ * Le pilote de l'imprimante thermique fait pivoter la page pour la poser
+ * sur le rouleau.
  */
 class RecuVersementGenerator
 {
     use RenduDocument;
 
-    /** Largeur du rouleau, hauteur généreuse : mPDF coupe au contenu à l'impression. */
+    /** Largeur du rouleau × longueur du ticket, composé à l'italienne (cf. `orientation`). */
     private const FORMAT = [80, 200];
+
+    /** Largeur du filigrane : tient dans les 80 mm de haut du ticket couché. */
+    private const FILIGRANE_LARGEUR = 55;
+
+    /**
+     * Colonnes du ticket, [abscisse, largeur] en mm. Positionnées en absolu :
+     * mPDF ignore l'essentiel de la mise en forme des blocs (centrage, marges)
+     * placés dans une cellule de tableau.
+     */
+    private const COLONNES = [[4, 36], [44, 66], [114, 50], [168, 28]];
 
     public function build(Versement $versement): string
     {
@@ -36,25 +49,25 @@ class RecuVersementGenerator
 
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,
-            'orientation' => 'P',
+            'orientation' => 'L',
             'margin_left' => 4,
             'margin_right' => 4,
             'margin_top' => 4,
             'margin_bottom' => 4,
         ], $school);
+        // Le filigrane par défaut est calé sur une A4 : sur 80 mm de haut, on
+        // lui impose une taille explicite pour qu'il reste entier et centré.
+        MpdfFactory::appliquerFiligrane($mpdf, $school, self::FILIGRANE_LARGEUR);
         $mpdf->SetTitle('Reçu ' . $versement->numero_recu);
 
         $mpdf->WriteHTML(
             '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
                 . $this->styles()
                 . '</style></head><body>'
-                . $this->enTete($school)
-                . $this->titre($versement)
-                . $this->mentions($versement, $dossier)
-                . $this->repartitionVersement($versement)
-                . $this->historiqueVersements($dossier, $versement)
-                . $this->pied($versement)
-                . $this->qrCode($versement)
+                . $this->colonne(self::COLONNES[0], $this->enTete($school) . $this->titre($versement))
+                . $this->colonne(self::COLONNES[1], $this->mentions($versement, $dossier))
+                . $this->colonne(self::COLONNES[2], $this->repartitionVersement($versement) . $this->historiqueVersements($dossier, $versement))
+                . $this->colonne(self::COLONNES[3], $this->qrCode($versement) . $this->pied($versement))
                 . '</body></html>'
         );
 
@@ -63,21 +76,32 @@ class RecuVersementGenerator
 
     private function styles(): string
     {
-        return 'body{font-family:montserrat,sans-serif;font-size:3.2mm;color:#000;margin:0}'
+        return 'body{font-family:montserrat,sans-serif;font-size:3mm;color:#000;margin:0}'
             . '.centre{text-align:center}'
-            . '.ecole{font-weight:bold;font-size:3.6mm;line-height:1.2}'
-            . '.mentions{font-size:2.8mm;line-height:1.25}'
-            . '.titre{font-weight:bold;font-size:4mm;text-align:center;text-decoration:underline;margin:2mm 0}'
+            . '.ecole{font-weight:bold;font-size:3.3mm;line-height:1.2}'
+            . '.titre{font-weight:bold;font-size:3.5mm;text-align:center;text-decoration:underline;margin:2mm 0 0}'
             . 'table{width:100%;border-collapse:collapse}'
-            . 'td{padding:0.6mm 0;vertical-align:top;font-size:3.2mm}'
-            . '.cle{font-weight:bold;width:42%}'
-            . '.sep{border-top:0.4mm dashed #000;margin:2mm 0}'
-            . '.section{font-weight:bold;font-size:3.3mm;margin:1.5mm 0 0.5mm}'
-            . '.hist td{border-bottom:0.2mm dotted #999;font-size:3mm;padding:0.8mm 0}'
+            . 'td{padding:0.5mm 0;vertical-align:top;font-size:3mm}'
+            . '.cle{font-weight:bold;width:45%}'
+            . '.sep{border-top:0.4mm dashed #000;margin:1.5mm 0}'
+            . '.section{font-weight:bold;font-size:3mm;margin:0 0 0.5mm}'
+            . '.section-suite{margin-top:2mm}'
+            . '.hist td{border-bottom:0.2mm dotted #999;font-size:2.8mm;padding:0.6mm 0}'
             . '.montant{text-align:right;font-weight:bold}'
-            . '.total{font-weight:bold;font-size:3.6mm}'
-            . '.pied{font-size:2.8mm;margin-top:2.5mm}'
-            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:4mm;margin:1.5mm 0}';
+            . '.total{font-weight:bold;font-size:3.3mm}'
+            . '.pied{font-size:2.6mm;margin-top:2mm;text-align:left}'
+            . '.annule{color:#ac3527;font-weight:bold;text-align:center;font-size:3.5mm;margin:1.5mm 0}';
+    }
+
+    /** Une colonne du ticket, séparée de la précédente par un trait tireté. */
+    private function colonne(array $colonne, string $contenu): string
+    {
+        [$x, $largeur] = $colonne;
+        $trait = $x > 4
+            ? '<div style="position:absolute;left:' . ($x - 2) . 'mm;top:4mm;height:72mm;width:1mm;border-left:0.3mm dashed #000"></div>'
+            : '';
+
+        return $trait . '<div style="position:absolute;left:' . $x . 'mm;top:4mm;width:' . $largeur . 'mm">' . $contenu . '</div>';
     }
 
     /**
@@ -173,7 +197,7 @@ class RecuVersementGenerator
             return '';
         }
 
-        $html = '<div class="sep"></div><div class="section">Répartition du versement / Payment allocation</div><table class="hist">';
+        $html = '<div class="section">Répartition du versement / Payment allocation</div><table class="hist">';
 
         foreach ($lignes as $ligne) {
             $html .= '<tr><td>' . $this->e($this->libelleLigne($ligne->affectation, $ligne->libelle)) . '</td>'
@@ -192,11 +216,12 @@ class RecuVersementGenerator
     {
         $versements = $dossier->versements->whereNull('annule_le')->sortBy('date_versement');
 
-        $html = '<div class="sep"></div><div class="section">Historique des versements / Payment history</div>'
+        $html = '<div class="section section-suite">Historique des versements / Payment history</div>'
             . '<table class="hist"><tr><td><b>Date / Date</b></td><td class="montant"><b>Montant / Amount</b></td></tr>';
 
         foreach ($versements as $v) {
-            $marque = $v->id === $courant->id ? ' ◄' : '';
+            // Montserrat n'a pas le glyphe ◄ : Symbola le fournit.
+            $marque = $v->id === $courant->id ? ' <span style="font-family:symbola">◄</span>' : '';
             $html .= '<tr><td>' . $v->date_versement->format('d/m/Y') . $marque . '</td>'
                 . '<td class="montant">' . $this->francs($v->montant) . '</td></tr>';
         }
@@ -215,8 +240,8 @@ class RecuVersementGenerator
      * Code QR pointant vers la page publique de vérification d'authenticité
      * du reçu (cf. `SignatureVersement`) : dissuade la présentation d'un reçu
      * falsifié, sans rien stocker en base pour chaque versement encaissé.
-     * Centré en bas du ticket, après le pied — dernier élément lu, à
-     * scanner une fois le reçu en main.
+     * En tête de la dernière colonne, au-dessus du pied — à scanner une
+     * fois le reçu en main.
      */
     private function qrCode(Versement $versement): string
     {
@@ -227,8 +252,8 @@ class RecuVersementGenerator
                 margin: 4,
             );
 
-            return '<div class="sep"></div><div style="text-align:center">'
-                . '<img src="' . $qr->getDataUri() . '" style="width:20mm;height:20mm">'
+            return '<div style="text-align:center">'
+                . '<img src="' . $qr->getDataUri() . '" style="width:22mm;height:22mm">'
                 . '<div class="pied">Authenticité / Authenticity : scannez / scan to verify this receipt.</div>'
                 . '</div>';
         } catch (\Throwable) {
