@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { createSanction } from '@/features/discipline/api'
 import type { SanctionPayload, TypeSanction } from '@/features/discipline/api'
 import { fetchEleves, telephonesTuteur } from '@/features/eleves/api'
+import type { Tuteur } from '@/features/eleves/api'
 import { fetchTrimestres } from '@/features/pedagogie/api'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
@@ -26,7 +27,12 @@ export function SanctionFormModal({
   onClose,
   onCreated,
 }: {
-  eleve?: { id: number; nom_complet: string; classe?: { nom: string } | null }
+  eleve?: {
+    id: number
+    nom_complet: string
+    classe?: { nom: string } | null
+    tuteurs?: Tuteur[]
+  }
   onClose: () => void
   onCreated: () => void
 }) {
@@ -81,9 +87,9 @@ export function SanctionFormModal({
             <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm font-semibold text-navy-800">
               {eleve.nom_complet}
               {eleve.classe?.nom && <span className="font-normal text-navy-400"> — {eleve.classe.nom}</span>}
-              {eleve.tuteurs?.flatMap(telephonesTuteur).length > 0 && (
+              {(eleve.tuteurs?.flatMap(telephonesTuteur).length ?? 0) > 0 && (
                 <span className="mt-1 block text-xs font-normal text-navy-500">
-                  {eleve.tuteurs.flatMap(telephonesTuteur).join(' · ')}
+                  {eleve.tuteurs!.flatMap(telephonesTuteur).join(' · ')}
                 </span>
               )}
             </p>

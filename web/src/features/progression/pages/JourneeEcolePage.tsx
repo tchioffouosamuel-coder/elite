@@ -345,7 +345,7 @@ export function JourneeEcolePage() {
       {isLoading ? (
         <Spinner />
       ) : isError ? (
-        <ErrorState message={(erreurCours as ApiError)?.message} />
+        <ErrorState message={(erreurCours as unknown as ApiError)?.message} />
       ) : !cours || cours.length === 0 ? (
         <EmptyState label="Aucun cours prévu à l'emploi du temps pour cette date." />
       ) : (
