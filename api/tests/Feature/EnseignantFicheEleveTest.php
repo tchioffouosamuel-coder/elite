@@ -12,6 +12,7 @@ use App\Models\Eleve;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\VisiteInfirmerie;
 use App\Models\User;
@@ -178,6 +179,35 @@ class EnseignantFicheEleveTest extends TestCase
         $this->actingAs($prof, 'sanctum')
             ->postJson('/api/v1/infirmerie/visites', ['eleve_id' => $this->eleveAMoi->id, 'raison' => 'Test'])
             ->assertForbidden();
+    }
+
+    public function test_le_tableau_de_bord_enseignant_ne_compte_que_les_preinscrits_valides(): void
+    {
+        $annee = AnneeScolaire::where('school_id', $this->school->id)->firstOrFail();
+        $classe = $this->eleveAMoi->classe_id;
+        $valide = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $classe,
+            'matricule' => 'A2', 'nom_complet' => 'ELEVE VALIDE', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+        $enAttente = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $classe,
+            'matricule' => 'A3', 'nom_complet' => 'ELEVE EN ATTENTE', 'sexe' => 'F', 'statut' => 'actif',
+        ]);
+        foreach ([[$valide, 'validee'], [$enAttente, 'en_attente']] as [$eleve, $statut]) {
+            Preinscription::create([
+                'school_id' => $this->school->id, 'annee_scolaire_id' => $annee->id, 'eleve_id' => $eleve->id,
+                'type' => 'existant', 'statut' => $statut, 'donnees_eleve' => [], 'donnees_tuteurs' => [],
+            ]);
+        }
+
+        // eleveAMoi (sans préinscription) et l'élève en attente ne comptent pas.
+        $this->actingAs($this->prof, 'sanctum')
+            ->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.scope', 'classe')
+            ->assertJsonPath('data.effectifs.eleves', 1)
+            ->assertJsonPath('data.repartition_genre.filles', 1)
+            ->assertJsonPath('data.repartition_genre.garcons', 0);
     }
 
     public function test_le_detail_des_indicateurs_pedagogiques_liste_les_matieres_de_l_enseignant(): void
