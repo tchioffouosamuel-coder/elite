@@ -198,7 +198,9 @@ class DashboardService extends BaseService
         $classeIds = $classes->pluck('id')->all();
         $premiere = $classes->first();
 
-        $eleves = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->where('statut', 'actif');
+        // Comme la vue école : seuls les élèves dont la préinscription est
+        // validée pour l'année active comptent.
+        $eleves = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->where('statut', 'actif')->inscritAnneeActive();
 
         $totalEleves = (clone $eleves)->count();
         $parGenre = (clone $eleves)->selectRaw('sexe, count(*) as total')->groupBy('sexe')->pluck('total', 'sexe');
@@ -207,7 +209,7 @@ class DashboardService extends BaseService
 
         $totalMatieres = ClasseMatiere::whereIn('classe_id', $classeIds)->where('statut', 'actif')->count();
 
-        $activiteRecente = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->latest()->limit(5)->get()
+        $activiteRecente = Eleve::forSchool($schoolId)->whereIn('classe_id', $classeIds)->inscritAnneeActive()->latest()->limit(5)->get()
             ->map(fn($e) => ['type' => 'eleve', 'libelle' => "Inscription de {$e->nom_complet}", 'date' => $e->created_at->toIso8601String()])
             ->values();
 
