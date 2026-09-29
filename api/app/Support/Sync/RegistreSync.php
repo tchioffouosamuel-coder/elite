@@ -347,6 +347,10 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'user_id', 'classe_id', 'matricule', 'nom_complet', 'sexe', 'date_naissance', 'lieu_naissance', 'nationalite', 'redoublant', 'statut', 'photo_path'],
                 'relations' => ['tuteurs.telephones'],
                 'extras' => fn(Eleve $e) => [
+                    // Préinscription validée pour l'année active de l'école
+                    // (même règle que `Eleve::scopeInscritAnneeActive`) : la
+                    // liste des élèves du mobile n'affiche que ceux-là.
+                    'inscrit_annee_active' => (bool) $e->inscrit_annee_active,
                     'tuteurs' => $e->tuteurs->map(fn($tuteur) => [
                         'id' => $tuteur->id,
                         'nom_complet' => $tuteur->nom_complet,
@@ -357,7 +361,14 @@ class RegistreSync
                     ])->values()->all(),
                 ],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
-                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),
+                    ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre))
+                    ->withExists(['preinscriptions as inscrit_annee_active' => fn(Builder $p) => $p
+                        ->where('statut', 'validee')
+                        ->whereExists(fn($annee) => $annee->selectRaw('1')
+                            ->from('annee_scolaires')
+                            ->whereColumn('annee_scolaires.id', 'preinscriptions.annee_scolaire_id')
+                            ->whereColumn('annee_scolaires.school_id', 'eleves.school_id')
+                            ->where('annee_scolaires.is_active', true))]),
                 'permission' => 'eleves.view',
             ],
             'personnels' => [

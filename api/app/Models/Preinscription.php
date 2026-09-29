@@ -14,6 +14,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Preinscription extends Model
 {
+    /**
+     * Toute création, modification ou suppression d'une préinscription
+     * touche l'élève : c'est l'`updated_at` de l'élève que la synchronisation
+     * delta suit (cf. RegistreSync), et le mobile n'affiche dans sa liste que
+     * les élèves inscrits pour l'année active — sans ce toucher, une
+     * validation ne redescendrait jamais sur le téléphone.
+     */
+    protected $touches = ['eleve'];
+
     protected $fillable = [
         'school_id',
         'annee_scolaire_id',

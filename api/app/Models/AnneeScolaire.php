@@ -10,6 +10,20 @@ class AnneeScolaire extends Model
 {
     protected $fillable = ['school_id', 'libelle', 'date_debut', 'date_fin', 'is_active', 'archivee_le'];
 
+    /**
+     * Activer une année change, pour tous les élèves de l'école, ce que
+     * « inscrit pour l'année active » veut dire : on les touche tous pour que
+     * la synchronisation delta renvoie leur nouvel état (cf. RegistreSync).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (AnneeScolaire $annee) {
+            if ($annee->is_active && ($annee->wasChanged('is_active') || $annee->wasRecentlyCreated)) {
+                Eleve::where('school_id', $annee->school_id)->update(['updated_at' => now()]);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

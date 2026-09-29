@@ -192,6 +192,11 @@ class Eleve extends Model
         return $this->belongsTo(Classe::class);
     }
 
+    public function preinscriptions(): HasMany
+    {
+        return $this->hasMany(Preinscription::class);
+    }
+
     public function tuteurs(): BelongsToMany
     {
         return $this->belongsToMany(Tuteur::class, 'eleve_tuteur')
