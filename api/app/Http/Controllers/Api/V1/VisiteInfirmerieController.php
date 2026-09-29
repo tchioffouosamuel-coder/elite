@@ -37,8 +37,14 @@ class VisiteInfirmerieController extends Controller
             'au' => ['nullable', 'date'],
         ]);
 
+        $user = $request->user();
+
         $visites = VisiteInfirmerie::forSchool(Tenant::schoolIds())
             ->with(self::AVEC_RELATIONS)
+            // Hors infirmier (`infirmerie.manage`), on ne consulte que les
+            // visites des élèves de ses classes — en lecture seule, les
+            // écritures étant déjà réservées à `infirmerie.manage`.
+            ->when(! $user->can('infirmerie.manage'), fn ($q) => $q->whereHas('eleve', fn ($e) => $e->dansPerimetre($user)))
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
             // École et sous-système restreignent davantage le périmètre déjà
@@ -128,8 +134,12 @@ class VisiteInfirmerieController extends Controller
         );
     }
 
-    public function export(): BinaryFileResponse
+    public function export(Request $request): BinaryFileResponse
     {
+        // L'export couvre toute l'école : réservé à l'infirmerie, les autres
+        // n'ayant accès qu'aux visites des élèves de leurs classes.
+        abort_unless($request->user()->can('infirmerie.manage'), 403);
+
         return Excel::download(new VisiteInfirmerieExport(Tenant::schoolIds()), 'visites-infirmerie.xlsx');
     }
 

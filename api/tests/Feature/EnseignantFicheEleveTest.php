@@ -13,6 +13,7 @@ use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
 use App\Models\School;
+use App\Models\VisiteInfirmerie;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -152,6 +153,31 @@ class EnseignantFicheEleveTest extends TestCase
         foreach ($reponse->json('data') as $ligne) {
             $this->assertSame(['id', 'matricule', 'nom_complet', 'classe'], array_keys($ligne));
         }
+    }
+
+    public function test_hors_infirmier_l_infirmerie_se_limite_aux_eleves_de_ses_classes_en_lecture(): void
+    {
+        FonctionReferentiel::where('school_id', $this->school->id)->where('label_fr', 'Enseignant')->firstOrFail()->synchroniserPermissions(['eleves.view', 'dashboard.view', 'eleves.situation', 'infirmerie.view']);
+        $prof = $this->prof->fresh();
+        foreach ([$this->eleveAMoi, $this->elevePasAMoi] as $eleve) {
+            VisiteInfirmerie::create([
+                'eleve_id' => $eleve->id, 'classe_id' => $eleve->classe_id,
+                'date_visite' => now(), 'raison' => 'Maux de tête', 'soins_prodiges' => 'Repos',
+            ]);
+        }
+
+        $this->actingAs($prof, 'sanctum')
+            ->getJson('/api/v1/infirmerie/visites')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->actingAs($prof, 'sanctum')
+            ->getJson('/api/v1/infirmerie/visites/export')
+            ->assertForbidden();
+
+        $this->actingAs($prof, 'sanctum')
+            ->postJson('/api/v1/infirmerie/visites', ['eleve_id' => $this->eleveAMoi->id, 'raison' => 'Test'])
+            ->assertForbidden();
     }
 
     public function test_le_detail_des_indicateurs_pedagogiques_liste_les_matieres_de_l_enseignant(): void
