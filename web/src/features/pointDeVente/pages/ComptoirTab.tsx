@@ -359,7 +359,7 @@ export function ComptoirTab() {
       {estVendeur && statsVendeur && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card className="flex flex-col gap-1 !p-4">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+            <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-wide text-navy-400">
               <ReceiptText className="h-3.5 w-3.5 text-gold-500" />
               {t('pointDeVente.stats.ventesJour')}
             </span>
@@ -369,7 +369,7 @@ export function ComptoirTab() {
             <span className="text-xs text-navy-400">{t('pointDeVente.stats.count', { count: statsVendeur.ventes.jour.effectif })}</span>
           </Card>
           <Card className="flex flex-col gap-1 !p-4">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+            <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-wide text-navy-400">
               <TrendingUp className="h-3.5 w-3.5 text-gold-500" />
               {t('pointDeVente.stats.ventesMois')}
             </span>
@@ -379,7 +379,7 @@ export function ComptoirTab() {
             <span className="text-xs text-navy-400">{t('pointDeVente.stats.count', { count: statsVendeur.ventes.mois.effectif })}</span>
           </Card>
           <Card className="flex flex-col gap-1 !p-4">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+            <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-wide text-navy-400">
               <Boxes className="h-3.5 w-3.5 text-gold-500" />
               {t('pointDeVente.stats.articles')}
             </span>
@@ -389,7 +389,7 @@ export function ComptoirTab() {
             <span className="text-xs text-navy-400">{t('pointDeVente.stats.quantiteTotale', { count: statsVendeur.stock.quantite_totale })}</span>
           </Card>
           <Card className="flex flex-col gap-1 !p-4">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-400">
+            <span className="flex items-center gap-1.5 text-[0.6875rem] font-bold uppercase tracking-wide text-navy-400">
               <Wallet className="h-3.5 w-3.5 text-gold-500" />
               {t('pointDeVente.stats.valeurStock')}
             </span>
@@ -482,7 +482,7 @@ export function ComptoirTab() {
                       </Badge>
                     </span>
                     {article.code_barre && (
-                      <span className="font-mono text-[11px] text-navy-300">{article.code_barre}</span>
+                      <span className="font-mono text-[0.6875rem] text-navy-300">{article.code_barre}</span>
                     )}
                   </button>
                 )

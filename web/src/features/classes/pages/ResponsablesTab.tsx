@@ -108,9 +108,9 @@ function ChampResponsableSelect({
           </option>
         ))}
       </Select>
-      <span className="text-[11px] leading-snug text-navy-400">{t(responsable.aideKey)}</span>
+      <span className="text-[0.6875rem] leading-snug text-navy-400">{t(responsable.aideKey)}</span>
       {!isLoading && options.length === 0 && (
-        <span className="text-[11px] leading-snug text-amber-600">{t('classes.responsable_aucun_eligible')}</span>
+        <span className="text-[0.6875rem] leading-snug text-amber-600">{t('classes.responsable_aucun_eligible')}</span>
       )}
     </div>
   )

@@ -171,7 +171,7 @@ export function PremiereSynchronisationModal({ onTermine, onAnnuler }: { onTermi
             <span className="flex-none font-semibold text-navy-700">{termineAvecSucces ? '100%' : `${pourcentage}%`}</span>
           </div>
           {etat.enCours && etat.lignesCumulees > 0 && (
-            <p className="mt-1 text-[11px] text-navy-400">{etat.lignesCumulees} ligne(s) reçue(s) pour ce lot de tables…</p>
+            <p className="mt-1 text-[0.6875rem] text-navy-400">{etat.lignesCumulees} ligne(s) reçue(s) pour ce lot de tables…</p>
           )}
         </div>
 

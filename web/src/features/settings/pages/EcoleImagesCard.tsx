@@ -109,7 +109,7 @@ function ChampImage({
         )}
       </div>
 
-      <p className="text-[11px] leading-snug text-navy-400">{image.aide}</p>
+      <p className="text-[0.6875rem] leading-snug text-navy-400">{image.aide}</p>
 
       <input
         ref={inputRef}

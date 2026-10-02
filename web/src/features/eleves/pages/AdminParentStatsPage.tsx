@@ -84,7 +84,7 @@ function BarreRepartition({ titre, donnees }: { titre: string; donnees: VolumeDe
         )}
         {rejetee > 0 && <div style={{ width: `${(rejetee / total) * 100}%`, backgroundColor: RED }} className="ml-0.5" />}
       </div>
-      <div className="flex flex-wrap gap-3 text-[11px] text-navy-500">
+      <div className="flex flex-wrap gap-3 text-[0.6875rem] text-navy-500">
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GOLD }} />
           En attente ({en_attente})
@@ -224,7 +224,7 @@ function CompteListeModal({ selection, jours, onClose }: { selection: SelectionC
                   </div>
                   <div className="flex flex-none flex-col items-end gap-1">
                     <Badge tone={compte.actif ? 'green' : 'neutral'}>{compte.actif ? 'Actif' : 'Désactivé'}</Badge>
-                    <span className="text-[11px] text-navy-400">
+                    <span className="text-[0.6875rem] text-navy-400">
                       {compte.derniere_connexion ? `Connecté le ${formaterDate(compte.derniere_connexion)}` : 'Jamais connecté'}
                     </span>
                   </div>

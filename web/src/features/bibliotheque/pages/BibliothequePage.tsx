@@ -588,12 +588,12 @@ export function BibliothequePage() {
                   {(document.classes.length > 0 || document.cibles) && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {document.classes.map((c) => (
-                        <span key={c.id} className="rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-semibold text-gold-700">
+                        <span key={c.id} className="rounded-full bg-gold-100 px-2 py-0.5 text-[0.6875rem] font-semibold text-gold-700">
                           {c.nom}
                         </span>
                       ))}
                       {document.cibles?.map((cible) => (
-                        <span key={cible} className="rounded-full bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-600">
+                        <span key={cible} className="rounded-full bg-navy-50 px-2 py-0.5 text-[0.6875rem] font-semibold text-navy-600">
                           {cible === 'personnel' ? 'Personnel' : 'Parents'}
                         </span>
                       ))}

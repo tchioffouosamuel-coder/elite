@@ -272,7 +272,7 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
           </p>
 
           <div className="overflow-x-auto rounded-2xl border border-navy-100/70 bg-white shadow-card">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
+            <table className="w-full min-w-[45rem] border-collapse text-sm">
               <thead className="bg-cream-100/70 text-xs font-semibold uppercase tracking-wide text-navy-500">
                 <tr>
                   <th rowSpan={2} className="border-b border-navy-100 px-4 py-2 text-left">
@@ -285,7 +285,7 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
                       className="border-b border-l border-navy-100 px-3 py-2 text-center"
                     >
                       {LIBELLES_COMPOSANTES[composante]}
-                      <span className="block text-[10px] font-normal normal-case text-navy-400">
+                      <span className="block text-[0.625rem] font-normal normal-case text-navy-400">
                         / {grille.repartition[composante]}
                       </span>
                     </th>
@@ -302,7 +302,7 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
                     grille.sequences.map((sequence, index) => (
                       <th
                         key={`${composante}-${sequence.id}`}
-                        className={`border-b border-navy-100 px-2 py-1.5 text-center text-[11px] font-medium ${index === 0 ? 'border-l' : ''
+                        className={`border-b border-navy-100 px-2 py-1.5 text-center text-[0.6875rem] font-medium ${index === 0 ? 'border-l' : ''
                           }`}
                       >
                         S{index + 1}
@@ -312,13 +312,13 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
                   {grille.sequences.map((sequence, index) => (
                     <th
                       key={`total-${sequence.id}`}
-                      className={`border-b border-navy-100 px-2 py-1.5 text-center text-[11px] font-medium ${index === 0 ? 'border-l' : ''
+                      className={`border-b border-navy-100 px-2 py-1.5 text-center text-[0.6875rem] font-medium ${index === 0 ? 'border-l' : ''
                         }`}
                     >
                       Total S{index + 1}
                     </th>
                   ))}
-                  <th className="border-b border-l border-navy-100 px-2 py-1.5 text-center text-[11px] font-medium">
+                  <th className="border-b border-l border-navy-100 px-2 py-1.5 text-center text-[0.6875rem] font-medium">
                     Total Trimestre
                   </th>
                 </tr>
@@ -431,7 +431,7 @@ function GrilleAppreciations({
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-navy-100/70 bg-white shadow-card">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <table className="w-full min-w-[45rem] border-collapse text-sm">
           <thead className="bg-cream-100/70 text-xs font-semibold uppercase tracking-wide text-navy-500">
             <tr>
               <th className="border-b border-navy-100 px-4 py-2 text-left">{t('eleves.nom_complet')}</th>

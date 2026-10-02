@@ -27,7 +27,10 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    // Durée pendant laquelle le navigateur garde la réponse d'une
+    // pré-vérification (OPTIONS) : à 0, chaque appel de l'interface en
+    // déclenchait une, soit deux allers-retours par lecture.
+    'max_age' => 7200,
 
     'supports_credentials' => false,
 

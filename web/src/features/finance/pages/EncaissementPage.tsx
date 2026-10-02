@@ -213,7 +213,7 @@ export function EncaissementPage() {
               [t('eleves.financier.reste_scolarite_a_payer'), francs(dossier.reste_scolarite_a_payer), 'text-red-500'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>
-                <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
+                <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{libelle}</dt>
                 <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
               </div>
             ))}
@@ -223,12 +223,12 @@ export function EncaissementPage() {
             <div className="rounded-xl border border-navy-100 bg-white p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Historique des versements</span>
-                <span className="text-[11px] text-navy-400">{versements.length} reçu{versements.length > 1 ? 's' : ''}</span>
+                <span className="text-[0.6875rem] text-navy-400">{versements.length} reçu{versements.length > 1 ? 's' : ''}</span>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[500px] text-left text-xs">
-                  <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                <table className="w-full min-w-[31.25rem] text-left text-xs">
+                  <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                     <tr>
                       <th className="px-2 py-2">Date</th>
                       <th className="px-2 py-2">Heure</th>
@@ -273,7 +273,7 @@ export function EncaissementPage() {
                   Remise
                 </span>
                 {dossier.remise > 0 && (
-                  <span className="text-[11px] text-navy-400">
+                  <span className="text-[0.6875rem] text-navy-400">
                     Déjà accordée : <span className="font-semibold text-navy-600">{francs(dossier.remise)}</span>
                   </span>
                 )}
@@ -333,8 +333,8 @@ export function EncaissementPage() {
               </span>
 
               <div className="overflow-x-auto rounded-xl border border-navy-100">
-                <table className="w-full min-w-[440px] text-xs">
-                  <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                <table className="w-full min-w-[27.5rem] text-xs">
+                  <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                     <tr>
                       <th className="px-2.5 py-2 text-left">Rubrique</th>
                       <th className="px-2.5 py-2 text-right">Payé</th>
@@ -411,7 +411,7 @@ export function EncaissementPage() {
               <button
                 type="button"
                 onClick={() => setSortieRecu('preview')}
-                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'preview'
+                className={`flex min-h-[4.5rem] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'preview'
                     ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
                     : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
                   }`}
@@ -425,7 +425,7 @@ export function EncaissementPage() {
               <button
                 type="button"
                 onClick={() => setSortieRecu('print')}
-                className={`flex min-h-[72px] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'print'
+                className={`flex min-h-[4.5rem] items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors ${sortieRecu === 'print'
                     ? 'border-navy-700 bg-navy-50 text-navy-900 ring-2 ring-navy-100'
                     : 'border-navy-100 bg-white text-navy-600 hover:border-navy-200'
                   }`}

@@ -60,7 +60,7 @@ export function ClasseQrModal({ classe, onClose }: { classe: Classe; onClose: ()
             className="rounded-xl border border-navy-100"
           />
         ) : (
-          <div className="flex h-[220px] w-[220px] items-center justify-center">
+          <div className="flex h-[13.75rem] w-[13.75rem] items-center justify-center">
             <Spinner />
           </div>
         )}

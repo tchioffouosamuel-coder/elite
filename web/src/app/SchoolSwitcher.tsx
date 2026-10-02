@@ -56,7 +56,7 @@ export function SchoolSwitcher({ redirectTo }: { redirectTo?: string }) {
           {active?.name ?? t('nav.toutesLesEcoles', { defaultValue: 'Toutes les écoles' })}
         </span>
         {active && (
-          <span className="hidden flex-none rounded-full bg-cream-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy-500 md:inline">
+          <span className="hidden flex-none rounded-full bg-cream-100 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-navy-500 md:inline">
             {LIBELLE_TYPE[active.type] ?? active.type}
           </span>
         )}

@@ -25,6 +25,13 @@ contextBridge.exposeInMainWorld("desktop", {
 
   getAppVersion: () => ipcRenderer.invoke("desktop:get-app-version"),
 
+  /** Étapes du démarrage (extraction, migrations, serveur local), affichées par l'écran d'attente `splash.html`. */
+  onStartupStatus: (callback) => {
+    const listener = (_event, message) => callback(message);
+    ipcRenderer.on("desktop:startup-status", listener);
+    return () => ipcRenderer.removeListener("desktop:startup-status", listener);
+  },
+
   /** Déclenche une vérification manuelle (bouton « Vérifier maintenant ») — no-op en dev, cf. main.cjs. */
   checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
 

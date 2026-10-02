@@ -169,19 +169,19 @@ function NotesCard() {
             <span className="text-sm font-semibold text-navy-700">{data.trimestre.libelle}</span>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-[11px] uppercase tracking-wide text-navy-400">Moyenne / Average</p>
+                <p className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Moyenne / Average</p>
                 <p className="text-lg font-bold tabular-nums text-navy-900">{data.moyenne_generale ?? '—'}</p>
               </div>
               <div className="text-right">
-                <p className="text-[11px] uppercase tracking-wide text-navy-400">Rang / Rank</p>
+                <p className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Rang / Rank</p>
                 <p className="text-lg font-bold tabular-nums text-navy-900">{data.rang_general ?? '—'}</p>
               </div>
             </div>
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-navy-100">
-            <table className="w-full min-w-[420px] text-xs">
-              <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <table className="w-full min-w-[26.25rem] text-xs">
+              <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
                   <th className="px-2.5 py-2 text-left">Matière / Subject</th>
                   {data.sequences.map((s) => (

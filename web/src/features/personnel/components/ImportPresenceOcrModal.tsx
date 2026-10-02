@@ -167,7 +167,7 @@ export function ImportPresenceOcrModal({
             <p className="rounded-lg bg-cream-100 p-3 text-xs text-navy-500">{t('personnel.suivi_activite.import_ocr_verification_hint')}</p>
 
             <div className="overflow-x-auto rounded-xl border border-navy-100">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[35rem] text-sm">
                 <thead className="bg-cream-50 text-xs font-semibold uppercase tracking-wide text-navy-500">
                   <tr>
                     <th className="px-3 py-2 text-left">{t('personnel.suivi_activite.column_staff')}</th>

@@ -682,7 +682,7 @@ export function EleveInscriptionPage() {
                                                                         {resultat.sexe && <span className="ml-2">{resultat.sexe}</span>}
                                                                     </div>
                                                                 </div>
-                                                                <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                                                                <span className="rounded-lg bg-navy-100 px-2 py-1 text-[0.6875rem] font-semibold text-navy-700">
                                                                     {resultat.matricule_national || '—'}
                                                                 </span>
                                                             </button>
@@ -806,7 +806,7 @@ export function EleveInscriptionPage() {
                                             [t('eleves.inscription.paiement_reste_scolarite'), francs(dossier.reste_scolarite_a_payer), 'text-red-500'],
                                         ].map(([libelle, valeur, couleur]) => (
                                             <div key={libelle}>
-                                                <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
+                                                <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{libelle}</dt>
                                                 <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
                                             </div>
                                         ))}
@@ -848,8 +848,8 @@ export function EleveInscriptionPage() {
                                             </span>
 
                                             <div className="overflow-x-auto rounded-xl border border-navy-100">
-                                                <table className="w-full min-w-[440px] text-xs">
-                                                    <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                                                <table className="w-full min-w-[27.5rem] text-xs">
+                                                    <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                                                         <tr>
                                                             <th className="px-2.5 py-2 text-left">{t('eleves.inscription.paiement_rubrique')}</th>
                                                             <th className="px-2.5 py-2 text-right">{t('eleves.inscription.paiement_paye')}</th>

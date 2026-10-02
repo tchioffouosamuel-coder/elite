@@ -212,8 +212,8 @@ function ModificationDetailModal({ id, onClose, onTraitee }: { id: number; onClo
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-navy-100">
-            <table className="w-full min-w-[420px] text-xs">
-              <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <table className="w-full min-w-[26.25rem] text-xs">
+              <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
                   <th className="px-2.5 py-2 text-left">Champ</th>
                   <th className="px-2.5 py-2 text-left">Valeur actuelle</th>

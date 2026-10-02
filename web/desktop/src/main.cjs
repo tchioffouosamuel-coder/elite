@@ -8,8 +8,10 @@ const {
 } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
+const http = require("node:http");
 const crypto = require("node:crypto");
-const { spawn, execFileSync } = require("node:child_process");
+const { spawn, execFile } = require("node:child_process");
 const { autoUpdater } = require("electron-updater");
 
 /**
@@ -19,8 +21,21 @@ const { autoUpdater } = require("electron-updater");
  * asynchrone au tout premier rendu. Un conflit avec un autre processus déjà
  * sur ce port est jugé improbable sur un poste desktop mono-utilisateur ;
  * à revoir si ça devient un problème réel en usage.
+ *
+ * Ce port est celui du répartiteur (cf. `demarrerRepartiteur()`) ; les
+ * serveurs PHP eux-mêmes écoutent sur les ports qui le suivent.
  */
 const API_PORT = 8973;
+
+/**
+ * Le serveur intégré de PHP (`php -S`) ne traite qu'une requête à la fois, et
+ * `PHP_CLI_SERVER_WORKERS` n'existe pas sous Windows : un écran qui lance huit
+ * appels les voyait servis l'un après l'autre. On démarre donc plusieurs
+ * serveurs, derrière un répartiteur qui adresse chaque requête au moins
+ * occupé. Plafonné : chaque serveur coûte de la mémoire, et SQLite n'admet de
+ * toute façon qu'un écrivain à la fois.
+ */
+const NOMBRE_WORKERS = Math.max(2, Math.min(4, os.cpus().length - 1));
 
 /**
  * Emplacement du binaire PHP et du dossier de l'application Laravel.
@@ -103,6 +118,11 @@ function resolvePhpArgsCommuns() {
     "max_execution_time=0",
     "-d",
     "max_input_time=-1",
+    // `php.ini-production` s'arrête à 128 Mo : trop juste pour une page de
+    // synchronisation de plusieurs milliers de lignes (cf. `SyncPull`) ou un
+    // PDF de bulletins d'une classe entière.
+    "-d",
+    "memory_limit=1024M",
   ];
 
   // Sans bundle de certificats explicite, `curl`/`openssl` sous Windows ne
@@ -123,6 +143,54 @@ function resolvePhpArgsCommuns() {
   return args;
 }
 
+/**
+ * Arguments des seuls serveurs PHP (`-S`), en plus des communs : OPcache.
+ *
+ * Sans lui, chaque requête recompile tout Laravel — mesuré à ~290 ms de coût
+ * fixe par appel, contre ~50 ms avec — et le navigateur en envoie deux par
+ * lecture (pré-vérification CORS comprise). Les serveurs partagent le même
+ * cache en mémoire : seul le premier paie la compilation.
+ *
+ * Pas pour les commandes artisan : un processus qui ne vit qu'une seconde
+ * n'a pas le temps de rentabiliser le cache (mesuré plus lent avec).
+ */
+function resolvePhpArgsServeur() {
+  const args = resolvePhpArgsCommuns();
+  const extOpcache = path.join(resolvePhpBundleDir(), "ext", "php_opcache.dll");
+
+  if (args.length === 0 || !fs.existsSync(extOpcache)) return args;
+
+  return [
+    ...args,
+    "-d",
+    "zend_extension=opcache",
+    "-d",
+    "opcache.enable=1",
+    "-d",
+    "opcache.enable_cli=1",
+    // Propre à cette version : après une mise à jour, les serveurs ne
+    // doivent pas se rattacher au cache d'une instance encore ouverte de
+    // l'ancienne, ni à celui d'un autre PHP installé sur le poste.
+    "-d",
+    `opcache.cache_id=elites-school-${app.getVersion()}`,
+    "-d",
+    "opcache.memory_consumption=128",
+    "-d",
+    "opcache.interned_strings_buffer=16",
+    "-d",
+    "opcache.max_accelerated_files=20000",
+    // Les fichiers de l'application ne changent qu'à une mise à jour, qui
+    // redémarre de toute façon les serveurs : inutile de revérifier leurs
+    // dates à chaque requête.
+    "-d",
+    "opcache.revalidate_freq=60",
+    "-d",
+    "realpath_cache_size=4096K",
+    "-d",
+    "realpath_cache_ttl=600",
+  ];
+}
+
 /** Fichiers propres à cette installation : base SQLite locale et clé d'application, persistés hors du dossier `api/` (partagé, potentiellement réinstallé). */
 function instancePaths() {
   const dir = app.getPath("userData");
@@ -131,6 +199,7 @@ function instancePaths() {
     dir,
     database: path.join(dir, "elites-school.sqlite"),
     appKeyFile: path.join(dir, "app.key"),
+    schemaFile: path.join(dir, "schema.version"),
   };
 }
 
@@ -239,7 +308,50 @@ function detailErreurCommande(erreur) {
   return morceaux.join("\n");
 }
 
-let phpProcess = null;
+/**
+ * `execFile` en promesse, rejetée avec stdout/stderr attachés à l'erreur
+ * (cf. `detailErreurCommande()`). Asynchrone à dessein : pendant ces
+ * commandes de préparation, la fenêtre d'attente doit rester vivante —
+ * `execFileSync` figeait tout le processus principal, que Windows finissait
+ * par signaler comme « ne répond pas ».
+ */
+function executerCommande(binaire, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      binaire,
+      args,
+      { maxBuffer: 16 * 1024 * 1024, windowsHide: true, ...options },
+      (erreur, stdout, stderr) => {
+        if (!erreur) {
+          resolve(stdout);
+          return;
+        }
+        erreur.stdout = stdout;
+        erreur.stderr = stderr;
+        if (typeof erreur.code === "number") erreur.status = erreur.code;
+        reject(erreur);
+      },
+    );
+  });
+}
+
+/** Un fichier du cœur de Laravel, au fond de l'arborescence : sa présence atteste d'une extraction menée à terme, pas seulement entamée. */
+function vendorComplet(vendorDir) {
+  return (
+    fs.existsSync(path.join(vendorDir, "autoload.php")) &&
+    fs.existsSync(
+      path.join(
+        vendorDir,
+        "laravel",
+        "framework",
+        "src",
+        "Illuminate",
+        "Foundation",
+        "Application.php",
+      ),
+    )
+  );
+}
 
 /**
  * Le `vendor` Composer de l'API embarquée (plusieurs milliers de fichiers)
@@ -249,11 +361,14 @@ let phpProcess = null;
  * réussie, sans la moindre trace côté Windows Defender ; livrer UN fichier
  * plutôt que des milliers déplace au moins le risque du processus
  * d'installation (NSIS) vers l'application elle-même. Décompressé une seule
- * fois via `Expand-Archive` (natif Windows, aucune dépendance à embarquer) —
- * les lancements suivants trouvent `vendor/autoload.php` déjà en place et ne
+ * fois — les lancements suivants trouvent le vendor déjà en place et ne
  * font rien.
+ *
+ * `tar` (livré avec Windows depuis la version 1803) d'abord : il extrait la
+ * même archive plusieurs fois plus vite qu'`Expand-Archive`, qui reste le
+ * repli s'il est absent ou s'il laisse un vendor incomplet.
  */
-function assurerVendorExtrait(apiDir) {
+async function assurerVendorExtrait(apiDir) {
   const vendorDir = path.join(apiDir, "vendor");
   const vendorZip = path.join(apiDir, "vendor.zip");
 
@@ -262,20 +377,326 @@ function assurerVendorExtrait(apiDir) {
   // `resolveApiDir()` qui pointe alors sur le dépôt source) : rien à faire.
   if (!fs.existsSync(vendorZip)) return;
 
-  execFileSync("powershell", [
+  signalerEtapeDemarrage(
+    "Première utilisation : préparation de l'application…",
+  );
+
+  try {
+    fs.mkdirSync(vendorDir, { recursive: true });
+    await executerCommande("tar", ["-xf", vendorZip, "-C", vendorDir]);
+  } catch (erreur) {
+    console.error(`[vendor] extraction par tar impossible : ${erreur.message}`);
+  }
+
+  if (vendorComplet(vendorDir)) return;
+
+  fs.rmSync(vendorDir, { recursive: true, force: true });
+  await executerCommande("powershell", [
     "-NoProfile",
     "-Command",
     `Expand-Archive -Path '${vendorZip}' -DestinationPath '${vendorDir}' -Force`,
   ]);
 }
 
-function demarrerServeurPhp() {
+/**
+ * Empreinte de ce que `artisan migrate` aurait à appliquer : la version de
+ * l'application installée et la liste de ses fichiers de migration — un
+ * installeur reconstruit sans changer de version, mais avec une migration de
+ * plus, doit quand même migrer. `null` hors installation packagée (ou si la
+ * liste est illisible) : en développement le contenu d'une migration change
+ * sans que son nom bouge, on migre alors à chaque lancement.
+ */
+function empreinteSchema() {
+  if (!app.isPackaged) return null;
+
+  try {
+    const migrations = fs
+      .readdirSync(path.join(resolveApiDir(), "database", "migrations"))
+      .sort()
+      .join("\n");
+
+    return crypto
+      .createHash("sha1")
+      .update(`${app.getVersion()}\n${migrations}`)
+      .digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Le schéma local est-il déjà celui de cette version ? Vrai seulement si la
+ * dernière migration RÉUSSIE (cf. `migrerSiNecessaire()`) portait la même
+ * empreinte, et que la base n'a pas été vidée entre-temps (scripts de
+ * réinitialisation, fichier supprimé à la main — recréé vide par
+ * `envInstanceLocale()`).
+ */
+function schemaAJour() {
+  const { database, schemaFile } = instancePaths();
+  const empreinte = empreinteSchema();
+
+  if (empreinte === null) return false;
+
+  try {
+    return (
+      fs.statSync(database).size > 0 &&
+      fs.readFileSync(schemaFile, "utf8").trim() === empreinte
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `artisan migrate` démarre tout Laravel pour, presque toujours, constater
+ * qu'il n'y a rien à faire : une à plusieurs secondes de fenêtre vide à
+ * chaque lancement sur un poste modeste. On ne le rejoue donc que si
+ * l'empreinte a changé depuis la dernière migration réussie — pas « si
+ * le fichier vient d'être créé », critère trop fragile : un fichier sqlite
+ * d'une version antérieure existerait déjà sans être migré pour autant.
+ */
+async function migrerSiNecessaire(apiDir, phpBinary, env) {
+  if (schemaAJour()) return;
+
+  signalerEtapeDemarrage("Mise à jour de la base locale…");
+
+  await executerCommande(
+    phpBinary,
+    [...resolvePhpArgsCommuns(), "artisan", "migrate", "--force"],
+    { cwd: apiDir, env },
+  );
+
+  const empreinte = empreinteSchema();
+  if (empreinte !== null) {
+    fs.writeFileSync(instancePaths().schemaFile, empreinte, "utf8");
+  }
+}
+
+/** Serveurs PHP en service, un par port (cf. `NOMBRE_WORKERS`). */
+const workers = [];
+let repartiteur = null;
+let arretDemande = false;
+
+const REDEMARRAGES_MAX = 5;
+
+function demarrerWorker(worker) {
   const apiDir = resolveApiDir();
-  const phpBinary = resolvePhpBinary();
-  const phpArgs = resolvePhpArgsCommuns();
   const { env } = envInstanceLocale();
 
-  assurerVendorExtrait(apiDir);
+  worker.pret = false;
+  worker.actives = 0;
+  worker.proc = spawn(
+    resolvePhpBinary(),
+    [
+      ...resolvePhpArgsServeur(),
+      "-S",
+      `127.0.0.1:${worker.port}`,
+      "-t",
+      "public",
+    ],
+    { cwd: apiDir, env, stdio: "pipe", windowsHide: true },
+  );
+
+  // Sans lecteur, le tube de stdout finit par se remplir et bloquer PHP.
+  worker.proc.stdout.resume();
+  worker.proc.stderr.on("data", (chunk) => {
+    // Le serveur de développement PHP écrit son journal d'accès sur stderr :
+    // utile pour diagnostiquer un poste utilisateur, jamais fatal en soi.
+    console.error(`[php:${worker.port}] ${chunk}`);
+  });
+
+  worker.proc.on("error", (erreur) => {
+    console.error(`[php:${worker.port}] impossible de démarrer : ${erreur.message}`);
+  });
+
+  worker.proc.on("exit", (code) => {
+    worker.pret = false;
+    if (arretDemande) return;
+
+    console.error(`[php:${worker.port}] serveur arrêté (code ${code})`);
+
+    // Un serveur tombé en cours de route (antivirus, plantage d'une
+    // extension) est relancé : les autres continuent de répondre pendant ce
+    // temps. Plafonné pour ne pas tourner en boucle sur une cause durable.
+    if (worker.redemarrages >= REDEMARRAGES_MAX) return;
+    worker.redemarrages++;
+    setTimeout(() => {
+      if (arretDemande) return;
+      demarrerWorker(worker);
+      attendreWorkerPret(worker).catch((erreur) => console.error(erreur));
+    }, 1000);
+  });
+}
+
+/**
+ * Attend qu'un serveur PHP réponde, avant de lui adresser la moindre requête.
+ *
+ * Délai généreux (2 minutes) plutôt qu'un simple démarrage rapide : au tout
+ * premier lancement sur un poste, l'antivirus scanne `php.exe` — binaire
+ * inconnu, jamais vu — avant de l'autoriser à s'exécuter, ce qui peut
+ * prendre plus d'une minute. Une fois ce binaire « connu » de l'antivirus,
+ * les lancements suivants démarrent en quelques secondes ; observé
+ * directement lors des tests (15s de délai insuffisant au premier
+ * lancement, 5s au second).
+ */
+async function attendreWorkerPret(worker, tentativesMax = 480) {
+  const proc = worker.proc;
+
+  for (let tentative = 0; tentative < tentativesMax; tentative++) {
+    // Relancé ou arrêté entre-temps : cette attente ne concerne plus personne.
+    if (worker.proc !== proc || arretDemande) return;
+
+    try {
+      const reponse = await fetch(`http://127.0.0.1:${worker.port}/up`);
+      if (reponse.ok) {
+        worker.pret = true;
+        return;
+      }
+    } catch {
+      // Pas encore prêt : nouvelle tentative après une courte pause.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error("Le serveur local n'a pas démarré à temps.");
+}
+
+/** Le serveur prêt qui a le moins de requêtes en cours. */
+function choisirWorker() {
+  let choisi = null;
+
+  for (const worker of workers) {
+    if (!worker.pret) continue;
+    if (choisi === null || worker.actives < choisi.actives) choisi = worker;
+  }
+
+  return choisi;
+}
+
+/**
+ * Pré-vérification CORS (`OPTIONS`), répondue ici sans jamais atteindre PHP.
+ *
+ * Le renderer est chargé en `file://` et appelle `http://127.0.0.1` avec un
+ * en-tête `Authorization` : pour le navigateur, chaque appel est une requête
+ * inter-origines « non simple », précédée d'une pré-vérification. Laravel y
+ * répondait en démarrant tout le framework — autant de temps que la vraie
+ * requête, pour ne rien dire que ces quatre en-têtes. Même politique que
+ * `config/cors.php` (tout autoriser : ce serveur n'écoute que sur la boucle
+ * locale).
+ */
+function repondrePreverification(req, res) {
+  res.writeHead(204, {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods":
+      req.headers["access-control-request-method"] ?? "*",
+    "Access-Control-Allow-Headers":
+      req.headers["access-control-request-headers"] ?? "*",
+    "Access-Control-Max-Age": "7200",
+    Vary: "Access-Control-Request-Method, Access-Control-Request-Headers",
+  });
+  res.end();
+}
+
+function relayer(req, res) {
+  if (req.method === "OPTIONS" && req.headers["access-control-request-method"]) {
+    repondrePreverification(req, res);
+    return;
+  }
+
+  const worker = choisirWorker();
+
+  if (worker === null) {
+    res.writeHead(503, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.end(
+      JSON.stringify({ message: "Le service local redémarre. Réessayez." }),
+    );
+    return;
+  }
+
+  worker.actives++;
+  let libere = false;
+  const liberer = () => {
+    if (libere) return;
+    libere = true;
+    worker.actives--;
+  };
+
+  const amont = http.request(
+    {
+      host: "127.0.0.1",
+      port: worker.port,
+      method: req.method,
+      path: req.url,
+      // `Host` conservé tel quel : Laravel génère ses URLs (photos, logos)
+      // d'après lui, elles doivent pointer sur le répartiteur et non sur le
+      // port d'un serveur en particulier.
+      headers: { ...req.headers, connection: "close" },
+      agent: false,
+    },
+    (reponse) => {
+      const enTetes = { ...reponse.headers };
+      // Propres à la liaison répartiteur → PHP, pas à celle du renderer.
+      delete enTetes.connection;
+      delete enTetes["keep-alive"];
+
+      res.writeHead(reponse.statusCode ?? 502, enTetes);
+      reponse.pipe(res);
+      reponse.on("end", liberer);
+      reponse.on("close", liberer);
+    },
+  );
+
+  amont.on("error", (erreur) => {
+    liberer();
+    console.error(`[repartiteur] ${req.method} ${req.url} : ${erreur.message}`);
+
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(502, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.end(
+      JSON.stringify({ message: "Le service local n'a pas répondu. Réessayez." }),
+    );
+  });
+
+  // Requête abandonnée par le renderer (changement d'écran, annulation) :
+  // inutile de laisser PHP la mener à terme pour personne.
+  res.on("close", () => {
+    if (!res.writableEnded) amont.destroy();
+  });
+
+  req.pipe(amont);
+}
+
+function demarrerRepartiteur() {
+  return new Promise((resolve, reject) => {
+    repartiteur = http.createServer(relayer);
+    // Aucune limite propre : un export volumineux ou un PDF de bulletins
+    // peut légitimement prendre plusieurs minutes.
+    repartiteur.requestTimeout = 0;
+    repartiteur.headersTimeout = 0;
+    repartiteur.once("error", reject);
+    repartiteur.listen(API_PORT, "127.0.0.1", resolve);
+  });
+}
+
+/**
+ * Prépare l'API locale (vendor, stockage, schéma) puis démarre les serveurs
+ * PHP et le répartiteur. Résolue dès qu'UN serveur répond : les autres
+ * rejoignent la rotation au fur et à mesure (cf. `choisirWorker()`).
+ */
+async function demarrerServeurPhp() {
+  const apiDir = resolveApiDir();
+  const { env } = envInstanceLocale();
+
+  await assurerVendorExtrait(apiDir);
 
   try {
     assurerLienStorage(apiDir);
@@ -287,39 +708,40 @@ function demarrerServeurPhp() {
     );
   }
 
-  // Toujours migrer, jamais seulement « si le fichier vient d'être créé » :
-  // `artisan migrate` est idempotent (rien à faire si tout est déjà en
-  // place) et détecter un « premier lancement » par la seule existence du
-  // fichier est fragile — un fichier sqlite d'une version antérieure de
-  // l'app (autre schéma, ou resté d'une install précédente) existerait déjà
-  // sans être migré pour autant, et la vérification passerait à côté.
-  // Synchrone à dessein — la fenêtre n'a rien d'utile à montrer avant que
-  // le schéma soit à jour.
-  execFileSync(phpBinary, [...phpArgs, "artisan", "migrate", "--force"], {
-    cwd: apiDir,
-    env,
-  });
+  await migrerSiNecessaire(apiDir, resolvePhpBinary(), env);
 
-  phpProcess = spawn(
-    phpBinary,
-    [...phpArgs, "-S", `127.0.0.1:${API_PORT}`, "-t", "public"],
-    { cwd: apiDir, env, stdio: "pipe" },
-  );
+  signalerEtapeDemarrage("Démarrage du service local…");
 
-  phpProcess.stderr.on("data", (chunk) => {
-    // Le serveur de développement PHP écrit son journal d'accès sur stderr :
-    // utile pour diagnostiquer un poste utilisateur, jamais fatal en soi.
-    console.error(`[php] ${chunk}`);
-  });
+  for (let index = 0; index < NOMBRE_WORKERS; index++) {
+    const worker = {
+      port: API_PORT + 1 + index,
+      proc: null,
+      pret: false,
+      actives: 0,
+      redemarrages: 0,
+    };
+    workers.push(worker);
+    demarrerWorker(worker);
+  }
 
-  phpProcess.on("exit", (code) => {
-    if (code !== null && code !== 0)
-      console.error(`[php] serveur arrêté (code ${code})`);
-  });
+  await demarrerRepartiteur();
+
+  const attentes = workers.map((worker) => attendreWorkerPret(worker));
+  // Un serveur plus lent que les autres ne doit pas remonter en rejet non
+  // géré une fois le premier prêt : son échec éventuel est déjà journalisé.
+  for (const attente of attentes) attente.catch(() => {});
+
+  try {
+    await Promise.any(attentes);
+  } catch {
+    throw new Error("Le serveur local n'a pas démarré à temps.");
+  }
 }
 
 const INTERVALLE_SYNC_MS = 5 * 60 * 1000;
+const DELAI_PREMIERE_SYNC_MS = 20 * 1000;
 
+let delaiPremiereSyncId = null;
 let intervalleSyncId = null;
 let syncEnCours = false;
 
@@ -329,7 +751,7 @@ let syncEnCours = false;
  * log) avec sa sortie standard, utile à `demarrerTelechargementFichiersEnArrierePlan()`
  * pour savoir quand arrêter de boucler sur `sync:fichiers`.
  */
-function executerArtisan(commande) {
+function executerArtisan(commande, { arrierePlan = false } = {}) {
   const apiDir = resolveApiDir();
   const phpBinary = resolvePhpBinary();
   const phpArgs = resolvePhpArgsCommuns();
@@ -340,7 +762,19 @@ function executerArtisan(commande) {
       cwd: apiDir,
       env,
       stdio: "pipe",
+      windowsHide: true,
     });
+
+    // Une synchronisation que personne n'attend cède le processeur aux
+    // serveurs PHP qui répondent à l'écran : sur un poste à deux cœurs, elle
+    // ralentissait sinon chaque clic le temps de son passage.
+    if (arrierePlan && proc.pid) {
+      try {
+        os.setPriority(proc.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+      } catch {
+        // Processus déjà terminé, ou priorité refusée : sans conséquence.
+      }
+    }
 
     let stdout = "";
     proc.stdout.on("data", (chunk) => {
@@ -374,29 +808,40 @@ function executerArtisan(commande) {
  * (`DesktopProvisioning::actuelle() === null`) tant qu'aucun poste n'est
  * lié à un compte, donc sans risque à lancer avant que l'utilisateur se
  * soit connecté.
+ *
+ * Le premier cycle attend `DELAI_PREMIERE_SYNC_MS` : lancé dès l'ouverture,
+ * il disputait le processeur et la base au tout premier écran, celui dont
+ * l'utilisateur attend l'affichage.
  */
-async function lancerSyncPeriodique() {
-  await synchroniserMaintenant();
-  intervalleSyncId = setInterval(synchroniserMaintenant, INTERVALLE_SYNC_MS);
+function lancerSyncPeriodique() {
+  const cycle = () => synchroniserMaintenant({ arrierePlan: true });
+
+  delaiPremiereSyncId = setTimeout(() => {
+    delaiPremiereSyncId = null;
+    cycle();
+    intervalleSyncId = setInterval(cycle, INTERVALLE_SYNC_MS);
+  }, DELAI_PREMIERE_SYNC_MS);
 }
 
 function arreterSyncPeriodique() {
+  if (delaiPremiereSyncId) clearTimeout(delaiPremiereSyncId);
   if (intervalleSyncId) clearInterval(intervalleSyncId);
+  delaiPremiereSyncId = null;
   intervalleSyncId = null;
 }
 
-async function synchroniserMaintenant() {
+async function synchroniserMaintenant({ arrierePlan = false } = {}) {
   if (syncEnCours) return false;
   syncEnCours = true;
 
   try {
-    await executerArtisan("sync:pull");
-    await executerArtisan("sync:push");
+    await executerArtisan("sync:pull", { arrierePlan });
+    await executerArtisan("sync:push", { arrierePlan });
     // Rattrape ici les fichiers mis en file par ce `sync:pull` (et par le
     // clonage initial, cf. `lancerCloneInitial`) qui n'auraient pas encore
     // été absorbés par la boucle d'arrière-plan démarrée juste après lui —
     // no-op silencieux si la file est déjà vide.
-    await executerArtisan("sync:fichiers");
+    await executerArtisan("sync:fichiers", { arrierePlan });
     return true;
   } finally {
     syncEnCours = false;
@@ -431,7 +876,9 @@ async function demarrerTelechargementFichiersEnArrierePlan() {
     syncEnCours = true;
     let fileVide = false;
     try {
-      const { stdout } = await executerArtisan("sync:fichiers");
+      const { stdout } = await executerArtisan("sync:fichiers", {
+        arrierePlan: true,
+      });
       // Sortie de `SyncFichiers::handle()` : « 0 fichier(s) traité(s), ... »
       // quand la file était déjà vide à ce passage — inutile de reboucler.
       fileVide = /^0 fichier/m.test(stdout);
@@ -609,39 +1056,37 @@ function creerMenuNatif() {
   Menu.setApplicationMenu(menu);
 }
 
-/**
- * Attend que le serveur PHP réponde, avant de charger le renderer dessus.
- *
- * Délai généreux (2 minutes) plutôt qu'un simple démarrage rapide : au tout
- * premier lancement sur un poste, l'antivirus scanne `php.exe` — binaire
- * inconnu, jamais vu — avant de l'autoriser à s'exécuter, ce qui peut
- * prendre plus d'une minute. Une fois ce binaire « connu » de l'antivirus,
- * les lancements suivants démarrent en quelques secondes ; observé
- * directement lors des tests (15s de délai insuffisant au premier
- * lancement, 5s au second).
- */
-async function attendreServeurPret(tentativesMax = 240) {
-  for (let tentative = 0; tentative < tentativesMax; tentative++) {
-    try {
-      const reponse = await fetch(`http://127.0.0.1:${API_PORT}/up`);
-      if (reponse.ok) return;
-    } catch {
-      // Pas encore prêt : nouvelle tentative après une courte pause.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+function arreterServeurPhp() {
+  arretDemande = true;
+
+  for (const worker of workers) {
+    worker.proc?.kill();
+    worker.proc = null;
+    worker.pret = false;
   }
 
-  throw new Error("Le serveur local n'a pas démarré à temps.");
-}
-
-function arreterServeurPhp() {
-  phpProcess?.kill();
-  phpProcess = null;
+  repartiteur?.close();
+  repartiteur = null;
 }
 
 /** Fenêtre principale — gardée pour y relayer les événements `electron-updater` (cf. `configurerAutoUpdate`). */
 let mainWindow = null;
 
+/** Dernière étape de démarrage annoncée, rejouée à l'écran d'attente s'il finit de charger après elle. */
+let etapeDemarrage = "Démarrage…";
+
+function signalerEtapeDemarrage(message) {
+  etapeDemarrage = message;
+  mainWindow?.webContents.send("desktop:startup-status", message);
+}
+
+/**
+ * Ouvre la fenêtre sur l'écran d'attente (`splash.html`), sans attendre le
+ * serveur PHP : l'application ne peut rien afficher d'utile avant lui, mais
+ * une fenêtre qui n'apparaît qu'au bout de plusieurs secondes laissait croire
+ * que le double-clic n'avait pas pris. `chargerApplication()` la bascule sur
+ * la vraie interface une fois le serveur prêt.
+ */
 function createWindow() {
   const window = new BrowserWindow({
     width: 1440,
@@ -671,15 +1116,23 @@ function createWindow() {
   // ou cette URL, exactement comme le ferait un nouvel onglet de navigateur.
   window.webContents.setWindowOpenHandler(() => ({ action: "allow" }));
 
-  const dist = app.isPackaged
-    ? path.join(process.resourcesPath, "web-dist")
-    : path.join(__dirname, "../../dist");
-  window.loadFile(path.join(dist, "index.html"));
+  window.webContents.on("did-finish-load", () => {
+    window.webContents.send("desktop:startup-status", etapeDemarrage);
+  });
+  window.loadFile(path.join(__dirname, "splash.html"));
 
   mainWindow = window;
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });
+}
+
+/** Remplace l'écran d'attente par l'interface — sans effet si la fenêtre a été fermée entre-temps. */
+function chargerApplication() {
+  const dist = app.isPackaged
+    ? path.join(process.resourcesPath, "web-dist")
+    : path.join(__dirname, "../../dist");
+  mainWindow?.loadFile(path.join(dist, "index.html"));
 }
 
 /** Relaie un statut au renderer — silencieux si aucune fenêtre n'est encore ouverte (ne devrait pas arriver, `createWindow()` précède toujours `configurerAutoUpdate()`). */
@@ -823,9 +1276,11 @@ app.whenReady().then(async () => {
     });
   });
 
+  Menu.setApplicationMenu(null);
+  createWindow();
+
   try {
-    demarrerServeurPhp();
-    await attendreServeurPret();
+    await demarrerServeurPhp();
   } catch (erreur) {
     console.error(erreur);
     // Sans ce message, l'utilisateur ne voit qu'un écran de connexion cassé
@@ -841,15 +1296,21 @@ app.whenReady().then(async () => {
     );
   }
 
-  Menu.setApplicationMenu(null);
-  createWindow();
+  // Fenêtre fermée pendant le démarrage : l'application se termine déjà
+  // (cf. `window-all-closed`), rien à charger ni à planifier.
+  if (arretDemande) return;
+
+  chargerApplication();
   configurerAutoUpdate();
   // Ni attendu ni dans le bloc try/catch ci-dessus : un aléa réseau au tout
   // premier cycle ne doit pas empêcher la fenêtre de s'ouvrir, et chaque
   // commande gère déjà elle-même son propre échec (voir `executerArtisan`).
   lancerSyncPeriodique();
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+      chargerApplication();
+    }
   });
 });
 

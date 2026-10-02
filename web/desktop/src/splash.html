@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Elites School</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(145deg, #391651 0%, #481e67 48%, #230c32 100%);
+        color: #faf6ec;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        user-select: none;
+      }
+
+      /* Fenêtre sans cadre : cette barre est le seul moyen de la déplacer ou de la fermer. */
+      .barre {
+        display: flex;
+        height: 36px;
+        flex: none;
+        align-items: center;
+        padding-left: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgb(255 255 255 / 0.8);
+        -webkit-app-region: drag;
+      }
+
+      .barre button {
+        width: 44px;
+        height: 100%;
+        margin-left: auto;
+        border: 0;
+        background: transparent;
+        color: rgb(255 255 255 / 0.6);
+        font-size: 16px;
+        cursor: pointer;
+        -webkit-app-region: no-drag;
+      }
+
+      .barre button:hover {
+        background: #ba2e2c;
+        color: #fff;
+      }
+
+      main {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .roue {
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgb(255 255 255 / 0.18);
+        border-top-color: #76b8e5;
+        border-radius: 50%;
+        animation: tourner 0.9s linear infinite;
+      }
+
+      #etape {
+        min-height: 1.4em;
+        margin: 0;
+        font-size: 13px;
+        color: #caace2;
+      }
+
+      @keyframes tourner {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="barre">
+      Elites School
+      <button type="button" id="fermer" aria-label="Fermer">&#x2715;</button>
+    </div>
+    <main>
+      <h1>Elites School</h1>
+      <div class="roue" role="status" aria-label="Chargement"></div>
+      <p id="etape">Démarrage…</p>
+    </main>
+    <script>
+      document.getElementById("fermer").addEventListener("click", () => window.desktop?.closeWindow());
+      window.desktop?.onStartupStatus((message) => {
+        document.getElementById("etape").textContent = message;
+      });
+    </script>
+  </body>
+</html>

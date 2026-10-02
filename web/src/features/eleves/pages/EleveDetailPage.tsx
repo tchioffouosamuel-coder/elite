@@ -480,7 +480,7 @@ export function EleveDetailPage() {
                         {[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}
                       </span>
                     </span>
-                    <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                    <span className="rounded-lg bg-navy-100 px-2 py-1 text-[0.6875rem] font-semibold text-navy-700">
                       {resultat.matricule_national || '—'}
                     </span>
                   </button>

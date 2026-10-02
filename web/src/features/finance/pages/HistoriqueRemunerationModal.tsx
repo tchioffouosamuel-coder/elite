@@ -49,7 +49,7 @@ export function HistoriqueRemunerationModal({
                   ['Coût employeur', remuneration.cout_employeur, 'text-navy-500'],
                 ].map(([libelle, valeur, couleur]) => (
                   <div key={libelle as string}>
-                    <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle as string}</dt>
+                    <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{libelle as string}</dt>
                     <dd className={`text-sm font-semibold tabular-nums ${couleur as string}`}>
                       {francs(valeur as number)}
                     </dd>

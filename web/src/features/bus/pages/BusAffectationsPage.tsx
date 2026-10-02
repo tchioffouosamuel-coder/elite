@@ -226,7 +226,7 @@ export function BusAffectationsPage() {
             {!e.preinscrit_annee_active && <Badge tone="red">Non préinscrit</Badge>}
           </div>
           {e.moratoire && (
-            <div className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-gold-600">
+            <div className="mt-0.5 flex items-center gap-1 text-[0.6875rem] font-semibold text-gold-600">
               <Clock className="h-3 w-3" />
               Moratoire — expire dans {e.moratoire.jours_restants} j
             </div>

@@ -452,7 +452,7 @@ export function ComptesParentsPage() {
               <div className="flex flex-wrap gap-2">
                 {Array.from(enfantsSelectionnesDetails.values()).map((eleve) => (
                   <span key={eleve.id} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-navy-800 ring-1 ring-purple-100">
-                    <span className="max-w-[220px] truncate">{eleve.nom_complet}</span>
+                    <span className="max-w-[13.75rem] truncate">{eleve.nom_complet}</span>
                     <button
                       type="button"
                       title={`Retirer ${eleve.nom_complet}`}

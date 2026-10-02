@@ -283,7 +283,7 @@ export function RapportRentreePage() {
               <Select
                 value={activeSchoolId ?? ''}
                 onChange={(event) => setActiveSchool(event.target.value ? Number(event.target.value) : null)}
-                className="min-w-[180px]"
+                className="min-w-[11.25rem]"
               >
                 <option value="">Toutes les écoles</option>
                 {ecoles.map((ecole) => (
@@ -436,7 +436,7 @@ function ChampTexteLibre({
     <div className="flex flex-col gap-1">
       <label className="text-xs font-semibold text-navy-500">{label}</label>
       <textarea
-        className="min-h-[70px] rounded-xl border border-navy-100 bg-white p-2 text-sm text-navy-900 focus:border-gold-400 focus:outline-none disabled:bg-cream-50"
+        className="min-h-[4.375rem] rounded-xl border border-navy-100 bg-white p-2 text-sm text-navy-900 focus:border-gold-400 focus:outline-none disabled:bg-cream-50"
         value={contenu}
         disabled={!peutModifier}
         onChange={(e) => setContenu(e.target.value)}

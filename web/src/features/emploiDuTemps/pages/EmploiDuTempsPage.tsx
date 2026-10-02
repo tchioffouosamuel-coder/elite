@@ -539,7 +539,7 @@ function GrillePeriodes({
   return (
     <div className="overflow-x-auto rounded-2xl border border-navy-100 bg-white">
       <div
-        className="grid min-w-[960px]"
+        className="grid min-w-[60rem]"
         style={{
           gridTemplateColumns: `88px repeat(${JOURS.length}, minmax(0, 1fr))`,
           gridTemplateRows: `auto repeat(${periodes.length}, minmax(52px, auto))`,
@@ -559,7 +559,7 @@ function GrillePeriodes({
         {periodes.map(([debut, fin], index) => (
           <div
             key={`${debut}-${fin}`}
-            className="flex flex-col items-center justify-center border-b border-navy-50 bg-cream-50 px-1 py-1 text-center text-[11px] font-semibold text-navy-500"
+            className="flex flex-col items-center justify-center border-b border-navy-50 bg-cream-50 px-1 py-1 text-center text-[0.6875rem] font-semibold text-navy-500"
             style={{ gridColumn: 1, gridRow: index + 2 }}
           >
             <span>{debut}</span>
@@ -581,7 +581,7 @@ function GrillePeriodes({
               return (
                 <div
                   key={`${jour.valeur}-${periodeIndex}`}
-                  className="m-0.5 flex items-center justify-center rounded-lg bg-red-50 text-[11px] font-semibold uppercase tracking-wide text-red-400 ring-1 ring-red-100"
+                  className="m-0.5 flex items-center justify-center rounded-lg bg-red-50 text-[0.6875rem] font-semibold uppercase tracking-wide text-red-400 ring-1 ring-red-100"
                   style={{ gridColumn: colonne, gridRow: ligne }}
                 >
                   {t('emploiDuTemps.creneau_libre')}
@@ -661,15 +661,15 @@ function CelluleCreneau({
       <p className={`truncate text-xs font-bold ${creneau.type === 'pause' ? 'text-blue-800' : creneau.type === 'activite' ? 'text-yellow-800' : 'text-navy-800'}`}>
         {creneau.type === 'cours' ? creneau.matiere : creneau.libelle}
       </p>
-      <p className="truncate text-[11px] text-navy-500">
+      <p className="truncate text-[0.6875rem] text-navy-500">
         {creneau.heure_debut}–{creneau.heure_fin}
         {creneau.salle ? ` · ${creneau.salle}` : ''}
       </p>
-      {creneau.enseignant && <p className="truncate text-[11px] text-navy-400">{creneau.enseignant}</p>}
+      {creneau.enseignant && <p className="truncate text-[0.6875rem] text-navy-400">{creneau.enseignant}</p>}
 
       {creneau.tronc_commun && (
         <p
-          className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide text-gold-700"
+          className="mt-1 truncate text-[0.625rem] font-semibold uppercase tracking-wide text-gold-700"
           title={creneau.classes_associees.map((c) => c.nom).join(' · ')}
         >
           {t('emploiDuTemps.tronc_commun_badge')} · {creneau.classes_associees.length + 1}
@@ -679,7 +679,7 @@ function CelluleCreneau({
       {/* Sur la grille d'une classe associée, le créneau est porté ailleurs :
           le supprimer d'ici reviendrait à l'ôter à tout le groupe. */}
       {creneau.tronc_commun && creneau.classe_id !== classeId && (
-        <p className="truncate text-[10px] italic text-navy-400">
+        <p className="truncate text-[0.625rem] italic text-navy-400">
           {t('emploiDuTemps.tronc_commun_porte_par', { classe: creneau.classe ?? '' })}
         </p>
       )}
@@ -950,7 +950,7 @@ function CreneauModal({
                         const brut = e.target.value
                         setNouvelEnseignantId(brut === '' ? '' : brut === 'aucun' ? 'aucun' : Number(brut))
                       }}
-                      className="min-w-[240px] flex-1"
+                      className="min-w-[15rem] flex-1"
                     >
                       <option value="">—</option>
                       <option value="aucun">{t('emploiDuTemps.aucun_enseignant_option')}</option>
@@ -1044,7 +1044,7 @@ function CreneauModal({
                     />
                     <span className="text-navy-700">{c.nom}</span>
                     {suggerees.includes(c.id) && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                      <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                         {t('emploiDuTemps.tronc_commun_meme_enseignant')}
                       </span>
                     )}

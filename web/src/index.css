@@ -61,8 +61,44 @@
   }
 }
 
+/*
+ * Montserrat embarquée, pour le client desktop : il doit s'afficher sans
+ * réseau, et la feuille Google Fonts d'index.html retenait le premier rendu
+ * jusqu'à l'échec de la requête sur un poste hors ligne. Nom de famille
+ * distinct pour que le site web, lui, garde les fichiers allégés de Google —
+ * le navigateur ne télécharge ce fichier que si la famille est réellement
+ * utilisée, donc jamais hors desktop.
+ */
+@font-face {
+  font-family: "Montserrat Embarquee";
+  src: url("./assets/fonts/Montserrat-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+html.desktop-shell {
+  --font-sans: "Montserrat Embarquee", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Montserrat Embarquee", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root {
   color-scheme: light;
+}
+
+/*
+ * Très grands écrans (moniteur 2K/4K, téléviseur de salle des professeurs) :
+ * à partir de 1600 px de large, la police racine grandit avec la fenêtre —
+ * 16 px à 1600, ~18 à 1920, ~21 à 2560, plafonnée à 26. Tailwind exprimant
+ * polices, espacements et largeurs en rem, toute l'interface (barre latérale,
+ * tableaux, formulaires) suit dans les mêmes proportions au lieu de rester à
+ * une taille de portable perdue au milieu de l'écran. En dessous de 1600 px,
+ * rien ne change.
+ */
+@media (min-width: 1600px) {
+  html {
+    font-size: clamp(16px, calc(8px + 0.5vw), 26px);
+  }
 }
 
 body {

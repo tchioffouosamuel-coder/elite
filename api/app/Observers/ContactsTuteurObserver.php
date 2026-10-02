@@ -14,24 +14,31 @@ use App\Models\TuteurTelephone;
  */
 class ContactsTuteurObserver
 {
+    /**
+     * Levé par `sync:pull` le temps d'appliquer les lignes reçues du serveur
+     * distant : elles portent déjà leur propre `updated_at`, il n'y a
+     * personne à prévenir d'un changement qui vient justement d'arriver.
+     */
+    public static bool $suspendu = false;
+
     public function updated(Tuteur|TuteurTelephone $modele): void
     {
         // Côté téléphone, `saved()` couvre déjà la mise à jour.
-        if ($modele instanceof Tuteur) {
+        if (! self::$suspendu && $modele instanceof Tuteur) {
             $this->marquerElevesModifies($modele->eleves()->pluck('eleves.id'));
         }
     }
 
     public function saved(Tuteur|TuteurTelephone $modele): void
     {
-        if ($modele instanceof TuteurTelephone) {
+        if (! self::$suspendu && $modele instanceof TuteurTelephone) {
             $this->marquerTuteurModifie($modele->tuteur_id);
         }
     }
 
     public function deleted(Tuteur|TuteurTelephone $modele): void
     {
-        if ($modele instanceof TuteurTelephone) {
+        if (! self::$suspendu && $modele instanceof TuteurTelephone) {
             $this->marquerTuteurModifie($modele->tuteur_id);
         }
     }

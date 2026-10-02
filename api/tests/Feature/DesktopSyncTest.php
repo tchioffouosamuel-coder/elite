@@ -7,6 +7,7 @@ use App\Models\DesktopProvisioningEcole;
 use App\Models\Eleve;
 use App\Models\School;
 use App\Models\SyncOutbox;
+use App\Models\Tuteur;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -535,6 +537,157 @@ class DesktopSyncTest extends TestCase
         $this->assertSame(1, $finEleves['lignes']);
 
         $this->assertDatabaseHas('eleves', ['id' => 901, 'nom_complet' => 'ELEVE JSON']);
+    }
+
+    /**
+     * Un premier clonage coupé en plein milieu ne doit ni refaire les lots
+     * déjà terminés, ni — surtout — poser le curseur de l'école : les lots pas
+     * encore commencés repartiraient de ce curseur au lieu de zéro, et ne
+     * recevraient jamais leurs lignes plus anciennes.
+     */
+    public function test_sync_pull_reprend_un_premier_clonage_interrompu_lot_par_lot(): void
+    {
+        Sleep::fake();
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $provisioning = $this->provisionnerSansHttp($ecole);
+
+        $enPanne = true;
+        $lotsDemandes = [];
+
+        Http::fake(['*/api/v1/sync*' => function ($request) use (&$enPanne, &$lotsDemandes, $ecole) {
+            $entites = explode(',', $request->data()['entites']);
+
+            if (! in_array('eleves', $entites, true)) {
+                $lotsDemandes[] = $entites[0];
+
+                return Http::response(['success' => true, 'data' => [
+                    'curseur' => '2026-01-01T00:00:00.000000Z', 'complet' => true, 'donnees' => [], 'suppressions' => [],
+                ]], 200);
+            }
+
+            return $enPanne
+                ? Http::response(['message' => 'Erreur serveur.'], 500)
+                : Http::response($this->reponseSyncAvecUnEleve(id: 951, nom: 'ELEVE REPRIS', updatedAt: now()->subDay(), schoolId: $ecole->id), 200);
+        }]);
+
+        $this->assertSame(1, Artisan::call('sync:pull'));
+
+        $ecoleProvisioning = $provisioning->ecoles()->firstOrFail();
+        $this->assertNull($ecoleProvisioning->curseur_sync);
+        $this->assertNotEmpty($ecoleProvisioning->progression_clonage);
+        $this->assertFalse($provisioning->fresh()->clonage_initial_complet);
+
+        $lotsAvantLaPanne = $lotsDemandes;
+        $this->assertNotEmpty($lotsAvantLaPanne);
+
+        $enPanne = false;
+        $lotsDemandes = [];
+
+        $this->assertSame(0, Artisan::call('sync:pull'));
+
+        $this->assertEmpty(array_intersect($lotsAvantLaPanne, $lotsDemandes));
+        $this->assertDatabaseHas('eleves', ['id' => 951, 'nom_complet' => 'ELEVE REPRIS']);
+
+        $ecoleProvisioning->refresh();
+        $this->assertNotNull($ecoleProvisioning->curseur_sync);
+        $this->assertNull($ecoleProvisioning->progression_clonage);
+        $this->assertTrue($provisioning->fresh()->clonage_initial_complet);
+    }
+
+    /** Une fois l'école clonée, un cycle de rattrapage tient en un appel pour tout le registre, pas un par lot. */
+    public function test_sync_pull_en_rattrapage_tient_en_un_seul_appel(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $provisioning = $this->provisionnerSansHttp($ecole);
+        $provisioning->ecoles()->update(['curseur_sync' => '2026-01-01T00:00:00.000000Z']);
+
+        Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
+            id: 961, nom: 'ELEVE RATTRAPE', updatedAt: now(), schoolId: $ecole->id,
+        ), 200)]);
+
+        Artisan::call('sync:pull');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => $request->data()['depuis'] === '2026-01-01T00:00:00.000000Z'
+            && in_array('eleves', explode(',', $request->data()['entites']), true)
+            && in_array('notes', explode(',', $request->data()['entites']), true));
+        $this->assertDatabaseHas('eleves', ['id' => 961, 'nom_complet' => 'ELEVE RATTRAPE']);
+    }
+
+    /** Une grosse page refusée par le serveur est redemandée à la taille historique plutôt que de faire échouer le clonage. */
+    public function test_sync_pull_reduit_la_page_quand_le_serveur_echoue(): void
+    {
+        Sleep::fake();
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $provisioning = $this->provisionnerSansHttp($ecole);
+        $provisioning->ecoles()->update(['curseur_sync' => '2026-01-01T00:00:00.000000Z']);
+
+        Http::fake(['*/api/v1/sync*' => fn ($request) => (int) $request->data()['limite'] > 500
+            ? Http::response(['message' => 'Mémoire épuisée.'], 500)
+            : Http::response($this->reponseSyncAvecUnEleve(id: 971, nom: 'ELEVE PETITE PAGE', updatedAt: now(), schoolId: $ecole->id), 200)]);
+
+        $this->assertSame(0, Artisan::call('sync:pull'));
+
+        $this->assertDatabaseHas('eleves', ['id' => 971, 'nom_complet' => 'ELEVE PETITE PAGE']);
+    }
+
+    /**
+     * Sur le serveur, toucher au téléphone d'un tuteur redate ses élèves pour
+     * qu'ils soient renvoyés aux clients ; en local, la même ligne ne fait
+     * qu'arriver. La redater rendrait l'élève local « plus récent » que toute
+     * version distante à venir, que `sync:pull` refuserait ensuite.
+     */
+    public function test_sync_pull_ne_redate_pas_les_eleves_en_appliquant_un_telephone_de_tuteur(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $provisioning = $this->provisionnerSansHttp($ecole);
+        $provisioning->ecoles()->update(['curseur_sync' => '2026-01-01T00:00:00.000000Z']);
+
+        $eleve = $this->creerEleveAvecId(981, $ecole->id, 'ELEVE DU TUTEUR');
+        $tuteur = Tuteur::create(['school_id' => $ecole->id, 'nom_complet' => 'TUTEUR']);
+        $tuteur->eleves()->attach($eleve->id, ['lien_parente' => 'pere', 'is_principal' => true]);
+        Eleve::whereKey($eleve->id)->update(['updated_at' => '2026-02-01 08:00:00']);
+
+        Http::fake(['*/api/v1/sync*' => Http::response(['success' => true, 'data' => [
+            'curseur' => now()->toIso8601ZuluString(),
+            'complet' => true,
+            'donnees' => ['tuteur_telephones' => [[
+                'id' => 5001, 'tuteur_id' => $tuteur->id, 'numero' => '677000000', 'is_principal' => true,
+                'updated_at' => now()->toIso8601ZuluString(),
+            ]]],
+            'suppressions' => [],
+        ]], 200)]);
+
+        Artisan::call('sync:pull');
+
+        $this->assertDatabaseHas('tuteur_telephones', ['id' => 5001, 'numero' => '677000000']);
+        $this->assertSame('2026-02-01 08:00:00', $eleve->fresh()->updated_at->format('Y-m-d H:i:s'));
+    }
+
+    /** `?limite=` : le poste desktop demande des pages plus grosses que les 500 lignes par défaut, ou plus petites. */
+    public function test_sync_respecte_la_limite_demandee(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+
+        foreach ([1, 2, 3, 4] as $rang) {
+            $eleve = $this->creerEleveAvecId(8200 + $rang, $ecole->id, "ELEVE {$rang}");
+            Eleve::whereKey($eleve->id)->update(['updated_at' => "2026-03-0{$rang} 08:00:00"]);
+        }
+
+        $requete = fn (string $suffixe) => $this->actingAs($user, 'sanctum')
+            ->withHeader('X-School-Id', $ecole->id)
+            ->getJson('/api/v1/sync?entites=eleves'.$suffixe)
+            ->assertOk();
+
+        $entier = $requete('');
+        $this->assertCount(4, $entier->json('data.donnees.eleves'));
+        $this->assertTrue($entier->json('data.complet'));
+
+        $tronque = $requete('&limite=2');
+        $this->assertLessThanOrEqual(2, count($tronque->json('data.donnees.eleves')));
+        $this->assertFalse($tronque->json('data.complet'));
     }
 
     // --------------------------------------------------------------- sync:push

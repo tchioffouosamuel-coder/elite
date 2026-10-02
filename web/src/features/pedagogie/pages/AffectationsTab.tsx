@@ -340,7 +340,7 @@ export function AffectationsTab({
             {a.competence?.label_fr ?? '—'}
           </span>
           {a.statut !== 'actif' && (
-            <span className="rounded-full bg-navy-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+            <span className="rounded-full bg-navy-100 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">
               Archivée
             </span>
           )}

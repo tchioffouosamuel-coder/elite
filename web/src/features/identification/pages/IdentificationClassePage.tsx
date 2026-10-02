@@ -134,7 +134,7 @@ function VignetteEleve({
             <p className="w-full break-words text-center text-xs font-semibold text-navy-800" title={eleve.nom_complet}>
                 {eleve.nom_complet}
             </p>
-            <p className="text-[11px] text-navy-400">{eleve.matricule ?? '—'}</p>
+            <p className="text-[0.6875rem] text-navy-400">{eleve.matricule ?? '—'}</p>
 
             {peutModifier && (
                 <>

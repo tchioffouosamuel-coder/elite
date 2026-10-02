@@ -344,7 +344,7 @@ export function ParentPreinscriptionExistantPage() {
                       ['Reste de l’année / Current year balance', francs(finance.reste_scolarite_a_payer), 'text-red-500'],
                     ].map(([libelle, valeur, couleur]) => (
                       <div key={libelle}>
-                        <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
+                        <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{libelle}</dt>
                         <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
                       </div>
                     ))}
@@ -358,8 +358,8 @@ export function ParentPreinscriptionExistantPage() {
 
                 {rubriquesApercu.length > 0 && (
                   <div className="overflow-x-auto rounded-xl border border-navy-100">
-                    <table className="w-full min-w-[380px] text-xs">
-                      <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                    <table className="w-full min-w-[23.75rem] text-xs">
+                      <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                         <tr>
                           <th className="px-2.5 py-2 text-left">Rubrique / Item</th>
                           <th className="px-2.5 py-2 text-right">Sera affecté / Will be allocated</th>

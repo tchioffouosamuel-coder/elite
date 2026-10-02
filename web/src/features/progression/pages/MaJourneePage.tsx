@@ -325,7 +325,7 @@ export function MaJourneePage() {
                         <span className="min-w-0">
                           <span className="text-sm font-medium text-navy-800">{lecon.titre}</span>
                           {lecon.deja_traitee && !lecon.faite_aujourdhui && (
-                            <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">
+                            <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[0.625rem] font-semibold text-green-600">
                               {t('progression.traitee')}
                             </span>
                           )}

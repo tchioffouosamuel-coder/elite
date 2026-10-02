@@ -135,13 +135,13 @@ export function ActionsMenu({
                 ? { bottom: window.innerHeight - position.top + 6 }
                 : { top: position.top + 6 }),
             }}
-            className="z-[100] flex max-h-[70vh] min-w-[268px] max-w-[320px] flex-col overflow-y-auto overscroll-contain rounded-xl border border-navy-100 bg-white py-1.5 shadow-lifted"
+            className="z-[100] flex max-h-[70vh] min-w-[16.75rem] max-w-[20rem] flex-col overflow-y-auto overscroll-contain rounded-xl border border-navy-100 bg-white py-1.5 shadow-lifted"
           >
             {sections.map((section, indexSection) => (
               <div key={indexSection} className="flex flex-col">
                 {indexSection > 0 && <span className="my-1 h-px bg-navy-50" />}
                 {section.titre && (
-                  <span className="px-3.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-navy-300">
+                  <span className="px-3.5 pb-1 pt-1.5 text-[0.6875rem] font-bold uppercase tracking-wide text-navy-300">
                     {section.titre}
                   </span>
                 )}

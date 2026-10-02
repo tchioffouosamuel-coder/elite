@@ -138,7 +138,7 @@ export function InsolvablesPage() {
                             {/* Sans échéancier, le retard vaut le reste à payer :
                                 répéter les échéances n'apprendrait rien. */}
                             {ligne.echeancier_actif && ligne.tranches_en_retard.length > 0 && (
-                              <span className="block text-[11px] font-normal text-navy-400">
+                              <span className="block text-[0.6875rem] font-normal text-navy-400">
                                 {ligne.tranches_en_retard
                                   .map((t) => `${t.libelle} (${new Date(t.date_echeance ?? '').toLocaleDateString('fr-FR')})`)
                                   .join(' · ')}

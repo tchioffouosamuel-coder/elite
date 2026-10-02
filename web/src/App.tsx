@@ -10,6 +10,10 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       staleTime: 30_000,
+      // Desktop : les données sont locales et ne changent qu'au passage de
+      // la synchronisation — relancer toutes les requêtes de l'écran à chaque
+      // retour sur la fenêtre n'apportait qu'une rafale d'appels.
+      refetchOnWindowFocus: !window.desktop,
     },
   },
 })

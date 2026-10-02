@@ -232,12 +232,12 @@ function ColonneComptes({ titre, lignes, total }: { titre: string; lignes: Ligne
                 <td className="py-1.5 pr-3">
                   {ligne.libelle}
                   {ligne.assiette === 'par_eleve' && (
-                    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-gold-700">
+                    <span className="ml-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-gold-700">
                       {ligne.montant_unitaire} F/élève
                     </span>
                   )}
                   {ligne.nature !== 'exploitation' && (
-                    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                    <span className="ml-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                       {ligne.nature}
                     </span>
                   )}
@@ -356,7 +356,7 @@ function VueSerie({ schoolId }: { schoolId: number }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[46rem] text-sm tabular-nums">
           <thead>
-            <tr className="border-b border-navy-100 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <tr className="border-b border-navy-100 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
               <th className="py-2 pr-3 text-left">Exercice</th>
               <th className="py-2 pr-3 text-right">Effectif</th>
               <th className="py-2 pr-3 text-right">Recettes</th>
@@ -451,7 +451,7 @@ function PrelevementsCard({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[34rem] text-sm tabular-nums">
           <thead>
-            <tr className="border-b border-navy-100 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <tr className="border-b border-navy-100 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
               <th className="py-2 pr-3 text-left">Compte</th>
               <th className="py-2 pr-3 text-right">Effectif</th>
               <th className="py-2 pr-3 text-right">Tarif</th>
@@ -609,7 +609,7 @@ function AmortissementsCard({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[38rem] text-sm tabular-nums">
           <thead>
-            <tr className="border-b border-navy-100 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <tr className="border-b border-navy-100 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
               <th className="py-2 pr-3 text-left">Bien</th>
               <th className="py-2 pr-3 text-right">Valeur</th>
               <th className="py-2 pr-3 text-right">Déjà amorti</th>
@@ -636,7 +636,7 @@ function AmortissementsCard({
                   }
                 >
                   {francs(ligne.dotation)}
-                  <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wide text-navy-400">
+                  <span className="ml-1.5 text-[0.625rem] font-medium uppercase tracking-wide text-navy-400">
                     {ligne.deja_dote ? 'passée' : 'à passer'}
                   </span>
                 </td>

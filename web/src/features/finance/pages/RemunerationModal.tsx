@@ -215,7 +215,7 @@ export function RemunerationModal({
                 ['finance.remuneration.net_to_receive', simulation?.net_avant_deductions, 'text-green-600 font-bold'],
               ].map(([cle, valeur, couleur]) => (
                 <div key={cle as string}>
-                  <dt className="text-[11px] uppercase tracking-wide text-navy-400">{t(cle as string)}</dt>
+                  <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{t(cle as string)}</dt>
                   <dd className={`tabular-nums ${couleur as string}`}>
                     {valeur === undefined ? '…' : francs(valeur as number)}
                   </dd>

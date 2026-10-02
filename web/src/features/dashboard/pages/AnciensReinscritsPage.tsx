@@ -68,7 +68,7 @@ export function AnciensReinscritsPage() {
             <span className="text-sm font-semibold tabular-nums text-navy-500">{eleves.length}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
+            <table className="w-full min-w-[38.75rem] text-left text-sm">
               <thead className="bg-cream-50 text-xs font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
                   <th className="px-4 py-3 sm:px-5">Élève</th>

@@ -119,7 +119,7 @@ export function AppelPage() {
                   {/* Sur un tronc commun, deux élèves de classes différentes
                       peuvent porter le même nom : la classe lève le doute. */}
                   {data.tronc_commun && ligne.classe && (
-                    <span className="ml-2 rounded bg-navy-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-navy-500">
+                    <span className="ml-2 rounded bg-navy-50 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-navy-500">
                       {ligne.classe}
                     </span>
                   )}

@@ -186,7 +186,7 @@ export function BusTrajetDetailPage() {
           <EmptyState label={t('bus.empty_affectations')} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[40rem] text-sm">
               <thead>
                 <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-400">
                   <th className="py-2">{t('bus.eleve')}</th>

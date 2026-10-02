@@ -150,7 +150,7 @@ function RechercherMatriculeModal({
                   <span className="block font-medium text-navy-900">{resultat.fullname || resultat.etablissement || 'Résultat'}</span>
                   <span className="mt-1 block text-xs text-navy-500">{[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}</span>
                 </span>
-                <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">{resultat.matricule_national || '—'}</span>
+                <span className="rounded-lg bg-navy-100 px-2 py-1 text-[0.6875rem] font-semibold text-navy-700">{resultat.matricule_national || '—'}</span>
               </button>
             ))}
           </div>

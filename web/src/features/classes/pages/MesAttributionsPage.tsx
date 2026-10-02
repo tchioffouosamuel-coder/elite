@@ -67,7 +67,7 @@ function CarteAttribution({ attribution }: { attribution: AttributionDetaillee }
       )}
 
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-navy-400">
+        <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-navy-400">
           {t('attributions.ce_que_cela_ouvre')}
         </span>
         <p className="text-xs leading-relaxed text-navy-500">

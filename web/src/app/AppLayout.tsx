@@ -687,7 +687,7 @@ export function AppLayout() {
                     title={ecole.name}
                     className="flex h-14 flex-none items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-soft"
                   >
-                    <img src={ecole.logo_url!} alt={ecole.name} className="h-11 w-auto max-w-[92px] object-contain" />
+                    <img src={ecole.logo_url!} alt={ecole.name} className="h-11 w-auto max-w-[5.75rem] object-contain" />
                   </span>
                 ))
               ) : (
@@ -741,7 +741,7 @@ export function AppLayout() {
                       }))
                     }
                     className={clsx(
-                      'flex h-7 items-center justify-between gap-2 rounded-lg px-3 text-left text-[9px] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
+                      'flex h-7 items-center justify-between gap-2 rounded-lg px-3 text-left text-[0.5625rem] font-bold uppercase tracking-wider text-navy-400 transition-colors hover:bg-white/5 hover:text-navy-200',
                       !sidebarOpen && 'lg:hidden',
                     )}
                   >
@@ -767,7 +767,7 @@ export function AppLayout() {
                             aria-current={estActif ? 'page' : undefined}
                             title={!sidebarOpen ? t(item.label) : undefined}
                             className={clsx(
-                              'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors',
+                              'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-colors',
                               !sidebarOpen && 'lg:justify-center lg:px-2',
                               estActif
                                 ? 'bg-white/10 text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]'
@@ -779,7 +779,7 @@ export function AppLayout() {
                             )}
                             <item.icon
                               className={clsx(
-                                'h-[18px] w-[18px] flex-none',
+                                'h-[1.125rem] w-[1.125rem] flex-none',
                                 estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
                               )}
                             />
@@ -950,7 +950,7 @@ export function AppLayout() {
               onClick={() => navigate('/profil')}
               className="hidden items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-cream-100 xl:flex"
             >
-              <div className="max-w-[160px] text-right text-sm leading-tight">
+              <div className="max-w-[10rem] text-right text-sm leading-tight">
                 <p className="truncate font-semibold text-navy-800" title={user?.name}>{user?.name}</p>
                 <p className="truncate text-xs text-navy-400">{user?.fonction || user?.roles.join(', ')}</p>
               </div>
@@ -988,7 +988,14 @@ export function AppLayout() {
               </div>
             )}
 
-            <div className="relative z-10 mx-auto max-w-7xl">
+            {/*
+             * Pleine largeur, sans plafond : sur un grand écran, un contenu
+             * borné laissait deux bandes vides de part et d'autre. La
+             * lisibilité y est tenue autrement — la police racine grandit
+             * avec la fenêtre (cf. index.css), et avec elle tout ce qui est
+             * exprimé en rem.
+             */}
+            <div className="relative z-10">
               <Outlet />
             </div>
           </main>

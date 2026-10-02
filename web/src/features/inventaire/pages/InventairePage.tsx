@@ -182,7 +182,7 @@ export function InventairePage() {
       valeur: (a) => a.code_barre,
       cellule: (a) =>
         a.code_barre ? (
-          <span className="font-mono text-[11px] text-navy-500">{a.code_barre}</span>
+          <span className="font-mono text-[0.6875rem] text-navy-500">{a.code_barre}</span>
         ) : (
           <span className="text-xs text-navy-300">—</span>
         ),

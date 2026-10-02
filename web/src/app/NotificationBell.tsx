@@ -133,7 +133,7 @@ export function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {nonLues > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[0.625rem] font-bold text-white">
             {nonLues > 9 ? '9+' : nonLues}
           </span>
         )}
@@ -183,7 +183,7 @@ export function NotificationBell() {
                         <span className="truncate text-sm font-semibold text-navy-900">{notif.titre}</span>
                       </span>
                       <span className="line-clamp-2 text-xs text-navy-500">{notif.message}</span>
-                      <span className="text-[10px] text-navy-300">
+                      <span className="text-[0.625rem] text-navy-300">
                         {new Date(notif.created_at).toLocaleString('fr-FR', {
                           day: '2-digit',
                           month: '2-digit',

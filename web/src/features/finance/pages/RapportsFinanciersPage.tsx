@@ -142,7 +142,7 @@ export function RapportsFinanciersPage() {
                     ],
                   ].map(([cle, valeur, couleur]) => (
                     <div key={cle as string} className="rounded-xl bg-cream-100 p-3 text-center">
-                      <div className="text-[11px] uppercase tracking-wide text-navy-400">{t(cle as string)}</div>
+                      <div className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{t(cle as string)}</div>
                       <div className={`text-lg font-bold tabular-nums ${couleur as string}`}>
                         {francs(valeur as number)}
                       </div>
@@ -166,7 +166,7 @@ export function RapportsFinanciersPage() {
               <Card className="lg:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-[11px] uppercase tracking-wide text-navy-400">{t('finance.reports.period_result')}</div>
+                    <div className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{t('finance.reports.period_result')}</div>
                     <div
                       className={`text-2xl font-bold tabular-nums ${
                         resultat.data.resultat >= 0 ? 'text-green-600' : 'text-red-500'
@@ -176,7 +176,7 @@ export function RapportsFinanciersPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[11px] uppercase tracking-wide text-navy-400">{t('finance.reports.expense_ratio')}</div>
+                    <div className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{t('finance.reports.expense_ratio')}</div>
                     <div className="text-lg font-bold tabular-nums text-navy-700">{resultat.data.taux_charges} %</div>
                     <div className="text-xs text-navy-400">{t('finance.reports.revenue_absorbed')}</div>
                   </div>

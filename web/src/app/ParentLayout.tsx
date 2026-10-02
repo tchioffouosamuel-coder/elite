@@ -66,7 +66,7 @@ export function ParentLayout() {
                 end={lien.end}
                 className={({ isActive }) =>
                   clsx(
-                    'flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center text-[10px] font-semibold leading-tight transition-colors sm:flex-row sm:justify-start sm:gap-1.5 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-xs',
+                    'flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center text-[0.625rem] font-semibold leading-tight transition-colors sm:flex-row sm:justify-start sm:gap-1.5 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-xs',
                     isActive ? 'bg-white/10 text-white' : 'text-navy-200 hover:bg-white/5 hover:text-white',
                   )
                 }

@@ -407,7 +407,7 @@ export function PreinscriptionCreerPage() {
                                   {[resultat.classe, resultat.date_naissance, resultat.sexe].filter(Boolean).join(' · ')}
                                 </span>
                               </span>
-                              <span className="rounded-lg bg-navy-100 px-2 py-1 text-[11px] font-semibold text-navy-700">
+                              <span className="rounded-lg bg-navy-100 px-2 py-1 text-[0.6875rem] font-semibold text-navy-700">
                                 {resultat.matricule_national || '—'}
                               </span>
                             </button>
@@ -507,19 +507,19 @@ export function PreinscriptionCreerPage() {
                 ) : dossier ? (
                   <dl className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-cream-100 p-3 text-center">
                     <div>
-                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Total dû</dt>
+                      <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Total dû</dt>
                       <dd className="text-sm font-bold tabular-nums text-navy-700">{francs(dossier.total_du)}</dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Déjà versé</dt>
+                      <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Déjà versé</dt>
                       <dd className="text-sm font-bold tabular-nums text-green-600">{francs(dossier.total_paye)}</dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Dette antérieure restante</dt>
+                      <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Dette antérieure restante</dt>
                       <dd className="text-sm font-bold tabular-nums text-red-500">{francs(dossier.dette_anterieure_restante)}</dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] uppercase tracking-wide text-navy-400">Reste de l'année</dt>
+                      <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">Reste de l'année</dt>
                       <dd className="text-sm font-bold tabular-nums text-red-500">{francs(dossier.reste_scolarite_a_payer)}</dd>
                     </div>
                   </dl>

@@ -184,7 +184,7 @@ export function BusPaiementPage() {
               ['Reste', francs(situation.reste_a_payer), 'text-red-500'],
             ].map(([libelle, valeur, couleur]) => (
               <div key={libelle}>
-                <dt className="text-[11px] uppercase tracking-wide text-navy-400">{libelle}</dt>
+                <dt className="text-[0.6875rem] uppercase tracking-wide text-navy-400">{libelle}</dt>
                 <dd className={`text-sm font-bold tabular-nums ${couleur}`}>{valeur}</dd>
               </div>
             ))}
@@ -290,8 +290,8 @@ export function BusPaiementPage() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-navy-100">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead className="bg-cream-50 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+            <table className="w-full min-w-[35rem] text-sm">
+              <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
                 <tr>
                   <th className="px-3 py-2 text-left">Reçu</th>
                   <th className="px-3 py-2 text-left">Mois</th>

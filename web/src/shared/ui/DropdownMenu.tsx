@@ -80,7 +80,7 @@ export function DropdownMenu({ items, title = 'Plus d’actions' }: { items: Dro
               transform: 'translateX(-100%)',
               ...(position.ouvreVersLeHaut ? { bottom: window.innerHeight - position.top + 4 } : { top: position.top + 4 }),
             }}
-            className="z-[100] flex min-w-[220px] flex-col overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted"
+            className="z-[100] flex min-w-[13.75rem] flex-col overflow-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted"
           >
             {items.map((item, index) => (
               <button

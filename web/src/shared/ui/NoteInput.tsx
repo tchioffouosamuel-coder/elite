@@ -46,7 +46,7 @@ export function NoteInput({ value, onChange, max, min = 0, step = 0.25, classNam
           className,
         )}
       />
-      {erreur && <span className="text-[10px] font-medium leading-none text-red-500">{erreur}</span>}
+      {erreur && <span className="text-[0.625rem] font-medium leading-none text-red-500">{erreur}</span>}
     </span>
   )
 }

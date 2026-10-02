@@ -241,7 +241,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
             />
 
             {item.traitee && (
-              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[0.625rem] font-semibold text-green-600">
                 {t('progression.traitee')}
               </span>
             )}
@@ -259,7 +259,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
             <div className="border-b border-navy-100 bg-cream-50/40 px-3 py-3">
               <div className="mb-3 flex flex-wrap gap-2">
                 <label className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">Week</span>
+                  <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">Week</span>
                   <input
                     value={item.semaine ?? ''}
                     readOnly={lectureSeule}
@@ -270,7 +270,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
                 </label>
 
                 <label className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+                  <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">
                     Date Planned
                   </span>
                   <input
@@ -283,7 +283,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
                 </label>
 
                 <label className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+                  <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">
                     Date Taught
                   </span>
                   <input
@@ -296,7 +296,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
                 </label>
 
                 <label className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+                  <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">
                     {dureeLabel}
                   </span>
                   <input
@@ -311,7 +311,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {champs.map(({ cle: champCle, libelle, lignes }) => (
                   <label key={champCle} className="flex flex-col gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">{libelle}</span>
+                    <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">{libelle}</span>
                     <textarea
                       rows={lignes}
                       value={(item[champCle] as string | null) ?? ''}
@@ -324,7 +324,7 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
 
                 {colonnes.map((colonne) => (
                   <label key={colonne.id} className="flex flex-col gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">
+                    <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">
                       {colonne.libelle}
                     </span>
                     <textarea
@@ -471,19 +471,19 @@ function CartoucheSecondaire({
   return (
     <div className="grid gap-3 rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card sm:grid-cols-3">
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">Department</span>
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">Department</span>
         <span className="rounded-lg border border-navy-100 bg-cream-50 px-2.5 py-1.5 text-sm text-navy-600">
           {programme.departement ?? '—'}
         </span>
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">Specialty</span>
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">Specialty</span>
         <input value={specialite} onChange={(e) => setSpecialite(e.target.value)} onBlur={enregistrer} className={CHAMP_CLASSES} />
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-navy-500">Module / Competency</span>
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-500">Module / Competency</span>
         <input
           value={moduleCompetence}
           onChange={(e) => setModuleCompetence(e.target.value)}

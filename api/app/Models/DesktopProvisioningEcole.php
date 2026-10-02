@@ -13,11 +13,11 @@ class DesktopProvisioningEcole extends Model
 {
     protected $table = 'desktop_provisioning_ecoles';
 
-    protected $fillable = ['desktop_provisioning_id', 'school_id', 'curseur_sync', 'dernier_pull_le'];
+    protected $fillable = ['desktop_provisioning_id', 'school_id', 'curseur_sync', 'progression_clonage', 'dernier_pull_le'];
 
     protected function casts(): array
     {
-        return ['dernier_pull_le' => 'datetime'];
+        return ['dernier_pull_le' => 'datetime', 'progression_clonage' => 'array'];
     }
 
     public function provisioning(): BelongsTo

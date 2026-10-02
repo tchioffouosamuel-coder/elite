@@ -31,6 +31,14 @@ class SyncController extends Controller
     private const LOT_MAX = 500;
 
     /**
+     * Plafond qu'un client peut réclamer par `?limite=` : le poste desktop
+     * (cf. `SyncPull`) clone des établissements entiers et gagne à faire
+     * moins d'allers-retours, chacun plus gros. Borné pour que la réponse
+     * tienne dans la mémoire d'une requête.
+     */
+    private const LOT_PLAFOND = 5000;
+
+    /**
      * Plafond d'opérations poussées en une fois. Volontairement bas : chaque
      * opération rejoue un contrôleur complet, et un lot trop gros dépasserait
      * le temps d'exécution PHP avant d'avoir tout traité.
@@ -73,6 +81,7 @@ class SyncController extends Controller
 
         $depuis = $this->curseurDemande($request);
         $entitesDemandees = $this->entitesDemandees($request);
+        $limite = $this->limiteDemandee($request);
 
         /*
          * Le curseur est arrêté AVANT de lire quoi que ce soit. L'inverse
@@ -100,7 +109,7 @@ class SyncController extends Controller
                 continue;
             }
 
-            [$lignes, $borne] = $this->lot($definition, $schoolId, $depuis);
+            [$lignes, $borne] = $this->lot($definition, $schoolId, $depuis, $limite);
 
             if ($borne !== null) {
                 $bornes[] = $borne;
@@ -326,7 +335,7 @@ class SyncController extends Controller
      * @param  array{modele: class-string, colonnes: list<string>, portee: callable, permission: ?string, relations?: list<string>}  $definition
      * @return array{0: Collection, 1: ?Carbon}
      */
-    private function lot(array $definition, int $schoolId, ?Carbon $depuis): array
+    private function lot(array $definition, int $schoolId, ?Carbon $depuis, int $limite): array
     {
         // `updated_at` est sélectionné même s'il n'est pas exposé : c'est lui
         // qui porte le curseur. Il est retiré de la charge utile plus loin,
@@ -374,13 +383,13 @@ class SyncController extends Controller
         };
 
         // Une ligne de plus que le lot : si elle arrive, c'est qu'il en reste.
-        $lignes = $construire()->limit(self::LOT_MAX + 1)->get();
+        $lignes = $construire()->limit($limite + 1)->get();
 
-        if ($lignes->count() <= self::LOT_MAX) {
+        if ($lignes->count() <= $limite) {
             return [$lignes, null];
         }
 
-        $lignes = $lignes->take(self::LOT_MAX);
+        $lignes = $lignes->take($limite);
         $borne = $lignes->last()->updated_at;
 
         /*
@@ -490,6 +499,18 @@ class SyncController extends Controller
             // dans un état dont il ne peut pas sortir seul.
             return null;
         }
+    }
+
+    /**
+     * Lignes par entité pour cet appel : {@see LOT_MAX} par défaut (le
+     * mobile n'envoie rien), ce que le client demande sinon, dans la limite
+     * de {@see LOT_PLAFOND}.
+     */
+    private function limiteDemandee(Request $request): int
+    {
+        $limite = (int) $request->query('limite', self::LOT_MAX);
+
+        return $limite >= 1 ? min($limite, self::LOT_PLAFOND) : self::LOT_MAX;
     }
 
     /**

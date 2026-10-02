@@ -148,7 +148,7 @@ function SectionMiseAJour() {
       <h3 className="text-xs font-bold uppercase tracking-wide text-navy-500">Mise à jour</h3>
 
       <p className={`text-xs ${statut?.etat === 'erreur' ? 'text-red-600' : 'text-navy-600'}`}>{libelle}</p>
-      {version && <p className="text-[10px] text-navy-400">Version installée : {version}</p>}
+      {version && <p className="text-[0.625rem] text-navy-400">Version installée : {version}</p>}
 
       <div className="mt-1 flex gap-2">
         <button

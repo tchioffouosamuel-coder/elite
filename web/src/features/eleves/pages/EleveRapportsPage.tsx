@@ -58,7 +58,7 @@ function TableEffectifs({
         </button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px] border-collapse text-sm">
+        <table className="w-full min-w-[30rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-navy-100 text-xs font-semibold uppercase tracking-wide text-navy-500">
               <th className="py-2 text-left"></th>
@@ -323,7 +323,7 @@ function OngletAges() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] border-collapse text-sm">
+            <table className="w-full min-w-[26.25rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-navy-100 text-xs font-semibold uppercase tracking-wide text-navy-500">
                   <th className="py-2 text-left">Âge exact (ans.mois)</th>

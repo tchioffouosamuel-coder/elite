@@ -83,15 +83,15 @@ function BudgetCard({ budget }: { budget: MonBudget }) {
 
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Alloué</p>
+          <p className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">Alloué</p>
           <p className="tabular-nums font-semibold text-navy-900">{francs(budget.montant_alloue)}</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Dépensé</p>
+          <p className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">Dépensé</p>
           <p className="tabular-nums font-semibold text-navy-900">{francs(budget.montant_depense)}</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-navy-400">Solde</p>
+          <p className="text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">Solde</p>
           <p className={budget.solde > 0 ? 'tabular-nums font-semibold text-green-600' : 'tabular-nums text-navy-300'}>
             {francs(budget.solde)}
           </p>

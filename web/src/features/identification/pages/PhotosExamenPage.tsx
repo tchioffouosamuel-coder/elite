@@ -28,7 +28,7 @@ function Vignette({ candidat }: { candidat: CandidatExamen }) {
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-navy-300">
             <ImageOff className="h-6 w-6" />
-            <span className="text-[10px] font-semibold uppercase">{t('identification.no_photo')}</span>
+            <span className="text-[0.625rem] font-semibold uppercase">{t('identification.no_photo')}</span>
           </div>
         )}
         {!candidat.photo_prete && <span className="absolute inset-0 ring-2 ring-inset ring-red-300" />}
@@ -36,7 +36,7 @@ function Vignette({ candidat }: { candidat: CandidatExamen }) {
       <span className="w-full truncate text-center text-xs font-semibold text-navy-800" title={candidat.nom_complet}>
         {candidat.nom_complet}
       </span>
-      <span className="font-mono text-[10px] text-navy-400">{candidat.matricule ?? '—'}</span>
+      <span className="font-mono text-[0.625rem] text-navy-400">{candidat.matricule ?? '—'}</span>
     </div>
   )
 }
@@ -108,7 +108,7 @@ export function PhotosExamenPage() {
         <>
           <Card className="overflow-hidden p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
+              <table className="w-full min-w-[47.5rem] border-collapse text-sm">
                 <thead className="bg-linear-to-b from-cream-100 to-cream-100/80 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
                   <tr>
                     <th className="px-5 py-3.5">{t('identification.class_name')}</th>

@@ -205,7 +205,7 @@ function TableauAgesClasse({ classeId }: { classeId: number }) {
         <p className="py-4 text-center text-sm text-navy-400">Aucun élève avec une date de naissance renseignée.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[320px] border-collapse text-sm">
+          <table className="w-full min-w-[20rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-navy-100 text-xs font-semibold uppercase tracking-wide text-navy-500">
                 <th className="py-2 text-left">Âge</th>
