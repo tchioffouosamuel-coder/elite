@@ -159,7 +159,7 @@ class AbsenceNonEnregistreeService extends BaseService
     {
         $this->notifications->notifierParPermission(
             $school->id,
-            'discipline.manage',
+            'absences.saisir',
             'absence_non_enregistree',
             'Absence prolongée sans pointage',
             "{$eleve->nom_complet} ({$classe->nom}) n'a fait l'objet d'aucun pointage depuis ".self::SEUIL_JOURS

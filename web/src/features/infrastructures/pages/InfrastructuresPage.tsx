@@ -134,30 +134,34 @@ export function InfrastructuresPage() {
       cellule: (i) => (i.besoin_quantite ? <span className="tabular-nums text-gold-600">{i.besoin_quantite}</span> : '—'),
       masquerMobile: true,
     },
-    ...(can('infrastructures.manage')
+    ...(can('infrastructures.update|infrastructures.delete')
       ? [
           {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (i: Infrastructure) => (
               <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setInfraEnEdition(i)
-                    setShowInfraForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={() => supprimerUneInfra(i)}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {can('infrastructures.update') && (
+                  <button
+                    title={t('common.edit')}
+                    onClick={() => {
+                      setInfraEnEdition(i)
+                      setShowInfraForm(true)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {can('infrastructures.delete') && (
+                  <button
+                    title={t('common.delete')}
+                    onClick={() => supprimerUneInfra(i)}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ),
           } satisfies Colonne<Infrastructure>,
@@ -217,30 +221,34 @@ export function InfrastructuresPage() {
       valeur: (e) => e.statut,
       cellule: (e) => (e.statut ? <Badge tone={TONE_ETAT[e.statut]}>{t(`infrastructures.etat_${e.statut}`)}</Badge> : '—'),
     },
-    ...(can('infrastructures.manage')
+    ...(can('equipements.update|equipements.delete')
       ? [
           {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (e: EquipementMobilier) => (
               <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setEquipementEnEdition(e)
-                    setShowEquipementForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={() => supprimerUnEquipement(e)}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {can('equipements.update') && (
+                  <button
+                    title={t('common.edit')}
+                    onClick={() => {
+                      setEquipementEnEdition(e)
+                      setShowEquipementForm(true)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {can('equipements.delete') && (
+                  <button
+                    title={t('common.delete')}
+                    onClick={() => supprimerUnEquipement(e)}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ),
           } satisfies Colonne<EquipementMobilier>,
@@ -262,26 +270,29 @@ export function InfrastructuresPage() {
             <Building2 className="h-4 w-4" />
             {t('infrastructures.section_infra')}
           </h2>
-          {can('infrastructures.manage') && (
+          {can('infrastructures.create|infrastructures.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('infrastructures.section_infra')}
                 importUrl="/infrastructures/import"
+                peutImporter={can('infrastructures.import')}
                 exportUrl="/infrastructures/export"
                 modeleUrl="/infrastructures/modele"
                 colonnes={['Type', 'Libellé', 'Matériau', 'État', 'Quantité', 'Besoin (quantité)', 'Observations']}
                 nomFichier="infrastructures"
                 onImported={invalidateInfra}
               />
-              <Button
-                onClick={() => {
-                  setInfraEnEdition(null)
-                  setShowInfraForm(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('infrastructures.add')}
-              </Button>
+              {can('infrastructures.create') && (
+                <Button
+                  onClick={() => {
+                    setInfraEnEdition(null)
+                    setShowInfraForm(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('infrastructures.add')}
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -304,11 +315,12 @@ export function InfrastructuresPage() {
             <Sofa className="h-4 w-4" />
             {t('infrastructures.section_equipements')}
           </h2>
-          {can('infrastructures.manage') && (
+          {can('equipements.create|equipements.import') && (
             <div className="flex items-center gap-2">
             <ImportExportBar
               titreImport={t('infrastructures.section_equipements')}
               importUrl="/infrastructures/equipements/import"
+              peutImporter={can('equipements.import')}
               exportUrl="/infrastructures/equipements/export"
               modeleUrl="/infrastructures/equipements/modele"
               colonnes={[
@@ -324,15 +336,17 @@ export function InfrastructuresPage() {
               nomFichier="equipements"
               onImported={invalidateEquipements}
             />
-            <Button
-              onClick={() => {
-                setEquipementEnEdition(null)
-                setShowEquipementForm(true)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              {t('infrastructures.add')}
-            </Button>
+            {can('equipements.create') && (
+              <Button
+                onClick={() => {
+                  setEquipementEnEdition(null)
+                  setShowEquipementForm(true)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {t('infrastructures.add')}
+              </Button>
+            )}
             </div>
           )}
         </div>

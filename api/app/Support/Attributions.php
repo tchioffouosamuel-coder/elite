@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  * - le chef de département pilote les matières de son département.
  *
  * Un privilège conféré ici ne vaut **que** sur le périmètre de l'attribution
- * (cf. {@see Perimetre::peutSurClasse()}) : porter `discipline.manage` parce
+ * (cf. {@see Perimetre::peutSurClasse()}) : porter `sanctions.create` parce
  * qu'on surveille six classes n'ouvre pas la discipline de l'établissement.
  */
 class Attributions
@@ -45,6 +45,26 @@ class Attributions
     public const ANIMATEUR_NIVEAU = 'animateur_niveau';
 
     /**
+     * Conduite pédagogique d'un périmètre : matières et affectations,
+     * compétences, progression et évaluations. Partagée par les quatre
+     * attributions qui la confèrent, chacune sur son étendue propre.
+     */
+    private const CONDUITE_PEDAGOGIQUE = [
+        'matieres.*',
+        'affectations.*',
+        'tronc_commun.*',
+        'calendrier_scolaire.*',
+        'competences.*',
+        'appreciations.*',
+        'niveaux_scolaires.*',
+        'progression.*',
+        'evaluations.*',
+    ];
+
+    /** @var array<string, list<string>> privilèges développés, par attribution */
+    private static array $permissions = [];
+
+    /**
      * code => [
      *   colonne     : colonne porteuse (sur `classes`, ou `departements` pour
      *                 le chef de département),
@@ -52,7 +72,9 @@ class Attributions
      *   libelles    : [fr, en],
      *   roles       : rôles (cf. FonctionRoles) dont la fonction rend un agent
      *                 éligible à l'attribution,
-     *   permissions : privilèges conférés sur le périmètre attribué,
+     *   permissions : privilèges conférés sur le périmètre attribué — un
+     *                 motif `entité.*` vaut pour toutes les actions de
+     *                 l'entité (cf. CataloguePermissions::developper()),
      * ]
      */
     private const CATALOGUE = [
@@ -72,7 +94,7 @@ class Attributions
                 'classes.view',
                 'eleves.view',
                 'pedagogie.view',
-                'pedagogie.manage',
+                ...self::CONDUITE_PEDAGOGIQUE,
                 'notes.view',
                 'discipline.view',
                 'bulletins.view',
@@ -97,8 +119,9 @@ class Attributions
                 'classes.view',
                 'eleves.view',
                 'discipline.view',
-                'discipline.manage',
-                'appel.manage',
+                'absences.*',
+                'sanctions.*',
+                'appel.saisir',
                 'bulletins.view',
                 'emploi_du_temps.view',
                 'revendications.view',
@@ -120,16 +143,17 @@ class Attributions
                 'classes.view',
                 'eleves.view',
                 'pedagogie.view',
-                'pedagogie.manage',
+                ...self::CONDUITE_PEDAGOGIQUE,
                 'notes.view',
                 'notes.create',
                 'bulletins.view',
                 'bulletins.publish',
-                'emploi_du_temps.view',
-                'emploi_du_temps.manage',
+                'emploi_du_temps.*',
+                'edt_elements.*',
+                'seances.*',
+                'salles.*',
                 'discipline.view',
-                'revendications.view',
-                'revendications.manage',
+                'revendications.*',
                 'annonces.view',
                 'dashboard.view',
             ],
@@ -167,7 +191,7 @@ class Attributions
                 'personnel.view',
                 'classes.view',
                 'pedagogie.view',
-                'pedagogie.manage',
+                ...self::CONDUITE_PEDAGOGIQUE,
                 'notes.view',
                 'bulletins.view',
                 'annonces.view',
@@ -189,7 +213,7 @@ class Attributions
                 'personnel.view',
                 'classes.view',
                 'pedagogie.view',
-                'pedagogie.manage',
+                ...self::CONDUITE_PEDAGOGIQUE,
                 'notes.view',
                 'bulletins.view',
                 'annonces.view',
@@ -233,7 +257,7 @@ class Attributions
      */
     public static function permissions(string $code): array
     {
-        return self::CATALOGUE[$code]['permissions'] ?? [];
+        return self::$permissions[$code] ??= CataloguePermissions::developper(self::CATALOGUE[$code]['permissions'] ?? []);
     }
 
     public static function libelle(string $code, ?string $locale = null): string
@@ -300,7 +324,7 @@ class Attributions
             'code' => $code,
             'libelle' => self::libelle($code, $locale),
             'portee' => $attribution['portee'],
-            'permissions' => $attribution['permissions'],
+            'permissions' => self::permissions($code),
         ])->values();
     }
 }

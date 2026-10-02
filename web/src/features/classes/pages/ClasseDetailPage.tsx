@@ -79,12 +79,12 @@ export function ClasseDetailPage() {
     {
       titre: t('hub.groupe.dossier'),
       items: [
-        can('classes.manage') && {
+        can('classes.update') && {
           label: t('classes.edit'),
           icon: Pencil,
           onClick: () => setEditionOuverte(true),
         },
-        can('eleves.manage') && {
+        can('eleves.create') && {
           label: t('hub.classe.inscrire_eleve'),
           icon: UserPlus,
           onClick: () => navigate('/eleves/nouveau'),
@@ -124,7 +124,7 @@ export function ClasseDetailPage() {
           icon: Gavel,
           onClick: () => navigate(`/conseil-classe/${classe.id}`),
         },
-        can('emploi_du_temps.manage') &&
+        can('emploi_du_temps.update') &&
           !!classe.qr_token && {
             label: t('classes.qr_button'),
             icon: QrCode,
@@ -166,7 +166,7 @@ export function ClasseDetailPage() {
     {
       titre: t('hub.groupe.danger'),
       items: [
-        can('classes.manage') && {
+        can('classes.delete') && {
           label: t('common.delete'),
           icon: Trash2,
           onClick: supprimer,
@@ -192,7 +192,7 @@ export function ClasseDetailPage() {
             .join(' · ') || undefined
         }
         actions={
-          can('classes.manage') ? (
+          can('classes.update') ? (
             <Button variant="secondary" onClick={() => setEditionOuverte(true)}>
               <Pencil className="h-4 w-4" />
               {t('common.edit')}

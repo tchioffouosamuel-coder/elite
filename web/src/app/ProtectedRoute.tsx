@@ -150,7 +150,7 @@ export function ProtectedRoute({
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user)} replace />
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user)} replace />
   if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user)} replace />
-  if (enseignantPrimaireOnly && !user?.is_super_admin && !can('pedagogie.manage') && (!user?.est_enseignant || !['primaire', 'maternelle'].includes(activeSchool()?.type ?? ''))) {
+  if (enseignantPrimaireOnly && !user?.is_super_admin && !can('progression.update') && (!user?.est_enseignant || !['primaire', 'maternelle'].includes(activeSchool()?.type ?? ''))) {
     return <Navigate to={redirectionParDefaut(user)} replace />
   }
   if (personnelOnly && !user?.est_personnel) return <Navigate to={redirectionParDefaut(user)} replace />

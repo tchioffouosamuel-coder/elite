@@ -48,7 +48,7 @@ const LIBELLE_CATEGORIE: Record<string, string> = {
  * Libre-service : signaler tout matériel que l'établissement a remis pour le
  * travail (médical, informatique, pédagogique...) pour qu'il rejoigne
  * l'inventaire — sans écrire directement dedans, un titulaire de
- * `inventaire.manage` valide d'abord chaque demande.
+ * `demandes_articles.valider` valide d'abord chaque demande.
  */
 export function MesArticlesInventairePage() {
   const queryClient = useQueryClient()

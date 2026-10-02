@@ -26,7 +26,7 @@ use Illuminate\Support\Collection;
  * 2. **Les privilèges d'attribution** — ceux que confère chaque attribution,
  *    valables sur ses seules classes ({@see peutSurClasse()}).
  *
- * Un compte qui administre l'établissement (`ecoles.manage`) ou une fonction
+ * Un compte qui administre l'établissement (`ecoles.update`) ou une fonction
  * transverse (économe, infirmier, secrétaire) n'est pas borné : son travail
  * porte sur l'école entière, pas sur une liste de classes.
  */
@@ -219,13 +219,13 @@ class Perimetre
      * Le compte ne voit-il que ce qui lui est confié ?
      *
      * Non pour un super administrateur et pour qui administre l'établissement
-     * (`ecoles.manage` : principal, directeur) ; non plus pour les fonctions
+     * (`ecoles.update` : principal, directeur) ; non plus pour les fonctions
      * transverses. Oui pour les quatre métiers dont l'étendue est nominative :
      * enseignant, censeur, surveillant général, conseiller d'orientation.
      */
     public function estBorne(): bool
     {
-        if ($this->user->estSuperAdmin() || $this->user->permissionsDeBase()->contains('ecoles.manage')) {
+        if ($this->user->estSuperAdmin() || $this->user->permissionsDeBase()->contains('ecoles.update')) {
             return false;
         }
 
@@ -344,7 +344,7 @@ class Perimetre
      * Privilèges conférés par les attributions, toutes classes confondues.
      * Ils entrent dans les privilèges effectifs du compte — c'est ce qui fait
      * qu'un enseignant nommé surveillant général franchit le middleware de
-     * `discipline.manage` — mais restent bornés à leurs classes par
+     * `absences.saisir` — mais restent bornés à leurs classes par
      * {@see peutSurClasse()}.
      *
      * @return Collection<int, string>

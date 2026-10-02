@@ -303,7 +303,7 @@ export function ElevesSansClassePage() {
                 icon={UserRound}
                 actions={
                     <>
-                        {can('eleves.manage') && selectedIds.size > 0 && (
+                        {can('eleves.delete') && selectedIds.size > 0 && (
                             <Button
                                 type="button"
                                 variant="danger"
@@ -322,13 +322,13 @@ export function ElevesSansClassePage() {
                             <FileSpreadsheet className="h-4 w-4" />
                             Exporter la liste
                         </Button>
-                        {can('eleves.manage') && (
+                        {can('eleves.import') && (
                             <Button type="button" variant="secondary" onClick={() => setShowImport(true)}>
                                 <Upload className="h-4 w-4" />
                                 Importer les classes
                             </Button>
                         )}
-                        {can('eleves.manage') && (
+                        {can('eleves.fusionner') && (
                             <Button type="button" variant="secondary" onClick={() => setShowNettoyage(true)}>
                                 <Sparkles className="h-4 w-4" />
                                 Nettoyer les doublons

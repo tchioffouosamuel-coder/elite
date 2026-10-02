@@ -40,7 +40,7 @@ class JustificationAbsenceService extends BaseService
 
         $this->notifications->notifierParPermission(
             $eleve->school_id,
-            'eleves.manage',
+            'justifications.view',
             'justification_absence',
             "Justification d'absence déposée",
             "{$tuteur->nom_complet} justifie une absence de {$eleve->nom_complet}.",

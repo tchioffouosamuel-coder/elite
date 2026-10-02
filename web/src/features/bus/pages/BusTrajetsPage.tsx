@@ -95,39 +95,43 @@ export function BusTrajetsPage() {
         ),
       masquerMobile: true,
     },
-    ...(can('bus.manage')
+    ...(can('bus_trajets.update|bus_trajets.delete')
       ? [
           {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (r: BusTrajet) => (
               <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setTrajetEnEdition(r)
-                    setShowForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={async () => {
-                    if (!(await confirmerSuppression(r.nom))) return
-                    try {
-                      await supprimerTrajet(r.id)
-                      invalidate()
-                      succes(t('bus.trajet_deleted'))
-                    } catch (err) {
-                      erreur((err as ApiError).message)
-                    }
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {can('bus_trajets.update') && (
+                  <button
+                    title={t('common.edit')}
+                    onClick={() => {
+                      setTrajetEnEdition(r)
+                      setShowForm(true)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {can('bus_trajets.delete') && (
+                  <button
+                    title={t('common.delete')}
+                    onClick={async () => {
+                      if (!(await confirmerSuppression(r.nom))) return
+                      try {
+                        await supprimerTrajet(r.id)
+                        invalidate()
+                        succes(t('bus.trajet_deleted'))
+                      } catch (err) {
+                        erreur((err as ApiError).message)
+                      }
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ),
           } satisfies Colonne<BusTrajet>,
@@ -142,21 +146,25 @@ export function BusTrajetsPage() {
         sousTitre={t('bus.trajets_subtitle')}
         icon={RouteIcon}
         actions={
-          can('bus.manage') && (
+          can('bus_trajets.create|bus_trajets.import') && (
             <>
-              <Button variant="secondary" onClick={() => setShowImport(true)}>
-                <Upload className="h-4 w-4" />
-                {t('import.title')}
-              </Button>
-              <Button
-                onClick={() => {
-                  setTrajetEnEdition(null)
-                  setShowForm(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('bus.trajet_add')}
-              </Button>
+              {can('bus_trajets.import') && (
+                <Button variant="secondary" onClick={() => setShowImport(true)}>
+                  <Upload className="h-4 w-4" />
+                  {t('import.title')}
+                </Button>
+              )}
+              {can('bus_trajets.create') && (
+                <Button
+                  onClick={() => {
+                    setTrajetEnEdition(null)
+                    setShowForm(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('bus.trajet_add')}
+                </Button>
+              )}
             </>
           )
         }

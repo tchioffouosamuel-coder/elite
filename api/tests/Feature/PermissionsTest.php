@@ -61,39 +61,39 @@ class PermissionsTest extends TestCase
 
     public function test_un_agent_herite_des_privileges_de_sa_fonction(): void
     {
-        $user = $this->agent(['eleves.view', 'appel.manage']);
+        $user = $this->agent(['eleves.view', 'appel.saisir']);
 
         $this->assertTrue($user->aLaPermission('eleves.view'));
-        $this->assertTrue($user->aLaPermission('appel.manage'));
-        $this->assertFalse($user->aLaPermission('eleves.manage'));
+        $this->assertTrue($user->aLaPermission('appel.saisir'));
+        $this->assertFalse($user->aLaPermission('eleves.create'));
 
         // Le Gate doit rendre le même verdict que aLaPermission(), sinon
         // `can()` dans le code et le middleware divergeraient.
-        $this->assertTrue($user->can('appel.manage'));
-        $this->assertFalse($user->can('eleves.manage'));
+        $this->assertTrue($user->can('appel.saisir'));
+        $this->assertFalse($user->can('eleves.create'));
     }
 
     public function test_les_privileges_du_role_et_de_la_fonction_se_cumulent(): void
     {
         $user = $this->agent(['eleves.view']);
         $role = Role::create(['name' => 'econome', 'guard_name' => 'web']);
-        $role->syncPermissions(['finance.manage']);
+        $role->syncPermissions(['tarifs.update']);
         $user->assignRole($role);
 
         $effectives = $user->fresh()->permissionsEffectives();
 
         $this->assertContains('eleves.view', $effectives);
-        $this->assertContains('finance.manage', $effectives);
+        $this->assertContains('tarifs.update', $effectives);
     }
 
     public function test_retirer_un_privilege_de_la_fonction_le_retire_a_l_agent(): void
     {
-        $user = $this->agent(['eleves.view', 'eleves.manage']);
-        $this->assertTrue($user->aLaPermission('eleves.manage'));
+        $user = $this->agent(['eleves.view', 'eleves.create']);
+        $this->assertTrue($user->aLaPermission('eleves.create'));
 
         $user->fonction()->synchroniserPermissions(['eleves.view']);
 
-        $this->assertFalse($user->fresh()->aLaPermission('eleves.manage'));
+        $this->assertFalse($user->fresh()->aLaPermission('eleves.create'));
     }
 
     public function test_le_super_admin_a_tous_les_privileges(): void
@@ -104,7 +104,7 @@ class PermissionsTest extends TestCase
         ]);
         $user->assignRole('super_admin');
 
-        $this->assertTrue($user->aLaPermission('eleves.manage'));
+        $this->assertTrue($user->aLaPermission('eleves.create'));
         $this->assertCount(count(CataloguePermissions::codes()), $user->permissionsEffectives());
     }
 
@@ -117,10 +117,10 @@ class PermissionsTest extends TestCase
 
         $reponse->assertStatus(403)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('errors.permissions_requises', ['eleves.manage']);
+            ->assertJsonPath('errors.permissions_requises', ['eleves.create']);
 
         $this->assertStringContainsString(
-            CataloguePermissions::libelle('eleves.manage'),
+            CataloguePermissions::libelle('eleves.create'),
             $reponse->json('message'),
         );
     }
@@ -163,11 +163,11 @@ class PermissionsTest extends TestCase
         $this->actingAs($root, 'sanctum')
             ->putJson("/api/v1/fonctions-referentiel/{$fonction->id}/permissions", [
                 // « privilege.inconnu » ne protège aucune route : il doit être écarté.
-                'permissions' => ['eleves.view', 'eleves.manage', 'privilege.inconnu'],
+                'permissions' => ['eleves.view', 'eleves.create', 'privilege.inconnu'],
             ])
             ->assertOk()
-            ->assertJsonPath('data.permissions', ['eleves.view', 'eleves.manage']);
+            ->assertJsonPath('data.permissions', ['eleves.view', 'eleves.create']);
 
-        $this->assertTrue($agent->fresh()->aLaPermission('eleves.manage'));
+        $this->assertTrue($agent->fresh()->aLaPermission('eleves.create'));
     }
 }

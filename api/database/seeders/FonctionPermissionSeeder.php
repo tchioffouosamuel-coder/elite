@@ -39,7 +39,7 @@ class FonctionPermissionSeeder extends Seeder
                 }
 
                 $role = FonctionRoles::role($fonction->label_fr);
-                $codes = $role ? (RolePermissionSeeder::ROLE_PERMISSIONS[$role] ?? []) : [];
+                $codes = $role ? RolePermissionSeeder::permissionsDuRole($role) : [];
 
                 $fonction->permissions()->sync($idsParCode->only($codes)->values());
             });

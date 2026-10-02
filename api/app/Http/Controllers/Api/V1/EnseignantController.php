@@ -252,7 +252,7 @@ class EnseignantController extends Controller
     /**
      * Ajout d'une évaluation sur une de mes affectations — seul geste de
      * gestion ouvert à l'enseignant sur la fiche de progression, qui reste
-     * sinon en lecture seule pour lui (`pedagogie.manage` ne lui est pas
+     * sinon en lecture seule pour lui (`evaluations.create` ne lui est pas
      * accordé). Le périmètre est vérifié ici même, à défaut du middleware
      * `permission`, qui ne peut pas border une route sans `{classeId}`.
      */

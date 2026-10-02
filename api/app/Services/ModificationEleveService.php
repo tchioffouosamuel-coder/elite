@@ -80,7 +80,7 @@ class ModificationEleveService extends BaseService
 
         $this->notifications->notifierParPermission(
             $eleve->school_id,
-            'eleves.manage',
+            'modifications_eleves.valider',
             'modification_eleve',
             'Modification de fiche proposée',
             "{$tuteur->nom_complet} propose une modification de la fiche de {$eleve->nom_complet}.",

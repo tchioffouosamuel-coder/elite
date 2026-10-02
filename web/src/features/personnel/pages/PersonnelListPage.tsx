@@ -235,7 +235,7 @@ export function PersonnelListPage() {
   })
 
   const colonnes: Colonne<Personnel>[] = [
-    ...(can('personnel.manage')
+    ...(can('personnel.update|personnel.archiver|personnel.delete')
       ? [
         {
           cle: 'selection',
@@ -315,7 +315,7 @@ export function PersonnelListPage() {
           >
             <Eye className="h-4 w-4" />
           </button>
-          {can('personnel.manage') && (
+          {can('personnel.update') && (
             <button
               title={t('common.edit')}
               onClick={(event) => {
@@ -327,7 +327,7 @@ export function PersonnelListPage() {
               <Pencil className="h-4 w-4" />
             </button>
           )}
-          {can('personnel.manage') && !p.a_un_compte && (
+          {can('personnel.comptes') && !p.a_un_compte && (
             <button
               title={t('personnel.create_account')}
               onClick={(event) => {
@@ -339,7 +339,7 @@ export function PersonnelListPage() {
               <KeyRound className="h-4 w-4" />
             </button>
           )}
-          {can('personnel.manage') &&
+          {can('personnel.archiver') &&
             (p.statut === 'actif' ? (
               <button
                 title={t('common.archive')}
@@ -374,7 +374,7 @@ export function PersonnelListPage() {
                 <RotateCcw className="h-4 w-4" />
               </button>
             ))}
-          {can('personnel.manage') && (
+          {can('personnel.delete') && (
             <button
               title={t('common.delete')}
               onClick={async (event) => {
@@ -438,7 +438,7 @@ export function PersonnelListPage() {
                       icon: FileDown,
                       onClick: () => telechargerFichier('/personnels/modele', undefined, 'modele-personnel.xlsx'),
                     },
-                    can('personnel.manage') && {
+                    can('personnel.comptes') && {
                       label: user?.is_super_admin && (user.ecoles_accessibles?.length ?? 0) >= 2
                         ? `${t('personnel.identifiants')} (${user.ecoles_accessibles.length} PDF)`
                         : t('personnel.identifiants'),
@@ -450,7 +450,7 @@ export function PersonnelListPage() {
                 {
                   titre: 'Import',
                   items: [
-                    can('personnel.manage') && {
+                    can('personnel.import') && {
                       label: t('personnel.import'),
                       icon: Upload,
                       onClick: () => setShowImport(true),
@@ -460,14 +460,14 @@ export function PersonnelListPage() {
                 {
                   titre: 'Maintenance',
                   items: [
-                    can('personnel.manage') && {
+                    can('personnel.update') && {
                       label: 'Rattraper les téléphones manquants',
                       aide: "Renseigne le numéro de téléphone sur les comptes qui n'en ont pas encore",
                       icon: Phone,
                       disabled: rattrapageEnCours,
                       onClick: rattraperTelephones,
                     },
-                    can('personnel.manage') && {
+                    can('personnel.comptes') && {
                       label: 'Fusionner comptes parent',
                       aide: 'Fusionne les comptes personnel/parent en doublon',
                       icon: Merge,
@@ -479,7 +479,7 @@ export function PersonnelListPage() {
               ]}
             />
 
-            {can('personnel.manage') && (
+            {can('personnel.create') && (
               <Button onClick={() => navigate('/personnel/nouveau')}>
                 <Plus className="h-4 w-4" />
                 {t('personnel.add')}
@@ -489,7 +489,7 @@ export function PersonnelListPage() {
         }
       />
 
-      {selectedIds.size > 0 && can('personnel.manage') && (
+      {selectedIds.size > 0 && can('personnel.update|personnel.archiver|personnel.delete') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{selectedIds.size} membre(s) du personnel sélectionné(s)</p>
@@ -497,18 +497,24 @@ export function PersonnelListPage() {
               {/* La fonction porte les privilèges : après un import, des dizaines
                   d'agents arrivent sans, et les doter un par un est la corvée
                   que ce bouton supprime. */}
-              <Button variant="secondary" onClick={() => setFonctionEnMasse(true)}>
-                <BriefcaseBusiness className="h-4 w-4" />
-                Modifier la fonction
-              </Button>
-              <Button variant="secondary" onClick={handleBatchArchive}>
-                <Archive className="h-4 w-4" />
-                Archiver
-              </Button>
-              <Button variant="danger" onClick={handleBatchDelete}>
-                <Trash2 className="h-4 w-4" />
-                Supprimer
-              </Button>
+              {can('personnel.update') && (
+                <Button variant="secondary" onClick={() => setFonctionEnMasse(true)}>
+                  <BriefcaseBusiness className="h-4 w-4" />
+                  Modifier la fonction
+                </Button>
+              )}
+              {can('personnel.archiver') && (
+                <Button variant="secondary" onClick={handleBatchArchive}>
+                  <Archive className="h-4 w-4" />
+                  Archiver
+                </Button>
+              )}
+              {can('personnel.delete') && (
+                <Button variant="danger" onClick={handleBatchDelete}>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer
+                </Button>
+              )}
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 whitespace-nowrap"

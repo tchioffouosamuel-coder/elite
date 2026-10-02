@@ -53,7 +53,7 @@ class DemarchesParentAdminTest extends TestCase
             'name' => 'Admin', 'email' => 'admin@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
-        $this->admin->givePermissionTo('eleves.manage');
+        $this->admin->givePermissionTo(['justifications.view', 'observations.view', 'observations.repondre']);
     }
 
     private function parentUser(): User
@@ -76,7 +76,7 @@ class DemarchesParentAdminTest extends TestCase
             'name' => 'Second Admin', 'email' => 'second@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
-        $autreAdmin->givePermissionTo('eleves.manage');
+        $autreAdmin->givePermissionTo(['justifications.view', 'observations.view', 'observations.repondre']);
 
         $sansPermission = User::create([
             'name' => 'Sans Permission', 'email' => 'sanspermission@test.local', 'password' => 'password',

@@ -43,7 +43,7 @@ class ClasseMatiereController extends Controller
     public function update(UpdateClasseMatiereRequest $request, int $id): JsonResponse
     {
         $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->with('matiere')->findOrFail($id);
-        $this->autoriserGestionAffectation($request, $affectation);
+        $this->autoriserGestionAffectation($request, $affectation, 'affectations.update');
         $affectation->update($request->validated());
 
         return ApiResponse::success(new ClasseMatiereResource($affectation->load(['matiere', 'enseignant'])), 'Affectation mise à jour.');
@@ -52,36 +52,36 @@ class ClasseMatiereController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $affectation = ClasseMatiere::forSchool(Tenant::schoolIds())->with('matiere')->findOrFail($id);
-        $this->autoriserGestionAffectation($request, $affectation);
+        $this->autoriserGestionAffectation($request, $affectation, 'affectations.delete');
         $affectation->delete();
 
         return ApiResponse::success(message: 'Matière retirée de la classe.');
     }
 
     /**
-     * Le middleware `permission:pedagogie.manage` ne borne pas cette route :
+     * Le middleware `permission` ne borne pas cette route :
      * elle nomme une affectation (`{id}`), pas une classe ou un département
      * qu'il saurait reconnaître (cf. VerifierPermission::classeConcernee()).
      * Un chef de département ou un professeur principal ne tiennent
-     * `pedagogie.manage` que via leur attribution — le vérifier ici évite que
+     * `affectations.update`/`.delete` que via leur attribution — le vérifier ici évite que
      * l'un modifie les affectations d'un département qui n'est pas le sien,
      * ou l'autre celles d'une classe dont il n'a pas la charge. Qui détient
      * déjà le privilège de base (admin, censeur) n'est pas concerné : sa
      * portée reste l'école.
      */
-    private function autoriserGestionAffectation(Request $request, ClasseMatiere $affectation): void
+    private function autoriserGestionAffectation(Request $request, ClasseMatiere $affectation, string $privilege): void
     {
         $user = $request->user();
 
-        if ($user->permissionsDeBase()->contains('pedagogie.manage')) {
+        if ($user->permissionsDeBase()->contains($privilege)) {
             return;
         }
 
         $perimetre = $user->perimetre();
 
         abort_unless(
-            $perimetre->peutSurDepartement('pedagogie.manage', $affectation->matiere->departement_id ?? -1)
-                || $perimetre->peutSurClasse('pedagogie.manage', $affectation->classe_id),
+            $perimetre->peutSurDepartement($privilege, $affectation->matiere->departement_id ?? -1)
+                || $perimetre->peutSurClasse($privilege, $affectation->classe_id),
             403,
             "Cette matière n'entre pas dans votre périmètre de gestion.",
         );

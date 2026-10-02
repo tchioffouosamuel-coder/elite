@@ -179,7 +179,7 @@ export function CaissePage() {
           <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
             {d.remise > 0 ? francs(d.remise) : '—'}
           </span>
-          {d.remise > 0 && can('finance.manage') && (
+          {d.remise > 0 && can('remises.update|remises.delete') && (
             <button
               type="button"
               title="Modifier ou supprimer la remise"

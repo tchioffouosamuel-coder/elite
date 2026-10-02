@@ -474,7 +474,7 @@ class EmploiDuTempsService extends BaseService
 
         $this->notifications->notifierParPermission(
             $classe->school_id,
-            'discipline.manage',
+            'absences.saisir',
             'absence',
             'Absence non justifiée',
             $eleves->count() === 1

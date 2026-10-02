@@ -88,22 +88,26 @@ export function SousSystemesListPage() {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (s) =>
-                can('classes.manage') ? (
+                can('sous_systemes.update|sous_systemes.delete') ? (
                     <div className="flex items-center gap-1">
-                        <button
-                            title={t('common.edit')}
-                            onClick={() => setEditingSousSysteme(s)}
-                            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                            title={t('common.delete')}
-                            onClick={() => handleDelete(s)}
-                            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </button>
+                        {can('sous_systemes.update') && (
+                            <button
+                                title={t('common.edit')}
+                                onClick={() => setEditingSousSysteme(s)}
+                                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </button>
+                        )}
+                        {can('sous_systemes.delete') && (
+                            <button
+                                title={t('common.delete')}
+                                onClick={() => handleDelete(s)}
+                                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
                 ) : null,
         },
@@ -115,21 +119,24 @@ export function SousSystemesListPage() {
                 titre={t('sousSystemes.title')}
                 icon={Layers}
                 actions={
-                    can('classes.manage') && (
+                    can('sous_systemes.create|sous_systemes.import') && (
                         <div className="flex items-center gap-2">
                             <ImportExportBar
                                 titreImport={t('sousSystemes.title')}
                                 importUrl="/sous-systemes/import"
+                                peutImporter={can('sous_systemes.import')}
                                 exportUrl="/sous-systemes/export"
                                 modeleUrl="/sous-systemes/modele"
                                 colonnes={['Code', 'Nom', 'Description']}
                                 nomFichier="sous-systemes"
                                 onImported={() => queryClient.invalidateQueries({ queryKey: ['sous-systemes'] })}
                             />
-                            <Button onClick={() => setShowForm(true)}>
-                                <Plus className="h-4 w-4" />
-                                {t('sousSystemes.create')}
-                            </Button>
+                            {can('sous_systemes.create') && (
+                                <Button onClick={() => setShowForm(true)}>
+                                    <Plus className="h-4 w-4" />
+                                    {t('sousSystemes.create')}
+                                </Button>
+                            )}
                         </div>
                     )
                 }

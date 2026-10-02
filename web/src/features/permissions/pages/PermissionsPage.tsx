@@ -18,8 +18,8 @@ import type { ApiError } from '@/shared/types/api'
  * Écran d'administration des privilèges, réservé au super administrateur.
  *
  * On édite une fonction à la fois plutôt qu'une grande grille fonctions ×
- * privilèges : la grille tiendrait mal sur un écran (12 fonctions × 25
- * privilèges) et surtout elle ne dirait pas combien d'agents chaque
+ * privilèges : la grille tiendrait mal sur un écran (12 fonctions × plus de
+ * 200 privilèges, un par action) et surtout elle ne dirait pas combien d'agents chaque
  * modification touche, alors que c'est la seule information qui compte avant
  * d'enregistrer.
  */

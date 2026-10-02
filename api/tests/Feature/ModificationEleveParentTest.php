@@ -31,7 +31,7 @@ class ModificationEleveParentTest extends TestCase
 
         Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'eleves.view', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'eleves.manage', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'modifications_eleves.valider', 'guard_name' => 'web']);
 
         $this->school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $this->eleve = Eleve::create([
@@ -76,7 +76,7 @@ class ModificationEleveParentTest extends TestCase
             'name' => 'Censeur', 'email' => 'censeur@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
-        $destinataire->givePermissionTo('eleves.manage');
+        $destinataire->givePermissionTo('modifications_eleves.valider');
 
         $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Nouvelle adresse']);
 

@@ -102,7 +102,7 @@ class PreinscriptionService extends BaseService
 
         $this->notifications->notifierParPermission(
             $schoolId,
-            'eleves.manage',
+            'preinscriptions.valider',
             'preinscription',
             'Nouvelle préinscription déposée',
             $type === 'nouveau'

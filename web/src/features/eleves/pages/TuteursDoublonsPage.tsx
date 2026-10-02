@@ -69,7 +69,7 @@ export function TuteursDoublonsPage() {
     }
   }
 
-  if (!can('eleves.manage')) {
+  if (!can('tuteurs.fusionner')) {
     return <ErrorState />
   }
 

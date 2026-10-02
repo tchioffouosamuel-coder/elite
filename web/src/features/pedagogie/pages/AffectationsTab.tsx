@@ -94,7 +94,7 @@ export function AffectationsTab({
   const { data: personnels } = useQuery({
     queryKey: ['personnels', 'all'],
     queryFn: () => fetchPersonnels({ per_page: 100 }),
-    enabled: can('pedagogie.manage'),
+    enabled: can('affectations.create|affectations.update'),
   })
 
   // Au primaire et en maternelle, le titulaire tient seul la classe : on
@@ -238,7 +238,7 @@ export function AffectationsTab({
   const colonnes: Colonne<ClasseMatiere>[] =
     affectations
       ? [
-        ...(can('pedagogie.manage')
+        ...(can('affectations.create|affectations.update|affectations.delete')
           ? [
             {
               cle: 'selection',
@@ -292,31 +292,35 @@ export function AffectationsTab({
           valeur: (a) => a.quota_horaire ?? 0,
           cellule: (a) => a.quota_horaire ?? '—',
         },
-        ...(can('pedagogie.manage')
+        ...(can('affectations.update|affectations.delete')
           ? [
             {
               cle: 'actions',
               entete: t('common.actions'),
               cellule: (a: ClasseMatiere) => (
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setAffectationEnEdition(a)
-                    }}
-                    className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      retirerAffectation(a.id, a.matiere.nom)
-                    }}
-                    className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {can('affectations.update') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAffectationEnEdition(a)
+                      }}
+                      className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {can('affectations.delete') && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        retirerAffectation(a.id, a.matiere.nom)
+                      }}
+                      className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-500"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               ),
             },
@@ -367,7 +371,7 @@ export function AffectationsTab({
       valeur: (a) => a.enseignant?.nom_complet ?? '',
       cellule: (a) => a.enseignant?.nom_complet ?? '—',
     },
-    ...(can('pedagogie.manage')
+    ...(can('competences.attribuer')
       ? [
         {
           cle: 'actions',
@@ -413,25 +417,31 @@ export function AffectationsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {can('pedagogie.manage') && (
+      {can('affectations.create|affectations.update|affectations.delete|competences.attribuer|matieres.import') && (
         <div className="flex justify-end gap-2">
           {selectedIds.size > 0 && (
             <>
               {/* Une matière transversale couvre toutes les classes d'un
                   niveau : y reprendre le professeur ligne par ligne est
                   exactement ce que ce bouton évite. */}
-              <Button size="sm" variant="secondary" onClick={() => setEnseignantEnMasse(true)}>
-                <UserCog className="h-4 w-4" />
-                Modifier l'enseignant ({selectedIds.size})
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setShowCopyModal(true)}>
-                <Copy className="h-4 w-4" />
-                Copier vers une classe ({selectedIds.size})
-              </Button>
-              <Button size="sm" variant="danger" onClick={supprimerSelection}>
-                <Trash2 className="h-4 w-4" />
-                Supprimer ({selectedIds.size})
-              </Button>
+              {can('affectations.update') && (
+                <Button size="sm" variant="secondary" onClick={() => setEnseignantEnMasse(true)}>
+                  <UserCog className="h-4 w-4" />
+                  Modifier l'enseignant ({selectedIds.size})
+                </Button>
+              )}
+              {can('affectations.create') && (
+                <Button size="sm" variant="secondary" onClick={() => setShowCopyModal(true)}>
+                  <Copy className="h-4 w-4" />
+                  Copier vers une classe ({selectedIds.size})
+                </Button>
+              )}
+              {can('affectations.delete') && (
+                <Button size="sm" variant="danger" onClick={supprimerSelection}>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer ({selectedIds.size})
+                </Button>
+              )}
             </>
           )}
           {/* Au primaire on attribue des compétences, pas des matières : leurs
@@ -452,10 +462,12 @@ export function AffectationsTab({
             <Download className="h-4 w-4" />
             {t('export.excel')}
           </Button>
-          <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
-            <Upload className="h-4 w-4" />
-            Importer une affectation
-          </Button>
+          {can('matieres.import') && (
+            <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>
+              <Upload className="h-4 w-4" />
+              Importer une affectation
+            </Button>
+          )}
         </div>
       )}
 
@@ -523,16 +535,20 @@ export function AffectationsTab({
             messageVide="Aucune affectation pour cette classe."
             parPage={10}
             outils={
-              selectedIds.size > 0 && can('pedagogie.manage') ? (
+              selectedIds.size > 0 && can('affectations.create|affectations.delete') ? (
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>
-                    <Copy className="h-4 w-4" />
-                    Copier vers une classe ({selectedIds.size})
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={supprimerSelection}>
-                    <Trash2 className="h-4 w-4" />
-                    Supprimer ({selectedIds.size})
-                  </Button>
+                  {can('affectations.create') && (
+                    <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>
+                      <Copy className="h-4 w-4" />
+                      Copier vers une classe ({selectedIds.size})
+                    </Button>
+                  )}
+                  {can('affectations.delete') && (
+                    <Button variant="danger" size="sm" onClick={supprimerSelection}>
+                      <Trash2 className="h-4 w-4" />
+                      Supprimer ({selectedIds.size})
+                    </Button>
+                  )}
                 </div>
               ) : undefined
             }
@@ -666,7 +682,7 @@ function EditAffectationModal({
   const { data: personnels } = useQuery({
     queryKey: ['personnels', 'all'],
     queryFn: () => fetchPersonnels({ per_page: 100 }),
-    enabled: can('pedagogie.manage'),
+    enabled: can('affectations.update'),
   })
 
   const {

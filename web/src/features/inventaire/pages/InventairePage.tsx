@@ -91,7 +91,7 @@ export function InventairePage() {
   const { data: demandesEnAttente } = useQuery({
     queryKey: ['demandes-articles-inventaire', 'en_attente'],
     queryFn: () => fetchDemandesArticles('en_attente'),
-    enabled: can('inventaire.manage'),
+    enabled: can('demandes_articles.view'),
   })
 
   // Un nouveau filtre repart de la première page.
@@ -144,7 +144,7 @@ export function InventairePage() {
   })
 
   const colonnes: Colonne<ArticleInventaire>[] = [
-    ...(can('inventaire.manage')
+    ...(can('inventaire.etiquettes')
       ? [
         {
           cle: 'selection',
@@ -245,63 +245,71 @@ export function InventairePage() {
       cellule: (a) => (a.valeur_totale > 0 ? <span className="tabular-nums">{francs(a.valeur_totale)}</span> : '—'),
       masquerMobile: true,
     },
-    ...(can('inventaire.manage')
+    ...(can('inventaire.etiquettes|inventaire.update|inventaire.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (a: ArticleInventaire) => (
             <div className="flex items-center gap-1">
-              <button
-                title={a.code_barre ? t('inventaire.code_barre_deja') : t('inventaire.generer_code_barre')}
-                disabled={a.code_barre !== null}
-                onClick={async () => {
-                  try {
-                    const misAJour = await genererCodeBarre(a.id)
-                    invalidate()
-                    succes(t('inventaire.code_barre_genere', { code: misAJour.code_barre }))
-                  } catch (err) {
-                    erreur((err as ApiError).message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-              >
-                <Barcode className="h-4 w-4" />
-              </button>
-              <button
-                title={t('inventaire.imprimer_etiquette')}
-                disabled={impressionEnCours}
-                onClick={() => imprimerEtiquettes([a.id])}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:opacity-40"
-              >
-                <Printer className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.edit')}
-                onClick={() => {
-                  setArticleEnEdition(a)
-                  setShowForm(true)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(a.nom))) return
-                  try {
-                    await supprimerArticle(a.id)
-                    invalidate()
-                    succes(t('inventaire.deleted'))
-                  } catch (err) {
-                    erreur((err as ApiError).message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('inventaire.etiquettes') && (
+                <button
+                  title={a.code_barre ? t('inventaire.code_barre_deja') : t('inventaire.generer_code_barre')}
+                  disabled={a.code_barre !== null}
+                  onClick={async () => {
+                    try {
+                      const misAJour = await genererCodeBarre(a.id)
+                      invalidate()
+                      succes(t('inventaire.code_barre_genere', { code: misAJour.code_barre }))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <Barcode className="h-4 w-4" />
+                </button>
+              )}
+              {can('inventaire.etiquettes') && (
+                <button
+                  title={t('inventaire.imprimer_etiquette')}
+                  disabled={impressionEnCours}
+                  onClick={() => imprimerEtiquettes([a.id])}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700 disabled:opacity-40"
+                >
+                  <Printer className="h-4 w-4" />
+                </button>
+              )}
+              {can('inventaire.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={() => {
+                    setArticleEnEdition(a)
+                    setShowForm(true)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('inventaire.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(a.nom))) return
+                    try {
+                      await supprimerArticle(a.id)
+                      invalidate()
+                      succes(t('inventaire.deleted'))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<ArticleInventaire>,
@@ -316,18 +324,19 @@ export function InventairePage() {
         sousTitre={t('inventaire.subtitle')}
         icon={Boxes}
         actions={
-          can('inventaire.manage') && (
+          can('inventaire.create|inventaire.import|inventaire.etiquettes') && (
             <>
               <ImportExportBar
                 titreImport={t('inventaire.title')}
                 importUrl="/inventaire/import"
+                peutImporter={can('inventaire.import')}
                 exportUrl="/inventaire/export"
                 modeleUrl="/inventaire/modele"
                 colonnes={['Article', 'Catégorie', 'Quantité', 'État', 'Valeur unitaire']}
                 nomFichier="inventaire"
                 onImported={invalidate}
               />
-              {selection.size > 0 && (
+              {selection.size > 0 && can('inventaire.etiquettes') && (
                 <Button
                   variant="secondary"
                   disabled={impressionEnCours}
@@ -337,15 +346,17 @@ export function InventairePage() {
                   {t('inventaire.imprimer_selection', { count: selection.size })}
                 </Button>
               )}
-              <Button
-                onClick={() => {
-                  setArticleEnEdition(null)
-                  setShowForm(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('inventaire.add')}
-              </Button>
+              {can('inventaire.create') && (
+                <Button
+                  onClick={() => {
+                    setArticleEnEdition(null)
+                    setShowForm(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('inventaire.add')}
+                </Button>
+              )}
             </>
           )
         }
@@ -362,7 +373,7 @@ export function InventairePage() {
       {/* Le matériel signalé par le personnel n'atteint l'inventaire qu'une
           fois validé : deux états de la même matière, deux onglets — même
           patron que la page des avances sur salaire. */}
-      {can('inventaire.manage') && (
+      {can('demandes_articles.view') && (
         <Tabs
           active={onglet}
           onChange={(cle) => setOnglet(cle as 'inventaire' | 'demandes')}
@@ -376,7 +387,7 @@ export function InventairePage() {
         />
       )}
 
-      {onglet === 'demandes' && can('inventaire.manage') ? (
+      {onglet === 'demandes' && can('demandes_articles.view') ? (
         <DemandesArticlesSection onTraitee={invalidate} />
       ) : isLoading ? (
         <Spinner />

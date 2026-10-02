@@ -10,6 +10,57 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
+    /*
+     * Domaines entiers, tels qu'un rôle les reçoit par défaut : toutes les
+     * actions de chaque entité du domaine. Le découpage par action sert au
+     * super administrateur, qui retire ensuite une case depuis l'écran des
+     * permissions (« ce censeur ne supprime pas de sanction ») ; les rôles,
+     * eux, partent d'un domaine complet.
+     */
+    private const ETABLISSEMENT = ['ecoles.*', 'parametres.*', 'annees_scolaires.*', 'trimestres.*'];
+
+    private const PERSONNEL = ['personnel.*', 'departements.*', 'fonctions.*', 'banques.*', 'regles_seance.*'];
+
+    private const CLASSES = ['classes.*', 'sous_systemes.*'];
+
+    // Pas de `eleves.*` : il emporterait `eleves.situation`, la vue en lecture
+    // seule réservée à l'enseignant.
+    private const ELEVES = [
+        'eleves.create', 'eleves.update', 'eleves.delete', 'eleves.import',
+        'eleves.transferer', 'eleves.fusionner', 'eleves.comptes',
+        'matricules_nationaux.*', 'tuteurs.*', 'preinscriptions.*',
+        'modifications_eleves.*', 'justifications.*', 'observations.*',
+    ];
+
+    private const PEDAGOGIE = [
+        'matieres.*', 'affectations.*', 'tronc_commun.*', 'calendrier_scolaire.*',
+        'competences.*', 'appreciations.*', 'niveaux_scolaires.*',
+        'progression.*', 'evaluations.*',
+    ];
+
+    private const DISCIPLINE = ['absences.*', 'sanctions.*'];
+
+    private const INFIRMERIE = ['infirmerie.*', 'malaises.*'];
+
+    // Flotte, trajets et arrêts — sans `bus.souscrire`, accordé à part.
+    private const FLOTTE_BUS = ['bus_vehicules.*', 'bus_trajets.*', 'bus_arrets.*'];
+
+    private const INVENTAIRE = ['inventaire.*', 'demandes_articles.*'];
+
+    private const INFRASTRUCTURES = ['infrastructures.*', 'equipements.*'];
+
+    private const RAPPORT_RENTREE = ['rapport_rentree.*', 'visites_autorites.*', 'activites_rentree.*', 'ventes_denrees.*'];
+
+    private const EMPLOI_DU_TEMPS = ['emploi_du_temps.*', 'edt_elements.*', 'seances.*', 'salles.*'];
+
+    // Tarifs, échéancier et corrections à la situation d'un élève : ce qui
+    // décide d'un montant, à distinguer de l'encaissement.
+    private const PARAMETRAGE_FINANCE = [
+        'tarifs.*', 'frais_annexes.*', 'tranches_scolarite.*',
+        'remises.*', 'moratoires.*', 'dettes_anterieures.*',
+        'budget_fonctionnement.*', 'assurances_scolaires.*', 'conseil_ecole.*', 'apee.*',
+    ];
+
     /**
      * Les privilèges existants viennent désormais du catalogue applicatif
      * (App\Support\CataloguePermissions) : la liste suit les routes qui les
@@ -18,6 +69,9 @@ class RolePermissionSeeder extends Seeder
      * `FonctionPermissionSeeder` réutilise ces mêmes ensembles pour composer
      * les groupes de privilèges des fonctions du référentiel — d'où la
      * visibilité publique.
+     *
+     * Un motif `entité.*` vaut pour toutes les actions de l'entité : passer
+     * par {@see permissionsDuRole()} pour obtenir la liste développée.
      */
     public const ROLE_PERMISSIONS = [
         /*
@@ -29,43 +83,33 @@ class RolePermissionSeeder extends Seeder
          * pourra être fait séparément une fois le rollout stabilisé.
          */
         'admin_ecole' => [
-            'ecoles.manage',
-            'conseil_classe.view',
-            'conseil_classe.manage',
-            'personnel.view',
-            'personnel.manage',
-            'classes.view',
-            'classes.manage',
-            'niveaux.view',
-            'niveaux.manage',
+            ...self::ETABLISSEMENT,
+            'conseil_classe.*',
+            ...self::PERSONNEL,
+            ...self::CLASSES,
+            'niveaux.*',
             'eleves.view',
-            'eleves.manage',
+            ...self::ELEVES,
             'pedagogie.view',
-            'pedagogie.manage',
+            ...self::PEDAGOGIE,
             'notes.view',
             'notes.create',
             'discipline.view',
-            'discipline.manage',
-            'infirmerie.view',
-            'infirmerie.manage',
+            ...self::DISCIPLINE,
+            ...self::INFIRMERIE,
             'bus.view',
-            'bus.manage',
+            ...self::FLOTTE_BUS,
             'bus.souscrire',
-            'inventaire.view',
-            'inventaire.manage',
-            'infrastructures.view',
-            'infrastructures.manage',
-            'point_de_vente.view',
-            'point_de_vente.vendre',
-            'point_de_vente.manage',
+            ...self::INVENTAIRE,
+            ...self::INFRASTRUCTURES,
+            'point_de_vente.*',
             'finance.view',
-            'finance.manage',
+            ...self::PARAMETRAGE_FINANCE,
             'finance.encaisser',
             'finance.paie',
             'finance.budget',
             'finance.rapports',
-            'rapport_rentree.view',
-            'rapport_rentree.manage',
+            ...self::RAPPORT_RENTREE,
             'bulletins.view',
             'bulletins.publish',
             'annonces.view',
@@ -73,50 +117,38 @@ class RolePermissionSeeder extends Seeder
             'bibliotheque.view',
             'dashboard.view',
             'dashboard.pilotage',
-            'emploi_du_temps.view',
-            'emploi_du_temps.manage',
-            'appel.manage',
-            'revendications.view',
-            'revendications.manage',
+            ...self::EMPLOI_DU_TEMPS,
+            'appel.saisir',
+            'revendications.*',
         ],
         'admin_college' => [
-            'ecoles.manage',
-            'conseil_classe.view',
-            'conseil_classe.manage',
-            'personnel.view',
-            'personnel.manage',
-            'classes.view',
-            'classes.manage',
-            'niveaux.view',
-            'niveaux.manage',
+            ...self::ETABLISSEMENT,
+            'conseil_classe.*',
+            ...self::PERSONNEL,
+            ...self::CLASSES,
+            'niveaux.*',
             'eleves.view',
-            'eleves.manage',
+            ...self::ELEVES,
             'pedagogie.view',
-            'pedagogie.manage',
+            ...self::PEDAGOGIE,
             'notes.view',
             'notes.create',
             'discipline.view',
-            'discipline.manage',
-            'infirmerie.view',
-            'infirmerie.manage',
+            ...self::DISCIPLINE,
+            ...self::INFIRMERIE,
             'bus.view',
-            'bus.manage',
+            ...self::FLOTTE_BUS,
             'bus.souscrire',
-            'inventaire.view',
-            'inventaire.manage',
-            'infrastructures.view',
-            'infrastructures.manage',
-            'point_de_vente.view',
-            'point_de_vente.vendre',
-            'point_de_vente.manage',
+            ...self::INVENTAIRE,
+            ...self::INFRASTRUCTURES,
+            'point_de_vente.*',
             'finance.view',
-            'finance.manage',
+            ...self::PARAMETRAGE_FINANCE,
             'finance.encaisser',
             'finance.paie',
             'finance.budget',
             'finance.rapports',
-            'rapport_rentree.view',
-            'rapport_rentree.manage',
+            ...self::RAPPORT_RENTREE,
             'bulletins.view',
             'bulletins.publish',
             'annonces.view',
@@ -124,11 +156,9 @@ class RolePermissionSeeder extends Seeder
             'bibliotheque.view',
             'dashboard.view',
             'dashboard.pilotage',
-            'emploi_du_temps.view',
-            'emploi_du_temps.manage',
-            'appel.manage',
-            'revendications.view',
-            'revendications.manage',
+            ...self::EMPLOI_DU_TEMPS,
+            'appel.saisir',
+            'revendications.*',
         ],
         'censeur_sg' => [
             'conseil_classe.view',
@@ -139,11 +169,10 @@ class RolePermissionSeeder extends Seeder
             'notes.view',
             'notes.create',
             'discipline.view',
-            'discipline.manage',
-            'infirmerie.view',
-            'infirmerie.manage',
+            ...self::DISCIPLINE,
+            ...self::INFIRMERIE,
             'bus.view',
-            'bus.manage',
+            ...self::FLOTTE_BUS,
             'bus.souscrire',
             'bulletins.view',
             'bulletins.publish',
@@ -151,11 +180,9 @@ class RolePermissionSeeder extends Seeder
             'bibliotheque.view',
             'dashboard.view',
             'dashboard.pilotage',
-            'emploi_du_temps.view',
-            'emploi_du_temps.manage',
-            'appel.manage',
-            'revendications.view',
-            'revendications.manage',
+            ...self::EMPLOI_DU_TEMPS,
+            'appel.saisir',
+            'revendications.*',
         ],
         /*
          * Le surveillant général tient la discipline : absences, sanctions,
@@ -169,15 +196,14 @@ class RolePermissionSeeder extends Seeder
             'classes.view',
             'eleves.view',
             'discipline.view',
-            'discipline.manage',
-            'infirmerie.view',
-            'infirmerie.manage',
+            ...self::DISCIPLINE,
+            ...self::INFIRMERIE,
             'bus.view',
-            'bus.manage',
+            ...self::FLOTTE_BUS,
             'bus.souscrire',
             'bulletins.view',
             'emploi_du_temps.view',
-            'appel.manage',
+            'appel.saisir',
             'annonces.view',
             'bibliotheque.view',
             'dashboard.view',
@@ -187,7 +213,7 @@ class RolePermissionSeeder extends Seeder
             'classes.view',
             'eleves.view',
             'eleves.situation',
-/*  */            'pedagogie.view',
+            'pedagogie.view',
             'notes.view',
             'notes.create',
             'bulletins.view',
@@ -196,20 +222,16 @@ class RolePermissionSeeder extends Seeder
             'bibliotheque.view',
             'dashboard.view',
             'emploi_du_temps.view',
-            'appel.manage',
+            'appel.saisir',
             'revendications.view',
         ],
         'econome' => [
             'eleves.view',
-            'inventaire.view',
-            'inventaire.manage',
-            'infrastructures.view',
-            'infrastructures.manage',
-            'point_de_vente.view',
-            'point_de_vente.vendre',
-            'point_de_vente.manage',
+            ...self::INVENTAIRE,
+            ...self::INFRASTRUCTURES,
+            'point_de_vente.*',
             'finance.view',
-            'finance.manage',
+            ...self::PARAMETRAGE_FINANCE,
             'finance.encaisser',
             'finance.rapports',
             'annonces.view',
@@ -230,11 +252,8 @@ class RolePermissionSeeder extends Seeder
          * permission ne fait qu'ouvrir la donnée nécessaire au sélecteur.
          */
         'vendeur' => [
-            'inventaire.view',
-            'inventaire.manage',
-            'point_de_vente.view',
-            'point_de_vente.vendre',
-            'point_de_vente.manage',
+            ...self::INVENTAIRE,
+            'point_de_vente.*',
             'eleves.view',
         ],
         'parent' => [
@@ -246,7 +265,7 @@ class RolePermissionSeeder extends Seeder
         ],
         /*
          * Portail élève : lecture seule sur son propre dossier — pas de
-         * finance.* (réservée au tuteur), pas de *.manage. Cf. CompteEleveService
+         * finance.* (réservée au tuteur), aucune écriture. Cf. CompteEleveService
          * et EleveEspaceController, qui bornent chaque requête à la fiche du
          * compte connecté quel que soit le privilège porté ici.
          */
@@ -265,8 +284,7 @@ class RolePermissionSeeder extends Seeder
          * FonctionPermissionSeeder — cf. FonctionRoles::CORRESPONDANCES.
          */
         'infirmier' => [
-            'infirmerie.view',
-            'infirmerie.manage',
+            ...self::INFIRMERIE,
             'eleves.view',
             'dashboard.view',
         ],
@@ -288,6 +306,16 @@ class RolePermissionSeeder extends Seeder
      */
     public const FONCTIONS_SANS_ROLE = ['infirmier', 'chauffeur', 'agent_securite', 'agent_entretien'];
 
+    /**
+     * Privilèges d'un rôle, motifs `entité.*` développés.
+     *
+     * @return list<string>
+     */
+    public static function permissionsDuRole(string $role): array
+    {
+        return CataloguePermissions::developper(self::ROLE_PERMISSIONS[$role] ?? []);
+    }
+
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -306,13 +334,13 @@ class RolePermissionSeeder extends Seeder
         $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         $superAdminRole->syncPermissions($catalogue);
 
-        foreach (self::ROLE_PERMISSIONS as $roleName => $permissions) {
+        foreach (array_keys(self::ROLE_PERMISSIONS) as $roleName) {
             if (in_array($roleName, self::FONCTIONS_SANS_ROLE, true)) {
                 continue;
             }
 
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-            $role->syncPermissions($permissions);
+            $role->syncPermissions(self::permissionsDuRole($roleName));
         }
     }
 }

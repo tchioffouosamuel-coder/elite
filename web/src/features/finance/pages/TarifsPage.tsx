@@ -73,7 +73,7 @@ export function TarifsPage() {
   const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
-  const modifiable = can('finance.manage')
+  const modifiable = can('tarifs.update')
 
   // Grille de tarifs = réglage propre à une école : même en mode "toutes les
   // écoles" (super admin sans école active), il en faut une précise. Ce
@@ -246,6 +246,7 @@ export function TarifsPage() {
             <ImportExportBar
               titreImport="Grille de frais"
               importUrl="/tarifs/grille-frais/import"
+              peutImporter={can('tarifs.import')}
               exportUrl="/tarifs/grille-frais/export"
               modeleUrl="/tarifs/grille-frais/modele"
               colonnes={['Classe', 'Montant (FCFA)']}
@@ -255,6 +256,7 @@ export function TarifsPage() {
             <ImportExportBar
               titreImport="Frais annexes"
               importUrl="/tarifs/frais-annexes/import"
+              peutImporter={can('frais_annexes.import')}
               exportUrl="/tarifs/frais-annexes/export"
               modeleUrl="/tarifs/frais-annexes/modele"
               colonnes={['Libellé', 'Montant (FCFA)', 'Obligatoire (Oui/Non)']}
@@ -379,7 +381,7 @@ export function TarifsPage() {
                         <Save className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    {modifiable && classe.montant != null && !modifie && (
+                    {can('tarifs.delete') && classe.montant != null && !modifie && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -428,34 +430,38 @@ export function TarifsPage() {
                       {!frais.is_active && <Badge tone="neutral">Désactivé</Badge>}
                     </div>
                   </div>
-                  {modifiable && (
+                  {can('frais_annexes.update|frais_annexes.delete') && (
                     // `flex-none` : les actions gardent leur largeur, c'est le
                     // libellé qui cède s'il faut tronquer.
                     <div className="flex flex-none items-center gap-1.5">
                       {frais.is_active ? (
                         <>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            title={frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
-                            onClick={() =>
-                              agir(
-                                () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }, ecoleFiltreId),
-                                'Frais annexe mis à jour.',
-                              )
-                            }
-                          >
-                            {/* Un verbe : le bouton dit ce qu'il fait, pas un état. */}
-                            {frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            title="Désactiver"
-                            onClick={() => agir(() => desactiverFraisAnnexe(frais.id, ecoleFiltreId), 'Frais annexe désactivé.')}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {can('frais_annexes.update') && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              title={frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
+                              onClick={() =>
+                                agir(
+                                  () => modifierFraisAnnexe(frais.id, { obligatoire: !frais.obligatoire }, ecoleFiltreId),
+                                  'Frais annexe mis à jour.',
+                                )
+                              }
+                            >
+                              {/* Un verbe : le bouton dit ce qu'il fait, pas un état. */}
+                              {frais.obligatoire ? 'Rendre facultatif' : 'Rendre obligatoire'}
+                            </Button>
+                          )}
+                          {can('frais_annexes.delete') && (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              title="Désactiver"
+                              onClick={() => agir(() => desactiverFraisAnnexe(frais.id, ecoleFiltreId), 'Frais annexe désactivé.')}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </>
                       ) : (
                         <Button
@@ -496,7 +502,7 @@ export function TarifsPage() {
                       <Badge>+{frais.classes.length - 5} autre(s)</Badge>
                     </>
                   )}
-                  {modifiable && frais.is_active && (
+                  {can('frais_annexes.update') && frais.is_active && (
                     <button
                       type="button"
                       title="Modifier la portée"
@@ -529,7 +535,7 @@ export function TarifsPage() {
             ))}
           </ul>
 
-          {modifiable && (
+          {can('frais_annexes.create') && (
             <div className="flex flex-col gap-2 rounded-xl bg-cream-100 p-3">
               <Input
                 label="Nouveau frais"

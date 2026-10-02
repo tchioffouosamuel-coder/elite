@@ -100,7 +100,7 @@ export function DepartementDetailPage() {
             )}
 
             {/* Chef de département */}
-            {can('personnel.manage') && (
+            {can('departements.update') && (
                 <Card>
                     <div className="flex flex-col gap-4">
                         <h2 className="text-lg font-semibold text-navy-900 flex items-center gap-2">
@@ -148,7 +148,7 @@ export function DepartementDetailPage() {
                                     className="flex items-center justify-between rounded-lg border border-navy-100 p-3 hover:bg-cream-50"
                                 >
                                     <span className="font-medium text-navy-900">{matiere.nom}</span>
-                                    {can('pedagogie.manage') && (
+                                    {can('matieres.update') && (
                                         <Button size="sm" variant="secondary">
                                             {t('departements.detail.modify')}
                                         </Button>

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Demande d'ajout d'un article d'inventaire soumise par un employé, en
- * attente d'examen par un titulaire de `inventaire.manage`.
+ * attente d'examen par un titulaire de `demandes_articles.valider`.
  *
  * @see DemandeArticleInventaireService pour la validation (qui
  *      crée l'article réel via InventaireService) et le rejet.

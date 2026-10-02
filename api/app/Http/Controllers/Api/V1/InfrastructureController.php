@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Bâti, mobilier et équipements de l'école — infrastructures.view/manage
+ * Bâti, mobilier et équipements de l'école — le module `infrastructures`
  * couvre les tableaux 18 à 20 du rapport de rentrée MINEDUB (salles de
  * classe, bloc administratif, autres installations, mobilier et besoins).
  */

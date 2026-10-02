@@ -41,7 +41,7 @@ return new class extends Migration
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach (self::ROLES_A_CREER as $roleName) {
-            $permissions = RolePermissionSeeder::ROLE_PERMISSIONS[$roleName] ?? [];
+            $permissions = RolePermissionSeeder::permissionsDuRole($roleName);
 
             foreach ($permissions as $permission) {
                 Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
@@ -110,7 +110,7 @@ return new class extends Migration
                     return;
                 }
 
-                $codes = RolePermissionSeeder::ROLE_PERMISSIONS[$role] ?? [];
+                $codes = RolePermissionSeeder::permissionsDuRole($role);
                 $fonction->permissions()->sync($idsParCode->only($codes)->values());
             });
 

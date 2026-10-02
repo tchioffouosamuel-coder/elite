@@ -42,7 +42,7 @@ class TuteurSuppressionTest extends TestCase
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
         $role = Role::firstOrCreate(['name' => 'gestion', 'guard_name' => 'web']);
-        $role->syncPermissions(['eleves.manage']);
+        $role->syncPermissions(['tuteurs.delete']);
         $this->gestionnaire->assignRole($role);
     }
 

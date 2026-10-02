@@ -462,19 +462,19 @@ class RegistreSync
                 'modele' => Tuteur::class,
                 'colonnes' => ['id', 'school_id', 'user_id', 'nom_complet', 'telephone', 'email', 'profession', 'lieu_service', 'adresse'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
-                'permission' => 'eleves.manage',
+                'permission' => 'tuteurs.view',
             ],
             'eleve_tuteurs' => [
                 'modele' => EleveTuteur::class,
                 'colonnes' => ['id', 'eleve_id', 'tuteur_id', 'lien_parente', 'is_principal'],
                 'portee' => fn(Builder $q, int $s) => $q->whereHas('eleve', fn($e) => $e->where('school_id', $s)),
-                'permission' => 'eleves.manage',
+                'permission' => 'tuteurs.view',
             ],
             'tuteur_telephones' => [
                 'modele' => TuteurTelephone::class,
                 'colonnes' => ['id', 'tuteur_id', 'numero', 'is_principal'],
                 'portee' => fn(Builder $q, int $s) => $q->whereHas('tuteur', fn($t) => $t->where('school_id', $s)),
-                'permission' => 'eleves.manage',
+                'permission' => 'tuteurs.view',
             ],
 
             // --- Dossier élève : dépôts et échanges avec la famille.
@@ -493,13 +493,13 @@ class RegistreSync
                 // tableau de bord faute de ce seul FK.
                 'colonnes' => ['id', 'school_id', 'annee_scolaire_id', 'tuteur_id', 'eleve_id', 'classe_id', 'type', 'statut', 'donnees_eleve', 'donnees_tuteurs', 'note_admin', 'montant_verser', 'mode_versement', 'reference_externe', 'rubriques_versement', 'versement_id', 'motif_rejet', 'traite_par', 'traite_le'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
-                'permission' => 'eleves.manage',
+                'permission' => 'preinscriptions.view',
             ],
             'modifications_eleves' => [
                 'modele' => ModificationEleve::class,
                 'colonnes' => ['id', 'school_id', 'eleve_id', 'tuteur_id', 'donnees', 'statut', 'motif_rejet', 'traite_par', 'traite_le'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
-                'permission' => 'eleves.manage',
+                'permission' => 'modifications_eleves.view',
             ],
             'observations' => [
                 'modele' => Observation::class,

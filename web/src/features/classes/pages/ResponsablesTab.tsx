@@ -126,7 +126,7 @@ const CHAMP_RELATION: Record<ChampResponsable, keyof Pick<Classe, 'professeur_pr
 
 export function ResponsablesTab({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
-  const peutGerer = useAuthStore((s) => s.can('classes.manage'))
+  const peutGerer = useAuthStore((s) => s.can('classes.update'))
   const queryClient = useQueryClient()
 
   const { data: classe, isLoading } = useQuery({ queryKey: ['classe', classeId], queryFn: () => fetchClasse(classeId) })

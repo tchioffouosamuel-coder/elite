@@ -500,7 +500,7 @@ export function BibliothequePage() {
         sousTitre="Documents partagés avec le personnel et les parents des écoles concernées."
         icon={BookOpen}
         actions={
-          can('bibliotheque.manage') && (
+          can('bibliotheque.create') && (
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setShowImport(true)}>
                 <FileUp className="h-4 w-4" />
@@ -562,7 +562,7 @@ export function BibliothequePage() {
                       >
                         <Download className="h-4 w-4" />
                       </a>
-                      {can('bibliotheque.manage') && (
+                      {can('bibliotheque.update') && (
                         <button
                           title="Modifier le ciblage"
                           onClick={() => setEditingCiblage(document)}
@@ -571,7 +571,7 @@ export function BibliothequePage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                       )}
-                      {can('bibliotheque.manage') && (
+                      {can('bibliotheque.delete') && (
                         <button
                           title="Supprimer"
                           onClick={() => supprimer(document)}

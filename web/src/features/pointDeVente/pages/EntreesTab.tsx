@@ -110,7 +110,7 @@ export function EntreesTab() {
         />
       </div>
 
-      {can('point_de_vente.manage') && (
+      {can('point_de_vente.approvisionner') && (
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setFormOuvert(true)}>
             <PackagePlus className="h-4 w-4" />

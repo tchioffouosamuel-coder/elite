@@ -105,16 +105,20 @@ export function DettesAnterieuresPage() {
         actions={
           <>
             <ToggleMontantsMasques />
-            {can('finance.manage') && (
+            {can('dettes_anterieures.import|dettes_anterieures.create') && (
               <>
-                <Button variant="secondary" onClick={() => setImportOuvert(true)}>
-                  <Upload className="h-4 w-4" />
-                  Importer
-                </Button>
-                <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
-                  <Plus className="h-4 w-4" />
-                  Enregistrer une dette
-                </Button>
+                {can('dettes_anterieures.import') && (
+                  <Button variant="secondary" onClick={() => setImportOuvert(true)}>
+                    <Upload className="h-4 w-4" />
+                    Importer
+                  </Button>
+                )}
+                {can('dettes_anterieures.create') && (
+                  <Button variant="secondary" onClick={() => setDetteModalOuvert(true)}>
+                    <Plus className="h-4 w-4" />
+                    Enregistrer une dette
+                  </Button>
+                )}
               </>
             )}
             <Button variant="secondary" onClick={() => ouvrirDocument('/finance/dettes-anterieures/excel', pdfParams)}>
@@ -196,7 +200,7 @@ export function DettesAnterieuresPage() {
                     <th className="px-3 py-2.5 text-right">Reliquat</th>
                     <th className="px-3 py-2.5 text-right">Versé</th>
                     <th className="px-3 py-2.5 text-right">Reste</th>
-                    {can('finance.manage') && <th className="px-3 py-2.5"></th>}
+                    {can('dettes_anterieures.oublier') && <th className="px-3 py-2.5"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -213,7 +217,7 @@ export function DettesAnterieuresPage() {
                       <td className="px-3 py-2.5 text-right">
                         <span className="font-semibold tabular-nums text-red-600">{francs(ligne.reste)}</span>
                       </td>
-                      {can('finance.manage') && (
+                      {can('dettes_anterieures.oublier') && (
                         <td className="px-3 py-2.5 text-right">
                           <Button size="sm" variant="secondary" onClick={() => oublier(ligne)}>
                             <HeartHandshake className="h-3.5 w-3.5" />

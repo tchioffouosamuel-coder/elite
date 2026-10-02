@@ -156,7 +156,7 @@ export function SeancesPage() {
             <Download className="h-4 w-4" />
             {t('emploiDuTemps.telecharger_fiche_hebdo')}
           </Button>
-          {can('appel.manage') && (
+          {can('appel.saisir') && (
             <Button size="sm" onClick={() => setClasseId(c.id)}>
               <UserCheck className="h-4 w-4" />
               {t('emploiDuTemps.faire_appel')}
@@ -168,7 +168,7 @@ export function SeancesPage() {
   ]
 
   const colonnesPour = (lignes: Seance[]): Colonne<Seance>[] => [
-    ...(can('emploi_du_temps.manage')
+    ...(can('seances.delete')
       ? [
         {
           cle: 'selection',
@@ -249,7 +249,7 @@ export function SeancesPage() {
       cle: 'actions',
       entete: '',
       cellule: (s) =>
-        can('appel.manage') ? (
+        can('appel.saisir') ? (
           <Button
             size="sm"
             variant="secondary"
@@ -281,7 +281,7 @@ export function SeancesPage() {
         titre={t('nav.seances')}
         icon={ClipboardCheck}
         actions={
-          selectedIds.size > 0 && can('emploi_du_temps.manage') ? (
+          selectedIds.size > 0 && can('seances.delete') ? (
             <Button variant="danger" disabled={suppressionMultiple.isPending} onClick={() => void supprimerSelection()}>
               <Trash2 className="h-4 w-4" />
               {t('emploiDuTemps.supprimer_selection', { count: selectedIds.size })}

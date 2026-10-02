@@ -211,13 +211,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // 'tenant' ajouté explicitement à ces trois-là seulement.
         Route::get('niveaux/export', [NiveauController::class, 'export'])->name('niveaux.export')->middleware(['tenant', 'permission:niveaux.view']);
         Route::get('niveaux/modele', [NiveauController::class, 'modele'])->name('niveaux.modele')->middleware('permission:niveaux.view');
-        Route::post('niveaux/import', [NiveauController::class, 'import'])->name('niveaux.import')->middleware(['tenant', 'permission:niveaux.manage']);
-        Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.manage');
+        Route::post('niveaux/import', [NiveauController::class, 'import'])->name('niveaux.import')->middleware(['tenant', 'permission:niveaux.import']);
+        Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.create');
         Route::get('niveaux/{id}', [NiveauController::class, 'show'])->name('niveaux.show')->middleware('permission:niveaux.view');
-        Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.manage');
-        Route::delete('niveaux/{id}', [NiveauController::class, 'destroy'])->name('niveaux.destroy')->middleware('permission:niveaux.manage');
-        Route::post('niveaux/batch-delete', [NiveauController::class, 'batchDestroy'])->name('niveaux.batch-destroy')->middleware('permission:niveaux.manage');
-        Route::post('niveaux/batch-update', [NiveauController::class, 'batchUpdate'])->name('niveaux.batch-update')->middleware('permission:niveaux.manage');
+        Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.update');
+        Route::delete('niveaux/{id}', [NiveauController::class, 'destroy'])->name('niveaux.destroy')->middleware('permission:niveaux.delete');
+        Route::post('niveaux/batch-delete', [NiveauController::class, 'batchDestroy'])->name('niveaux.batch-destroy')->middleware('permission:niveaux.delete');
+        Route::post('niveaux/batch-update', [NiveauController::class, 'batchUpdate'])->name('niveaux.batch-update')->middleware('permission:niveaux.update');
 
         // Toutes les routes métier (établissement, personnel, classes, élèves, ...)
         // sont scopées par établissement + niveau via le middleware `tenant`.
@@ -314,57 +314,55 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('personnels/suivi-activite/incoherences-presence', [SuiviActiviteController::class, 'incoherencesPresence'])->name('personnels.suivi-activite.incoherences-presence');
                 // Route littérale avant le paramètre générique {id} ci-dessous, sinon
                 // « identifiants » s'y ferait happer. Document sensible (mots de passe) :
-                // exige `.manage` en plus du `.view` du groupe.
+                // exige `personnel.comptes` en plus du `.view` du groupe.
                 Route::get('personnels/identifiants', [PersonnelController::class, 'identifiants'])
-                    ->name('personnels.identifiants')->middleware('permission:personnel.manage');
+                    ->name('personnels.identifiants')->middleware('permission:personnel.comptes');
                 Route::get('personnels/{id}', [PersonnelController::class, 'show'])->name('personnels.show');
                 Route::get('personnels/{id}/fiche-identification/pdf', [PersonnelController::class, 'fichePdf'])->name('personnels.fiche-pdf');
                 Route::get('personnels/{id}/fiche-identification/word', [PersonnelController::class, 'ficheWord'])->name('personnels.fiche-word');
             });
 
-            Route::middleware('permission:personnel.manage')->group(function () {
-                Route::post('departements', [DepartementController::class, 'store'])->name('departements.store');
-                Route::post('departements/import', [DepartementController::class, 'import'])->name('departements.import');
-                Route::put('departements/{id}', [DepartementController::class, 'update'])->name('departements.update');
-                Route::delete('departements/{id}', [DepartementController::class, 'destroy'])->name('departements.destroy');
+            Route::post('departements', [DepartementController::class, 'store'])->name('departements.store')->middleware('permission:departements.create');
+            Route::post('departements/import', [DepartementController::class, 'import'])->name('departements.import')->middleware('permission:departements.import');
+            Route::put('departements/{id}', [DepartementController::class, 'update'])->name('departements.update')->middleware('permission:departements.update');
+            Route::delete('departements/{id}', [DepartementController::class, 'destroy'])->name('departements.destroy')->middleware('permission:departements.delete');
 
-                Route::post('fonctions-referentiel', [FonctionReferentielController::class, 'store'])->name('fonctions-referentiel.store');
-                Route::post('fonctions-referentiel/import', [FonctionReferentielController::class, 'import'])->name('fonctions-referentiel.import');
-                Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update');
-                Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy');
-                Route::post('fonctions-referentiel/batch-delete', [FonctionReferentielController::class, 'batchDelete'])->name('fonctions-referentiel.batch-delete');
+            Route::post('fonctions-referentiel', [FonctionReferentielController::class, 'store'])->name('fonctions-referentiel.store')->middleware('permission:fonctions.create');
+            Route::post('fonctions-referentiel/import', [FonctionReferentielController::class, 'import'])->name('fonctions-referentiel.import')->middleware('permission:fonctions.import');
+            Route::put('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'update'])->name('fonctions-referentiel.update')->middleware('permission:fonctions.update');
+            Route::delete('fonctions-referentiel/{id}', [FonctionReferentielController::class, 'destroy'])->name('fonctions-referentiel.destroy')->middleware('permission:fonctions.delete');
+            Route::post('fonctions-referentiel/batch-delete', [FonctionReferentielController::class, 'batchDelete'])->name('fonctions-referentiel.batch-delete')->middleware('permission:fonctions.delete');
 
-                Route::post('banques', [BanqueController::class, 'store'])->name('banques.store');
-                Route::post('banques/import', [BanqueController::class, 'import'])->name('banques.import');
-                Route::post('banques/{id}/depot', [BanqueController::class, 'deposer'])->name('banques.depot');
-                Route::post('banques/{id}/retrait', [BanqueController::class, 'retirer'])->name('banques.retrait');
-                Route::put('banques/{id}/depots/{mouvementId}', [BanqueController::class, 'modifierDepot'])->name('banques.depot.update');
-                Route::put('banques/{id}', [BanqueController::class, 'update'])->name('banques.update');
-                Route::delete('banques/{id}', [BanqueController::class, 'destroy'])->name('banques.destroy');
-                Route::post('banques/batch-delete', [BanqueController::class, 'batchDelete'])->name('banques.batch-delete');
+            Route::post('banques', [BanqueController::class, 'store'])->name('banques.store')->middleware('permission:banques.create');
+            Route::post('banques/import', [BanqueController::class, 'import'])->name('banques.import')->middleware('permission:banques.import');
+            Route::post('banques/{id}/depot', [BanqueController::class, 'deposer'])->name('banques.depot')->middleware('permission:banques.mouvements');
+            Route::post('banques/{id}/retrait', [BanqueController::class, 'retirer'])->name('banques.retrait')->middleware('permission:banques.mouvements');
+            Route::put('banques/{id}/depots/{mouvementId}', [BanqueController::class, 'modifierDepot'])->name('banques.depot.update')->middleware('permission:banques.mouvements');
+            Route::put('banques/{id}', [BanqueController::class, 'update'])->name('banques.update')->middleware('permission:banques.update');
+            Route::delete('banques/{id}', [BanqueController::class, 'destroy'])->name('banques.destroy')->middleware('permission:banques.delete');
+            Route::post('banques/batch-delete', [BanqueController::class, 'batchDelete'])->name('banques.batch-delete')->middleware('permission:banques.delete');
 
-                Route::post('regles-validation-seance', [RegleValidationSeanceController::class, 'store'])->name('regles-validation-seance.store');
-                Route::put('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'update'])->name('regles-validation-seance.update');
-                Route::delete('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'destroy'])->name('regles-validation-seance.destroy');
+            Route::post('regles-validation-seance', [RegleValidationSeanceController::class, 'store'])->name('regles-validation-seance.store')->middleware('permission:regles_seance.create');
+            Route::put('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'update'])->name('regles-validation-seance.update')->middleware('permission:regles_seance.update');
+            Route::delete('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'destroy'])->name('regles-validation-seance.destroy')->middleware('permission:regles_seance.delete');
 
-                Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store');
-                Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update');
-                Route::post('personnels/{id}/archive', [PersonnelController::class, 'archive'])->name('personnels.archive');
-                Route::post('personnels/{id}/reactivate', [PersonnelController::class, 'reactivate'])->name('personnels.reactivate');
-                Route::post('personnels/{id}/compte', [PersonnelController::class, 'createAccount'])->name('personnels.compte');
-                Route::post('personnels/rattraper-telephones', [PersonnelController::class, 'rattraperTelephones'])->name('personnels.rattraper-telephones');
-                Route::get('personnels/fusion-parent/apercu', [PersonnelController::class, 'apercuFusionComptesParent'])->name('personnels.fusion-parent.apercu');
-                Route::post('personnels/fusion-parent', [PersonnelController::class, 'fusionnerComptesParent'])->name('personnels.fusion-parent');
-                Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import');
-                Route::post('personnels/presences-journalieres/import', [PersonnelController::class, 'importPresenceJournaliere'])->name('personnels.presences-journalieres.import');
-                Route::post('personnels/presences-journalieres/import-ocr/apercu', [PersonnelController::class, 'apercuOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr.apercu');
-                Route::post('personnels/presences-journalieres/import-ocr', [PersonnelController::class, 'importOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr');
-                Route::post('personnels/suivi-activite/incoherences-presence/{seanceId}/annuler-validation', [SuiviActiviteController::class, 'annulerValidationPresence'])->name('personnels.suivi-activite.incoherences-presence.annuler-validation');
-                Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation');
-                Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy');
-                Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete');
-                Route::post('personnels/batch-fonction', [PersonnelController::class, 'batchFonction'])->name('personnels.batch-fonction');
-            });
+            Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store')->middleware('permission:personnel.create');
+            Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update')->middleware('permission:personnel.update');
+            Route::post('personnels/{id}/archive', [PersonnelController::class, 'archive'])->name('personnels.archive')->middleware('permission:personnel.archiver');
+            Route::post('personnels/{id}/reactivate', [PersonnelController::class, 'reactivate'])->name('personnels.reactivate')->middleware('permission:personnel.archiver');
+            Route::post('personnels/{id}/compte', [PersonnelController::class, 'createAccount'])->name('personnels.compte')->middleware('permission:personnel.comptes');
+            Route::post('personnels/rattraper-telephones', [PersonnelController::class, 'rattraperTelephones'])->name('personnels.rattraper-telephones')->middleware('permission:personnel.update');
+            Route::get('personnels/fusion-parent/apercu', [PersonnelController::class, 'apercuFusionComptesParent'])->name('personnels.fusion-parent.apercu')->middleware('permission:personnel.comptes');
+            Route::post('personnels/fusion-parent', [PersonnelController::class, 'fusionnerComptesParent'])->name('personnels.fusion-parent')->middleware('permission:personnel.comptes');
+            Route::post('personnels/import', [PersonnelController::class, 'import'])->name('personnels.import')->middleware('permission:personnel.import');
+            Route::post('personnels/presences-journalieres/import', [PersonnelController::class, 'importPresenceJournaliere'])->name('personnels.presences-journalieres.import')->middleware('permission:personnel.presences');
+            Route::post('personnels/presences-journalieres/import-ocr/apercu', [PersonnelController::class, 'apercuOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr.apercu')->middleware('permission:personnel.presences');
+            Route::post('personnels/presences-journalieres/import-ocr', [PersonnelController::class, 'importOcrPresenceJournaliere'])->name('personnels.presences-journalieres.import-ocr')->middleware('permission:personnel.presences');
+            Route::post('personnels/suivi-activite/incoherences-presence/{seanceId}/annuler-validation', [SuiviActiviteController::class, 'annulerValidationPresence'])->name('personnels.suivi-activite.incoherences-presence.annuler-validation')->middleware('permission:personnel.presences');
+            Route::get('personnels/{id}/attestation-employeur', [PersonnelController::class, 'attestationEmployeur'])->name('personnels.attestation')->middleware('permission:personnel.attestations');
+            Route::delete('personnels/{id}', [PersonnelController::class, 'destroy'])->name('personnels.destroy')->middleware('permission:personnel.delete');
+            Route::post('personnels/batch-delete', [PersonnelController::class, 'batchDelete'])->name('personnels.batch-delete')->middleware('permission:personnel.delete');
+            Route::post('personnels/batch-fonction', [PersonnelController::class, 'batchFonction'])->name('personnels.batch-fonction')->middleware('permission:personnel.update');
 
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
@@ -407,39 +405,35 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bibliotheque', [BibliothequeController::class, 'index'])->name('bibliotheque.index');
             });
 
-            Route::middleware('permission:bibliotheque.manage')->group(function () {
-                Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store');
-                Route::post('bibliotheque/import', [BibliothequeController::class, 'importer'])->name('bibliotheque.import');
-                Route::put('bibliotheque/{id}', [BibliothequeController::class, 'update'])->name('bibliotheque.update');
-                Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy');
-                Route::post('classes/{classeId}/emploi-du-temps/publier-pdf', [EmploiDuTempsController::class, 'publierPdf'])
-                    ->name('edt.publier-pdf')->middleware('permission:emploi_du_temps.view');
-            });
+            Route::post('bibliotheque', [BibliothequeController::class, 'store'])->name('bibliotheque.store')->middleware('permission:bibliotheque.create');
+            Route::post('bibliotheque/import', [BibliothequeController::class, 'importer'])->name('bibliotheque.import')->middleware('permission:bibliotheque.create');
+            Route::put('bibliotheque/{id}', [BibliothequeController::class, 'update'])->name('bibliotheque.update')->middleware('permission:bibliotheque.update');
+            Route::delete('bibliotheque/{id}', [BibliothequeController::class, 'destroy'])->name('bibliotheque.destroy')->middleware('permission:bibliotheque.delete');
+            Route::post('classes/{classeId}/emploi-du-temps/publier-pdf', [EmploiDuTempsController::class, 'publierPdf'])
+                ->name('edt.publier-pdf')->middleware(['permission:bibliotheque.create', 'permission:emploi_du_temps.view']);
 
-            Route::middleware('permission:ecoles.manage')->group(function () {
-                Route::get('annees-scolaires', [AnneeScolaireController::class, 'index'])->name('annees.index');
-                Route::post('annees-scolaires', [AnneeScolaireController::class, 'store'])->name('annees.store');
-                Route::put('annees-scolaires/{id}', [AnneeScolaireController::class, 'update'])->name('annees.update');
-                Route::post('annees-scolaires/{id}/activer', [AnneeScolaireController::class, 'activate'])->name('annees.activate');
-                Route::post('annees-scolaires/{id}/generer-seances', [AnneeScolaireController::class, 'genererSeances'])->name('annees.generer-seances');
-                Route::post('annees-scolaires/{id}/supprimer-seances', [AnneeScolaireController::class, 'supprimerSeances'])->name('annees.supprimer-seances');
-                Route::post('annees-scolaires/{id}/archiver', [AnneeScolaireController::class, 'archiver'])->name('annees.archiver');
-                Route::post('annees-scolaires/{id}/basculer', [AnneeScolaireController::class, 'basculer'])->name('annees.basculer');
+            Route::get('annees-scolaires', [AnneeScolaireController::class, 'index'])->name('annees.index')->middleware('permission:annees_scolaires.view');
+            Route::post('annees-scolaires', [AnneeScolaireController::class, 'store'])->name('annees.store')->middleware('permission:annees_scolaires.create');
+            Route::put('annees-scolaires/{id}', [AnneeScolaireController::class, 'update'])->name('annees.update')->middleware('permission:annees_scolaires.update');
+            Route::post('annees-scolaires/{id}/activer', [AnneeScolaireController::class, 'activate'])->name('annees.activate')->middleware('permission:annees_scolaires.activer');
+            Route::post('annees-scolaires/{id}/generer-seances', [AnneeScolaireController::class, 'genererSeances'])->name('annees.generer-seances')->middleware('permission:annees_scolaires.seances');
+            Route::post('annees-scolaires/{id}/supprimer-seances', [AnneeScolaireController::class, 'supprimerSeances'])->name('annees.supprimer-seances')->middleware('permission:annees_scolaires.seances');
+            Route::post('annees-scolaires/{id}/archiver', [AnneeScolaireController::class, 'archiver'])->name('annees.archiver')->middleware('permission:annees_scolaires.archiver');
+            Route::post('annees-scolaires/{id}/basculer', [AnneeScolaireController::class, 'basculer'])->name('annees.basculer')->middleware('permission:annees_scolaires.archiver');
 
-                Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
-                Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
+            Route::get('settings', [SettingController::class, 'index'])->name('settings.index')->middleware('permission:parametres.update');
+            Route::put('settings', [SettingController::class, 'update'])->name('settings.update')->middleware('permission:parametres.update');
 
-                Route::get('ecole', [SchoolController::class, 'show'])->name('ecole.show');
-                Route::put('ecole', [SchoolController::class, 'update'])->name('ecole.update');
-                Route::post('ecole/images/{type}', [SchoolController::class, 'uploadImage'])->name('ecole.images.upload');
-                Route::delete('ecole/images/{type}', [SchoolController::class, 'deleteImage'])->name('ecole.images.delete');
-            });
+            Route::get('ecole', [SchoolController::class, 'show'])->name('ecole.show')->middleware('permission:ecoles.update');
+            Route::put('ecole', [SchoolController::class, 'update'])->name('ecole.update')->middleware('permission:ecoles.update');
+            Route::post('ecole/images/{type}', [SchoolController::class, 'uploadImage'])->name('ecole.images.upload')->middleware('permission:ecoles.update');
+            Route::delete('ecole/images/{type}', [SchoolController::class, 'deleteImage'])->name('ecole.images.delete')->middleware('permission:ecoles.update');
 
             /*
              * Conseil de classe de fin d'année et archives des années
              * révolues — cf. ConseilClasseService/ArchivageService. Consulter
-             * une archive ou un PV ne demande que `.view` ; mener/valider un
-             * conseil exige `.manage`.
+             * une archive ou un PV ne demande que `.view` ; mener un conseil
+             * exige `.update`, le clore `.valider`.
              */
             Route::middleware('permission:conseil_classe.view')->group(function () {
                 Route::get('classes/{classeId}/conseil', [ConseilClasseController::class, 'show'])->name('conseil-classe.show');
@@ -451,14 +445,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('archives/annees/{anneeId}/classes/{classeId}/pv', [ArchiveClasseController::class, 'pv'])->name('archives.pv');
             });
 
-            Route::middleware('permission:conseil_classe.manage')->group(function () {
-                Route::put('conseils-classe/{id}/seuil', [ConseilClasseController::class, 'definirSeuil'])->name('conseil-classe.seuil');
-                Route::post('conseils-classe/{id}/destination', [ConseilClasseController::class, 'definirDestination'])->name('conseil-classe.destination');
-                Route::post('conseil-classe-decisions/{decisionId}/exclure', [ConseilClasseController::class, 'exclure'])->name('conseil-classe.decisions.exclure');
-                Route::post('conseil-classe-decisions/{decisionId}/gracier', [ConseilClasseController::class, 'gracier'])->name('conseil-classe.decisions.gracier');
-                Route::post('conseil-classe-decisions/{decisionId}/annuler-ajustement', [ConseilClasseController::class, 'annulerAjustement'])->name('conseil-classe.decisions.annuler');
-                Route::post('conseils-classe/{id}/valider', [ConseilClasseController::class, 'valider'])->name('conseil-classe.valider');
-            });
+            Route::put('conseils-classe/{id}/seuil', [ConseilClasseController::class, 'definirSeuil'])->name('conseil-classe.seuil')->middleware('permission:conseil_classe.update');
+            Route::post('conseils-classe/{id}/destination', [ConseilClasseController::class, 'definirDestination'])->name('conseil-classe.destination')->middleware('permission:conseil_classe.update');
+            Route::post('conseil-classe-decisions/{decisionId}/exclure', [ConseilClasseController::class, 'exclure'])->name('conseil-classe.decisions.exclure')->middleware('permission:conseil_classe.update');
+            Route::post('conseil-classe-decisions/{decisionId}/gracier', [ConseilClasseController::class, 'gracier'])->name('conseil-classe.decisions.gracier')->middleware('permission:conseil_classe.update');
+            Route::post('conseil-classe-decisions/{decisionId}/annuler-ajustement', [ConseilClasseController::class, 'annulerAjustement'])->name('conseil-classe.decisions.annuler')->middleware('permission:conseil_classe.update');
+            Route::post('conseils-classe/{id}/valider', [ConseilClasseController::class, 'valider'])->name('conseil-classe.valider')->middleware('permission:conseil_classe.valider');
 
             /*
              * Responsabilités confiées au compte connecté (professeur
@@ -490,24 +482,22 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('schools/{id}', [ClasseController::class, 'showSchool'])->name('schools.show');
             });
 
-            Route::middleware('permission:classes.manage')->group(function () {
-                Route::post('classes/fusionner', [ClasseController::class, 'fusionner'])->name('classes.fusionner');
-                Route::post('classes', [ClasseController::class, 'store'])->name('classes.store');
-                Route::post('classes/import', [ClasseController::class, 'import'])->name('classes.import');
-                Route::put('classes/bulk-update', [ClasseController::class, 'bulkUpdate'])->name('classes.bulk-update');
-                Route::post('classes/batch-delete', [ClasseController::class, 'batchDestroy'])->name('classes.batch-destroy');
-                Route::put('classes/{id}', [ClasseController::class, 'update'])->name('classes.update');
-                Route::delete('classes/{id}', [ClasseController::class, 'destroy'])->name('classes.destroy');
+            Route::post('classes/fusionner', [ClasseController::class, 'fusionner'])->name('classes.fusionner')->middleware('permission:classes.fusionner');
+            Route::post('classes', [ClasseController::class, 'store'])->name('classes.store')->middleware('permission:classes.create');
+            Route::post('classes/import', [ClasseController::class, 'import'])->name('classes.import')->middleware('permission:classes.import');
+            Route::put('classes/bulk-update', [ClasseController::class, 'bulkUpdate'])->name('classes.bulk-update')->middleware('permission:classes.update');
+            Route::post('classes/batch-delete', [ClasseController::class, 'batchDestroy'])->name('classes.batch-destroy')->middleware('permission:classes.delete');
+            Route::put('classes/{id}', [ClasseController::class, 'update'])->name('classes.update')->middleware('permission:classes.update');
+            Route::delete('classes/{id}', [ClasseController::class, 'destroy'])->name('classes.destroy')->middleware('permission:classes.delete');
 
-                Route::get('sous-systemes', [SousSystemeController::class, 'index'])->name('sous-systemes.index');
-                Route::get('sous-systemes/export', [SousSystemeController::class, 'export'])->name('sous-systemes.export');
-                Route::get('sous-systemes/modele', [SousSystemeController::class, 'modele'])->name('sous-systemes.modele');
-                Route::post('sous-systemes/import', [SousSystemeController::class, 'import'])->name('sous-systemes.import');
-                Route::post('sous-systemes', [SousSystemeController::class, 'store'])->name('sous-systemes.store');
-                Route::get('sous-systemes/{id}', [SousSystemeController::class, 'show'])->name('sous-systemes.show');
-                Route::put('sous-systemes/{id}', [SousSystemeController::class, 'update'])->name('sous-systemes.update');
-                Route::delete('sous-systemes/{id}', [SousSystemeController::class, 'destroy'])->name('sous-systemes.destroy');
-            });
+            Route::get('sous-systemes', [SousSystemeController::class, 'index'])->name('sous-systemes.index')->middleware('permission:sous_systemes.view');
+            Route::get('sous-systemes/export', [SousSystemeController::class, 'export'])->name('sous-systemes.export')->middleware('permission:sous_systemes.view');
+            Route::get('sous-systemes/modele', [SousSystemeController::class, 'modele'])->name('sous-systemes.modele')->middleware('permission:sous_systemes.view');
+            Route::post('sous-systemes/import', [SousSystemeController::class, 'import'])->name('sous-systemes.import')->middleware('permission:sous_systemes.import');
+            Route::post('sous-systemes', [SousSystemeController::class, 'store'])->name('sous-systemes.store')->middleware('permission:sous_systemes.create');
+            Route::get('sous-systemes/{id}', [SousSystemeController::class, 'show'])->name('sous-systemes.show')->middleware('permission:sous_systemes.view');
+            Route::put('sous-systemes/{id}', [SousSystemeController::class, 'update'])->name('sous-systemes.update')->middleware('permission:sous_systemes.update');
+            Route::delete('sous-systemes/{id}', [SousSystemeController::class, 'destroy'])->name('sous-systemes.destroy')->middleware('permission:sous_systemes.delete');
 
             Route::middleware('permission:eleves.view')->group(function () {
                 // Photos DECC & OBC : réservées aux classes d'examen.
@@ -539,103 +529,101 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('eleves/{id}', [EleveController::class, 'show'])->name('eleves.show');
                 Route::get('matricule-national/recherche', [MatriculeNationalController::class, 'rechercher'])->name('matricule-national.recherche');
                 // Routes statiques déclarées avant `matricules-nationaux/{id}`
-                // (ajoutée dans le groupe `eleves.manage` ci-dessous) : même
+                // (ajoutée avec les écritures sur les élèves ci-dessous) : même
                 // précaution que pour `eleves/doublons` juste au-dessus.
                 Route::get('matricules-nationaux', [MatriculeNationalController::class, 'index'])->name('matricules-nationaux.index');
                 Route::get('matricules-nationaux/export', [MatriculeNationalController::class, 'export'])->name('matricules-nationaux.export');
                 Route::get('matricules-nationaux/modele', [MatriculeNationalController::class, 'modele'])->name('matricules-nationaux.modele');
             });
 
-            Route::middleware('permission:eleves.manage')->group(function () {
-                Route::post('eleves/doublons/traitement-automatique', [EleveController::class, 'traitementAutomatiqueDoublons'])->name('eleves.doublons.automatique');
-                Route::post('eleves/doublons/fusionner', [EleveController::class, 'fusionnerDoublon'])->name('eleves.doublons.fusionner');
-                Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
-                Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update');
-                // Avant `eleves/{id}` juste en dessous : même précaution que pour
-                // `eleves/doublons` plus haut, appliquée cette fois au verbe DELETE.
-                Route::delete('eleves/non-preinscrits-sans-historique', [EleveController::class, 'supprimerNonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique.destroy');
-                Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy');
-                Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete');
-                Route::post('eleves/normaliser-matricules', [EleveController::class, 'normaliserMatricules'])->name('eleves.normaliser-matricules');
-                Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe');
-                Route::post('matricules-nationaux/import', [MatriculeNationalController::class, 'import'])->name('matricules-nationaux.import');
-                Route::put('matricules-nationaux/{id}', [MatriculeNationalController::class, 'update'])->name('matricules-nationaux.update');
-                Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole');
-                Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import');
-                Route::get('eleves/import-progress/{token}', [EleveController::class, 'importProgress'])->name('eleves.import-progress');
-                Route::post('eleves/import/preparer', [EleveController::class, 'importPreparer'])->name('eleves.import-preparer');
-                Route::post('eleves/import/traiter/{token}', [EleveController::class, 'importerLot'])->name('eleves.import-traiter');
-                Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert');
-                Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo');
-                Route::delete('eleves/{id}/photo', [EleveController::class, 'supprimerPhoto'])->name('eleves.photo.destroy');
+            Route::post('eleves/doublons/traitement-automatique', [EleveController::class, 'traitementAutomatiqueDoublons'])->name('eleves.doublons.automatique')->middleware('permission:eleves.fusionner');
+            Route::post('eleves/doublons/fusionner', [EleveController::class, 'fusionnerDoublon'])->name('eleves.doublons.fusionner')->middleware('permission:eleves.fusionner');
+            Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store')->middleware('permission:eleves.create');
+            Route::put('eleves/{id}', [EleveController::class, 'update'])->name('eleves.update')->middleware('permission:eleves.update');
+            // Avant `eleves/{id}` juste en dessous : même précaution que pour
+            // `eleves/doublons` plus haut, appliquée cette fois au verbe DELETE.
+            Route::delete('eleves/non-preinscrits-sans-historique', [EleveController::class, 'supprimerNonPreinscritsSansHistorique'])->name('eleves.non-preinscrits-sans-historique.destroy')->middleware('permission:eleves.delete');
+            Route::delete('eleves/{id}', [EleveController::class, 'destroy'])->name('eleves.destroy')->middleware('permission:eleves.delete');
+            Route::post('eleves/batch-delete', [EleveController::class, 'batchDelete'])->name('eleves.batch-delete')->middleware('permission:eleves.delete');
+            Route::post('eleves/normaliser-matricules', [EleveController::class, 'normaliserMatricules'])->name('eleves.normaliser-matricules')->middleware('permission:eleves.update');
+            Route::post('eleves/batch-transfert-classe', [EleveController::class, 'batchTransfertClasse'])->name('eleves.batch-transfert-classe')->middleware('permission:eleves.transferer');
+            Route::post('matricules-nationaux/import', [MatriculeNationalController::class, 'import'])->name('matricules-nationaux.import')->middleware('permission:matricules_nationaux.import');
+            Route::put('matricules-nationaux/{id}', [MatriculeNationalController::class, 'update'])->name('matricules-nationaux.update')->middleware('permission:matricules_nationaux.update');
+            Route::post('eleves/batch-transfert-ecole', [EleveController::class, 'batchTransfertEcole'])->name('eleves.batch-transfert-ecole')->middleware('permission:eleves.transferer');
+            Route::post('eleves/import', [EleveController::class, 'import'])->name('eleves.import')->middleware('permission:eleves.import');
+            Route::get('eleves/import-progress/{token}', [EleveController::class, 'importProgress'])->name('eleves.import-progress')->middleware('permission:eleves.import');
+            Route::post('eleves/import/preparer', [EleveController::class, 'importPreparer'])->name('eleves.import-preparer')->middleware('permission:eleves.import');
+            Route::post('eleves/import/traiter/{token}', [EleveController::class, 'importerLot'])->name('eleves.import-traiter')->middleware('permission:eleves.import');
+            Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert')->middleware('permission:eleves.transferer');
+            Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo')->middleware('permission:eleves.update');
+            Route::delete('eleves/{id}/photo', [EleveController::class, 'supprimerPhoto'])->name('eleves.photo.destroy')->middleware('permission:eleves.update');
 
-                Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index');
-                // Avant `tuteurs/{id}/...` plus bas, même précaution que pour
-                // `eleves/doublons` : un segment statique se déclare avant tout
-                // pattern dynamique susceptible de le capturer à sa place.
-                Route::get('tuteurs/doublons', [TuteurController::class, 'doublons'])->name('tuteurs.doublons.index');
-                Route::post('tuteurs/doublons/fusionner', [TuteurController::class, 'fusionnerDoublon'])->name('tuteurs.doublons.fusionner');
-                Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche');
-                Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf');
-                Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent');
-                Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces');
-                Route::post('tuteurs/{id}/reinitialiser-mot-de-passe', [TuteurController::class, 'reinitialiserMotDePasse'])->name('tuteurs.reinitialiser-mot-de-passe');
-                Route::post('tuteurs/{id}/enfants', [TuteurController::class, 'rattacherEnfants'])->name('tuteurs.rattacher-enfants');
-                Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent');
-                Route::post('tuteurs/{id}/supprimer-compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent-post');
-                Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot');
-                Route::post('tuteurs/comptes-parent-lot/preparer', [TuteurController::class, 'comptesParentLotPreparer'])->name('tuteurs.comptes-parent-lot-preparer');
-                Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter');
-                Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy');
-                Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index');
-                Route::get('parent-usage-stats/comptes', [ParentUsageStatsController::class, 'comptes'])->name('parent-usage-stats.comptes');
+            Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index')->middleware('permission:tuteurs.view');
+            // Avant `tuteurs/{id}/...` plus bas, même précaution que pour
+            // `eleves/doublons` : un segment statique se déclare avant tout
+            // pattern dynamique susceptible de le capturer à sa place.
+            Route::get('tuteurs/doublons', [TuteurController::class, 'doublons'])->name('tuteurs.doublons.index')->middleware('permission:tuteurs.view');
+            Route::post('tuteurs/doublons/fusionner', [TuteurController::class, 'fusionnerDoublon'])->name('tuteurs.doublons.fusionner')->middleware('permission:tuteurs.fusionner');
+            Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche')->middleware('permission:tuteurs.view|eleves.create|eleves.update|preinscriptions.create');
+            Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/{id}/reinitialiser-mot-de-passe', [TuteurController::class, 'reinitialiserMotDePasse'])->name('tuteurs.reinitialiser-mot-de-passe')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/{id}/enfants', [TuteurController::class, 'rattacherEnfants'])->name('tuteurs.rattacher-enfants')->middleware('permission:tuteurs.update');
+            Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/{id}/supprimer-compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent-post')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/comptes-parent-lot/preparer', [TuteurController::class, 'comptesParentLotPreparer'])->name('tuteurs.comptes-parent-lot-preparer')->middleware('permission:tuteurs.comptes');
+            Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter')->middleware('permission:tuteurs.comptes');
+            Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy')->middleware('permission:tuteurs.delete');
+            Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index')->middleware('permission:tuteurs.view');
+            Route::get('parent-usage-stats/comptes', [ParentUsageStatsController::class, 'comptes'])->name('parent-usage-stats.comptes')->middleware('permission:tuteurs.view');
 
-                // Comptes du portail élève — même quatuor d'actions que les
-                // comptes parent ci-dessus (cf. TuteurController), porté par
-                // EleveController plutôt qu'un contrôleur dédié : ce sont des
-                // actions sur la fiche élève, pas un domaine à part.
-                Route::get('eleves/identifiants/pdf', [EleveController::class, 'identifiantsElevePdf'])->name('eleves.identifiants-pdf');
-                Route::post('eleves/{id}/compte-eleve', [EleveController::class, 'creerCompteEleve'])->name('eleves.compte-eleve');
-                Route::post('eleves/{id}/basculer-acces', [EleveController::class, 'basculerAcces'])->name('eleves.basculer-acces');
-                Route::delete('eleves/{id}/compte-eleve', [EleveController::class, 'supprimerCompteEleve'])->name('eleves.supprimer-compte-eleve');
-                Route::post('eleves/comptes-eleve-lot', [EleveController::class, 'creerComptesEleveLot'])->name('eleves.comptes-eleve-lot');
+            // Comptes du portail élève — même quatuor d'actions que les
+            // comptes parent ci-dessus (cf. TuteurController), porté par
+            // EleveController plutôt qu'un contrôleur dédié : ce sont des
+            // actions sur la fiche élève, pas un domaine à part.
+            Route::get('eleves/identifiants/pdf', [EleveController::class, 'identifiantsElevePdf'])->name('eleves.identifiants-pdf')->middleware('permission:eleves.comptes');
+            Route::post('eleves/{id}/compte-eleve', [EleveController::class, 'creerCompteEleve'])->name('eleves.compte-eleve')->middleware('permission:eleves.comptes');
+            Route::post('eleves/{id}/basculer-acces', [EleveController::class, 'basculerAcces'])->name('eleves.basculer-acces')->middleware('permission:eleves.comptes');
+            Route::delete('eleves/{id}/compte-eleve', [EleveController::class, 'supprimerCompteEleve'])->name('eleves.supprimer-compte-eleve')->middleware('permission:eleves.comptes');
+            Route::post('eleves/comptes-eleve-lot', [EleveController::class, 'creerComptesEleveLot'])->name('eleves.comptes-eleve-lot')->middleware('permission:eleves.comptes');
 
-                Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index');
-                Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store');
-                Route::post('preinscriptions/nouveau', [PreinscriptionAdminController::class, 'storeNouveau'])->name('preinscriptions.nouveau');
-                Route::get('preinscriptions/{id}/recu', [PreinscriptionAdminController::class, 'recu'])->name('preinscriptions.recu');
-                // Routes statiques déclarées avant `preinscriptions/{id}` : sinon
-                // Laravel les fait matcher par le paramètre `{id}` (ex.
-                // "export" essaierait de charger la préinscription n°"export").
-                Route::get('database/schema', [PreinscriptionAdminController::class, 'schema'])->name('database.schema');
-                Route::get('database/migrations', [PreinscriptionAdminController::class, 'migrations'])->name('database.migrations');
-                Route::get('preinscriptions/non-inscrits', [PreinscriptionAdminController::class, 'nonInscrits'])->name('preinscriptions.non-inscrits');
-                Route::get('preinscriptions/export', [PreinscriptionAdminController::class, 'export'])->name('preinscriptions.export');
-                Route::get('preinscriptions/non-inscrits/export', [PreinscriptionAdminController::class, 'exportNonInscrits'])->name('preinscriptions.non-inscrits.export');
-                Route::get('preinscriptions/modele', [PreinscriptionAdminController::class, 'modele'])->name('preinscriptions.modele');
-                Route::post('preinscriptions/import', [PreinscriptionAdminController::class, 'import'])->name('preinscriptions.import');
-                Route::post('preinscriptions/import/preparer', [PreinscriptionAdminController::class, 'importPreparer'])->name('preinscriptions.import-preparer');
-                Route::post('preinscriptions/import/traiter/{token}', [PreinscriptionAdminController::class, 'importerLot'])->name('preinscriptions.import-traiter');
-                Route::post('preinscriptions/bulk-valider', [PreinscriptionAdminController::class, 'validerEnMasse'])->name('preinscriptions.bulk-valider');
-                Route::post('preinscriptions/bulk-rejeter', [PreinscriptionAdminController::class, 'rejeterEnMasse'])->name('preinscriptions.bulk-rejeter');
-                Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show');
-                Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update');
-                Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider');
-                Route::post('preinscriptions/{id}/rejeter', [PreinscriptionAdminController::class, 'rejeter'])->name('preinscriptions.rejeter');
-                Route::delete('preinscriptions/{id}', [PreinscriptionAdminController::class, 'supprimer'])->name('preinscriptions.supprimer');
+            Route::get('preinscriptions', [PreinscriptionAdminController::class, 'index'])->name('preinscriptions.index')->middleware('permission:preinscriptions.view');
+            Route::post('preinscriptions', [PreinscriptionAdminController::class, 'store'])->name('preinscriptions.store')->middleware('permission:preinscriptions.create');
+            Route::post('preinscriptions/nouveau', [PreinscriptionAdminController::class, 'storeNouveau'])->name('preinscriptions.nouveau')->middleware('permission:preinscriptions.create');
+            Route::get('preinscriptions/{id}/recu', [PreinscriptionAdminController::class, 'recu'])->name('preinscriptions.recu')->middleware('permission:preinscriptions.view');
+            // Routes statiques déclarées avant `preinscriptions/{id}` : sinon
+            // Laravel les fait matcher par le paramètre `{id}` (ex.
+            // "export" essaierait de charger la préinscription n°"export").
+            Route::get('database/schema', [PreinscriptionAdminController::class, 'schema'])->name('database.schema')->middleware('permission:preinscriptions.view');
+            Route::get('database/migrations', [PreinscriptionAdminController::class, 'migrations'])->name('database.migrations')->middleware('permission:preinscriptions.view');
+            Route::get('preinscriptions/non-inscrits', [PreinscriptionAdminController::class, 'nonInscrits'])->name('preinscriptions.non-inscrits')->middleware('permission:preinscriptions.view');
+            Route::get('preinscriptions/export', [PreinscriptionAdminController::class, 'export'])->name('preinscriptions.export')->middleware('permission:preinscriptions.view');
+            Route::get('preinscriptions/non-inscrits/export', [PreinscriptionAdminController::class, 'exportNonInscrits'])->name('preinscriptions.non-inscrits.export')->middleware('permission:preinscriptions.view');
+            Route::get('preinscriptions/modele', [PreinscriptionAdminController::class, 'modele'])->name('preinscriptions.modele')->middleware('permission:preinscriptions.view');
+            Route::post('preinscriptions/import', [PreinscriptionAdminController::class, 'import'])->name('preinscriptions.import')->middleware('permission:preinscriptions.import');
+            Route::post('preinscriptions/import/preparer', [PreinscriptionAdminController::class, 'importPreparer'])->name('preinscriptions.import-preparer')->middleware('permission:preinscriptions.import');
+            Route::post('preinscriptions/import/traiter/{token}', [PreinscriptionAdminController::class, 'importerLot'])->name('preinscriptions.import-traiter')->middleware('permission:preinscriptions.import');
+            Route::post('preinscriptions/bulk-valider', [PreinscriptionAdminController::class, 'validerEnMasse'])->name('preinscriptions.bulk-valider')->middleware('permission:preinscriptions.valider');
+            Route::post('preinscriptions/bulk-rejeter', [PreinscriptionAdminController::class, 'rejeterEnMasse'])->name('preinscriptions.bulk-rejeter')->middleware('permission:preinscriptions.valider');
+            Route::get('preinscriptions/{id}', [PreinscriptionAdminController::class, 'show'])->name('preinscriptions.show')->middleware('permission:preinscriptions.view');
+            Route::put('preinscriptions/{id}', [PreinscriptionAdminController::class, 'update'])->name('preinscriptions.update')->middleware('permission:preinscriptions.update');
+            Route::post('preinscriptions/{id}/valider', [PreinscriptionAdminController::class, 'valider'])->name('preinscriptions.valider')->middleware('permission:preinscriptions.valider');
+            Route::post('preinscriptions/{id}/rejeter', [PreinscriptionAdminController::class, 'rejeter'])->name('preinscriptions.rejeter')->middleware('permission:preinscriptions.valider');
+            Route::delete('preinscriptions/{id}', [PreinscriptionAdminController::class, 'supprimer'])->name('preinscriptions.supprimer')->middleware('permission:preinscriptions.delete');
 
-                Route::get('modifications-eleves', [ModificationEleveAdminController::class, 'index'])->name('modifications-eleves.index');
-                Route::get('modifications-eleves/{id}', [ModificationEleveAdminController::class, 'show'])->name('modifications-eleves.show');
-                Route::post('modifications-eleves/{id}/valider', [ModificationEleveAdminController::class, 'valider'])->name('modifications-eleves.valider');
-                Route::post('modifications-eleves/{id}/rejeter', [ModificationEleveAdminController::class, 'rejeter'])->name('modifications-eleves.rejeter');
+            Route::get('modifications-eleves', [ModificationEleveAdminController::class, 'index'])->name('modifications-eleves.index')->middleware('permission:modifications_eleves.view');
+            Route::get('modifications-eleves/{id}', [ModificationEleveAdminController::class, 'show'])->name('modifications-eleves.show')->middleware('permission:modifications_eleves.view');
+            Route::post('modifications-eleves/{id}/valider', [ModificationEleveAdminController::class, 'valider'])->name('modifications-eleves.valider')->middleware('permission:modifications_eleves.valider');
+            Route::post('modifications-eleves/{id}/rejeter', [ModificationEleveAdminController::class, 'rejeter'])->name('modifications-eleves.rejeter')->middleware('permission:modifications_eleves.valider');
 
-                Route::get('justifications', [JustificationAbsenceAdminController::class, 'index'])->name('justifications.index');
-                Route::get('justifications/{id}', [JustificationAbsenceAdminController::class, 'show'])->name('justifications.show');
+            Route::get('justifications', [JustificationAbsenceAdminController::class, 'index'])->name('justifications.index')->middleware('permission:justifications.view');
+            Route::get('justifications/{id}', [JustificationAbsenceAdminController::class, 'show'])->name('justifications.show')->middleware('permission:justifications.view');
 
-                Route::get('observations', [ObservationAdminController::class, 'index'])->name('observations.index');
-                Route::get('observations/{eleveId}', [ObservationAdminController::class, 'show'])->name('observations.show');
-                Route::post('observations/{eleveId}', [ObservationAdminController::class, 'repondre'])->name('observations.repondre');
-            });
+            Route::get('observations', [ObservationAdminController::class, 'index'])->name('observations.index')->middleware('permission:observations.view');
+            Route::get('observations/{eleveId}', [ObservationAdminController::class, 'show'])->name('observations.show')->middleware('permission:observations.view');
+            Route::post('observations/{eleveId}', [ObservationAdminController::class, 'repondre'])->name('observations.repondre')->middleware('permission:observations.repondre');
 
             /*
              * Portail parent. Gardé par le rôle et non par un privilège
@@ -720,7 +708,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * Espace enseignant : même principe que « mon-espace » ci-dessus,
              * étendu à la fiche personnel, la rémunération en lecture seule, et
              * à l'unique geste de gestion qu'un enseignant garde sur sa fiche de
-             * progression (ajouter une évaluation) quand `pedagogie.manage` ne
+             * progression (ajouter une évaluation) quand `evaluations.create` ne
              * lui est pas accordé. Le périmètre est vérifié dans le contrôleur,
              * pas ici : ce sont des routes sans `{classeId}` à borner.
              */
@@ -756,35 +744,33 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classes/{classeId}/matieres', [ClasseMatiereController::class, 'index'])->name('classes.matieres.index');
             });
 
-            Route::middleware('permission:pedagogie.manage')->group(function () {
-                Route::post('appreciations/import', [AppreciationController::class, 'import'])->name('appreciations.import');
-                Route::post('appreciations', [AppreciationController::class, 'store'])->name('appreciations.store');
-                Route::put('appreciations/{id}', [AppreciationController::class, 'update'])->name('appreciations.update');
-                Route::delete('appreciations/{id}', [AppreciationController::class, 'destroy'])->name('appreciations.destroy');
+            Route::post('appreciations/import', [AppreciationController::class, 'import'])->name('appreciations.import')->middleware('permission:appreciations.import');
+            Route::post('appreciations', [AppreciationController::class, 'store'])->name('appreciations.store')->middleware('permission:appreciations.create');
+            Route::put('appreciations/{id}', [AppreciationController::class, 'update'])->name('appreciations.update')->middleware('permission:appreciations.update');
+            Route::delete('appreciations/{id}', [AppreciationController::class, 'destroy'])->name('appreciations.destroy')->middleware('permission:appreciations.delete');
 
-                Route::post('competences/import', [CompetenceController::class, 'import'])->name('competences.import');
-                Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store');
-                Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update');
-                Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy');
-                Route::post('competences/batch-delete', [CompetenceController::class, 'batchDestroy'])->name('competences.batch-delete');
-                Route::post('classes/{classeId}/competences', [CompetenceController::class, 'attribuer'])->name('classes.competences.attribuer');
-                Route::put('classe-competences/{id}', [CompetenceController::class, 'modifierAttribution'])->name('classe-competences.update');
-                Route::delete('classe-competences/{id}', [CompetenceController::class, 'retirer'])->name('classe-competences.destroy');
+            Route::post('competences/import', [CompetenceController::class, 'import'])->name('competences.import')->middleware('permission:competences.import');
+            Route::post('competences', [CompetenceController::class, 'store'])->name('competences.store')->middleware('permission:competences.create');
+            Route::put('competences/{id}', [CompetenceController::class, 'update'])->name('competences.update')->middleware('permission:competences.update');
+            Route::delete('competences/{id}', [CompetenceController::class, 'destroy'])->name('competences.destroy')->middleware('permission:competences.delete');
+            Route::post('competences/batch-delete', [CompetenceController::class, 'batchDestroy'])->name('competences.batch-delete')->middleware('permission:competences.delete');
+            Route::post('classes/{classeId}/competences', [CompetenceController::class, 'attribuer'])->name('classes.competences.attribuer')->middleware('permission:competences.attribuer');
+            Route::put('classe-competences/{id}', [CompetenceController::class, 'modifierAttribution'])->name('classe-competences.update')->middleware('permission:competences.attribuer');
+            Route::delete('classe-competences/{id}', [CompetenceController::class, 'retirer'])->name('classe-competences.destroy')->middleware('permission:competences.attribuer');
 
-                Route::post('matieres', [MatiereController::class, 'store'])->name('matieres.store');
-                Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update');
-                Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy');
-                Route::post('matieres/batch-delete', [MatiereController::class, 'batchDestroy'])->name('matieres.batch-destroy');
-                Route::post('matieres/batch-competence', [MatiereController::class, 'batchCompetence'])->name('matieres.batch-competence');
-                Route::post('matieres/fusionner', [MatiereController::class, 'fusionner'])->name('matieres.fusionner');
-                Route::post('matieres/import', [MatiereController::class, 'import'])->name('matieres.import');
+            Route::post('matieres', [MatiereController::class, 'store'])->name('matieres.store')->middleware('permission:matieres.create');
+            Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update')->middleware('permission:matieres.update');
+            Route::delete('matieres/{id}', [MatiereController::class, 'destroy'])->name('matieres.destroy')->middleware('permission:matieres.delete');
+            Route::post('matieres/batch-delete', [MatiereController::class, 'batchDestroy'])->name('matieres.batch-destroy')->middleware('permission:matieres.delete');
+            Route::post('matieres/batch-competence', [MatiereController::class, 'batchCompetence'])->name('matieres.batch-competence')->middleware('permission:matieres.update');
+            Route::post('matieres/fusionner', [MatiereController::class, 'fusionner'])->name('matieres.fusionner')->middleware('permission:matieres.fusionner');
+            Route::post('matieres/import', [MatiereController::class, 'import'])->name('matieres.import')->middleware('permission:matieres.import');
 
-                Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store');
-                Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update');
-                Route::delete('classe-matieres/{id}', [ClasseMatiereController::class, 'destroy'])->name('classe-matieres.destroy');
-                Route::post('classe-matieres/copier', [ClasseMatiereController::class, 'copier'])->name('classe-matieres.copier');
-                Route::post('classe-matieres/batch-enseignant', [ClasseMatiereController::class, 'batchEnseignant'])->name('classe-matieres.batch-enseignant');
-            });
+            Route::post('classes/{classeId}/matieres', [ClasseMatiereController::class, 'store'])->name('classes.matieres.store')->middleware('permission:affectations.create');
+            Route::put('classe-matieres/{id}', [ClasseMatiereController::class, 'update'])->name('classe-matieres.update')->middleware('permission:affectations.update');
+            Route::delete('classe-matieres/{id}', [ClasseMatiereController::class, 'destroy'])->name('classe-matieres.destroy')->middleware('permission:affectations.delete');
+            Route::post('classe-matieres/copier', [ClasseMatiereController::class, 'copier'])->name('classe-matieres.copier')->middleware('permission:affectations.create');
+            Route::post('classe-matieres/batch-enseignant', [ClasseMatiereController::class, 'batchEnseignant'])->name('classe-matieres.batch-enseignant')->middleware('permission:affectations.update');
 
             /*
              * Progression pédagogique : le programme annuel se consulte avec la
@@ -802,20 +788,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
 
-            Route::middleware('permission:pedagogie.manage')->group(function () {
-                Route::post('calendrier-scolaire', [CalendrierScolaireController::class, 'store'])->name('calendrier-scolaire.store');
-                Route::delete('calendrier-scolaire/{id}', [CalendrierScolaireController::class, 'destroy'])->name('calendrier-scolaire.destroy');
-                Route::post('calendrier-scolaire/recalculer', [CalendrierScolaireController::class, 'recalculer'])->name('calendrier-scolaire.recalculer');
-                Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save');
-                Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import');
-                Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe');
-                Route::put('classe-matieres/{classeMatiereId}/progression/cartouche', [ProgressionController::class, 'enregistrerCartouche'])->name('progression.cartouche');
-                Route::put('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'enregistrerColonnes'])->name('progression-colonnes.save');
-                Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save');
-                Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store');
-                Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update');
-                Route::delete('evaluations/{id}', [EvaluationController::class, 'destroy'])->name('evaluations.destroy');
-            });
+            Route::post('calendrier-scolaire', [CalendrierScolaireController::class, 'store'])->name('calendrier-scolaire.store')->middleware('permission:calendrier_scolaire.create');
+            Route::delete('calendrier-scolaire/{id}', [CalendrierScolaireController::class, 'destroy'])->name('calendrier-scolaire.destroy')->middleware('permission:calendrier_scolaire.delete');
+            Route::post('calendrier-scolaire/recalculer', [CalendrierScolaireController::class, 'recalculer'])->name('calendrier-scolaire.recalculer')->middleware('permission:calendrier_scolaire.create');
+            Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save')->middleware('permission:progression.update');
+            Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import')->middleware('permission:progression.import');
+            Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe')->middleware('permission:progression.import');
+            Route::put('classe-matieres/{classeMatiereId}/progression/cartouche', [ProgressionController::class, 'enregistrerCartouche'])->name('progression.cartouche')->middleware('permission:progression.update');
+            Route::put('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'enregistrerColonnes'])->name('progression-colonnes.save')->middleware('permission:progression.update');
+            Route::put('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'enregistrerChamps'])->name('champs-personnalises.save')->middleware('permission:progression.update');
+            Route::post('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'store'])->name('evaluations.store')->middleware('permission:evaluations.create');
+            Route::put('evaluations/{id}', [EvaluationController::class, 'update'])->name('evaluations.update')->middleware('permission:evaluations.update');
+            Route::delete('evaluations/{id}', [EvaluationController::class, 'destroy'])->name('evaluations.destroy')->middleware('permission:evaluations.delete');
 
             Route::get('calendrier-scolaire', [CalendrierScolaireController::class, 'index'])
                 ->name('calendrier-scolaire.index')->middleware('permission:pedagogie.view');
@@ -831,14 +815,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              */
             // Vue globale de la journée, réservée à l'administration — même
             // permission que « Suivi d'activité », que l'enseignant ordinaire
-            // ne porte pas (contrairement à `appel.manage`, ci-dessous, qui
+            // ne porte pas (contrairement à `appel.saisir`, ci-dessous, qui
             // couvre aussi son propre `ma-journee`). Route littérale avant
             // {classeMatiereId} du groupe suivant, pour ne pas s'y faire happer.
             Route::middleware('permission:personnel.view')->group(function () {
                 Route::get('ma-journee/ecole', [MaJourneeController::class, 'ecole'])->name('ma-journee.ecole');
             });
 
-            Route::middleware('permission:appel.manage')->group(function () {
+            Route::middleware('permission:appel.saisir')->group(function () {
                 Route::get('ma-journee/couverture', [MaJourneeController::class, 'couverture'])->name('ma-journee.couverture');
                 Route::get('ma-journee/couverture-periodes', [MaJourneeController::class, 'couverturePeriodes'])->name('ma-journee.couverture-periodes');
                 Route::get('ma-journee/qr/{token}', [MaJourneeController::class, 'resoudreQr'])->name('ma-journee.qr');
@@ -857,13 +841,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('trimestres', [TrimestreController::class, 'index'])->name('trimestres.index');
             });
 
-            Route::middleware('permission:ecoles.manage')->group(function () {
-                Route::post('trimestres', [TrimestreController::class, 'store'])->name('trimestres.store');
-                Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update');
-                Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate');
-                Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances');
-                Route::post('trimestres/{id}/supprimer-seances', [TrimestreController::class, 'supprimerSeances'])->name('trimestres.supprimer-seances');
-            });
+            Route::post('trimestres', [TrimestreController::class, 'store'])->name('trimestres.store')->middleware('permission:trimestres.create');
+            Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update')->middleware('permission:trimestres.update');
+            Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate')->middleware('permission:trimestres.activer');
+            Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances')->middleware('permission:trimestres.seances');
+            Route::post('trimestres/{id}/supprimer-seances', [TrimestreController::class, 'supprimerSeances'])->name('trimestres.supprimer-seances')->middleware('permission:trimestres.seances');
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-matieres/{classeMatiereId}/notes', [NoteController::class, 'index'])->name('notes.index');
@@ -884,11 +866,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('niveaux-scolaires', [NiveauScolaireController::class, 'index'])->name('niveaux-scolaires.index');
             });
 
-            Route::middleware('permission:pedagogie.manage')->group(function () {
-                Route::post('niveaux-scolaires', [NiveauScolaireController::class, 'store'])->name('niveaux-scolaires.store');
-                Route::put('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'update'])->name('niveaux-scolaires.update');
-                Route::delete('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'destroy'])->name('niveaux-scolaires.destroy');
-            });
+            Route::post('niveaux-scolaires', [NiveauScolaireController::class, 'store'])->name('niveaux-scolaires.store')->middleware('permission:niveaux_scolaires.create');
+            Route::put('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'update'])->name('niveaux-scolaires.update')->middleware('permission:niveaux_scolaires.update');
+            Route::delete('niveaux-scolaires/{id}', [NiveauScolaireController::class, 'destroy'])->name('niveaux-scolaires.destroy')->middleware('permission:niveaux_scolaires.delete');
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
@@ -941,11 +921,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('revendications', [RevendicationController::class, 'index'])->name('revendications.index');
             });
 
-            Route::middleware('permission:revendications.manage')->group(function () {
-                Route::post('revendications', [RevendicationController::class, 'store'])->name('revendications.store');
-                Route::put('revendications/{id}', [RevendicationController::class, 'update'])->name('revendications.update');
-                Route::delete('revendications/{id}', [RevendicationController::class, 'destroy'])->name('revendications.destroy');
-            });
+            Route::post('revendications', [RevendicationController::class, 'store'])->name('revendications.store')->middleware('permission:revendications.create');
+            Route::put('revendications/{id}', [RevendicationController::class, 'update'])->name('revendications.update')->middleware('permission:revendications.update');
+            Route::delete('revendications/{id}', [RevendicationController::class, 'destroy'])->name('revendications.destroy')->middleware('permission:revendications.delete');
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
                 Route::get('salles', [SalleController::class, 'index'])->name('salles.index');
@@ -961,34 +939,30 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('tronc-commun-groupes', [TroncCommunGroupeController::class, 'index'])->name('tronc-commun.index');
             });
 
-            Route::middleware('permission:pedagogie.manage')->group(function () {
-                Route::post('tronc-commun-groupes', [TroncCommunGroupeController::class, 'store'])->name('tronc-commun.store');
-                Route::delete('tronc-commun-groupes/{id}', [TroncCommunGroupeController::class, 'destroy'])->name('tronc-commun.destroy');
-            });
+            Route::post('tronc-commun-groupes', [TroncCommunGroupeController::class, 'store'])->name('tronc-commun.store')->middleware('permission:tronc_commun.create');
+            Route::delete('tronc-commun-groupes/{id}', [TroncCommunGroupeController::class, 'destroy'])->name('tronc-commun.destroy')->middleware('permission:tronc_commun.delete');
 
-            Route::middleware('permission:emploi_du_temps.manage')->group(function () {
-                Route::post('salles', [SalleController::class, 'store'])->name('salles.store');
-                Route::put('salles/{id}', [SalleController::class, 'update'])->name('salles.update');
-                Route::delete('salles/{id}', [SalleController::class, 'destroy'])->name('salles.destroy');
-                Route::post('emploi-du-temps/elements', [EmploiDuTempsElementController::class, 'store'])->name('edt.elements.store');
-                Route::put('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'update'])->name('edt.elements.update');
-                Route::delete('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'destroy'])->name('edt.elements.destroy');
-                Route::post('emploi-du-temps/elements/{id}/appliquer', [EmploiDuTempsElementController::class, 'apply'])->name('edt.elements.apply');
-                Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store');
-                Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update');
-                Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy');
-                Route::post('classes/{classeId}/emploi-du-temps/batch-delete', [EmploiDuTempsController::class, 'batchDelete'])->name('edt.batch-delete');
-                Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer');
-                Route::post('classes/{classeId}/emploi-du-temps/supprimer-seances', [EmploiDuTempsController::class, 'supprimerSeances'])->name('edt.supprimer-seances');
-                Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier');
-                Route::post('classes/{classeId}/emploi-du-temps/import', [EmploiDuTempsController::class, 'import'])->name('edt.import');
-                Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store');
-                Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update');
-                Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy');
-                Route::post('classes/{classeId}/seances/batch-delete', [SeanceController::class, 'batchDelete'])->name('seances.batch-delete');
-            });
+            Route::post('salles', [SalleController::class, 'store'])->name('salles.store')->middleware('permission:salles.create');
+            Route::put('salles/{id}', [SalleController::class, 'update'])->name('salles.update')->middleware('permission:salles.update');
+            Route::delete('salles/{id}', [SalleController::class, 'destroy'])->name('salles.destroy')->middleware('permission:salles.delete');
+            Route::post('emploi-du-temps/elements', [EmploiDuTempsElementController::class, 'store'])->name('edt.elements.store')->middleware('permission:edt_elements.create');
+            Route::put('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'update'])->name('edt.elements.update')->middleware('permission:edt_elements.update');
+            Route::delete('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'destroy'])->name('edt.elements.destroy')->middleware('permission:edt_elements.delete');
+            Route::post('emploi-du-temps/elements/{id}/appliquer', [EmploiDuTempsElementController::class, 'apply'])->name('edt.elements.apply')->middleware('permission:edt_elements.appliquer');
+            Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store')->middleware('permission:emploi_du_temps.create');
+            Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update')->middleware('permission:emploi_du_temps.update');
+            Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy')->middleware('permission:emploi_du_temps.delete');
+            Route::post('classes/{classeId}/emploi-du-temps/batch-delete', [EmploiDuTempsController::class, 'batchDelete'])->name('edt.batch-delete')->middleware('permission:emploi_du_temps.delete');
+            Route::post('classes/{classeId}/emploi-du-temps/generer-seances', [EmploiDuTempsController::class, 'genererSeances'])->name('edt.generer')->middleware('permission:seances.generer');
+            Route::post('classes/{classeId}/emploi-du-temps/supprimer-seances', [EmploiDuTempsController::class, 'supprimerSeances'])->name('edt.supprimer-seances')->middleware('permission:seances.generer');
+            Route::post('classes/{classeId}/emploi-du-temps/copier', [EmploiDuTempsController::class, 'copier'])->name('edt.copier')->middleware('permission:emploi_du_temps.create');
+            Route::post('classes/{classeId}/emploi-du-temps/import', [EmploiDuTempsController::class, 'import'])->name('edt.import')->middleware('permission:emploi_du_temps.import');
+            Route::post('classes/{classeId}/seances', [SeanceController::class, 'store'])->name('seances.store')->middleware('permission:seances.create');
+            Route::put('seances/{id}', [SeanceController::class, 'update'])->name('seances.update')->middleware('permission:seances.update');
+            Route::delete('seances/{id}', [SeanceController::class, 'destroy'])->name('seances.destroy')->middleware('permission:seances.delete');
+            Route::post('classes/{classeId}/seances/batch-delete', [SeanceController::class, 'batchDelete'])->name('seances.batch-delete')->middleware('permission:seances.delete');
 
-            Route::middleware('permission:appel.manage')->group(function () {
+            Route::middleware('permission:appel.saisir')->group(function () {
                 Route::post('seances/{id}/appel', [SeanceController::class, 'enregistrerAppel'])->name('seances.appel.store');
             });
 
@@ -1062,21 +1036,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             /*
              * Moratoires, remises individuelles et dettes antérieures : des
              * corrections à la situation d'un élève, réservées à qui peut
-             * décider un montant — `finance.manage`, pas le simple encaissement.
+             * décider un montant — un privilège par geste, pas le simple encaissement.
              */
-            Route::middleware('permission:finance.manage')->group(function () {
-                Route::post('finance/dettes-anterieures/import', [DetteAnterieureController::class, 'import'])->name('finance.dettes-anterieures.import');
-                Route::post('eleves/{eleveId}/moratoires', [MoratoireController::class, 'store'])->name('moratoires.store');
-                Route::delete('moratoires/{id}', [MoratoireController::class, 'destroy'])->name('moratoires.destroy');
+            Route::post('finance/dettes-anterieures/import', [DetteAnterieureController::class, 'import'])->name('finance.dettes-anterieures.import')->middleware('permission:dettes_anterieures.import');
+            Route::post('eleves/{eleveId}/moratoires', [MoratoireController::class, 'store'])->name('moratoires.store')->middleware('permission:moratoires.create');
+            Route::delete('moratoires/{id}', [MoratoireController::class, 'destroy'])->name('moratoires.destroy')->middleware('permission:moratoires.delete');
 
-                Route::post('eleves/{eleveId}/remises', [RemiseController::class, 'store'])->name('remises.store');
-                Route::put('remises/{id}', [RemiseController::class, 'update'])->name('remises.update');
-                Route::delete('remises/{id}', [RemiseController::class, 'destroy'])->name('remises.destroy');
+            Route::post('eleves/{eleveId}/remises', [RemiseController::class, 'store'])->name('remises.store')->middleware('permission:remises.create');
+            Route::put('remises/{id}', [RemiseController::class, 'update'])->name('remises.update')->middleware('permission:remises.update');
+            Route::delete('remises/{id}', [RemiseController::class, 'destroy'])->name('remises.destroy')->middleware('permission:remises.delete');
 
-                Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store');
-                Route::delete('dettes-anterieures/{id}', [DetteAnterieureController::class, 'destroy'])->name('dettes-anterieures.destroy');
-                Route::post('eleves/{eleveId}/dettes-anterieures/oublier', [DetteAnterieureController::class, 'oublier'])->name('dettes-anterieures.oublier');
-            });
+            Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store')->middleware('permission:dettes_anterieures.create');
+            Route::delete('dettes-anterieures/{id}', [DetteAnterieureController::class, 'destroy'])->name('dettes-anterieures.destroy')->middleware('permission:dettes_anterieures.delete');
+            Route::post('eleves/{eleveId}/dettes-anterieures/oublier', [DetteAnterieureController::class, 'oublier'])->name('dettes-anterieures.oublier')->middleware('permission:dettes_anterieures.oublier');
 
             /*
              * Finances — dépenses. La consultation relève de `finance.view`,
@@ -1136,8 +1108,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             /*
-             * Tarifs : `finance.view` pour consulter la grille, `finance.manage`
-             * pour la fixer — décider d'un prix n'est pas le métier du caissier.
+             * Tarifs : `finance.view` pour consulter la grille, `tarifs.*`,
+             * `frais_annexes.*` et `tranches_scolarite.*` pour la fixer — décider
+             * d'un prix n'est pas le métier du caissier.
              */
             Route::middleware('permission:finance.view')->group(function () {
                 Route::get('tarifs', [TarifsController::class, 'index'])->name('tarifs.index');
@@ -1152,18 +1125,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('tranches-scolarite/modele', [TrancheScolariteController::class, 'modele'])->name('tranches-scolarite.modele');
             });
 
-            Route::middleware('permission:finance.manage')->group(function () {
-                Route::put('tranches-scolarite', [TrancheScolariteController::class, 'remplacer'])->name('tranches-scolarite.remplacer');
-                Route::post('tranches-scolarite/import', [TrancheScolariteController::class, 'import'])->name('tranches-scolarite.import');
-                Route::post('tarifs/grille-frais/import', [TarifsController::class, 'importGrilleFrais'])->name('tarifs.grille-frais.import');
-                Route::post('tarifs/frais-annexes/import', [TarifsController::class, 'importFraisAnnexes'])->name('tarifs.frais-annexes.import');
-                Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir');
-                Route::post('tarifs/synchroniser-dossiers', [TarifsController::class, 'synchroniserDossiers'])->name('tarifs.synchroniser-dossiers');
-                Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer');
-                Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store');
-                Route::put('tarifs/frais-annexes/{id}', [TarifsController::class, 'modifierFraisAnnexe'])->name('tarifs.frais.update');
-                Route::delete('tarifs/frais-annexes/{id}', [TarifsController::class, 'desactiverFraisAnnexe'])->name('tarifs.frais.destroy');
-            });
+            Route::put('tranches-scolarite', [TrancheScolariteController::class, 'remplacer'])->name('tranches-scolarite.remplacer')->middleware('permission:tranches_scolarite.update');
+            Route::post('tranches-scolarite/import', [TrancheScolariteController::class, 'import'])->name('tranches-scolarite.import')->middleware('permission:tranches_scolarite.import');
+            Route::post('tarifs/grille-frais/import', [TarifsController::class, 'importGrilleFrais'])->name('tarifs.grille-frais.import')->middleware('permission:tarifs.import');
+            Route::post('tarifs/frais-annexes/import', [TarifsController::class, 'importFraisAnnexes'])->name('tarifs.frais-annexes.import')->middleware('permission:frais_annexes.import');
+            Route::post('tarifs', [TarifsController::class, 'definirTarif'])->name('tarifs.definir')->middleware('permission:tarifs.update');
+            Route::post('tarifs/synchroniser-dossiers', [TarifsController::class, 'synchroniserDossiers'])->name('tarifs.synchroniser-dossiers')->middleware('permission:tarifs.update');
+            Route::delete('tarifs/classes/{classeId}', [TarifsController::class, 'supprimerTarif'])->name('tarifs.supprimer')->middleware('permission:tarifs.delete');
+            Route::post('tarifs/frais-annexes', [TarifsController::class, 'creerFraisAnnexe'])->name('tarifs.frais.store')->middleware('permission:frais_annexes.create');
+            Route::put('tarifs/frais-annexes/{id}', [TarifsController::class, 'modifierFraisAnnexe'])->name('tarifs.frais.update')->middleware('permission:frais_annexes.update');
+            Route::delete('tarifs/frais-annexes/{id}', [TarifsController::class, 'desactiverFraisAnnexe'])->name('tarifs.frais.destroy')->middleware('permission:frais_annexes.delete');
 
             Route::middleware('permission:finance.rapports')->group(function () {
                 Route::get('rapports/tableau-de-bord', [RapportFinancierController::class, 'tableauDeBord'])->name('rapports.bord');
@@ -1176,14 +1147,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('apee', [ApeeController::class, 'index'])->name('apee.index');
             });
 
-            Route::middleware('permission:finance.manage')->group(function () {
-                Route::put('budget-fonctionnement/{rubrique}', [BudgetFonctionnementController::class, 'update'])->name('budget-fonctionnement.update');
-                Route::post('assurances-scolaires', [AssuranceScolaireController::class, 'store'])->name('assurances-scolaires.store');
-                Route::put('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'update'])->name('assurances-scolaires.update');
-                Route::delete('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'destroy'])->name('assurances-scolaires.destroy');
-                Route::put('conseil-ecole', [ConseilEcoleController::class, 'update'])->name('conseil-ecole.update');
-                Route::put('apee', [ApeeController::class, 'update'])->name('apee.update');
-            });
+            Route::put('budget-fonctionnement/{rubrique}', [BudgetFonctionnementController::class, 'update'])->name('budget-fonctionnement.update')->middleware('permission:budget_fonctionnement.update');
+            Route::post('assurances-scolaires', [AssuranceScolaireController::class, 'store'])->name('assurances-scolaires.store')->middleware('permission:assurances_scolaires.create');
+            Route::put('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'update'])->name('assurances-scolaires.update')->middleware('permission:assurances_scolaires.update');
+            Route::delete('assurances-scolaires/{id}', [AssuranceScolaireController::class, 'destroy'])->name('assurances-scolaires.destroy')->middleware('permission:assurances_scolaires.delete');
+            Route::put('conseil-ecole', [ConseilEcoleController::class, 'update'])->name('conseil-ecole.update')->middleware('permission:conseil_ecole.update');
+            Route::put('apee', [ApeeController::class, 'update'])->name('apee.update')->middleware('permission:apee.update');
 
             /*
              * Finances — paie. Un seul privilège : préparer, arrêter et régler
@@ -1227,12 +1196,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('demandes-avance-salaire/{id}/rejeter', [DemandeAvanceSalaireAdminController::class, 'rejeter'])->name('demandes-avance-salaire.rejeter');
             });
 
-            Route::middleware('permission:discipline.manage')->group(function () {
-                Route::post('classes/{classeId}/absences', [AbsenceController::class, 'bulkStore'])->name('absences.bulk-store');
-                Route::post('sanctions', [SanctionController::class, 'store'])->name('sanctions.store');
-                Route::put('sanctions/{id}', [SanctionController::class, 'update'])->name('sanctions.update');
-                Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy');
-            });
+            Route::post('classes/{classeId}/absences', [AbsenceController::class, 'bulkStore'])->name('absences.bulk-store')->middleware('permission:absences.saisir');
+            Route::post('sanctions', [SanctionController::class, 'store'])->name('sanctions.store')->middleware('permission:sanctions.create');
+            Route::put('sanctions/{id}', [SanctionController::class, 'update'])->name('sanctions.update')->middleware('permission:sanctions.update');
+            Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy')->middleware('permission:sanctions.delete');
 
             Route::middleware('permission:infirmerie.view')->group(function () {
                 Route::get('infirmerie/visites', [VisiteInfirmerieController::class, 'index'])->name('infirmerie.visites.index');
@@ -1241,15 +1208,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('infirmerie/malaises', [MalaiseReferentielController::class, 'index'])->name('infirmerie.malaises.index');
             });
 
-            Route::middleware('permission:infirmerie.manage')->group(function () {
-                Route::post('infirmerie/visites/import', [VisiteInfirmerieController::class, 'import'])->name('infirmerie.visites.import');
-                Route::post('infirmerie/visites', [VisiteInfirmerieController::class, 'store'])->name('infirmerie.visites.store');
-                Route::put('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'update'])->name('infirmerie.visites.update');
-                Route::delete('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'destroy'])->name('infirmerie.visites.destroy');
-                Route::post('infirmerie/malaises', [MalaiseReferentielController::class, 'store'])->name('infirmerie.malaises.store');
-                Route::put('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'update'])->name('infirmerie.malaises.update');
-                Route::delete('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'destroy'])->name('infirmerie.malaises.destroy');
-            });
+            Route::post('infirmerie/visites/import', [VisiteInfirmerieController::class, 'import'])->name('infirmerie.visites.import')->middleware('permission:infirmerie.import');
+            Route::post('infirmerie/visites', [VisiteInfirmerieController::class, 'store'])->name('infirmerie.visites.store')->middleware('permission:infirmerie.create');
+            Route::put('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'update'])->name('infirmerie.visites.update')->middleware('permission:infirmerie.update');
+            Route::delete('infirmerie/visites/{id}', [VisiteInfirmerieController::class, 'destroy'])->name('infirmerie.visites.destroy')->middleware('permission:infirmerie.delete');
+            Route::post('infirmerie/malaises', [MalaiseReferentielController::class, 'store'])->name('infirmerie.malaises.store')->middleware('permission:malaises.create');
+            Route::put('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'update'])->name('infirmerie.malaises.update')->middleware('permission:malaises.update');
+            Route::delete('infirmerie/malaises/{id}', [MalaiseReferentielController::class, 'destroy'])->name('infirmerie.malaises.destroy')->middleware('permission:malaises.delete');
 
             Route::middleware('permission:bus.view')->group(function () {
                 Route::get('bus/vehicules', [BusVehiculeController::class, 'index'])->name('bus.vehicules.index');
@@ -1276,25 +1241,23 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/versements/{id}/recu', [BusPaiementController::class, 'recu'])->name('bus.paiements.recu');
             });
 
-            Route::middleware('permission:bus.manage')->group(function () {
-                Route::post('bus/vehicules/import', [BusVehiculeController::class, 'import'])->name('bus.vehicules.import');
-                Route::post('bus/vehicules', [BusVehiculeController::class, 'store'])->name('bus.vehicules.store');
-                Route::put('bus/vehicules/{id}', [BusVehiculeController::class, 'update'])->name('bus.vehicules.update');
-                Route::delete('bus/vehicules/{id}', [BusVehiculeController::class, 'destroy'])->name('bus.vehicules.destroy');
+            Route::post('bus/vehicules/import', [BusVehiculeController::class, 'import'])->name('bus.vehicules.import')->middleware('permission:bus_vehicules.import');
+            Route::post('bus/vehicules', [BusVehiculeController::class, 'store'])->name('bus.vehicules.store')->middleware('permission:bus_vehicules.create');
+            Route::put('bus/vehicules/{id}', [BusVehiculeController::class, 'update'])->name('bus.vehicules.update')->middleware('permission:bus_vehicules.update');
+            Route::delete('bus/vehicules/{id}', [BusVehiculeController::class, 'destroy'])->name('bus.vehicules.destroy')->middleware('permission:bus_vehicules.delete');
 
-                Route::post('bus/trajets', [BusTrajetController::class, 'store'])->name('bus.trajets.store');
-                Route::post('bus/trajets/import', [BusTrajetController::class, 'importTrajets'])->name('bus.trajets.import');
-                Route::post('bus/arrets/import', [BusTrajetController::class, 'importArrets'])->name('bus.arrets.import');
-                Route::put('bus/trajets/{id}', [BusTrajetController::class, 'update'])->name('bus.trajets.update');
-                Route::delete('bus/trajets/{id}', [BusTrajetController::class, 'destroy'])->name('bus.trajets.destroy');
-                Route::post('bus/trajets/{id}/notifier', [BusTrajetController::class, 'notifier'])->name('bus.trajets.notifier');
-                Route::post('bus/trajets/{trajetId}/arrets', [BusTrajetController::class, 'ajouterArret'])->name('bus.arrets.store');
-                Route::put('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'modifierArret'])->name('bus.arrets.update');
-                Route::delete('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'supprimerArret'])->name('bus.arrets.destroy');
-            });
+            Route::post('bus/trajets', [BusTrajetController::class, 'store'])->name('bus.trajets.store')->middleware('permission:bus_trajets.create');
+            Route::post('bus/trajets/import', [BusTrajetController::class, 'importTrajets'])->name('bus.trajets.import')->middleware('permission:bus_trajets.import');
+            Route::post('bus/arrets/import', [BusTrajetController::class, 'importArrets'])->name('bus.arrets.import')->middleware('permission:bus_arrets.import');
+            Route::put('bus/trajets/{id}', [BusTrajetController::class, 'update'])->name('bus.trajets.update')->middleware('permission:bus_trajets.update');
+            Route::delete('bus/trajets/{id}', [BusTrajetController::class, 'destroy'])->name('bus.trajets.destroy')->middleware('permission:bus_trajets.delete');
+            Route::post('bus/trajets/{id}/notifier', [BusTrajetController::class, 'notifier'])->name('bus.trajets.notifier')->middleware('permission:bus_trajets.notifier');
+            Route::post('bus/trajets/{trajetId}/arrets', [BusTrajetController::class, 'ajouterArret'])->name('bus.arrets.store')->middleware('permission:bus_arrets.create');
+            Route::put('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'modifierArret'])->name('bus.arrets.update')->middleware('permission:bus_arrets.update');
+            Route::delete('bus/trajets/{trajetId}/arrets/{arretId}', [BusTrajetController::class, 'supprimerArret'])->name('bus.arrets.destroy')->middleware('permission:bus_arrets.delete');
 
             // Souscrire/retirer un élève et encaisser ses paiements : distinct de
-            // `bus.manage` (flotte/trajets/arrêts) pour qu'un profil autorisé à
+            // la flotte, des trajets et des arrêts, pour qu'un profil autorisé à
             // consulter et saisir des dépenses ne puisse pas, pour autant,
             // inscrire ou désinscrire des élèves du transport.
             Route::middleware('permission:bus.souscrire')->group(function () {
@@ -1316,20 +1279,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('inventaire/export', [InventaireController::class, 'export'])->name('inventaire.export');
                 Route::get('inventaire/modele', [InventaireController::class, 'modele'])->name('inventaire.modele');
             });
-            Route::middleware('permission:inventaire.manage')->group(function () {
-                Route::post('inventaire/import', [InventaireController::class, 'import'])->name('inventaire.import');
-                Route::post('inventaire', [InventaireController::class, 'store'])->name('inventaire.store');
-                // Déclarées avant « inventaire/{id} » : sans cela, « etiquettes »
-                // serait capté comme un identifiant d'article.
-                Route::post('inventaire/etiquettes', [InventaireController::class, 'etiquettes'])->name('inventaire.etiquettes');
-                Route::post('inventaire/{id}/code-barre', [InventaireController::class, 'codeBarre'])->name('inventaire.code-barre');
-                Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update');
-                Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy');
+            Route::post('inventaire/import', [InventaireController::class, 'import'])->name('inventaire.import')->middleware('permission:inventaire.import');
+            Route::post('inventaire', [InventaireController::class, 'store'])->name('inventaire.store')->middleware('permission:inventaire.create');
+            // Déclarées avant « inventaire/{id} » : sans cela, « etiquettes »
+            // serait capté comme un identifiant d'article.
+            Route::post('inventaire/etiquettes', [InventaireController::class, 'etiquettes'])->name('inventaire.etiquettes')->middleware('permission:inventaire.etiquettes');
+            Route::post('inventaire/{id}/code-barre', [InventaireController::class, 'codeBarre'])->name('inventaire.code-barre')->middleware('permission:inventaire.etiquettes');
+            Route::put('inventaire/{id}', [InventaireController::class, 'update'])->name('inventaire.update')->middleware('permission:inventaire.update');
+            Route::delete('inventaire/{id}', [InventaireController::class, 'destroy'])->name('inventaire.destroy')->middleware('permission:inventaire.delete');
 
-                Route::get('demandes-articles-inventaire', [DemandeArticleInventaireAdminController::class, 'index'])->name('demandes-articles-inventaire.index');
-                Route::post('demandes-articles-inventaire/{id}/valider', [DemandeArticleInventaireAdminController::class, 'valider'])->name('demandes-articles-inventaire.valider');
-                Route::post('demandes-articles-inventaire/{id}/rejeter', [DemandeArticleInventaireAdminController::class, 'rejeter'])->name('demandes-articles-inventaire.rejeter');
-            });
+            Route::get('demandes-articles-inventaire', [DemandeArticleInventaireAdminController::class, 'index'])->name('demandes-articles-inventaire.index')->middleware('permission:demandes_articles.view');
+            Route::post('demandes-articles-inventaire/{id}/valider', [DemandeArticleInventaireAdminController::class, 'valider'])->name('demandes-articles-inventaire.valider')->middleware('permission:demandes_articles.valider');
+            Route::post('demandes-articles-inventaire/{id}/rejeter', [DemandeArticleInventaireAdminController::class, 'rejeter'])->name('demandes-articles-inventaire.rejeter')->middleware('permission:demandes_articles.valider');
 
             Route::middleware('permission:infrastructures.view')->group(function () {
                 Route::get('infrastructures', [InfrastructureController::class, 'index'])->name('infrastructures.index');
@@ -1340,16 +1301,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('infrastructures/rapport', [InfrastructureController::class, 'rapport'])->name('infrastructures.rapport');
                 Route::get('infrastructures/equipements', [InfrastructureController::class, 'equipements'])->name('infrastructures.equipements.index');
             });
-            Route::middleware('permission:infrastructures.manage')->group(function () {
-                Route::post('infrastructures/import', [InfrastructureController::class, 'importInfrastructures'])->name('infrastructures.import');
-                Route::post('infrastructures/equipements/import', [InfrastructureController::class, 'importEquipements'])->name('infrastructures.equipements.import');
-                Route::post('infrastructures', [InfrastructureController::class, 'store'])->name('infrastructures.store');
-                Route::put('infrastructures/{id}', [InfrastructureController::class, 'update'])->name('infrastructures.update');
-                Route::delete('infrastructures/{id}', [InfrastructureController::class, 'destroy'])->name('infrastructures.destroy');
-                Route::post('infrastructures/equipements', [InfrastructureController::class, 'storeEquipement'])->name('infrastructures.equipements.store');
-                Route::put('infrastructures/equipements/{id}', [InfrastructureController::class, 'updateEquipement'])->name('infrastructures.equipements.update');
-                Route::delete('infrastructures/equipements/{id}', [InfrastructureController::class, 'destroyEquipement'])->name('infrastructures.equipements.destroy');
-            });
+            Route::post('infrastructures/import', [InfrastructureController::class, 'importInfrastructures'])->name('infrastructures.import')->middleware('permission:infrastructures.import');
+            Route::post('infrastructures/equipements/import', [InfrastructureController::class, 'importEquipements'])->name('infrastructures.equipements.import')->middleware('permission:equipements.import');
+            Route::post('infrastructures', [InfrastructureController::class, 'store'])->name('infrastructures.store')->middleware('permission:infrastructures.create');
+            Route::put('infrastructures/{id}', [InfrastructureController::class, 'update'])->name('infrastructures.update')->middleware('permission:infrastructures.update');
+            Route::delete('infrastructures/{id}', [InfrastructureController::class, 'destroy'])->name('infrastructures.destroy')->middleware('permission:infrastructures.delete');
+            Route::post('infrastructures/equipements', [InfrastructureController::class, 'storeEquipement'])->name('infrastructures.equipements.store')->middleware('permission:equipements.create');
+            Route::put('infrastructures/equipements/{id}', [InfrastructureController::class, 'updateEquipement'])->name('infrastructures.equipements.update')->middleware('permission:equipements.update');
+            Route::delete('infrastructures/equipements/{id}', [InfrastructureController::class, 'destroyEquipement'])->name('infrastructures.equipements.destroy')->middleware('permission:equipements.delete');
 
             Route::middleware('permission:rapport_rentree.view')->group(function () {
                 Route::get('visites-autorites', [VisiteAutoriteController::class, 'index'])->name('visites-autorites.index');
@@ -1360,25 +1319,23 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('rapport-rentree/complet/pdf', [RapportRentreeExportController::class, 'pdf'])->name('rapport-rentree.complet.pdf');
                 Route::get('rapport-rentree/complet/docx', [RapportRentreeExportController::class, 'docx'])->name('rapport-rentree.complet.docx');
             });
-            Route::middleware('permission:rapport_rentree.manage')->group(function () {
-                Route::post('visites-autorites', [VisiteAutoriteController::class, 'store'])->name('visites-autorites.store');
-                Route::put('visites-autorites/{id}', [VisiteAutoriteController::class, 'update'])->name('visites-autorites.update');
-                Route::delete('visites-autorites/{id}', [VisiteAutoriteController::class, 'destroy'])->name('visites-autorites.destroy');
-                Route::post('activites-rentree', [ActiviteRentreeController::class, 'store'])->name('activites-rentree.store');
-                Route::put('activites-rentree/{id}', [ActiviteRentreeController::class, 'update'])->name('activites-rentree.update');
-                Route::delete('activites-rentree/{id}', [ActiviteRentreeController::class, 'destroy'])->name('activites-rentree.destroy');
-                Route::post('ventes-denrees', [VenteDenreeController::class, 'store'])->name('ventes-denrees.store');
-                Route::put('ventes-denrees/{id}', [VenteDenreeController::class, 'update'])->name('ventes-denrees.update');
-                Route::delete('ventes-denrees/{id}', [VenteDenreeController::class, 'destroy'])->name('ventes-denrees.destroy');
-                Route::put('rapport-rentree-textes/{rubrique}', [RapportRentreeTexteController::class, 'update'])->name('rapport-rentree-textes.update');
-            });
+            Route::post('visites-autorites', [VisiteAutoriteController::class, 'store'])->name('visites-autorites.store')->middleware('permission:visites_autorites.create');
+            Route::put('visites-autorites/{id}', [VisiteAutoriteController::class, 'update'])->name('visites-autorites.update')->middleware('permission:visites_autorites.update');
+            Route::delete('visites-autorites/{id}', [VisiteAutoriteController::class, 'destroy'])->name('visites-autorites.destroy')->middleware('permission:visites_autorites.delete');
+            Route::post('activites-rentree', [ActiviteRentreeController::class, 'store'])->name('activites-rentree.store')->middleware('permission:activites_rentree.create');
+            Route::put('activites-rentree/{id}', [ActiviteRentreeController::class, 'update'])->name('activites-rentree.update')->middleware('permission:activites_rentree.update');
+            Route::delete('activites-rentree/{id}', [ActiviteRentreeController::class, 'destroy'])->name('activites-rentree.destroy')->middleware('permission:activites_rentree.delete');
+            Route::post('ventes-denrees', [VenteDenreeController::class, 'store'])->name('ventes-denrees.store')->middleware('permission:ventes_denrees.create');
+            Route::put('ventes-denrees/{id}', [VenteDenreeController::class, 'update'])->name('ventes-denrees.update')->middleware('permission:ventes_denrees.update');
+            Route::delete('ventes-denrees/{id}', [VenteDenreeController::class, 'destroy'])->name('ventes-denrees.destroy')->middleware('permission:ventes_denrees.delete');
+            Route::put('rapport-rentree-textes/{rubrique}', [RapportRentreeTexteController::class, 'update'])->name('rapport-rentree-textes.update')->middleware('permission:rapport_rentree.update');
 
             Route::middleware('permission:rapport_trimestre.view')->group(function () {
                 Route::get('rapport-trimestre-textes', [RapportTrimestreTexteController::class, 'index'])->name('rapport-trimestre-textes.index');
                 Route::get('rapport-trimestre/complet', [RapportTrimestreExportController::class, 'donnees'])->name('rapport-trimestre.complet');
                 Route::get('rapport-trimestre/complet/docx', [RapportTrimestreExportController::class, 'docx'])->name('rapport-trimestre.complet.docx');
             });
-            Route::middleware('permission:rapport_trimestre.manage')->group(function () {
+            Route::middleware('permission:rapport_trimestre.update')->group(function () {
                 Route::put('rapport-trimestre-textes/{rubrique}', [RapportTrimestreTexteController::class, 'update'])->name('rapport-trimestre-textes.update');
             });
 
@@ -1397,10 +1354,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:point_de_vente.vendre')->group(function () {
                 Route::post('point-de-vente/ventes', [PointDeVenteController::class, 'vendre'])->name('point-de-vente.vendre');
             });
-            Route::middleware('permission:point_de_vente.manage')->group(function () {
-                Route::post('point-de-vente/ventes/{id}/annuler', [PointDeVenteController::class, 'annulerVente'])->name('point-de-vente.annuler');
-                Route::post('point-de-vente/entrees', [PointDeVenteController::class, 'entrer'])->name('point-de-vente.entrer');
-            });
+            Route::post('point-de-vente/ventes/{id}/annuler', [PointDeVenteController::class, 'annulerVente'])->name('point-de-vente.annuler')->middleware('permission:point_de_vente.annuler');
+            Route::post('point-de-vente/entrees', [PointDeVenteController::class, 'entrer'])->name('point-de-vente.entrer')->middleware('permission:point_de_vente.approvisionner');
         });
     });
 });

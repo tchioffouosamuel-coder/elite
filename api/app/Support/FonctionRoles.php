@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  *
  * Sert aussi à repérer les fonctions d'enseignement (cf. User::estEnseignant),
  * pour distinguer un enseignant d'un censeur ou d'un économe qui partagent
- * pourtant certains privilèges (ex : `appel.manage`) sans exercer le même
+ * pourtant certains privilèges (ex : `appel.saisir`) sans exercer le même
  * métier.
  */
 class FonctionRoles

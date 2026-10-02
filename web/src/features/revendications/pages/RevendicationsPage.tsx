@@ -99,14 +99,14 @@ export function RevendicationsPage() {
       valeur: (r) => r.statut,
       cellule: (r) => <Badge tone={STATUT_TONE[r.statut]}>{t(`revendications.statut_${r.statut}`)}</Badge>,
     },
-    ...(can('revendications.manage')
+    ...(can('revendications.update|revendications.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (r: Revendication) => (
             <div className="flex items-center gap-1">
-              {(r.statut === 'en_attente' || r.statut === 'en_cours') && (
+              {(r.statut === 'en_attente' || r.statut === 'en_cours') && can('revendications.update') && (
                 <button
                   title={t('revendications.traiter')}
                   onClick={() => setATraiter(r)}
@@ -115,18 +115,20 @@ export function RevendicationsPage() {
                   <Gavel className="h-4 w-4" />
                 </button>
               )}
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(t('revendications.delete_target', { objet: r.objet })))) return
-                  await supprimerRevendication(r.id)
-                  invalidate()
-                  succes(t('revendications.deleted'))
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('revendications.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(t('revendications.delete_target', { objet: r.objet })))) return
+                    await supprimerRevendication(r.id)
+                    invalidate()
+                    succes(t('revendications.deleted'))
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<Revendication>,
@@ -141,7 +143,7 @@ export function RevendicationsPage() {
         sousTitre={t('revendications.subtitle')}
         icon={Gavel}
         actions={
-          can('revendications.manage') && (
+          can('revendications.create') && (
             <Button onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4" />
               {t('revendications.add')}

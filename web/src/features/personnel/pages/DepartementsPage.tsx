@@ -100,7 +100,7 @@ export function DepartementsPage() {
             <Eye className="h-4 w-4" />
             {t('departements.details')}
           </button>
-          {can('personnel.manage') && (
+          {can('departements.delete') && (
             <button
               onClick={() => handleDelete(d)}
               className="rounded-lg p-2 text-red-600 hover:bg-red-50"
@@ -133,7 +133,7 @@ export function DepartementsPage() {
         }
       />
 
-      {can('personnel.manage') && (
+      {can('departements.create') && (
         <div className="flex max-w-xl gap-2">
           {(schools?.length ?? 0) > 1 && (
             <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)} className="max-w-48">

@@ -173,7 +173,7 @@ export function NiveauxScolairesPage() {
   })
 
   const colonnes: Colonne<NiveauScolaire>[] = [
-    ...(can('pedagogie.manage')
+    ...(can('niveaux_scolaires.delete')
       ? [
         {
           cle: 'selection',
@@ -235,7 +235,7 @@ export function NiveauxScolairesPage() {
       entete: t('niveaux.animateur'),
       valeur: (n) => n.animateur?.nom_complet,
       cellule: (n) =>
-        can('pedagogie.manage') ? (
+        can('niveaux_scolaires.update') ? (
           <Select
             value={n.animateur_personnel_id ?? ''}
             onChange={(e) => handleAnimateur(n.id, e.target.value)}
@@ -269,28 +269,32 @@ export function NiveauxScolairesPage() {
           >
             <Eye className="h-4 w-4" />
           </button>
-          {can('pedagogie.manage') && (
+          {can('niveaux_scolaires.update|niveaux_scolaires.delete') && (
             <>
-              <button
-                title={t('common.edit')}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleEdit(n)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDelete(n)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('niveaux_scolaires.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEdit(n)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('niveaux_scolaires.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDelete(n)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -302,7 +306,7 @@ export function NiveauxScolairesPage() {
     <div className="flex flex-col gap-5">
       <PageHeader titre={t('niveaux.title')} sousTitre={t('niveaux.hint')} icon={Layers} />
 
-      {can('pedagogie.manage') && (
+      {can('niveaux_scolaires.create|niveaux_scolaires.update') && (
         <div className="flex max-w-3xl flex-wrap items-end gap-2">
           {(schools?.length ?? 0) > 1 && !editingId && (
             <div className="w-56 flex-none">
@@ -344,7 +348,7 @@ export function NiveauxScolairesPage() {
         </div>
       )}
 
-      {selectedIds.size > 0 && can('pedagogie.manage') && (
+      {selectedIds.size > 0 && can('niveaux_scolaires.delete') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{t('niveaux.selected_count', { count: selectedIds.size })}</p>

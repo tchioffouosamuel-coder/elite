@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, Eye, Printer, Receipt, Wallet } from 'lucide-react'
+import { ArrowLeft, BadgePercent, ChevronDown, ChevronUp, Clock, Eye, Printer, Receipt, Wallet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
-import { succes } from '@/shared/lib/alertes'
+import { erreur, succes } from '@/shared/lib/alertes'
 import { imprimerDocument, ouvrirDocument } from '@/shared/lib/download'
-import { encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
+import { creerRemise, encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
 import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
+import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 
 interface FormValues {
@@ -52,6 +53,11 @@ export function EncaissementPage() {
   const [moratoireOuvert, setMoratoireOuvert] = useState(false)
   const [canaux, setCanaux] = useState<CanalNotification[]>(['interne'])
   const [sortieRecu, setSortieRecu] = useState<SortieRecu>('preview')
+  const [remise, setRemise] = useState<number | null>(null)
+  const [motifRemise, setMotifRemise] = useState('')
+  const [remiseEnCours, setRemiseEnCours] = useState(false)
+  const queryClient = useQueryClient()
+  const peutAccorderRemise = useAuthStore((s) => s.can('remises.create'))
 
   const {
     data: dossier,
@@ -95,13 +101,42 @@ export function EncaissementPage() {
   useEffect(() => {
     if (allocationsModifiees || rubriques.length === 0) return
     setAllocations(ventilerAutomatiquement(rubriques, montant))
+    // `reste_a_payer` : une remise accordée depuis cette page change le
+    // reste de chaque rubrique sans forcément changer leur nombre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montant, rubriques.length])
+  }, [montant, rubriques.length, dossier?.reste_a_payer])
 
   const totalAlloue = useMemo(() => allocations.reduce((s, v) => s + (v || 0), 0), [allocations])
   const ventilationValide = rubriques.length === 0 || (montant > 0 && totalAlloue === montant)
 
   const retour = () => navigate(urlRetour)
+
+  /**
+   * La remise s'applique tout de suite, avant l'encaissement : le total dû,
+   * le reste et la répartition par rubrique viennent du serveur, et le reçu
+   * doit porter les montants d'après remise. Le dossier rechargé recale le
+   * montant proposé sur le nouveau reste.
+   */
+  const accorderRemise = async () => {
+    if (!dossier || !remise || remiseEnCours) return
+
+    setRemiseEnCours(true)
+    try {
+      await creerRemise(dossier.eleve.id, { montant: remise, motif: motifRemise.trim() || undefined })
+      succes(`Remise de ${francs(remise)} accordée.`)
+      setRemise(null)
+      setMotifRemise('')
+      setAllocationsModifiees(false)
+      await queryClient.invalidateQueries({ queryKey: ['dossier-scolarite', eleveId] })
+      queryClient.invalidateQueries({ queryKey: ['remises', dossier.eleve.id] })
+      queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] })
+    } catch (e) {
+      const err = e as ApiError
+      if (err.status !== 403) erreur(err.message)
+    } finally {
+      setRemiseEnCours(false)
+    }
+  }
 
   const onSubmit = async (valeurs: FormValues) => {
     if (!dossier) return
@@ -218,6 +253,43 @@ export function EncaissementPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {peutAccorderRemise && (
+            <div
+              className="flex flex-col gap-2 rounded-xl border border-navy-100 bg-white p-3"
+              // Entrée dans ces champs accorde la remise : sans cela, elle
+              // validerait le formulaire et encaisserait avant la remise.
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                void accorderRemise()
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                  <BadgePercent className="h-3.5 w-3.5" />
+                  Remise
+                </span>
+                {dossier.remise > 0 && (
+                  <span className="text-[11px] text-navy-400">
+                    Déjà accordée : <span className="font-semibold text-navy-600">{francs(dossier.remise)}</span>
+                  </span>
+                )}
+              </div>
+              <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto]">
+                <MontantInput label="Montant (F CFA)" placeholder="0" value={remise} onChange={setRemise} />
+                <Input label="Motif" placeholder="Facultatif" value={motifRemise} onChange={(e) => setMotifRemise(e.target.value)} />
+                <Button type="button" variant="secondary" onClick={accorderRemise} disabled={!remise || remiseEnCours}>
+                  {remiseEnCours ? 'Application…' : 'Accorder'}
+                </Button>
+              </div>
+              {!!remise && remise > dossier.reste_scolarite_a_payer && (
+                <p className="text-xs font-semibold text-red-500">
+                  La remise dépasse le reste de scolarité à payer ({francs(dossier.reste_scolarite_a_payer)}).
+                </p>
+              )}
             </div>
           )}
 

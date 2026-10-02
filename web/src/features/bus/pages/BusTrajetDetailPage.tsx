@@ -71,7 +71,7 @@ export function BusTrajetDetailPage() {
           titre={trajet.nom}
           sousTitre={trajet.vehicule ? `${t('bus.vehicule')} : ${trajet.vehicule.immatriculation}` : t('bus.no_vehicule')}
           actions={
-            can('bus.manage') &&
+            can('bus_trajets.notifier') &&
             trajet.affectations.length > 0 && (
               <Button variant="secondary" onClick={() => setShowNotifyForm(true)}>
                 <Bell className="h-4 w-4" />
@@ -85,7 +85,7 @@ export function BusTrajetDetailPage() {
       <section className="rounded-2xl border border-navy-100 bg-white p-5 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-navy-500">{t('bus.arrets')}</h2>
-          {can('bus.manage') && (
+          {can('bus_arrets.create') && (
             <Button
               size="sm"
               onClick={() => {
@@ -128,34 +128,38 @@ export function BusTrajetDetailPage() {
                     )}
                   </div>
                 </div>
-                {can('bus.manage') && (
+                {can('bus_arrets.update|bus_arrets.delete') && (
                   <div className="flex items-center gap-1">
-                    <button
-                      title={t('common.edit')}
-                      onClick={() => {
-                        setArretEnEdition(arret)
-                        setShowArretForm(true)
-                      }}
-                      className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-white hover:text-navy-700"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      title={t('common.delete')}
-                      onClick={async () => {
-                        if (!(await confirmerSuppression(arret.nom))) return
-                        try {
-                          await supprimerArret(trajetId, arret.id)
-                          invalidate()
-                          succes(t('bus.arret_deleted'))
-                        } catch (err) {
-                          erreur((err as ApiError).message)
-                        }
-                      }}
-                      className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-white hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {can('bus_arrets.update') && (
+                      <button
+                        title={t('common.edit')}
+                        onClick={() => {
+                          setArretEnEdition(arret)
+                          setShowArretForm(true)
+                        }}
+                        className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-white hover:text-navy-700"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {can('bus_arrets.delete') && (
+                      <button
+                        title={t('common.delete')}
+                        onClick={async () => {
+                          if (!(await confirmerSuppression(arret.nom))) return
+                          try {
+                            await supprimerArret(trajetId, arret.id)
+                            invalidate()
+                            succes(t('bus.arret_deleted'))
+                          } catch (err) {
+                            erreur((err as ApiError).message)
+                          }
+                        }}
+                        className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-white hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 )}
               </li>
@@ -167,7 +171,7 @@ export function BusTrajetDetailPage() {
       <section className="rounded-2xl border border-navy-100 bg-white p-5 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-navy-500">{t('bus.affectations')}</h2>
-          {can('bus.manage') && (
+          {can('bus.souscrire') && (
             <Button
               size="sm"
               onClick={() => navigate('/bus/souscription', { state: { trajetId, retour: `/bus/trajets/${trajetId}` } })}
@@ -191,7 +195,7 @@ export function BusTrajetDetailPage() {
                   <th className="py-2">{t('bus.tarif_mensuel')}</th>
                   <th className="py-2">{t('bus.statut_paiement')}</th>
                   <th className="py-2">{t('bus.statut')}</th>
-                  {can('bus.manage') && <th className="py-2 text-right">{t('common.actions')}</th>}
+                  {can('bus.souscrire') && <th className="py-2 text-right">{t('common.actions')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
@@ -221,7 +225,7 @@ export function BusTrajetDetailPage() {
                     <td className="py-2.5">
                       <Badge tone={a.statut === 'actif' ? 'green' : 'neutral'}>{t(`bus.${a.statut}`)}</Badge>
                     </td>
-                    {can('bus.manage') && (
+                    {can('bus.souscrire') && (
                       <td className="py-2.5 text-right">
                         <div className="flex justify-end gap-1">
                           <button

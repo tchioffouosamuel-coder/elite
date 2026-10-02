@@ -25,6 +25,7 @@ export function ImportExportBar({
   anneesScolaires,
   ecoles,
   ecoleId,
+  peutImporter = true,
 }: {
   titreImport: string
   importUrl: string
@@ -39,6 +40,11 @@ export function ImportExportBar({
   /** École à choisir avant l'import (super admin en mode agrégé) — cf. `ImportModal`. */
   ecoles?: ImportEcole[]
   ecoleId?: number
+  /**
+   * Importer relève d'un privilège à part (`….import`) : sans lui, le modèle
+   * et l'export restent proposés, pas le bouton d'import.
+   */
+  peutImporter?: boolean
 }) {
   const { t } = useTranslation()
   const [importOuvert, setImportOuvert] = useState(false)
@@ -47,10 +53,12 @@ export function ImportExportBar({
     <>
       <TemplateDownloadButton url={modeleUrl} nomFichier={`modele-${nomFichier}.xlsx`} />
       <ExportButton url={exportUrl} nomFichier={`${nomFichier}.xlsx`} />
-      <Button type="button" variant="secondary" onClick={() => setImportOuvert(true)}>
-        <Upload className="h-4 w-4" />
-        {t('import.submit')}
-      </Button>
+      {peutImporter && (
+        <Button type="button" variant="secondary" onClick={() => setImportOuvert(true)}>
+          <Upload className="h-4 w-4" />
+          {t('import.submit')}
+        </Button>
+      )}
 
       {importOuvert && (
         <ImportModal

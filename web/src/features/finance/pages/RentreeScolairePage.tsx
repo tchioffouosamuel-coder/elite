@@ -100,7 +100,7 @@ export function RentreeScolairePage() {
       valeur: (l) => l.reste,
       cellule: (l) => <span className={`tabular-nums font-semibold ${l.reste < 0 ? 'text-red-600' : 'text-green-600'}`}>{francs(l.reste)}</span>,
     },
-    ...(can('finance.manage')
+    ...(can('budget_fonctionnement.update')
       ? [
           {
             cle: 'actions',
@@ -124,30 +124,34 @@ export function RentreeScolairePage() {
     { cle: 'effectif', entete: t('rentree.effectif_col'), valeur: (a) => a.effectif, cellule: (a) => <span className="tabular-nums">{a.effectif}</span> },
     { cle: 'assureur', entete: t('rentree.assureur_col'), valeur: (a) => a.nom_assureur, cellule: (a) => a.nom_assureur ?? '—' },
     { cle: 'police', entete: t('rentree.police_col'), valeur: (a) => a.numero_police, cellule: (a) => a.numero_police ?? '—' },
-    ...(can('finance.manage')
+    ...(can('assurances_scolaires.update|assurances_scolaires.delete')
       ? [
           {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (a: AssuranceScolaire) => (
               <div className="flex items-center gap-1">
-                <button
-                  title={t('common.edit')}
-                  onClick={() => {
-                    setAssuranceEnEdition(a)
-                    setShowAssuranceForm(true)
-                  }}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  title={t('common.delete')}
-                  onClick={() => supprimerUneAssurance(a)}
-                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {can('assurances_scolaires.update') && (
+                  <button
+                    title={t('common.edit')}
+                    onClick={() => {
+                      setAssuranceEnEdition(a)
+                      setShowAssuranceForm(true)
+                    }}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {can('assurances_scolaires.delete') && (
+                  <button
+                    title={t('common.delete')}
+                    onClick={() => supprimerUneAssurance(a)}
+                    className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             ),
           } satisfies Colonne<AssuranceScolaire>,
@@ -181,7 +185,7 @@ export function RentreeScolairePage() {
                 <ShieldCheck className="h-4 w-4" />
                 {t('rentree.section_assurances')}
               </h2>
-              {can('finance.manage') && (
+              {can('assurances_scolaires.create') && (
                 <Button
                   onClick={() => {
                     setAssuranceEnEdition(null)
@@ -206,7 +210,7 @@ export function RentreeScolairePage() {
                 <Users className="h-4 w-4" />
                 {t('rentree.section_conseil')}
               </h2>
-              {conseil && <ConseilEcoleForm conseil={conseil} anneeScolaireId={anneeActive.id} peutModifier={can('finance.manage')} />}
+              {conseil && <ConseilEcoleForm conseil={conseil} anneeScolaireId={anneeActive.id} peutModifier={can('conseil_ecole.update')} />}
             </Card>
 
             <Card>
@@ -214,7 +218,7 @@ export function RentreeScolairePage() {
                 <School className="h-4 w-4" />
                 {t('rentree.section_apee')}
               </h2>
-              {apee && <ApeeForm apee={apee} anneeScolaireId={anneeActive.id} peutModifier={can('finance.manage')} />}
+              {apee && <ApeeForm apee={apee} anneeScolaireId={anneeActive.id} peutModifier={can('apee.update')} />}
             </Card>
           </div>
         </>

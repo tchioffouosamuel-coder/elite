@@ -77,7 +77,7 @@ class MaJourneeEcoleTest extends TestCase
         $fonction = FonctionReferentiel::firstOrCreate([
             'school_id' => $this->school->id, 'label_fr' => 'Enseignant',
         ]);
-        $fonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['enseignant']);
+        $fonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole('enseignant'));
 
         $prof = User::create([
             'name' => 'Prof Histoire', 'email' => 'prof.histoire@test.local', 'password' => 'password',

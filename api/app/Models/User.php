@@ -110,7 +110,7 @@ class User extends Authenticatable
     /**
      * Exerce une fonction d'enseignement — au sens où « Ma journée » (tableau
      * de bord personnel de saisie d'appel) lui est réservé. Un censeur ou un
-     * économe peut porter `appel.manage` sans être enseignant pour autant :
+     * économe peut porter `appel.saisir` sans être enseignant pour autant :
      * la fonction tranche là où le seul privilège ne le permettrait pas.
      */
     public function estEnseignant(): bool
@@ -229,7 +229,7 @@ class User extends Authenticatable
      * d'orientation, chef de département).
      *
      * C'est ce qui permet à un **enseignant** désigné surveillant général
-     * d'une classe de franchir le middleware de `discipline.manage` sans qu'on
+     * d'une classe de franchir le middleware de `absences.saisir` sans qu'on
      * ait à changer sa fonction : le privilège existe pour lui, mais il ne
      * porte que sur les classes qu'il surveille — cf. {@see peutSurClasse()},
      * seul juge dès qu'une classe est en cause.

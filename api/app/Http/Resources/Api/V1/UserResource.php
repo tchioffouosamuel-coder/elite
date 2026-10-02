@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\AnciensPrivileges;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -10,6 +11,8 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $permissions = $this->permissionsEffectives();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -23,11 +26,13 @@ class UserResource extends JsonResource
             'roles' => $this->getRoleNames(),
             'is_super_admin' => $this->estSuperAdmin(),
             // Privilèges effectifs, fonction comprise : l'interface masque ses
-            // actions sur la même base que celle où l'API les refuse.
-            'permissions' => $this->permissionsEffectives(),
+            // actions sur la même base que celle où l'API les refuse. Les
+            // anciens codes globaux suivent pour les applications mobiles
+            // installées avant le découpage par action (cf. AnciensPrivileges).
+            'permissions' => $permissions->merge(AnciensPrivileges::alias($permissions))->values(),
             'fonction' => $this->whenNotNull($this->fonction()?->label()),
             // Distingue un enseignant d'un censeur/économe qui partage pourtant
-            // certains privilèges (ex : appel.manage) — cf. User::estEnseignant.
+            // certains privilèges (ex : appel.saisir) — cf. User::estEnseignant.
             'est_enseignant' => $this->estEnseignant(),
             // Comment ce compte prouve sa présence pour valider une séance —
             // guide l'écran « Ma journée » vers le scan, la saisie du code de
@@ -48,7 +53,7 @@ class UserResource extends JsonResource
              * Responsabilités nominatives : professeur principal, surveillant
              * général, censeur, conseiller d'orientation, chef de département,
              * avec les classes concernées. C'est ce qui distingue « il a le
-             * privilège discipline.manage » de « il tient la discipline de ces
+             * privilège absences.saisir » de « il tient la discipline de ces
              * six classes-là », et ce sur quoi l'interface compose ses entrées
              * « Mes attributions ».
              */
@@ -65,7 +70,7 @@ class UserResource extends JsonResource
                 'code' => $ecole->code,
                 'type' => $ecole->type,
                 // Filigrane de l'interface : le logo doit être connu de tous les
-                // comptes, alors que `/ecole` est réservé à `ecoles.manage`.
+                // comptes, alors que `/ecole` est réservé à `ecoles.update`.
                 'logo_url' => $ecole->logo_path ? Storage::disk('public')->url($ecole->logo_path) : null,
             ])->values(),
         ];

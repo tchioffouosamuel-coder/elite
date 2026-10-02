@@ -158,9 +158,9 @@ const navGroups = [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
       { to: '/personnel/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'personnel.view', keywords: ['liste personnalisée', 'enseignants', 'professeurs', 'export enseignants'] },
       { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
-      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'personnel.manage', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
-      { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'personnel.manage', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
-      { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
+      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'fonctions.create|fonctions.update|fonctions.delete|fonctions.import', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
+      { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'banques.create|banques.update|banques.delete|banques.import|banques.mouvements', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
+      { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permission: 'regles_seance.create|regles_seance.update|regles_seance.delete', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
       {
         to: '/departements',
         label: 'nav.departements',
@@ -233,7 +233,7 @@ const navGroups = [
       { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['salles de classe'] },
       { to: '/classes/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['liste personnalisée', 'export classe', 'rapport de classe'] },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['students', 'inscriptions', 'fiche eleve'] },
-      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['changement de classe', 'transfer'] },
+      { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.transferer', masquerPourTitulaire: true, keywords: ['changement de classe', 'transfer'] },
       { to: '/matricules-nationaux', label: 'nav.matriculesNationaux', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['matricule national', 'ministere', 'secondaire'] },
       { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true, keywords: ['conseil de classe', 'historique'] },
     ],
@@ -241,11 +241,11 @@ const navGroups = [
   {
     label: 'nav.group.parents',
     items: [
-      { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['inscriptions', 'admissions', 'demandes'] },
-      { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['demandes de modification', 'corrections'] },
-      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
-      { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['remarques', 'notes de vie scolaire', 'commentaires', 'messages'] },
-      { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['acces parent', 'identifiants', 'mot de passe', 'login'] },
+      { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'preinscriptions.view', masquerPourTitulaire: true, keywords: ['inscriptions', 'admissions', 'demandes'] },
+      { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'modifications_eleves.view', masquerPourTitulaire: true, keywords: ['demandes de modification', 'corrections'] },
+      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'justifications.view', masquerPourTitulaire: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
+      { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'observations.view', masquerPourTitulaire: true, keywords: ['remarques', 'notes de vie scolaire', 'commentaires', 'messages'] },
+      { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'tuteurs.view', masquerPourTitulaire: true, keywords: ['acces parent', 'identifiants', 'mot de passe', 'login'] },
     ],
   },
   {
@@ -320,24 +320,24 @@ const navGroups = [
         to: '/ma-journee',
         label: 'nav.maJournee',
         icon: CalendarCheck,
-        permission: 'appel.manage',
+        permission: 'appel.saisir',
         // Un tableau de bord personnel à qui enseigne — pas un outil de suivi
         // pour l'administration, qui a ses propres écrans (censeur/économe
-        // portent pourtant `appel.manage` sans être enseignants).
+        // portent pourtant `appel.saisir` sans être enseignants).
         estEnseignant: true,
       },
       {
         to: '/scanner-qr',
         label: 'nav.scannerQr',
         icon: ScanLine,
-        permission: 'appel.manage',
+        permission: 'appel.saisir',
         // Même logique que « Ma journée » : un geste personnel de
         // l'enseignant en début de cours, pas un écran d'administration.
         estEnseignant: true,
       },
       { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view', keywords: ['horaire', 'planning', 'timetable', 'creneaux'] },
       { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view', keywords: ['appel', 'cours', 'presence'] },
-      { to: '/codes-qr', label: 'nav.codesQr', icon: QrCode, permission: 'emploi_du_temps.manage', keywords: ['qr code', 'scan'] },
+      { to: '/codes-qr', label: 'nav.codesQr', icon: QrCode, permission: 'emploi_du_temps.update', keywords: ['qr code', 'scan'] },
     ],
   },
   {
@@ -448,11 +448,11 @@ const navGroups = [
     label: 'nav.group.admin',
     items: [
       { to: '/niveaux-globaux', label: 'nav.niveauxGlobaux', icon: Layers, permission: 'niveaux.view', keywords: ['cycles', 'degres'] },
-      { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'personnel.manage', superAdminOnly: true, keywords: ['roles', 'droits', 'access'] },
+      { to: '/permissions', label: 'nav.permissions', icon: ShieldCheck, permission: 'fonctions.update', superAdminOnly: true, keywords: ['roles', 'droits', 'access'] },
       { to: '/comptes', label: 'nav.comptesUtilisateurs', icon: UserCog, superAdminOnly: true, keywords: ['utilisateurs', 'users', 'accounts', 'connexions'] },
-      { to: '/utilisation-plateforme', label: 'nav.utilisationPlateforme', icon: BarChart3, permission: 'eleves.manage', masquerPourTitulaire: true, keywords: ['platform usage', 'parents', 'staff', 'accounts', 'dormant'] },
-      { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'ecoles.manage', keywords: ['annee scolaire', 'trimestres', 'periodes'] },
-      { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'ecoles.manage', keywords: ['settings', 'configuration', 'ecole'] },
+      { to: '/utilisation-plateforme', label: 'nav.utilisationPlateforme', icon: BarChart3, permission: 'tuteurs.view', masquerPourTitulaire: true, keywords: ['platform usage', 'parents', 'staff', 'accounts', 'dormant'] },
+      { to: '/session', label: 'nav.session', icon: CalendarRange, permission: 'annees_scolaires.view', keywords: ['annee scolaire', 'trimestres', 'periodes'] },
+      { to: '/parametres', label: 'nav.parametres', icon: Settings, permission: 'parametres.update', keywords: ['settings', 'configuration', 'ecole'] },
       { to: '/rapport-rentree', label: 'nav.rapportRentree', icon: ClipboardList, permission: 'rapport_rentree.view', keywords: ['back to school report'] },
       { to: '/rapport-trimestre', label: 'nav.rapportTrimestre', icon: ClipboardList, permission: 'rapport_trimestre.view', keywords: ['bilan trimestre'] },
     ],
@@ -585,7 +585,7 @@ export function AppLayout() {
               (!('chefDepartement' in item) || !item.chefDepartement || estChefDepartement) &&
               (!('professeurPrincipal' in item) || !item.professeurPrincipal || estProfesseurPrincipal) &&
               (!('animateurNiveau' in item) || !item.animateurNiveau || estAnimateurNiveau) &&
-              (!('enseignantPrimaireOnly' in item) || !item.enseignantPrimaireOnly || user?.is_super_admin || can('pedagogie.manage') || estTitulaireDeClasse) &&
+              (!('enseignantPrimaireOnly' in item) || !item.enseignantPrimaireOnly || user?.is_super_admin || can('progression.update') || estTitulaireDeClasse) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse) &&
               (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur) &&
               (!('financesEcole' in item) || !item.financesEcole || voitFinancesEcole),

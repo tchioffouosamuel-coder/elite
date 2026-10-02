@@ -137,34 +137,38 @@ export function BusVehiculesPage() {
           >
             <FileBarChart className="h-4 w-4" />
           </button>
-          {can('bus.manage') && (
+          {can('bus_vehicules.update|bus_vehicules.delete') && (
             <>
-              <button
-                title={t('common.edit')}
-                onClick={() => {
-                  setVehiculeEnEdition(v)
-                  setShowForm(true)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(v.immatriculation))) return
-                  try {
-                    await supprimerVehicule(v.id)
-                    invalidate()
-                    succes(t('bus.vehicule_deleted'))
-                  } catch (err) {
-                    erreur((err as ApiError).message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('bus_vehicules.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={() => {
+                    setVehiculeEnEdition(v)
+                    setShowForm(true)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('bus_vehicules.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(v.immatriculation))) return
+                    try {
+                      await supprimerVehicule(v.id)
+                      invalidate()
+                      succes(t('bus.vehicule_deleted'))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -179,26 +183,29 @@ export function BusVehiculesPage() {
         sousTitre={t('bus.vehicules_subtitle')}
         icon={Bus}
         actions={
-          can('bus.manage') && (
+          can('bus_vehicules.create|bus_vehicules.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('bus.vehicules_title')}
                 importUrl="/bus/vehicules/import"
+                peutImporter={can('bus_vehicules.import')}
                 exportUrl="/bus/vehicules/export"
                 modeleUrl="/bus/vehicules/modele"
                 colonnes={['Immatriculation', 'Marque', 'Couleur', 'Capacité', 'Chauffeur', 'Statut']}
                 nomFichier="vehicules-bus"
                 onImported={invalidate}
               />
-              <Button
-                onClick={() => {
-                  setVehiculeEnEdition(null)
-                  setShowForm(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('bus.vehicule_add')}
-              </Button>
+              {can('bus_vehicules.create') && (
+                <Button
+                  onClick={() => {
+                    setVehiculeEnEdition(null)
+                    setShowForm(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('bus.vehicule_add')}
+                </Button>
+              )}
             </div>
           )
         }

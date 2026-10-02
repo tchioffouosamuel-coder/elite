@@ -20,10 +20,10 @@ export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleTy
   // grille n'y est qu'un compte rendu, il n'y a rien à saisir ni à envoyer.
   const secondaire = estSecondaire(ecoleType)
   const suffixe = secondaire ? 'h' : ' j'
-  // `discipline.manage` autorise déjà la correction côté API (`sauvegarderEnLot`
+  // `absences.saisir` autorise déjà la correction côté API (`sauvegarderEnLot`
   // remplace le calcul automatique quel que soit son état) : l'écran doit donc
   // ouvrir la saisie sur toutes les lignes, pas seulement celles déjà corrigées.
-  const peutModifier = secondaire && can('discipline.manage')
+  const peutModifier = secondaire && can('absences.saisir')
 
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]

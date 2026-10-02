@@ -144,7 +144,7 @@ export function ElevesDoublonsPage() {
         }
     }
 
-    if (!can('eleves.manage')) {
+    if (!can('eleves.fusionner')) {
         return <ErrorState />
     }
 

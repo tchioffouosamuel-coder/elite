@@ -84,7 +84,7 @@ class RemiseController extends Controller
         $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
 
         $data = $request->validate([
-            // Optionnel : la liste des années scolaires exige `ecoles.manage`,
+            // Optionnel : la liste des années scolaires exige `annees_scolaires.view`,
             // que le caissier qui accorde la remise n'a pas forcément. Sans
             // précision, c'est l'année active de l'école de l'élève.
             'annee_scolaire_id' => ['nullable', 'integer', 'exists:annee_scolaires,id'],

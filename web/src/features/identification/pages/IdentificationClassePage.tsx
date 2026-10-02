@@ -87,7 +87,7 @@ export function IdentificationClassePage() {
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         {eleves.map((eleve) => (
-                            <VignetteEleve key={eleve.id} eleve={eleve} classeId={classeId} peutModifier={can('eleves.manage')} />
+                            <VignetteEleve key={eleve.id} eleve={eleve} classeId={classeId} peutModifier={can('eleves.update')} />
                         ))}
                     </div>
                 </>

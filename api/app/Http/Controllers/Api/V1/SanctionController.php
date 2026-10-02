@@ -71,7 +71,7 @@ class SanctionController extends Controller
             return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
         }
 
-        if ($refus = $this->refuserHorsPerimetre($request, $eleve->classe_id, 'discipline.manage')) {
+        if ($refus = $this->refuserHorsPerimetre($request, $eleve->classe_id, 'sanctions.create')) {
             return $refus;
         }
 
@@ -114,7 +114,7 @@ class SanctionController extends Controller
 
         $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
 
-        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'discipline.manage')) {
+        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'sanctions.update')) {
             return $refus;
         }
 
@@ -127,7 +127,7 @@ class SanctionController extends Controller
     {
         $sanction = Sanction::forSchool(Tenant::schoolIds())->findOrFail($id);
 
-        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'discipline.manage')) {
+        if ($refus = $this->refuserHorsPerimetre($request, $sanction->classe_id, 'sanctions.delete')) {
             return $refus;
         }
 

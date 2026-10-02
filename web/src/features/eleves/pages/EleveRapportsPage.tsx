@@ -210,7 +210,7 @@ function OngletAges() {
   const { data: schools = [] } = useQuery({ queryKey: ['schools'], queryFn: () => fetchSchools() })
 
   // Ces deux filtres sont un confort, pas un pré-requis : s'ils échouent
-  // (permission classes.manage/classes.view absente), l'écran reste
+  // (permission classes.view absente), l'écran reste
   // utilisable, simplement sans eux.
   const { data: sousSystemes } = useQuery({
     queryKey: ['sous-systemes'],

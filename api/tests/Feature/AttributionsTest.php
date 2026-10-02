@@ -90,7 +90,7 @@ class AttributionsTest extends TestCase
             'school_id' => $this->school->id,
             'label_fr' => $labelFonction,
         ]);
-        $fonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS[$role]);
+        $fonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole($role));
 
         $user = User::create([
             'name' => $labelFonction, 'email' => $email, 'password' => 'password',
@@ -138,12 +138,12 @@ class AttributionsTest extends TestCase
         $user = $user->fresh();
 
         // Sa fonction ne lui donne pas la discipline ; son attribution, si.
-        $this->assertFalse($user->permissionsDeBase()->contains('discipline.manage'));
-        $this->assertTrue($user->aLaPermission('discipline.manage'));
+        $this->assertFalse($user->permissionsDeBase()->contains('sanctions.create'));
+        $this->assertTrue($user->aLaPermission('sanctions.create'));
 
         // Mais seulement sur la classe qu'il surveille.
-        $this->assertTrue($user->peutSurClasse('discipline.manage', $surveillee->id));
-        $this->assertFalse($user->peutSurClasse('discipline.manage', $enseignee->id));
+        $this->assertTrue($user->peutSurClasse('sanctions.create', $surveillee->id));
+        $this->assertFalse($user->peutSurClasse('sanctions.create', $enseignee->id));
 
         // Et il reste enseignant là où il enseigne — pas là où il surveille.
         $this->assertTrue($user->peutSurClasse('notes.create', $enseignee->id));
@@ -165,8 +165,8 @@ class AttributionsTest extends TestCase
         $this->assertFalse($user->estEnseignant());
         $this->assertFalse($user->aLaPermission('notes.create'));
 
-        $this->assertTrue($user->peutSurClasse('discipline.manage', $assignee->id));
-        $this->assertFalse($user->peutSurClasse('discipline.manage', $autre->id));
+        $this->assertTrue($user->peutSurClasse('sanctions.create', $assignee->id));
+        $this->assertFalse($user->peutSurClasse('sanctions.create', $autre->id));
 
         // Son périmètre se limite aux classes assignées : rien d'autre ne le regarde.
         $this->assertSame([$assignee->id], $user->perimetre()->classes());
@@ -201,8 +201,8 @@ class AttributionsTest extends TestCase
 
         // Professeur principal dans la seule classe qui lui est confiée :
         // c'est là qu'il règle les affectations et les coefficients.
-        $this->assertTrue($user->peutSurClasse('pedagogie.manage', $principale->id));
-        $this->assertFalse($user->peutSurClasse('pedagogie.manage', $autreEnseignee->id));
+        $this->assertTrue($user->peutSurClasse('affectations.update', $principale->id));
+        $this->assertFalse($user->peutSurClasse('affectations.update', $autreEnseignee->id));
 
         $this->assertTrue($user->perimetre()->aLAttribution(Attributions::PROFESSEUR_PRINCIPAL, $principale->id));
     }
@@ -227,7 +227,7 @@ class AttributionsTest extends TestCase
         $this->assertFalse($user->peutSurClasse('bulletins.publish', $enseignee->id));
 
         // Le censorat est pédagogique : la discipline reste au surveillant général.
-        $this->assertFalse($user->peutSurClasse('discipline.manage', $censurees[0]->id));
+        $this->assertFalse($user->peutSurClasse('sanctions.create', $censurees[0]->id));
     }
 
     public function test_un_censeur_de_fonction_suit_la_meme_logique_sur_ses_classes(): void
@@ -271,8 +271,8 @@ class AttributionsTest extends TestCase
         $user = $user->fresh();
 
         $this->assertSame([$departement->id], $user->perimetre()->departementsDiriges());
-        $this->assertTrue($user->peutSurClasse('pedagogie.manage', $avecMatiere->id));
-        $this->assertFalse($user->peutSurClasse('pedagogie.manage', $sansMatiere->id));
+        $this->assertTrue($user->peutSurClasse('affectations.update', $avecMatiere->id));
+        $this->assertFalse($user->peutSurClasse('affectations.update', $sansMatiere->id));
     }
 
     public function test_le_chef_de_departement_n_administre_que_le_sien(): void

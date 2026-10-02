@@ -46,7 +46,7 @@ export interface AuthUser {
   /**
    * Exerce une fonction d'enseignement (cf. User::estEnseignant côté API) —
    * distinct des rôles/permissions : un censeur ou un économe peut porter
-   * `appel.manage` sans être enseignant pour autant.
+   * `appel.saisir` sans être enseignant pour autant.
    */
   est_enseignant?: boolean
   /**
@@ -74,7 +74,7 @@ export interface AuthUser {
   /**
    * Responsabilités nominatives confiées au compte, avec les classes (et pour
    * le chef de département, les départements) concernées. Distinct des
-   * privilèges : `discipline.manage` dit ce qu'il peut faire, l'attribution
+   * privilèges : `sanctions.create` dit ce qu'il peut faire, l'attribution
    * dit sur quelles classes.
    */
   attributions?: Attribution[]
@@ -103,6 +103,13 @@ interface AuthState {
   refreshUser: (user: AuthUser) => void
   setActiveSchool: (schoolId: number | null) => void
   clearSession: () => void
+  /**
+   * Le compte détient-il ce privilège ? Plusieurs codes séparés par `|`
+   * (`eleves.update|eleves.delete`) : il suffit d'en détenir un — même
+   * convention que le middleware `permission` côté API. Sert aux éléments
+   * qui regroupent plusieurs actions (colonne de sélection, menu d'actions),
+   * chaque action restant conditionnée à son propre privilège.
+   */
   can: (permission: string) => boolean
   /** Le compte porte-t-il cette responsabilité, sur au moins une classe ? */
   aAttribution: (code: CodeAttribution) => boolean
@@ -152,7 +159,7 @@ export const useAuthStore = create<AuthState>()(
       can: (permission) => {
         const user = get().user
         if (!user) return false
-        return user.is_super_admin || user.permissions.includes(permission)
+        return user.is_super_admin || permission.split('|').some((code) => user.permissions.includes(code))
       },
       aAttribution: (code) => (get().user?.attributions ?? []).some((a) => a.code === code),
       activeSchool: () => {

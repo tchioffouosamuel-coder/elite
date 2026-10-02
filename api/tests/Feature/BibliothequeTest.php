@@ -37,7 +37,9 @@ class BibliothequeTest extends TestCase
         Storage::fake('public');
 
         Permission::firstOrCreate(['name' => 'bibliotheque.view', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'bibliotheque.manage', 'guard_name' => 'web']);
+        foreach (['bibliotheque.create', 'bibliotheque.update', 'bibliotheque.delete'] as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
 
@@ -52,7 +54,7 @@ class BibliothequeTest extends TestCase
             'name' => 'Admin', 'email' => 'admin'.$school->id.'@test.local', 'password' => 'password',
             'school_id' => $school->id, 'is_active' => true,
         ]);
-        $user->givePermissionTo(['bibliotheque.view', 'bibliotheque.manage']);
+        $user->givePermissionTo(['bibliotheque.view', 'bibliotheque.create', 'bibliotheque.update', 'bibliotheque.delete']);
 
         return $user;
     }
@@ -65,7 +67,7 @@ class BibliothequeTest extends TestCase
             'school_id' => $this->ecoleA->id, 'is_active' => true,
         ]);
         $user->assignRole('super_admin');
-        $user->givePermissionTo(['bibliotheque.view', 'bibliotheque.manage']);
+        $user->givePermissionTo(['bibliotheque.view', 'bibliotheque.create', 'bibliotheque.update', 'bibliotheque.delete']);
 
         return $user;
     }

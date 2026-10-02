@@ -144,7 +144,7 @@ export function RapportRentreePage() {
     }
   }
 
-  const peutModifier = can('rapport_rentree.manage')
+  const peutModifier = can('rapport_rentree.update')
 
   const supprimerVisite = async (visite: VisiteAutorite) => {
     const confirme = await confirmerSuppression(t('rapportRentree.confirm_delete', { nom: visite.qualite_autorite }))
@@ -188,19 +188,23 @@ export function RapportRentreePage() {
     { cle: 'nature', entete: t('rapportRentree.nature_col'), valeur: (v) => v.nature_visite, cellule: (v) => v.nature_visite ?? '—' },
     { cle: 'objectifs', entete: t('rapportRentree.objectifs_col'), valeur: (v) => v.objectifs, cellule: (v) => v.objectifs ?? '—', masquerMobile: true },
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (v) => v.observations, cellule: (v) => v.observations ?? '—', masquerMobile: true },
-    ...(peutModifier
+    ...(can('visites_autorites.update|visites_autorites.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (v: VisiteAutorite) => (
             <div className="flex items-center gap-1">
-              <button title={t('common.edit')} onClick={() => { setVisiteEnEdition(v); setShowVisiteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button title={t('common.delete')} onClick={() => supprimerVisite(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('visites_autorites.update') && (
+                <button title={t('common.edit')} onClick={() => { setVisiteEnEdition(v); setShowVisiteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('visites_autorites.delete') && (
+                <button title={t('common.delete')} onClick={() => supprimerVisite(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<VisiteAutorite>,
@@ -214,19 +218,23 @@ export function RapportRentreePage() {
     { cle: 'faites', entete: t('rapportRentree.faites_col'), valeur: (a) => a.faites, cellule: (a) => a.faites ?? '—' },
     { cle: 'taux', entete: t('rapportRentree.taux_col'), valeur: (a) => a.taux_affichage, cellule: (a) => (a.taux_affichage !== null ? <span className="font-semibold tabular-nums">{a.taux_affichage}%</span> : '—') },
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (a) => a.observations, cellule: (a) => a.observations ?? '—', masquerMobile: true },
-    ...(peutModifier
+    ...(can('activites_rentree.update|activites_rentree.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (a: ActiviteRentree) => (
             <div className="flex items-center gap-1">
-              <button title={t('common.edit')} onClick={() => { setActiviteEnEdition(a); setShowActiviteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button title={t('common.delete')} onClick={() => supprimerActivite(a)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('activites_rentree.update') && (
+                <button title={t('common.edit')} onClick={() => { setActiviteEnEdition(a); setShowActiviteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('activites_rentree.delete') && (
+                <button title={t('common.delete')} onClick={() => supprimerActivite(a)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<ActiviteRentree>,
@@ -239,19 +247,23 @@ export function RapportRentreePage() {
     { cle: 'vendeur', entete: t('rapportRentree.vendeur_col'), valeur: (v) => v.vendeur_nom, cellule: (v) => v.vendeur_nom ?? '—' },
     { cle: 'dossier', entete: t('rapportRentree.dossier_medical_col'), valeur: (v) => (v.dossier_medical_ok === null ? null : v.dossier_medical_ok ? 1 : 0), cellule: (v) => (v.dossier_medical_ok === null ? '—' : v.dossier_medical_ok ? t('common.yes') : t('common.no')) },
     { cle: 'frais', entete: t('rapportRentree.frais_verses_col'), valeur: (v) => v.frais_verses, cellule: (v) => <span className="tabular-nums">{v.frais_verses}</span> },
-    ...(peutModifier
+    ...(can('ventes_denrees.update|ventes_denrees.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (v: VenteDenree) => (
             <div className="flex items-center gap-1">
-              <button title={t('common.edit')} onClick={() => { setVenteEnEdition(v); setShowVenteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button title={t('common.delete')} onClick={() => supprimerVente(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('ventes_denrees.update') && (
+                <button title={t('common.edit')} onClick={() => { setVenteEnEdition(v); setShowVenteForm(true) }} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('ventes_denrees.delete') && (
+                <button title={t('common.delete')} onClick={() => supprimerVente(v)} className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<VenteDenree>,
@@ -303,7 +315,7 @@ export function RapportRentreePage() {
                 <Users className="h-4 w-4" />
                 {t('rapportRentree.section_visites')}
               </h2>
-              {peutModifier && (
+              {can('visites_autorites.create') && (
                 <Button onClick={() => { setVisiteEnEdition(null); setShowVisiteForm(true) }}>
                   <Plus className="h-4 w-4" />
                   {t('rapportRentree.add')}
@@ -319,7 +331,7 @@ export function RapportRentreePage() {
                 <ClipboardList className="h-4 w-4" />
                 {t('rapportRentree.section_activites')}
               </h2>
-              {peutModifier && (
+              {can('activites_rentree.create') && (
                 <Button onClick={() => { setActiviteEnEdition(null); setShowActiviteForm(true) }}>
                   <Plus className="h-4 w-4" />
                   {t('rapportRentree.add')}
@@ -340,7 +352,7 @@ export function RapportRentreePage() {
                 <Cookie className="h-4 w-4" />
                 {t('rapportRentree.section_ventes')}
               </h2>
-              {peutModifier && (
+              {can('ventes_denrees.create') && (
                 <Button onClick={() => { setVenteEnEdition(null); setShowVenteForm(true) }}>
                   <Plus className="h-4 w-4" />
                   {t('rapportRentree.add')}

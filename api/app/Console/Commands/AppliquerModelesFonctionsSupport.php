@@ -55,7 +55,7 @@ class AppliquerModelesFonctionsSupport extends Command
                     return;
                 }
 
-                $codes = RolePermissionSeeder::ROLE_PERMISSIONS[$role] ?? [];
+                $codes = RolePermissionSeeder::permissionsDuRole($role);
                 $fonction->permissions()->sync($idsParCode->only($codes)->values());
 
                 $this->line("Fonction #{$fonction->id} ({$fonction->label_fr}) -> gabarit {$role}");

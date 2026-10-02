@@ -134,7 +134,7 @@ class RegistreSyncTest extends TestCase
             'school_id' => $school->id,
             'label_fr' => 'Enseignant',
         ]);
-        $fonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['enseignant']);
+        $fonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole('enseignant'));
 
         $user = User::create([
             'name' => 'Enseignant', 'email' => 'prof.registre@test.local', 'password' => 'password',

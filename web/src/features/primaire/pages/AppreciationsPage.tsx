@@ -91,7 +91,7 @@ export function AppreciationsPage() {
   })
 
   const colonnes: Colonne<Appreciation>[] = [
-    ...(can('pedagogie.manage')
+    ...(can('appreciations.delete')
       ? [{
         cle: 'selection',
         entete: (
@@ -169,39 +169,43 @@ export function AppreciationsPage() {
         </Badge>
       ),
     },
-    ...(can('pedagogie.manage')
+    ...(can('appreciations.update|appreciations.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (a: Appreciation) => (
             <div className="flex items-center gap-1">
-              <button
-                title={t('common.edit')}
-                onClick={() => {
-                  setEnEdition(a)
-                  setFormOuvert(true)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(a.label_fr))) return
-                  try {
-                    await supprimerAppreciation(a.id)
-                    invalider()
-                    succes(t('appreciations.supprime'))
-                  } catch (err) {
-                    erreur((err as ApiError).message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('appreciations.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={() => {
+                    setEnEdition(a)
+                    setFormOuvert(true)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('appreciations.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(a.label_fr))) return
+                    try {
+                      await supprimerAppreciation(a.id)
+                      invalider()
+                      succes(t('appreciations.supprime'))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<Appreciation>,
@@ -216,26 +220,29 @@ export function AppreciationsPage() {
         sousTitre={t('appreciations.subtitle')}
         icon={SmilePlus}
         actions={
-          can('pedagogie.manage') && (
+          can('appreciations.create|appreciations.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('appreciations.title')}
                 importUrl="/appreciations/import"
+                peutImporter={can('appreciations.import')}
                 exportUrl="/appreciations/export"
                 modeleUrl="/appreciations/modele"
                 colonnes={['Appréciation (FR)', 'Appréciation (EN)', 'Emoji', 'Couleur', 'Ordre']}
                 nomFichier="appreciations"
                 onImported={() => queryClient.invalidateQueries({ queryKey: ['appreciations'] })}
               />
-              <Button
-                onClick={() => {
-                  setEnEdition(null)
-                  setFormOuvert(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('appreciations.ajouter')}
-              </Button>
+              {can('appreciations.create') && (
+                <Button
+                  onClick={() => {
+                    setEnEdition(null)
+                    setFormOuvert(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('appreciations.ajouter')}
+                </Button>
+              )}
             </div>
           )
         }
@@ -252,7 +259,7 @@ export function AppreciationsPage() {
           messageVide={t('appreciations.aucun_niveau')}
           largeurMin={720}
           triDefaut={triAppreciations}
-          outils={can('pedagogie.manage') && selectedIds.size > 0 ? (
+          outils={can('appreciations.delete') && selectedIds.size > 0 ? (
             <Button variant="danger" onClick={supprimerSelection}>
               <Trash2 className="h-4 w-4" />
               {t('appreciations.supprimer_selection', { count: selectedIds.size })}

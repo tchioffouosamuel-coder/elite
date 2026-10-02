@@ -79,7 +79,7 @@ export function ClassesListPage() {
   const { data: niveaux = [] } = useQuery({
     queryKey: ['niveaux'],
     queryFn: fetchNiveaux,
-    enabled: can('classes.manage'),
+    enabled: can('classes.update'),
   })
 
   const classesFiltrees = schoolFilter === null
@@ -174,7 +174,7 @@ export function ClassesListPage() {
   }
 
   const colonnes: Colonne<Classe>[] = [
-    ...(can('classes.manage')
+    ...(can('classes.update|classes.delete|classes.fusionner')
       ? [
         {
           cle: 'checkbox',
@@ -279,7 +279,7 @@ export function ClassesListPage() {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (c) =>
-        can('classes.manage') && (
+        can('classes.update|classes.delete') && (
           <div className="flex items-center gap-1">
             <button
               title={t('classes.view')}
@@ -291,20 +291,22 @@ export function ClassesListPage() {
             >
               <Eye className="h-4 w-4" />
             </button>
-            <button
-              title={t('classes.edit')}
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditingClasse(c)
-              }}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
+            {can('classes.update') && (
+              <button
+                title={t('classes.edit')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditingClasse(c)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
             <DropdownMenu
               title={t('common.actions')}
               items={[
-                ...(can('eleves.manage')
+                ...(can('eleves.create')
                   ? ([{ label: t('hub.classe.inscrire_eleve'), icon: UserPlus, onClick: () => navigate('/eleves/nouveau') }] satisfies DropdownMenuItem[])
                   : []),
                 ...(can('eleves.view')
@@ -319,7 +321,9 @@ export function ClassesListPage() {
                 ...(can('bulletins.view')
                   ? ([{ label: t('hub.classe.bulletins'), icon: FileDown, onClick: () => ouvrirBulletinsClasse(c.id, undefined, c.school?.type) }] satisfies DropdownMenuItem[])
                   : []),
-                { label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true },
+                ...(can('classes.delete')
+                  ? ([{ label: t('common.delete'), icon: Trash2, onClick: () => handleDelete(c), danger: true }] satisfies DropdownMenuItem[])
+                  : []),
               ]}
             />
           </div>
@@ -333,18 +337,19 @@ export function ClassesListPage() {
         titre={t('classes.title')}
         icon={School}
         actions={
-          can('classes.manage') && (
+          can('classes.create|classes.import') && (
             <>
               <ImportExportBar
                 titreImport={t('import.title')}
                 importUrl="classes/import"
+                peutImporter={can('classes.import')}
                 exportUrl="classes/export"
                 modeleUrl="classes/modele"
                 colonnes={['Nom', 'Sigle', 'Capacite']}
                 nomFichier="classes"
                 onImported={invalidate}
               />
-              {can('pedagogie.manage') && (
+              {can('matieres.import') && (
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -356,10 +361,12 @@ export function ClassesListPage() {
                   {t('classes.import_affectations')}
                 </Button>
               )}
-              <Button onClick={() => setShowForm(true)}>
-                <Plus className="h-4 w-4" />
-                {t('classes.add')}
-              </Button>
+              {can('classes.create') && (
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="h-4 w-4" />
+                  {t('classes.add')}
+                </Button>
+              )}
             </>
           )
         }
@@ -379,53 +386,61 @@ export function ClassesListPage() {
         </div>
       )}
 
-      {selectedClasses.size > 0 && can('classes.manage') && (
+      {selectedClasses.size > 0 && can('classes.update|classes.delete|classes.fusionner') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{selectedClasses.size} classe(s) sélectionnée(s)</p>
             <div className="flex flex-wrap gap-2">
-              <div className="w-48">
-                <Select
-                  options={schools.map((s) => ({ value: s.id, label: s.name }))}
-                  placeholder={t('classes.bulk_school_placeholder')}
-                  onChange={(option) => {
-                    if (option) handleBulkUpdate({ school_id: option.value as number })
-                  }}
-                  isSearchable
-                  isClearable={false}
-                />
-              </div>
+              {can('classes.update') && (
+                <div className="w-48">
+                  <Select
+                    options={schools.map((s) => ({ value: s.id, label: s.name }))}
+                    placeholder={t('classes.bulk_school_placeholder')}
+                    onChange={(option) => {
+                      if (option) handleBulkUpdate({ school_id: option.value as number })
+                    }}
+                    isSearchable
+                    isClearable={false}
+                  />
+                </div>
+              )}
 
-              <div className="w-56">
-                <Select
-                  options={sousSystemes.map((s) => ({ value: s.id, label: `${s.nom} (${s.code})` }))}
-                  placeholder={t('classes.bulk_subsystem_placeholder')}
-                  onChange={(option) => {
-                    if (option) handleBulkUpdate({ sous_systeme_id: option.value as number })
-                  }}
-                  isSearchable
-                  isClearable={false}
-                />
-              </div>
+              {can('classes.update') && (
+                <div className="w-56">
+                  <Select
+                    options={sousSystemes.map((s) => ({ value: s.id, label: `${s.nom} (${s.code})` }))}
+                    placeholder={t('classes.bulk_subsystem_placeholder')}
+                    onChange={(option) => {
+                      if (option) handleBulkUpdate({ sous_systeme_id: option.value as number })
+                    }}
+                    isSearchable
+                    isClearable={false}
+                  />
+                </div>
+              )}
 
-              <div className="w-48">
-                <Select
-                  options={niveaux.map((n) => ({ value: n.id, label: n.name_fr }))}
-                  placeholder={t('classes.bulk_level_placeholder')}
-                  onChange={(option) => {
-                    if (option) handleBulkUpdate({ niveau_id: option.value as number })
-                  }}
-                  isSearchable
-                  isClearable={false}
-                />
-              </div>
+              {can('classes.update') && (
+                <div className="w-48">
+                  <Select
+                    options={niveaux.map((n) => ({ value: n.id, label: n.name_fr }))}
+                    placeholder={t('classes.bulk_level_placeholder')}
+                    onChange={(option) => {
+                      if (option) handleBulkUpdate({ niveau_id: option.value as number })
+                    }}
+                    isSearchable
+                    isClearable={false}
+                  />
+                </div>
+              )}
 
-              <Button variant="danger" onClick={handleBulkDelete}>
-                <Trash2 className="h-4 w-4" />
-                {t('common.delete')}
-              </Button>
+              {can('classes.delete') && (
+                <Button variant="danger" onClick={handleBulkDelete}>
+                  <Trash2 className="h-4 w-4" />
+                  {t('common.delete')}
+                </Button>
+              )}
 
-              {selectedClasses.size === 2 && (
+              {selectedClasses.size === 2 && can('classes.fusionner') && (
                 <Button variant="secondary" onClick={() => setClassesAFusionner((data ?? []).filter((classe) => selectedClasses.has(classe.id)))}>
                   <GitMerge className="h-4 w-4" />
                   Fusionner les classes
@@ -509,7 +524,7 @@ export function ClassesListPage() {
         />
       )}
 
-      {showImportAffectations && can('pedagogie.manage') && (
+      {showImportAffectations && can('matieres.import') && (
         <ImportModal
           title={t('classes.import_affectations')}
           url="/matieres/import"

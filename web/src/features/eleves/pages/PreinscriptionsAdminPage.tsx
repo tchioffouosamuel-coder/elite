@@ -318,7 +318,7 @@ export function PreinscriptionsAdminPage() {
                 <option value="">Toutes</option>
               </Select>
             )}
-            {onglet === 'non-inscrits' && selectionNonInscrits.size > 0 && can('eleves.manage') && (
+            {onglet === 'non-inscrits' && selectionNonInscrits.size > 0 && can('eleves.delete') && (
               <Button type="button" size="sm" variant="danger" onClick={() => void supprimerSelectionNonInscrits()} disabled={traitement}>
                 <Trash2 className="h-4 w-4" />
                 Supprimer ({selectionNonInscrits.size})
@@ -398,7 +398,7 @@ export function PreinscriptionsAdminPage() {
           <EmptyState label="Aucun élève ne correspond à cette recherche." />
         ) : (
           <div className="flex flex-col gap-3">
-            {can('eleves.manage') && (
+            {can('eleves.delete') && (
               <label className="flex items-center gap-2 px-2 text-sm font-semibold text-navy-600">
                 <input
                   type="checkbox"
@@ -413,7 +413,7 @@ export function PreinscriptionsAdminPage() {
               <Card key={e.id} className="border-red-200 bg-red-50">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
-                    {can('eleves.manage') && (
+                    {can('eleves.delete') && (
                       <input
                         type="checkbox"
                         checked={selectionNonInscrits.has(e.id)}
@@ -434,7 +434,7 @@ export function PreinscriptionsAdminPage() {
                       <UserX className="h-3.5 w-3.5" />
                       Non réinscrit
                     </Badge>
-                    {can('eleves.manage') && (
+                    {can('eleves.delete') && (
                       <button
                         type="button"
                         title="Supprimer"

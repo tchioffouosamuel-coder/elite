@@ -106,7 +106,7 @@ export function PersonnelDetailPage() {
     can('finance.paie') && { key: 'remuneration', label: t('hub.tab.remuneration') },
     can('finance.paie') && { key: 'avances', label: t('hub.tab.avances') },
     can('finance.budget') && { key: 'budget', label: t('hub.tab.budget') },
-    can('personnel.manage') && { key: 'activite', label: t('hub.tab.activite') },
+    can('personnel.comptes') && { key: 'activite', label: t('hub.tab.activite') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   const ongletDemande = searchParams.get('onglet')
@@ -156,12 +156,12 @@ export function PersonnelDetailPage() {
     {
       titre: t('hub.groupe.dossier'),
       items: [
-        can('personnel.manage') && {
+        can('personnel.update') && {
           label: t('personnel.edit'),
           icon: Pencil,
           onClick: () => navigate(`/personnel/${personnel.id}/edit`),
         },
-        can('personnel.manage') &&
+        can('personnel.comptes') &&
         !personnel.a_un_compte && {
           label: t('personnel.create_account'),
           icon: KeyRound,
@@ -195,7 +195,7 @@ export function PersonnelDetailPage() {
     {
       titre: t('hub.groupe.documents'),
       items: [
-        can('personnel.manage') && {
+        can('personnel.attestations') && {
           label: t('hub.personnel.attestation'),
           icon: FileText,
           onClick: () => {
@@ -231,13 +231,13 @@ export function PersonnelDetailPage() {
     {
       titre: t('hub.groupe.danger'),
       items: [
-        can('personnel.manage') && {
+        can('personnel.archiver') && {
           label: personnel.statut === 'actif' ? t('common.archive') : t('common.reactivate'),
           icon: personnel.statut === 'actif' ? Archive : RotateCcw,
           onClick: archiverOuReactiver,
           danger: personnel.statut === 'actif',
         },
-        can('personnel.manage') && {
+        can('personnel.delete') && {
           label: t('common.delete'),
           icon: Trash2,
           onClick: supprimer,
@@ -264,7 +264,7 @@ export function PersonnelDetailPage() {
           </>
         }
         actions={
-          can('personnel.manage') ? (
+          can('personnel.update') ? (
             <Button variant="secondary" onClick={() => navigate(`/personnel/${personnel.id}/edit`)}>
               <Pencil className="h-4 w-4" />
               {t('common.edit')}

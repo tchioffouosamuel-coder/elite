@@ -137,7 +137,7 @@ class CompteEleveTest extends TestCase
             'school_id' => $this->school->id, 'name' => 'Admin', 'email' => 'admin@elites.test',
             'password' => 'password', 'is_active' => true,
         ]);
-        $admin->givePermissionTo('eleves.manage');
+        $admin->givePermissionTo('eleves.comptes');
 
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/eleves/{$eleve->id}/compte-eleve")
@@ -157,7 +157,7 @@ class CompteEleveTest extends TestCase
             'school_id' => $this->school->id, 'name' => 'Admin', 'email' => 'admin2@elites.test',
             'password' => 'password', 'is_active' => true,
         ]);
-        $admin->givePermissionTo('eleves.manage');
+        $admin->givePermissionTo('eleves.comptes');
 
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/eleves/{$eleve->id}/basculer-acces")

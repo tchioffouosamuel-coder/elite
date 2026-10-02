@@ -310,10 +310,10 @@ class CompetenceController extends Controller
     }
 
     /**
-     * Le middleware `permission:pedagogie.manage` ne borne pas cette route :
+     * Le middleware `permission:competences.attribuer` ne borne pas cette route :
      * elle nomme une attribution (`{classeCompetenceId}`), pas une classe
      * qu'il saurait reconnaître. Un animateur de niveau ne tient
-     * `pedagogie.manage` que via son attribution — le vérifier ici évite
+     * ce privilège que via son attribution — le vérifier ici évite
      * qu'il modifie les attributions d'un niveau qui n'est pas le sien. Qui
      * détient déjà le privilège de base (admin, censeur) n'est pas concerné.
      */
@@ -321,7 +321,7 @@ class CompetenceController extends Controller
     {
         $user = $request->user();
 
-        if ($user->permissionsDeBase()->contains('pedagogie.manage')) {
+        if ($user->permissionsDeBase()->contains('competences.attribuer')) {
             return;
         }
 
@@ -329,7 +329,7 @@ class CompetenceController extends Controller
         $niveauScolaireId = $attribution->classe->niveau_scolaire_id ?? -1;
 
         abort_unless(
-            $perimetre->peutSurNiveauScolaire('pedagogie.manage', $niveauScolaireId),
+            $perimetre->peutSurNiveauScolaire('competences.attribuer', $niveauScolaireId),
             403,
             "Cette compétence n'entre pas dans le niveau que vous animez.",
         );

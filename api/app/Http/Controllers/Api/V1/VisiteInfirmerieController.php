@@ -24,6 +24,13 @@ class VisiteInfirmerieController extends Controller
 {
     private const AVEC_RELATIONS = ['eleve.school', 'classe', 'enregistrePar', 'malaises', 'materiels.article'];
 
+    /**
+     * Privilèges qui font d'un compte un agent de l'infirmerie : en détenir un
+     * lui ouvre les visites de tout l'établissement, pas seulement celles des
+     * élèves de ses classes.
+     */
+    private const ECRITURES = ['infirmerie.create', 'infirmerie.update', 'infirmerie.delete', 'infirmerie.import'];
+
     public function __construct(private readonly InfirmerieService $service) {}
 
     public function index(Request $request): JsonResponse
@@ -41,10 +48,10 @@ class VisiteInfirmerieController extends Controller
 
         $visites = VisiteInfirmerie::forSchool(Tenant::schoolIds())
             ->with(self::AVEC_RELATIONS)
-            // Hors infirmier (`infirmerie.manage`), on ne consulte que les
-            // visites des élèves de ses classes — en lecture seule, les
-            // écritures étant déjà réservées à `infirmerie.manage`.
-            ->when(! $user->can('infirmerie.manage'), fn ($q) => $q->whereHas('eleve', fn ($e) => $e->dansPerimetre($user)))
+            // Hors infirmier (cf. ECRITURES), on ne consulte que les visites
+            // des élèves de ses classes — en lecture seule, les écritures
+            // étant déjà réservées à ces privilèges.
+            ->when(! $user->canAny(self::ECRITURES), fn ($q) => $q->whereHas('eleve', fn ($e) => $e->dansPerimetre($user)))
             ->when($request->integer('eleve_id'), fn ($q, $id) => $q->where('eleve_id', $id))
             ->when($request->integer('classe_id'), fn ($q, $id) => $q->where('classe_id', $id))
             // École et sous-système restreignent davantage le périmètre déjà
@@ -138,7 +145,7 @@ class VisiteInfirmerieController extends Controller
     {
         // L'export couvre toute l'école : réservé à l'infirmerie, les autres
         // n'ayant accès qu'aux visites des élèves de leurs classes.
-        abort_unless($request->user()->can('infirmerie.manage'), 403);
+        abort_unless($request->user()->canAny(self::ECRITURES), 403);
 
         return Excel::download(new VisiteInfirmerieExport(Tenant::schoolIds()), 'visites-infirmerie.xlsx');
     }

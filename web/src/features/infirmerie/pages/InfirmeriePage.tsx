@@ -205,34 +205,38 @@ export function InfirmeriePage() {
         v.cout_total > 0 ? <Badge tone="gold">{formatMontant(v.cout_total, i18n.language)}</Badge> : <span>—</span>,
       largeur: '140px',
     },
-    ...(can('infirmerie.manage')
+    ...(can('infirmerie.update|infirmerie.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (v: VisiteInfirmerie) => (
             <div className="flex justify-end gap-1">
-              <button
-                type="button"
-                title={t('common.edit')}
-                onClick={() => navigate(`/infirmerie/${v.id}/edit`)}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(t('infirmerie.delete_target', { eleve: v.eleve.nom_complet })))) return
-                  await deleteVisiteInfirmerie(v.id)
-                  invalidate()
-                  succes(t('infirmerie.deleted'))
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('infirmerie.update') && (
+                <button
+                  type="button"
+                  title={t('common.edit')}
+                  onClick={() => navigate(`/infirmerie/${v.id}/edit`)}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('infirmerie.delete') && (
+                <button
+                  type="button"
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(t('infirmerie.delete_target', { eleve: v.eleve.nom_complet })))) return
+                    await deleteVisiteInfirmerie(v.id)
+                    invalidate()
+                    succes(t('infirmerie.deleted'))
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
           className: 'text-right',
@@ -249,21 +253,24 @@ export function InfirmeriePage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('infirmerie.title')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-navy-500">{t('infirmerie.subtitle')}</p>
         </div>
-        {can('infirmerie.manage') && (
+        {can('infirmerie.create|infirmerie.import') && (
           <div className="flex flex-wrap items-center gap-2">
             <ImportExportBar
               titreImport={t('infirmerie.import_title')}
               importUrl="/infirmerie/visites/import"
+              peutImporter={can('infirmerie.import')}
               exportUrl="/infirmerie/visites/export"
               modeleUrl="/infirmerie/visites/modele"
               colonnes={COLONNES_IMPORT_VISITES_INFIRMERIE}
               nomFichier="visites-infirmerie"
               onImported={invalidate}
             />
-            <Button onClick={() => navigate('/infirmerie/nouvelle')}>
-              <Plus className="h-4 w-4" />
-              {t('infirmerie.add_visit')}
-            </Button>
+            {can('infirmerie.create') && (
+              <Button onClick={() => navigate('/infirmerie/nouvelle')}>
+                <Plus className="h-4 w-4" />
+                {t('infirmerie.add_visit')}
+              </Button>
+            )}
           </div>
         )}
       </div>

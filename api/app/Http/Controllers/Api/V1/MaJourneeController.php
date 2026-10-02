@@ -185,7 +185,7 @@ class MaJourneeController extends Controller
      * à une date donnée (aujourd'hui par défaut), avec leur statut réel — le
      * pendant transverse de `affectations()`, réservé à l'utilisateur
      * connecté. Restreint à `personnel.view` (cf. routes/api.php), que
-     * l'enseignant ordinaire ne porte pas, malgré `appel.manage` : sans quoi
+     * l'enseignant ordinaire ne porte pas, malgré `appel.saisir` : sans quoi
      * il verrait l'emploi du temps et l'avancement de toute l'école.
      */
     public function ecole(Request $request): JsonResponse

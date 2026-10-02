@@ -116,8 +116,8 @@ export function EmploiDuTempsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
-  const peutGerer = can('emploi_du_temps.manage')
-  const peutPublierBibliotheque = can('bibliotheque.manage')
+  const peutGerer = can('emploi_du_temps.create|emploi_du_temps.update|emploi_du_temps.delete|emploi_du_temps.import|seances.generer|edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer')
+  const peutPublierBibliotheque = can('bibliotheque.create')
   const queryClient = useQueryClient()
 
   // Au primaire et à la maternelle, un enseignant est titulaire d'une seule
@@ -304,21 +304,29 @@ export function EmploiDuTempsPage() {
             </Button>
             {peutGerer && (
               <>
-                <Button variant="secondary" onClick={() => setShowImport(true)}>
-                  <Upload className="h-4 w-4" />
-                  {t('import.title')}
-                </Button>
-                <Button variant="secondary" onClick={() => setGenerationOuverte(true)}>
-                  <Wand2 className="h-4 w-4" />
-                  {t('emploiDuTemps.generer_seances')}
-                </Button>
-                <Button onClick={() => setFormOuvert(true)}>
-                  <Plus className="h-4 w-4" />
-                  {t('emploiDuTemps.ajouter_creneau')}
-                </Button>
-                <Button variant="secondary" onClick={() => setElementsOuverts(true)}>
-                  Pauses & activités
-                </Button>
+                {can('emploi_du_temps.import') && (
+                  <Button variant="secondary" onClick={() => setShowImport(true)}>
+                    <Upload className="h-4 w-4" />
+                    {t('import.title')}
+                  </Button>
+                )}
+                {can('seances.generer') && (
+                  <Button variant="secondary" onClick={() => setGenerationOuverte(true)}>
+                    <Wand2 className="h-4 w-4" />
+                    {t('emploiDuTemps.generer_seances')}
+                  </Button>
+                )}
+                {can('emploi_du_temps.create') && (
+                  <Button onClick={() => setFormOuvert(true)}>
+                    <Plus className="h-4 w-4" />
+                    {t('emploiDuTemps.ajouter_creneau')}
+                  </Button>
+                )}
+                {can('edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer') && (
+                  <Button variant="secondary" onClick={() => setElementsOuverts(true)}>
+                    Pauses & activités
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -329,23 +337,29 @@ export function EmploiDuTempsPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gold-200 bg-gold-50 px-4 py-3">
           <span className="text-sm font-semibold text-navy-700">{selectedIds.size}</span>
           <div className="flex flex-1 flex-wrap justify-end gap-2">
-            <Button size="sm" variant="secondary" onClick={() => setAssignationOuverte(true)}>
-              <UserCog className="h-4 w-4" />
-              {t('emploiDuTemps.assigner_enseignant', { count: selectedIds.size })}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setCopieOuverte(true)}>
-              <Copy className="h-4 w-4" />
-              {t('emploiDuTemps.copier_vers_classe', { count: selectedIds.size })}
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={supprimerSelection}
-              disabled={suppressionMultiple.isPending}
-            >
-              <Trash2 className="h-4 w-4" />
-              {t('emploiDuTemps.supprimer_selection', { count: selectedIds.size })}
-            </Button>
+            {can('emploi_du_temps.update') && (
+              <Button size="sm" variant="secondary" onClick={() => setAssignationOuverte(true)}>
+                <UserCog className="h-4 w-4" />
+                {t('emploiDuTemps.assigner_enseignant', { count: selectedIds.size })}
+              </Button>
+            )}
+            {can('emploi_du_temps.create') && (
+              <Button size="sm" variant="secondary" onClick={() => setCopieOuverte(true)}>
+                <Copy className="h-4 w-4" />
+                {t('emploiDuTemps.copier_vers_classe', { count: selectedIds.size })}
+              </Button>
+            )}
+            {can('emploi_du_temps.delete') && (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={supprimerSelection}
+                disabled={suppressionMultiple.isPending}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t('emploiDuTemps.supprimer_selection', { count: selectedIds.size })}
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -623,6 +637,7 @@ function CelluleCreneau({
   pleineHauteur?: boolean
 }) {
   const { t } = useTranslation()
+  const can = useAuthStore((s) => s.can)
   // Un créneau de tronc commun porté par une autre classe n'est ni éditable,
   // ni supprimable, ni sélectionnable en masse depuis cette grille-ci.
   const gerable = peutGerer && creneau.classe_id === classeId
@@ -671,22 +686,26 @@ function CelluleCreneau({
 
       {gerable && !modeSelection && (
         <div className="absolute right-1 top-1 flex gap-0.5">
-          <button
-            onClick={onModifier}
-            title={t('emploiDuTemps.modifier_creneau_title')}
-            // Toujours présent plutôt qu'au survol : sur écran tactile un contrôle
-            // qui n'apparaît qu'au hover est inatteignable.
-            className="rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-navy-700 hover:opacity-100 focus-visible:opacity-100"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={onSupprimer}
-            title={t('emploiDuTemps.supprimer_creneau_title')}
-            className="rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-red-500 hover:opacity-100 focus-visible:opacity-100"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          {can('emploi_du_temps.update') && (
+            <button
+              onClick={onModifier}
+              title={t('emploiDuTemps.modifier_creneau_title')}
+              // Toujours présent plutôt qu'au survol : sur écran tactile un contrôle
+              // qui n'apparaît qu'au hover est inatteignable.
+              className="rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-navy-700 hover:opacity-100 focus-visible:opacity-100"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {can('emploi_du_temps.delete') && (
+            <button
+              onClick={onSupprimer}
+              title={t('emploiDuTemps.supprimer_creneau_title')}
+              className="rounded p-0.5 text-navy-300 opacity-60 transition-opacity hover:bg-white hover:text-red-500 hover:opacity-100 focus-visible:opacity-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       )}
     </div>

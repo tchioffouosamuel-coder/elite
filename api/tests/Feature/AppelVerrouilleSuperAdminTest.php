@@ -84,7 +84,7 @@ class AppelVerrouilleSuperAdminTest extends TestCase
         $sgFonction = FonctionReferentiel::firstOrCreate([
             'school_id' => $this->school->id, 'label_fr' => 'Surveillant Général',
         ]);
-        $sgFonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['surveillant_general']);
+        $sgFonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole('surveillant_general'));
         $this->surveillantGeneral = User::create([
             'name' => 'SG', 'email' => 'sg@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
@@ -98,7 +98,7 @@ class AppelVerrouilleSuperAdminTest extends TestCase
         $profFonction = FonctionReferentiel::firstOrCreate([
             'school_id' => $this->school->id, 'label_fr' => 'Enseignant',
         ]);
-        $profFonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['enseignant']);
+        $profFonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole('enseignant'));
         $prof = User::create([
             'name' => 'Prof SVT', 'email' => 'prof.svt@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,

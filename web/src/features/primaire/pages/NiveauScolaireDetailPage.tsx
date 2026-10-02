@@ -130,7 +130,7 @@ export function NiveauScolaireDetailPage() {
         <PageHeader
           titre={t('niveaux.classes_title', { code: niveau.code, libelle: niveau.libelle })}
           icon={Layers}
-          actions={can('pedagogie.manage') && (
+          actions={can('classes.update') && (
             <Button onClick={ouvrirAffectation}>
               <ListPlus className="h-4 w-4" />
               {t('niveaux.assign_classes')}

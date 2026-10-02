@@ -41,7 +41,7 @@ class DemandeArticleInventaireService extends BaseService
 
         $this->notifications->notifierParPermission(
             $personnel->school_id,
-            'inventaire.manage',
+            'demandes_articles.valider',
             'demande_article_inventaire',
             "Demande d'article d'inventaire",
             "{$personnel->nom_complet} signale du matériel reçu de l'établissement : {$donnees['nom']} (x{$donnees['quantite']}).",

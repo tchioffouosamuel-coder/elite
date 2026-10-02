@@ -288,37 +288,37 @@ export function EleveDetailPage() {
     {
       titre: t('hub.groupe.dossier'),
       items: [
-        can('eleves.manage') && {
+        can('eleves.update') && {
           label: t('eleves.edit'),
           icon: Pencil,
           onClick: () => navigate(`/eleves/${eleve.id}/edit`),
         },
-        can('eleves.manage') && {
+        can('eleves.update') && {
           label: t('eleves.photo_title'),
           icon: Camera,
           onClick: () => photoInputRef.current?.click(),
           disabled: photoEnCours,
         },
-        can('eleves.manage') && Boolean(eleve.photo_url) && {
+        can('eleves.update') && Boolean(eleve.photo_url) && {
           label: t('eleves.photo_delete_title'),
           icon: Trash2,
           onClick: supprimerPhoto,
           disabled: photoEnCours,
         },
-        can('eleves.manage') && {
+        can('eleves.update') && {
           label: t('eleves.changer_classe'),
           icon: ArrowRightLeft,
           aide: eleve.classe?.nom ?? undefined,
           onClick: () => setTransfertClasse(true),
         },
-        can('eleves.manage') &&
+        can('eleves.transferer') &&
         isSuperAdmin && {
           label: t('eleves.transferer_ecole'),
           icon: Building2,
           aide: eleve.school?.name ?? undefined,
           onClick: () => setTransfertEcole(true),
         },
-        can('eleves.manage') && {
+        can('eleves.comptes') && {
           label: t('hub.eleve.acces_eleve'),
           icon: KeyRound,
           onClick: ouvrirAccesEleve,
@@ -340,13 +340,13 @@ export function EleveDetailPage() {
           icon: Wallet,
           onClick: encaisser,
         },
-        can('infirmerie.manage') && {
+        can('infirmerie.create') && {
           label: t('hub.eleve.nouvelle_visite'),
           icon: HeartPulse,
           onClick: nouvelleVisite,
         },
         secondaire &&
-        can('discipline.manage') && {
+        can('sanctions.create') && {
           label: t('hub.eleve.nouvelle_sanction'),
           icon: ShieldAlert,
           onClick: () => setSanctionOuverte(true),
@@ -390,13 +390,13 @@ export function EleveDetailPage() {
     {
       titre: t('hub.groupe.danger'),
       items: [
-        can('eleves.manage') && {
+        can('eleves.update') && {
           label: eleve.statut === 'actif' ? t('common.archive') : t('common.reactivate'),
           icon: eleve.statut === 'actif' ? Archive : RotateCcw,
           onClick: archiverOuReactiver,
           danger: eleve.statut === 'actif',
         },
-        can('eleves.manage') && {
+        can('eleves.delete') && {
           label: t('common.delete'),
           icon: Trash2,
           onClick: supprimer,
@@ -423,7 +423,7 @@ export function EleveDetailPage() {
           </>
         }
         actions={
-          can('eleves.manage') ? (
+          can('eleves.update') ? (
             <Button variant="secondary" onClick={() => navigate(`/eleves/${eleve.id}/edit`)}>
               <Pencil className="h-4 w-4" />
               {t('common.edit')}
@@ -554,7 +554,7 @@ export function EleveDetailPage() {
                           {tuteur.profession}
                         </span>
                       )}
-                      {can('eleves.manage') && (
+                      {can('tuteurs.comptes') && (
                         <button
                           onClick={() => ouvrirAccesParent(tuteur.id)}
                           disabled={ouvertureEnCours === tuteur.id}
@@ -595,7 +595,7 @@ export function EleveDetailPage() {
 
       {onglet === 'sante' && (
         <>
-          {can('infirmerie.manage') && (
+          {can('infirmerie.create') && (
             <div className="flex flex-wrap gap-2">
               <Button onClick={nouvelleVisite}>
                 <HeartPulse className="h-4 w-4" />
@@ -609,7 +609,7 @@ export function EleveDetailPage() {
 
       {onglet === 'discipline' && (
         <>
-          {can('discipline.manage') && (
+          {can('sanctions.create') && (
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => setSanctionOuverte(true)}>
                 <ShieldAlert className="h-4 w-4" />

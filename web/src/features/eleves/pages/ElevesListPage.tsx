@@ -396,7 +396,7 @@ export function ElevesListPage() {
     {
       cle: 'photo',
       entete: '',
-      cellule: (e) => <PhotoCell eleve={e} canManage={can('eleves.manage')} />,
+      cellule: (e) => <PhotoCell eleve={e} canManage={can('eleves.update')} />,
     },
     {
       cle: 'matricule',
@@ -442,7 +442,7 @@ export function ElevesListPage() {
         <ClasseCell
           eleve={e}
           classes={classes.filter((c) => (c.school_id ?? c.school?.id) === e.school_id)}
-          canManage={can('eleves.manage')}
+          canManage={can('eleves.update')}
           onSaved={invalidate}
         />
       ),
@@ -494,13 +494,13 @@ export function ElevesListPage() {
               onClick: () => ouvrirRechercheMatricule(e),
             } satisfies DropdownMenuItem]
             : []),
-          ...(can('eleves.manage')
+          ...(can('eleves.transferer') && isSuperAdmin
+            ? ([{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }] satisfies DropdownMenuItem[])
+            : []),
+          ...(can('eleves.update')
             ? ([
               { label: t('eleves.changer_classe'), icon: ArrowRightLeft, onClick: () => setTransfertClasseEleve(e) },
               { label: 'Modifier les informations du tuteur', icon: UserRound, onClick: () => navigate(`/eleves/${e.id}/tuteur`) },
-              ...(isSuperAdmin
-                ? [{ label: t('eleves.transferer_ecole'), icon: Building2, onClick: () => setTransfertEcoleEleve(e) }]
-                : []),
               e.statut === 'actif'
                 ? {
                   label: t('common.archive'),
@@ -526,8 +526,10 @@ export function ElevesListPage() {
                     succes(t('eleves.reactivated'))
                   },
                 },
-              { label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true },
             ] satisfies DropdownMenuItem[])
+            : []),
+          ...(can('eleves.delete')
+            ? ([{ label: t('common.delete'), icon: Trash2, onClick: () => handleDeleteSingle(e), danger: true }] satisfies DropdownMenuItem[])
             : []),
         ]
 
@@ -543,7 +545,7 @@ export function ElevesListPage() {
             >
               <Eye className="h-4 w-4" />
             </button>
-            {can('eleves.manage') && (
+            {can('eleves.update') && (
               <button
                 title={t('common.edit')}
                 onClick={(event) => {
@@ -569,7 +571,7 @@ export function ElevesListPage() {
         icon={UserRound}
         actions={
           <>
-            {selectedIds.size > 0 && can('eleves.manage') && (
+            {selectedIds.size > 0 && can('eleves.delete') && (
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
                 {t('eleves.delete_selection', { count: selectedIds.size })}
@@ -594,31 +596,31 @@ export function ElevesListPage() {
             <Button variant="secondary" onClick={() => navigate('/eleves/sans-classe')}>
               Élèves sans classe
             </Button>
-            {can('eleves.manage') && (
+            {can('eleves.fusionner') && (
               <Button variant="secondary" onClick={() => navigate('/eleves/doublons')}>
                 <GitMerge className="h-4 w-4" />
                 Gestion des doublons
               </Button>
             )}
-            {can('eleves.manage') && (
+            {can('eleves.update') && (
               <Button variant="secondary" onClick={handleNormaliserMatricules}>
                 <ListOrdered className="h-4 w-4" />
                 Normaliser les matricules
               </Button>
             )}
-            {can('eleves.manage') && (
+            {can('eleves.import') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>
                 <Upload className="h-4 w-4" />
                 {t('import.title')}
               </Button>
             )}
-            {can('eleves.manage') && (
+            {can('eleves.transferer') && (
               <Button variant="secondary" onClick={() => navigate('/eleves/transferts')}>
                 <Repeat className="h-4 w-4" />
                 {t('nav.transferts')}
               </Button>
             )}
-            {can('eleves.manage') && (
+            {can('eleves.create') && (
               <Button onClick={() => navigate('/eleves/nouveau')}>
                 <Plus className="h-4 w-4" />
                 {t('eleves.add')}

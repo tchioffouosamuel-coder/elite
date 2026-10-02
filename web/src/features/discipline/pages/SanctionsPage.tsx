@@ -133,14 +133,14 @@ export function SanctionsPage() {
       valeur: (s) => s.statut,
       cellule: (s) => <Badge tone={STATUT_TONE[s.statut]}>{t(`discipline.statut_${s.statut}`)}</Badge>,
     },
-    ...(can('discipline.manage')
+    ...(can('sanctions.update|sanctions.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (s: Sanction) => (
             <div className="flex items-center gap-1">
-              {s.statut === 'en_attente' && (
+              {s.statut === 'en_attente' && can('sanctions.update') && (
                 <>
                   <button
                     title={t('discipline.confirmer')}
@@ -158,18 +158,20 @@ export function SanctionsPage() {
                   </button>
                 </>
               )}
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(t('discipline.delete_target', { nom: s.eleve.nom_complet })))) return
-                  await deleteSanction(s.id)
-                  invalidate()
-                  succes(t('alerts.sanction_deleted'))
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('sanctions.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(t('discipline.delete_target', { nom: s.eleve.nom_complet })))) return
+                    await deleteSanction(s.id)
+                    invalidate()
+                    succes(t('alerts.sanction_deleted'))
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<Sanction>,
@@ -181,16 +183,18 @@ export function SanctionsPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('discipline.sanctions')}</h1>
-        {can('discipline.manage') && (
+        {can('sanctions.create|sanctions.update') && (
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={genererPv}>
               <FileDown className="h-4 w-4" />
               {t('discipline.pv_conseil')}
             </Button>
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="h-4 w-4" />
-              {t('discipline.add_sanction')}
-            </Button>
+            {can('sanctions.create') && (
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="h-4 w-4" />
+                {t('discipline.add_sanction')}
+              </Button>
+            )}
           </div>
         )}
       </div>

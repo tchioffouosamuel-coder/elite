@@ -23,7 +23,7 @@ class ElevePhotoUploadTest extends TestCase
     {
         parent::setUp();
 
-        Permission::firstOrCreate(['name' => 'eleves.manage', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'eleves.update', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
 
         $this->school = School::create([
@@ -46,7 +46,7 @@ class ElevePhotoUploadTest extends TestCase
             'school_id' => $this->school->id,
             'is_active' => true,
         ]);
-        $admin->givePermissionTo('eleves.manage');
+        $admin->givePermissionTo('eleves.update');
 
         $this->actingAs($admin, 'sanctum')
             ->post("/api/v1/eleves/{$eleve->id}/photo", [

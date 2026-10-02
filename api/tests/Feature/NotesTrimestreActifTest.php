@@ -89,7 +89,7 @@ class NotesTrimestreActifTest extends TestCase
         $fonction = FonctionReferentiel::firstOrCreate([
             'school_id' => $this->school->id, 'label_fr' => 'Enseignant',
         ]);
-        $fonction->synchroniserPermissions(RolePermissionSeeder::ROLE_PERMISSIONS['enseignant']);
+        $fonction->synchroniserPermissions(RolePermissionSeeder::permissionsDuRole('enseignant'));
 
         $user = User::create([
             'name' => $nom, 'email' => $email, 'password' => 'password',

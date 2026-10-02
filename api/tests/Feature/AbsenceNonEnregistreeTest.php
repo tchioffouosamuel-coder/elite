@@ -39,7 +39,7 @@ class AbsenceNonEnregistreeTest extends TestCase
     {
         parent::setUp();
 
-        Permission::firstOrCreate(['name' => 'discipline.manage', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'absences.saisir', 'guard_name' => 'web']);
 
         $this->school = School::create(['name' => 'Elites Test', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
         $this->classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'Terminale D']);
@@ -53,7 +53,7 @@ class AbsenceNonEnregistreeTest extends TestCase
             'school_id' => $this->school->id, 'name' => 'Censeur', 'email' => 'censeur@elites.test',
             'password' => Hash::make('secret'), 'is_active' => true,
         ]);
-        $censeur->givePermissionTo('discipline.manage');
+        $censeur->givePermissionTo('absences.saisir');
 
         $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
         $this->classeMatiere = ClasseMatiere::create([

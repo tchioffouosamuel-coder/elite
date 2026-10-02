@@ -30,6 +30,9 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
 export function SettingsPage() {
   const ecoleActive = useAuthStore((s) => s.activeSchool())
   const nbEcolesAccessibles = useAuthStore((s) => s.user?.ecoles_accessibles.length ?? 0)
+  // La fiche de l'établissement relève d'un privilège distinct des paramètres :
+  // sans lui, ses cartes ne s'affichent pas (et `ecoleRef` reste vide).
+  const peutModifierEcole = useAuthStore((s) => s.can('ecoles.update'))
   const { t, i18n } = useTranslation()
   const isFr = i18n.language === 'fr'
   const queryClient = useQueryClient()
@@ -130,9 +133,9 @@ export function SettingsPage() {
         </p>
       </Card>
 
-      <EcoleProfileCard ref={ecoleRef} />
+      {peutModifierEcole && <EcoleProfileCard ref={ecoleRef} />}
 
-      <EcoleImagesCard />
+      {peutModifierEcole && <EcoleImagesCard />}
 
       {groupes.map((groupe) => (
         <Card key={groupe}>

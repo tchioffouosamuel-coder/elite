@@ -118,7 +118,7 @@ export function VentesTab() {
           >
             <FileDown className="h-4 w-4" />
           </button>
-          {!v.annule && can('point_de_vente.manage') && (
+          {!v.annule && can('point_de_vente.annuler') && (
             <button
               title={t('pointDeVente.annuler')}
               onClick={() => setVenteAAnnuler(v)}

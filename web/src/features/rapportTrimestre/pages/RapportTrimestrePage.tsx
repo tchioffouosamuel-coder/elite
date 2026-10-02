@@ -50,7 +50,7 @@ export function RapportTrimestrePage() {
     enabled: !!trimestreId,
   })
 
-  const peutModifier = can('rapport_trimestre.manage')
+  const peutModifier = can('rapport_trimestre.update')
 
   const exporterDocx = async () => {
     if (!trimestreId) return

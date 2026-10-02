@@ -104,39 +104,43 @@ export function BusArretsPage() {
         </span>
       ),
     },
-    ...(can('bus.manage')
+    ...(can('bus_arrets.update|bus_arrets.delete')
       ? [
         {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (l: LigneArret) => (
             <div className="flex items-center gap-1">
-              <button
-                title={t('common.edit')}
-                onClick={() => {
-                  setArretEnEdition(l)
-                  setShowForm(true)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(l.nom))) return
-                  try {
-                    await supprimerArret(l.trajetId, l.id)
-                    invalidate()
-                    succes(t('bus.arret_deleted'))
-                  } catch (err) {
-                    erreur((err as ApiError).message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {can('bus_arrets.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={() => {
+                    setArretEnEdition(l)
+                    setShowForm(true)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('bus_arrets.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(l.nom))) return
+                    try {
+                      await supprimerArret(l.trajetId, l.id)
+                      invalidate()
+                      succes(t('bus.arret_deleted'))
+                    } catch (err) {
+                      erreur((err as ApiError).message)
+                    }
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<LigneArret>,
@@ -151,22 +155,26 @@ export function BusArretsPage() {
         sousTitre={t('bus.arrets_subtitle')}
         icon={MapPin}
         actions={
-          can('bus.manage') && (
+          can('bus_arrets.create|bus_arrets.import') && (
             <>
-              <Button variant="secondary" onClick={() => setShowImport(true)}>
-                <Upload className="h-4 w-4" />
-                {t('import.title')}
-              </Button>
-              <Button
-                onClick={() => {
-                  setArretEnEdition(null)
-                  setShowForm(true)
-                }}
-                disabled={!trajets || trajets.length === 0}
-              >
-                <Plus className="h-4 w-4" />
-                {t('bus.arret_add')}
-              </Button>
+              {can('bus_arrets.import') && (
+                <Button variant="secondary" onClick={() => setShowImport(true)}>
+                  <Upload className="h-4 w-4" />
+                  {t('import.title')}
+                </Button>
+              )}
+              {can('bus_arrets.create') && (
+                <Button
+                  onClick={() => {
+                    setArretEnEdition(null)
+                    setShowForm(true)
+                  }}
+                  disabled={!trajets || trajets.length === 0}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('bus.arret_add')}
+                </Button>
+              )}
             </>
           )
         }

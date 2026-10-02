@@ -101,7 +101,7 @@ export function CompetencesPage() {
   })
 
   const colonnes: Colonne<Competence>[] = [
-    ...(can('pedagogie.manage')
+    ...(can('competences.delete')
       ? [
         {
           cle: 'selection',
@@ -196,7 +196,7 @@ export function CompetencesPage() {
       ),
       masquerMobile: true,
     },
-    ...(can('pedagogie.manage')
+    ...(can('competences.update|competences.delete')
       ? [
         {
           cle: 'actions',
@@ -204,40 +204,44 @@ export function CompetencesPage() {
           sticky: 'right',
           cellule: (c: Competence) => (
             <div className="flex items-center gap-1">
-              <button
-                title={t('common.edit')}
-                onClick={() => {
-                  setEnEdition(c)
-                  setFormOuvert(true)
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                title={t('common.delete')}
-                onClick={async () => {
-                  if (!(await confirmerSuppression(c.label_fr))) return
-                  try {
-                    await supprimerCompetence(c.id)
-                    invalider()
-                    succes(t('competences.supprimee'))
-                  } catch (err) {
-                    const apiErr = err as ApiError
-                    // 409 : cette compétence porte déjà des notes — l'API
-                    // demande une confirmation par mot de passe plutôt que de
-                    // bloquer la suppression.
-                    if (apiErr.status === 409) {
-                      setASupprimerAvecMotDePasse({ ids: [c.id], label: c.label_fr })
-                      return
+              {can('competences.update') && (
+                <button
+                  title={t('common.edit')}
+                  onClick={() => {
+                    setEnEdition(c)
+                    setFormOuvert(true)
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {can('competences.delete') && (
+                <button
+                  title={t('common.delete')}
+                  onClick={async () => {
+                    if (!(await confirmerSuppression(c.label_fr))) return
+                    try {
+                      await supprimerCompetence(c.id)
+                      invalider()
+                      succes(t('competences.supprimee'))
+                    } catch (err) {
+                      const apiErr = err as ApiError
+                      // 409 : cette compétence porte déjà des notes — l'API
+                      // demande une confirmation par mot de passe plutôt que de
+                      // bloquer la suppression.
+                      if (apiErr.status === 409) {
+                        setASupprimerAvecMotDePasse({ ids: [c.id], label: c.label_fr })
+                        return
+                      }
+                      erreur(apiErr.message)
                     }
-                    erreur(apiErr.message)
-                  }
-                }}
-                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+                  }}
+                  className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ),
         } satisfies Colonne<Competence>,
@@ -252,32 +256,35 @@ export function CompetencesPage() {
         sousTitre={t('competences.subtitle')}
         icon={Target}
         actions={
-          can('pedagogie.manage') && (
+          can('competences.create|competences.import|competences.delete') && (
             <>
               <ImportExportBar
                 titreImport={t('competences.title')}
                 importUrl="/competences/import"
+                peutImporter={can('competences.import')}
                 exportUrl="/competences/export"
                 modeleUrl="/competences/modele"
                 colonnes={['Compétence (FR)', 'Compétence (EN)', 'Abréviation', 'Notation (/20 ou /10)', 'Ordre']}
                 nomFichier="competences"
                 onImported={() => queryClient.invalidateQueries({ queryKey: ['competences'] })}
               />
-              {selectedIds.size > 0 && (
+              {selectedIds.size > 0 && can('competences.delete') && (
                 <Button variant="danger" onClick={handleBatchDelete}>
                   <Trash2 className="h-4 w-4" />
                   {t('common.delete')} ({selectedIds.size})
                 </Button>
               )}
-              <Button
-                onClick={() => {
-                  setEnEdition(null)
-                  setFormOuvert(true)
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {t('competences.ajouter')}
-              </Button>
+              {can('competences.create') && (
+                <Button
+                  onClick={() => {
+                    setEnEdition(null)
+                    setFormOuvert(true)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('competences.ajouter')}
+                </Button>
+              )}
             </>
           )
         }

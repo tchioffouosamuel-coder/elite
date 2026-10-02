@@ -36,7 +36,7 @@ class PreinscriptionAdminTest extends TestCase
 
         Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'eleves.manage', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'preinscriptions.valider', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'eleves.view', 'guard_name' => 'web']);
 
         $this->school = School::create(['name' => 'Elites Tech', 'code' => 'ET', 'type' => 'secondaire', 'is_active' => true]);
@@ -160,7 +160,7 @@ class PreinscriptionAdminTest extends TestCase
             'school_id' => $this->school->id,
             'is_active' => true,
         ]);
-        $destinataire->givePermissionTo('eleves.manage');
+        $destinataire->givePermissionTo('preinscriptions.valider');
 
         $preinscription = $this->soumettrePreinscriptionNouvel();
 

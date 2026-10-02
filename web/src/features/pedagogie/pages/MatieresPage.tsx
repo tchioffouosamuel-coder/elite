@@ -238,28 +238,32 @@ export function MatieresPage() {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (m) =>
-        can('pedagogie.manage') && (
+        can('matieres.update|matieres.delete') && (
           <div className="flex items-center gap-1">
-            <button
-              title={t('common.edit')}
-              onClick={(e) => {
-                e.stopPropagation()
-                navigate(`/matieres/${m.id}/edit`)
-              }}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              title={t('common.delete')}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(m)
-              }}
-              className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {can('matieres.update') && (
+              <button
+                title={t('common.edit')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/matieres/${m.id}/edit`)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+            {can('matieres.delete') && (
+              <button
+                title={t('common.delete')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete(m)
+                }}
+                className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ),
     },
@@ -272,19 +276,19 @@ export function MatieresPage() {
         icon={BookOpen}
         actions={
           <>
-            {selectedIds.size > 0 && can('pedagogie.manage') && !secondaire && (
+            {selectedIds.size > 0 && can('matieres.update') && !secondaire && (
               <Button variant="secondary" onClick={() => setShowCompetenceEnMasse(true)}>
                 <ListChecks className="h-4 w-4" />
                 {t('competences.attribuer_en_masse', { count: selectedIds.size })}
               </Button>
             )}
-            {selectedIds.size === 2 && can('pedagogie.manage') && (
+            {selectedIds.size === 2 && can('matieres.fusionner') && (
               <Button variant="secondary" onClick={() => setShowFusion(true)}>
                 <GitMerge className="h-4 w-4" />
                 {t('matieres.fusionner')}
               </Button>
             )}
-            {selectedIds.size > 0 && can('pedagogie.manage') && (
+            {selectedIds.size > 0 && can('matieres.delete') && (
               <Button variant="danger" onClick={handleBatchDelete}>
                 <Trash2 className="h-4 w-4" />
                 Supprimer ({selectedIds.size})
@@ -294,7 +298,7 @@ export function MatieresPage() {
               <Download className="h-4 w-4" />
               {t('export.excel')}
             </Button>
-            {can('pedagogie.manage') && (
+            {can('matieres.import') && (
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -306,7 +310,7 @@ export function MatieresPage() {
                 {t('import.title')}
               </Button>
             )}
-            {can('pedagogie.manage') && (
+            {can('matieres.create') && (
               <Button onClick={() => navigate('/matieres/nouvelle')}>
                 <Plus className="h-4 w-4" />
                 {t('matieres.add')}

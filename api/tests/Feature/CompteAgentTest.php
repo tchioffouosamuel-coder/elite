@@ -80,7 +80,7 @@ class CompteAgentTest extends TestCase
 
         $this->assertEqualsCanonicalizing(['eleves.view', 'notes.create'], $user->permissionsEffectives()->all());
         $this->assertTrue($user->aLaPermission('notes.create'));
-        $this->assertFalse($user->aLaPermission('eleves.manage'));
+        $this->assertFalse($user->aLaPermission('eleves.create'));
     }
 
     public function test_deux_homonymes_recoivent_des_adresses_distinctes(): void

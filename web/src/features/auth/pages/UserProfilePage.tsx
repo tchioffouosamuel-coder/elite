@@ -77,7 +77,7 @@ export function UserProfilePage() {
             <p className="mt-1 text-sm text-navy-500">{t('profile.quick_actions_hint')}</p>
           </div>
           <div className="flex flex-col gap-2">
-            {can('ecoles.manage') && (
+            {can('parametres.update') && (
               <Link
                 to="/parametres"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-linear-to-b from-navy-700 to-navy-800 px-4 py-2.5 text-sm font-semibold tracking-tight text-cream-50 shadow-card transition-all duration-150 hover:from-navy-600 hover:to-navy-700 hover:shadow-lifted"

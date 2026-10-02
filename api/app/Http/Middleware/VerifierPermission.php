@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\Response;
  * s'applique, une fois pour toutes les routes plutôt que contrôleur par
  * contrôleur — cf. App\Support\Perimetre.
  *
- * Usage : `->middleware('permission:eleves.manage')`, ou plusieurs privilèges
+ * Usage : `->middleware('permission:eleves.update')`, ou plusieurs privilèges
  * séparés par `|` — il suffit d'en détenir un.
  */
 class VerifierPermission

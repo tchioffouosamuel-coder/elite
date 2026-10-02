@@ -46,7 +46,7 @@ export function EcheancierCard({
 }) {
   const queryClient = useQueryClient()
   const can = useAuthStore((s) => s.can)
-  const peutModifier = can('finance.manage')
+  const peutModifier = can('tranches_scolarite.update')
 
   const [lignes, setLignes] = useState<LigneBrouillon[]>([])
   const [enregistrement, setEnregistrement] = useState(false)
@@ -123,6 +123,7 @@ export function EcheancierCard({
         <ImportExportBar
           titreImport="Tranches de scolarité"
           importUrl="/tranches-scolarite/import"
+          peutImporter={can('tranches_scolarite.import')}
           exportUrl="/tranches-scolarite/export"
           modeleUrl="/tranches-scolarite/modele"
           colonnes={['Tranche', 'Pourcentage', "Date d'échéance", 'Ordre']}

@@ -30,7 +30,7 @@ class ObservationService extends BaseService
         if ($auteur->hasRole('parent')) {
             $this->notifications->notifierParPermission(
                 $eleve->school_id,
-                'eleves.manage',
+                'observations.repondre',
                 'observation',
                 'Observation transmise par un parent',
                 "{$auteur->name} a transmis une observation au sujet de {$eleve->nom_complet}.",

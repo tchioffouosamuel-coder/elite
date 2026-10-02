@@ -110,7 +110,7 @@ export function AssignMatieresDepartementPage() {
             cle: 'actions',
             entete: 'Actions',
             cellule: (m) => (
-                m.departement && can('pedagogie.manage') ? (
+                m.departement && can('matieres.update') ? (
                     <button
                         onClick={() => handleUnassign(m.id)}
                         disabled={submitting}
@@ -145,7 +145,7 @@ export function AssignMatieresDepartementPage() {
                 </div>
             )}
 
-            {can('pedagogie.manage') && (
+            {can('matieres.update') && (
                 <Card>
                     <div className="flex flex-col gap-4">
                         <h2 className="text-lg font-semibold text-navy-900">Assigner une matière</h2>
