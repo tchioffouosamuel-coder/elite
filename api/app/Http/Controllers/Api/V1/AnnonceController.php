@@ -25,6 +25,7 @@ class AnnonceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $annonces = Annonce::forSchool(Tenant::schoolIds())
+            ->visiblesPour($request->user())
             ->with(['publiePar', 'school:id,name,code,type'])
             ->orderByDesc('publiee_le')
             ->paginate(20);

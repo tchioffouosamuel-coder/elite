@@ -573,7 +573,10 @@ class RegistreSync
             'annonces' => [
                 'modele' => Annonce::class,
                 'colonnes' => ['id', 'school_id', 'titre', 'contenu', 'publie_par', 'publiee_le', 'cible_type'],
-                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                // Même ciblage que la liste de l'API : un téléphone ne reçoit
+                // que les annonces que son titulaire a le droit de lire.
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
+                    ->visiblesPour(auth()->user()),
                 'permission' => 'annonces.view',
             ],
             'notifications_internes' => [
