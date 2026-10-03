@@ -164,6 +164,88 @@ class DashboardPilotageTest extends TestCase
         $this->assertEquals(50.0, $reponse['couverture']['taux']);
     }
 
+    public function test_le_pilotage_consulte_une_autre_journee_que_celle_en_cours(): void
+    {
+        // Mercredi 10:00 ; on consulte le lundi précédent puis le lundi suivant.
+        Carbon::setTestNow(Carbon::parse('2026-08-26 10:00:00'));
+
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $ecole = School::create(['name' => 'Elites Secondaire', 'code' => 'ES', 'type' => 'secondaire', 'is_active' => true]);
+        $superAdmin = User::create([
+            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
+            'school_id' => $ecole->id, 'is_active' => true,
+        ]);
+        $superAdmin->assignRole('super_admin');
+
+        $annee = AnneeScolaire::create([
+            'school_id' => $ecole->id, 'libelle' => '2025-2026',
+            'date_debut' => '2025-09-01', 'date_fin' => '2026-06-30', 'is_active' => true,
+        ]);
+        $niveau = Niveau::create(['code' => '6E', 'name_fr' => '6ème', 'name_en' => 'Form 1', 'school_id' => $ecole->id]);
+        $classe = Classe::create([
+            'school_id' => $ecole->id, 'niveau_id' => $niveau->id,
+            'annee_scolaire_id' => $annee->id, 'nom' => '6ème A',
+        ]);
+        $matiere = Matiere::create(['school_id' => $ecole->id, 'nom' => 'Mathématiques', 'statut' => 'actif']);
+        $classeMatiere = ClasseMatiere::create([
+            'classe_id' => $classe->id, 'matiere_id' => $matiere->id,
+            'personnel_id' => null, 'statut' => 'actif',
+        ]);
+
+        // Dix créneaux le lundi : au-delà du plafond de 8 du temps réel.
+        $creneaux = collect(range(7, 16))->map(fn (int $h) => EmploiDuTemps::create([
+            'school_id' => $ecole->id, 'classe_id' => $classe->id,
+            'classe_matiere_id' => $classeMatiere->id, 'jour' => 1,
+            'heure_debut' => sprintf('%02d:00:00', $h), 'heure_fin' => sprintf('%02d:50:00', $h),
+        ]));
+
+        // Appel fait sur le premier créneau du lundi passé : pas « en retard ».
+        Seance::create([
+            'school_id' => $ecole->id, 'classe_id' => $classe->id,
+            'classe_matiere_id' => $classeMatiere->id, 'emploi_du_temps_id' => $creneaux[0]->id,
+            'date_seance' => '2026-08-24', 'heure_debut' => '07:00:00', 'heure_fin' => '07:50:00',
+            'statut' => 'effectuee',
+        ]);
+
+        $passe = $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage?date=2026-08-24')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame('2026-08-24', $passe['date']);
+        $this->assertFalse($passe['aujourdhui']);
+        $this->assertCount(0, $passe['cours_en_cours']);
+        $this->assertCount(0, $passe['cours_a_venir']);
+        $this->assertCount(10, $passe['cours_passes']);
+        $this->assertCount(9, $passe['appels_en_retard']);
+
+        $futur = $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage?date=2026-08-31')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertCount(10, $futur['cours_a_venir']);
+        $this->assertCount(0, $futur['cours_passes']);
+        $this->assertCount(0, $futur['appels_en_retard']);
+
+        // Sans date : la journée en cours (un mercredi, sans créneau).
+        $jour = $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame('2026-08-26', $jour['date']);
+        $this->assertTrue($jour['aujourdhui']);
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->getJson('/api/v1/dashboard/pilotage?date=24/08/2026')
+            ->assertUnprocessable();
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();

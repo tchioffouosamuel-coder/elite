@@ -11,6 +11,7 @@ use App\Services\PilotageService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -39,10 +40,14 @@ class DashboardController extends Controller
      * Pilotage en temps réel (cours en cours, classes sans enseignant,
      * couverture du programme) : bloc coûteux chargé à la demande, séparé de
      * `index()` pour ne pas alourdir l'ouverture du tableau de bord.
+     * `?date=` (Y-m-d) consulte une autre journée que celle en cours.
      */
-    public function pilotage(): JsonResponse
+    public function pilotage(Request $request): JsonResponse
     {
-        return ApiResponse::success($this->pilotage->pilotage(Tenant::schoolIds()));
+        $validated = $request->validate(['date' => ['nullable', 'date_format:Y-m-d']]);
+        $date = isset($validated['date']) ? Carbon::createFromFormat('Y-m-d', $validated['date']) : null;
+
+        return ApiResponse::success($this->pilotage->pilotage(Tenant::schoolIds(), $date));
     }
 
     /** Liste détaillée des anciens élèves réinscrits pour l'année active. */

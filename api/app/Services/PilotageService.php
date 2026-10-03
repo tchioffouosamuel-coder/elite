@@ -23,14 +23,28 @@ class PilotageService extends BaseService
 {
     public function __construct(private readonly ProgressionService $progression) {}
 
-    /** @param int|array<int> $schoolId */
-    public function pilotage(int|array $schoolId): array
+    /**
+     * `$date` permet de consulter une autre journée que celle en cours (suivi,
+     * rattrapage des leçons non validées) : l'heure de référence devient alors
+     * la fin de la journée pour une date passée — tous ses créneaux sont
+     * « passés » — et son début pour une date future — tous « à venir ».
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    public function pilotage(int|array $schoolId, ?Carbon $date = null): array
     {
         $maintenant = Carbon::now();
+        $reference = match (true) {
+            $date === null, $date->isSameDay($maintenant) => $maintenant,
+            $date->lt($maintenant) => $date->copy()->endOfDay(),
+            default => $date->copy()->startOfDay(),
+        };
 
         return [
             'genere_le' => $maintenant->toIso8601String(),
-            ...$this->creneauxDuJour($schoolId, $maintenant),
+            'date' => $reference->toDateString(),
+            'aujourdhui' => $reference === $maintenant,
+            ...$this->creneauxDuJour($schoolId, $reference, limiter: $reference === $maintenant),
             'classes_sans_enseignant' => $this->classesSansEnseignant($schoolId)->values()->all(),
             'couverture' => $this->couvertureGlobale($schoolId),
         ];
@@ -42,10 +56,13 @@ class PilotageService extends BaseService
      * temps du jour, les créneaux annulés (séance du jour au statut « annulée »)
      * étant écartés.
      *
+     * `$limiter` plafonne chaque liste à 8 lignes pour le suivi en temps réel ;
+     * une autre journée, consultée pour rattraper ses appels, les montre toutes.
+     *
      * @param  int|array<int>  $schoolId
      * @return array{cours_en_cours: list<array<string, mixed>>, cours_passes: list<array<string, mixed>>, cours_a_venir: list<array<string, mixed>>, appels_en_retard: list<array<string, mixed>>}
      */
-    private function creneauxDuJour(int|array $schoolId, Carbon $maintenant): array
+    private function creneauxDuJour(int|array $schoolId, Carbon $maintenant, bool $limiter = true): array
     {
         $jour = $maintenant->dayOfWeekIso;
         $heure = $maintenant->format('H:i:s');
@@ -95,11 +112,13 @@ class PilotageService extends BaseService
             }
         }
 
+        $plafond = $limiter ? 8 : PHP_INT_MAX;
+
         return [
             'cours_en_cours' => $enCours->values()->all(),
-            'cours_passes' => $passes->sortByDesc('heure_fin')->take(8)->values()->all(),
-            'cours_a_venir' => $aVenir->take(8)->values()->all(),
-            'appels_en_retard' => $enRetard->sortByDesc('heure_fin')->take(8)->values()->all(),
+            'cours_passes' => $passes->sortByDesc('heure_fin')->take($plafond)->values()->all(),
+            'cours_a_venir' => $aVenir->take($plafond)->values()->all(),
+            'appels_en_retard' => $enRetard->sortByDesc('heure_fin')->take($plafond)->values()->all(),
         ];
     }
 
