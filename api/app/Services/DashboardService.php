@@ -9,12 +9,15 @@ use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
+use App\Models\Presence;
 use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Sequence;
+use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\Perimetre;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardService extends BaseService
@@ -433,5 +436,94 @@ class DashboardService extends BaseService
 
         return $requete->paginate(max(1, min($perPage, 100)))
             ->through(fn(ActivityLog $log) => $this->formaterLogActivite($log));
+    }
+
+    /** Périodes proposées par la carte « Vue d'ensemble » du tableau de bord. */
+    public const PERIODES_ASSIDUITE = ['mois', 'trimestre', 'annee'];
+
+    /**
+     * Assiduité relevée à l'appel sur une période : nombre de pointages,
+     * présences (présent ou en retard), absences (absent ou renvoyé) et taux
+     * de présence. Seuls les appels réellement faits comptent (séances
+     * `effectuee`) : un élève sans pointage n'est ni présent ni absent.
+     *
+     * La période est bornée par des dates plutôt que par `trimestre_id`, que
+     * les séances créées hors emploi du temps ne renseignent pas toujours :
+     * le mois civil en cours, le trimestre actif ou l'année scolaire active
+     * de chaque école, jamais au-delà d'aujourd'hui.
+     *
+     * Un enseignant ne voit que les élèves de ses classes, comme pour
+     * `stats()`.
+     *
+     * @param  int|array<int>  $schoolId
+     * @return array{periode: string, pointages: int, presences: int, absences: int, taux_presence: float|null}
+     */
+    public function assiduite(int|array $schoolId, User $user, string $periode): array
+    {
+        $classeIds = null;
+        if ($user->estEnseignant()) {
+            $enseignees = (new Perimetre($user))->classesEnseignees();
+            if (! empty($enseignees)) {
+                $classeIds = $enseignees;
+            }
+        }
+
+        $presences = 0;
+        $absences = 0;
+
+        foreach ((array) $schoolId as $id) {
+            $bornes = $this->bornesPeriode((int) $id, $periode);
+            if ($bornes === null) {
+                continue;
+            }
+            [$du, $au] = $bornes;
+
+            $parStatut = Presence::query()
+                ->whereHas('seance', fn ($q) => $q->forSchool((int) $id)
+                    ->where('statut', 'effectuee')
+                    ->whereBetween('date_seance', [$du->toDateString(), $au->toDateString()]))
+                ->when($classeIds !== null, fn ($q) => $q->whereHas('eleve', fn ($e) => $e->whereIn('classe_id', $classeIds)))
+                ->selectRaw('statut, count(*) as total')
+                ->groupBy('statut')
+                ->pluck('total', 'statut');
+
+            $presences += (int) ($parStatut['present'] ?? 0) + (int) ($parStatut['retard'] ?? 0);
+            $absences += (int) ($parStatut['absent'] ?? 0) + (int) ($parStatut['renvoye'] ?? 0);
+        }
+
+        $pointages = $presences + $absences;
+
+        return [
+            'periode' => $periode,
+            'pointages' => $pointages,
+            'presences' => $presences,
+            'absences' => $absences,
+            'taux_presence' => $pointages > 0 ? round($presences / $pointages * 100, 1) : null,
+        ];
+    }
+
+    /** @return array{0: Carbon, 1: Carbon}|null */
+    private function bornesPeriode(int $schoolId, string $periode): ?array
+    {
+        $aujourdhui = Carbon::today();
+
+        if ($periode === 'mois') {
+            return [$aujourdhui->copy()->startOfMonth(), $aujourdhui];
+        }
+
+        $reference = $periode === 'trimestre'
+            ? Trimestre::where('is_active', true)
+                ->whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $schoolId))
+                ->first()
+            : AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+
+        if (! $reference || ! $reference->date_debut) {
+            return null;
+        }
+
+        $debut = Carbon::parse($reference->date_debut)->startOfDay();
+        $fin = $reference->date_fin ? Carbon::parse($reference->date_fin)->startOfDay() : $aujourdhui;
+
+        return [$debut, $fin->min($aujourdhui)];
     }
 }

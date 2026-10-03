@@ -37,6 +37,24 @@ class DashboardController extends Controller
     }
 
     /**
+     * Assiduité relevée à l'appel sur le mois, le trimestre ou l'année
+     * scolaire en cours (carte « Vue d'ensemble »). Séparée de `index()`
+     * pour que changer de période ne recharge pas tout le tableau de bord.
+     */
+    public function assiduite(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'periode' => ['nullable', 'in:' . implode(',', DashboardService::PERIODES_ASSIDUITE)],
+        ]);
+
+        return ApiResponse::success($this->service->assiduite(
+            Tenant::schoolIds(),
+            $request->user(),
+            $validated['periode'] ?? 'mois',
+        ));
+    }
+
+    /**
      * Pilotage en temps réel (cours en cours, classes sans enseignant,
      * couverture du programme) : bloc coûteux chargé à la demande, séparé de
      * `index()` pour ne pas alourdir l'ouverture du tableau de bord.

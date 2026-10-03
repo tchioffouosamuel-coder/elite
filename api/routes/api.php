@@ -367,6 +367,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:dashboard.view')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
                 Route::get('dashboard/indicateurs-pedagogiques', [DashboardController::class, 'indicateursPedagogiques'])->name('dashboard.indicateurs-pedagogiques');
+                Route::get('dashboard/assiduite', [DashboardController::class, 'assiduite'])->name('dashboard.assiduite');
                 Route::get('dashboard/anciens-reinscrits', [DashboardController::class, 'anciensReinscrits'])->name('dashboard.anciens-reinscrits');
                 Route::get('dashboard/anciens-reinscrits/export', [DashboardController::class, 'exportAnciensReinscrits'])->name('dashboard.anciens-reinscrits.export');
             });
