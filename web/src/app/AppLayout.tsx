@@ -106,6 +106,16 @@ const navGroups = [
         estEnseignant: true,
       },
       {
+        to: '/enseignant/situation-classes',
+        label: 'nav.situationClasses',
+        icon: Wallet,
+        // Qui relancer, qui part en bus, dans mes classes : des noms, jamais
+        // de montants — cf. SituationEnseignantController.
+        permission: 'eleves.situation',
+        estEnseignant: true,
+        keywords: ['insolvables', 'bus', 'transport', 'impayes', 'finances'],
+      },
+      {
         to: '/parent',
         label: 'nav.espaceParent',
         icon: Users,

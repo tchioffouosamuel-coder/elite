@@ -120,6 +120,7 @@
     "mesAvances": "My advances",
     "mesArticlesInventaire": "Received supplies",
     "monBudget": "My budget",
+    "situationClasses": "My classes' situation",
     "mesInformations": "My information",
     "espaceParent": "Parent portal",
     "mesMatieres": "My subjects",
@@ -183,7 +184,30 @@
     "error_otp_requis": "Enter the code you received by email.",
     "submit_reset_password": "Reset password"
   },
+  "situationClasses": {
+    "title": "My classes' situation",
+    "subtitle": "Students to follow up on fees and students using school transport, without any amount.",
+    "insolvables": "Insolvent",
+    "bus": "Transport",
+    "student": "Student",
+    "matricule": "Student ID",
+    "route": "Route",
+    "stop": "Stop",
+    "noInsolvables": "No insolvent student in your classes.",
+    "noBus": "No student in your classes uses the bus."
+  },
   "dashboard": {
+    "attendance": {
+      "title": "Attendance",
+      "period": "Period",
+      "month": "This month",
+      "term": "This term",
+      "year": "This year",
+      "rate": "Attendance rate",
+      "absences": "Absences",
+      "checks": "Students checked",
+      "noCall": "No roll call recorded for this period."
+    },
     "title": "Dashboard",
     "active_year": "Active school year",
     "students": "Students",

@@ -118,6 +118,7 @@ import { MaClasseProfPrincipalPage } from '@/features/enseignant/pages/MaClasseP
 import { MesCompetencesPage } from '@/features/enseignant/pages/MesCompetencesPage'
 import { RemplirCompetencesPage } from '@/features/enseignant/pages/RemplirCompetencesPage'
 import { MonNiveauPage } from '@/features/enseignant/pages/MonNiveauPage'
+import { SituationClassesPage } from '@/features/enseignant/pages/SituationClassesPage'
 import { InventairePage } from '@/features/inventaire/pages/InventairePage'
 import { InfrastructuresPage } from '@/features/infrastructures/pages/InfrastructuresPage'
 import { PointDeVentePage } from '@/features/pointDeVente/pages/PointDeVentePage'
@@ -316,6 +317,8 @@ export const router = createHashRouter([
         path: 'enseignant/mes-competences/:classeCompetenceId/notes',
         element: <ProtectedRoute enseignantOnly permission="notes.create"><RemplirCompetencesPage /></ProtectedRoute>,
       },
+      // Insolvables et élèves du bus de mes classes, sans montant.
+      { path: 'enseignant/situation-classes', element: <ProtectedRoute enseignantOnly permission="eleves.situation"><SituationClassesPage /></ProtectedRoute> },
       {
         path: 'enseignant/mon-niveau',
         element: <ProtectedRoute enseignantOnly animateurNiveauOnly><MonNiveauPage /></ProtectedRoute>,

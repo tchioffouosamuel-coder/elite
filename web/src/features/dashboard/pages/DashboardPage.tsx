@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog, type DashboardStatsEcoleLigne } from '@/features/dashboard/api'
 import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
+import { CarteAssiduite } from '@/features/dashboard/pages/CarteAssiduite'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -114,6 +115,8 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
           accent="navy"
         />
       </div>
+
+      <CarteAssiduite />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
@@ -608,6 +611,8 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
         <StatCard label={t('dashboard.teachers')} value={effectifs.enseignants} icon={GraduationCap} accent="green" />
         <StatCard label={t('dashboard.classes')} value={effectifs.classes} icon={School} accent="gold" />
       </div>
+
+      <CarteAssiduite />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-2">

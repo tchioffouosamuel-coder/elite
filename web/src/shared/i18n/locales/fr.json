@@ -120,6 +120,7 @@
     "mesAvances": "Mes avances",
     "mesArticlesInventaire": "Matériel reçu",
     "monBudget": "Mon budget",
+    "situationClasses": "Situation de mes classes",
     "mesInformations": "Mes informations",
     "espaceParent": "Espace parent",
     "mesMatieres": "Mes matières",
@@ -183,7 +184,30 @@
     "error_otp_requis": "Saisissez le code reçu par e-mail.",
     "submit_reset_password": "Réinitialiser le mot de passe"
   },
+  "situationClasses": {
+    "title": "Situation de mes classes",
+    "subtitle": "Élèves à relancer pour la scolarité et élèves inscrits au transport, sans aucun montant.",
+    "insolvables": "Insolvables",
+    "bus": "Transport",
+    "student": "Élève",
+    "matricule": "Matricule",
+    "route": "Trajet",
+    "stop": "Arrêt",
+    "noInsolvables": "Aucun élève insolvable dans vos classes.",
+    "noBus": "Aucun élève de vos classes ne prend le bus."
+  },
   "dashboard": {
+    "attendance": {
+      "title": "Assiduité",
+      "period": "Période",
+      "month": "Ce mois",
+      "term": "Ce trimestre",
+      "year": "Cette année",
+      "rate": "Taux de présence",
+      "absences": "Absences",
+      "checks": "Élèves pointés",
+      "noCall": "Aucun appel enregistré sur cette période."
+    },
     "title": "Tableau de bord",
     "active_year": "Année scolaire active",
     "students": "Élèves",

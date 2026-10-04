@@ -119,3 +119,23 @@ export async function fetchMonNiveau(): Promise<MonNiveau> {
   const { data } = await http.get<ApiResponse<MonNiveau>>('/enseignant/mon-niveau')
   return data.data
 }
+
+/** Élève d'une classe de l'enseignant, sans aucun montant (cf. SituationEnseignantController). */
+export interface EleveSituation {
+  id: number
+  matricule: string | null
+  nom_complet: string
+  classe: string | null
+  trajet?: string | null
+  arret?: string | null
+}
+
+export async function fetchMesInsolvables(): Promise<EleveSituation[]> {
+  const { data } = await http.get<ApiResponse<EleveSituation[]>>('/enseignant/insolvables')
+  return data.data
+}
+
+export async function fetchMesElevesBus(): Promise<EleveSituation[]> {
+  const { data } = await http.get<ApiResponse<EleveSituation[]>>('/enseignant/bus')
+  return data.data
+}

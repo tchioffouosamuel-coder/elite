@@ -119,6 +119,24 @@ export interface Pilotage {
   };
 }
 
+export const PERIODES_ASSIDUITE = ["mois", "trimestre", "annee"] as const;
+export type PeriodeAssiduite = (typeof PERIODES_ASSIDUITE)[number];
+
+/** Présence relevée à l'appel sur une période (cf. DashboardService::assiduite). */
+export interface Assiduite {
+  periode: PeriodeAssiduite;
+  pointages: number;
+  presences: number;
+  absences: number;
+  /** `null` tant qu'aucun appel n'a été fait sur la période. */
+  taux_presence: number | null;
+}
+
+export async function fetchAssiduite(periode: PeriodeAssiduite): Promise<Assiduite> {
+  const { data } = await http.get<ApiResponse<Assiduite>>("/dashboard/assiduite", { params: { periode } });
+  return data.data;
+}
+
 export async function fetchPilotage(): Promise<Pilotage> {
   const { data } = await http.get<ApiResponse<Pilotage>>("/dashboard/pilotage");
   return data.data;
