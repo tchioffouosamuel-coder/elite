@@ -571,6 +571,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/{id}/reinitialiser-mot-de-passe', [TuteurController::class, 'reinitialiserMotDePasse'])->name('tuteurs.reinitialiser-mot-de-passe')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/{id}/enfants', [TuteurController::class, 'rattacherEnfants'])->name('tuteurs.rattacher-enfants')->middleware('permission:tuteurs.update');
+            Route::delete('tuteurs/{id}/enfants/{eleveId}', [TuteurController::class, 'detacherEnfant'])->name('tuteurs.detacher-enfant')->middleware('permission:tuteurs.update');
             Route::delete('tuteurs/{id}/compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/{id}/supprimer-compte-parent', [TuteurController::class, 'supprimerCompteParent'])->name('tuteurs.supprimer-compte-parent-post')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot')->middleware('permission:tuteurs.comptes');

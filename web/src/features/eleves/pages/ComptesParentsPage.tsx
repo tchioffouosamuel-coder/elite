@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus, GitMerge } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
+import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, detacherEnfantParent, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -25,6 +25,9 @@ export function ComptesParentsPage() {
   // En mode agrégé (super admin, « Toutes les écoles »), le tableau réunit les
   // tuteurs de tout le complexe : la confirmation doit annoncer ce périmètre-là.
   const ecoleActive = useAuthStore((s) => s.activeSchool())
+  // Même privilège que les routes de rattachement et de retrait côté API.
+  const peutModifierLiens = useAuthStore((s) => s.can('tuteurs.update'))
+  const [retraitEnCours, setRetraitEnCours] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [sansCompteSeulement, setSansCompteSeulement] = useState(false)
   const [recherche, setRecherche] = useState('')
@@ -66,6 +69,59 @@ export function ComptesParentsPage() {
   })
 
   const invalider = () => queryClient.invalidateQueries({ queryKey: ['tuteurs'] })
+
+  /** Retire un enfant de ce parent, après confirmation. */
+  const detacherEnfant = async (tuteur: TuteurCompte, enfant: { id: number; nom_complet: string }) => {
+    const ok = await confirmer({
+      titre: `Détacher ${enfant.nom_complet} ?`,
+      message: `${tuteur.nom_complet} ne verra plus cet enfant dans son portail. Les fiches du parent et de l'élève sont conservées.`,
+      action: 'Détacher',
+    })
+    if (!ok) return
+    const cle = `${tuteur.id}-${enfant.id}`
+    setRetraitEnCours(cle)
+    try {
+      await detacherEnfantParent(tuteur.id, enfant.id)
+      // La fenêtre de rattachement, si elle est ouverte, suit le retrait.
+      setTuteurEnfants((courant) =>
+        courant && courant.id === tuteur.id
+          ? { ...courant, enfants: courant.enfants.filter((e) => e.id !== enfant.id) }
+          : courant,
+      )
+      invalider()
+      succes(`${enfant.nom_complet} a été détaché de ce parent.`)
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setRetraitEnCours(null)
+    }
+  }
+
+  /** Enfants d'un parent, chacun retirable par qui peut modifier les liens. */
+  const listeEnfants = (tuteur: TuteurCompte) =>
+    tuteur.enfants.length === 0 ? (
+      <span className="text-navy-400">—</span>
+    ) : (
+      <div className="flex flex-wrap gap-1.5">
+        {tuteur.enfants.map((enfant) => (
+          <span key={enfant.id} className="inline-flex items-center gap-1 rounded-full bg-navy-50 py-0.5 pl-2.5 pr-1 text-xs text-navy-700">
+            {enfant.nom_complet}
+            {peutModifierLiens && (
+              <button
+                type="button"
+                title={`Détacher ${enfant.nom_complet}`}
+                aria-label={`Détacher ${enfant.nom_complet}`}
+                disabled={retraitEnCours === `${tuteur.id}-${enfant.id}`}
+                onClick={() => detacherEnfant(tuteur, enfant)}
+                className="rounded-full p-0.5 text-navy-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+    )
 
   const basculerAcces = async (tuteur: TuteurCompte) => {
     try {
@@ -270,7 +326,7 @@ export function ComptesParentsPage() {
       cle: 'enfants',
       entete: 'Enfant(s)',
       valeur: (t) => t.enfants.map((e) => e.nom_complet).join(', '),
-      cellule: (t) => <span className="text-navy-600">{t.enfants.map((e) => e.nom_complet).join(', ') || '—'}</span>,
+      cellule: (t) => listeEnfants(t),
       masquerMobile: true,
     },
     {
@@ -424,6 +480,14 @@ export function ComptesParentsPage() {
 
       {tuteurEnfants && (
         <Modal title={`Rattacher des enfants — ${tuteurEnfants.nom_complet}`} onClose={() => setTuteurEnfants(null)}>
+          {tuteurEnfants.enfants.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-navy-500">
+                Enfants déjà rattachés ({tuteurEnfants.enfants.length})
+              </p>
+              {listeEnfants(tuteurEnfants)}
+            </div>
+          )}
           <p className="mb-4 text-sm text-navy-500">Recherchez un ou plusieurs élèves, puis cochez ceux à rattacher à ce parent.</p>
           <input
             autoFocus

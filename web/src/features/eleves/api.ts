@@ -562,6 +562,14 @@ export async function reinitialiserMotDePasseParent(
   await http.post(`/tuteurs/${tuteurId}/reinitialiser-mot-de-passe`);
 }
 
+/**
+ * Retire le lien entre un parent et un enfant. L'API refuse (422) quand ce
+ * parent est le seul tuteur de l'élève.
+ */
+export async function detacherEnfantParent(tuteurId: number, eleveId: number): Promise<void> {
+  await http.delete(`/tuteurs/${tuteurId}/enfants/${eleveId}`);
+}
+
 export async function rattacherEnfantsParent(
   tuteurId: number,
   eleveIds: number[],

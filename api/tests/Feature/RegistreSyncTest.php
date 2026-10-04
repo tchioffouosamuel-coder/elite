@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
@@ -69,6 +70,39 @@ class RegistreSyncTest extends TestCase
         }
 
         $this->assertTrue(true);
+    }
+
+    /**
+     * Les pauses et activités de l'emploi du temps n'ont pas de matière :
+     * sans `type`/`libelle` dans la synchronisation, le mobile ne pouvait ni
+     * les afficher ni les distinguer d'un cours incomplet.
+     */
+    public function test_une_pause_part_a_la_synchronisation_avec_son_type_et_son_libelle(): void
+    {
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $school = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $niveau = Niveau::create(['code' => 'college', 'name_fr' => 'Collège', 'name_en' => 'College', 'ordre' => 1]);
+        $classe = Classe::create(['school_id' => $school->id, 'niveau_id' => $niveau->id, 'nom' => '6ème A']);
+
+        EmploiDuTemps::create([
+            'school_id' => $school->id, 'classe_id' => $classe->id, 'classe_matiere_id' => null,
+            'type' => 'pause', 'libelle' => 'Récréation',
+            'jour' => 1, 'heure_debut' => '10:00:00', 'heure_fin' => '10:30:00',
+        ]);
+
+        $user = User::factory()->create(['school_id' => $school->id]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/sync?entites=emplois_du_temps')
+            ->assertOk();
+
+        $this->assertSame('pause', $reponse->json('data.donnees.emplois_du_temps.0.type'));
+        $this->assertSame('Récréation', $reponse->json('data.donnees.emplois_du_temps.0.libelle'));
     }
 
     /**

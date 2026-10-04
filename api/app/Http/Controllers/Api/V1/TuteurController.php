@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\TuteurResource;
 use App\Models\School;
 use App\Models\Setting;
 use App\Models\Eleve;
+use App\Models\EleveTuteur;
 use App\Models\Tuteur;
 use App\Services\AuthService;
 use App\Services\CompteParentService;
@@ -18,6 +19,7 @@ use App\Support\Telephone;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -298,6 +300,49 @@ class TuteurController extends Controller
         ])->all());
 
         return ApiResponse::success(['total' => $eleves->count()], 'Enfant(s) rattaché(s) au parent.');
+    }
+
+    /**
+     * Retire le lien entre un parent et un enfant (rattachement erroné,
+     * changement de garde). Le parent ne voit plus cet enfant dans son
+     * portail ; les fiches du tuteur et de l'élève sont conservées.
+     *
+     * Refusé quand ce parent est le seul tuteur de l'élève : un élève sans
+     * aucun responsable n'a plus de contact pour l'école. Si le tuteur retiré
+     * était le principal, le plus ancien des autres le devient.
+     *
+     * La ligne du pivot est supprimée par son modèle, pas par `detach()` :
+     * c'est l'événement de suppression qui pose la pierre tombale que la
+     * synchronisation transmet aux appareils hors ligne.
+     */
+    public function detacherEnfant(Request $request, int $id, int $eleveId): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $eleve = Eleve::forSchool(Tenant::schoolIds())->dansPerimetre($request->user())->findOrFail($eleveId);
+
+        $lien = EleveTuteur::where('tuteur_id', $tuteur->id)->where('eleve_id', $eleve->id)->first();
+        if (! $lien) {
+            return ApiResponse::error("Cet enfant n'est pas rattaché à ce parent.", 422);
+        }
+
+        $autres = EleveTuteur::where('eleve_id', $eleve->id)->where('tuteur_id', '!=', $tuteur->id)->orderBy('id')->get();
+        if ($autres->isEmpty()) {
+            return ApiResponse::error(
+                "Ce parent est le seul tuteur de {$eleve->nom_complet} : rattachez d'abord un autre tuteur à l'élève.",
+                422,
+            );
+        }
+
+        DB::transaction(function () use ($lien, $autres) {
+            $etaitPrincipal = (bool) $lien->is_principal;
+            $lien->delete();
+
+            if ($etaitPrincipal && ! $autres->contains(fn (EleveTuteur $a) => $a->is_principal)) {
+                $autres->first()->update(['is_principal' => true]);
+            }
+        });
+
+        return ApiResponse::success(null, 'Enfant détaché de ce parent.');
     }
 
     public function supprimerCompteParent(int $id): JsonResponse

@@ -248,7 +248,11 @@ class RegistreSync
             ],
             'emplois_du_temps' => [
                 'modele' => EmploiDuTemps::class,
-                'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'jour', 'heure_debut', 'heure_fin', 'salle'],
+                // `type`/`libelle` : pauses et activités (créneaux sans
+                // matière, cf. EmploiDuTempsElement) ; sans eux, le client
+                // hors ligne ne peut ni les afficher ni les distinguer d'un
+                // cours dont la matière manque.
+                'colonnes' => ['id', 'school_id', 'classe_id', 'classe_matiere_id', 'type', 'libelle', 'jour', 'heure_debut', 'heure_fin', 'salle'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'emploi_du_temps.view',
                 // Tronc commun : les classes qui rejoignent la porteuse sur ce
