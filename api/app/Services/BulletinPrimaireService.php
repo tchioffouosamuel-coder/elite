@@ -160,7 +160,7 @@ class BulletinPrimaireService extends BaseService
                 'matiere_en' => $competence->label_en,
                 'abreviation' => $competence->abbreviation,
                 'enseignant' => $titulaireNom,
-                'volets' => collect($competence->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
+                'volets' => collect($cc->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
                     $retenue = $notes
                         ->where('classe_competence_id', $cc->id)
                         ->where('composante', $volet)
@@ -208,7 +208,7 @@ class BulletinPrimaireService extends BaseService
         $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom) {
             $resultat = $this->moyennes->noteCompetenceEleve($eleve, $cc, $trimestre);
             $competence = $cc->competence;
-            $repartition = $competence->repartitionVolets();
+            $repartition = $cc->repartitionVolets();
 
             foreach ($sequences as $sequence) {
                 $totauxParSequence[$sequence->id] += $resultat['totaux_sequences'][$sequence->id] ?? 0.0;
@@ -224,8 +224,8 @@ class BulletinPrimaireService extends BaseService
                 'bareme' => $resultat['bareme'],
                 'enseignant' => $titulaireNom,
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
-                // Un volet à 0 point n'a rien à afficher — {@see Competence::voletsNotes()}.
-                'volets' => collect($competence->voletsNotes())->map(fn(string $composante) => [
+                // Un volet à 0 point n'a rien à afficher — {@see ClasseCompetence::voletsNotes()}.
+                'volets' => collect($cc->voletsNotes())->map(fn(string $composante) => [
                     'code' => $composante,
                     'libelle' => self::LIBELLES_VOLETS[$composante]['fr'],
                     'libelle_en' => self::LIBELLES_VOLETS[$composante]['en'],

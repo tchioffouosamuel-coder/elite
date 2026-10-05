@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Matiere;
 use Illuminate\Support\Collection;
@@ -70,22 +71,36 @@ class MatiereExport implements FromCollection, ShouldAutoSize, WithHeadings
             ->get()
             ->groupBy('matiere_id');
 
-        return $matieres->flatMap(function (Matiere $matiere) use ($affectations) {
+        // Barème du primaire : il vit sur l'attribution de la compétence à la
+        // classe, et dépend donc du couple — d'où l'indexation sur les deux.
+        $baremes = ClasseCompetence::whereIn('competence_id', $matieres->pluck('competence_id')->filter()->unique())
+            ->when($this->classeId, fn($query) => $query->where('classe_id', $this->classeId))
+            ->get()
+            ->keyBy(fn(ClasseCompetence $cc) => $cc->competence_id . ':' . $cc->classe_id);
+
+        return $matieres->flatMap(function (Matiere $matiere) use ($affectations, $baremes) {
             $lignes = ($affectations->get($matiere->id) ?? collect())
                 ->sortBy(fn(ClasseMatiere $a) => $a->classe?->nom)
-                ->map(fn(ClasseMatiere $a) => $this->ligne($matiere, $a))
+                ->map(fn(ClasseMatiere $a) => $this->ligne($matiere, $a, $baremes))
                 ->values();
 
-            return $lignes->isEmpty() ? collect([$this->ligne($matiere, null)]) : $lignes;
+            return $lignes->isEmpty() ? collect([$this->ligne($matiere, null, $baremes)]) : $lignes;
         });
     }
 
-    /** @return list<mixed> */
-    private function ligne(Matiere $matiere, ?ClasseMatiere $affectation): array
+    /**
+     * @param  Collection<string, ClasseCompetence>  $baremes
+     * @return list<mixed>
+     */
+    private function ligne(Matiere $matiere, ?ClasseMatiere $affectation, Collection $baremes): array
     {
-        // Le barème n'appartient plus à la matière mais à sa compétence : au
-        // primaire, c'est l'export des compétences qui le porte.
-        $volets = $matiere->competence?->repartitionVolets() ?? [];
+        // Le barème n'appartient ni à la matière ni à sa compétence, mais à
+        // l'attribution de celle-ci à la classe de la ligne : hors d'une
+        // classe, les colonnes de volets n'ont rien à dire. Au primaire,
+        // c'est de toute façon l'export des compétences qui les porte.
+        $volets = $affectation !== null
+            ? ($baremes->get($matiere->competence_id . ':' . $affectation->classe_id)?->repartitionVolets() ?? [])
+            : [];
 
         return [
             $matiere->nom,

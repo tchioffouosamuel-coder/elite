@@ -21,17 +21,21 @@ export function RemplirCompetencesPage() {
 
   if (isLoading || !affectations) return <Spinner />
 
-  // `NotesPrimaireDetail` ne lit que `.competence?.label_fr` et `.enseignant?.nom_complet`
-  // du prop `matiere` : un objet minimal suffit, pas besoin de refaire l'appel
+  // `NotesPrimaireDetail` ne lit que `.competence?.label_fr` du prop `matiere` :
+  // un objet minimal suffit, pas besoin de refaire l'appel
   // `/classes/{classeId}/competences` déjà couvert par « mes-affectations ».
+  // Le barème vient de la grille de saisie, pas d'ici.
   const matiere = affectation
     ? ({
         classe_competence_id: affectation.classe_competence_id,
         competence: { label_fr: affectation.competence } as Competence,
-        enseignant: null,
+        notation: null,
+        evalue_pratique: false,
+        volets: [],
+        repartition_volets: {},
         groupe: 1,
         statut: 'actif',
-      } as ClasseCompetence)
+      } as unknown as ClasseCompetence)
     : undefined
 
   return (

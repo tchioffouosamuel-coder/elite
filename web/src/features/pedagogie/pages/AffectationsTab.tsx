@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { clsx } from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,6 +22,7 @@ import {
 } from '@/features/pedagogie/api'
 import type { ClasseMatierePayload } from '@/features/pedagogie/api'
 import { fetchPersonnels } from '@/features/personnel/api'
+import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import { fetchClasses, type Classe } from '@/features/classes/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
@@ -31,6 +32,12 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { ImportModal } from '@/shared/ui/ImportModal'
 import { Modal } from '@/shared/ui/Modal'
 import { AttribuerCompetencesModal } from '@/features/pedagogie/pages/AttribuerCompetencesModal'
+import {
+  BaremeCompetenceFields,
+  baremeInitial,
+  payloadBareme,
+  type BaremeSaisi,
+} from '@/features/pedagogie/pages/BaremeCompetenceFields'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import { telechargerFichier } from '@/shared/lib/download'
 import { estSecondaire, type TypeEcole } from '@/shared/lib/ecole'
@@ -362,14 +369,23 @@ export function AffectationsTab({
     {
       cle: 'notation',
       entete: t('matieres.notation'),
-      valeur: (a) => a.competence?.notation ?? 0,
-      cellule: (a) => (a.competence?.notation ? `/${a.competence.notation}` : t('competences.par_appreciation')),
+      valeur: (a) => a.notation ?? 0,
+      cellule: (a) => (a.notation ? `/${a.notation}` : t('competences.par_appreciation')),
     },
     {
-      cle: 'enseignant',
-      entete: t('competences.enseignant'),
-      valeur: (a) => a.enseignant?.nom_complet ?? '',
-      cellule: (a) => a.enseignant?.nom_complet ?? '—',
+      cle: 'volets',
+      entete: t('matieres.repartition_volets'),
+      valeur: (a) => a.volets.length,
+      cellule: (a) => (
+        <span className="text-xs text-navy-600">
+          {a.notation != null
+            ? a.volets
+              .map((volet) => `${LIBELLES_COMPOSANTES[volet as Composante] ?? volet} /${a.repartition_volets[volet] ?? 0}`)
+              .join(' · ')
+            : a.volets.map((volet) => LIBELLES_COMPOSANTES[volet as Composante] ?? volet).join(' · ')}
+        </span>
+      ),
+      masquerMobile: true,
     },
     ...(can('competences.attribuer')
       ? [
@@ -582,7 +598,7 @@ export function AffectationsTab({
       {showCompetences && (
         <AttribuerCompetencesModal
           classeId={classeId}
-          titulaireId={titulaireId}
+          maternelle={ecoleType === 'maternelle'}
           onClose={() => setShowCompetences(false)}
           onAttribuees={() => {
             setShowCompetences(false)
@@ -594,6 +610,7 @@ export function AffectationsTab({
       {competenceEnEdition && (
         <EditCompetenceModal
           attribution={competenceEnEdition}
+          maternelle={ecoleType === 'maternelle'}
           onClose={() => setCompetenceEnEdition(null)}
           onSaved={() => {
             setCompetenceEnEdition(null)
@@ -751,51 +768,59 @@ function EditAffectationModal({
   )
 }
 
-/** Change l'enseignant du bloc de compétence dans la classe (primaire/maternelle). */
+/**
+ * Règle le barème d'une compétence DANS CETTE CLASSE — notation, volet
+ * pratique, répartition des points.
+ *
+ * L'enseignant ne se change pas ici : au primaire il est porté par chaque
+ * matière (cf. `ClasseMatiereController`), et la colonne a quitté
+ * `classe_competences` depuis longtemps. Ce que l'attribution porte désormais,
+ * c'est l'évaluation.
+ */
 function EditCompetenceModal({
   attribution,
+  maternelle,
   onClose,
   onSaved,
 }: {
   attribution: ClasseCompetence
+  maternelle?: boolean
   onClose: () => void
   onSaved: () => void
 }) {
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
-  const { data: personnels } = useQuery({
-    queryKey: ['personnels', 'all'],
-    queryFn: () => fetchPersonnels({ per_page: 100 }),
-  })
+  const [bareme, setBareme] = useState<BaremeSaisi>(() => baremeInitial(attribution))
+  const [envoi, setEnvoi] = useState(false)
 
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<{ personnel_id?: number }>({
-    defaultValues: { personnel_id: attribution.enseignant?.id ?? undefined },
-  })
-
-  const onSubmit = async (values: { personnel_id?: number }) => {
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
     setServerError(null)
+    setEnvoi(true)
     try {
-      await modifierAttributionCompetence(attribution.classe_competence_id, {
-        personnel_id: values.personnel_id ? Number(values.personnel_id) : null,
-      })
-      succes('Attribution mise à jour.')
+      await modifierAttributionCompetence(
+        attribution.classe_competence_id,
+        payloadBareme(bareme, !!maternelle),
+      )
+      succes(t('competences.attribution_modifiee'))
       onSaved()
     } catch (err) {
       setServerError((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
     }
   }
 
   return (
-    <Modal title={`Modifier — ${attribution.competence?.label_fr ?? ''}`} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Select label={t('competences.enseignant')} {...register('personnel_id')}>
-          <option value="">—</option>
-          {personnels?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nom_complet}
-            </option>
-          ))}
-        </Select>
+    <Modal title={`${t('common.edit')} — ${attribution.competence?.label_fr ?? ''}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {maternelle ? (
+          <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-500">
+            {t('competences.par_appreciation')}
+          </p>
+        ) : (
+          <BaremeCompetenceFields valeur={bareme} onChange={setBareme} />
+        )}
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 
@@ -803,7 +828,7 @@ function EditCompetenceModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={envoi}>
             {t('common.save')}
           </Button>
         </div>

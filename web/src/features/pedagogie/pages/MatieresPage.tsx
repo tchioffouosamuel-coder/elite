@@ -207,13 +207,6 @@ export function MatieresPage() {
               <span className="text-xs text-gold-600">{t('competences.non_rattachee')}</span>
             ),
         },
-        {
-          cle: 'bareme_competence',
-          entete: t('matieres.notation'),
-          valeur: (m: Matiere) => m.competence?.notation ?? 0,
-          cellule: (m: Matiere) => (m.competence ? `/ ${m.competence.notation}` : '—'),
-          masquerMobile: true,
-        },
       ]),
     {
       cle: 'enseignee',

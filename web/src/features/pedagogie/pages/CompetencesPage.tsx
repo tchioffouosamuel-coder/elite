@@ -13,7 +13,6 @@ import {
   type CompetencePayload,
 } from '@/features/pedagogie/api'
 import { fetchSchools } from '@/features/classes/api'
-import { LIBELLES_COMPOSANTES, type Composante } from '@/features/primaire/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -27,17 +26,14 @@ import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
-/** Volets systématiques, plus « pratique » si la compétence l'évalue. */
-function voletsActifs(evaluePratique: boolean): Composante[] {
-  return evaluePratique ? ['oral', 'ecrit', 'savoir_etre', 'pratique'] : ['oral', 'ecrit', 'savoir_etre']
-}
-
 /**
  * Référentiel des compétences évaluées du primaire et de la maternelle.
  *
- * La compétence est l'unité que le bulletin note : elle porte le barème et sa
- * répartition entre les volets. Les matières listées sous chacune en sont le
- * contenu enseigné, et suivent la compétence quand on l'attribue à une classe.
+ * La compétence est l'unité que le bulletin note. Elle dit ce que l'on évalue ;
+ * les matières listées sous chacune en sont le contenu enseigné, et suivent la
+ * compétence quand on l'attribue à une classe. Le barème et la répartition des
+ * volets, eux, se règlent sur cette attribution — ils varient d'une classe à
+ * l'autre (cf. AffectationsTab).
  */
 export function CompetencesPage() {
   const { t } = useTranslation()
@@ -134,32 +130,6 @@ export function CompetencesPage() {
           {c.label_en && <span className="text-xs text-navy-400">{c.label_en}</span>}
         </span>
       ),
-    },
-    {
-      cle: 'notation',
-      entete: t('matieres.notation'),
-      valeur: (c) => c.notation ?? -1,
-      cellule: (c) =>
-        c.notation != null ? (
-          <span className="font-semibold tabular-nums">/ {c.notation}</span>
-        ) : (
-          <span className="text-xs text-navy-400">{t('competences.par_appreciation')}</span>
-        ),
-    },
-    {
-      cle: 'volets',
-      entete: t('matieres.repartition_volets'),
-      valeur: (c) => c.volets.length,
-      cellule: (c) => (
-        <span className="text-xs text-navy-600">
-          {c.notation != null
-            ? c.volets
-              .map((volet) => `${LIBELLES_COMPOSANTES[volet as Composante] ?? volet} /${c.repartition_volets[volet] ?? 0}`)
-              .join(' · ')
-            : c.volets.map((volet) => LIBELLES_COMPOSANTES[volet as Composante] ?? volet).join(' · ')}
-        </span>
-      ),
-      masquerMobile: true,
     },
     {
       cle: 'matieres',
@@ -264,7 +234,9 @@ export function CompetencesPage() {
                 peutImporter={can('competences.import')}
                 exportUrl="/competences/export"
                 modeleUrl="/competences/modele"
-                colonnes={['Compétence (FR)', 'Compétence (EN)', 'Abréviation', 'Notation (/20 ou /10)', 'Ordre']}
+                // Une ligne par compétence ET par classe : le barème appartient
+                // au couple (cf. CompetenceImport côté API).
+                colonnes={['Competence', 'Competence (EN)', 'Abreviation', 'Ordre', 'Classe', 'Notation', 'Oral', 'Ecrit', 'Savoir-etre', 'Pratique']}
                 nomFichier="competences"
                 onImported={() => queryClient.invalidateQueries({ queryKey: ['competences'] })}
               />
@@ -437,42 +409,17 @@ function CompetenceFormModal({
   // fichier).
   const schools = toutesLesEcoles?.filter((ecole) => ecole.type !== 'secondaire')
 
-  const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm<CompetencePayload>({
+  const { register, handleSubmit, formState: { isSubmitting, errors } } = useForm<CompetencePayload>({
     defaultValues: competence
       ? {
         label_fr: competence.label_fr,
         label_en: competence.label_en ?? '',
         abbreviation: competence.abbreviation ?? '',
-        notation: competence.notation,
-        evalue_pratique: competence.evalue_pratique,
-        repartition_volets: competence.repartition_volets,
         ordre: competence.ordre,
         statut: competence.statut,
       }
-      : { notation: 20, evalue_pratique: false, ordre: 0, statut: 'actif' },
+      : { ordre: 0, statut: 'actif' },
   })
-
-  // La maternelle évalue par appréciation (un visage coché), pas par barème :
-  // ni la notation, ni la répartition des volets en points ne s'y appliquent
-  // (cf. StoreCompetenceRequest::parAppreciation côté API). Quand le
-  // sélecteur d'école est masqué (un seul établissement accessible), on
-  // retombe sur celui-là.
-  const schoolIdSaisi = watch('school_id')
-  const ecoleSelectionnee =
-    competence?.school ??
-    schools?.find((ecole) => ecole.id === Number(schoolIdSaisi)) ??
-    (schools?.length === 1 ? schools[0] : undefined)
-  const estMaternelle = ecoleSelectionnee?.type === 'maternelle'
-
-  const notationSaisie = Number(watch('notation')) || 0
-  const evaluePratique = !!watch('evalue_pratique')
-  const volets = voletsActifs(evaluePratique)
-  const repartitionSaisie = watch('repartition_volets')
-  const somme = volets.reduce((total, volet) => total + (Number(repartitionSaisie?.[volet]) || 0), 0)
-  // Purement indicatif : chaque volet est facultatif, celui qu'on laisse vide
-  // compte pour 0 point (cf. Competence::repartitionVolets côté API) — la
-  // somme n'a donc plus à égaler le barème pour enregistrer.
-  const repartitionEquilibree = notationSaisie > 0 && Math.abs(somme - notationSaisie) < 0.01
 
   const onSubmit = async (values: CompetencePayload) => {
     setServerError(null)
@@ -481,14 +428,6 @@ function CompetenceFormModal({
         ...values,
         ordre: values.ordre ? Number(values.ordre) : 0,
         school_id: values.school_id ? Number(values.school_id) : null,
-        ...(estMaternelle
-          ? { notation: null, repartition_volets: null }
-          : {
-            notation: Number(values.notation),
-            repartition_volets: Object.fromEntries(
-              volets.map((volet) => [volet, Number(values.repartition_volets?.[volet]) || 0]),
-            ),
-          }),
       }
 
       if (competence) {
@@ -537,48 +476,15 @@ function CompetenceFormModal({
           <option value="inactif">{t('competences.inactif')}</option>
         </Select>
 
-        {!estMaternelle && (
-          <Input
-            type="number"
-            min={5}
-            max={100}
-            label={t('matieres.notation')}
-            {...register('notation', { required: true })}
-          />
-        )}
-
-        <label className="flex items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" className="h-4 w-4 rounded border-navy-300" {...register('evalue_pratique')} />
-          {t('matieres.evalue_pratique')}
-        </label>
-
         {/*
-          La maternelle évalue par appréciation (un visage coché par volet),
-          pas par barème réparti en points : ni la notation ni cette
-          répartition ne s'y appliquent (cf. StoreCompetenceRequest côté API).
+          Le barème et la répartition des volets ne se règlent plus ici : ils
+          appartiennent à l'attribution de la compétence à une classe, où ils
+          peuvent différer d'une classe à l'autre
+          (cf. AttribuerCompetencesModal, et ClasseCompetence côté API).
         */}
-        {!estMaternelle && (
-          <div className="flex flex-col gap-2 rounded-xl border border-navy-100 bg-cream-50/60 p-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">
-              {t('matieres.repartition_volets')}
-            </span>
-            <div className="grid grid-cols-2 gap-3">
-              {volets.map((volet) => (
-                <Input
-                  key={volet}
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  label={LIBELLES_COMPOSANTES[volet]}
-                  {...register(`repartition_volets.${volet}`, { min: 0 })}
-                />
-              ))}
-            </div>
-            <span className={`text-xs font-medium ${repartitionEquilibree ? 'text-green-600' : 'text-navy-400'}`}>
-              {t('matieres.repartition_somme', { somme, notation: notationSaisie })}
-            </span>
-          </div>
-        )}
+        <p className="rounded-xl border border-navy-100 bg-cream-50/60 p-3 text-xs text-navy-500">
+          {t('competences.bareme_par_classe')}
+        </p>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 

@@ -18,8 +18,9 @@ use Illuminate\Support\Collection;
  * Il diffère fondamentalement de celui du secondaire ({@see MoyenneService}) :
  *
  * - l'unité évaluée est la COMPÉTENCE, pas la matière : « Langue et
- *   communication » porte le barème et les volets, la lecture et l'écriture ne
- *   sont que le contenu qu'elle recouvre ;
+ *   communication » est ce que l'on note, la lecture et l'écriture ne sont que
+ *   le contenu qu'elle recouvre ; le barème et les volets, eux, sont réglés
+ *   sur son attribution à la classe ({@see \App\Models\ClasseCompetence}) ;
  * - chaque compétence est évaluée sur trois volets (oral, écrit, savoir-être),
  *   plus un volet pratique pour celles qui s'y prêtent ;
  * - le total d'une séquence est la SOMME des volets de cette séquence
@@ -27,7 +28,8 @@ use Illuminate\Support\Collection;
  * - la note de la compétence pour le trimestre est la moyenne des totaux de
  *   séquence (`$tterm = ($tof1 + $tof2 + $tof3) / 3`) ;
  * - la compétence n'est pas notée sur 20 avec un coefficient mais sur un barème
- *   propre (`competences.notation`, `disciplines.cot` chez archange), et la
+ *   propre, réglé classe par classe (`classe_competences.notation`,
+ *   `disciplines.cot` chez archange), et la
  *   moyenne générale ramène le total obtenu sur 20 :
  *   `$av = ($total * 20) / $sum` où `$sum = Σ barèmes`.
  *
@@ -49,8 +51,7 @@ class MoyennePrimaireService extends BaseService
      */
     public function noteCompetenceEleve(Eleve $eleve, ClasseCompetence $classeCompetence, Trimestre $trimestre): array
     {
-        $competence = $classeCompetence->competence;
-        $composantes = $competence->voletsNotes();
+        $composantes = $classeCompetence->voletsNotes();
         $sequences = $trimestre->sequencesRetenues();
 
         $notes = Note::where('eleve_id', $eleve->id)
@@ -75,7 +76,7 @@ class MoyennePrimaireService extends BaseService
         if ($notes->isEmpty()) {
             return [
                 'note' => null,
-                'bareme' => (int) ($competence->notation ?? 20),
+                'bareme' => $classeCompetence->bareme(),
                 'totaux_sequences' => $sequences->mapWithKeys(fn ($s) => [$s->id => null])->all(),
                 'volets' => $volets,
             ];
@@ -94,7 +95,7 @@ class MoyennePrimaireService extends BaseService
 
         return [
             'note' => round(array_sum($totauxSequences) / $nbSequences, 2),
-            'bareme' => (int) ($competence->notation ?? 20),
+            'bareme' => $classeCompetence->bareme(),
             'totaux_sequences' => $totauxSequences,
             'volets' => $volets,
         ];
@@ -286,7 +287,7 @@ class MoyennePrimaireService extends BaseService
     {
         $nbEleves = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->count();
         $sequences = $trimestre->sequencesRetenues();
-        $nbComposantes = count($classeCompetence->competence->voletsNotes());
+        $nbComposantes = count($classeCompetence->voletsNotes());
 
         $attendu = $nbEleves * $sequences->count() * $nbComposantes;
 

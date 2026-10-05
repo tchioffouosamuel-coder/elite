@@ -4,21 +4,16 @@ import type { Departement } from "@/features/personnel/api";
 
 /**
  * Compétence évaluée du primaire et de la maternelle : l'unité que le bulletin
- * note. Elle porte le barème et les volets ; les matières n'en sont que le
- * contenu enseigné.
+ * note. Elle dit CE QUE l'on évalue ; les matières n'en sont que le contenu
+ * enseigné, et le barème appartient à son attribution à une classe
+ * ({@link ClasseCompetence}) — la même compétence ne se note pas de la même
+ * façon au CP et au CM2.
  */
 export interface Competence {
   id: number;
   label_fr: string;
   label_en: string | null;
   abbreviation: string | null;
-  /** Barème propre : la moyenne générale ramène le total obtenu sur 20. Absent en maternelle, qui évalue par appréciation. */
-  notation: number | null;
-  evalue_pratique: boolean;
-  /** Volets évalués, dans l'ordre d'affichage du bulletin. */
-  volets: string[];
-  /** Points par volet ; à parts égales à défaut de réglage explicite. */
-  repartition_volets: Record<string, number>;
   ordre: number;
   statut: string;
   matieres_count?: number;
@@ -42,14 +37,21 @@ export interface CompetencePayload {
   label_fr: string;
   label_en?: string | null;
   abbreviation?: string | null;
-  /** Requis sauf en maternelle, qui évalue par appréciation et n'a ni barème ni volets à répartir. */
-  notation?: number | null;
-  evalue_pratique?: boolean;
-  /** La somme doit égaler `notation` — l'API refuse l'écart. Sans objet en maternelle. */
-  repartition_volets?: Record<string, number> | null;
   ordre?: number | null;
   statut?: string;
   school_id?: number | null;
+}
+
+/**
+ * Barème d'une compétence DANS UNE CLASSE. Envoyé à l'attribution (il
+ * s'applique alors à tout le lot) comme à sa modification.
+ */
+export interface BaremeCompetencePayload {
+  /** Barème dans cette classe : la moyenne générale ramène le total obtenu sur 20. Sans objet en maternelle, qui évalue par appréciation. */
+  notation?: number | null;
+  evalue_pratique?: boolean;
+  /** Points par volet ; un volet laissé vide compte pour 0. Sans objet en maternelle. */
+  repartition_volets?: Record<string, number> | null;
 }
 
 export interface Matiere {
@@ -64,7 +66,6 @@ export interface Matiere {
     id: number;
     label_fr: string;
     label_en: string | null;
-    notation: number;
   } | null;
   /** Absent des réponses de création/modification, qui ne comptent pas les classes. */
   classes_count?: number;
@@ -105,11 +106,22 @@ export interface MatierePayload {
   competence_id?: number | null;
 }
 
-/** Compétence attribuée à une classe, avec l'enseignant qui la tient. */
+/**
+ * Compétence attribuée à une classe : c'est ici que vit le barème, puisqu'il
+ * varie d'une classe à l'autre.
+ */
 export interface ClasseCompetence {
   classe_competence_id: number;
+  classe_id: number;
+  competence_id: number;
   competence: Competence | null;
-  enseignant: { id: number; nom_complet: string } | null;
+  /** Barème dans cette classe. Nul en maternelle, qui évalue par appréciation. */
+  notation: number | null;
+  evalue_pratique: boolean;
+  /** Volets évalués dans cette classe, dans l'ordre d'affichage du bulletin. */
+  volets: string[];
+  /** Points par volet ; à parts égales à défaut de réglage explicite. */
+  repartition_volets: Record<string, number>;
   groupe: number;
   statut: string;
 }
@@ -402,26 +414,45 @@ export async function fetchCompetencesClasse(
 /**
  * Attribue des compétences à une classe. Les matières de chaque compétence y
  * sont installées d'office — c'est tout l'objet du bloc.
+ *
+ * `bareme` vaut pour toutes les compétences du lot et pour cette classe seule.
+ * Omis, il laisse intact le barème d'une attribution déjà en place.
  */
 export async function attribuerCompetences(
   classeId: number,
   competenceIds: number[],
-  personnelId?: number | null,
+  bareme?: BaremeCompetencePayload,
 ): Promise<{ attribuees: number; matieres: number }> {
   const { data } = await http.post<
     ApiResponse<{ attribuees: number; matieres: number }>
   >(`/classes/${classeId}/competences`, {
     competence_ids: competenceIds,
-    personnel_id: personnelId ?? null,
+    ...bareme,
   });
   return data.data;
 }
 
+/**
+ * Règle le barème, le groupe ou le statut d'une compétence dans une classe.
+ *
+ * `personnel_id` subsiste pour les écrans qui l'envoient encore, mais l'API le
+ * laisse tomber : au primaire l'enseignant est porté par chaque matière
+ * (`PUT classe-matieres/{id}`), et la colonne a quitté `classe_competences`.
+ */
 export async function modifierAttributionCompetence(
   classeCompetenceId: number,
-  payload: { personnel_id?: number | null; groupe?: number; statut?: string },
-): Promise<void> {
-  await http.put(`/classe-competences/${classeCompetenceId}`, payload);
+  payload: BaremeCompetencePayload & {
+    groupe?: number
+    statut?: string
+    /** Ignoré par l'API — cf. ci-dessus. */
+    personnel_id?: number | null
+  },
+): Promise<ClasseCompetence> {
+  const { data } = await http.put<ApiResponse<ClasseCompetence>>(
+    `/classe-competences/${classeCompetenceId}`,
+    payload,
+  );
+  return data.data;
 }
 
 /**

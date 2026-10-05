@@ -164,7 +164,7 @@ export function MatiereFormPage() {
                 <option value="">—</option>
                 {competencesDisponibles.map((competence) => (
                   <option key={competence.id} value={competence.id}>
-                    {competence.label_fr} ({t('competences.sur_bareme', { bareme: competence.notation })})
+                    {competence.label_fr}
                   </option>
                 ))}
               </Select>

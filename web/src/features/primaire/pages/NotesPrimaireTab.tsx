@@ -232,7 +232,9 @@ export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireD
     <div className="flex flex-col gap-4">
       <div className="p-4 bg-cream-50 rounded-lg border border-navy-100">
         <h3 className="text-lg font-semibold text-navy-900">{matiere?.competence?.label_fr ?? '—'}</h3>
-        <p className="text-sm text-navy-500">{matiere?.enseignant?.nom_complet ?? '—'}</p>
+        <p className="text-sm text-navy-500">
+          {grille ? t('competences.sur_bareme', { bareme: grille.bareme }) : '—'}
+        </p>
       </div>
 
       <Select

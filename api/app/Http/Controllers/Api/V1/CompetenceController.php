@@ -2,40 +2,39 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\CompetenceExport;
+use App\Exports\ModeleGenerique;
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Concerns\GereImportExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\StoreAttributionCompetenceRequest;
 use App\Http\Requests\Api\V1\StoreCompetenceRequest;
+use App\Http\Resources\Api\V1\ClasseCompetenceResource;
 use App\Http\Resources\Api\V1\CompetenceResource;
+use App\Imports\CompetenceImport;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Competence;
 use App\Models\Sequence;
 use App\Services\CompetenceAttributionService;
 use App\Services\NotePrimaireService;
-use App\Support\ImportExport\SpecificationModele;
-use App\Support\ImportExport\Specs\CompetenceSpec;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Référentiel des compétences évaluées et leur attribution aux classes.
  *
- * Une compétence porte le barème et les volets ; les matières en sont le
- * contenu. Attribuer une compétence à une classe y installe d'office ses
- * matières — l'utilisateur choisit un bloc, pas une liste.
+ * Une compétence dit ce que l'on évalue ; les matières en sont le contenu
+ * enseigné, et c'est son attribution à une classe qui porte le barème et les
+ * volets — la même compétence ne se note pas pareil au CP et au CM2.
+ * Attribuer une compétence à une classe y installe d'office ses matières :
+ * l'utilisateur choisit un bloc, pas une liste.
  */
 class CompetenceController extends Controller
 {
-    use GereImportExport;
-
-    protected function specificationImportExport(): SpecificationModele
-    {
-        return new CompetenceSpec();
-    }
-
     public function __construct(
         private readonly CompetenceAttributionService $attribution,
         private readonly NotePrimaireService $notes,
@@ -203,6 +202,60 @@ class CompetenceController extends Controller
     }
 
     /**
+     * Import du référentiel : une ligne par compétence ET par classe, puisque
+     * le barème appartient désormais au couple. Une compétence enseignée dans
+     * six classes occupe donc six lignes — c'est le prix d'un barème qui peut
+     * varier d'une classe à l'autre, et la forme exacte que ressort l'export.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'school_id' => ['nullable', 'integer', 'exists:schools,id'],
+        ]);
+
+        // Comme `store()` : en mode agrégé (super admin, « Toutes les écoles »),
+        // deviner l'établissement serait arbitraire.
+        $schoolId = Tenant::resolveWriteSchoolId($request->integer('school_id') ?: null);
+
+        $import = new CompetenceImport($schoolId, $this->attribution);
+        Excel::import($import, $request->file('file'));
+
+        return ApiResponse::success([
+            'imported' => $import->importedCount,
+            'updated' => $import->updatedCount,
+            'attributions' => $import->attributionsCount,
+            'failed' => 0,
+            // Libellés que l'import n'a pas su rattacher : l'utilisateur
+            // corrige son fichier et rejoue, plutôt que de chercher ce qui
+            // manque en comparant deux listes.
+            'classes_introuvables' => $import->classesIntrouvables,
+        ], $this->messageImport($import));
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new CompetenceExport(Tenant::schoolIds()), 'competences.xlsx');
+    }
+
+    public function modele(): BinaryFileResponse
+    {
+        return Excel::download(new ModeleGenerique(CompetenceImport::enTetes()), 'competences-modele.xlsx');
+    }
+
+    private function messageImport(CompetenceImport $import): string
+    {
+        $message = "{$import->importedCount} compétence(s) créée(s), {$import->updatedCount} mise(s) à jour, "
+            ."{$import->attributionsCount} attribution(s) de classe enregistrée(s).";
+
+        if ($import->classesIntrouvables !== []) {
+            $message .= ' Classes introuvables : '.implode(', ', $import->classesIntrouvables).'.';
+        }
+
+        return $message;
+    }
+
+    /**
      * Compétences attribuées à une classe, avec leurs matières. L'enseignant
      * ne vit plus à ce niveau : il s'affecte par matière, via
      * `ClasseMatiereController` (`GET classes/{id}/matieres`).
@@ -217,16 +270,18 @@ class CompetenceController extends Controller
             ->sortBy(fn (ClasseCompetence $cc) => [$cc->competence?->ordre, $cc->competence?->label_fr])
             ->values();
 
-        return ApiResponse::success($attributions->map(fn (ClasseCompetence $cc) => [
-            'classe_competence_id' => $cc->id,
-            'competence' => $cc->competence ? new CompetenceResource($cc->competence) : null,
-            'groupe' => $cc->groupe,
-            'statut' => $cc->statut,
-        ])->values());
+        return ApiResponse::success(ClasseCompetenceResource::collection($attributions));
     }
 
-    /** Attribue des compétences à une classe ; leurs matières suivent. */
-    public function attribuer(Request $request, int $classeId): JsonResponse
+    /**
+     * Attribue des compétences à une classe ; leurs matières suivent.
+     *
+     * Le barème passé ici s'applique à TOUTES les compétences du lot — c'est
+     * le geste courant (« ces huit compétences, sur 20 chacune, réparties
+     * ainsi »). Un réglage qui diffère d'une compétence à l'autre se fait
+     * ensuite, attribution par attribution, via `modifierAttribution()`.
+     */
+    public function attribuer(StoreAttributionCompetenceRequest $request, int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
@@ -235,7 +290,7 @@ class CompetenceController extends Controller
             'competence_ids.*' => ['integer', 'exists:competences,id'],
         ]);
 
-        $resultat = $this->attribution->attribuer($classe, $data['competence_ids']);
+        $resultat = $this->attribution->attribuer($classe, $data['competence_ids'], $request->bareme());
 
         return ApiResponse::success(
             $resultat,
@@ -244,29 +299,29 @@ class CompetenceController extends Controller
     }
 
     /**
-     * Change le groupe ou le statut d'une attribution de compétence.
+     * Change le barème, le groupe ou le statut d'une attribution de compétence.
      *
-     * L'enseignant ne se change plus ici : il s'affecte par matière, via
+     * C'est ici que se règle la notation : barème, volet pratique et
+     * répartition des points valent pour cette classe seule.
+     *
+     * L'enseignant ne se change pas ici : il s'affecte par matière, via
      * `ClasseMatiereController::update()`/`batchEnseignant()`.
      */
-    public function modifierAttribution(Request $request, int $classeCompetenceId): JsonResponse
+    public function modifierAttribution(StoreAttributionCompetenceRequest $request, int $classeCompetenceId): JsonResponse
     {
         $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
         $this->autoriserGestionAttribution($request, $attribution);
 
-        $data = $request->validate([
-            'groupe' => ['nullable', 'integer', 'min:1', 'max:9'],
-            'statut' => ['nullable', 'in:actif,inactif'],
-        ]);
-
-        $attribution->update(array_filter($data, fn ($v) => $v !== null));
+        // `null` est une valeur de réglage à part entière ici — remettre la
+        // répartition à null, c'est revenir au partage à parts égales. Seules
+        // les clés absentes de la requête sont écartées, par `validated()`.
+        $attribution->update($request->validated());
         $attribution->load('competence');
 
-        return ApiResponse::success([
-            'classe_competence_id' => $attribution->id,
-            'groupe' => $attribution->groupe,
-            'statut' => $attribution->statut,
-        ], 'Attribution mise à jour.');
+        return ApiResponse::success(
+            new ClasseCompetenceResource($attribution),
+            'Attribution mise à jour.',
+        );
     }
 
     /**

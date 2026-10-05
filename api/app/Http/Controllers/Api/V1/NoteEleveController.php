@@ -110,7 +110,8 @@ class NoteEleveController extends Controller
         );
 
         $competences = $affectations->map(function ($cc) use ($eleve, $trimestre, $sequences, $classementsCompetence) {
-            // `notation` nul signale une compétence de maternelle, évaluée
+            // `notation` nulle sur l'attribution signale une compétence de
+            // maternelle, évaluée
             // par appréciation (émoji/couleur/libellé) plutôt que par une
             // note chiffrée sur barème — cf. NotePrimaireService::
             // parAppreciation(), même distinction côté saisie. Le moteur de
@@ -118,7 +119,7 @@ class NoteEleveController extends Controller
             // que la colonne `valeur` : il renvoie `note: null` pour ces
             // compétences-là sans jamais planter, mais l'écran a besoin de
             // l'appréciation elle-même, pas juste de son absence de note.
-            if ($cc->competence->notation === null) {
+            if ($cc->notation === null) {
                 return $this->competenceAppreciation($eleve, $cc, $sequences);
             }
 

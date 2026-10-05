@@ -7,10 +7,14 @@ import {
   fetchCompetences,
   fetchCompetencesClasse,
 } from '@/features/pedagogie/api'
-import { fetchPersonnels } from '@/features/personnel/api'
+import {
+  BaremeCompetenceFields,
+  baremeInitial,
+  payloadBareme,
+  type BaremeSaisi,
+} from '@/features/pedagogie/pages/BaremeCompetenceFields'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
-import { Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -19,29 +23,36 @@ import type { ApiError } from '@/shared/types/api'
  * Attribution de compétences à une classe du primaire ou de la maternelle.
  *
  * On coche des blocs, pas des matières : chaque compétence retenue installe
- * d'office ses matières dans la classe, avec l'enseignant désigné. C'est le
+ * d'office ses matières dans la classe, tenues par le titulaire. C'est le
  * geste qui remplace la saisie matière par matière.
+ *
+ * Le barème saisi ici vaut pour TOUTES les compétences cochées, et pour cette
+ * classe seule : la même compétence se note sur 20 au CM2 et sur 10 au CP.
+ * Un réglage qui diffère d'une compétence à l'autre se retouche ensuite, ligne
+ * par ligne, depuis la liste des compétences de la classe.
  *
  * Les compétences déjà attribuées restent cochables — réattribuer complète les
  * matières manquantes sans rien dupliquer, ce qui est le moyen de rattraper une
- * matière ajoutée au référentiel après coup.
+ * matière ajoutée au référentiel après coup ; leur barème est alors repris sur
+ * celui saisi ici.
  */
 export function AttribuerCompetencesModal({
   classeId,
   classeNom,
-  titulaireId,
+  maternelle,
   onClose,
   onAttribuees,
 }: {
   classeId: number
   classeNom?: string
-  titulaireId?: number | null
+  /** La maternelle évalue par appréciation : ni barème ni volets à régler. */
+  maternelle?: boolean
   onClose: () => void
   onAttribuees: () => void
 }) {
   const { t } = useTranslation()
   const [choisies, setChoisies] = useState<Set<number>>(new Set())
-  const [personnelId, setPersonnelId] = useState<number | ''>(titulaireId ?? '')
+  const [bareme, setBareme] = useState<BaremeSaisi>(() => baremeInitial())
   const [envoi, setEnvoi] = useState(false)
 
   const { data: competences, isLoading } = useQuery({ queryKey: ['competences'], queryFn: fetchCompetences })
@@ -49,11 +60,6 @@ export function AttribuerCompetencesModal({
     queryKey: ['classe-competences', classeId],
     queryFn: () => fetchCompetencesClasse(classeId),
   })
-  const { data: personnels } = useQuery({
-    queryKey: ['personnels', 'attribution-competences'],
-    queryFn: () => fetchPersonnels({ per_page: 500 }),
-  })
-
   const idsDejaAttribuees = new Set(
     (dejaAttribuees ?? []).map((attribution) => attribution.competence?.id).filter(Boolean) as number[],
   )
@@ -76,7 +82,7 @@ export function AttribuerCompetencesModal({
 
     setEnvoi(true)
     try {
-      const resultat = await attribuerCompetences(classeId, [...choisies], personnelId === '' ? null : Number(personnelId))
+      const resultat = await attribuerCompetences(classeId, [...choisies], payloadBareme(bareme, !!maternelle))
       succes(t('competences.attribuees', { competences: resultat.attribuees, matieres: resultat.matieres }))
       onAttribuees()
     } catch (err) {
@@ -93,18 +99,7 @@ export function AttribuerCompetencesModal({
           {t('competences.attribuer_aide')}
         </p>
 
-        <Select
-          label={t('competences.enseignant')}
-          value={personnelId}
-          onChange={(e) => setPersonnelId(e.target.value ? Number(e.target.value) : '')}
-        >
-          <option value="">—</option>
-          {personnels?.map((personnel) => (
-            <option key={personnel.id} value={personnel.id}>
-              {personnel.nom_complet}
-            </option>
-          ))}
-        </Select>
+        {!maternelle && <BaremeCompetenceFields valeur={bareme} onChange={setBareme} />}
 
         {isLoading ? (
           <Spinner />
@@ -128,9 +123,6 @@ export function AttribuerCompetencesModal({
                 <span className="flex min-w-0 flex-col">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-navy-800">{competence.label_fr}</span>
-                    <span className="text-xs text-navy-400">
-                      {t('competences.sur_bareme', { bareme: competence.notation })}
-                    </span>
                     {idsDejaAttribuees.has(competence.id) && (
                       <span className="text-xs font-semibold text-green-600">✓</span>
                     )}

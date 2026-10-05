@@ -179,7 +179,6 @@
     "label_email": "E-mail",
     "error_email_requis": "Saisissez votre e-mail.",
     "submit_send_otp": "Recevoir le code",
-    "back_to_login": "Retour à la connexion",
     "reset_password_title": "Réinitialiser le mot de passe",
     "reset_password_subtitle": "Saisissez le code reçu par e-mail et choisissez un nouveau mot de passe.",
     "label_otp": "Code de vérification",
@@ -2026,7 +2025,7 @@
     "attribuer": "Attribuer des compétences",
     "attribuer_titre": "Attribuer des compétences à {{classe}}",
     "attribuer_en_masse": "Attribuer une compétence ({{count}})",
-    "attribuer_aide": "Les matières de chaque compétence choisie seront installées dans la classe, avec son enseignant.",
+    "attribuer_aide": "Les matières de chaque compétence choisie seront installées dans la classe, tenues par le titulaire. Le barème saisi ci-dessous vaut pour toutes les compétences cochées, dans cette classe seulement.",
     "attribuees": "{{competences}} compétence(s) attribuée(s), {{matieres}} matière(s) installée(s).",
     "retirer": "Retirer la compétence",
     "retiree": "Compétence retirée de la classe.",
@@ -2038,7 +2037,10 @@
     "desactiver": "Désactiver",
     "reactiver": "Réactiver",
     "desactivee": "Compétence désactivée.",
-    "reactivee": "Compétence réactivée."
+    "reactivee": "Compétence réactivée.",
+    "bareme_par_classe": "Le barème et la répartition des volets se règlent classe par classe, au moment d'attribuer la compétence : la même compétence peut peser 20 au CM2 et 10 au CP.",
+    "bareme_dans_classe": "Barème dans cette classe",
+    "attribution_modifiee": "Attribution mise à jour."
   },
   "appreciations": {
     "title": "Codes d'appréciation",

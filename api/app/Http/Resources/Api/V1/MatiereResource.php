@@ -20,7 +20,6 @@ class MatiereResource extends JsonResource
                 'id' => $this->competence->id,
                 'label_fr' => $this->competence->label_fr,
                 'label_en' => $this->competence->label_en,
-                'notation' => $this->competence->notation,
             ] : null),
             'classes_count' => $this->whenCounted('classeMatieres'),
             'departement' => $this->whenLoaded('departement', fn () => $this->departement ? [

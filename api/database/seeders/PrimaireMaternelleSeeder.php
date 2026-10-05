@@ -124,6 +124,14 @@ class PrimaireMaternelleSeeder extends Seeder
         $personnels = $this->seedPersonnels($school);
         $competenceModels = $this->seedCompetences($school, $competences);
 
+        // Le barème ne vit plus sur la compétence mais sur son attribution à
+        // une classe : on le garde de côté, indexé sur le libellé, le temps de
+        // poser les attributions plus bas.
+        $baremes = collect($competences)->mapWithKeys(fn (array $c) => [$c[0] => [
+            'notation' => $maternelle ? null : $c[3],
+            'evalue_pratique' => $c[4],
+        ]]);
+
         // La maternelle évalue par appréciation : son référentiel de visages
         // doit exister avant qu'on puisse en piocher un pour chaque note.
         $appreciations = collect();
@@ -170,7 +178,7 @@ class PrimaireMaternelleSeeder extends Seeder
                 'titulaire_id' => $personnels[$index % count($personnels)]->id,
             ]);
 
-            $attributions = $this->affecterCompetences($classe, $competenceModels);
+            $attributions = $this->affecterCompetences($classe, $competenceModels, $baremes);
             $eleves = $this->seedEleves($school, $classe, $index);
             $this->seedNotes($eleves, $attributions, $trimestres->first(), $maternelle, $appreciations);
         }
@@ -259,26 +267,22 @@ class PrimaireMaternelleSeeder extends Seeder
 
     /**
      * Crée le référentiel de compétences de l'école, avec pour chacune la
-     * matière qui en porte le contenu (`competence_id`). Le barème et le
-     * volet pratique vivent désormais sur la compétence ; la maternelle
-     * évalue par appréciation et n'a donc pas de barème.
+     * matière qui en porte le contenu (`competence_id`). La compétence ne dit
+     * que ce qu'on évalue ; le barème et le volet pratique sont posés classe
+     * par classe, sur l'attribution ({@see affecterCompetences()}).
      *
      * @return Collection<int, Competence>
      */
     private function seedCompetences(School $school, array $competences): Collection
     {
-        $maternelle = $school->type === 'maternelle';
-
-        return collect($competences)->map(function (array $c) use ($school, $maternelle) {
-            [$label, $labelEn, $abbr, $bareme, $pratique] = $c;
+        return collect($competences)->map(function (array $c) use ($school) {
+            [$label, $labelEn, $abbr] = $c;
 
             $competence = Competence::firstOrCreate(
                 ['school_id' => $school->id, 'label_fr' => $label],
                 [
                     'label_en' => $labelEn,
                     'abbreviation' => $abbr,
-                    'notation' => $maternelle ? null : $bareme,
-                    'evalue_pratique' => $pratique,
                     'statut' => 'actif',
                 ],
             );
@@ -298,18 +302,22 @@ class PrimaireMaternelleSeeder extends Seeder
     }
 
     /**
-     * Attribue chaque compétence à la classe et installe l'affectation de sa
-     * matière — le geste que `CompetenceAttributionService` fait à l'écran,
-     * reproduit ici pour garder le contrôle du jeu de données.
+     * Attribue chaque compétence à la classe, avec son barème, et installe
+     * l'affectation de sa matière — le geste que
+     * `CompetenceAttributionService` fait à l'écran, reproduit ici pour garder
+     * le contrôle du jeu de données.
      *
+     * @param  Collection<string, array{notation: ?int, evalue_pratique: bool}>  $baremes
      * @return Collection<int, ClasseCompetence>
      */
-    private function affecterCompetences(Classe $classe, Collection $competences): Collection
+    private function affecterCompetences(Classe $classe, Collection $competences, Collection $baremes): Collection
     {
-        return $competences->map(function (Competence $competence) use ($classe) {
+        return $competences->map(function (Competence $competence) use ($classe, $baremes) {
+            $bareme = $baremes->get($competence->label_fr, ['notation' => null, 'evalue_pratique' => false]);
+
             $attribution = ClasseCompetence::firstOrCreate(
                 ['classe_id' => $classe->id, 'competence_id' => $competence->id],
-                ['statut' => 'actif'],
+                [...$bareme, 'statut' => 'actif'],
             );
 
             foreach ($competence->matieres as $matiere) {
@@ -379,9 +387,8 @@ class PrimaireMaternelleSeeder extends Seeder
 
         foreach ($eleves as $eleve) {
             foreach ($attributions as $classeCompetence) {
-                $competence = $classeCompetence->competence;
-                $composantes = $competence->volets();
-                $repartition = $competence->repartitionVolets();
+                $composantes = $classeCompetence->volets();
+                $repartition = $classeCompetence->repartitionVolets();
 
                 foreach ($composantes as $composante) {
                     $maxParVolet = $repartition[$composante] ?? 0;

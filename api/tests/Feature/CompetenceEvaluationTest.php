@@ -81,16 +81,43 @@ class CompetenceEvaluationTest extends TestCase
         $this->admin->assignRole('super_admin');
     }
 
+    /**
+     * Barème de référence des tests : 20 points, répartis 10/5/5. Il vit sur
+     * l'attribution à une classe, pas sur la compétence — d'où sa place ici
+     * plutôt que dans `competence()`.
+     */
+    private const BAREME = [
+        'notation' => 20,
+        'evalue_pratique' => false,
+        'repartition_volets' => ['oral' => 10, 'ecrit' => 5, 'savoir_etre' => 5],
+    ];
+
     private function competence(array $attributs = []): Competence
     {
         return Competence::create([
             'school_id' => $this->school->id,
             'label_fr' => 'Langue et communication',
-            'notation' => 20,
-            'evalue_pratique' => false,
-            'repartition_volets' => ['oral' => 10, 'ecrit' => 5, 'savoir_etre' => 5],
             ...$attributs,
         ]);
+    }
+
+    /**
+     * Attribue la compétence à la classe du test, avec son barème — le geste
+     * réel de l'interface, passé par l'API pour que la règle d'installation
+     * des matières s'applique aussi.
+     */
+    private function attribuer(Competence $competence, array $bareme = []): ClasseCompetence
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", [
+                'competence_ids' => [$competence->id],
+                ...self::BAREME,
+                ...$bareme,
+            ]);
+
+        return ClasseCompetence::where('classe_id', $this->classe->id)
+            ->where('competence_id', $competence->id)
+            ->firstOrFail();
     }
 
     private function matiere(Competence $competence, string $nom): Matiere
@@ -136,11 +163,11 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertSame($competence->id, $matiere->competence_id);
     }
 
-    public function test_le_volet_pratique_s_ajoute_quand_la_competence_l_evalue(): void
+    /** Le volet pratique se décide par classe : c'est elle qui le travaille, ou non. */
+    public function test_le_volet_pratique_s_ajoute_quand_la_classe_l_evalue(): void
     {
-        $sansPratique = $this->competence();
-        $avecPratique = $this->competence([
-            'label_fr' => 'Motricité',
+        $sansPratique = $this->attribuer($this->competence());
+        $avecPratique = $this->attribuer($this->competence(['label_fr' => 'Motricité']), [
             'evalue_pratique' => true,
             'repartition_volets' => ['oral' => 5, 'ecrit' => 5, 'savoir_etre' => 5, 'pratique' => 5],
         ]);
@@ -269,10 +296,7 @@ class CompetenceEvaluationTest extends TestCase
         $this->matiere($competence, 'Lecture');
         $this->matiere($competence, 'Écriture');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence);
 
         $this->actingAs($this->admin, 'sanctum')
             ->deleteJson("/api/v1/classe-competences/{$attribution->id}")
@@ -290,10 +314,7 @@ class CompetenceEvaluationTest extends TestCase
         $this->matiere($competence, 'Lecture');
         $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence);
 
         $this->actingAs($this->admin, 'sanctum')
             ->getJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire?trimestre_id={$this->trimestre->id}")
@@ -309,10 +330,7 @@ class CompetenceEvaluationTest extends TestCase
         $competence = $this->competence();
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence);
 
         // Le volet « ecrit » est noté sur 5 : 8 doit être refusé.
         $this->actingAs($this->admin, 'sanctum')
@@ -336,10 +354,7 @@ class CompetenceEvaluationTest extends TestCase
         $competence = $this->competence();
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence);
 
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
@@ -368,9 +383,7 @@ class CompetenceEvaluationTest extends TestCase
         $this->matiere($competence, 'Écriture');
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
+        $this->attribuer($competence);
         $donnees = app(\App\Services\BulletinPrimaireService::class)
             ->donneesClasse($this->classe->fresh(), $this->trimestre);
 
@@ -391,10 +404,7 @@ class CompetenceEvaluationTest extends TestCase
         $competence = $this->competence();
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence);
 
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
@@ -434,45 +444,69 @@ class CompetenceEvaluationTest extends TestCase
      */
     public function test_une_repartition_qui_ne_somme_pas_au_bareme_est_acceptee(): void
     {
-        $reponse = $this->actingAs($this->admin, 'sanctum')
-            ->postJson('/api/v1/competences', [
-                'school_id' => $this->school->id,
-                'label_fr' => 'Mathématiques',
-                'notation' => 20,
-                'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 10],
-            ])
-            ->assertCreated();
+        $attribution = $this->attribuer($this->competence(['label_fr' => 'Mathématiques']), [
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 10],
+        ]);
 
-        $competence = Competence::find($reponse->json('data.id'));
-        $this->assertSame(['oral' => 10.0, 'ecrit' => 10.0, 'savoir_etre' => 10.0], $competence->repartitionVolets());
+        $this->assertSame(['oral' => 10.0, 'ecrit' => 10.0, 'savoir_etre' => 10.0], $attribution->repartitionVolets());
     }
 
     /** Un volet laissé de côté n'est même plus exigé dans le tableau. */
     public function test_un_volet_manquant_n_est_plus_refuse(): void
     {
+        $competence = $this->competence(['label_fr' => 'Français']);
+
         $this->actingAs($this->admin, 'sanctum')
-            ->postJson('/api/v1/competences', [
-                'school_id' => $this->school->id,
-                'label_fr' => 'Français',
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", [
+                'competence_ids' => [$competence->id],
                 'notation' => 20,
                 'repartition_volets' => ['oral' => 20],
             ])
-            ->assertCreated();
+            ->assertOk();
     }
 
     /** Un volet non évalué (pratique décoché) ne doit toujours pas porter de points. */
     public function test_le_volet_pratique_non_evalue_ne_peut_pas_porter_de_points(): void
     {
+        $competence = $this->competence(['label_fr' => 'Sport']);
+
         $this->actingAs($this->admin, 'sanctum')
-            ->postJson('/api/v1/competences', [
-                'school_id' => $this->school->id,
-                'label_fr' => 'Sport',
+            ->postJson("/api/v1/classes/{$this->classe->id}/competences", [
+                'competence_ids' => [$competence->id],
                 'notation' => 20,
                 'evalue_pratique' => false,
                 'repartition_volets' => ['pratique' => 5],
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('repartition_volets.pratique');
+    }
+
+    /**
+     * Le cœur du découpage : la même compétence, deux classes, deux barèmes.
+     * C'est ce que l'ancien modèle — barème porté par la compétence — rendait
+     * impossible.
+     */
+    public function test_une_meme_competence_porte_un_bareme_different_par_classe(): void
+    {
+        $competence = $this->competence();
+        $autreClasse = Classe::create(['school_id' => $this->school->id, 'nom' => 'CP-A']);
+
+        $ce1 = $this->attribuer($competence);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classes/{$autreClasse->id}/competences", [
+                'competence_ids' => [$competence->id],
+                'notation' => 10,
+                'repartition_volets' => ['oral' => 5, 'ecrit' => 5],
+            ])
+            ->assertOk();
+
+        $cp = ClasseCompetence::where('classe_id', $autreClasse->id)->firstOrFail();
+
+        $this->assertSame(20, $ce1->bareme());
+        $this->assertSame(10, $cp->bareme());
+        $this->assertSame(['oral' => 10.0, 'ecrit' => 5.0, 'savoir_etre' => 5.0], $ce1->repartitionVolets());
+        $this->assertSame(['oral' => 5.0, 'ecrit' => 5.0, 'savoir_etre' => 0.0], $cp->repartitionVolets());
     }
 
     // ------------------------------------------------------- Suppression en masse
@@ -502,9 +536,7 @@ class CompetenceEvaluationTest extends TestCase
         $libre = $this->competence(['label_fr' => 'Libre']);
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$noteee->id]]);
-        $attribution = ClasseCompetence::where('competence_id', $noteee->id)->firstOrFail();
+        $attribution = $this->attribuer($noteee);
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
                 'notes' => [[
@@ -609,8 +641,7 @@ class CompetenceEvaluationTest extends TestCase
     {
         $autreEcole = School::create(['name' => 'Autre école', 'code' => 'AE', 'type' => 'primaire', 'is_active' => true]);
         $competenceEtrangere = Competence::create([
-            'school_id' => $autreEcole->id, 'label_fr' => 'Étrangère', 'notation' => 20,
-            'evalue_pratique' => false, 'repartition_volets' => ['oral' => 10, 'ecrit' => 5, 'savoir_etre' => 5],
+            'school_id' => $autreEcole->id, 'label_fr' => 'Étrangère',
         ]);
         $lecture = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Lecture']);
 
@@ -632,16 +663,13 @@ class CompetenceEvaluationTest extends TestCase
     /** Un volet sans point alloué n'a rien à faire dans la grille de saisie. */
     public function test_un_volet_a_zero_point_est_absent_de_la_grille_de_saisie(): void
     {
-        $competence = $this->competence([
-            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
-        ]);
+        $competence = $this->competence();
         $this->matiere($competence, 'Lecture');
         $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence, [
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
 
         $this->actingAs($this->admin, 'sanctum')
             ->getJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire?trimestre_id={$this->trimestre->id}")
@@ -652,23 +680,23 @@ class CompetenceEvaluationTest extends TestCase
     /** Un volet dont la répartition ne le mentionne pas du tout compte pour 0, comme un volet à 0 explicite. */
     public function test_un_volet_absent_de_la_repartition_est_traite_comme_zero(): void
     {
-        $competence = $this->competence(['repartition_volets' => ['oral' => 20]]);
+        $competence = $this->competence();
         $this->matiere($competence, 'Lecture');
 
-        $this->assertSame(['oral'], $competence->voletsNotes());
+        $attribution = $this->attribuer($competence, ['repartition_volets' => ['oral' => 20]]);
+
+        $this->assertSame(['oral'], $attribution->voletsNotes());
     }
 
     /** Une note soumise pour un volet à 0 point n'est pas enregistrée. */
     public function test_une_note_sur_un_volet_a_zero_point_est_ignoree_a_l_enregistrement(): void
     {
-        $competence = $this->competence([
-            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
-        ]);
+        $competence = $this->competence();
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-        $attribution = ClasseCompetence::where('classe_id', $this->classe->id)->firstOrFail();
+        $attribution = $this->attribuer($competence, [
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
 
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
@@ -685,15 +713,13 @@ class CompetenceEvaluationTest extends TestCase
     /** Le bulletin n'affiche pas non plus un volet à 0 point. */
     public function test_le_bulletin_n_affiche_pas_un_volet_a_zero_point(): void
     {
-        $competence = $this->competence([
-            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
-        ]);
+        $competence = $this->competence();
         $this->matiere($competence, 'Lecture');
         $eleve = $this->eleve('ELEVE UN');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/classes/{$this->classe->id}/competences", ['competence_ids' => [$competence->id]]);
-
+        $this->attribuer($competence, [
+            'repartition_volets' => ['oral' => 10, 'ecrit' => 10, 'savoir_etre' => 0],
+        ]);
         $donnees = app(\App\Services\BulletinPrimaireService::class)
             ->donneesClasse($this->classe->fresh(), $this->trimestre);
 
@@ -702,11 +728,11 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertSame(['oral', 'ecrit'], $voletsAffiches);
     }
 
-    /** Une compétence sans répartition explicite (barème par défaut, ou maternelle) garde tous ses volets. */
-    public function test_une_competence_sans_repartition_explicite_garde_tous_ses_volets(): void
+    /** Une attribution sans répartition explicite (barème par défaut, ou maternelle) garde tous ses volets. */
+    public function test_une_attribution_sans_repartition_explicite_garde_tous_ses_volets(): void
     {
-        $competence = $this->competence(['repartition_volets' => null]);
+        $attribution = $this->attribuer($this->competence(), ['repartition_volets' => null]);
 
-        $this->assertSame(['oral', 'ecrit', 'savoir_etre'], $competence->voletsNotes());
+        $this->assertSame(['oral', 'ecrit', 'savoir_etre'], $attribution->voletsNotes());
     }
 }

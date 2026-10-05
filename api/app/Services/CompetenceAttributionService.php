@@ -18,6 +18,9 @@ use Illuminate\Support\Collection;
  * l'emploi du temps, les séances et la progression s'y accrochent — mais elles
  * découlent de la compétence au lieu d'être saisies à la main.
  *
+ * Le barème, lui, est porté par l'attribution et non par la compétence : la
+ * même compétence ne se note pas de la même façon d'une classe à l'autre.
+ *
  * L'enseignant est porté par chaque matière, pas par la compétence : un
  * enseignant par matière, y compris au primaire (cf. {@see ClasseMatiere}).
  * Sans enseignant désigné, une matière nouvellement installée prend par
@@ -33,26 +36,36 @@ class CompetenceAttributionService extends BaseService
      * manquantes complétées — réattribuer après avoir ajouté une matière au
      * référentiel est le geste normal.
      *
+     * `$bareme` (notation, volet pratique, répartition des points) s'applique à
+     * toutes les compétences du lot et vaut pour CETTE classe seule : c'est là
+     * qu'il vit désormais ({@see ClasseCompetence}). Vide, il laisse une
+     * attribution existante intacte — réattribuer pour compléter des matières
+     * n'a pas à écraser un barème réglé à la main.
+     *
      * @param  list<int>  $competenceIds
+     * @param  array<string, mixed>  $bareme
      * @return array{attribuees: int, matieres: int}
      */
-    public function attribuer(Classe $classe, array $competenceIds): array
+    public function attribuer(Classe $classe, array $competenceIds, array $bareme = []): array
     {
         $competences = Competence::where('school_id', $classe->school_id)
             ->whereIn('id', $competenceIds)
             ->with('matieres')
             ->get();
 
-        return $this->transaction(function () use ($classe, $competences) {
+        return $this->transaction(function () use ($classe, $competences, $bareme) {
             $attribuees = 0;
             $matieres = 0;
 
             foreach ($competences as $competence) {
-                // `firstOrCreate` : une compétence déjà attribuée n'a plus rien
-                // à mettre à jour (l'enseignant vit désormais sur la matière) —
-                // seules ses matières manquantes sont complétées.
-                $attribution = ClasseCompetence::firstOrCreate(
+                // `updateOrCreate` plutôt que `firstOrCreate` : réimporter un
+                // fichier dont le barème a changé doit corriger l'attribution
+                // existante, pas la laisser sur l'ancien réglage. Sans barème
+                // fourni, l'appel se comporte comme avant — rien à mettre à
+                // jour, seules les matières manquantes sont complétées.
+                $attribution = ClasseCompetence::updateOrCreate(
                     ['classe_id' => $classe->id, 'competence_id' => $competence->id],
+                    $bareme,
                 );
 
                 // `refresh()` charge les valeurs par défaut posées en base

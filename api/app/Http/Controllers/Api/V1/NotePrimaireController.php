@@ -69,8 +69,9 @@ class NotePrimaireController extends Controller
         // maternelle, le volet porte un niveau d'appréciation, pas un nombre.
         if (! $this->service->parAppreciation($classeCompetence)) {
             // Une note ne peut dépasser la part du barème allouée à son volet —
-            // répartition propre à la compétence, pas le barème divisé à parts égales.
-            $repartition = $classeCompetence->competence->repartitionVolets();
+            // répartition propre à la compétence DANS CETTE CLASSE, pas le
+            // barème divisé à parts égales.
+            $repartition = $classeCompetence->repartitionVolets();
 
             foreach ($request->input('notes') as $index => $row) {
                 $maxVolet = $repartition[$row['composante']] ?? 0;

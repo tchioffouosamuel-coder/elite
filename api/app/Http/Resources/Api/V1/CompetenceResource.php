@@ -5,6 +5,11 @@ namespace App\Http\Resources\Api\V1;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * Identité d'une compétence — ce que l'on évalue. Le barème et les volets
+ * n'y figurent plus : ils appartiennent à l'attribution à une classe, et
+ * sortent par {@see ClasseCompetenceResource}.
+ */
 class CompetenceResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -14,10 +19,6 @@ class CompetenceResource extends JsonResource
             'label_fr' => $this->label_fr,
             'label_en' => $this->label_en,
             'abbreviation' => $this->abbreviation,
-            'notation' => $this->notation,
-            'evalue_pratique' => (bool) $this->evalue_pratique,
-            'volets' => $this->volets(),
-            'repartition_volets' => $this->repartitionVolets(),
             'ordre' => $this->ordre,
             'statut' => $this->statut,
             'matieres_count' => $this->whenCounted('matieres'),

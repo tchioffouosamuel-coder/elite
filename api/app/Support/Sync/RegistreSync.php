@@ -183,11 +183,11 @@ class RegistreSync
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
-            // Le barème et les volets du primaire vivent désormais ici : sans
-            // cette entrée, le poste hors ligne ne saurait plus sur quoi noter.
+            // Identité des compétences du primaire ; le barème et les volets,
+            // eux, pendent à `classe_competences` juste en dessous.
             'competences' => [
                 'modele' => Competence::class,
-                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'abbreviation', 'notation', 'evalue_pratique', 'repartition_volets', 'ordre', 'statut'],
+                'colonnes' => ['id', 'school_id', 'label_fr', 'label_en', 'abbreviation', 'ordre', 'statut'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'pedagogie.view',
             ],
@@ -196,10 +196,12 @@ class RegistreSync
             // donnée (cf. `GET classes/{id}/competences`, son pendant en
             // ligne). Bornée comme `classe_matieres` : c'est la même notion
             // d'affectation, juste portée par une compétence plutôt qu'une
-            // matière.
+            // matière. Elle porte aussi le barème et les volets du primaire :
+            // sans ces colonnes, le poste hors ligne ne saurait pas sur quoi
+            // noter.
             'classe_competences' => [
                 'modele' => ClasseCompetence::class,
-                'colonnes' => ['id', 'classe_id', 'competence_id', 'groupe', 'statut'],
+                'colonnes' => ['id', 'classe_id', 'competence_id', 'notation', 'evalue_pratique', 'repartition_volets', 'groupe', 'statut'],
                 'portee' => fn(Builder $q, int $s) => $q
                     ->whereHas('classe', fn($c) => $c->where('school_id', $s))
                     ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('classe_id', $classesPerimetre)),

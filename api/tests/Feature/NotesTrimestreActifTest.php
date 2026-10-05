@@ -192,11 +192,15 @@ class NotesTrimestreActifTest extends TestCase
         ]);
         $competence = Competence::create([
             'school_id' => $this->school->id, 'label_fr' => 'Langue et communication',
+        ]);
+
+        // Le barème vit sur l'attribution, pas sur la compétence : c'est elle
+        // qui dit sur quoi cette classe-là note.
+        return ClasseCompetence::create([
+            'classe_id' => $classe->id, 'competence_id' => $competence->id,
             'notation' => 20, 'evalue_pratique' => false,
             'repartition_volets' => ['oral' => 10, 'ecrit' => 5, 'savoir_etre' => 5],
         ]);
-
-        return ClasseCompetence::create(['classe_id' => $classe->id, 'competence_id' => $competence->id]);
     }
 
     public function test_un_titulaire_peut_noter_le_trimestre_actif_au_primaire(): void

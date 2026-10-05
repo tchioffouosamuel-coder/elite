@@ -53,8 +53,7 @@ class NotePrimaireService extends BaseService
      */
     public function grille(ClasseCompetence $classeCompetence, Trimestre $trimestre): array
     {
-        $competence = $classeCompetence->competence;
-        $composantes = $competence->voletsNotes();
+        $composantes = $classeCompetence->voletsNotes();
         $sequences = $trimestre->sequencesRetenues();
         $maternelle = $this->parAppreciation($classeCompetence);
 
@@ -91,8 +90,8 @@ class NotePrimaireService extends BaseService
             'mode' => $maternelle ? 'appreciation' : 'note',
             'composantes' => $composantes,
             'sequences' => $sequences->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->libelle])->values()->all(),
-            'bareme' => (int) ($competence->notation ?? 20),
-            'repartition' => $competence->repartitionVolets(),
+            'bareme' => $classeCompetence->bareme(),
+            'repartition' => $classeCompetence->repartitionVolets(),
             'appreciations' => $maternelle ? $this->referentiel($classeCompetence) : [],
             'lignes' => $lignes,
         ];
@@ -141,7 +140,7 @@ class NotePrimaireService extends BaseService
             ? Appreciation::forSchool((int) $classeCompetence->classe->school_id)->pluck('id')->flip()
             : collect();
         $eleveIdsValides = $classeCompetence->classe->eleves()->pluck('id')->flip();
-        $composantesValides = array_flip($classeCompetence->competence->voletsNotes());
+        $composantesValides = array_flip($classeCompetence->voletsNotes());
         $anneeActive = AnneeScolaire::where('school_id', $classeCompetence->classe->school_id)->where('is_active', true)->first();
         $sequenceIdsValides = $anneeActive
             ? Sequence::whereHas(
@@ -200,7 +199,7 @@ class NotePrimaireService extends BaseService
     /** Part des cellules (élève × volet) déjà renseignées pour cette compétence, sur une séquence. */
     public function tauxRemplissage(ClasseCompetence $classeCompetence, Sequence $sequence): int
     {
-        $composantes = $classeCompetence->competence->voletsNotes();
+        $composantes = $classeCompetence->voletsNotes();
         $effectif = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->count();
         $total = $effectif * count($composantes);
 
