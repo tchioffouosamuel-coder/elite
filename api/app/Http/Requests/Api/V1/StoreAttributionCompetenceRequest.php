@@ -34,6 +34,11 @@ class StoreAttributionCompetenceRequest extends FormRequest
             'notation' => ['nullable', 'integer', 'min:5', 'max:100'],
             'evalue_pratique' => ['nullable', 'boolean'],
             'groupe' => ['nullable', 'integer', 'min:1', 'max:9'],
+
+            // Enseignant responsable de la compétence dans cette classe.
+            // `null` est une valeur à part entière : elle rend la compétence
+            // au titulaire, et c'est le seul moyen de défaire une délégation.
+            'personnel_id' => ['nullable', 'integer', 'exists:personnels,id'],
             'statut' => ['nullable', 'in:actif,inactif'],
 
             // Répartition du barème entre les volets : chaque volet est

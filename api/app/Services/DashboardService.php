@@ -373,8 +373,9 @@ class DashboardService extends BaseService
     }
 
     /**
-     * Compétences notées par l'agent : seul le titulaire saisit les notes de
-     * compétence (plus de `personnel_id` propre à `classe_competences`).
+     * Compétences notées par l'agent : toutes celles de la classe dont il est
+     * titulaire, et celles qu'on lui a confiées dans une classe qu'il ne tient
+     * pas (`classe_competences.personnel_id`, cf. `NotePrimaireService::peutSaisir()`).
      *
      * @param  list<int>  $classeIds
      * @return Collection<int, ClasseCompetence>
@@ -383,7 +384,9 @@ class DashboardService extends BaseService
     {
         return ClasseCompetence::whereIn('classe_id', $classeIds)
             ->where('statut', 'actif')
-            ->whereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId))
+            ->where(fn($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)))
             ->get();
     }
 

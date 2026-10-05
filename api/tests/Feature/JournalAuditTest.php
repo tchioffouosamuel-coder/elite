@@ -131,4 +131,54 @@ class JournalAuditTest extends TestCase
         $detail = $this->actingAs($user)->getJson('/api/v1/audit/'.$reponse->json('data.0.id'))->assertOk();
         $this->assertNotEmpty($detail->json('data.changements'));
     }
+
+    public function test_les_notifications_peuvent_etre_masquees_dans_la_liste_les_stats_et_export(): void
+    {
+        $user = $this->superAdmin();
+        School::create(['name' => 'Elites Secondaire', 'code' => 'ES', 'type' => 'secondaire', 'is_active' => true]);
+        $this->actingAs($user);
+        config(['audit.actif' => false]);
+
+        foreach (['notifications', 'classes', null] as $module) {
+            AuditLog::create([
+                'created_at' => now(),
+                'user_id' => $user->id,
+                'user_nom' => $user->name,
+                'action' => 'consultation',
+                'module' => $module,
+                'methode' => 'GET',
+                'url' => '/api/v1/'.($module ?? 'inconnu'),
+                'statut_http' => 200,
+            ]);
+        }
+
+        foreach (['', '&exclure_notifications=0', '&exclure_notifications=1'] as $filtre) {
+            $masquees = $filtre === '&exclure_notifications=1';
+            $total = $masquees ? 2 : 3;
+            $modules = $masquees ? ['classes', null] : ['notifications', 'classes', null];
+
+            $liste = $this->getJson('/api/v1/audit?per_page=1'.$filtre)->assertOk();
+            $liste->assertJsonPath('meta.pagination.total', $total);
+            $liste->assertJsonPath('data.0.module', null);
+            $dernierePage = $this->getJson('/api/v1/audit?per_page=1&page='.$total.$filtre)->assertOk();
+            $dernierePage->assertJsonPath('data.0.module', $masquees ? 'classes' : 'notifications');
+
+            $stats = $this->getJson('/api/v1/audit/stats?'.$filtre)->assertOk();
+            $stats->assertJsonPath('data.total', $total);
+            $stats->assertJsonPath('data.par_action.consultation', $total);
+            $stats->assertJsonPath('data.top_utilisateurs.0.total', $total);
+            $this->assertEqualsCanonicalizing(array_filter($modules), array_column($stats->json('data.top_modules'), 'module'));
+
+            $csv = $this->get('/api/v1/audit/export?'.$filtre)->assertOk()->streamedContent();
+            $this->assertStringContainsString('/api/v1/classes', $csv);
+            $this->assertStringContainsString('/api/v1/inconnu', $csv);
+            if ($masquees) {
+                $this->assertStringNotContainsString('/api/v1/notifications', $csv);
+            } else {
+                $this->assertStringContainsString('/api/v1/notifications', $csv);
+            }
+        }
+
+        $this->assertSame(3, AuditLog::count());
+    }
 }

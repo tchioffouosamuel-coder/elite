@@ -115,6 +115,16 @@ export interface ClasseCompetence {
   classe_id: number;
   competence_id: number;
   competence: Competence | null;
+  /**
+   * Enseignant nommé sur la compétence ; nul tant que le titulaire la tient.
+   * C'est la valeur du formulaire, pas celle de la colonne.
+   */
+  personnel_id: number | null;
+  /**
+   * Qui tient réellement la compétence — le responsable nommé, à défaut le
+   * titulaire de la classe, et `herite` dit lequel des deux.
+   */
+  enseignant: { id: number; nom_complet: string; herite: boolean } | null;
   /** Barème dans cette classe. Nul en maternelle, qui évalue par appréciation. */
   notation: number | null;
   evalue_pratique: boolean;
@@ -435,16 +445,15 @@ export async function attribuerCompetences(
 /**
  * Règle le barème, le groupe ou le statut d'une compétence dans une classe.
  *
- * `personnel_id` subsiste pour les écrans qui l'envoient encore, mais l'API le
- * laisse tomber : au primaire l'enseignant est porté par chaque matière
- * (`PUT classe-matieres/{id}`), et la colonne a quitté `classe_competences`.
+ * `personnel_id` confie la compétence à un enseignant dans cette classe ;
+ * `null` la rend au titulaire. L'API propage le choix aux matières que la
+ * compétence a installées. Omettre la clé laisse la délégation en place.
  */
 export async function modifierAttributionCompetence(
   classeCompetenceId: number,
   payload: BaremeCompetencePayload & {
     groupe?: number
     statut?: string
-    /** Ignoré par l'API — cf. ci-dessus. */
     personnel_id?: number | null
   },
 ): Promise<ClasseCompetence> {
@@ -468,6 +477,38 @@ export async function retirerCompetenceClasse(
     `/classe-competences/${classeCompetenceId}`,
     motDePasse ? { data: { mot_de_passe: motDePasse } } : undefined,
   );
+}
+
+/**
+ * Recopie des attributions de compétences vers d'autres classes. Le barème
+ * suit ; l'enseignant non — c'est le titulaire de la classe d'arrivée qui
+ * reprend les compétences qu'elle reçoit. Une compétence déjà attribuée dans
+ * la classe visée est ignorée, jamais écrasée.
+ */
+export async function copierCompetencesClasse(payload: {
+  attribution_ids: number[];
+  classe_ids: number[];
+}): Promise<{ copiees: number; ignorees: number; matieres: number }> {
+  const { data } = await http.post<
+    ApiResponse<{ copiees: number; ignorees: number; matieres: number }>
+  >("/classe-competences/copier", payload);
+  return data.data;
+}
+
+/**
+ * Retire plusieurs compétences d'une classe. Dès qu'une seule du lot porte
+ * des notes, l'API répond 409 tant que `motDePasse` n'est pas fourni — même
+ * règle que la suppression unitaire, appliquée au lot entier.
+ */
+export async function batchRetirerCompetencesClasse(
+  ids: number[],
+  motDePasse?: string,
+): Promise<{ retirees: number }> {
+  const { data } = await http.post<ApiResponse<{ retirees: number }>>(
+    "/classe-competences/batch-delete",
+    motDePasse ? { ids, mot_de_passe: motDePasse } : { ids },
+  );
+  return data.data;
 }
 
 /**

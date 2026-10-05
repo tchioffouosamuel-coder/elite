@@ -56,6 +56,7 @@ export interface FiltresAudit {
   user_id?: string;
   action?: string;
   module?: string;
+  exclure_notifications?: string;
   methode?: string;
   statut?: string;
   recherche?: string;

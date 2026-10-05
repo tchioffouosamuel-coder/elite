@@ -235,6 +235,9 @@ class NotePrimaireService extends BaseService
             return false;
         }
 
-        return $classeCompetence->classe->titulaire_id === $personnelId;
+        // Le titulaire tient toute sa classe ; l'enseignant nommé sur la
+        // compétence tient celle-là, dans une classe qui n'est pas la sienne.
+        return $classeCompetence->classe->titulaire_id === $personnelId
+            || $classeCompetence->personnel_id === $personnelId;
     }
 }

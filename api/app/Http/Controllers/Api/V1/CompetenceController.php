@@ -14,6 +14,7 @@ use App\Imports\CompetenceImport;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Competence;
+use App\Models\Personnel;
 use App\Models\Sequence;
 use App\Services\CompetenceAttributionService;
 use App\Services\NotePrimaireService;
@@ -43,7 +44,9 @@ class CompetenceController extends Controller
     /**
      * Compétences que je tiens, toutes classes confondues — pendant primaire
      * de `ClasseMatiereController::mesAffectations()`. Le titulaire les tient
-     * toutes dans sa classe sans être nommé sur chacune.
+     * toutes dans sa classe sans être nommé sur chacune ; s'y ajoutent celles
+     * qu'on m'a confiées dans une classe que je ne tiens pas
+     * ({@see ClasseCompetence::enseignant()}).
      */
     public function mesAffectations(Request $request): JsonResponse
     {
@@ -55,7 +58,9 @@ class CompetenceController extends Controller
 
         $attributions = ClasseCompetence::whereHas('classe', fn ($q) => $q->forSchool(Tenant::schoolIds()))
             ->where('statut', 'actif')
-            ->whereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId))
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
             ->with(['classe', 'competence'])
             ->get();
 
@@ -256,16 +261,16 @@ class CompetenceController extends Controller
     }
 
     /**
-     * Compétences attribuées à une classe, avec leurs matières. L'enseignant
-     * ne vit plus à ce niveau : il s'affecte par matière, via
-     * `ClasseMatiereController` (`GET classes/{id}/matieres`).
+     * Compétences attribuées à une classe, avec leurs matières et l'enseignant
+     * qui les tient — celui nommé sur l'attribution, à défaut le titulaire de
+     * la classe (cf. `ClasseCompetenceResource`).
      */
     public function parClasse(int $classeId): JsonResponse
     {
         $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($classeId);
 
         $attributions = $classe->classeCompetences()
-            ->with('competence.matieres')
+            ->with(['competence.matieres', 'enseignant', 'classe.titulaire'])
             ->get()
             ->sortBy(fn (ClasseCompetence $cc) => [$cc->competence?->ordre, $cc->competence?->label_fr])
             ->values();
@@ -304,23 +309,159 @@ class CompetenceController extends Controller
      * C'est ici que se règle la notation : barème, volet pratique et
      * répartition des points valent pour cette classe seule.
      *
-     * L'enseignant ne se change pas ici : il s'affecte par matière, via
-     * `ClasseMatiereController::update()`/`batchEnseignant()`.
+     * C'est aussi ici que se confie la compétence : `personnel_id` nomme
+     * l'enseignant qui en est responsable dans cette classe, et `null` la rend
+     * au titulaire. Le changement descend sur les matières que la compétence a
+     * installées (cf. `CompetenceAttributionService::confier()`), pour qu'un
+     * même bloc n'affiche pas deux enseignants selon l'écran.
      */
     public function modifierAttribution(StoreAttributionCompetenceRequest $request, int $classeCompetenceId): JsonResponse
     {
         $attribution = ClasseCompetence::forSchool(Tenant::schoolIds())->with('classe')->findOrFail($classeCompetenceId);
         $this->autoriserGestionAttribution($request, $attribution);
 
+        $donnees = $request->validated();
+
+        // `array_key_exists` et non `isset` : `personnel_id => null` est la
+        // demande explicite de rendre la compétence au titulaire, qu'une mise
+        // à jour partielle du seul barème ne doit pas déclencher.
+        if (array_key_exists('personnel_id', $donnees)) {
+            $personnelId = $donnees['personnel_id'];
+
+            if ($personnelId !== null) {
+                $personnel = Personnel::forSchool(Tenant::schoolIds())->find($personnelId);
+
+                if ($personnel === null || $personnel->school_id !== $attribution->classe->school_id) {
+                    return ApiResponse::error("Cet agent n'appartient pas à l'école de cette classe.", 422);
+                }
+            }
+
+            $this->attribution->confier($attribution, $personnelId);
+            unset($donnees['personnel_id']);
+        }
+
         // `null` est une valeur de réglage à part entière ici — remettre la
         // répartition à null, c'est revenir au partage à parts égales. Seules
         // les clés absentes de la requête sont écartées, par `validated()`.
-        $attribution->update($request->validated());
-        $attribution->load('competence');
+        $attribution->update($donnees);
+        $attribution->load(['competence', 'enseignant', 'classe.titulaire']);
 
         return ApiResponse::success(
             new ClasseCompetenceResource($attribution),
             'Attribution mise à jour.',
+        );
+    }
+
+    /**
+     * Recopie des attributions vers d'autres classes — le pendant primaire de
+     * `ClasseMatiereController::copier()`.
+     *
+     * Une classe se règle une fois, puis se reporte sur les sections voisines :
+     * c'est le geste que cette route évite de refaire bloc par bloc. Le barème
+     * suit ; l'enseignant non, c'est le titulaire de la classe d'arrivée qui
+     * tient les compétences qu'elle reçoit.
+     */
+    public function copier(Request $request): JsonResponse
+    {
+        $schoolIds = Tenant::schoolIds();
+
+        $data = $request->validate([
+            'attribution_ids' => ['required', 'array', 'min:1'],
+            'attribution_ids.*' => ['integer'],
+            'classe_ids' => ['required', 'array', 'min:1'],
+            'classe_ids.*' => ['integer'],
+        ]);
+
+        $attributions = ClasseCompetence::forSchool($schoolIds)
+            ->with('classe')
+            ->whereIn('id', $data['attribution_ids'])
+            ->get();
+        $classesCibles = Classe::forSchool($schoolIds)->whereIn('id', $data['classe_ids'])->get();
+
+        if ($attributions->isEmpty() || $classesCibles->isEmpty()) {
+            return ApiResponse::notFound();
+        }
+
+        foreach ($attributions as $attribution) {
+            $this->autoriserGestionAttribution($request, $attribution);
+        }
+
+        // Une compétence appartient à son école : la recopier dans la classe
+        // d'une autre y installerait un bloc du référentiel voisin.
+        $horsEcole = $classesCibles->first(
+            fn (Classe $classe) => $attributions->contains(fn (ClasseCompetence $a) => $a->classe->school_id !== $classe->school_id),
+        );
+
+        if ($horsEcole !== null) {
+            return ApiResponse::error("La classe « {$horsEcole->nom} » n'appartient pas à la même école.", 422);
+        }
+
+        $resultat = $this->attribution->copier($attributions, $classesCibles);
+
+        return ApiResponse::success(
+            $resultat,
+            $resultat['ignorees'] > 0
+                ? "{$resultat['copiees']} compétence(s) copiée(s), {$resultat['ignorees']} déjà présente(s) ignorée(s)."
+                : "{$resultat['copiees']} compétence(s) copiée(s).",
+        );
+    }
+
+    /**
+     * Retire plusieurs compétences d'une classe d'un coup.
+     *
+     * Même règle que la suppression unitaire, appliquée au lot : dès qu'une
+     * seule des compétences porte des notes, l'opération entière demande le
+     * mot de passe (409), puis part en bloc — sans quoi l'utilisateur devrait
+     * deviner laquelle du lot l'a fait échouer.
+     */
+    public function batchRetirer(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+            'mot_de_passe' => ['nullable', 'string'],
+        ]);
+
+        $attributions = ClasseCompetence::forSchool(Tenant::schoolIds())
+            ->with('classe')
+            ->whereIn('id', $data['ids'])
+            ->get();
+
+        if ($attributions->isEmpty()) {
+            return ApiResponse::notFound();
+        }
+
+        foreach ($attributions as $attribution) {
+            $this->autoriserGestionAttribution($request, $attribution);
+        }
+
+        $notees = $attributions->filter(fn (ClasseCompetence $a) => $a->notes()->exists());
+
+        if ($notees->isNotEmpty()) {
+            $motDePasse = (string) ($data['mot_de_passe'] ?? '');
+
+            if ($motDePasse === '') {
+                return ApiResponse::error(
+                    "{$notees->count()} des compétences sélectionnées portent déjà des notes. "
+                        .'Confirmez votre mot de passe pour les supprimer quand même, avec leurs affectations et leurs notes.',
+                    409,
+                );
+            }
+
+            if (! Hash::check($motDePasse, $request->user()->password)) {
+                return ApiResponse::error('Mot de passe incorrect.', 422);
+            }
+        }
+
+        foreach ($attributions as $attribution) {
+            $this->attribution->retirer($attribution);
+        }
+
+        $retirees = $attributions->count();
+
+        return ApiResponse::success(
+            ['retirees' => $retirees],
+            "{$retirees} compétence(s) retirée(s) de la classe.",
         );
     }
 

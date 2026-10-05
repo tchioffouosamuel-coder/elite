@@ -150,6 +150,11 @@ class AuditLogController extends Controller
         if ($request->filled('module')) {
             $requete->where('module', $request->string('module'));
         }
+        if ($request->boolean('exclure_notifications')) {
+            $requete->where(fn (Builder $q) => $q
+                ->whereNull('module')
+                ->orWhere('module', '!=', 'notifications'));
+        }
         if ($request->filled('methode')) {
             $requete->where('methode', strtoupper($request->string('methode')));
         }

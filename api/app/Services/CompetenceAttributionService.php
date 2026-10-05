@@ -21,11 +21,11 @@ use Illuminate\Support\Collection;
  * Le barème, lui, est porté par l'attribution et non par la compétence : la
  * même compétence ne se note pas de la même façon d'une classe à l'autre.
  *
- * L'enseignant est porté par chaque matière, pas par la compétence : un
- * enseignant par matière, y compris au primaire (cf. {@see ClasseMatiere}).
- * Sans enseignant désigné, une matière nouvellement installée prend par
- * défaut le titulaire de la classe — qui reste de toute façon seul habilité à
- * saisir les notes de toutes les compétences ({@see \App\Services\NotePrimaireService::peutSaisir()}).
+ * L'enseignant, lui, se nomme sur l'attribution, et seulement par exception :
+ * laissée vide, la compétence revient au titulaire de la classe, qui la tient
+ * et la saisit. La renseigner confie la compétence à un intervenant qui n'est
+ * pas titulaire — et les matières qu'elle installe dans la classe lui
+ * reviennent ({@see ClasseCompetence::enseignantEffectifId()}).
  */
 class CompetenceAttributionService extends BaseService
 {
@@ -86,6 +86,86 @@ class CompetenceAttributionService extends BaseService
      * matières — mais seulement celles-là : une matière installée autrement
      * n'a pas à disparaître parce qu'un bloc voisin est retiré.
      */
+    /**
+     * Confie la compétence à un enseignant — ou la rend au titulaire en
+     * passant `null` — et aligne les matières qu'elle a installées dans la
+     * classe : laisser une matière sur l'ancien responsable ferait apparaître
+     * deux enseignants pour un même bloc, l'un à l'écran des compétences,
+     * l'autre dans l'emploi du temps et les séances.
+     */
+    public function confier(ClasseCompetence $attribution, ?int $personnelId): ClasseCompetence
+    {
+        return $this->transaction(function () use ($attribution, $personnelId) {
+            $attribution->update(['personnel_id' => $personnelId]);
+            $attribution->refresh();
+
+            $matiereIds = Matiere::where('competence_id', $attribution->competence_id)->pluck('id');
+
+            ClasseMatiere::where('classe_id', $attribution->classe_id)
+                ->whereIn('matiere_id', $matiereIds)
+                ->update(['personnel_id' => $attribution->enseignantEffectifId()]);
+
+            return $attribution;
+        });
+    }
+
+    /**
+     * Recopie des attributions vers d'autres classes : la compétence, son
+     * barème et ses volets, et avec eux les matières qu'elle installe.
+     *
+     * Une compétence déjà attribuée dans la classe visée est ignorée, jamais
+     * écrasée — on ne défait pas un barème réglé à la main en recopiant un
+     * voisin.
+     *
+     * L'enseignant ne se recopie pas : au primaire, c'est le titulaire de la
+     * classe d'arrivée qui tient les compétences. Y reporter le responsable
+     * nommé dans la classe source désignerait un agent qui n'y met pas les
+     * pieds (même raison que `ClasseMatiereController::enseignantPour()`).
+     *
+     * @param  Collection<int, ClasseCompetence>  $attributions
+     * @param  Collection<int, Classe>  $classesCibles
+     * @return array{copiees: int, ignorees: int, matieres: int}
+     */
+    public function copier(Collection $attributions, Collection $classesCibles): array
+    {
+        return $this->transaction(function () use ($attributions, $classesCibles) {
+            $copiees = 0;
+            $ignorees = 0;
+            $matieres = 0;
+
+            foreach ($classesCibles as $classe) {
+                $deja = ClasseCompetence::where('classe_id', $classe->id)->pluck('competence_id');
+
+                foreach ($attributions as $source) {
+                    if ($deja->contains($source->competence_id)) {
+                        $ignorees++;
+
+                        continue;
+                    }
+
+                    $copie = ClasseCompetence::create([
+                        'classe_id' => $classe->id,
+                        'competence_id' => $source->competence_id,
+                        'notation' => $source->notation,
+                        'evalue_pratique' => $source->evalue_pratique,
+                        'repartition_volets' => $source->repartition_volets,
+                        'groupe' => $source->groupe,
+                        'statut' => $source->statut,
+                    ]);
+                    $copie->setRelation('classe', $classe);
+
+                    $matieres += $this->installerMatieres(
+                        $copie,
+                        Matiere::where('competence_id', $source->competence_id)->get(),
+                    );
+                    $copiees++;
+                }
+            }
+
+            return ['copiees' => $copiees, 'ignorees' => $ignorees, 'matieres' => $matieres];
+        });
+    }
+
     public function retirer(ClasseCompetence $attribution): void
     {
         $this->transaction(function () use ($attribution) {
@@ -131,11 +211,10 @@ class CompetenceAttributionService extends BaseService
      * affectation déjà en place — un enseignant remplacé sur une matière
      * précise doit survivre à une réattribution du bloc.
      *
-     * Sans enseignant désigné, une matière nouvellement installée prend par
-     * défaut le titulaire de la classe : c'est lui qui l'enseigne tant que
-     * personne d'autre n'a été affecté explicitement (via
-     * `ClasseMatiereController`), et c'est de toute façon lui seul qui est
-     * habilité à saisir les notes de la compétence.
+     * La matière revient à l'enseignant de l'attribution — le responsable
+     * nommé, à défaut le titulaire de la classe
+     * ({@see ClasseCompetence::enseignantEffectifId()}). Elle peut ensuite
+     * être réaffectée individuellement via `ClasseMatiereController`.
      *
      * @param  Collection<int, Matiere>  $matieres
      */
@@ -155,7 +234,7 @@ class CompetenceAttributionService extends BaseService
             ClasseMatiere::create([
                 'classe_id' => $attribution->classe_id,
                 'matiere_id' => $matiere->id,
-                'personnel_id' => $attribution->classe->titulaire_id,
+                'personnel_id' => $attribution->enseignantEffectifId(),
                 'groupe' => $attribution->groupe ?? 1,
             ]);
 

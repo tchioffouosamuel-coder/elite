@@ -778,6 +778,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('classes/{classeId}/competences', [CompetenceController::class, 'attribuer'])->name('classes.competences.attribuer')->middleware('permission:competences.attribuer');
             Route::put('classe-competences/{id}', [CompetenceController::class, 'modifierAttribution'])->name('classe-competences.update')->middleware('permission:competences.attribuer');
             Route::delete('classe-competences/{id}', [CompetenceController::class, 'retirer'])->name('classe-competences.destroy')->middleware('permission:competences.attribuer');
+            Route::post('classe-competences/copier', [CompetenceController::class, 'copier'])->name('classe-competences.copier')->middleware('permission:competences.attribuer');
+            Route::post('classe-competences/batch-delete', [CompetenceController::class, 'batchRetirer'])->name('classe-competences.batch-delete')->middleware('permission:competences.attribuer');
 
             Route::post('matieres', [MatiereController::class, 'store'])->name('matieres.store')->middleware('permission:matieres.create');
             Route::put('matieres/{id}', [MatiereController::class, 'update'])->name('matieres.update')->middleware('permission:matieres.update');

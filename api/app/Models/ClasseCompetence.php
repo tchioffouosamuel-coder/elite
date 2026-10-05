@@ -18,9 +18,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * Attribuer une compétence crée d'office l'affectation de chacune de ses
  * matières à la classe (cf. `CompetenceAttributionService`) : l'utilisateur
- * choisit un bloc, pas une liste de matières une à une. L'enseignant, lui,
- * est porté par chaque matière ({@see ClasseMatiere::enseignant()}), pas par
- * la compétence — un enseignant par matière, y compris au primaire.
+ * choisit un bloc, pas une liste de matières une à une.
+ *
+ * `personnel_id` désigne l'enseignant responsable de la compétence DANS CETTE
+ * CLASSE. Nul — le cas normal — elle revient au titulaire : au primaire c'est
+ * lui qui tient toutes les compétences sans être nommé sur chacune. Le
+ * renseigner confie la compétence à quelqu'un d'autre, qui gagne alors le
+ * droit de la saisir ({@see \App\Services\NotePrimaireService::peutSaisir()})
+ * sans rien retirer au titulaire. Les matières de la compétence installées
+ * dans la classe suivent ce choix ({@see ClasseMatiere::enseignant()}).
  */
 class ClasseCompetence extends Model
 {
@@ -28,7 +34,7 @@ class ClasseCompetence extends Model
     public const VOLETS_BASE = ['oral', 'ecrit', 'savoir_etre'];
 
     protected $fillable = [
-        'classe_id', 'competence_id', 'notation', 'evalue_pratique',
+        'classe_id', 'competence_id', 'personnel_id', 'notation', 'evalue_pratique',
         'repartition_volets', 'groupe', 'statut',
     ];
 
@@ -125,6 +131,22 @@ class ClasseCompetence extends Model
     public function competence(): BelongsTo
     {
         return $this->belongsTo(Competence::class);
+    }
+
+    /** Enseignant nommé sur la compétence ; nul tant que le titulaire la tient. */
+    public function enseignant(): BelongsTo
+    {
+        return $this->belongsTo(Personnel::class, 'personnel_id');
+    }
+
+    /**
+     * Qui enseigne réellement la compétence : l'enseignant nommé, à défaut le
+     * titulaire de la classe. C'est cette valeur que l'écran affiche et que
+     * les matières installées reprennent.
+     */
+    public function enseignantEffectifId(): ?int
+    {
+        return $this->personnel_id ?? $this->classe?->titulaire_id;
     }
 
     public function notes(): HasMany

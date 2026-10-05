@@ -11,9 +11,11 @@ use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
 use App\Models\School;
+use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\CataloguePermissions;
+use Carbon\Carbon;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -141,5 +143,56 @@ class MaJourneeEcoleTest extends TestCase
             ->assertOk();
 
         $reponse->assertJsonPath('data.0.statut', 'effectuee');
+    }
+
+    /**
+     * Les séances sont pré-générées « prevue » à l'ouverture d'un trimestre
+     * (cf. EmploiDuTempsService::genererSeances()) : leur simple existence ne
+     * doit pas masquer un cours dont l'heure de fin est passée sans appel.
+     */
+    public function test_une_seance_pregeneree_non_declaree_passe_en_retard_apres_l_heure_de_fin(): void
+    {
+        Carbon::setTestNow(Carbon::today()->setTime(16, 5));
+
+        EmploiDuTemps::where('classe_matiere_id', $this->classeMatiere->id)
+            ->update(['heure_debut' => '07:30', 'heure_fin' => '09:10']);
+
+        Seance::create([
+            'school_id' => $this->school->id,
+            'classe_id' => $this->classe->id,
+            'classe_matiere_id' => $this->classeMatiere->id,
+            'date_seance' => Carbon::today()->toDateString(),
+            'heure_debut' => '07:30',
+            'heure_fin' => '09:10',
+            'statut' => 'prevue',
+        ]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/v1/ma-journee/ecole')
+            ->assertOk()
+            ->assertJsonPath('data.0.statut', 'en_retard');
+    }
+
+    public function test_un_cours_a_venir_dans_la_journee_reste_prevu(): void
+    {
+        Carbon::setTestNow(Carbon::today()->setTime(8, 0));
+
+        EmploiDuTemps::where('classe_matiere_id', $this->classeMatiere->id)
+            ->update(['heure_debut' => '07:30', 'heure_fin' => '09:10']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/v1/ma-journee/ecole')
+            ->assertOk()
+            ->assertJsonPath('data.0.statut', 'prevue');
+    }
+
+    public function test_un_cours_non_declare_d_une_date_passee_est_en_retard(): void
+    {
+        $hier = Carbon::today()->subDay()->toDateString();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/v1/ma-journee/ecole?date='.$hier)
+            ->assertOk()
+            ->assertJsonPath('data.0.statut', 'en_retard');
     }
 }

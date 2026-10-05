@@ -162,6 +162,15 @@ export function JournalAuditPage() {
               <Eraser className="h-3.5 w-3.5" />
               Réinitialiser
             </Button>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-navy-700">
+              <input
+                type="checkbox"
+                checked={filtres.exclure_notifications !== '1'}
+                onChange={(e) => appliquer({ exclure_notifications: e.target.checked ? undefined : '1' })}
+                className="h-4 w-4 shrink-0 rounded border-navy-300 accent-navy-700 focus:ring-navy-500"
+              />
+              Afficher les actions de notification
+            </label>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

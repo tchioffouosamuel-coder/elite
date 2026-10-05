@@ -16,6 +16,8 @@ import {
   fetchCompetencesClasse,
   modifierAttributionCompetence,
   retirerCompetenceClasse,
+  copierCompetencesClasse,
+  batchRetirerCompetencesClasse,
   type ClasseMatiere,
   type ClasseMatiereUpdatePayload,
   type ClasseCompetence,
@@ -69,6 +71,12 @@ export function AffectationsTab({
   const [enseignantEnMasse, setEnseignantEnMasse] = useState(false)
   const [rechercheMatiere, setRechercheMatiere] = useState('')
   const [competenceEnEdition, setCompetenceEnEdition] = useState<ClasseCompetence | null>(null)
+  // Sélection de la table des compétences — distincte de celle des matières :
+  // les deux tables ne s'affichent jamais ensemble, mais leurs identifiants
+  // viennent de tables différentes et ne doivent pas se mélanger.
+  const [competencesSelectionnees, setCompetencesSelectionnees] = useState<Set<number>>(new Set())
+  const [showCopieCompetences, setShowCopieCompetences] = useState(false)
+  const [showSuppressionCompetences, setShowSuppressionCompetences] = useState(false)
   // Compétence dont la suppression est bloquée par des notes existantes :
   // le modal de confirmation par mot de passe prend le relai plutôt que le
   // toast d'erreur générique.
@@ -135,6 +143,24 @@ export function AffectationsTab({
     }
 
     setSelectedIds(new Set(affectations.map((a) => a.id)))
+  }
+
+  const basculerCompetence = (id: number) =>
+    setCompetencesSelectionnees((courant) => {
+      const suivant = new Set(courant)
+      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      return suivant
+    })
+
+  const selectionnerToutesCompetences = () => {
+    if (!competencesClasse) return
+
+    if (competencesSelectionnees.size === competencesClasse.length && competencesClasse.length > 0) {
+      setCompetencesSelectionnees(new Set())
+      return
+    }
+
+    setCompetencesSelectionnees(new Set(competencesClasse.map((a) => a.classe_competence_id)))
   }
 
   const retirerAffectation = async (id: number, nom: string) => {
@@ -337,6 +363,36 @@ export function AffectationsTab({
       : []
 
   const colonnesCompetences: Colonne<ClasseCompetence>[] = [
+    ...(can('competences.attribuer')
+      ? [
+        {
+          cle: 'selection',
+          entete: (
+            <div className="flex justify-center">
+              <input
+                type="checkbox"
+                checked={(competencesClasse?.length ?? 0) > 0 && competencesSelectionnees.size === competencesClasse?.length}
+                onChange={selectionnerToutesCompetences}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                aria-label="Tout sélectionner"
+              />
+            </div>
+          ),
+          cellule: (a: ClasseCompetence) => (
+            <div className="flex justify-center">
+              <input
+                type="checkbox"
+                checked={competencesSelectionnees.has(a.classe_competence_id)}
+                onChange={() => basculerCompetence(a.classe_competence_id)}
+                className="h-4 w-4 rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                aria-label={`Sélectionner ${a.competence?.label_fr ?? ''}`}
+              />
+            </div>
+          ),
+          className: 'w-12',
+        },
+      ]
+      : []),
     {
       cle: 'competence',
       entete: t('competences.singulier'),
@@ -363,6 +419,24 @@ export function AffectationsTab({
           <span className="text-xs text-gold-600">{t('competences.sans_matiere')}</span>
         ) : (
           <span className="text-navy-600">{a.competence?.matieres?.map((m) => m.nom).join(' · ')}</span>
+        ),
+      masquerMobile: true,
+    },
+    {
+      // Le titulaire tient par défaut toutes les compétences de sa classe ;
+      // la colonne ne se distingue que lorsqu'une compétence a été confiée à
+      // quelqu'un d'autre — d'où la mention « titulaire » sur l'héritage.
+      cle: 'enseignant',
+      entete: t('pedagogie.enseignant'),
+      valeur: (a) => a.enseignant?.nom_complet ?? '',
+      cellule: (a) =>
+        a.enseignant ? (
+          <span className="flex flex-col">
+            <span className="text-navy-700">{a.enseignant.nom_complet}</span>
+            {a.enseignant.herite && <span className="text-xs text-navy-400">Titulaire de la classe</span>}
+          </span>
+        ) : (
+          <span className="text-xs text-gold-600">Sans enseignant</span>
         ),
       masquerMobile: true,
     },
@@ -435,6 +509,18 @@ export function AffectationsTab({
     <div className="flex flex-col gap-4">
       {can('affectations.create|affectations.update|affectations.delete|competences.attribuer|matieres.import') && (
         <div className="flex justify-end gap-2">
+          {competencesSelectionnees.size > 0 && !secondaire && can('competences.attribuer') && (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setShowCopieCompetences(true)}>
+                <Copy className="h-4 w-4" />
+                Copier vers une classe ({competencesSelectionnees.size})
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => setShowSuppressionCompetences(true)}>
+                <Trash2 className="h-4 w-4" />
+                Supprimer ({competencesSelectionnees.size})
+              </Button>
+            </>
+          )}
           {selectedIds.size > 0 && (
             <>
               {/* Une matière transversale couvre toutes les classes d'un
@@ -615,6 +701,34 @@ export function AffectationsTab({
           onSaved={() => {
             setCompetenceEnEdition(null)
             invalidateCompetences()
+            // L'enseignant d'une compétence redescend sur ses matières : la
+            // table des affectations du secondaire en dépend aussi.
+            invalidate()
+          }}
+        />
+      )}
+
+      {showCopieCompetences && (
+        <CopierCompetencesModal
+          classeId={classeId}
+          attributionIds={[...competencesSelectionnees]}
+          onClose={() => setShowCopieCompetences(false)}
+          onCopied={() => {
+            setShowCopieCompetences(false)
+            setCompetencesSelectionnees(new Set())
+          }}
+        />
+      )}
+
+      {showSuppressionCompetences && (
+        <SupprimerCompetencesLotModal
+          attributions={(competencesClasse ?? []).filter((a) => competencesSelectionnees.has(a.classe_competence_id))}
+          onClose={() => setShowSuppressionCompetences(false)}
+          onDeleted={() => {
+            setShowSuppressionCompetences(false)
+            setCompetencesSelectionnees(new Set())
+            invalidateCompetences()
+            invalidate()
           }}
         />
       )}
@@ -769,13 +883,15 @@ function EditAffectationModal({
 }
 
 /**
- * Règle le barème d'une compétence DANS CETTE CLASSE — notation, volet
- * pratique, répartition des points.
+ * Règle une compétence DANS CETTE CLASSE : son barème — notation, volet
+ * pratique, répartition des points — et l'enseignant qui en est responsable.
  *
- * L'enseignant ne se change pas ici : au primaire il est porté par chaque
- * matière (cf. `ClasseMatiereController`), et la colonne a quitté
- * `classe_competences` depuis longtemps. Ce que l'attribution porte désormais,
- * c'est l'évaluation.
+ * L'enseignant est une exception, pas la règle : laissé vide, la compétence
+ * revient au titulaire, qui la tient et la saisit. Le désigner confie la
+ * compétence à quelqu'un qui n'est pas titulaire de la classe — un intervenant
+ * d'anglais ou de sport — qui gagne alors le droit d'en saisir les notes, sans
+ * rien retirer au titulaire. Les matières installées par la compétence suivent
+ * ce choix côté API.
  */
 function EditCompetenceModal({
   attribution,
@@ -791,17 +907,27 @@ function EditCompetenceModal({
   const { t } = useTranslation()
   const [serverError, setServerError] = useState<string | null>(null)
   const [bareme, setBareme] = useState<BaremeSaisi>(() => baremeInitial(attribution))
+  const [personnelId, setPersonnelId] = useState<number | ''>(attribution.personnel_id ?? '')
   const [envoi, setEnvoi] = useState(false)
+
+  const { data: personnels } = useQuery({
+    queryKey: ['personnels', 'competence-responsable'],
+    queryFn: () => fetchPersonnels({ per_page: 500 }),
+  })
+
+  // Le titulaire s'affiche tel quel dans l'option par défaut : sans son nom,
+  // « — » ne dirait pas à qui la compétence revient quand on la rend.
+  const titulaire = attribution.enseignant?.herite ? attribution.enseignant.nom_complet : null
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setServerError(null)
     setEnvoi(true)
     try {
-      await modifierAttributionCompetence(
-        attribution.classe_competence_id,
-        payloadBareme(bareme, !!maternelle),
-      )
+      await modifierAttributionCompetence(attribution.classe_competence_id, {
+        ...payloadBareme(bareme, !!maternelle),
+        personnel_id: personnelId === '' ? null : Number(personnelId),
+      })
       succes(t('competences.attribution_modifiee'))
       onSaved()
     } catch (err) {
@@ -821,6 +947,27 @@ function EditCompetenceModal({
         ) : (
           <BaremeCompetenceFields valeur={bareme} onChange={setBareme} />
         )}
+
+        <div className="flex flex-col gap-1.5">
+          <Select
+            label={t('pedagogie.enseignant')}
+            value={personnelId}
+            onChange={(e) => setPersonnelId(e.target.value === '' ? '' : Number(e.target.value))}
+          >
+            <option value="">
+              {titulaire ? `Titulaire de la classe — ${titulaire}` : 'Titulaire de la classe'}
+            </option>
+            {personnels?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nom_complet}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-navy-400">
+            Par défaut, le titulaire tient la compétence. Désigner quelqu'un d'autre lui confie la compétence dans
+            cette classe et lui ouvre la saisie de ses notes.
+          </p>
+        </div>
 
         {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 
@@ -911,6 +1058,234 @@ function SupprimerCompetenceNoteesModal({
           </Button>
           <Button type="button" variant="danger" onClick={confirmer} disabled={envoi}>
             {envoi ? 'Suppression…' : 'Supprimer définitivement'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Retire plusieurs compétences d'une classe d'un coup.
+ *
+ * L'écran demande d'abord confirmation à sec ; l'API répond 409 si au moins
+ * une des compétences du lot porte déjà des notes, et le mot de passe prend
+ * alors le relai — même étape que la suppression unitaire, pour la même
+ * raison : l'opération emporte les affectations de matières et les notes.
+ */
+function SupprimerCompetencesLotModal({
+  attributions,
+  onClose,
+  onDeleted,
+}: {
+  attributions: ClasseCompetence[]
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [motDePasseRequis, setMotDePasseRequis] = useState(false)
+  const [motDePasse, setMotDePasse] = useState('')
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+
+  const ids = attributions.map((a) => a.classe_competence_id)
+
+  const supprimer = async () => {
+    if (motDePasseRequis && !motDePasse) {
+      setServerError('Votre mot de passe est requis.')
+      return
+    }
+
+    setEnvoi(true)
+    setServerError(null)
+
+    try {
+      const { retirees } = await batchRetirerCompetencesClasse(ids, motDePasse || undefined)
+      succes(`${retirees} compétence(s) retirée(s) de la classe.`)
+      onDeleted()
+    } catch (err) {
+      const apiErr = err as ApiError
+
+      // 409 : des notes existent dans le lot — l'API demande le mot de passe
+      // plutôt que de refuser l'opération.
+      if (apiErr.status === 409) {
+        setMotDePasseRequis(true)
+        setServerError(apiErr.message)
+        return
+      }
+
+      setServerError(apiErr.message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Supprimer ${ids.length} compétence(s)`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-navy-600">
+          Les matières installées par ces compétences dans la classe seront également retirées.
+        </p>
+
+        <ul className="max-h-40 overflow-y-auto rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-600">
+          {attributions.map((a) => (
+            <li key={a.classe_competence_id}>• {a.competence?.label_fr ?? '—'}</li>
+          ))}
+        </ul>
+
+        {motDePasseRequis && (
+          <Input
+            type="password"
+            label="Votre mot de passe"
+            value={motDePasse}
+            onChange={(e) => setMotDePasse(e.target.value)}
+            autoFocus
+            autoComplete="current-password"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void supprimer()
+              }
+            }}
+          />
+        )}
+
+        {serverError && <p className="text-sm text-red-500">{serverError}</p>}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button type="button" variant="danger" onClick={supprimer} disabled={envoi}>
+            {envoi ? 'Suppression…' : motDePasseRequis ? 'Supprimer définitivement' : 'Supprimer'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Recopie les compétences sélectionnées vers une ou plusieurs autres classes :
+ * le barème réglé une fois sur une section se reporte sur les voisines au lieu
+ * d'être ressaisi bloc par bloc. Les matières de chaque compétence s'y
+ * installent d'office, comme à l'attribution.
+ *
+ * Une compétence déjà attribuée dans la classe visée est ignorée, jamais
+ * écrasée — on ne défait pas un barème réglé à la main en recopiant un voisin.
+ * L'enseignant ne se recopie pas non plus : au primaire, la classe d'arrivée
+ * confie ses compétences à son propre titulaire.
+ */
+function CopierCompetencesModal({
+  classeId,
+  attributionIds,
+  onClose,
+  onCopied,
+}: {
+  classeId: number
+  attributionIds: number[]
+  onClose: () => void
+  onCopied: () => void
+}) {
+  const { t } = useTranslation()
+  const [recherche, setRecherche] = useState('')
+  const [cibleIds, setCibleIds] = useState<Set<number>>(new Set())
+  const [envoi, setEnvoi] = useState(false)
+
+  const { data: classes, isLoading } = useQuery({
+    queryKey: ['classes', 'copier-competences'],
+    queryFn: () => fetchClasses(),
+  })
+
+  // La classe d'origine n'a rien à faire dans ses propres cibles ; le
+  // secondaire non plus, qui n'attribue pas de compétences.
+  const classesDisponibles = (classes ?? []).filter((c) => c.id !== classeId && !estSecondaire(c.school?.type))
+  const classesFiltrees = recherche
+    ? classesDisponibles.filter((c) => c.nom.toLowerCase().includes(recherche.toLowerCase()))
+    : classesDisponibles
+
+  const basculerCible = (id: number) =>
+    setCibleIds((courant) => {
+      const suivant = new Set(courant)
+      suivant.has(id) ? suivant.delete(id) : suivant.add(id)
+      return suivant
+    })
+
+  const copier = async () => {
+    if (cibleIds.size === 0) {
+      erreur('Choisissez au moins une classe.')
+      return
+    }
+
+    setEnvoi(true)
+    try {
+      const { copiees, ignorees } = await copierCompetencesClasse({
+        attribution_ids: attributionIds,
+        classe_ids: [...cibleIds],
+      })
+      succes(
+        ignorees > 0
+          ? `${copiees} compétence(s) copiée(s), ${ignorees} déjà présente(s) ignorée(s).`
+          : `${copiees} compétence(s) copiée(s).`,
+      )
+      onCopied()
+    } catch (err) {
+      erreur((err as ApiError).message)
+    } finally {
+      setEnvoi(false)
+    }
+  }
+
+  return (
+    <Modal title={`Copier vers une classe (${attributionIds.length})`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <Input
+          label="Rechercher une classe"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          autoFocus
+        />
+
+        <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-xs text-navy-500">
+          Le barème et les volets sont repris ; la compétence revient au titulaire de la classe d'arrivée. Une
+          compétence déjà attribuée dans la classe visée est laissée telle quelle.
+        </p>
+
+        {isLoading ? (
+          <Spinner />
+        ) : classesFiltrees.length === 0 ? (
+          <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm text-navy-400">
+            Aucune classe trouvée.
+          </p>
+        ) : (
+          <div className="flex max-h-64 flex-col divide-y divide-navy-50 overflow-y-auto rounded-xl border border-navy-100">
+            {classesFiltrees.map((c) => (
+              <label key={c.id} className="flex cursor-pointer items-start gap-2.5 px-3 py-2 text-sm hover:bg-cream-50">
+                <input
+                  type="checkbox"
+                  checked={cibleIds.has(c.id)}
+                  onChange={() => basculerCible(c.id)}
+                  className="mt-0.5 h-4 w-4 flex-none rounded border-navy-300 text-gold-600 focus:ring-gold-500"
+                />
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-navy-800">{c.nom}</span>
+                  {c.titulaire ? (
+                    <span className="truncate text-xs text-navy-400">Titulaire : {c.titulaire.nom_complet}</span>
+                  ) : (
+                    <span className="text-xs text-gold-600">Sans titulaire — enseignant laissé vide</span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="button" onClick={copier} disabled={envoi || cibleIds.size === 0}>
+            <Copy className="h-4 w-4" />
+            {envoi ? '…' : `Copier vers ${cibleIds.size || ''} classe(s)`}
           </Button>
         </div>
       </div>
