@@ -2,13 +2,13 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use App\Http\Requests\Api\V1\Concerns\ScopedRules;
+use App\Models\Eleve;
+use App\Support\Tenant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateEleveRequest extends FormRequest
 {
-    use ScopedRules;
-
     public function authorize(): bool
     {
         return true;
@@ -16,8 +16,16 @@ class UpdateEleveRequest extends FormRequest
 
     public function rules(): array
     {
+        $schoolId = Eleve::query()
+            ->whereIn('school_id', Tenant::schoolIds())
+            ->whereKey($this->route('id'))
+            ->value('school_id');
+
         return [
-            'classe_id' => ['nullable', $this->scopedExists('classes')],
+            'classe_id' => [
+                'nullable',
+                Rule::exists('classes', 'id')->where('school_id', $schoolId),
+            ],
             'matricule' => ['nullable', 'string', 'max:50'],
             'matricule_national' => ['nullable', 'string', 'max:50', 'unique:eleves,matricule_national,' . $this->route('id')],
             'nom_complet' => ['sometimes', 'required', 'string', 'max:200'],

@@ -15,6 +15,7 @@ use App\Support\Pdf\GenerateurStatistiquesGenerator;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DepartementController extends Controller
@@ -91,67 +92,7 @@ class DepartementController extends Controller
             return ApiResponse::error('Aucun trimestre actif trouvé.');
         }
 
-        $matieres = $departement->matieres()->with('classes')->get();
-
-        $donnees = [
-            'departement' => [
-                'id' => $departement->id,
-                'nom' => $departement->nom,
-            ],
-            'trimestre' => [
-                'id' => $trimestre->id,
-                'libelle' => $trimestre->libelle,
-            ],
-            'matieres' => [],
-            'stats_consolidees' => [
-                'effectif_total' => 0,
-                'moyenne_generale' => null,
-                'taux_reussite_moyen' => null,
-            ],
-        ];
-
-        $totalMoyennes = 0;
-        $countMatieres = 0;
-        $totalTauxReussite = 0;
-        $totalEffectif = 0;
-
-        foreach ($matieres as $matiere) {
-            $notes = \DB::table('notes')
-                ->whereIn('classe_id', $matiere->classes->pluck('id'))
-                ->where('trimestre_id', $trimestre->id)
-                ->get();
-
-            $effectif = $matiere->classes->sum(fn($c) => $c->eleves_count ?? 0);
-            $moyenne = $notes->isNotEmpty() ? $notes->avg('note') : null;
-            $tauxReussite = $notes->isNotEmpty()
-                ? ($notes->where('note', '>=', 10)->count() / $notes->count() * 100)
-                : null;
-
-            $donnees['matieres'][] = [
-                'id' => $matiere->id,
-                'nom' => $matiere->nom,
-                'effectif_eleves' => $effectif,
-                'moyenne' => $moyenne ? round($moyenne, 2) : null,
-                'taux_reussite' => $tauxReussite ? round($tauxReussite, 2) : null,
-            ];
-
-            if ($moyenne) {
-                $totalMoyennes += $moyenne;
-                $countMatieres++;
-            }
-            if ($tauxReussite) {
-                $totalTauxReussite += $tauxReussite;
-            }
-            $totalEffectif += $effectif;
-        }
-
-        $donnees['stats_consolidees'] = [
-            'effectif_total' => $totalEffectif,
-            'moyenne_generale' => $countMatieres > 0 ? round($totalMoyennes / $countMatieres, 2) : null,
-            'taux_reussite_moyen' => !empty($donnees['matieres'])
-                ? round($totalTauxReussite / count($donnees['matieres']), 2)
-                : null,
-        ];
+        $donnees = $this->statistiques($departement, $trimestre);
 
         return ApiResponse::success($donnees);
     }
@@ -168,67 +109,7 @@ class DepartementController extends Controller
             abort(404, 'Aucun trimestre actif trouvé.');
         }
 
-        $matieres = $departement->matieres()->with('classes')->get();
-
-        $donnees = [
-            'departement' => [
-                'id' => $departement->id,
-                'nom' => $departement->nom,
-            ],
-            'trimestre' => [
-                'id' => $trimestre->id,
-                'libelle' => $trimestre->libelle,
-            ],
-            'matieres' => [],
-            'stats_consolidees' => [
-                'effectif_total' => 0,
-                'moyenne_generale' => null,
-                'taux_reussite_moyen' => null,
-            ],
-        ];
-
-        $totalMoyennes = 0;
-        $countMatieres = 0;
-        $totalTauxReussite = 0;
-        $totalEffectif = 0;
-
-        foreach ($matieres as $matiere) {
-            $notes = \DB::table('notes')
-                ->whereIn('classe_id', $matiere->classes->pluck('id'))
-                ->where('trimestre_id', $trimestre->id)
-                ->get();
-
-            $effectif = $matiere->classes->sum(fn($c) => $c->eleves_count ?? 0);
-            $moyenne = $notes->isNotEmpty() ? $notes->avg('note') : null;
-            $tauxReussite = $notes->isNotEmpty()
-                ? ($notes->where('note', '>=', 10)->count() / $notes->count() * 100)
-                : null;
-
-            $donnees['matieres'][] = [
-                'id' => $matiere->id,
-                'nom' => $matiere->nom,
-                'effectif_eleves' => $effectif,
-                'moyenne' => $moyenne ? round($moyenne, 2) : null,
-                'taux_reussite' => $tauxReussite ? round($tauxReussite, 2) : null,
-            ];
-
-            if ($moyenne) {
-                $totalMoyennes += $moyenne;
-                $countMatieres++;
-            }
-            if ($tauxReussite) {
-                $totalTauxReussite += $tauxReussite;
-            }
-            $totalEffectif += $effectif;
-        }
-
-        $donnees['stats_consolidees'] = [
-            'effectif_total' => $totalEffectif,
-            'moyenne_generale' => $countMatieres > 0 ? round($totalMoyennes / $countMatieres, 2) : null,
-            'taux_reussite_moyen' => !empty($donnees['matieres'])
-                ? round($totalTauxReussite / count($donnees['matieres']), 2)
-                : null,
-        ];
+        $donnees = $this->statistiques($departement, $trimestre);
 
         $generator = new GenerateurStatistiquesGenerator();
         $pdf = $generator->build($donnees);
@@ -244,6 +125,57 @@ class DepartementController extends Controller
         );
     }
 
+
+    /**
+     * Statistiques par matière du département sur le trimestre : moyenne et
+     * taux de réussite (note ≥ 10) des notes saisies dans les séquences du
+     * trimestre, pour toutes les classes où la matière est enseignée.
+     *
+     * @return array<string, mixed>
+     */
+    private function statistiques(Departement $departement, Trimestre $trimestre): array
+    {
+        $matieres = $departement->matieres()
+            ->with(['classes' => fn ($q) => $q->withCount(['eleves' => fn ($e) => $e->where('statut', 'actif')])])
+            ->get();
+        $sequences = $trimestre->sequences()->pluck('id');
+
+        $lignes = [];
+        $effectifTotal = 0;
+
+        foreach ($matieres as $matiere) {
+            $notes = DB::table('notes')
+                ->join('classe_matieres', 'classe_matieres.id', '=', 'notes.classe_matiere_id')
+                ->where('classe_matieres.matiere_id', $matiere->id)
+                ->whereIn('notes.sequence_id', $sequences)
+                ->whereNotNull('notes.valeur')
+                ->pluck('notes.valeur');
+
+            $effectif = $matiere->classes->unique('id')->sum('eleves_count');
+            $effectifTotal += $effectif;
+
+            $lignes[] = [
+                'id' => $matiere->id,
+                'nom' => $matiere->nom,
+                'effectif_eleves' => $effectif,
+                'moyenne' => $notes->isNotEmpty() ? round($notes->avg(), 2) : null,
+                'taux_reussite' => $notes->isNotEmpty() ? round($notes->filter(fn ($n) => $n >= 10)->count() / $notes->count() * 100, 2) : null,
+            ];
+        }
+
+        $avecNotes = collect($lignes)->whereNotNull('moyenne');
+
+        return [
+            'departement' => ['id' => $departement->id, 'nom' => $departement->nom],
+            'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
+            'matieres' => $lignes,
+            'stats_consolidees' => [
+                'effectif_total' => $effectifTotal,
+                'moyenne_generale' => $avecNotes->isNotEmpty() ? round($avecNotes->avg('moyenne'), 2) : null,
+                'taux_reussite_moyen' => $avecNotes->isNotEmpty() ? round($avecNotes->avg('taux_reussite'), 2) : null,
+            ],
+        ];
+    }
     private function getTrimestre(Request $request, int $schoolId): ?Trimestre
     {
         $query = Trimestre::whereHas(

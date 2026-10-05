@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Matiere extends Model
@@ -42,5 +43,11 @@ class Matiere extends Model
     public function classeMatieres(): HasMany
     {
         return $this->hasMany(ClasseMatiere::class);
+    }
+
+    /** Classes où la matière est enseignée (affectations `classe_matieres`). */
+    public function classes(): BelongsToMany
+    {
+        return $this->belongsToMany(Classe::class, 'classe_matieres');
     }
 }

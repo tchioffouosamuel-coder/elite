@@ -110,8 +110,11 @@ class PhotoExamenService extends BaseService
 
         $zip->close();
 
-        $contenu = (string) file_get_contents($chemin);
-        unlink($chemin);
+        // Sans aucune entrée, `close()` supprime le fichier au lieu de l'écrire :
+        // le lire planterait avant que l'appelant n'ait pu signaler « aucune
+        // photo exploitable » proprement.
+        $contenu = $traites > 0 ? (string) file_get_contents($chemin) : '';
+        @unlink($chemin);
 
         return ['contenu' => $contenu, 'traites' => $traites, 'ignores' => $ignores];
     }

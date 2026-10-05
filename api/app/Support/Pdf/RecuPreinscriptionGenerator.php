@@ -4,31 +4,74 @@ namespace App\Support\Pdf;
 
 use App\Models\BusVersement;
 use App\Models\Versement;
-use App\Support\Pdf\Concerns\RenduDocument;
-use Mpdf\Output\Destination;
+use App\Support\SignatureVersement;
+use App\Support\SignatureVersementBus;
+use Endroid\QrCode\Builder\Builder;
 
+/**
+ * Reçu remis à la préinscription, au format du ticket papier (cf.
+ * GabaritRecuTicket) : un seul ticket pour ce que la famille a versé ce
+ * jour-là, scolarité et/ou transport.
+ */
 class RecuPreinscriptionGenerator
 {
-    use RenduDocument;
-
     public function build(?Versement $scolarite, ?BusVersement $bus): string
     {
-        $school = $scolarite?->dossier?->school ?? $bus?->affectation?->trajet?->school;
+        $scolarite?->loadMissing(['encaisseur', 'dossier.eleve.classe', 'dossier.anneeScolaire', 'dossier.school', 'dossier.versements']);
+        $bus?->loadMissing(['encaisseur', 'affectation.eleve.classe', 'affectation.eleve.school', 'affectation.anneeScolaire']);
+
+        $principal = $scolarite ?? $bus;
         $eleve = $scolarite?->dossier?->eleve ?? $bus?->affectation?->eleve;
-        $total = (int) ($scolarite?->montant ?? 0) + (int) ($bus?->montant ?? 0);
-        $mpdf = MpdfFactory::make(['format' => [80, 170], 'orientation' => 'P', 'margin_left' => 4, 'margin_right' => 4, 'margin_top' => 4, 'margin_bottom' => 4], $school);
-        $mpdf->SetTitle('Reçu préinscription');
-        $html = '<style>body{font-family:montserrat,sans-serif;font-size:3.4mm}h1{text-align:center;font-size:4.2mm;text-decoration:underline}table{width:100%;border-collapse:collapse}td{padding:1.2mm 0;border-bottom:.2mm dotted #999}.right{text-align:right;font-weight:bold}.total{font-weight:bold;font-size:3.9mm}</style>';
-        $html .= '<h1>REÇU DE PRÉINSCRIPTION<br>SCOLARITÉ + BUS</h1>';
-        $html .= '<p><b>Élève :</b> ' . $this->e($eleve?->nom_complet ?? '—') . '<br><b>Date :</b> ' . now()->format('d/m/Y') . '</p>';
-        $html .= '<table>';
+        $school = $scolarite?->dossier?->school ?? $eleve?->school;
+        $annee = $scolarite?->dossier?->anneeScolaire ?? $bus?->affectation?->anneeScolaire;
+
+        $montants = [
+            ['Name of the student', mb_strtoupper($eleve?->nom_complet ?? '—')],
+            ['Student class', mb_strtoupper($eleve?->classe?->nom ?? '—')],
+        ];
         if ($scolarite) {
-            $html .= '<tr><td>Frais de scolarité</td><td class="right">' . $this->francs($scolarite->montant) . '</td></tr>';
+            $montants[] = ['School Fee paid', GabaritRecuTicket::francs((int) $scolarite->montant)];
         }
         if ($bus) {
-            $html .= '<tr><td>Frais de bus (' . $this->e($bus->mois->translatedFormat('F Y')) . ')</td><td class="right">' . $this->francs($bus->montant) . '</td></tr>';
+            $montants[] = ['Transport Fee', GabaritRecuTicket::francs((int) $bus->montant).' ('.mb_strtoupper($bus->mois->translatedFormat('F Y')).')'];
         }
-        $html .= '<tr><td class="total">Total payé</td><td class="right total">' . $this->francs($total) . '</td></tr></table>';
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        $montants[] = ['Total paid', GabaritRecuTicket::francs((int) ($scolarite?->montant ?? 0) + (int) ($bus?->montant ?? 0))];
+        if ($scolarite) {
+            $montants[] = ['Left to pay', GabaritRecuTicket::francs(max(0, $scolarite->dossier->total_du - $scolarite->dossier->total_paye))];
+        }
+
+        return (new GabaritRecuTicket)->rendre($school, [
+            'titre' => 'REÇU DE PRÉINSCRIPTION',
+            'mentions' => [
+                ['Student ID :', $eleve?->matricule ?: '—'],
+                ['school year', $annee?->libelle ?? '—'],
+                ['payment date', $principal->date_versement->format('d/m/Y')],
+                ['payment method', GabaritRecuTicket::libelleMode($principal->mode)],
+            ],
+            'montants' => $montants,
+            'versements' => $scolarite
+                ? $scolarite->dossier->versements->whereNull('annule_le')->sortByDesc('date_versement')
+                    ->map(fn (Versement $v) => [$v->date_versement->format('d/m/Y'), (int) $v->montant])->values()->all()
+                : [[$bus->date_versement->format('d/m/Y'), (int) $bus->montant]],
+            'accessoires' => null,
+            'numero' => $scolarite && $bus ? $scolarite->numero_recu.' / '.$bus->numero_recu : $principal->numero_recu,
+            'encaisseur' => $principal->encaisseur?->name,
+            'qr' => $this->qrCode($scolarite, $bus),
+            'annule' => $principal->estAnnule(),
+        ]);
+    }
+
+    /** QR du versement de scolarité s'il y en a un, sinon de celui du transport. */
+    private function qrCode(?Versement $scolarite, ?BusVersement $bus): ?string
+    {
+        try {
+            $lien = $scolarite
+                ? SignatureVersement::lienVerification($scolarite->id)
+                : SignatureVersementBus::lienVerification($bus->id);
+
+            return (new Builder)->build(data: $lien, size: 200, margin: 4)->getDataUri();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

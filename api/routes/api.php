@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\DemandeArticleInventaireAdminController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
+use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\DesktopProvisioningController;
 use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -286,6 +287,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('audit/filtres', [AuditLogController::class, 'filtres'])->name('audit.filtres');
                 Route::get('audit/export', [AuditLogController::class, 'export'])->name('audit.export');
                 Route::get('audit/{id}', [AuditLogController::class, 'show'])->whereNumber('id')->name('audit.show');
+
+                // Centre de documents : tout document de la plateforme, à
+                // l'unité ou en paquet ZIP produit par lots (cf. DocumentController).
+                Route::get('documents/catalogue', [DocumentController::class, 'catalogue'])->name('documents.catalogue');
+                Route::get('documents/cibles', [DocumentController::class, 'cibles'])->name('documents.cibles');
+                Route::post('documents/paquets', [DocumentController::class, 'preparer'])->name('documents.paquets.preparer');
+                Route::post('documents/paquets/{token}/traiter', [DocumentController::class, 'traiter'])->name('documents.paquets.traiter');
+                Route::get('documents/paquets/{token}/telecharger', [DocumentController::class, 'telecharger'])->name('documents.paquets.telecharger');
+                Route::delete('documents/paquets/{token}', [DocumentController::class, 'supprimer'])->name('documents.paquets.supprimer');
             });
 
             Route::middleware('permission:personnel.view')->group(function () {

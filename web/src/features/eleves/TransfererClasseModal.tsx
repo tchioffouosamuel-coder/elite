@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { fetchClasses } from '@/features/classes/api'
+import { fetchClassesForSchool } from '@/features/classes/api'
 import { changerClasseEleve } from '@/features/eleves/api'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
@@ -12,6 +12,7 @@ import type { ApiError } from '@/shared/types/api'
 interface EleveMinimal {
   id: number
   nom_complet: string
+  school_id: number | null
   classe: { id: number; nom: string } | null
 }
 
@@ -25,7 +26,11 @@ export function TransfererClasseModal({
   onDone: () => void
 }) {
   const { t } = useTranslation()
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
+  const { data: classes } = useQuery({
+    queryKey: ['classes', 'eleve', eleve.id, eleve.school_id],
+    queryFn: () => fetchClassesForSchool(Number(eleve.school_id)),
+    enabled: eleve.school_id !== null,
+  })
   const [classeId, setClasseId] = useState<number | ''>(eleve.classe?.id ?? '')
   const [submitting, setSubmitting] = useState(false)
 
