@@ -11,10 +11,13 @@ use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
 use App\Observers\ContactsTuteurObserver;
 use App\Observers\TombstoneObserver;
+use App\Support\Audit\CollecteurChangements;
 use App\Support\Sync\RegistreSync;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(Bareme::class, fn() => config('paie.bareme') === 'legal'
             ? new BaremePaie
             : new BaremeMaison);
+
+        // Une seule instance par processus : la pile qu'elle tient suit les
+        // requêtes (et sous-requêtes de synchronisation) en cours.
+        $this->app->singleton(CollecteurChangements::class);
     }
 
     /**
@@ -51,6 +58,20 @@ class AppServiceProvider extends ServiceProvider
         }
         Tuteur::observe(ContactsTuteurObserver::class);
         TuteurTelephone::observe(ContactsTuteurObserver::class);
+
+        /*
+         * Journal d'audit : chaque écriture Eloquent faite pendant une requête
+         * journalisée y est rattachée avec ses valeurs avant/après (cf.
+         * `JournaliserAudit`). Hors requête (commande, tâche planifiée), le
+         * collecteur est inactif et ignore l'événement.
+         */
+        foreach (['created', 'updated', 'deleted'] as $evenement) {
+            Event::listen("eloquent.{$evenement}: *", function (string $nom, array $donnees) use ($evenement) {
+                if (($donnees[0] ?? null) instanceof Model) {
+                    app(CollecteurChangements::class)->enregistrer($evenement, $donnees[0]);
+                }
+            });
+        }
 
         /*
          * L'API n'authentifie qu'en Bearer token (Sanctum) mais Scramble ne le

@@ -7,9 +7,11 @@ use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Models\School;
+use App\Models\Setting;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Models\Versement;
+use App\Services\PreinscriptionService;
 use App\Support\CataloguePermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -186,5 +188,36 @@ class PreinscriptionImportDecoupeTest extends TestCase
         }
 
         $this->assertDirectoryDoesNotExist(storage_path('app/private/imports-preinscriptions/'.$token));
+    }
+
+    /**
+     * Les parents voient, sous leur situation financière, la date du dernier
+     * import massif : c'est jusque-là que les versements de la campagne ont
+     * été reportés dans l'application.
+     */
+    public function test_un_lot_traite_date_la_derniere_mise_a_jour_vue_par_le_parent(): void
+    {
+        $this->travelTo('2026-10-04 14:32:00');
+        ['token' => $token] = $this->preparer($this->fichierReinscriptions(2));
+        $this->traiterLot($token, 0)->assertOk();
+        $this->travelBack();
+
+        $this->assertNotNull(Setting::get($this->school->id, PreinscriptionService::CLE_DERNIER_IMPORT));
+
+        Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
+        $parent = User::create([
+            'name' => 'Mballa Jean', 'email' => 'mballa@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $parent->assignRole('parent');
+        $parent->givePermissionTo('eleves.view');
+        $this->tuteur->update(['user_id' => $parent->id]);
+
+        $eleve = Eleve::where('matricule', 'E1')->firstOrFail();
+        $reponse = $this->actingAs($parent, 'sanctum')
+            ->getJson("/api/v1/parent/enfants/{$eleve->id}/finance")
+            ->assertOk();
+
+        $this->assertStringStartsWith('2026-10-04T14:32:00', $reponse->json('data.derniere_mise_a_jour'));
     }
 }

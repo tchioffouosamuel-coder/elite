@@ -91,6 +91,7 @@ import { QrScannerPage } from '@/features/progression/pages/QrScannerPage'
 import { SettingsPage } from '@/features/settings/pages/SettingsPage'
 import { PermissionsPage } from '@/features/permissions/pages/PermissionsPage'
 import { ComptesPage } from '@/features/comptes/pages/ComptesPage'
+import { JournalAuditPage } from '@/features/audit/pages/JournalAuditPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
 import { VersementsDoublonsPage } from '@/features/finance/pages/VersementsDoublonsPage'
 import { InsolvablesPage } from '@/features/finance/pages/InsolvablesPage'
@@ -328,6 +329,7 @@ export const router = createHashRouter([
       { path: 'point-de-vente', element: <ProtectedRoute permission="point_de_vente.view"><PointDeVentePage /></ProtectedRoute> },
       { path: 'permissions', element: <ProtectedRoute superAdminOnly><PermissionsPage /></ProtectedRoute> },
       { path: 'comptes', element: <ProtectedRoute superAdminOnly><ComptesPage /></ProtectedRoute> },
+      { path: 'journal-audit', element: <ProtectedRoute superAdminOnly><JournalAuditPage /></ProtectedRoute> },
       { path: 'utilisation-plateforme', element: <ProtectedRoute permission="tuteurs.view"><AdminParentStatsPage /></ProtectedRoute> },
       { path: 'parametres', element: <ProtectedRoute permission="parametres.update"><SettingsPage /></ProtectedRoute> },
       { path: 'rapport-rentree', element: <ProtectedRoute permission="rapport_rentree.view"><RapportRentreePage /></ProtectedRoute> },

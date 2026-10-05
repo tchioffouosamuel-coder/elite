@@ -33,6 +33,7 @@ use App\Services\DisciplineService;
 use App\Services\ProgressionService;
 use App\Services\EcheancierService;
 use App\Services\ScolariteService;
+use App\Services\PreinscriptionService;
 use App\Support\ParentAccess;
 use App\Support\Pdf\BulletinGenerator;
 use App\Support\Pdf\BulletinPrimaireGenerator;
@@ -391,6 +392,10 @@ class ParentEspaceController extends Controller
             ])->values(),
             'date_limite_paiement' => Setting::get($e->school_id, 'date_limite_paiement') ?: null,
             'date_exclusion_insolvables' => Setting::get($e->school_id, 'date_exclusion_insolvables') ?: null,
+            // Date du dernier import massif de préinscriptions (cf.
+            // PreinscriptionService::marquerImportEffectue()) : jusqu'où les
+            // chiffres ci-dessus reflètent les versements déjà saisis.
+            'derniere_mise_a_jour' => Setting::get($e->school_id, PreinscriptionService::CLE_DERNIER_IMPORT) ?: null,
             'moratoire' => $moratoire ? [
                 'date_expiration' => $moratoire->date_expiration->format('Y-m-d'),
                 'motif' => $moratoire->motif,

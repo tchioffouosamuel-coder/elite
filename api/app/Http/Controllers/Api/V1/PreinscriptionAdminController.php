@@ -403,6 +403,7 @@ class PreinscriptionAdminController extends Controller
         $this->service->verifierAnneeScolaire($schoolId, $data['annee_scolaire_id'] ?? null);
         $import = new PreinscriptionImport($schoolId, $this->service, $request->user()->id, $data['annee_scolaire_id'] ?? null);
         Excel::import($import, $request->file('file'));
+        $this->service->marquerImportEffectue($schoolId);
 
         // `imported`/`failed` : mêmes clés que les autres imports de l'appli
         // (cf. EleveController::import()), pour rester compatible avec le

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\AppreciationController;
 use App\Http\Controllers\Api\V1\ArchiveClasseController;
 use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
 use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
@@ -277,6 +278,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // simple appel API, sans accès au `.env` du serveur.
                 Route::get('diagnostics/push', [PushDiagnosticController::class, 'index'])->name('diagnostics.push');
                 Route::post('diagnostics/push/test', [PushDiagnosticController::class, 'test'])->name('diagnostics.push.test');
+
+                // Console d'audit (interface développeur) : journal exhaustif
+                // de toutes les requêtes, alimenté par JournaliserAudit.
+                Route::get('audit', [AuditLogController::class, 'index'])->name('audit.index');
+                Route::get('audit/stats', [AuditLogController::class, 'stats'])->name('audit.stats');
+                Route::get('audit/filtres', [AuditLogController::class, 'filtres'])->name('audit.filtres');
+                Route::get('audit/export', [AuditLogController::class, 'export'])->name('audit.export');
+                Route::get('audit/{id}', [AuditLogController::class, 'show'])->whereNumber('id')->name('audit.show');
             });
 
             Route::middleware('permission:personnel.view')->group(function () {

@@ -3,10 +3,12 @@
 use App\Console\Commands\AlerteAbsenceNonEnregistreeCommand;
 use App\Console\Commands\AlerteMoratoireExpireCommand;
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
+use App\Console\Commands\PurgerJournalAudit;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\EnregistrerDansOutboxLocale;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
+use App\Http\Middleware\JournaliserAudit;
 use App\Http\Middleware\Idempotence;
 use App\Http\Middleware\ScopeEtablissement;
 use App\Http\Middleware\SetLocale;
@@ -49,6 +51,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Chaque matin : un moratoire qui expire aujourd'hui doit être
         // signalé aux parents avant qu'ils ne découvrent le retard autrement.
         $schedule->command(AlerteMoratoireExpireCommand::class)->dailyAt('07:15');
+
+        // En pleine nuit : le journal d'audit grossit à chaque requête, ses
+        // lignes au-delà de la durée de conservation sont purgées.
+        $schedule->command(PurgerJournalAudit::class)->dailyAt('03:00');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Render (comme tout hébergeur derrière un load balancer) termine le
@@ -63,6 +69,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             SetLocale::class,
+        ]);
+
+        // Journal d'audit : TOUTE requête API, authentifiée ou non (les
+        // connexions échouées comptent), y compris les opérations rejouées
+        // par la synchronisation — cf. JournaliserAudit.
+        $middleware->api(append: [
+            JournaliserAudit::class,
         ]);
 
         $middleware->alias([

@@ -11,6 +11,7 @@ use App\Models\Eleve;
 use App\Models\Preinscription;
 use App\Models\Remise;
 use App\Models\School;
+use App\Models\Setting;
 use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
 use Illuminate\Http\UploadedFile;
@@ -37,6 +38,14 @@ class PreinscriptionService extends BaseService
     public const IMPORT_IGNOREE = 'ignoree';
 
     public const IMPORT_PAIEMENT = 'paiement';
+
+    /**
+     * Paramètre d'école : horodatage du dernier import massif de
+     * préinscriptions — affiché aux parents comme date de dernière mise à
+     * jour de leur situation financière, les versements de la campagne
+     * arrivant par ce fichier plutôt qu'un par un au guichet.
+     */
+    public const CLE_DERNIER_IMPORT = 'derniere_maj_import_preinscriptions';
 
     public function __construct(
         private readonly ScolariteService $scolarite,
@@ -853,6 +862,7 @@ class PreinscriptionService extends BaseService
 
         $import = new PreinscriptionImport($schoolId, $this, $adminUserId, $anneeScolaireId);
         Excel::import($import, $chemin);
+        $this->marquerImportEffectue($schoolId);
 
         @unlink($chemin);
         $dernier = ! is_file("{$dossier}/" . ($index + 1) . '.xlsx');
@@ -870,6 +880,15 @@ class PreinscriptionService extends BaseService
             ],
             'dernier' => $dernier,
         ];
+    }
+
+    /**
+     * Chaque lot traité compte : un import découpé interrompu en cours de
+     * route a quand même mis à jour les dossiers des lots déjà passés.
+     */
+    public function marquerImportEffectue(int $schoolId): void
+    {
+        Setting::set($schoolId, self::CLE_DERNIER_IMPORT, now()->toIso8601String());
     }
 
     private function dossierImportDecoupe(string $token): string
