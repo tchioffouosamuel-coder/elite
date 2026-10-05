@@ -1,7 +1,7 @@
 import type { AuthUser } from '@/shared/store/authStore'
 
 /**
- * Finances de l'établissement (caisse, doublons, tarifs, dépenses) : un
+ * Finances de l'établissement (caisse, tarifs, dépenses) : un
  * enseignant n'y a accès que s'il tient la caisse (`finance.encaisser`).
  * `finance.view` seul ne suffit pas — un agent également parent (compte
  * fusionné) l'hérite du rôle parent, prévu pour suivre les frais de ses

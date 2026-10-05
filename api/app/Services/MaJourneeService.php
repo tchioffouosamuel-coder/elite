@@ -169,10 +169,11 @@ class MaJourneeService extends BaseService
             ->keyBy('classe_matiere_id');
 
         $estAujourdhui = Carbon::parse($date)->isToday();
+        $estPasse = Carbon::parse($date)->endOfDay()->isPast();
         $maintenant = Carbon::now()->format('H:i:s');
 
         return $creneaux
-            ->map(function (EmploiDuTemps $creneau) use ($schoolId, $date, $seances, $estAujourdhui, $maintenant) {
+            ->map(function (EmploiDuTemps $creneau) use ($schoolId, $date, $seances, $estAujourdhui, $estPasse, $maintenant) {
                 // Un seul créneau mal formé (donnée orpheline, relation
                 // inattendue) ne doit pas faire échouer toute la vue
                 // transverse de la direction — on l'écarte et on garde une
@@ -183,12 +184,18 @@ class MaJourneeService extends BaseService
                     $seance = $seances->get($creneau->classe_matiere_id);
                     $enseignant = $classeMatiere?->enseignant ?? $classe?->titulaire;
 
-                    // Sans séance déclarée, le cours reste « prévu » jusqu'à
-                    // son heure de fin passée, au-delà de laquelle il est en
-                    // retard — uniquement pertinent pour aujourd'hui, une
-                    // date passée sans séance étant simplement restée non
-                    // couverte.
-                    $enRetard = $estAujourdhui && ! $seance && $maintenant > (string) $creneau->heure_fin;
+                    // Un cours reste « prévu » jusqu'à son heure de fin, après
+                    // quoi il est en retard tant qu'il n'a pas été déclaré. La
+                    // séance peut déjà exister sans rien dire de plus : elles
+                    // sont pré-générées à l'ouverture d'un trimestre
+                    // (cf. EmploiDuTempsService::genererSeances()), donc son
+                    // seul statut « prevue » ne vaut pas couverture. Même
+                    // raisonnement pour une date passée, dont tous les
+                    // créneaux non déclarés sont en retard.
+                    $statutSeance = $seance?->statut ?? 'prevue';
+                    $heureFin = (string) ($seance?->heure_fin ?? $creneau->heure_fin);
+                    $enRetard = $statutSeance === 'prevue'
+                        && ($estAujourdhui ? $maintenant > $heureFin : $estPasse);
 
                     return [
                         'classe_matiere_id' => $creneau->classe_matiere_id,
@@ -200,7 +207,7 @@ class MaJourneeService extends BaseService
                         'heure_fin' => substr((string) $creneau->heure_fin, 0, 5),
                         'salle' => $creneau->salle,
                         'seance_id' => $seance?->id,
-                        'statut' => $seance?->statut ?? ($enRetard ? 'en_retard' : 'prevue'),
+                        'statut' => $enRetard ? 'en_retard' : $statutSeance,
                         'lecons_traitees' => $seance?->lecons_count ?? 0,
                         'contenu' => $seance?->contenu,
                         'eleves_pointes' => $seance?->presences_count ?? 0,

@@ -30,7 +30,6 @@ import {
   ScanFace,
   Layers,
   GitBranch,
-  GitMerge,
   CalendarCheck,
   BriefcaseBusiness,
   Landmark,
@@ -444,7 +443,6 @@ const navGroups = [
     label: 'nav.group.finance',
     items: [
       { to: '/caisse', label: 'nav.caisse', icon: Wallet, permission: 'finance.view', financesEcole: true, keywords: ['paiement', 'encaissement', 'payment', 'frais de scolarite'] },
-      { to: '/caisse/doublons', label: 'nav.versementsDoublons', icon: GitMerge, permission: 'finance.view', financesEcole: true, keywords: ['doublons', 'paiement en double', 'reçu en double'] },
       { to: '/tarifs', label: 'nav.tarifs', icon: Tags, permission: 'finance.view', financesEcole: true, keywords: ['prix', 'frais', 'pricing'] },
       { to: '/depenses', label: 'nav.depenses', icon: ReceiptText, permission: 'finance.view', financesEcole: true, keywords: ['charges', 'expenses', 'factures'] },
       { to: '/salaires', label: 'nav.salaires', icon: HandCoins, permission: 'finance.paie', keywords: ['salary', 'remuneration'] },

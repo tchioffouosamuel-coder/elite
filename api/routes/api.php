@@ -1007,7 +1007,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('scolarite/situation', [ScolariteController::class, 'situation'])->name('scolarite.situation');
                 Route::get('scolarite/situation/export', [ScolariteController::class, 'exportSituation'])->name('scolarite.situation.export');
                 Route::get('versements/{id}/recu', [ScolariteController::class, 'recu'])->name('scolarite.recu');
-                Route::get('finance/versements/doublons', [ScolariteController::class, 'versementsDoublons'])->name('scolarite.versements.doublons');
 
                 Route::get('finance/insolvables', [InsolvablesController::class, 'index'])->name('finance.insolvables');
                 Route::get('finance/insolvables/pdf', [InsolvablesController::class, 'pdf'])->name('finance.insolvables.pdf');
@@ -1051,7 +1050,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:finance.annuler')->group(function () {
                 Route::post('versements/{id}/annuler', [ScolariteController::class, 'annuler'])->name('scolarite.annuler');
-                Route::post('finance/versements/doublons/traitement-automatique', [ScolariteController::class, 'versementsDoublonsTraitementAutomatique'])->name('scolarite.versements.doublons.automatique');
             });
 
             /*

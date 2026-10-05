@@ -94,7 +94,6 @@ import { ComptesPage } from '@/features/comptes/pages/ComptesPage'
 import { JournalAuditPage } from '@/features/audit/pages/JournalAuditPage'
 import { CentreDocumentsPage } from '@/features/documents/pages/CentreDocumentsPage'
 import { CaissePage } from '@/features/finance/pages/CaissePage'
-import { VersementsDoublonsPage } from '@/features/finance/pages/VersementsDoublonsPage'
 import { InsolvablesPage } from '@/features/finance/pages/InsolvablesPage'
 import { DettesAnterieuresPage } from '@/features/finance/pages/DettesAnterieuresPage'
 import { EncaissementPage } from '@/features/finance/pages/EncaissementPage'
@@ -279,7 +278,6 @@ export const router = createHashRouter([
       { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="annees_scolaires.view"><SessionPage /></ProtectedRoute> },
       { path: 'caisse', element: <ProtectedRoute permission="finance.view" financesEcole><CaissePage /></ProtectedRoute> },
-      { path: 'caisse/doublons', element: <ProtectedRoute permission="finance.view" financesEcole><VersementsDoublonsPage /></ProtectedRoute> },
       { path: 'caisse/insolvables', element: <ProtectedRoute permission="finance.view" financesEcole><InsolvablesPage /></ProtectedRoute> },
       { path: 'caisse/dettes-anterieures', element: <ProtectedRoute permission="finance.view" financesEcole><DettesAnterieuresPage /></ProtectedRoute> },
       { path: 'caisse/encaisser/:eleveId', element: <ProtectedRoute permission="finance.encaisser"><EncaissementPage /></ProtectedRoute> },
