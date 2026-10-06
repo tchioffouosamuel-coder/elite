@@ -114,16 +114,18 @@ export function AppelPage() {
 
             return (
               <div key={ligne.eleve_id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <span className={clsx('min-w-0 flex-1 truncate text-sm', present ? 'text-navy-800' : 'font-semibold text-red-600')}>
-                  {ligne.nom_complet}
+                <div className="min-w-0 flex-1">
+                  <span className={clsx('block truncate text-sm', present ? 'text-navy-800' : 'font-semibold text-red-600')}>
+                    {ligne.nom_complet}
+                  </span>
                   {/* Sur un tronc commun, deux élèves de classes différentes
                       peuvent porter le même nom : la classe lève le doute. */}
                   {data.tronc_commun && ligne.classe && (
-                    <span className="ml-2 rounded bg-navy-50 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-navy-500">
+                    <span className="mt-0.5 block truncate text-[0.6875rem] font-medium uppercase tracking-wide text-navy-400">
                       {ligne.classe}
                     </span>
                   )}
-                </span>
+                </div>
 
                 <div className="flex items-center gap-2">
                   <button

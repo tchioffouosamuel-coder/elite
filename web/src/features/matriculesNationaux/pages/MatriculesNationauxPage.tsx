@@ -215,7 +215,7 @@ export function MatriculesNationauxPage() {
     {
       cle: 'classe',
       entete: 'Classe',
-      largeur: '130px',
+      largeur: '150px',
       valeur: (l) => l.classe ?? '',
       cellule: (l) => <span className="text-navy-600">{l.classe ?? '—'}</span>,
       masquerMobile: true,
@@ -223,7 +223,7 @@ export function MatriculesNationauxPage() {
     {
       cle: 'school',
       entete: 'École',
-      largeur: '180px',
+      largeur: '240px',
       valeur: (l) => l.school ?? '',
       cellule: (l) => <span className="text-navy-600">{l.school ?? '—'}</span>,
       masquerMobile: true,
@@ -244,7 +244,9 @@ export function MatriculesNationauxPage() {
       cle: 'actions',
       entete: '',
       sticky: 'right',
-      largeur: '140px',
+      // Trois boutons `sm` (38 px chacun) + leurs écarts + le `px-4` de la
+      // cellule : en dessous de ~160 px, `overflow-hidden` rogne le premier.
+      largeur: '180px',
       cellule: (l) => (
         <div className="flex justify-end gap-1.5">
           <Button size="sm" variant="secondary" title="Rechercher le matricule national" onClick={() => setRecherchePour(l)}>
