@@ -133,6 +133,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Chauffeur de la flotte scolaire : son accueil (mobile et web) est sa
+     * tournée — effectif transporté, rentabilité de son bus, itinéraire arrêt
+     * par arrêt — jamais les effectifs ou les finances de l'établissement.
+     * Comme `estVendeur`, déduit de la fonction du personnel : un économe qui
+     * porte `bus.view` pour gérer la flotte n'est pas chauffeur pour autant
+     * (cf. ChauffeurService, qui borne tout à son propre véhicule).
+     */
+    public function estChauffeur(): bool
+    {
+        return FonctionRoles::role($this->fonction()?->label_fr) === 'chauffeur';
+    }
+
+    /**
      * Compte de direction : super administrateur, chef d'établissement ou
      * censeur/surveillant général. Dispensé des contrôles qui ne visent que
      * la saisie quotidienne d'un enseignant — cf. les deux méthodes

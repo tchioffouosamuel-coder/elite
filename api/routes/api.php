@@ -19,9 +19,11 @@ use App\Http\Controllers\Api\V1\BulletinController;
 use App\Http\Controllers\Api\V1\BulletinPrimaireController;
 use App\Http\Controllers\Api\V1\BusAffectationController;
 use App\Http\Controllers\Api\V1\BusPaiementController;
+use App\Http\Controllers\Api\V1\BusRemplacementController;
 use App\Http\Controllers\Api\V1\BusTrajetController;
 use App\Http\Controllers\Api\V1\BusVehiculeController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
+use App\Http\Controllers\Api\V1\ChauffeurEspaceController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
 use App\Http\Controllers\Api\V1\CalendrierScolaireController;
@@ -1301,6 +1303,47 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
                 Route::post('bus/affectations/{id}/versements', [BusPaiementController::class, 'encaisser'])->name('bus.paiements.encaisser');
                 Route::post('bus/versements/{id}/annuler', [BusPaiementController::class, 'annuler'])->name('bus.paiements.annuler');
+            });
+
+            /*
+             * Espace chauffeur : sa tournée vue du siège du conducteur —
+             * effectif transporté, rentabilité de son bus, itinéraire arrêt
+             * par arrêt avec le pointage des enfants déjà pris, et le contact
+             * de leurs familles. Périmètre « moi-même » borné dans le service
+             * aux véhicules que le compte conduit ce jour-là : `bus.view`
+             * ouvrirait sinon la flotte entière (cf. ChauffeurService).
+             *
+             * Aucune route de souscription ni de modification de trajet ou
+             * d'arrêt n'y figure : ce n'est pas le métier du chauffeur, et
+             * celles qui existent restent derrière `bus.souscrire` et
+             * `bus_trajets.*`/`bus_arrets.*` ci-dessus.
+             */
+            Route::prefix('chauffeur')->name('chauffeur.')->middleware('permission:bus.view')->group(function () {
+                Route::get('tableau-de-bord', [ChauffeurEspaceController::class, 'tableauDeBord'])->name('tableau-de-bord');
+                Route::get('itineraire', [ChauffeurEspaceController::class, 'itineraire'])->name('itineraire');
+                Route::get('eleves', [ChauffeurEspaceController::class, 'eleves'])->name('eleves');
+                Route::get('itineraires-disponibles', [ChauffeurEspaceController::class, 'itinerairesDisponibles'])->name('itineraires-disponibles');
+
+                Route::post('ramassages', [ChauffeurEspaceController::class, 'pointer'])->name('ramassages.store')->middleware('permission:bus.ramassage');
+
+                Route::middleware('permission:bus.remplacement')->group(function () {
+                    Route::post('empechements', [ChauffeurEspaceController::class, 'declarerEmpechement'])->name('empechements.store');
+                    Route::post('empechements/{id}/reprendre', [ChauffeurEspaceController::class, 'reprendre'])->name('empechements.reprendre');
+                    Route::post('empechements/{id}/annuler', [ChauffeurEspaceController::class, 'annulerEmpechement'])->name('empechements.annuler');
+                });
+            });
+
+            /*
+             * Pendant administratif : la direction ouvre un relais sur
+             * n'importe quel bus de la flotte et peut désigner le remplaçant
+             * elle-même — un chauffeur injoignable ne doit pas laisser un
+             * circuit sans bus.
+             */
+            Route::middleware('permission:bus.remplacement')->group(function () {
+                Route::get('bus/remplacements', [BusRemplacementController::class, 'index'])->name('bus.remplacements.index');
+                Route::post('bus/remplacements', [BusRemplacementController::class, 'store'])->name('bus.remplacements.store');
+                Route::post('bus/remplacements/{id}/attribuer', [BusRemplacementController::class, 'attribuer'])->name('bus.remplacements.attribuer');
+                Route::post('bus/remplacements/{id}/annuler', [BusRemplacementController::class, 'annuler'])->name('bus.remplacements.annuler');
             });
 
             Route::middleware('permission:inventaire.view')->group(function () {

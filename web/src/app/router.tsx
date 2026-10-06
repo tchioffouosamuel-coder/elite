@@ -64,6 +64,10 @@ import { BusAffectationsPage } from '@/features/bus/pages/BusAffectationsPage'
 import { BusListePersonnaliseePage } from '@/features/bus/pages/BusListePersonnaliseePage'
 import { BusSouscriptionPage } from '@/features/bus/pages/BusSouscriptionPage'
 import { BusPaiementPage } from '@/features/bus/pages/BusPaiementPage'
+import { ChauffeurDashboardPage } from '@/features/chauffeur/pages/ChauffeurDashboardPage'
+import { ChauffeurItinerairePage } from '@/features/chauffeur/pages/ChauffeurItinerairePage'
+import { ChauffeurElevesPage } from '@/features/chauffeur/pages/ChauffeurElevesPage'
+import { BusRemplacementsPage } from '@/features/chauffeur/pages/BusRemplacementsPage'
 import { PhotosExamenPage } from '@/features/identification/pages/PhotosExamenPage'
 import { IdentificationClassePage } from '@/features/identification/pages/IdentificationClassePage'
 import { StatsPedagogiquesPage } from '@/features/statistiques/pages/StatsPedagogiquesPage'
@@ -248,6 +252,18 @@ export const router = createHashRouter([
       { path: 'bus/souscription', element: <ProtectedRoute permission="bus.souscrire"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.souscrire"><BusSouscriptionPage /></ProtectedRoute> },
       { path: 'bus/affectations/:affectationId/paiements', element: <ProtectedRoute permission="bus.view"><BusPaiementPage /></ProtectedRoute> },
+      // Relais d'itinéraire : la direction confie le circuit d'un chauffeur
+      // empêché à un autre — cf. BusRemplacementController.
+      { path: 'bus/remplacements', element: <ProtectedRoute permission="bus.remplacement"><BusRemplacementsPage /></ProtectedRoute> },
+      /*
+       * Espace chauffeur : sa tournée, bornée côté API à ses propres véhicules
+       * (cf. ChauffeurService). `chauffeurOnly` ferme ces écrans aux autres
+       * comptes qui portent `bus.view` sans conduire (économat, direction) —
+       * leur transport à eux, c'est la flotte entière, pas une tournée.
+       */
+      { path: 'chauffeur', element: <ProtectedRoute permission="bus.view" chauffeurOnly><ChauffeurDashboardPage /></ProtectedRoute> },
+      { path: 'chauffeur/itineraire', element: <ProtectedRoute permission="bus.view" chauffeurOnly><ChauffeurItinerairePage /></ProtectedRoute> },
+      { path: 'chauffeur/eleves', element: <ProtectedRoute permission="bus.view" chauffeurOnly><ChauffeurElevesPage /></ProtectedRoute> },
       { path: 'palmares', element: <ProtectedRoute permission="bulletins.view"><PalmaresPage /></ProtectedRoute> },
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },

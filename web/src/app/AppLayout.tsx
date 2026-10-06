@@ -45,6 +45,7 @@ import {
   PanelLeftOpen,
   HeartPulse,
   Bus,
+  CalendarOff,
   MapPin,
   QrCode,
   ScanLine,
@@ -385,11 +386,22 @@ const navGroups = [
   {
     label: 'nav.group.transport',
     items: [
-      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
-      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['itineraires', 'routes'] },
-      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['stops', 'points de ramassage'] },
-      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['eleves transport', 'affectation bus'] },
-      { to: '/bus/liste-personnalisee', label: 'nav.busListePersonnalisee', icon: ClipboardList, permission: 'bus.view', masquerPourTitulaire: true, keywords: ['liste personnalisee', 'manifeste', 'regroupement'] },
+      /*
+       * Le chauffeur ne gère pas la flotte : il conduit. Ses trois entrées
+       * (sa tournée, son itinéraire, ses élèves) remplacent les écrans de
+       * gestion ci-dessous, fermés par `masquerPourChauffeur` — il porte
+       * pourtant le même `bus.view`, qui ouvrirait sinon la flotte entière.
+       */
+      { to: '/chauffeur', label: 'nav.maTournee', icon: Bus, permission: 'bus.view', estChauffeur: true, keywords: ['tournee', 'mon bus', 'rentabilite', 'transport'] },
+      { to: '/chauffeur/itineraire', label: 'nav.monItineraire', icon: RouteIcon, permission: 'bus.view', estChauffeur: true, keywords: ['itineraire', 'arrets', 'ramassage', 'pointage'] },
+      { to: '/chauffeur/eleves', label: 'nav.mesElevesTransportes', icon: Users, permission: 'bus.view', estChauffeur: true, keywords: ['eleves', 'contacts parents', 'telephone'] },
+
+      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
+      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['itineraires', 'routes'] },
+      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['stops', 'points de ramassage'] },
+      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['eleves transport', 'affectation bus'] },
+      { to: '/bus/liste-personnalisee', label: 'nav.busListePersonnalisee', icon: ClipboardList, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['liste personnalisee', 'manifeste', 'regroupement'] },
+      { to: '/bus/remplacements', label: 'nav.busRemplacements', icon: CalendarOff, permission: 'bus.remplacement', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['relais', 'chauffeur empeche', 'remplacement'] },
     ],
   },
   {
@@ -548,6 +560,11 @@ export function AppLayout() {
   // masquerPourVendeur, pendant de masquerPourTitulaire ci-dessus.
   const estVendeur = Boolean(user?.est_vendeur)
 
+  // Chauffeur de la flotte : sa sidebar montre sa tournée, pas les écrans de
+  // gestion du transport — cf. masquerPourChauffeur, pendant de
+  // masquerPourVendeur ci-dessus.
+  const estChauffeur = Boolean(user?.est_chauffeur)
+
   // Au moins une responsabilité nominative confiée : c'est ce qui ouvre
   // « Mes attributions », et non un privilège — un enseignant et un censeur
   // partagent `classes.view` sans porter les mêmes responsabilités.
@@ -600,6 +617,8 @@ export function AppLayout() {
               (!('enseignantPrimaireOnly' in item) || !item.enseignantPrimaireOnly || user?.is_super_admin || can('progression.update') || estTitulaireDeClasse) &&
               (!('masquerPourTitulaire' in item) || !item.masquerPourTitulaire || !estTitulaireDeClasse) &&
               (!('masquerPourVendeur' in item) || !item.masquerPourVendeur || !estVendeur) &&
+              (!('estChauffeur' in item) || !item.estChauffeur || estChauffeur) &&
+              (!('masquerPourChauffeur' in item) || !item.masquerPourChauffeur || !estChauffeur) &&
               (!('financesEcole' in item) || !item.financesEcole || voitFinancesEcole),
           )
           const items = requeteMenu
@@ -621,7 +640,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole],
   )
 
   /**

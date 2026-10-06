@@ -66,6 +66,12 @@ class BusAffectation extends Model
         return $this->hasMany(BusVersement::class);
     }
 
+    /** Tournées où cet enfant a été pointé comme monté à son arrêt. */
+    public function ramassages(): HasMany
+    {
+        return $this->hasMany(BusRamassage::class, 'bus_affectation_id');
+    }
+
     /**
      * Mois dus par cette souscription : du mois de souscription (elle ne doit
      * rien pour les mois écoulés avant qu'elle n'existe) au mois de fin

@@ -150,7 +150,11 @@
     "archives": "Archives",
     "pointDeVente": "Point of sale",
     "competences": "Competencies",
-    "appreciations": "Assessment codes"
+    "appreciations": "Assessment codes",
+    "maTournee": "My run",
+    "monItineraire": "My route",
+    "mesElevesTransportes": "Pupils I carry",
+    "busRemplacements": "Driver hand-overs"
   },
   "auth": {
     "login_title": "Sign in",

@@ -66,6 +66,13 @@ export interface AuthUser {
    */
   est_vendeur?: boolean
   /**
+   * Chauffeur de la flotte scolaire (cf. User::estChauffeur côté API) — même
+   * principe que `est_vendeur` : son accueil est sa tournée (effectif
+   * transporté, rentabilité de son bus, itinéraire arrêt par arrêt), jamais
+   * la flotte ni les finances de l'établissement, que `bus.view` ouvrirait.
+   */
+  est_chauffeur?: boolean
+  /**
    * Le compte porte-t-il une fiche personnel ? Ouvre « Mes avances », le
    * libre-service de l'agent sur ses propres avances sur salaire — un
    * périmètre « moi-même », que ne traduit aucun privilège de gestion.

@@ -150,7 +150,11 @@
     "archives": "Archives",
     "pointDeVente": "Point de vente",
     "competences": "Compétences",
-    "appreciations": "Codes d'appréciation"
+    "appreciations": "Codes d'appréciation",
+    "maTournee": "Ma tournée",
+    "monItineraire": "Mon itinéraire",
+    "mesElevesTransportes": "Mes élèves transportés",
+    "busRemplacements": "Relais de chauffeurs"
   },
   "auth": {
     "login_title": "Connexion",

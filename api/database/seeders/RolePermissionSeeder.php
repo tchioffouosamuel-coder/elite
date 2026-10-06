@@ -100,6 +100,8 @@ class RolePermissionSeeder extends Seeder
             'bus.view',
             ...self::FLOTTE_BUS,
             'bus.souscrire',
+            'bus.ramassage',
+            'bus.remplacement',
             ...self::INVENTAIRE,
             ...self::INFRASTRUCTURES,
             'point_de_vente.*',
@@ -139,6 +141,8 @@ class RolePermissionSeeder extends Seeder
             'bus.view',
             ...self::FLOTTE_BUS,
             'bus.souscrire',
+            'bus.ramassage',
+            'bus.remplacement',
             ...self::INVENTAIRE,
             ...self::INFRASTRUCTURES,
             'point_de_vente.*',
@@ -174,6 +178,8 @@ class RolePermissionSeeder extends Seeder
             'bus.view',
             ...self::FLOTTE_BUS,
             'bus.souscrire',
+            'bus.ramassage',
+            'bus.remplacement',
             'bulletins.view',
             'bulletins.publish',
             'annonces.view',
@@ -201,6 +207,8 @@ class RolePermissionSeeder extends Seeder
             'bus.view',
             ...self::FLOTTE_BUS,
             'bus.souscrire',
+            'bus.ramassage',
+            'bus.remplacement',
             'bulletins.view',
             'emploi_du_temps.view',
             'appel.saisir',
@@ -288,8 +296,26 @@ class RolePermissionSeeder extends Seeder
             'eleves.view',
             'dashboard.view',
         ],
+        /*
+         * Le chauffeur ne voit du transport que sa propre tournée : son bus,
+         * les enfants qu'il transporte et leurs contacts famille, la
+         * rentabilité du véhicule — `ChauffeurService` borne chaque requête
+         * à ses véhicules, là où `bus.view` ouvrirait la flotte entière.
+         * Pas de `bus.souscrire` : inscrire un élève au transport ou
+         * encaisser une mensualité n'est pas son métier, pas plus que
+         * retoucher un trajet ou un arrêt (`bus_trajets.*`, `bus_arrets.*`).
+         * `bus.remplacement` ne lui sert qu'à confier SON itinéraire quand il
+         * est empêché, ou à reprendre celui d'un collègue.
+         *
+         * Pas de `dashboard.view` (même logique que `vendeur`) : son accueil
+         * est sa tournée, pas les effectifs de l'établissement.
+         */
         'chauffeur' => [
             'bus.view',
+            'bus.ramassage',
+            'bus.remplacement',
+            'annonces.view',
+            'bibliotheque.view',
         ],
         // Intentionnellement quasi vide : accès authentifié sans donnée
         // élève/personnel par défaut, même logique que `vendeur` pour

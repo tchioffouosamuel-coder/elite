@@ -43,6 +43,13 @@ class UserResource extends JsonResource
             // admin) — cf. User::estVendeur.
             'est_vendeur' => $this->estVendeur(),
             /*
+             * Même distinction pour le chauffeur : son accueil est sa tournée
+             * (effectif transporté, rentabilité du bus, itinéraire), alors
+             * qu'un économe porte les mêmes privilèges `bus.*` sans conduire
+             * — cf. User::estChauffeur et ChauffeurEspaceController.
+             */
+            'est_chauffeur' => $this->estChauffeur(),
+            /*
              * Le compte représente-t-il un agent de l'établissement ? Ouvre
              * l'espace libre-service « Mes avances » — un périmètre « moi-même »
              * que ne porte aucun privilège de gestion (cf.

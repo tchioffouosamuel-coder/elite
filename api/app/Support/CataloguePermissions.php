@@ -208,6 +208,8 @@ class CataloguePermissions
         'bus' => ['Transport scolaire', 'School transport', [
             'bus.view' => ['Consulter véhicules, trajets et affectations', 'View vehicles, routes and assignments'],
             'bus.souscrire' => ['Souscrire ou retirer des élèves au transport, encaisser leurs paiements', 'Subscribe or remove pupils from transport, collect their payments'],
+            'bus.ramassage' => ['Pointer les élèves pris en charge à chaque arrêt', 'Check off pupils picked up at each stop'],
+            'bus.remplacement' => ["Confier l'itinéraire d'un chauffeur empêché à un autre", "Hand an unavailable driver's route over to another"],
             'bus_vehicules.create' => ['Ajouter un véhicule', 'Add a vehicle'],
             'bus_vehicules.update' => ['Modifier un véhicule', 'Edit a vehicle'],
             'bus_vehicules.delete' => ['Supprimer un véhicule', 'Delete a vehicle'],

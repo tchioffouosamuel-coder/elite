@@ -28,9 +28,14 @@ function redirectionParDefaut(user: AuthUser | null | undefined): string {
 
   const peut = (permission: string) => Boolean(user?.is_super_admin || user?.permissions.includes(permission))
 
+  // Avant `dashboard.view` : un chauffeur n'en porte pas, mais la direction
+  // qui le remplacerait au volant, si. L'accueil d'un chauffeur est sa
+  // tournée, jamais le tableau de bord d'établissement — cf. est_chauffeur.
+  if (user?.est_chauffeur && peut('bus.view')) return '/chauffeur'
   if (peut('dashboard.view')) return '/'
   if (peut('point_de_vente.view')) return '/point-de-vente'
   if (peut('inventaire.view')) return '/inventaire'
+  if (peut('bus.view')) return '/bus/vehicules'
 
   return '/profil'
 }
@@ -43,6 +48,7 @@ export function ProtectedRoute({
   superAdminOnly = false,
   masquerPourTitulaire = false,
   masquerPourVendeur = false,
+  chauffeurOnly = false,
   parentOnly = false,
   eleveOnly = false,
   personnelOnly = false,
@@ -76,6 +82,13 @@ export function ProtectedRoute({
    * lien du menu n'empêcherait pas d'y entrer par une URL directe.
    */
   masquerPourVendeur?: boolean
+  /**
+   * Réservé aux chauffeurs de la flotte : « Ma tournée » et l'itinéraire
+   * n'ont de sens que pour qui conduit. Un économe ou un membre de la
+   * direction porte les mêmes `bus.view` mais gère la flotte entière — ses
+   * écrans sont /bus/*, pas ceux-ci.
+   */
+  chauffeurOnly?: boolean
   /** Réservé au portail parent — un compte du personnel n'y a rien à faire. */
   parentOnly?: boolean
   /** Réservé au portail élève — même principe que `parentOnly`, pour le rôle `eleve`. */
@@ -178,6 +191,7 @@ export function ProtectedRoute({
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
   if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user)} replace />
   if (masquerPourVendeur && user?.est_vendeur) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (chauffeurOnly && !user?.est_chauffeur) return <Navigate to={redirectionParDefaut(user)} replace />
 
   return <>{children}</>
 }

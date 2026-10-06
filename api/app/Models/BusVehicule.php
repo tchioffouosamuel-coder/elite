@@ -44,4 +44,10 @@ class BusVehicule extends Model
     {
         return $this->hasMany(BusTrajet::class, 'vehicule_id');
     }
+
+    /** Périodes où l'itinéraire de ce bus a été confié à un autre chauffeur. */
+    public function remplacements(): HasMany
+    {
+        return $this->hasMany(BusRemplacement::class, 'vehicule_id');
+    }
 }
