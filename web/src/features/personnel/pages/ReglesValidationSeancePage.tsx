@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ShieldCheck, Pencil, Plus, Trash2, UserCheck } from 'lucide-react'
 import {
+  appliquerRegleValidationSeance,
   deleteRegleValidationSeance,
   fetchReglesValidationSeance,
   type RegleValidationSeance,
@@ -38,6 +39,7 @@ export function ReglesValidationSeancePage() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<RegleValidationSeance | null>(null)
+  const [enCours, setEnCours] = useState<number | null>(null)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['regles-validation-seance', activeSchoolId],
@@ -60,6 +62,34 @@ export function ReglesValidationSeancePage() {
       succes('Règle supprimée.')
     } catch (err: any) {
       erreur(err.message || 'Suppression impossible.')
+    }
+  }
+
+  /**
+   * La règle n'est qu'un défaut : une fiche de personnel qui porte sa propre
+   * méthode l'emporte (cf. `User::methodeValidationSeance()`). « Appliquer »
+   * lève ces surcharges sur le périmètre, pour que tout le monde suive la
+   * règle — aujourd'hui et après chaque modification de celle-ci.
+   */
+  const handleAppliquer = async (regle: RegleValidationSeance) => {
+    const perimetre = regle.sous_systeme ?? "toute l'école"
+    const confirme = await confirmer({
+      titre: 'Appliquer cette règle ?',
+      message: `Les agents de ${perimetre} qui ont une méthode de validation définie sur leur fiche la perdront et suivront cette règle. Les règles définies pour un sous-système plus précis ne sont pas touchées.`,
+      action: 'Appliquer',
+      destructif: false,
+    })
+    if (!confirme) return
+
+    setEnCours(regle.id)
+    try {
+      const { message } = await appliquerRegleValidationSeance(regle.id)
+      invalidate()
+      succes(message)
+    } catch (err: any) {
+      erreur(err.message || 'Application impossible.')
+    } finally {
+      setEnCours(null)
     }
   }
 
@@ -95,6 +125,14 @@ export function ReglesValidationSeancePage() {
       entete: 'Actions',
       cellule: (r) => (
         <div className="flex items-center gap-1">
+          <button
+            title="Appliquer au périmètre (lève les méthodes définies fiche par fiche)"
+            disabled={enCours === r.id}
+            onClick={() => handleAppliquer(r)}
+            className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-gold-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <UserCheck className="h-4 w-4" />
+          </button>
           <button
             title="Modifier"
             onClick={() => setEditing(r)}

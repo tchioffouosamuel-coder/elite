@@ -52,6 +52,7 @@ import {
   type ModificationEnfantPayload,
 } from '@/features/parent/api'
 import { PhotoCaptureModal } from '@/features/parent/components/PhotoCaptureModal'
+import { Photo } from '@/features/eleves/components/Photo'
 import { francs } from '@/features/finance/api'
 import type { Echeancier as EcheancierType, StatutTranche } from '@/features/finance/api'
 import { ouvrirDocument } from '@/shared/lib/download'
@@ -91,6 +92,7 @@ function Champ({ label, valeur }: { label: string; valeur: string | null | undef
  * parent doit pouvoir tout voir en défilant, sans naviguer d'écran en écran.
  */
 export function ParentEnfantPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -120,6 +122,11 @@ export function ParentEnfantPage() {
     queryFn: () => fetchHistoriqueModifications(eleveId),
   })
   const modificationEnAttente = historiqueModifications?.find((m) => m.statut === 'en_attente')
+  const proposerPhoto = async (file: File) => {
+    await soumettreModification(eleveId, {}, file)
+    await queryClient.invalidateQueries({ queryKey: ['parent-modifications', eleveId] })
+    succes(t('photos.request_sent'))
+  }
 
   if (isLoading) return <Spinner />
   if (isError || !e) return <ErrorState />
@@ -133,7 +140,7 @@ export function ParentEnfantPage() {
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           {e.photo_url ? (
-            <img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 rounded-full object-cover ring-1 ring-navy-100" />
+            <Photo url={e.photo_url} nom={e.nom_complet} onReplace={proposerPhoto}><img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 rounded-full object-cover ring-1 ring-navy-100" /></Photo>
           ) : (
             <button
               type="button"
@@ -186,7 +193,7 @@ export function ParentEnfantPage() {
         </h2>
         <div className="mb-4 flex items-center gap-4">
           {e.photo_url ? (
-            <img src={e.photo_url} alt={e.nom_complet} className="h-24 w-24 flex-none rounded-xl object-cover ring-1 ring-navy-100" />
+            <Photo url={e.photo_url} nom={e.nom_complet} onReplace={proposerPhoto}><img src={e.photo_url} alt={e.nom_complet} className="h-24 w-24 flex-none rounded-xl object-cover ring-1 ring-navy-100" /></Photo>
           ) : (
             <button
               type="button"

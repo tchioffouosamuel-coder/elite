@@ -455,6 +455,20 @@ export async function deleteRegleValidationSeance(id: number): Promise<void> {
   await http.delete(`/regles-validation-seance/${id}`);
 }
 
+/**
+ * Applique la règle à son périmètre : les fiches de personnel qui portaient
+ * une méthode en propre la perdent et repassent sous la règle. Renvoie le
+ * nombre d'agents concernés et le message à afficher.
+ */
+export async function appliquerRegleValidationSeance(
+  id: number,
+): Promise<{ agents: number; message: string }> {
+  const { data } = await http.post<ApiResponse<{ agents: number }>>(
+    `/regles-validation-seance/${id}/appliquer`,
+  );
+  return { agents: data.data.agents, message: data.message };
+}
+
 export async function fetchPersonnels(params?: {
   search?: string;
   departement_id?: number;

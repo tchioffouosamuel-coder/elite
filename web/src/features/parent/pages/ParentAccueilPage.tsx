@@ -1,7 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Users } from 'lucide-react'
-import { fetchMesEnfants } from '@/features/parent/api'
+import { fetchMesEnfants, soumettreModification } from '@/features/parent/api'
+import { succes } from '@/shared/lib/alertes'
+import { Photo } from '@/features/eleves/components/Photo'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
@@ -17,6 +20,8 @@ function initiales(nom: string) {
 
 /** Porte d'entrée du portail : un enfant, une carte — tout ce qui le concerne est derrière. */
 export function ParentAccueilPage() {
+  const { t } = useTranslation()
+  const queries = useQueryClient()
   const navigate = useNavigate()
   const { data: enfants, isLoading, isError } = useQuery({ queryKey: ['parent-enfants'], queryFn: fetchMesEnfants })
 
@@ -41,7 +46,11 @@ export function ParentAccueilPage() {
               <Card className="transition-shadow hover:shadow-lifted">
                 <div className="flex items-center gap-4">
                 {e.photo_url ? (
-                  <img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 flex-none rounded-full object-cover ring-1 ring-navy-100" />
+                  <Photo url={e.photo_url} nom={e.nom_complet} onReplace={async (file) => {
+                    await soumettreModification(e.id, {}, file)
+                    await queries.invalidateQueries({ queryKey: ['parent-modifications', e.id] })
+                    succes(t('photos.request_sent'))
+                  }}><img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 flex-none rounded-full object-cover ring-1 ring-navy-100" /></Photo>
                 ) : (
                   <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-cream-50">
                     {initiales(e.nom_complet)}

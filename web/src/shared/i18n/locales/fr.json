@@ -1,4 +1,15 @@
 {
+  "photos": {
+    "view": "Voir la photo",
+    "gallery": "Galerie",
+    "camera": "Appareil photo",
+    "share": "Partager",
+    "sending": "En cours",
+    "invalid": "Choisissez une image JPEG ou PNG de moins de 5 Mo.",
+    "error": "Impossible de charger ou de partager la photo.",
+    "action_error": "Impossible d'enregistrer la modification de la photo.",
+    "request_sent": "Changement de photo transmis pour validation."
+  },
   "app": {
     "name": "Elite School"
   },

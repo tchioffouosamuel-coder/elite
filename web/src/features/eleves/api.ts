@@ -539,9 +539,35 @@ export interface TuteurCompte {
   nom_complet: string;
   telephone: string | null;
   email: string | null;
+  profession: string | null;
+  adresse: string | null;
   a_compte: boolean;
   acces_bloque: boolean;
   enfants: { id: number; nom_complet: string }[];
+}
+
+export interface TuteurModification {
+  nom_complet: string;
+  profession: string | null;
+  adresse: string | null;
+  telephone: string | null;
+  email: string | null;
+}
+
+/**
+ * Modifie la fiche d'un tuteur. Renvoie le message du serveur : il signale le
+ * cas où le numéro a changé sans que l'identifiant de connexion du parent
+ * puisse suivre (compte partagé, ou numéro déjà pris).
+ */
+export async function modifierTuteur(
+  id: number,
+  payload: TuteurModification,
+): Promise<string> {
+  const { data } = await http.put<ApiResponse<unknown>>(
+    `/tuteurs/${id}`,
+    payload,
+  );
+  return data.message;
 }
 
 export async function fetchTuteurs(params: {

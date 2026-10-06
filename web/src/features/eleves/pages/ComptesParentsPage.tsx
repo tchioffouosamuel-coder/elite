@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus, GitMerge } from 'lucide-react'
-import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, detacherEnfantParent, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
+import { KeyRound, FileDown, Users2, Check, X, Ban, Trash2, UserX, RefreshCw, UserPlus, GitMerge, Pencil } from 'lucide-react'
+import { fetchTuteurs, creerCompteParent, fetchTuteursSansCompte, assurerComptesParentChunk, basculerAccesParent, supprimerCompteParent, supprimerTuteur, reinitialiserMotDePasseParent, rattacherEnfantsParent, detacherEnfantParent, modifierTuteur, fetchEleves, type TuteurCompte } from '@/features/eleves/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -11,6 +11,7 @@ import { Badge } from '@/shared/ui/Badge'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
+import { Input } from '@/shared/ui/Field'
 import { confirmer, erreur, identifiantsOuverts, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
@@ -35,6 +36,10 @@ export function ComptesParentsPage() {
   const [ouvertureEnCours, setOuvertureEnCours] = useState<number | null>(null)
   const [reinitialisationEnCours, setReinitialisationEnCours] = useState<number | null>(null)
   const [tuteurEnfants, setTuteurEnfants] = useState<TuteurCompte | null>(null)
+  // Fiche en cours de modification, et le brouillon de ses champs.
+  const [tuteurEdite, setTuteurEdite] = useState<TuteurCompte | null>(null)
+  const [fiche, setFiche] = useState({ nom_complet: '', profession: '', adresse: '', telephone: '', email: '' })
+  const [enregistrementFiche, setEnregistrementFiche] = useState(false)
   const [rechercheEnfant, setRechercheEnfant] = useState('')
   const [rechercheEnfantDebounced, setRechercheEnfantDebounced] = useState('')
   const [enfantsSelectionnes, setEnfantsSelectionnes] = useState<Set<number>>(new Set())
@@ -281,6 +286,45 @@ export function ComptesParentsPage() {
     }
   }
 
+  const ouvrirModification = (t: TuteurCompte) => {
+    setTuteurEdite(t)
+    setFiche({
+      nom_complet: t.nom_complet,
+      profession: t.profession ?? '',
+      adresse: t.adresse ?? '',
+      telephone: t.telephone ?? '',
+      email: t.email ?? '',
+    })
+  }
+
+  const enregistrerFiche = async () => {
+    if (!tuteurEdite) return
+    if (!fiche.nom_complet.trim()) {
+      erreur('Le nom complet est obligatoire.')
+      return
+    }
+
+    setEnregistrementFiche(true)
+    try {
+      // Le serveur renvoie un message particulier quand le numéro a changé
+      // sans que l'identifiant de connexion du parent ait pu suivre.
+      const message = await modifierTuteur(tuteurEdite.id, {
+        nom_complet: fiche.nom_complet.trim(),
+        profession: fiche.profession.trim() || null,
+        adresse: fiche.adresse.trim() || null,
+        telephone: fiche.telephone.trim() || null,
+        email: fiche.email.trim() || null,
+      })
+      setTuteurEdite(null)
+      queryClient.invalidateQueries({ queryKey: ['tuteurs'] })
+      succes(message)
+    } catch (err) {
+      erreur((err as ApiError).message || 'Modification impossible.')
+    } finally {
+      setEnregistrementFiche(false)
+    }
+  }
+
   const colonnes: Colonne<TuteurCompte>[] = [
     {
       cle: 'selection',
@@ -380,6 +424,14 @@ export function ComptesParentsPage() {
           )}
           <button
             type="button"
+            title="Modifier la fiche"
+            onClick={() => ouvrirModification(t)}
+            className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             title="Rattacher des enfants"
             onClick={() => ouvrirRattachement(t)}
             className="rounded-lg p-1.5 text-navy-400 hover:bg-cream-100 hover:text-navy-700"
@@ -476,6 +528,53 @@ export function ComptesParentsPage() {
             </div>
           }
         />
+      )}
+
+      {tuteurEdite && (
+        <Modal title={`Modifier la fiche — ${tuteurEdite.nom_complet}`} onClose={() => setTuteurEdite(null)}>
+          <div className="flex flex-col gap-3">
+            <Input
+              label="Nom complet"
+              value={fiche.nom_complet}
+              onChange={(e) => setFiche((f) => ({ ...f, nom_complet: e.target.value }))}
+            />
+            <Input
+              label="Profession"
+              value={fiche.profession}
+              onChange={(e) => setFiche((f) => ({ ...f, profession: e.target.value }))}
+            />
+            <Input
+              label="Adresse"
+              value={fiche.adresse}
+              onChange={(e) => setFiche((f) => ({ ...f, adresse: e.target.value }))}
+            />
+            <Input
+              label="Contact"
+              value={fiche.telephone}
+              onChange={(e) => setFiche((f) => ({ ...f, telephone: e.target.value }))}
+            />
+            <Input
+              label="E-mail"
+              type="email"
+              value={fiche.email}
+              onChange={(e) => setFiche((f) => ({ ...f, email: e.target.value }))}
+            />
+            {/* Le numéro sert d'identifiant de connexion au portail : le dire
+                ici évite de découvrir l'effet après coup. */}
+            {tuteurEdite.a_compte && (
+              <p className="rounded-xl bg-cream-100 px-3.5 py-2.5 text-xs text-navy-500">
+                Ce tuteur a un accès parent : son contact lui sert d'identifiant de connexion. S'il change,
+                l'identifiant suit — sauf si le compte sert aussi à un autre accès, ou si le numéro est déjà pris.
+              </p>
+            )}
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setTuteurEdite(null)}>Annuler</Button>
+            <Button type="button" onClick={enregistrerFiche} disabled={enregistrementFiche}>
+              {enregistrementFiche ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {tuteurEnfants && (

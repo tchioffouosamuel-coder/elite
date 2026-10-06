@@ -364,6 +364,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('regles-validation-seance', [RegleValidationSeanceController::class, 'store'])->name('regles-validation-seance.store')->middleware('permission:regles_seance.create');
             Route::put('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'update'])->name('regles-validation-seance.update')->middleware('permission:regles_seance.update');
             Route::delete('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'destroy'])->name('regles-validation-seance.destroy')->middleware('permission:regles_seance.delete');
+            // Applique la règle au périmètre : lève les surcharges portées par
+            // les fiches de personnel, qui repassent sous la règle.
+            Route::post('regles-validation-seance/{id}/appliquer', [RegleValidationSeanceController::class, 'appliquer'])->name('regles-validation-seance.appliquer')->middleware('permission:regles_seance.update');
 
             Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store')->middleware('permission:personnel.create');
             Route::put('personnels/{id}', [PersonnelController::class, 'update'])->name('personnels.update')->middleware('permission:personnel.update');
@@ -596,6 +599,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('tuteurs/comptes-parent-lot', [TuteurController::class, 'creerComptesParentLot'])->name('tuteurs.comptes-parent-lot')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/comptes-parent-lot/preparer', [TuteurController::class, 'comptesParentLotPreparer'])->name('tuteurs.comptes-parent-lot-preparer')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/comptes-parent-lot/traiter', [TuteurController::class, 'comptesParentLotTraiter'])->name('tuteurs.comptes-parent-lot-traiter')->middleware('permission:tuteurs.comptes');
+            // Fiche du tuteur depuis l'écran des comptes parents (nom,
+            // profession, adresse, contact, e-mail).
+            Route::put('tuteurs/{id}', [TuteurController::class, 'update'])->name('tuteurs.update')->middleware('permission:tuteurs.update');
             Route::delete('tuteurs/{id}', [TuteurController::class, 'destroy'])->name('tuteurs.destroy')->middleware('permission:tuteurs.delete');
             Route::get('parent-usage-stats', [ParentUsageStatsController::class, 'index'])->name('parent-usage-stats.index')->middleware('permission:tuteurs.view');
             Route::get('parent-usage-stats/comptes', [ParentUsageStatsController::class, 'comptes'])->name('parent-usage-stats.comptes')->middleware('permission:tuteurs.view');
@@ -949,6 +955,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('revendications/{id}', [RevendicationController::class, 'destroy'])->name('revendications.destroy')->middleware('permission:revendications.delete');
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
+                Route::get('emploi-du-temps/classes', [EmploiDuTempsController::class, 'classes'])->name('edt.classes');
                 Route::get('salles', [SalleController::class, 'index'])->name('salles.index');
                 Route::get('emploi-du-temps/elements', [EmploiDuTempsElementController::class, 'index'])->name('edt.elements.index');
                 Route::get('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'index'])->name('edt.index');
@@ -973,6 +980,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('emploi-du-temps/elements/{id}', [EmploiDuTempsElementController::class, 'destroy'])->name('edt.elements.destroy')->middleware('permission:edt_elements.delete');
             Route::post('emploi-du-temps/elements/{id}/appliquer', [EmploiDuTempsElementController::class, 'apply'])->name('edt.elements.apply')->middleware('permission:edt_elements.appliquer');
             Route::post('classes/{classeId}/emploi-du-temps', [EmploiDuTempsController::class, 'store'])->name('edt.store')->middleware('permission:emploi_du_temps.create');
+            Route::delete('emploi-du-temps', [EmploiDuTempsController::class, 'supprimerTout'])->name('edt.supprimer-tout')->middleware('permission:emploi_du_temps.delete');
             Route::put('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'update'])->name('edt.update')->middleware('permission:emploi_du_temps.update');
             Route::delete('classes/{classeId}/emploi-du-temps/{id}', [EmploiDuTempsController::class, 'destroy'])->name('edt.destroy')->middleware('permission:emploi_du_temps.delete');
             Route::post('classes/{classeId}/emploi-du-temps/batch-delete', [EmploiDuTempsController::class, 'batchDelete'])->name('edt.batch-delete')->middleware('permission:emploi_du_temps.delete');

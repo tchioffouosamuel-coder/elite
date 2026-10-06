@@ -32,10 +32,12 @@ export function PhotoCaptureModal({
   titre,
   onClose,
   onValider,
+  errorMessage,
 }: {
   titre: string
   onClose: () => void
   onValider: (fichier: File) => Promise<void>
+  errorMessage?: string
 }) {
   const [etape, setEtape] = useState<'camera' | 'recadrage'>('camera')
   const [erreurCamera, setErreurCamera] = useState<string | null>(null)
@@ -65,6 +67,11 @@ export function PhotoCaptureModal({
 
     let annule = false
     setErreurCamera(null)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErreurCamera("Camera unavailable / Appareil photo indisponible")
+      return
+    }
 
     navigator.mediaDevices
       ?.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } } })
@@ -200,8 +207,9 @@ export function PhotoCaptureModal({
   const { largeur, hauteur } = dimensionsAffichees()
 
   return (
-    <Modal title={titre} onClose={onClose}>
+    <Modal title={titre} onClose={envoiEnCours ? () => {} : onClose}>
       <div className="flex flex-col items-center gap-4">
+        {errorMessage && <p role="alert" className="text-sm text-red-700">{errorMessage}</p>}
         {etape === 'camera' && (
           <>
             <div className="flex aspect-square w-full max-w-xs items-center justify-center overflow-hidden rounded-2xl bg-navy-900">

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -470,23 +470,12 @@ const LIBELLE_TYPE_ECOLE: Record<string, string> = {
 /**
  * Super admin en mode agrégé ("Toutes les écoles", cf. réglage actif dans la
  * page Paramètres) : plus de total unique mêlant des établissements de
- * tailles et de cycles différents, une ligne par école à la place. Cliquer
- * une ligne bascule l'établissement actif pour ouvrir son propre tableau de
- * bord, comme depuis le sélecteur d'école de la barre supérieure.
+ * tailles et de cycles différents, une ligne par école à la place.
  */
 function TableauComplexe({ data }: { data: Extract<import('@/features/dashboard/api').DashboardStats, { scope: 'complexe' }> }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { ecoles, activite_recente } = data
-
-  const ouvrirEcole = (ecole: DashboardStatsEcoleLigne) => {
-    setActiveSchool(ecole.id)
-    queryClient.clear()
-    navigate('/dashboard')
-  }
 
   const colonnes: Colonne<DashboardStatsEcoleLigne>[] = [
     {
@@ -571,7 +560,6 @@ function TableauComplexe({ data }: { data: Extract<import('@/features/dashboard/
           cleLigne={(e) => e.id}
           recherche={false}
           parPage={0}
-          onLigneClick={ouvrirEcole}
         />
       </Card>
 

@@ -8,7 +8,7 @@ import logoMark from '@/assets/logo-mark.png'
 import { login, fetchMe } from '@/features/auth/api'
 import { connecterSessionDesktop, lierPoste } from '@/features/auth/desktopProvisioning'
 import { PremiereSynchronisationModal } from '@/features/desktop/PremiereSynchronisationModal'
-import { useAuthStore } from '@/shared/store/authStore'
+import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
@@ -28,9 +28,20 @@ const estDesktop = Boolean(window.desktop)
  */
 const SERVEUR_URL_DESKTOP = 'https://elite.artiscodeagency.tech'
 
-function destinationApresConnexion(roles: string[]): string {
-  if (roles.includes('eleve')) return '/eleve'
-  if (roles.includes('parent')) return '/parent'
+/**
+ * Où atterrir juste après la connexion.
+ *
+ * Les portails parent et élève ne sont la destination que d'un compte qui
+ * n'est QUE ça. Un compte fusionné — un agent, ou un super administrateur,
+ * qui est aussi tuteur de ses propres enfants (cf.
+ * FusionnerComptesPersonnelParent côté API) — garde son interface de
+ * travail : sans ce test il perdait d'un coup tous les écrans de sa
+ * fonction, renvoyé au portail parent dès l'ouverture de session.
+ */
+function destinationApresConnexion(user: AuthUser): string {
+  const estMetier = Boolean(user.est_personnel || user.is_super_admin)
+  if (!estMetier && user.roles.includes('eleve')) return '/eleve'
+  if (!estMetier && user.roles.includes('parent')) return '/parent'
   return '/'
 }
 
@@ -65,7 +76,7 @@ export function LoginPage() {
     }
 
     setSession(session.token, session.user)
-    navigate(destinationApresConnexion(session.user.roles), { replace: true })
+    navigate(destinationApresConnexion(session.user), { replace: true })
   }
 
   /**
@@ -84,7 +95,7 @@ export function LoginPage() {
       if (!session) throw new Error('Le poste vient d’être lié mais aucune session locale n’a pu être ouverte.')
 
       setSession(session.token, session.user)
-      navigate(destinationApresConnexion(session.user.roles), { replace: true })
+      navigate(destinationApresConnexion(session.user), { replace: true })
     } catch (err) {
       setServerError((err as ApiError).message || t('auth.error_invalid'))
     } finally {
@@ -124,7 +135,7 @@ export function LoginPage() {
       setSession(token, user)
       // Un compte parent ou élève n'a pas `dashboard.view` : le tableau de
       // bord du personnel le renverrait dans une boucle de redirection.
-      navigate(destinationApresConnexion(user.roles), { replace: true })
+      navigate(destinationApresConnexion(user), { replace: true })
     } catch (err) {
       setServerError((err as ApiError).message || t('auth.error_invalid'))
     } finally {

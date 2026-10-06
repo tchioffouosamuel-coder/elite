@@ -17,8 +17,14 @@ let jetonDejaRafraichi: string | null = null
  * compte authentifié.
  */
 function redirectionParDefaut(user: AuthUser | null | undefined): string {
-  if (user?.roles.includes('eleve')) return '/eleve'
-  if (user?.roles.includes('parent')) return '/parent'
+  // Même règle que les gardes ci-dessous : les portails parent et élève ne
+  // sont le repli que d'un compte qui n'est QUE ça. Sans ce test, un agent
+  // ou un super administrateur qui est aussi tuteur retombait au portail
+  // parent à chaque garde qui le refusait, et n'atteignait plus aucun écran
+  // de sa fonction.
+  const estMetier = Boolean(user?.est_personnel || user?.is_super_admin)
+  if (!estMetier && user?.roles.includes('eleve')) return '/eleve'
+  if (!estMetier && user?.roles.includes('parent')) return '/parent'
 
   const peut = (permission: string) => Boolean(user?.is_super_admin || user?.permissions.includes(permission))
 
@@ -138,14 +144,23 @@ export function ProtectedRoute({
   // aussi tuteur, cf. FusionnerComptesPersonnelParent) porte les deux à la
   // fois : il garde son menu personnel par défaut, et n'est jamais forcé
   // vers /parent — seul un compte purement parent l'est.
+  // Un super administrateur n'a pas forcément de fiche personnel : sans lui
+  // ici, le compte d'un super admin tuteur de ses enfants était traité comme
+  // un parent ordinaire et perdait toute l'administration.
+  const estMetier = Boolean(user?.est_personnel || user?.is_super_admin)
+
   const estParent = Boolean(user?.roles.includes('parent'))
-  const estParentSeul = estParent && !user?.est_personnel
+  const estParentSeul = estParent && !estMetier
   if (parentOnly && !estParent) return <Navigate to={redirectionParDefaut(user)} replace />
   if (!parentOnly && estParentSeul) return <Navigate to={redirectionParDefaut(user)} replace />
 
+  // Symétrique du parent : un compte élève fusionné garde lui aussi son
+  // interface de travail. C'est aussi ce qui évite la boucle, puisque
+  // `redirectionParDefaut` ne renvoie plus un tel compte vers /eleve.
   const estEleve = Boolean(user?.roles.includes('eleve'))
+  const estEleveSeul = estEleve && !estMetier
   if (eleveOnly && !estEleve) return <Navigate to={redirectionParDefaut(user)} replace />
-  if (!eleveOnly && estEleve) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (!eleveOnly && estEleveSeul) return <Navigate to={redirectionParDefaut(user)} replace />
 
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user)} replace />
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user)} replace />

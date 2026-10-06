@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { fetchEleves, archiveEleve, reactivateEleve, uploadElevePhoto, deleteElevePhoto, deleteEleve, batchDeleteEleves, normaliserMatricules, changerClasseEleve, rechercherMatriculeNational, updateEleve, telephonesTuteur, type Eleve, type MatriculeNationalResult } from '@/features/eleves/api'
 import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
+import { Photo } from '@/features/eleves/components/Photo'
 import { fetchClasses, fetchSchools, type Classe } from '@/features/classes/api'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
@@ -82,7 +83,7 @@ function PhotoCell({ eleve, canManage }: { eleve: { id: number; nom_complet: str
   return (
     <div className="relative h-10 w-10 flex-none">
       {eleve.photo_url ? (
-        <img src={eleve.photo_url} alt={eleve.nom_complet} className="h-10 w-10 rounded-full object-cover ring-1 ring-navy-100" />
+        <Photo url={eleve.photo_url} nom={eleve.nom_complet} eleveId={canManage ? eleve.id : undefined}><img src={eleve.photo_url} alt={eleve.nom_complet} className="h-10 w-10 rounded-full object-cover ring-1 ring-navy-100" /></Photo>
       ) : (
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-cream-50">
           {eleve.nom_complet

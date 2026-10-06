@@ -624,6 +624,7 @@ export function EleveInscriptionPage() {
                             onCancel={() => navigate('/eleves')}
                             onNext={handleNext}
                             showSteps={true}
+                            wide
                         >
                             {/* Étape 1: Identité */}
                             {steps[currentStep]?.id === 'identite' && (

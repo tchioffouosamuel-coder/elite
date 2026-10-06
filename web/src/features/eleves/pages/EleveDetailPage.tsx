@@ -59,6 +59,7 @@ import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
 import { Tabs } from '@/shared/ui/Tabs'
 import { EntityHeader, Avatar } from '@/shared/ui/EntityHeader'
+import { Photo } from '@/features/eleves/components/Photo'
 import type { ActionGroup } from '@/shared/ui/ActionsMenu'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
@@ -410,7 +411,7 @@ export function EleveDetailPage() {
     <div className="flex flex-col gap-5">
       <EntityHeader
         retour={{ to: '/eleves', label: t('common.back') }}
-        avatar={<Avatar url={eleve.photo_url} nom={eleve.nom_complet} />}
+        avatar={eleve.photo_url ? <Photo url={eleve.photo_url} nom={eleve.nom_complet} eleveId={eleveId}><Avatar url={eleve.photo_url} nom={eleve.nom_complet} /></Photo> : <Avatar nom={eleve.nom_complet} />}
         titre={eleve.nom_complet}
         sousTitre={[eleve.matricule, eleve.classe?.nom, eleve.school?.name].filter(Boolean).join(' · ') || '—'}
         badges={

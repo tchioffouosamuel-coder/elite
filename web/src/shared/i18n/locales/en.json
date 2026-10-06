@@ -1,4 +1,15 @@
 {
+  "photos": {
+    "view": "View photo",
+    "gallery": "Gallery",
+    "camera": "Camera",
+    "share": "Share",
+    "sending": "Working",
+    "invalid": "Choose a JPEG or PNG image smaller than 5 MB.",
+    "error": "Unable to load or share the photo.",
+    "action_error": "Unable to save the photo change.",
+    "request_sent": "Photo change submitted for approval."
+  },
   "app": {
     "name": "Elite School"
   },

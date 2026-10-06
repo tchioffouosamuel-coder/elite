@@ -324,9 +324,19 @@ export async function copierAffectations(payload: {
   return data.data;
 }
 
-export async function fetchTrimestres(): Promise<Trimestre[]> {
-  const { data } = await http.get<ApiResponse<Trimestre[]>>("/trimestres");
+async function chargerTrimestres(classeId?: number): Promise<Trimestre[]> {
+  const { data } = await http.get<ApiResponse<Trimestre[]>>("/trimestres", {
+    params: classeId ? { classe_id: classeId } : undefined,
+  });
   return data.data;
+}
+
+export async function fetchTrimestres(): Promise<Trimestre[]> {
+  return chargerTrimestres();
+}
+
+export async function fetchTrimestresPourClasse(classeId: number): Promise<Trimestre[]> {
+  return chargerTrimestres(classeId);
 }
 
 export interface MonAffectation {

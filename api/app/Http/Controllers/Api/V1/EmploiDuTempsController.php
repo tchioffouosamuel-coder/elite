@@ -21,7 +21,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -38,6 +40,93 @@ class EmploiDuTempsController extends Controller
         $classe = $this->classe($classeId);
 
         return ApiResponse::success($this->service->grille($classe)->map(EmploiDuTempsService::presenter(...)));
+    }
+
+    public function classes(Request $request): JsonResponse
+    {
+        $classes = Classe::forSchool(Tenant::schoolIds())
+            ->dansPerimetre($request->user())
+            ->with('school:id,name,code,type')
+            ->orderBy('nom')
+            ->get();
+
+        $comptes = [];
+        $cours = EmploiDuTemps::forSchool(Tenant::schoolIds())
+            ->where('type', 'cours')
+            ->with('classesAssociees:id')
+            ->get(['id', 'classe_id']);
+
+        foreach ($cours as $creneau) {
+            foreach ($creneau->classesAssociees->pluck('id')->push($creneau->classe_id)->unique() as $id) {
+                $comptes[$id] = ($comptes[$id] ?? 0) + 1;
+            }
+        }
+
+        return ApiResponse::success($classes->map(fn (Classe $classe) => [
+            'id' => $classe->id,
+            'nom' => $classe->nom,
+            'school_id' => $classe->school_id,
+            'school' => $classe->school,
+            'cours_planifies' => $comptes[$classe->id] ?? 0,
+        ]));
+    }
+
+    public function supprimerTout(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'school_id' => ['required_without:classe_ids', Rule::prohibitedIf($request->has('classe_ids')), 'integer'],
+            'classe_ids' => ['required_without:school_id', Rule::prohibitedIf($request->has('school_id')), 'array', 'min:1'],
+            'classe_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        if (isset($data['school_id'])) {
+            $schoolId = Tenant::resolveWriteSchoolId((int) $data['school_id']);
+            abort_unless($request->user()->perimetre()->classes() === null, 403);
+            $classes = Classe::where('school_id', $schoolId)->pluck('id')->all();
+        } else {
+            $classes = Classe::forSchool(Tenant::schoolIds())
+                ->dansPerimetre($request->user())
+                ->whereIn('id', $data['classe_ids'])
+                ->pluck('id')->all();
+            abort_unless(count($classes) === count($data['classe_ids']), 403);
+            foreach ($classes as $id) {
+                abort_unless($request->user()->peutSurClasse('emploi_du_temps.delete', $id), 403);
+            }
+        }
+
+        $deleted = DB::transaction(function () use ($classes, $data) {
+            $deleted = 0;
+            $query = EmploiDuTemps::forSchool(Tenant::schoolIds());
+            isset($data['school_id'])
+                ? $query->where('school_id', $data['school_id'])
+                : $query->whereIn('classe_id', $classes);
+
+            // Chaque suppression doit produire sa pierre tombale pour les mobiles.
+            $query->chunkById(200, function ($creneaux) use (&$deleted) {
+                foreach ($creneaux as $creneau) {
+                    $creneau->delete();
+                    $deleted++;
+                }
+            });
+
+            // Une classe associee quitte le tronc commun sans effacer le cours des autres.
+            if (! isset($data['school_id'])) {
+                EmploiDuTemps::forSchool(Tenant::schoolIds())
+                    ->whereHas('classesAssociees', fn ($q) => $q->whereIn('classes.id', $classes))
+                    ->with('classesAssociees:id')
+                    ->chunkById(200, function ($creneaux) use ($classes) {
+                        foreach ($creneaux as $creneau) {
+                            $creneau->synchroniserClassesAssociees(
+                                $creneau->classesAssociees->pluck('id')->diff($classes)->values()->all(),
+                            );
+                        }
+                    });
+            }
+
+            return $deleted;
+        });
+
+        return ApiResponse::success(['deleted' => $deleted], 'Emplois du temps supprimés.');
     }
 
     public function store(Request $request, int $classeId): JsonResponse

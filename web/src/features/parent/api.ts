@@ -384,10 +384,20 @@ export async function fetchHistoriqueModifications(
 export async function soumettreModification(
   eleveId: number,
   donnees: ModificationEnfantPayload,
+  photo?: File,
 ): Promise<ModificationEnfantResume> {
+  let payload: ModificationEnfantPayload | FormData = donnees;
+  if (photo) {
+    const form = new FormData();
+    Object.entries(donnees).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) form.append(key, String(value));
+    });
+    form.append("photo", photo);
+    payload = form;
+  }
   const { data } = await http.post<ApiResponse<ModificationEnfantResume>>(
     `/parent/enfants/${eleveId}/modification`,
-    donnees,
+    payload,
   );
   return data.data;
 }

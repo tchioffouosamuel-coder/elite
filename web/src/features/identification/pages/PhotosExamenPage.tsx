@@ -15,6 +15,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, info, succes } from '@/shared/lib/alertes'
 import { estSecondaire } from '@/shared/lib/ecole'
+import { Photo } from '@/features/eleves/components/Photo'
 import type { ApiError } from '@/shared/types/api'
 
 /** Vignette d'un candidat, à l'image de ce que recevra l'organisme. */
@@ -24,7 +25,7 @@ function Vignette({ candidat }: { candidat: CandidatExamen }) {
     <div className="flex flex-col items-center gap-1.5">
       <div className="relative aspect-4/5 w-full overflow-hidden rounded-xl border border-navy-100 bg-cream-50 shadow-soft">
         {candidat.photo_prete && candidat.photo_url ? (
-          <img src={candidat.photo_url} alt={candidat.nom_complet} className="h-full w-full object-cover" />
+          <Photo url={candidat.photo_url} nom={candidat.nom_complet} eleveId={candidat.eleve_id} className="h-full w-full"><img src={candidat.photo_url} alt={candidat.nom_complet} className="h-full w-full object-cover" /></Photo>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-navy-300">
             <ImageOff className="h-6 w-6" />

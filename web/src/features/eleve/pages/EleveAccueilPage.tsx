@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Photo } from '@/features/eleves/components/Photo'
 import { JOURS } from '@/features/emploiDuTemps/api'
 import {
   FileDown,
@@ -70,7 +71,7 @@ export function EleveAccueilPage() {
       <div>
         <div className="flex flex-wrap items-center gap-3">
           {e.photo_url ? (
-            <img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 rounded-full object-cover ring-1 ring-navy-100" />
+            <Photo url={e.photo_url} nom={e.nom_complet}><img src={e.photo_url} alt={e.nom_complet} className="h-14 w-14 rounded-full object-cover ring-1 ring-navy-100" /></Photo>
           ) : (
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-cream-50">
               {e.nom_complet.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}

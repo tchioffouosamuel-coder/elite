@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\Eleve;
 use App\Models\EleveTuteur;
 use App\Models\Tuteur;
+use App\Models\User;
 use App\Services\AuthService;
 use App\Services\CompteParentService;
 use App\Services\SettingsCatalog;
@@ -49,6 +50,8 @@ class TuteurController extends Controller
             'nom_complet' => $t->nom_complet,
             'telephone' => $t->telephone,
             'email' => $t->email,
+            'profession' => $t->profession,
+            'adresse' => $t->adresse,
             'a_compte' => $t->user_id !== null,
             'acces_bloque' => $t->user?->is_active === false,
             'enfants' => $t->eleves->map(fn($e) => ['id' => $e->id, 'nom_complet' => $e->nom_complet])->values(),
@@ -164,6 +167,72 @@ class TuteurController extends Controller
      * Ouvre l'accès au portail parent pour ce tuteur, ou renvoie son compte
      * s'il en a déjà un — idempotent, comme l'ouverture des comptes agent.
      */
+    /**
+     * Modifie la fiche d'un tuteur depuis l'écran des comptes parents.
+     *
+     * Le téléphone est aussi l'identifiant de connexion au portail parent
+     * (cf. {@see CompteParentService::assurer()}) : le changer ici sans le
+     * reporter sur le compte empêcherait le parent de se connecter avec le
+     * numéro affiché à l'écran. On ne le reporte que sur un compte qui ne
+     * sert qu'à ça — un compte partagé (un agent qui est aussi parent) garde
+     * son identifiant, sinon on le couperait de son propre espace.
+     *
+     * L'e-mail reste sur la fiche tuteur et ne touche pas le compte : les
+     * accès parents sont ouverts sans e-mail, `users.email` est unique, et
+     * deux parents partagent souvent la même adresse familiale.
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $tuteur = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        $data = $request->validate([
+            'nom_complet' => ['required', 'string', 'max:255'],
+            'profession' => ['nullable', 'string', 'max:255'],
+            'adresse' => ['nullable', 'string', 'max:255'],
+            'telephone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $ancienTelephone = trim((string) $tuteur->telephone);
+        $tuteur->update($data);
+
+        $avertissement = null;
+        $user = $tuteur->user;
+
+        if ($user !== null) {
+            $modifications = ['name' => $tuteur->nom_complet];
+            $nouveauTelephone = trim((string) $tuteur->telephone);
+
+            if ($nouveauTelephone !== '' && $nouveauTelephone !== $ancienTelephone) {
+                $normalise = Telephone::normaliser($nouveauTelephone);
+                $compteDedie = $user->roles->count() === 1 && $user->hasRole('parent');
+                $prisAilleurs = User::where('phone', $normalise)->where('id', '!=', $user->id)->exists();
+
+                if ($compteDedie && ! $prisAilleurs) {
+                    $modifications['phone'] = $normalise;
+                } else {
+                    $avertissement = $prisAilleurs
+                        ? "Fiche modifiée. Ce numéro est déjà l'identifiant d'un autre compte : l'identifiant de connexion du parent n'a pas été changé."
+                        : "Fiche modifiée. Ce compte sert aussi à un autre accès : son identifiant de connexion n'a pas été changé.";
+                }
+            }
+
+            $user->forceFill($modifications)->save();
+        }
+
+        return ApiResponse::success(
+            [
+                'id' => $tuteur->id,
+                'nom_complet' => $tuteur->nom_complet,
+                'telephone' => $tuteur->telephone,
+                'email' => $tuteur->email,
+                'profession' => $tuteur->profession,
+                'adresse' => $tuteur->adresse,
+            ],
+            $avertissement ?? 'Tuteur modifié.',
+        );
+    }
+
     public function creerCompteParent(int $id): JsonResponse
     {
         $tuteur = Tuteur::forSchool(Tenant::schoolIds())->findOrFail($id);

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Camera, IdCard, Upload } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import { fetchEleves, uploadElevePhoto, type Eleve } from '@/features/eleves/api'
+import { Photo } from '@/features/eleves/components/Photo'
 import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { Badge } from '@/shared/ui/Badge'
@@ -120,7 +121,7 @@ function VignetteEleve({
     return (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-navy-100 bg-white p-3">
             {eleve.photo_url ? (
-                <img src={eleve.photo_url} alt={eleve.nom_complet} className="h-24 w-24 rounded-xl object-cover" />
+                <Photo url={eleve.photo_url} nom={eleve.nom_complet} eleveId={peutModifier ? eleve.id : undefined}><img src={eleve.photo_url} alt={eleve.nom_complet} className="h-24 w-24 rounded-xl object-cover" /></Photo>
             ) : (
                 <div className="flex h-24 w-24 items-center justify-center rounded-xl bg-navy-800 text-lg font-bold text-gold-300">
                     {eleve.nom_complet

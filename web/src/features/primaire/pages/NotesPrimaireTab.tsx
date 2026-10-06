@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Search } from 'lucide-react'
-import { fetchCompetencesClasse, fetchTrimestres, type ClasseCompetence } from '@/features/pedagogie/api'
+import { fetchCompetencesClasse, fetchTrimestresPourClasse, type ClasseCompetence } from '@/features/pedagogie/api'
 import {
   fetchGrillePrimaire,
   sauvegarderNotesPrimaire,
@@ -139,14 +139,17 @@ export interface NotesPrimaireDetailProps {
   matiere: ClasseCompetence | undefined
 }
 
-export function NotesPrimaireDetail({ classeMatiereId, matiere }: NotesPrimaireDetailProps) {
+export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: NotesPrimaireDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
-  const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
+  const { data: trimestres } = useQuery({
+    queryKey: ['trimestres', classeId],
+    queryFn: () => fetchTrimestresPourClasse(classeId),
+  })
 
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
 
