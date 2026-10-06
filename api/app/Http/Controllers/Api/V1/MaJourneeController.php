@@ -201,14 +201,14 @@ class MaJourneeController extends Controller
         return ApiResponse::success($this->service->heuresCouverture($request->user(), app('tenant.school_id')));
     }
 
-    /** Heures prévues vs réalisées de l'enseignant connecté, pour le jour, la semaine, le mois et l'année en cours. */
+    /** Leçons et heures de l'enseignant connecté, par période scolaire. */
     public function couverturePeriodes(Request $request): JsonResponse
     {
         $personnelId =$request->user()->personnel?->id;
 
-        if ($personnelId === null) {$vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_prevues' => 0, 'seances_realisees' => 0, 'seances_annulees' => 0, 'seances_en_retard' => 0];
+        if ($personnelId === null) {$vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_prevues' => 0, 'seances_realisees' => 0, 'seances_annulees' => 0, 'seances_en_retard' => 0, 'lecons_prevues' => 0, 'lecons_realisees' => 0];
 
-            return ApiResponse::success(array_fill_keys(['jour', 'semaine', 'mois', 'annee'], $vide));
+            return ApiResponse::success(array_fill_keys(['jour', 'semaine', 'mois', 'trimestre', 'annee'], $vide));
         }
 
         return ApiResponse::success(

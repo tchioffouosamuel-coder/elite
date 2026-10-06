@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AnneeScolaire;
 use App\Models\ClasseMatiere;
 use App\Models\PresencePersonnelJournaliere;
+use App\Models\ProgressionItem;
 use App\Models\Seance;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -106,14 +108,22 @@ class SuiviActiviteService
     }
 
     /**
-     * Prévu vs réalisé d'un seul personnel, pour le jour, la semaine, le mois
-     * et l'année en cours — le pendant personnel de `parPersonnel()`, pour son
+     * Prévu vs réalisé d'un seul personnel, pour le jour, la semaine, le mois,
+     * le trimestre et l'année scolaires — le pendant personnel de `parPersonnel()`, pour son
      * propre tableau de bord plutôt que la vue transverse admin.
      *
-     * @return array<string, array<string, mixed>>
+     * @return array<string, array<string, mixed>|null>
      */
     public function resumePersonnel(int $schoolId, int $personnelId, CarbonImmutable $maintenant): array
     {
+        $date = $maintenant->toDateString();
+        $annees = AnneeScolaire::where('school_id', $schoolId);
+        $annee = (clone $annees)->whereDate('date_debut', '<=', $date)
+            ->whereDate('date_fin', '>=', $date)->orderByDesc('is_active')->first()
+            ?? (clone $annees)->where('is_active', true)->first();
+        $trimestre = $annee?->trimestres()->whereDate('date_debut', '<=', $date)
+            ->whereDate('date_fin', '>=', $date)->first();
+
         $classeMatiereIds = ClasseMatiere::forSchool($schoolId)
             ->where('statut', 'actif')
             ->where(fn($q) => $q
@@ -125,15 +135,47 @@ class SuiviActiviteService
             'jour' => [$maintenant->startOfDay(), $maintenant->endOfDay()],
             'semaine' => [$maintenant->startOfWeek(), $maintenant->endOfWeek()],
             'mois' => [$maintenant->startOfMonth(), $maintenant->endOfMonth()],
-            'annee' => [$maintenant->startOfYear(), $maintenant->endOfYear()],
+            'trimestre' => $trimestre ? [$trimestre->date_debut, $trimestre->date_fin] : null,
+            'annee' => $annee ? [$annee->date_debut, $annee->date_fin] : [$maintenant->startOfYear(), $maintenant->endOfYear()],
         ];
 
-        return collect($bornes)->map(function (array $borne) use ($classeMatiereIds) {
-            $seances = Seance::whereIn('classe_matiere_id', $classeMatiereIds)
-                ->whereBetween('date_seance', $borne)
+        return collect($bornes)->map(function (?array $borne, string $periode) use ($schoolId, $classeMatiereIds, $annee, $trimestre) {
+            if ($borne === null) {
+                return null;
+            }
+            $dates = array_map(fn ($d) => $d->format('Y-m-d'), $borne);
+            $seances = Seance::forSchool($schoolId)->whereIn('classe_matiere_id', $classeMatiereIds)
+                ->whereDate('date_seance', '>=', $dates[0])->whereDate('date_seance', '<=', $dates[1])
                 ->get(['statut', 'heure_debut', 'heure_fin', 'date_seance']);
 
-            return $this->resume($seances);
+            $lecons = ProgressionItem::whereIn('classe_matiere_id', $classeMatiereIds)->lecons();
+            $prevues = (clone $lecons)->where(function ($q) use ($dates, $periode, $annee, $trimestre) {
+                $q->whereDate('date_prevue', '>=', $dates[0])->whereDate('date_prevue', '<=', $dates[1]);
+                // Les programmes non datés restent prévus sur leur période scolaire,
+                // sans inventer une planification au jour, à la semaine ou au mois.
+                if ($periode === 'trimestre') {
+                    $q->orWhere(fn ($p) => $p->whereNull('date_prevue')
+                        ->whereHas('sequence', fn ($s) => $s->where('trimestre_id', $trimestre->id)));
+                } elseif ($periode === 'annee' && $annee) {
+                    $q->orWhere(fn ($p) => $p->whereNull('date_prevue')->where(fn ($s) => $s
+                        ->whereNull('sequence_id')->orWhereHas('sequence.trimestre', fn ($t) => $t->where('annee_scolaire_id', $annee->id))));
+                }
+            })->count();
+            // Une leçon validée sur plusieurs séances ne compte qu'une fois.
+            $faites = (clone $lecons)->where(fn ($q) => $q
+                ->where(fn ($r) => $r->whereDate('date_realisee', '>=', $dates[0])->whereDate('date_realisee', '<=', $dates[1]))
+                ->orWhereHas('seances', fn ($s) => $s->forSchool($schoolId)
+                    ->whereIn('classe_matiere_id', $classeMatiereIds)
+                    ->where('statut', 'effectuee')
+                    ->whereDate('date_seance', '>=', $dates[0])->whereDate('date_seance', '<=', $dates[1])))
+                ->count();
+
+            return $this->resume($seances) + [
+                'lecons_prevues' => $prevues,
+                'lecons_realisees' => $faites,
+                'date_debut' => $dates[0],
+                'date_fin' => $dates[1],
+            ];
         })->all();
     }
 
