@@ -8,6 +8,7 @@ use App\Models\BusRemplacement;
 use App\Models\BusVehicule;
 use App\Models\BusVersement;
 use App\Models\Depense;
+use App\Models\Eleve;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use Illuminate\Database\Eloquent\Collection;
@@ -76,6 +77,7 @@ class ChauffeurService extends BaseService
             'date' => $jour,
             'effectif_transporte' => (int) $bilans->sum('effectif'),
             'capacite_totale' => (int) $vehicules->sum('capacite'),
+            'nombre_trajets' => (int) $vehicules->sum(fn (BusVehicule $v) => $v->trajets->count()),
             /*
              * Agrégé sur tous les véhicules conduits ce jour-là. Le salaire
              * n'est compté qu'une fois : c'est celui du chauffeur, pas une
@@ -177,7 +179,7 @@ class ChauffeurService extends BaseService
         $affectations = BusAffectation::whereHas('trajet', fn ($q) => $q->whereIn('vehicule_id', $vehiculeIds))
             ->actives()
             ->with([
-                'eleve:id,school_id,classe_id,matricule,nom_complet,sexe',
+                'eleve:id,school_id,classe_id,matricule,nom_complet,sexe,photo_path',
                 'eleve.classe:id,nom',
                 'eleve.tuteurs:id,nom_complet,telephone,email',
                 'arret:id,trajet_id,nom,lieu_dit,ordre,heure_passage',
@@ -248,7 +250,7 @@ class ChauffeurService extends BaseService
         $affectations = BusAffectation::whereHas('trajet', fn ($q) => $q->whereIn('vehicule_id', $vehiculeIds))
             ->actives()
             ->with([
-                'eleve:id,school_id,classe_id,matricule,nom_complet,sexe',
+                'eleve:id,school_id,classe_id,matricule,nom_complet,sexe,photo_path',
                 'eleve.classe:id,nom',
                 'eleve.tuteurs:id,nom_complet,telephone,email',
                 'arret:id,trajet_id,nom,lieu_dit,ordre',
@@ -269,11 +271,37 @@ class ChauffeurService extends BaseService
             ->values();
     }
 
-    /**
-     * Coche (ou décoche) un enfant comme pris en charge sur la tournée du
-     * jour. Idempotent : un double tap, ou une requête rejouée par un réseau
-     * capricieux, ne crée pas deux pointages (unicité en base).
-     */
+    /** Profil en lecture seule d'un enfant de ses bus. */
+    public function profilEleve(Personnel $chauffeur, int $eleveId): Eleve
+    {
+        $vehiculeIds = $this->vehicules($chauffeur)->pluck('id');
+        $affectation = BusAffectation::whereHas('trajet', fn ($q) => $q->whereIn('vehicule_id', $vehiculeIds))
+            ->actives()->where('eleve_id', $eleveId)->firstOrFail();
+
+        return $affectation->eleve()->with(['classe.niveau', 'school', 'tuteurs'])->firstOrFail();
+    }
+
+    public function depenses(Personnel $chauffeur, ?string $mois = null): SupportCollection
+    {
+        $debutMois = $mois ? Carbon::parse($mois)->startOfMonth() : Carbon::today()->startOfMonth();
+
+        return Depense::whereIn('vehicule_id', $this->vehicules($chauffeur)->pluck('id'))
+            ->valides()
+            ->whereYear('date_depense', $debutMois->year)
+            ->whereMonth('date_depense', $debutMois->month)
+            ->with('vehicule:id,immatriculation')
+            ->orderByDesc('date_depense')->orderByDesc('id')->get()
+            ->map(fn (Depense $d) => [
+                'id' => $d->id,
+                'vehicule_id' => $d->vehicule_id,
+                'immatriculation' => $d->vehicule?->immatriculation,
+                'date_depense' => $d->date_depense?->format('Y-m-d'),
+                'libelle' => $d->libelle,
+                'montant' => $d->montant,
+            ]);
+    }
+
+    /** Pointage idempotent de la prise en charge sur une tournee. */
     public function pointer(Personnel $chauffeur, int $affectationId, string $date, string $sens, bool $pris, ?int $userId = null): ?BusRamassage
     {
         $affectation = $this->affectationDeMaTournee($chauffeur, $affectationId, $date);
@@ -465,6 +493,7 @@ class ChauffeurService extends BaseService
                     'eleve_id' => $a->eleve_id,
                     'matricule' => $a->eleve?->matricule,
                     'nom_complet' => $a->eleve?->nom_complet,
+                    'photo_url' => $a->eleve?->photo_path ? asset('storage/' . $a->eleve->photo_path) : null,
                     'sexe' => $a->eleve?->sexe,
                     'classe' => $a->eleve?->classe?->nom,
                     'option_trajet' => $a->option_trajet,

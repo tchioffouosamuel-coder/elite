@@ -189,8 +189,8 @@ export const router = createHashRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute> },
-      { path: 'anciens-reinscrits', element: <ProtectedRoute permission="dashboard.view"><AnciensReinscritsPage /></ProtectedRoute> },
+      { index: true, element: <ProtectedRoute permission="dashboard.view" masquerPourChauffeur><DashboardPage /></ProtectedRoute> },
+      { path: 'anciens-reinscrits', element: <ProtectedRoute permission="dashboard.view" masquerPourChauffeur><AnciensReinscritsPage /></ProtectedRoute> },
       { path: 'journal-activite', element: <ProtectedRoute permission="dashboard.view" superAdminOnly><JournalActivitePage /></ProtectedRoute> },
       { path: 'profil', element: <ProtectedRoute><UserProfilePage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view"><PersonnelListPage /></ProtectedRoute> },
@@ -242,19 +242,19 @@ export const router = createHashRouter([
       { path: 'infirmerie', element: <ProtectedRoute permission="infirmerie.view"><InfirmeriePage /></ProtectedRoute> },
       { path: 'infirmerie/nouvelle', element: <ProtectedRoute permission="infirmerie.create"><VisiteInfirmerieFormPage /></ProtectedRoute> },
       { path: 'infirmerie/:id/edit', element: <ProtectedRoute permission="infirmerie.update"><VisiteInfirmerieFormPage /></ProtectedRoute> },
-      { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view"><BusVehiculesPage /></ProtectedRoute> },
-      { path: 'transport/vehicules/:id/depenses', element: <ProtectedRoute permission="bus.view"><BusVehiculeDepensesPage /></ProtectedRoute> },
-      { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view"><BusTrajetsPage /></ProtectedRoute> },
-      { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view"><BusTrajetDetailPage /></ProtectedRoute> },
-      { path: 'bus/arrets', element: <ProtectedRoute permission="bus.view"><BusArretsPage /></ProtectedRoute> },
-      { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view"><BusAffectationsPage /></ProtectedRoute> },
-      { path: 'bus/liste-personnalisee', element: <ProtectedRoute permission="bus.view"><BusListePersonnaliseePage /></ProtectedRoute> },
-      { path: 'bus/souscription', element: <ProtectedRoute permission="bus.souscrire"><BusSouscriptionPage /></ProtectedRoute> },
-      { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.souscrire"><BusSouscriptionPage /></ProtectedRoute> },
-      { path: 'bus/affectations/:affectationId/paiements', element: <ProtectedRoute permission="bus.view"><BusPaiementPage /></ProtectedRoute> },
+      { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusVehiculesPage /></ProtectedRoute> },
+      { path: 'transport/vehicules/:id/depenses', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusVehiculeDepensesPage /></ProtectedRoute> },
+      { path: 'bus/trajets', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusTrajetsPage /></ProtectedRoute> },
+      { path: 'bus/trajets/:id', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusTrajetDetailPage /></ProtectedRoute> },
+      { path: 'bus/arrets', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusArretsPage /></ProtectedRoute> },
+      { path: 'bus/eleves', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusAffectationsPage /></ProtectedRoute> },
+      { path: 'bus/liste-personnalisee', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusListePersonnaliseePage /></ProtectedRoute> },
+      { path: 'bus/souscription', element: <ProtectedRoute permission="bus.souscrire" masquerPourChauffeur><BusSouscriptionPage /></ProtectedRoute> },
+      { path: 'bus/souscription/:eleveId', element: <ProtectedRoute permission="bus.souscrire" masquerPourChauffeur><BusSouscriptionPage /></ProtectedRoute> },
+      { path: 'bus/affectations/:affectationId/paiements', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusPaiementPage /></ProtectedRoute> },
       // Relais d'itinéraire : la direction confie le circuit d'un chauffeur
       // empêché à un autre — cf. BusRemplacementController.
-      { path: 'bus/remplacements', element: <ProtectedRoute permission="bus.remplacement"><BusRemplacementsPage /></ProtectedRoute> },
+      { path: 'bus/remplacements', element: <ProtectedRoute permission="bus.remplacement" masquerPourChauffeur><BusRemplacementsPage /></ProtectedRoute> },
       /*
        * Espace chauffeur : sa tournée, bornée côté API à ses propres véhicules
        * (cf. ChauffeurService). `chauffeurOnly` ferme ces écrans aux autres

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\EleveResource;
 use App\Models\BusRamassage;
 use App\Models\BusRemplacement;
 use App\Models\Personnel;
@@ -81,6 +82,18 @@ class ChauffeurEspaceController extends Controller
         $donnees = $request->validate(['date' => ['nullable', 'date']]);
 
         return ApiResponse::success($this->service->elevesTransportes($chauffeur, $donnees['date'] ?? null));
+    }
+
+    public function profilEleve(Request $request, int $id): JsonResponse
+    {
+        return ApiResponse::success(new EleveResource($this->service->profilEleve($this->moi($request), $id)));
+    }
+
+    public function depenses(Request $request): JsonResponse
+    {
+        $donnees = $request->validate(['mois' => ['nullable', 'date']]);
+
+        return ApiResponse::success($this->service->depenses($this->moi($request), $donnees['mois'] ?? null));
     }
 
     /**

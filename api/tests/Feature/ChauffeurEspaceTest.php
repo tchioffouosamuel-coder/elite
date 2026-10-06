@@ -94,11 +94,38 @@ class ChauffeurEspaceTest extends TestCase
         $reponse = $this->actingAs($user)->getJson('/api/v1/chauffeur/tableau-de-bord')->assertOk();
 
         $reponse->assertJsonPath('data.effectif_transporte', 2);
+        $reponse->assertJsonPath('data.nombre_trajets', 1);
         $reponse->assertJsonPath('data.rentabilite.recettes', 15_000);
         $reponse->assertJsonPath('data.rentabilite.depenses', 4_000);
         $reponse->assertJsonPath('data.rentabilite.salaire', 90_000);
         $reponse->assertJsonPath('data.rentabilite.resultat', 15_000 - (4_000 + 90_000));
         $reponse->assertJsonPath('data.vehicules.0.immatriculation', 'LT-100-AA');
+    }
+
+    public function test_les_depenses_et_profils_restent_limites_a_ses_bus(): void
+    {
+        [$user, $chauffeur] = $this->chauffeur('bord@test.local', 'Jean Bord');
+        [, $autre] = $this->chauffeur('autre@test.local', 'Autre Chauffeur');
+        $bus = $this->vehicule($chauffeur, 'LT-110-AA');
+        $autreBus = $this->vehicule($autre, 'LT-111-AA');
+        $trajet = $this->trajet($bus, 'Ligne du chauffeur');
+        $eleve = $this->eleve('PHOTO1', 'Marie Photo');
+        $eleve->update(['photo_path' => 'eleves/marie.jpg']);
+        $this->souscription($eleve, $trajet, $this->arret($trajet, 'Mon arret', 1));
+        $horsTournee = $this->eleve('PHOTO2', 'Autre Eleve');
+
+        $this->depense($bus, 4000, now()->toDateString());
+        $this->depense($bus, 7000, now()->subMonthNoOverflow()->toDateString());
+        $this->depense($autreBus, 9000, now()->toDateString());
+        $this->depense($bus, 5000, now()->toDateString())->update(['statut' => 'annulee']);
+
+        $this->actingAs($user)->getJson('/api/v1/chauffeur/depenses')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.montant', 4000);
+        $this->getJson('/api/v1/chauffeur/eleves')
+            ->assertOk()->assertJsonPath('data.0.photo_url', asset('storage/eleves/marie.jpg'));
+        $this->getJson('/api/v1/chauffeur/eleves/' . $eleve->id)
+            ->assertOk()->assertJsonPath('data.id', $eleve->id)->assertJsonPath('data.classe.nom', '6e M');
+        $this->getJson('/api/v1/chauffeur/eleves/' . $horsTournee->id)->assertNotFound();
     }
 
     public function test_l_itineraire_liste_les_enfants_par_arret_avec_le_contact_des_parents(): void

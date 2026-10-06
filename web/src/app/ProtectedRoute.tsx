@@ -48,6 +48,7 @@ export function ProtectedRoute({
   superAdminOnly = false,
   masquerPourTitulaire = false,
   masquerPourVendeur = false,
+  masquerPourChauffeur = false,
   chauffeurOnly = false,
   parentOnly = false,
   eleveOnly = false,
@@ -82,6 +83,12 @@ export function ProtectedRoute({
    * lien du menu n'empêcherait pas d'y entrer par une URL directe.
    */
   masquerPourVendeur?: boolean
+  /**
+   * Ferme cette route au chauffeur : il porte `bus.view` pour son espace
+   * tournées, mais ne doit pas tomber sur les écrans de gestion de la flotte
+   * ou le tableau de bord d'établissement par URL directe.
+   */
+  masquerPourChauffeur?: boolean
   /**
    * Réservé aux chauffeurs de la flotte : « Ma tournée » et l'itinéraire
    * n'ont de sens que pour qui conduit. Un économe ou un membre de la
@@ -191,6 +198,7 @@ export function ProtectedRoute({
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
   if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user)} replace />
   if (masquerPourVendeur && user?.est_vendeur) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (masquerPourChauffeur && user?.est_chauffeur) return <Navigate to={redirectionParDefaut(user)} replace />
   if (chauffeurOnly && !user?.est_chauffeur) return <Navigate to={redirectionParDefaut(user)} replace />
 
   return <>{children}</>

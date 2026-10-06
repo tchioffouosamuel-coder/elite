@@ -1322,6 +1322,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('tableau-de-bord', [ChauffeurEspaceController::class, 'tableauDeBord'])->name('tableau-de-bord');
                 Route::get('itineraire', [ChauffeurEspaceController::class, 'itineraire'])->name('itineraire');
                 Route::get('eleves', [ChauffeurEspaceController::class, 'eleves'])->name('eleves');
+                Route::get('eleves/{id}', [ChauffeurEspaceController::class, 'profilEleve'])->name('eleves.show');
+                Route::get('depenses', [ChauffeurEspaceController::class, 'depenses'])->name('depenses');
                 Route::get('itineraires-disponibles', [ChauffeurEspaceController::class, 'itinerairesDisponibles'])->name('itineraires-disponibles');
 
                 Route::post('ramassages', [ChauffeurEspaceController::class, 'pointer'])->name('ramassages.store')->middleware('permission:bus.ramassage');

@@ -96,7 +96,7 @@ const navGroups = [
   {
     label: 'nav.group.overview',
     items: [
-      { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view', keywords: ['accueil', 'home', 'statistiques'] },
+      { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view', masquerPourChauffeur: true, keywords: ['accueil', 'home', 'statistiques'] },
       { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view', keywords: ['actualites', 'news', 'communication', 'information'] },
       { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view', keywords: ['livres', 'books', 'library', 'documents', 'emprunt'] },
       {
