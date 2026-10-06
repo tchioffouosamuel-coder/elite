@@ -1,5 +1,28 @@
 import { http } from "@/shared/lib/http";
 import type { ApiResponse } from "@/shared/types/api";
+import type { EcoleAccessible } from "@/shared/store/authStore";
+
+export interface ClasseEmploiDuTemps {
+  id: number;
+  nom: string;
+  school_id: number;
+  school: EcoleAccessible | null;
+  cours_planifies: number;
+}
+
+export async function fetchEmploiDuTempsClasses(): Promise<ClasseEmploiDuTemps[]> {
+  const { data } = await http.get<ApiResponse<ClasseEmploiDuTemps[]>>("/emploi-du-temps/classes");
+  return data.data;
+}
+
+export type SuppressionEmploisDuTemps =
+  | { school_id: number; classe_ids?: never }
+  | { classe_ids: number[]; school_id?: never };
+
+export async function supprimerEmploisDuTemps(payload: SuppressionEmploisDuTemps): Promise<{ deleted: number }> {
+  const { data } = await http.delete<ApiResponse<{ deleted: number }>>("/emploi-du-temps", { data: payload });
+  return data.data;
+}
 
 /**
  * `libelle` est une clé de traduction (`emploiDuTemps.jours.*`), pas le texte

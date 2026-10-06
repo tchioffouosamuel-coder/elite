@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Copy, Download, FileDown, ListChecks, Pencil, Plus, Search, Trash2, Upload, UserCog, Wand2, X } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Copy, Download, FileDown, ListChecks, Pencil, Plus, Search, Trash2, Upload, UserCog, Wand2, X } from 'lucide-react'
 import { fetchClasses, fetchMaClasse } from '@/features/classes/api'
 import {
   fetchClasseMatieres,
@@ -21,6 +21,7 @@ import {
   batchDeleteCreneaux,
   copierCreneaux,
   fetchEmploiDuTemps,
+  fetchEmploiDuTempsClasses,
   fetchSalles,
   genererSeances,
   publierEmploiDuTempsPdf,
@@ -30,6 +31,7 @@ import {
   type Creneau,
 } from '@/features/emploiDuTemps/api'
 import { ElementsEmploiDuTempsModal } from '@/features/emploiDuTemps/pages/ElementsEmploiDuTempsModal'
+import { EmploiDuTempsClassesView } from '@/features/emploiDuTemps/pages/EmploiDuTempsClassesView'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
@@ -126,9 +128,16 @@ export function EmploiDuTempsPage() {
 
   // Ouvert depuis la fiche d'une classe : elle passe son identifiant en
   // paramètre pour que la grille s'affiche directement, sans re-sélection.
-  const [searchParams] = useSearchParams()
+  const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
+  const [searchParams, setSearchParams] = useSearchParams()
   const classeDemandee = Number(searchParams.get('classe')) || ''
-  const [classeId, setClasseId] = useState<number | ''>(classeDemandee)
+  const ouvrirClasse = (id: number | null, replace = false) => setSearchParams((params) => {
+    const next = new URLSearchParams(params)
+    if (id === null) next.delete('classe')
+    else next.set('classe', String(id))
+    return next
+  }, { replace })
+  const previousSchool = useRef(activeSchoolId)
   const [formOuvert, setFormOuvert] = useState(false)
   const [generationOuverte, setGenerationOuverte] = useState(false)
   const [creneauEnEdition, setCreneauEnEdition] = useState<Creneau | null>(null)
@@ -140,7 +149,11 @@ export function EmploiDuTempsPage() {
   const [elementsOuverts, setElementsOuverts] = useState(false)
   const [exportEnCours, setExportEnCours] = useState(false)
 
-  const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !restreintATitulaire })
+  const classesQuery = useQuery({
+    queryKey: ['emploi-du-temps-classes', activeSchoolId],
+    queryFn: fetchEmploiDuTempsClasses,
+    enabled: !restreintATitulaire,
+  })
   const { data: maClasse, isLoading: maClasseEnChargement } = useQuery({
     queryKey: ['ma-classe'],
     queryFn: fetchMaClasse,
@@ -148,12 +161,19 @@ export function EmploiDuTempsPage() {
   })
 
   useEffect(() => {
-    if (restreintATitulaire && maClasse && classeId === '') {
-      setClasseId(maClasse.id)
+    if (previousSchool.current !== activeSchoolId) {
+      previousSchool.current = activeSchoolId
+      setSearchParams((params) => {
+        const next = new URLSearchParams(params)
+        next.delete('classe')
+        return next
+      }, { replace: true })
     }
-  }, [restreintATitulaire, maClasse, classeId])
+  }, [activeSchoolId, setSearchParams])
 
+  const classeId = restreintATitulaire ? (maClasse?.id ?? '') : classeDemandee
   const classeActive = classeId ? Number(classeId) : null
+  const classeAffichee = restreintATitulaire ? maClasse : classesQuery.data?.find((c) => c.id === classeActive)
 
   const { data: creneaux, isLoading } = useQuery({
     queryKey: ['emploi-du-temps', classeActive],
@@ -170,7 +190,8 @@ export function EmploiDuTempsPage() {
   const suppression = useMutation({
     mutationFn: (id: number) => deleteCreneau(classeActive!, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-classes'] })
       succes(t('emploiDuTemps.timeslot_deleted'))
     },
     onError: (e: { message?: string }) => erreur(e.message ?? t('emploiDuTemps.deletion_failed')),
@@ -187,7 +208,8 @@ export function EmploiDuTempsPage() {
   const suppressionMultiple = useMutation({
     mutationFn: (ids: number[]) => batchDeleteCreneaux(classeActive!, ids),
     onSuccess: (resultat) => {
-      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-classes'] })
       succes(t('emploiDuTemps.creneaux_supprimes', { count: resultat.deleted }))
       quitterSelection()
     },
@@ -206,6 +228,14 @@ export function EmploiDuTempsPage() {
   // sélection faite sur une grille n'a pas de sens sur une autre.
   useEffect(() => {
     setSelectedIds(new Set())
+    setModeSelection(false)
+    setFormOuvert(false)
+    setGenerationOuverte(false)
+    setCreneauEnEdition(null)
+    setCopieOuverte(false)
+    setAssignationOuverte(false)
+    setShowImport(false)
+    setElementsOuverts(false)
   }, [classeActive])
 
   const basculerSelection = (id: number) =>
@@ -371,21 +401,14 @@ export function EmploiDuTempsPage() {
             <span className="text-sm font-semibold text-navy-800">{maClasse.nom}</span>
           </div>
         )
-      ) : (
-        <Select
-          label={t('emploiDuTemps.classe_label')}
-          value={classeId}
-          onChange={(e) => setClasseId(e.target.value ? Number(e.target.value) : '')}
-          className="max-w-xs"
-        >
-          <option value="">{t('emploiDuTemps.select_classe_placeholder')}</option>
-          {classes?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nom}
-            </option>
-          ))}
-        </Select>
-      )}
+      ) : classeActive ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => ouvrirClasse(null)}>
+            <ArrowLeft className="h-4 w-4" />{t('emploiDuTemps.retour_classes')}
+          </Button>
+          <span className="min-w-0 break-words text-sm font-semibold text-navy-800">{classeAffichee?.nom}</span>
+        </div>
+      ) : null}
 
       {restreintATitulaire && maClasseEnChargement ? (
         <Spinner />
@@ -394,9 +417,9 @@ export function EmploiDuTempsPage() {
           <EmptyState label={t('classes.aucune_classe_confiee')} />
         </Card>
       ) : !classeActive ? (
-        <Card>
-          <EmptyState label={t('emploiDuTemps.choisir_classe_hint')} />
-        </Card>
+        <EmploiDuTempsClassesView key={activeSchoolId ?? 'all'} classes={classesQuery.data ?? []}
+          isLoading={classesQuery.isLoading} error={classesQuery.error}
+          onRetry={() => void classesQuery.refetch()} onOpen={ouvrirClasse} />
       ) : isLoading ? (
         <Spinner />
       ) : !creneaux?.length ? (
@@ -405,7 +428,7 @@ export function EmploiDuTempsPage() {
         </Card>
       ) : (
         <GrillePeriodes
-          periodes={estSecondaire() ? PERIODES_SECONDAIRE : PERIODES_PRIMAIRE_MATERNELLE}
+          periodes={estSecondaire(classeAffichee?.school?.type) ? PERIODES_SECONDAIRE : PERIODES_PRIMAIRE_MATERNELLE}
           creneauxParJour={creneauxParJour}
           classeId={Number(classeId)}
           peutGerer={peutGerer}
@@ -468,7 +491,10 @@ export function EmploiDuTempsPage() {
             <p className="text-xs text-navy-500">{t('emploiDuTemps.import_note')}</p>
           }
           onClose={() => setShowImport(false)}
-          onImported={() => queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeActive] })}
+          onImported={() => {
+            queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
+            queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-classes'] })
+          }}
         />
       )}
 
@@ -872,7 +898,8 @@ function CreneauModal({
       return creneau ? updateCreneau(classeId, creneau.id, payload) : createCreneau(classeId, payload)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps', classeId] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-classes'] })
       succes(t(enEdition ? 'emploiDuTemps.creneau_modifie' : 'emploiDuTemps.creneau_ajoute'))
       onClose()
     },
@@ -1199,6 +1226,7 @@ function CopierCreneauxModal({
       // Portée large : la classe de destination n'a pas forcément sa propre
       // grille déjà chargée, mais elle doit voir la copie si on y navigue ensuite.
       queryClient.invalidateQueries({ queryKey: ['emploi-du-temps'] })
+      queryClient.invalidateQueries({ queryKey: ['emploi-du-temps-classes'] })
       onCopied()
     } catch (err) {
       erreur((err as ApiError).message ?? t('emploiDuTemps.copier_impossible'))
