@@ -87,7 +87,7 @@ export interface GrillePrimaire {
    */
   mode: 'note' | 'appreciation'
   composantes: Composante[]
-  sequences: { id: number; libelle: string }[]
+  sequences: { id: number; libelle: string; saisie_ouverte: boolean }[]
   bareme: number
   /** Points maximum par volet, tels que définis sur la compétence. */
   repartition: Record<Composante, number>

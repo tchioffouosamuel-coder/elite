@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ListChecks } from 'lucide-react'
 import { fetchClasses, type Classe } from '@/features/classes/api'
-import { fetchTrimestres } from '@/features/pedagogie/api'
+import { fetchTrimestres, fetchTrimestresPourClasse } from '@/features/pedagogie/api'
+import { SaisieSequencesPanel } from './SaisieSequencesPanel'
 import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
 import { fetchMesAffectationsActives } from '@/features/pedagogie/api'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
@@ -51,7 +52,10 @@ export function RemplissagePage() {
     queryFn: fetchMesAffectationsActives,
     enabled: estEnseignant,
   })
-  const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
+  const { data: trimestres } = useQuery({
+    queryKey: classeId ? ['trimestres', Number(classeId)] : ['trimestres'],
+    queryFn: () => classeId ? fetchTrimestresPourClasse(Number(classeId)) : fetchTrimestres(),
+  })
 
   const classesEnseignant = useMemo(
     () => [...new Map((mesAffectations ?? []).map((a) => [a.classe_id, { id: a.classe_id, nom: a.classe }])).values()],
@@ -221,6 +225,7 @@ export function RemplissagePage() {
   if (matiereSelectionnee && classeActive !== null) {
     return (
       <div className="flex flex-col gap-4">
+        <SaisieSequencesPanel trimestres={trimestres ?? []} />
         {secondaireClasseActive ? (
           <NotesTab
             classeId={classeActive}
@@ -274,6 +279,8 @@ export function RemplissagePage() {
           ))}
         </Select>
       </div>
+
+      <SaisieSequencesPanel trimestres={trimestres ?? []} />
 
       {estEnseignant && classesEnseignant.length === 0 ? (
         <Card>

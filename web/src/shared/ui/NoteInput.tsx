@@ -17,6 +17,7 @@ interface NoteInputProps {
   min?: number
   step?: number
   className?: string
+  readOnly?: boolean
 }
 
 /**
@@ -24,7 +25,7 @@ interface NoteInputProps {
  * soumission : la case et son message d'erreur passent au rouge dès que la
  * valeur sort du barème, sans attendre l'appel API et son 422.
  */
-export function NoteInput({ value, onChange, max, min = 0, step = 0.25, className }: NoteInputProps) {
+export function NoteInput({ value, onChange, max, min = 0, step = 0.25, className, readOnly = false }: NoteInputProps) {
   const erreur = messageErreurNote(value, max, min)
 
   return (
@@ -35,7 +36,8 @@ export function NoteInput({ value, onChange, max, min = 0, step = 0.25, classNam
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        onChange={readOnly ? undefined : (e) => onChange(e.target.value)}
         aria-invalid={erreur ? true : undefined}
         title={erreur}
         className={clsx(
@@ -44,6 +46,7 @@ export function NoteInput({ value, onChange, max, min = 0, step = 0.25, classNam
             ? 'border-red-400 text-red-600 focus:border-red-400 focus:ring-red-100'
             : 'border-navy-200 focus:border-navy-400 focus:ring-navy-100',
           className,
+          readOnly && 'bg-navy-50 text-navy-500',
         )}
       />
       {erreur && <span className="text-[0.625rem] font-medium leading-none text-red-500">{erreur}</span>}

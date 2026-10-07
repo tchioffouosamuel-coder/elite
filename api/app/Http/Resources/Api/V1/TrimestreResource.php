@@ -17,6 +17,7 @@ class TrimestreResource extends JsonResource
             'date_debut' => $this->date_debut?->format('Y-m-d'),
             'date_fin' => $this->date_fin?->format('Y-m-d'),
             'is_active' => (bool) $this->is_active,
+            'annee_active' => (bool) $this->anneeScolaire?->is_active,
             'sequences' => SequenceResource::collection($this->whenLoaded('sequences')),
         ];
     }

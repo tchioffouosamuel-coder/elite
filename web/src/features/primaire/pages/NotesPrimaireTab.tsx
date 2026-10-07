@@ -18,6 +18,8 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
+import { useAuthStore } from '@/shared/store/authStore'
+import { peutSaisirSequence } from '@/features/notes/saisieSequence'
 
 /** Clé d'une cellule de la grille : élève × volet × séquence. */
 function cle(eleveId: number, composante: Composante, sequenceId: number): string {
@@ -142,6 +144,7 @@ export interface NotesPrimaireDetailProps {
 export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: NotesPrimaireDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -149,6 +152,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
   const { data: trimestres } = useQuery({
     queryKey: ['trimestres', classeId],
     queryFn: () => fetchTrimestresPourClasse(classeId),
+    refetchInterval: 15000,
   })
 
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
@@ -162,6 +166,12 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
     queryFn: () => fetchGrillePrimaire(Number(classeMatiereId), Number(trimestreId)),
     enabled: !!trimestreId,
   })
+  const trimestreChoisi = trimestres?.find((tr) => tr.id === Number(trimestreId))
+  const peutModifier = (sequence: GrillePrimaire['sequences'][number]) => peutSaisirSequence(
+    user, trimestreChoisi?.sequences.find((s) => s.id === sequence.id) ?? sequence,
+    trimestreChoisi?.is_active === true,
+  )
+  const sequencesEditables = grille?.sequences.filter(peutModifier) ?? []
 
   useEffect(() => {
     if (!grille) return
@@ -188,7 +198,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
     grille.mode !== 'appreciation' &&
     grille.lignes.some((ligne) =>
       grille.composantes.some((composante) =>
-        grille.sequences.some(
+        sequencesEditables.some(
           (sequence) =>
             messageErreurNote(valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? '', grille.repartition[composante]) !== undefined,
         ),
@@ -196,14 +206,14 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
     )
 
   const handleSave = async () => {
-    if (!grille || notesInvalides) return
+    if (!grille || notesInvalides || sequencesEditables.length === 0) return
 
     setSubmitting(true)
     try {
       const notes: NotePrimaireInput[] = []
       for (const ligne of grille.lignes) {
         for (const composante of grille.composantes) {
-          for (const sequence of grille.sequences) {
+          for (const sequence of sequencesEditables) {
             const brut = valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? ''
             const vide = brut.trim() === ''
 
@@ -226,6 +236,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
       const apiError = err as ApiError
       const premiereErreurChamp = apiError.errors ? Object.values(apiError.errors)[0]?.[0] : undefined
       erreur(premiereErreurChamp ?? apiError.message)
+      await queryClient.invalidateQueries({ queryKey: ['trimestres', classeId] })
     } finally {
       setSubmitting(false)
     }
@@ -256,10 +267,10 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
         <Spinner />
       ) : grille.mode === 'appreciation' ? (
         <>
-          <GrilleAppreciations grille={grille} valeurs={valeurs} onChange={setValeurs} />
+          <GrilleAppreciations grille={grille} valeurs={valeurs} onChange={setValeurs} peutModifier={peutModifier} />
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleSave} disabled={submitting}>
+            <Button onClick={handleSave} disabled={submitting || sequencesEditables.length === 0}>
               {t('common.save')}
             </Button>
           </div>
@@ -311,6 +322,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                           }`}
                       >
                         S{index + 1}
+                        {!peutModifier(sequence) && <span className="block">{t('notes.fermee')}</span>}
                       </th>
                     )),
                   )}
@@ -353,6 +365,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                           >
                             <NoteInput
                               max={grille.repartition[composante]}
+                              readOnly={!peutModifier(sequence)}
                               value={valeurs[cle(ligne.eleve_id, composante, sequence.id)] ?? ''}
                               onChange={(v) =>
                                 setValeurs((val) => ({
@@ -385,7 +398,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
           </div>
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleSave} disabled={submitting || notesInvalides}>
+            <Button onClick={handleSave} disabled={submitting || notesInvalides || sequencesEditables.length === 0}>
               {t('common.save')}
             </Button>
             {notesInvalides && (
@@ -410,10 +423,12 @@ function GrilleAppreciations({
   grille,
   valeurs,
   onChange,
+  peutModifier,
 }: {
   grille: GrillePrimaire
   valeurs: Record<string, string>
   onChange: (maj: (v: Record<string, string>) => Record<string, string>) => void
+  peutModifier: (sequence: GrillePrimaire['sequences'][number]) => boolean
 }) {
   const { t } = useTranslation()
 
@@ -446,6 +461,7 @@ function GrilleAppreciations({
               {grille.sequences.map((sequence, index) => (
                 <th key={sequence.id} className="border-b border-l border-navy-100 px-3 py-2 text-center">
                   S{index + 1}
+                  {!peutModifier(sequence) && <span className="block text-[0.625rem] font-normal">{t('notes.fermee')}</span>}
                 </th>
               ))}
             </tr>
@@ -485,6 +501,8 @@ function GrilleAppreciations({
                                 title={appreciation.label_fr}
                                 // Recliquer le niveau déjà coché l'efface : c'est
                                 // le seul moyen de revenir à « non évalué ».
+                                disabled={!peutModifier(sequence)}
+                                aria-readonly={!peutModifier(sequence)}
                                 onClick={() =>
                                   onChange((v) => ({ ...v, [cleCellule]: actif ? '' : String(appreciation.id) }))
                                 }

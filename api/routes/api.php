@@ -874,6 +874,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::post('trimestres', [TrimestreController::class, 'store'])->name('trimestres.store')->middleware('permission:trimestres.create');
             Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update')->middleware('permission:trimestres.update');
+            Route::patch('sequences/{id}/saisie', [\App\Http\Controllers\Api\V1\SequenceController::class, 'saisie'])->name('sequences.saisie')->middleware('permission:trimestres.update');
             Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate')->middleware('permission:trimestres.activer');
             Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances')->middleware('permission:trimestres.seances');
             Route::post('trimestres/{id}/supprimer-seances', [TrimestreController::class, 'supprimerSeances'])->name('trimestres.supprimer-seances')->middleware('permission:trimestres.seances');

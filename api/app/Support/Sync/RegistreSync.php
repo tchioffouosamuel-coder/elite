@@ -147,7 +147,7 @@ class RegistreSync
             ],
             'sequences' => [
                 'modele' => Sequence::class,
-                'colonnes' => ['id', 'trimestre_id', 'ordre', 'libelle'],
+                'colonnes' => ['id', 'trimestre_id', 'ordre', 'libelle', 'saisie_ouverte'],
                 'portee' => fn(Builder $q, int $s) => $q->whereHas('trimestre.anneeScolaire', fn($a) => $a->where('school_id', $s)),
                 'permission' => null,
             ],

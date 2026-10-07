@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Repeat, Search } from 'lucide-react'
-import { fetchClasseMatieres, fetchTrimestres } from '@/features/pedagogie/api'
+import { fetchClasseMatieres, fetchTrimestresPourClasse } from '@/features/pedagogie/api'
+import { useAuthStore } from '@/shared/store/authStore'
+import { peutSaisirSequence } from '../saisieSequence'
 import { fetchGrilleNotes, sauvegarderNotes } from '@/features/notes/api'
 import { Input, Select } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
-import { succes, confirmer } from '@/shared/lib/alertes'
+import { succes, confirmer, erreur } from '@/shared/lib/alertes'
+import type { ApiError } from '@/shared/types/api'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
@@ -119,9 +122,10 @@ interface NotesDetailProps {
   matiere: any
 }
 
-function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
+function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
 
   // valeurs[eleve_id][sequence_id] = texte saisi (chaîne vide = pas de note)
   const [valeurs, setValeurs] = useState<Record<number, Record<number, string>>>({})
@@ -130,9 +134,15 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   const [reconduireCible, setReconduireCible] = useState<number | ''>('')
   const [submitting, setSubmitting] = useState(false)
 
-  const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
+  const { data: trimestres } = useQuery({
+    queryKey: ['trimestres', classeId], queryFn: () => fetchTrimestresPourClasse(classeId),
+    refetchInterval: 15000,
+  })
   const trimestreActif = trimestres?.find((tr) => tr.is_active) ?? trimestres?.[0]
   const sequences = trimestreActif?.sequences ?? []
+  const sequencesEditables = sequences.filter((s) => peutSaisirSequence(user, s, trimestreActif?.is_active === true))
+  const editablesActuelles = useRef(new Set<number>())
+  editablesActuelles.current = new Set(sequencesEditables.map((s) => s.id))
 
   const grilles = useQueries({
     queries: sequences.map((s) => ({
@@ -180,13 +190,14 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   }
 
   const notesInvalides = Object.values(valeurs).some((parSequence) =>
-    Object.values(parSequence).some((v) => messageErreurNote(v, 20) !== undefined),
+    sequencesEditables.some((s) => messageErreurNote(parSequence[s.id] ?? '', 20) !== undefined),
   )
 
   const isLoading = grilles.some((g) => g.isLoading)
 
   const reconduire = async () => {
     if (!reconduireSource || !reconduireCible || reconduireSource === reconduireCible) return
+    if (!sequencesEditables.some((s) => s.id === reconduireCible)) return
 
     const cibleDejaRemplie = Object.values(valeurs).some((parSequence) => (parSequence[reconduireCible] ?? '').trim() !== '')
     if (cibleDejaRemplie) {
@@ -197,6 +208,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
       })
       if (!confirme) return
     }
+    if (!editablesActuelles.current.has(reconduireCible)) return
 
     setValeurs((precedent) => {
       const suivant: Record<number, Record<number, string>> = {}
@@ -209,11 +221,11 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
   }
 
   const handleSave = async () => {
-    if (sequences.length === 0 || notesInvalides) return
+    if (sequencesEditables.length === 0 || notesInvalides) return
     setSubmitting(true)
     try {
       let total = 0
-      for (const sequence of sequences) {
+      for (const sequence of sequencesEditables) {
         const notes = lignes.map((l) => {
           const v = valeurs[l.eleve_id]?.[sequence.id] ?? ''
           return { eleve_id: l.eleve_id, valeur: v.trim() === '' ? null : Number(v) }
@@ -224,6 +236,9 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
         queryClient.invalidateQueries({ queryKey: ['grille-notes', classeMatiereId, sequence.id] })
       }
       succes(t('notes.saved', { count: total }))
+    } catch (err) {
+      erreur((err as ApiError).message)
+      await queryClient.invalidateQueries({ queryKey: ['trimestres', classeId] })
     } finally {
       setSubmitting(false)
     }
@@ -236,7 +251,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
         <p className="text-sm text-navy-500">{matiere.enseignant?.nom_complet ?? '—'}</p>
       </div>
 
-      {sequences.length > 1 && (
+      {sequences.length > 1 && sequencesEditables.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-navy-100 bg-white/75 p-3 shadow-soft">
           <Select
             label={t('notes.reconduire_de')}
@@ -258,7 +273,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
             className="max-w-40"
           >
             <option value="">—</option>
-            {sequences.map((s) => (
+            {sequencesEditables.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.libelle}
               </option>
@@ -268,7 +283,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
             type="button"
             variant="secondary"
             onClick={reconduire}
-            disabled={!reconduireSource || !reconduireCible || reconduireSource === reconduireCible}
+            disabled={!reconduireSource || !sequencesEditables.some((s) => s.id === reconduireCible) || reconduireSource === reconduireCible}
           >
             <Repeat className="h-4 w-4" />
             {t('notes.reconduire')}
@@ -287,6 +302,8 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
                 {sequences.map((s) => (
                   <Th key={s.id} className="text-center">
                     {s.libelle}
+                    {!sequencesEditables.some((editable) => editable.id === s.id) &&
+                      <span className="block text-xs font-normal">{t('notes.fermee')}</span>}
                   </Th>
                 ))}
                 <Th className="text-center">{t('notes.trim_colonne')}</Th>
@@ -302,6 +319,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
                       <Td key={s.id} className="text-center">
                         <NoteInput
                           max={20}
+                          readOnly={!sequencesEditables.some((editable) => editable.id === s.id)}
                           value={valeurs[ligne.eleve_id]?.[s.id] ?? ''}
                           onChange={(v) => setValeurs((prev) => ({ ...prev, [ligne.eleve_id]: { ...prev[ligne.eleve_id], [s.id]: v } }))}
                           className="w-24"
@@ -316,7 +334,7 @@ function NotesDetail({ classeMatiereId, matiere }: NotesDetailProps) {
           </Table>
 
           <div className="flex items-center gap-3">
-            <Button onClick={handleSave} disabled={submitting || notesInvalides}>
+            <Button onClick={handleSave} disabled={submitting || notesInvalides || sequencesEditables.length === 0}>
               {t('common.save')}
             </Button>
             {notesInvalides && <span className="text-sm font-medium text-red-500">{t('notes.invalid_hint')}</span>}

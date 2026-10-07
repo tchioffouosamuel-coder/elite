@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Support\CataloguePermissions;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -101,6 +102,168 @@ class NotesTrimestreActifTest extends TestCase
         ]);
 
         return $user->fresh();
+    }
+
+    public function test_la_direction_ferme_et_rouvre_une_seule_sequence(): void
+    {
+        $url = "/api/v1/sequences/{$this->sequenceActive->id}/saisie";
+        $this->actingAs($this->admin, 'sanctum')->patchJson($url, ['saisie_ouverte' => false])
+            ->assertOk()->assertJsonPath('data.saisie_ouverte', false);
+        $this->assertTrue($this->sequenceClose->fresh()->saisie_ouverte);
+        $this->getJson('/api/v1/trimestres')->assertOk()
+            ->assertJsonFragment(['saisie_ouverte' => false]);
+        $this->getJson('/api/v1/sync?entites=sequences')->assertOk()
+            ->assertJsonFragment(['saisie_ouverte' => false]);
+        $this->patchJson($url, ['saisie_ouverte' => true])
+            ->assertOk()->assertJsonPath('data.saisie_ouverte', true);
+        $this->patchJson($url, ['saisie_ouverte' => 'invalide'])->assertUnprocessable();
+        $this->assertTrue($this->sequenceActive->fresh()->saisie_ouverte);
+    }
+
+    public function test_un_enseignant_meme_privilegie_ne_peut_pas_rouvrir_la_saisie(): void
+    {
+        $prof = $this->enseignant('Prof privilegie', 'prof.privilegie@test.local');
+        $prof->givePermissionTo('trimestres.update');
+        $this->sequenceActive->update(['saisie_ouverte' => false]);
+        $this->actingAs($prof, 'sanctum')
+            ->patchJson("/api/v1/sequences/{$this->sequenceActive->id}/saisie", ['saisie_ouverte' => true])
+            ->assertForbidden();
+        $this->assertFalse($this->sequenceActive->fresh()->saisie_ouverte);
+    }
+
+    public function test_la_fermeture_est_limitee_au_perimetre_etablissement(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre', 'code' => 'AUT', 'type' => 'secondaire', 'is_active' => true]);
+        $annee = AnneeScolaire::create([
+            'school_id' => $autreEcole->id, 'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01', 'date_fin' => '2027-07-15', 'is_active' => true,
+        ]);
+        $trimestre = Trimestre::create([
+            'annee_scolaire_id' => $annee->id, 'libelle' => 'Trimestre 1', 'ordre' => 1,
+            'date_debut' => '2026-09-01', 'date_fin' => '2026-12-19', 'is_active' => true,
+        ]);
+        $sequence = Sequence::create(['trimestre_id' => $trimestre->id, 'libelle' => 'Sequence 1', 'ordre' => 1]);
+        $gestionnaire = User::create([
+            'name' => 'Gestionnaire', 'email' => 'gestionnaire@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $gestionnaire->givePermissionTo('trimestres.update');
+        $this->actingAs($gestionnaire, 'sanctum')
+            ->patchJson("/api/v1/sequences/{$sequence->id}/saisie", ['saisie_ouverte' => false])
+            ->assertNotFound();
+        $this->assertTrue($sequence->fresh()->saisie_ouverte);
+    }
+
+    public function test_les_appreciations_maternelles_sont_bloquees_par_la_fermeture(): void
+    {
+        $this->school->update(['type' => 'maternelle']);
+        $prof = $this->enseignant('Titulaire maternelle', 'titulaire.maternelle@test.local');
+        $attribution = $this->classeCompetencePrimaire($prof);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $attribution->classe_id,
+            'nom_complet' => 'ELEVE MATERNELLE', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $this->sequenceActive->update(['saisie_ouverte' => false]);
+        $this->actingAs($prof, 'sanctum')
+            ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
+                'notes' => [['eleve_id' => $eleve->id, 'sequence_id' => $this->sequenceActive->id,
+                    'composante' => 'oral', 'appreciation_id' => null]],
+            ])->assertForbidden();
+        $this->assertDatabaseCount('notes', 0);
+        $this->getJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire")
+            ->assertOk()->assertJsonPath('data.sequences.0.saisie_ouverte', false);
+    }
+
+    private function classeMatiereAvecEleve(User $prof): array
+    {
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => '6e fermeture']);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $classe->id,
+            'nom_complet' => 'ELEVE FERMETURE', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Calcul', 'statut' => 'actif']);
+        $attribution = ClasseMatiere::create([
+            'classe_id' => $classe->id, 'matiere_id' => $matiere->id,
+            'personnel_id' => $prof->personnel->id, 'statut' => 'actif',
+        ]);
+
+        return [$attribution, $eleve];
+    }
+
+    public function test_fermeture_bloque_modification_et_effacement_puis_reouverture_autorise(): void
+    {
+        $prof = $this->enseignant('Prof fermeture', 'prof.fermeture@test.local');
+        [$attribution, $eleve] = $this->classeMatiereAvecEleve($prof);
+        $url = "/api/v1/classe-matieres/{$attribution->id}/notes";
+        $corps = ['sequence_id' => $this->sequenceActive->id,
+            'notes' => [['eleve_id' => $eleve->id, 'valeur' => 15]]];
+        $this->actingAs($prof, 'sanctum')->postJson($url, $corps)->assertOk();
+        $this->sequenceActive->update(['saisie_ouverte' => false]);
+        foreach ([7, null] as $valeur) {
+            $corps['notes'][0]['valeur'] = $valeur;
+            $this->postJson($url, $corps)->assertForbidden();
+            $this->assertDatabaseHas('notes', ['eleve_id' => $eleve->id, 'valeur' => 15]);
+        }
+        $this->sequenceActive->update(['saisie_ouverte' => true]);
+        $corps['notes'][0]['valeur'] = 7;
+        $this->postJson($url, $corps)->assertOk();
+        $this->assertDatabaseHas('notes', ['eleve_id' => $eleve->id, 'valeur' => 7]);
+    }
+
+    public function test_import_et_synchronisation_ne_contournent_pas_une_sequence_fermee(): void
+    {
+        $prof = $this->enseignant('Prof import', 'prof.import@test.local');
+        [$attribution, $eleve] = $this->classeMatiereAvecEleve($prof);
+        $this->sequenceActive->update(['saisie_ouverte' => false]);
+        $this->actingAs($prof, 'sanctum')
+            ->post("/api/v1/classe-matieres/{$attribution->id}/notes/import", [
+                'sequence_id' => $this->sequenceActive->id,
+                'file' => UploadedFile::fake()->createWithContent('notes.csv', "eleve_id,valeur\n{$eleve->id},15\n"),
+            ], ['Accept' => 'application/json'])->assertForbidden();
+        $this->postJson('/api/v1/sync', ['operations' => [[
+            'id' => 'notes-fermees', 'methode' => 'POST',
+            'chemin' => "classe-matieres/{$attribution->id}/notes",
+            'corps' => ['sequence_id' => $this->sequenceActive->id,
+                'notes' => [['eleve_id' => $eleve->id, 'valeur' => 15]]],
+        ]]])->assertOk()->assertJsonPath('data.resultats.0.statut', 403);
+        $this->assertDatabaseCount('notes', 0);
+    }
+
+    public function test_le_lot_primaire_mixte_est_refuse_sans_ecriture_partielle(): void
+    {
+        $prof = $this->enseignant('Titulaire fermeture', 'titulaire.fermeture@test.local');
+        $attribution = $this->classeCompetencePrimaire($prof);
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $attribution->classe_id,
+            'nom_complet' => 'ELEVE PRIMAIRE', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $fermee = Sequence::create([
+            'trimestre_id' => $this->trimestreActif->id, 'libelle' => 'Sequence 2',
+            'ordre' => 2, 'saisie_ouverte' => false,
+        ]);
+        $notes = array_map(fn ($id) => [
+            'eleve_id' => $eleve->id, 'sequence_id' => $id, 'composante' => 'oral', 'valeur' => 8,
+        ], [$this->sequenceActive->id, $fermee->id]);
+        $url = "/api/v1/classe-competences/{$attribution->id}/notes-primaire";
+        $this->actingAs($prof, 'sanctum')->postJson($url, ['notes' => $notes])->assertForbidden();
+        $this->assertDatabaseCount('notes', 0);
+        $this->postJson($url, ['notes' => [$notes[0]]])->assertOk();
+        $this->assertDatabaseCount('notes', 1);
+    }
+
+    public function test_la_direction_peut_corriger_une_sequence_fermee_mais_pas_un_enseignant_avec_role_direction(): void
+    {
+        $prof = $this->enseignant('Prof direction', 'prof.direction@test.local');
+        [$attribution, $eleve] = $this->classeMatiereAvecEleve($prof);
+        $this->sequenceActive->update(['saisie_ouverte' => false]);
+        $corps = ['sequence_id' => $this->sequenceActive->id,
+            'notes' => [['eleve_id' => $eleve->id, 'valeur' => 15]]];
+        $url = "/api/v1/classe-matieres/{$attribution->id}/notes";
+        $this->actingAs($this->admin, 'sanctum')->postJson($url, $corps)->assertOk();
+        $prof->assignRole('super_admin');
+        $corps['notes'][0]['valeur'] = 7;
+        $this->actingAs($prof, 'sanctum')->postJson($url, $corps)->assertForbidden();
+        $this->assertDatabaseHas('notes', ['eleve_id' => $eleve->id, 'valeur' => 15]);
     }
 
     // ----------------------------------------------------------- Secondaire

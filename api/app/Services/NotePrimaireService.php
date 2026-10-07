@@ -89,7 +89,9 @@ class NotePrimaireService extends BaseService
         return [
             'mode' => $maternelle ? 'appreciation' : 'note',
             'composantes' => $composantes,
-            'sequences' => $sequences->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->libelle])->values()->all(),
+            'sequences' => $sequences->map(fn ($s) => [
+                'id' => $s->id, 'libelle' => $s->libelle, 'saisie_ouverte' => (bool) $s->saisie_ouverte,
+            ])->values()->all(),
             'bareme' => $classeCompetence->bareme(),
             'repartition' => $classeCompetence->repartitionVolets(),
             'appreciations' => $maternelle ? $this->referentiel($classeCompetence) : [],
@@ -149,7 +151,16 @@ class NotePrimaireService extends BaseService
             )->pluck('id')->flip()
             : collect();
 
-        return $this->transaction(function () use ($classeCompetence, $notes, $personnelId, $eleveIdsValides, $composantesValides, $sequenceIdsValides, $maternelle, $appreciationsValides) {
+        return $this->transaction(function () use ($classeCompetence, $notes, $user, $personnelId, $eleveIdsValides, $composantesValides, $sequenceIdsValides, $maternelle, $appreciationsValides) {
+            if ($user) {
+                $ids = collect($notes)->pluck('sequence_id')->unique();
+                $sequences = Sequence::with('trimestre.anneeScolaire')->whereIn('id', $ids)
+                    ->orderBy('id')->lockForUpdate()->get();
+                abort_unless($sequences->count() === $ids->count(), 403, 'Séquence introuvable.');
+                foreach ($sequences as $sequence) {
+                    $sequence->verifierSaisieNotes($user, $classeCompetence->classe->school_id);
+                }
+            }
             $count = 0;
 
             foreach ($notes as $row) {

@@ -788,6 +788,10 @@
     "quota_horaire": "Weekly hours"
   },
   "notes": {
+    "ouverture_saisie": "Grade entry availability",
+    "sequence_numero": "Sequence {{numero}}",
+    "ouverte": "Open",
+    "fermee": "Closed",
     "title": "Grades",
     "sequence": "Sequence",
     "valeur": "Grade / 20",

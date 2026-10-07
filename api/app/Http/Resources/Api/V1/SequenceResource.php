@@ -13,6 +13,7 @@ class SequenceResource extends JsonResource
             'id' => $this->id,
             'ordre' => $this->ordre,
             'libelle' => $this->libelle,
+            'saisie_ouverte' => (bool) $this->saisie_ouverte,
         ];
     }
 }

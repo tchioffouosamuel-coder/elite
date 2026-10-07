@@ -164,6 +164,7 @@ export interface Sequence {
   id: number;
   ordre: number;
   libelle: string;
+  saisie_ouverte: boolean;
 }
 
 export interface Trimestre {
@@ -174,6 +175,7 @@ export interface Trimestre {
   date_debut: string | null;
   date_fin: string | null;
   is_active: boolean;
+  annee_active?: boolean;
   sequences: Sequence[];
 }
 
@@ -337,6 +339,13 @@ export async function fetchTrimestres(): Promise<Trimestre[]> {
 
 export async function fetchTrimestresPourClasse(classeId: number): Promise<Trimestre[]> {
   return chargerTrimestres(classeId);
+}
+
+export async function modifierSaisieSequence(id: number, saisieOuverte: boolean): Promise<Sequence> {
+  const { data } = await http.patch<ApiResponse<Sequence>>(`/sequences/${id}/saisie`, {
+    saisie_ouverte: saisieOuverte,
+  });
+  return data.data;
 }
 
 export interface MonAffectation {

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Imports\NoteImport;
 use App\Models\ClasseMatiere;
 use App\Models\Note;
+use App\Models\Sequence;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -44,7 +45,11 @@ class NoteService extends BaseService
 
         $eleveIdsValides = $classeMatiere->classe->eleves()->pluck('id')->flip();
 
-        return $this->transaction(function () use ($classeMatiere, $sequenceId, $notes, $personnelId, $eleveIdsValides) {
+        return $this->transaction(function () use ($classeMatiere, $sequenceId, $notes, $user, $personnelId, $eleveIdsValides) {
+            if ($user) {
+                Sequence::with('trimestre.anneeScolaire')->lockForUpdate()->findOrFail($sequenceId)
+                    ->verifierSaisieNotes($user, $classeMatiere->classe->school_id);
+            }
             $count = 0;
             foreach ($notes as $row) {
                 // L'école est déjà garantie par la validation scopée de la requête ;
@@ -85,13 +90,19 @@ class NoteService extends BaseService
             $classeMatiere->classe->eleves()->pluck('id')->flip(),
         );
 
-        Excel::import($import, $file);
+        return $this->transaction(function () use ($import, $file, $user, $schoolId, $sequenceId) {
+            if ($user) {
+                Sequence::with('trimestre.anneeScolaire')->lockForUpdate()->findOrFail($sequenceId)
+                    ->verifierSaisieNotes($user, $schoolId);
+            }
+            Excel::import($import, $file);
 
-        return [
-            'imported' => $import->importedCount,
-            'failed' => count($import->failures()),
-            'errors' => $import->failures(),
-        ];
+            return [
+                'imported' => $import->importedCount,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+            ];
+        });
     }
 
     public function peutSaisir(User $user, ClasseMatiere $classeMatiere): bool

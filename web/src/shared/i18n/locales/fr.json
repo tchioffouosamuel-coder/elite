@@ -804,6 +804,10 @@
     "quota_horaire": "Quota horaire"
   },
   "notes": {
+    "ouverture_saisie": "Ouverture du remplissage des notes",
+    "sequence_numero": "Séquence {{numero}}",
+    "ouverte": "Ouverte",
+    "fermee": "Fermée",
     "title": "Notes",
     "sequence": "Séquence",
     "trimestre": "Trimestre",
