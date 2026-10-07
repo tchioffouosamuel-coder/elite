@@ -7,6 +7,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Matiere;
 use App\Models\Departement;
+use App\Models\EmploiDuTemps;
 use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\ProgressionItem;
@@ -92,11 +93,38 @@ class SuiviActiviteTest extends TestCase
         $this->admin->assignRole('super_admin');
     }
 
+    /**
+     * Créneau à la grille — c'est lui, et non les séances matérialisées, qui
+     * définit désormais le « prévu » (cf.
+     * `EmploiDuTempsService::creneauxPrevusParDate()`). Chaque test plante
+     * donc explicitement ce qu'il attend d'avoir au programme.
+     */
+    private function creneau(int $jourIso, string $debut, string $fin, ?ClasseMatiere $classeMatiere = null): EmploiDuTemps
+    {
+        $classeMatiere ??= $this->classeMatiere;
+
+        return EmploiDuTemps::create([
+            'school_id' => $this->school->id,
+            'classe_id' => $classeMatiere->classe_id,
+            'classe_matiere_id' => $classeMatiere->id,
+            'jour' => $jourIso,
+            'heure_debut' => $debut,
+            'heure_fin' => $fin,
+        ]);
+    }
+
     public function test_le_suivi_cumule_les_heures_prevues_et_realisees_par_jour(): void
     {
+        // Un créneau par séance de `setUp()` : mercredi 1 h, jeudi 2 h,
+        // vendredi 1 h. La fenêtre interrogée ne couvre qu'une occurrence de
+        // chacun (2 au 4 septembre 2026), soit 4 h au programme.
+        $this->creneau(3, '08:00', '09:00');
+        $this->creneau(4, '08:00', '10:00');
+        $this->creneau(5, '08:00', '09:00');
+
         $response = $this->actingAs($this->admin, 'sanctum')
             ->withHeader('X-School-Id', $this->school->id)
-            ->getJson('/api/v1/personnels/suivi-activite?date_debut=2026-09-01&date_fin=2026-09-30&granularite=jour')
+            ->getJson('/api/v1/personnels/suivi-activite?date_debut=2026-09-02&date_fin=2026-09-04&granularite=jour')
             ->assertOk();
 
         $ligne = $response->json('data')[0];
@@ -105,6 +133,42 @@ class SuiviActiviteTest extends TestCase
         $this->assertEquals(4.0, $ligne['totaux']['heures_prevues']);
         $this->assertEquals(1.0, $ligne['totaux']['heures_realisees']);
         $this->assertCount(3, $ligne['periodes']);
+    }
+
+    /**
+     * Le cœur du correctif : tant que le prévu se déduisait des lignes de
+     * `seances`, un enseignant qui n'avait jamais rien déclaré n'avait aucune
+     * séance — donc zéro heure prévue, zéro retard, et un taux de couverture
+     * parfait. Il n'apparaissait même pas dans le suivi. La grille, elle,
+     * sait ce qu'il aurait dû faire.
+     */
+    public function test_le_prevu_vient_de_la_grille_meme_sans_aucune_seance_generee(): void
+    {
+        $fantome = Personnel::create([
+            'school_id' => $this->school->id, 'nom_complet' => 'JAMAIS DECLARE', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $affectation = ClasseMatiere::create([
+            'classe_id' => $this->classeMatiere->classe_id,
+            'matiere_id' => Matiere::create(['school_id' => $this->school->id, 'nom' => 'Physique'])->id,
+            'personnel_id' => $fantome->id, 'statut' => 'actif',
+        ]);
+        // Mercredi, 2 h. Du 2 au 4 septembre 2026, un seul mercredi : le 2.
+        $this->creneau(3, '14:00', '16:00', $affectation);
+
+        $this->assertDatabaseMissing('seances', ['classe_matiere_id' => $affectation->id]);
+
+        $ligne = $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-School-Id', $this->school->id)
+            ->getJson("/api/v1/personnels/suivi-activite?date_debut=2026-09-02&date_fin=2026-09-04&personnel_id={$fantome->id}")
+            ->assertOk()
+            ->json('data')[0];
+
+        $this->assertSame($fantome->id, $ligne['personnel_id']);
+        $this->assertEquals(2.0, $ligne['totaux']['heures_prevues']);
+        $this->assertEquals(0.0, $ligne['totaux']['heures_realisees']);
+        $this->assertEquals(0.0, $ligne['totaux']['taux']);
+        $this->assertSame(1, $ligne['totaux']['seances_prevues']);
+        $this->assertSame(1, $ligne['totaux']['seances_en_retard']);
     }
 
     public function test_le_filtre_personnel_id_restreint_le_resultat(): void
@@ -218,6 +282,10 @@ class SuiviActiviteTest extends TestCase
     public function test_la_progression_personnelle_compte_les_lecons_et_les_heures_sur_cinq_periodes(): void
     {
         $this->travelTo(now()->setDate(2027, 1, 13)->setTime(12, 0));
+        // Un seul créneau hebdomadaire — mercredi, 1 h : les heures prévues
+        // de chaque période valent donc son nombre de mercredis ouvrés,
+        // arrêté à aujourd'hui (mercredi 13 janvier 2027).
+        $this->creneau(3, '10:00', '11:00');
         $anneeId = AnneeScolaire::where('school_id', $this->school->id)->value('id');
         Trimestre::create([
             'annee_scolaire_id' => $anneeId, 'libelle' => 'T2', 'ordre' => 2,
@@ -268,12 +336,15 @@ class SuiviActiviteTest extends TestCase
             ->withHeader('X-School-Id', $this->school->id)
             ->getJson('/api/v1/ma-journee/couverture-periodes')->assertOk();
 
+        // Heures prévues = mercredis ouvrés de la période × 1 h : 1 le jour
+        // même, 1 sur la semaine (le 13), 2 sur le mois et sur le trimestre
+        // (les 6 et 13), 20 depuis la rentrée du 1er septembre.
         foreach ([
             'jour' => [1, 2, 1, 1],
-            'semaine' => [2, 2, 2, 2],
-            'mois' => [3, 3, 3, 3],
-            'trimestre' => [3, 2, 3, 2],
-            'annee' => [6, 4, 10, 5],
+            'semaine' => [2, 2, 1, 2],
+            'mois' => [3, 3, 2, 3],
+            'trimestre' => [3, 2, 2, 2],
+            'annee' => [6, 4, 20, 5],
         ] as $periode => [$prevues, $faites, $heuresPrevues, $heuresFaites]) {
             $response->assertJsonPath("data.$periode.lecons_prevues", $prevues)
                 ->assertJsonPath("data.$periode.lecons_realisees", $faites);
@@ -344,6 +415,9 @@ class SuiviActiviteTest extends TestCase
     public function test_la_progression_ne_compte_pas_les_affectations_dune_autre_ecole(): void
     {
         $this->travelTo(now()->setDate(2026, 9, 2)->setTime(12, 0));
+        // Mercredi 2 septembre : 1 h au programme dans l'école courante. Le
+        // créneau de l'autre école ne doit rien y ajouter.
+        $this->creneau(3, '08:00', '09:00');
         $autreEcole = School::create(['name' => 'Autre ecole', 'code' => 'AUT', 'type' => 'secondaire', 'is_active' => true]);
         $classe = Classe::create(['school_id' => $autreEcole->id, 'nom' => '6e']);
         $matiere = Matiere::create(['school_id' => $autreEcole->id, 'nom' => 'Maths']);
@@ -354,6 +428,13 @@ class SuiviActiviteTest extends TestCase
         ProgressionItem::create([
             'classe_matiere_id' => $affectation->id, 'type' => 'lecon', 'titre' => 'Autre ecole',
             'ordre' => 1, 'date_prevue' => '2026-09-02', 'date_realisee' => '2026-09-02',
+        ]);
+        // 4 h au programme chez le voisin, le même mercredi : elles ne
+        // doivent pas franchir la frontière d'établissement.
+        EmploiDuTemps::create([
+            'school_id' => $autreEcole->id, 'classe_id' => $classe->id,
+            'classe_matiere_id' => $affectation->id,
+            'jour' => 3, 'heure_debut' => '08:00', 'heure_fin' => '12:00',
         ]);
         Seance::create([
             'school_id' => $autreEcole->id, 'classe_id' => $classe->id, 'classe_matiere_id' => $affectation->id,

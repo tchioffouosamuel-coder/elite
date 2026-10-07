@@ -184,12 +184,33 @@ class User extends Authenticatable
      */
     public function methodeValidationSeance(?\App\Models\Classe $classe = null): string
     {
+        return $this->resolutionValidationSeance($classe)['methode'];
+    }
+
+    /**
+     * La méthode applicable *et d'où elle vient*.
+     *
+     * Sans l'origine, une règle d'école qui ne s'applique pas est
+     * indiscernable d'un bug : c'est presque toujours une dispense de la
+     * direction ou une surcharge oubliée sur la fiche de l'agent, et rien ne
+     * le disait nulle part. L'origine remonte jusqu'à l'écran de déclaration
+     * (cf. `MaJourneeService::feuilleDuJour()`).
+     *
+     * `$classe` n'est pas optionnelle en pratique : c'est elle qui porte le
+     * sous-système, donc la règle la plus spécifique. Sans elle, seule la
+     * règle « toute l'école » est visible — un appelant qui l'omet peut donc
+     * lire une méthode différente de celle qui sera réellement exigée.
+     *
+     * @return array{methode: string, source: string} source ∈ direction|agent|regle|defaut
+     */
+    public function resolutionValidationSeance(?\App\Models\Classe $classe = null): array
+    {
         if ($this->estPersonnelDirection()) {
-            return 'libre';
+            return ['methode' => 'libre', 'source' => 'direction'];
         }
 
         if ($this->personnel?->methode_validation_seance !== null) {
-            return $this->personnel->methode_validation_seance;
+            return ['methode' => $this->personnel->methode_validation_seance, 'source' => 'agent'];
         }
 
         $schoolId = $classe?->school_id ?? $this->personnel?->school_id;
@@ -198,11 +219,11 @@ class User extends Authenticatable
             $regle = \App\Models\RegleValidationSeance::pour($schoolId, $classe?->sous_systeme_id);
 
             if ($regle !== null) {
-                return $regle->methode_validation;
+                return ['methode' => $regle->methode_validation, 'source' => 'regle'];
             }
         }
 
-        return 'qr';
+        return ['methode' => 'qr', 'source' => 'defaut'];
     }
 
     /**

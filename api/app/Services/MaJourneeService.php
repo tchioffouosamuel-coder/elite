@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AnneeScolaire;
 use App\Models\ChampPersonnalise;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
@@ -10,6 +11,7 @@ use App\Models\ProgressionItem;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
+use App\Support\PreuvePresence;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -249,6 +251,8 @@ class MaJourneeService extends BaseService
      */
     public function feuilleDuJour(ClasseMatiere $classeMatiere, Seance $seance, User $user): array
     {
+        $validation = $user->resolutionValidationSeance($classeMatiere->classe);
+
         // Leçon cochée sur cette séance => auteur de la validation (null pour
         // les validations antérieures à la colonne `valide_par`).
         $faites = $seance->lecons()->get(['progression_items.id'])
@@ -293,6 +297,16 @@ class MaJourneeService extends BaseService
                 // par école/sous-système — cf. `RegleValidationSeance`.
                 'verrouille' => $seance->appelVerrouillePour($user),
                 'aujourdhui' => $seance->estAujourdhui(),
+                // Preuve exigée pour CETTE séance : résolue avec sa classe,
+                // donc avec le sous-système dont elle relève. Le client ne
+                // peut pas se contenter de la méthode portée par `/me`, qui
+                // ignore la classe et ne voit donc que la règle « toute
+                // l'école » — il verrouillerait sur une autre règle que celle
+                // que le serveur va exiger. `source` dit d'où elle vient
+                // (direction|agent|regle|defaut), pour que l'écran puisse
+                // expliquer une dispense plutôt que de la subir.
+                'methode_validation_seance' => $validation['methode'],
+                'validation_source' => $validation['source'],
                 'modifiable_jusqua' => $seance->appel_verrouille_le
                     ?->addMinutes($seance->minutesVerrouillageAppel())
                     ?->toIso8601String(),
@@ -331,9 +345,18 @@ class MaJourneeService extends BaseService
         User $user,
         ?string $observations = null,
         array $donneesPersonnalisees = [],
-        bool $qrVerifie = false,
+        ?string $qrToken = null,
+        ?string $codeSalle = null,
         ?string $contenu = null,
     ): array {
+        // Preuve de présence exigée ici, dans le service, et non chez
+        // l'appelant : c'est le seul endroit qui marque une séance
+        // « effectuée », donc le seul où la règle ne peut pas être oubliée
+        // par un nouveau point d'entrée (rejeu hors ligne, import, écran à
+        // venir). La règle est résolue avec la classe, donc avec le
+        // sous-système dont elle relève — cf. `PreuvePresence::exiger()`.
+        $qrVerifie = PreuvePresence::exiger($user, $classeMatiere->classe, $qrToken, $codeSalle);
+
         // L'appel et les leçons cochées se soumettent depuis le même écran :
         // un seul verrou couvre les deux, sans quoi un enseignant pourrait
         // continuer à ajouter des leçons « traitées » bien après la fenêtre de
@@ -448,9 +471,10 @@ class MaJourneeService extends BaseService
     public function heuresCouverture(User $user, int $schoolId): array
     {
         $personnelId = $user->personnel?->id;
+        $vide = ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_en_retard' => 0];
 
         if ($personnelId === null) {
-            return ['heures_prevues' => 0.0, 'heures_realisees' => 0.0, 'taux' => 0.0, 'seances_en_retard' => 0];
+            return $vide;
         }
 
         $classeMatiereIds = ClasseMatiere::forSchool($schoolId)
@@ -460,22 +484,75 @@ class MaJourneeService extends BaseService
                 ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnelId)))
             ->pluck('id');
 
-        $seances = Seance::whereIn('classe_matiere_id', $classeMatiereIds)
-            ->whereDate('date_seance', '<=', now())
-            ->get(['statut', 'heure_debut', 'heure_fin', 'date_seance']);
+        // Bornes : l'année scolaire en cours, arrêtée à aujourd'hui — compter
+        // les créneaux encore à venir ferait passer tout enseignant pour un
+        // retardataire dès le premier jour.
+        $annee = $this->anneeCourante($schoolId);
 
-        $prevues = (float) $seances->sum(fn (Seance $s) => $s->dureeHeures());
-        $realisees = (float) $seances->where('statut', 'effectuee')->sum(fn (Seance $s) => $s->dureeHeures());
-        $enRetard = $seances->where('statut', 'prevue')
-            ->filter(fn (Seance $s) => $s->date_seance->lt(now()->startOfDay()))
-            ->count();
+        if ($annee === null) {
+            return $vide;
+        }
+
+        $debut = Carbon::parse((string) $annee->date_debut)->startOfDay();
+        $fin = Carbon::parse((string) $annee->date_fin)->endOfDay()->min(now()->endOfDay());
+
+        if ($fin->lt($debut)) {
+            return $vide;
+        }
+
+        $prevues = (float) $this->emploiDuTemps->totalPrevu($classeMatiereIds, $debut, $fin)['heures'];
+
+        $realisees = (float) Seance::whereIn('classe_matiere_id', $classeMatiereIds)
+            ->where('statut', 'effectuee')
+            ->whereDate('date_seance', '>=', $debut->toDateString())
+            ->whereDate('date_seance', '<=', $fin->toDateString())
+            ->get(['heure_debut', 'heure_fin'])
+            ->sum(fn (Seance $s) => $s->dureeHeures());
 
         return [
             'heures_prevues' => round($prevues, 1),
             'heures_realisees' => round($realisees, 1),
             'taux' => $prevues > 0 ? round($realisees / $prevues * 100, 1) : 0.0,
-            'seances_en_retard' => $enRetard,
+            'seances_en_retard' => $this->creneauxNonCouverts($classeMatiereIds, $debut, now()->subDay()->endOfDay()->min($fin)),
         ];
+    }
+
+    /**
+     * Créneaux de la grille restés sans déclaration sur l'intervalle.
+     *
+     * Se mesure en creux — prévus moins réalisés — plutôt qu'en comptant les
+     * séances au statut « prevue » : un cours que personne n'a jamais ouvert
+     * n'a aucune ligne dans `seances`, et c'est précisément celui-là qu'il
+     * faut remonter.
+     *
+     * @param  Collection<int, int>  $classeMatiereIds
+     */
+    private function creneauxNonCouverts($classeMatiereIds, Carbon $debut, Carbon $fin): int
+    {
+        if ($fin->lt($debut)) {
+            return 0;
+        }
+
+        $prevus = $this->emploiDuTemps->totalPrevu($classeMatiereIds, $debut, $fin)['creneaux'];
+
+        $faits = Seance::whereIn('classe_matiere_id', $classeMatiereIds)
+            ->where('statut', 'effectuee')
+            ->whereDate('date_seance', '>=', $debut->toDateString())
+            ->whereDate('date_seance', '<=', $fin->toDateString())
+            ->count();
+
+        return max(0, $prevus - $faits);
+    }
+
+    /** Année scolaire couvrant aujourd'hui, à défaut l'année active. */
+    private function anneeCourante(int $schoolId): ?AnneeScolaire
+    {
+        $annees = AnneeScolaire::where('school_id', $schoolId);
+
+        return (clone $annees)->whereDate('date_debut', '<=', now()->toDateString())
+            ->whereDate('date_fin', '>=', now()->toDateString())
+            ->orderByDesc('is_active')->first()
+            ?? (clone $annees)->where('is_active', true)->first();
     }
 
     /**

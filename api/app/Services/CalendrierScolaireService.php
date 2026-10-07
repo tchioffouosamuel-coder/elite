@@ -32,9 +32,72 @@ class CalendrierScolaireService extends BaseService
                 ->orWhere(fn($q) => $q->whereNull('classe_id')->whereNull('niveau_id')->whereNull('sous_systeme_id')))
             ->get();
 
-        $regle = $regles->sortByDesc(fn(CalendrierScolaire $r) => $r->classe_id ? 3 : ($r->niveau_id ? 2 : ($r->sous_systeme_id ? 1 : 0)))->first();
+        return self::appliquer(self::plusSpecifique($regles));
+    }
 
-        return $regle ? $regle->est_ouvert : true;
+    /**
+     * Même réponse que {@see estOuvert()}, mais pour tout un intervalle d'un
+     * coup : deux requêtes au total au lieu de deux par jour et par classe.
+     *
+     * Indispensable dès qu'on parcourt un trimestre ou une année créneau par
+     * créneau — c'est ce que fait le calcul des heures prévues, qui balaie
+     * chaque jour ouvré de la période pour chaque classe d'un enseignant.
+     *
+     * @return \Closure(Classe, Carbon): bool
+     */
+    public function resolveurOuverture(int $schoolId, Carbon $debut, Carbon $fin): \Closure
+    {
+        // Les années qui recouvrent, même partiellement, l'intervalle : hors
+        // de leurs bornes, aucun jour n'est ouvert (cf. `estOuvert()`).
+        $annees = AnneeScolaire::where('school_id', $schoolId)
+            ->whereDate('date_debut', '<=', $fin->toDateString())
+            ->whereDate('date_fin', '>=', $debut->toDateString())
+            ->orderByDesc('is_active')
+            ->get();
+
+        $regles = CalendrierScolaire::whereIn('annee_scolaire_id', $annees->pluck('id'))
+            ->whereBetween('date', [$debut->toDateString(), $fin->toDateString()])
+            ->get()
+            ->groupBy(fn(CalendrierScolaire $r) => Carbon::parse((string) $r->date)->toDateString());
+
+        return function (Classe $classe, Carbon $date) use ($annees, $regles): bool {
+            $jour = $date->toDateString();
+
+            $annee = $annees->first(fn(AnneeScolaire $a) => $jour >= Carbon::parse((string) $a->date_debut)->toDateString()
+                && $jour <= Carbon::parse((string) $a->date_fin)->toDateString());
+
+            if (! $annee) {
+                return false;
+            }
+
+            $duJour = ($regles->get($jour) ?? collect())
+                ->where('annee_scolaire_id', $annee->id)
+                ->filter(fn(CalendrierScolaire $r) => $r->classe_id === $classe->id
+                    || ($r->classe_id === null && $r->niveau_id === $classe->niveau_id)
+                    || ($r->classe_id === null && $r->niveau_id === null && $r->sous_systeme_id === $classe->sous_systeme_id)
+                    || ($r->classe_id === null && $r->niveau_id === null && $r->sous_systeme_id === null));
+
+            return self::appliquer(self::plusSpecifique($duJour));
+        };
+    }
+
+    /**
+     * La règle la plus ciblée l'emporte : classe, puis niveau, puis
+     * sous-système, puis école entière.
+     *
+     * @param  Collection<int, CalendrierScolaire>  $regles
+     */
+    private static function plusSpecifique(Collection $regles): ?CalendrierScolaire
+    {
+        return $regles
+            ->sortByDesc(fn(CalendrierScolaire $r) => $r->classe_id ? 3 : ($r->niveau_id ? 2 : ($r->sous_systeme_id ? 1 : 0)))
+            ->first();
+    }
+
+    /** Sans règle pour ce jour, l'école est ouverte — seule une règle ferme. */
+    private static function appliquer(?CalendrierScolaire $regle): bool
+    {
+        return $regle ? (bool) $regle->est_ouvert : true;
     }
 
     /** Recalcule les prochaines leçons à partir des créneaux ouverts de chaque classe. */

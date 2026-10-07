@@ -11,6 +11,7 @@ use App\Models\Presence;
 use App\Models\ProgressionItem;
 use App\Services\MaJourneeService;
 use App\Services\SuiviActiviteService;
+use App\Support\PreuvePresence;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -95,13 +96,16 @@ class MaJourneeController extends Controller
             'code_salle' => ['nullable', 'string'],
         ]);
 
-        $preuveFournie =$classeMatiere->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
-
-        if ($request->user()->methodeValidationSeance($classeMatiere->classe) !== 'libre' && !$preuveFournie) {
-            return ApiResponse::forbidden(
-                "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
-            );
-        }
+        // Contrôle avancé, avant `seanceDuJour()` : sans lui, un refus pour
+        // preuve manquante laisserait quand même derrière lui la séance que
+        // cette méthode matérialise au passage. Le service réapplique la même
+        // règle — c'est lui qui fait autorité, ceci n'échoue que plus tôt.
+        PreuvePresence::exiger(
+            $request->user(),
+            $classeMatiere->classe,
+            $data['qr_token'] ?? null,
+            $data['code_salle'] ?? null,
+        );
 
         $date = isset($data['date']) ? date('Y-m-d', strtotime($data['date'])) : now()->format('Y-m-d');
 
@@ -134,7 +138,12 @@ class MaJourneeController extends Controller
             $classeMatiere,$seance,
             $data['lecons'],$data['appel'],
             $request->user(),$data['observations'] ?? null,
-            $data['donnees_personnalisees'] ?? [],$preuveFournie,
+            $data['donnees_personnalisees'] ?? [],
+            // La preuve part brute : c'est le service qui exige et valide,
+            // pour qu'aucun appelant ne puisse déclarer une séance effectuée
+            // sans passer par la règle (cf. `PreuvePresence::exiger()`).
+            $data['qr_token'] ?? null,
+            $data['code_salle'] ?? null,
             // Absent de la requête (client plus ancien) : on garde la saisie existante.
             array_key_exists('contenu', $data) ? $data['contenu'] : $seance->contenu,
         );

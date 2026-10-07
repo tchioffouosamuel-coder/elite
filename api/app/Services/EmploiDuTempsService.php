@@ -205,6 +205,86 @@ class EmploiDuTempsService extends BaseService
     }
 
     /**
+     * Ce que l'emploi du temps prévoit, jour par jour, pour un ensemble
+     * d'affectations — la source de vérité du « prévu ».
+     *
+     * Compter les lignes de `seances` ne répond pas à la question : une
+     * séance n'existe que si elle a été générée à l'ouverture du trimestre
+     * (cf. {@see genererSeances()}) ou créée à la volée par l'enseignant
+     * lui-même en déclarant sa journée (cf.
+     * `MaJourneeService::seanceDuJour()`). Tant que la génération n'a pas
+     * tourné, le « prévu » se résumait donc au « réalisé » — un taux de
+     * couverture de 100 % quoi qu'il arrive, et des heures prévues
+     * ridiculement basses. La grille, elle, dit ce qui aurait dû avoir lieu,
+     * que quiconque l'ait déclaré ou non.
+     *
+     * Les jours fermés au calendrier scolaire (vacances, fériés, journées
+     * banalisées) sont exclus, exactement comme à la génération.
+     *
+     * @param  Collection<int, int>|array<int, int>  $classeMatiereIds
+     * @return Collection<string, array{heures: float, creneaux: int}> indexée par date `Y-m-d`
+     */
+    public function creneauxPrevusParDate($classeMatiereIds, Carbon $debut, Carbon $fin): Collection
+    {
+        $ids = collect($classeMatiereIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty() || $fin->lt($debut)) {
+            return collect();
+        }
+
+        // Le créneau porte la classe : c'est elle qui décide du calendrier
+        // applicable (son niveau, son sous-système) et de l'école.
+        $creneaux = EmploiDuTemps::whereIn('classe_matiere_id', $ids)
+            ->whereNotNull('classe_matiere_id')
+            ->with('classe')
+            ->get()
+            ->filter(fn(EmploiDuTemps $c) => $c->classe !== null)
+            ->groupBy('jour');
+
+        if ($creneaux->isEmpty()) {
+            return collect();
+        }
+
+        $schoolId = $creneaux->flatten()->first()->classe->school_id;
+        $estOuvert = $this->calendrier->resolveurOuverture($schoolId, $debut, $fin);
+        $parDate = collect();
+
+        for ($jour = $debut->copy()->startOfDay(); $jour->lte($fin); $jour->addDay()) {
+            foreach ($creneaux->get($jour->dayOfWeekIso) ?? [] as $creneau) {
+                if (! $estOuvert($creneau->classe, $jour)) {
+                    continue;
+                }
+
+                $cle = $jour->toDateString();
+                $cumul = $parDate->get($cle, ['heures' => 0.0, 'creneaux' => 0]);
+
+                $parDate->put($cle, [
+                    'heures' => $cumul['heures'] + $this->dureeHeures((string) $creneau->heure_debut, (string) $creneau->heure_fin),
+                    'creneaux' => $cumul['creneaux'] + 1,
+                ]);
+            }
+        }
+
+        return $parDate;
+    }
+
+    /**
+     * Total de {@see creneauxPrevusParDate()} sur l'intervalle.
+     *
+     * @param  Collection<int, int>|array<int, int>  $classeMatiereIds
+     * @return array{heures: float, creneaux: int}
+     */
+    public function totalPrevu($classeMatiereIds, Carbon $debut, Carbon $fin): array
+    {
+        $parDate = $this->creneauxPrevusParDate($classeMatiereIds, $debut, $fin);
+
+        return [
+            'heures' => (float) $parDate->sum('heures'),
+            'creneaux' => (int) $parDate->sum('creneaux'),
+        ];
+    }
+
+    /**
      * Matérialise les créneaux de la semaine en séances datées, prêtes à
      * recevoir l'appel. Les séances déjà créées ne sont pas dupliquées.
      *

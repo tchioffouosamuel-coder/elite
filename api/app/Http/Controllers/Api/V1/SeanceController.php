@@ -11,6 +11,7 @@ use App\Models\Seance;
 use App\Models\Salle;
 use App\Models\User;
 use App\Services\EmploiDuTempsService;
+use App\Support\PreuvePresence;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -194,13 +195,7 @@ class SeanceController extends Controller
             'code_salle' => ['nullable', 'string'],
         ]);
 
-        $preuveFournie = $seance->classe->preuvePresenceValide($data['qr_token'] ?? null, $data['code_salle'] ?? null);
-
-        abort_if(
-            $request->user()->methodeValidationSeance($seance->classe) !== 'libre' && ! $preuveFournie,
-            403,
-            "Scannez le QR code de la salle, ou saisissez son code, avant de valider — c'est ce qui prouve que vous y étiez."
-        );
+        PreuvePresence::exiger($request->user(), $seance->classe, $data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
         $total = $this->service->enregistrerAppel($seance, $data['lignes']);
 

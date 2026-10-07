@@ -8,6 +8,7 @@ use App\Models\PresencePersonnelJournaliere;
 use App\Models\ProgressionItem;
 use App\Models\Seance;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -17,6 +18,8 @@ use Illuminate\Support\Collection;
  */
 class SuiviActiviteService
 {
+    public function __construct(private readonly EmploiDuTempsService $emploiDuTemps) {}
+
     /**
      * @param array{personnel_id?: ?int, sous_systeme_id?: ?int, departement_id?: ?int} $filtres
      * @return Collection<int, array{
@@ -31,52 +34,77 @@ class SuiviActiviteService
         $sousSystemeId = $filtres['sous_systeme_id'] ?? null;
         $departementId = $filtres['departement_id'] ?? null;
 
-        $seances = Seance::forSchool($schoolId)
-            ->whereBetween('date_seance', [$debut, $fin])
-            ->whereHas('classeMatiere', function ($q) use ($personnelId, $sousSystemeId, $departementId) {
+        // On part des affectations, pas des séances : un enseignant qui n'a
+        // rien déclaré du tout n'a aucune séance et disparaissait donc
+        // purement et simplement du suivi — l'angle mort exact que ce suivi
+        // est censé éclairer.
+        $affectations = ClasseMatiere::forSchool($schoolId)
+            ->where('statut', 'actif')
+            ->where(fn($q) => $q
                 // Un enseignant du secondaire est nommé sur l'affectation ; au
                 // primaire/maternelle, c'est le titulaire de la classe qui
                 // couvre toutes les matières sans y être nommé lui-même.
-                $q->where(fn($q2) => $q2
-                    ->whereNotNull('personnel_id')
-                    ->orWhereHas('classe', fn($c) => $c->whereNotNull('titulaire_id')));
+                ->whereNotNull('personnel_id')
+                ->orWhereHas('classe', fn($c) => $c->whereNotNull('titulaire_id')))
+            ->when($personnelId, fn($q) => $q->where(fn($q2) => $q2
+                ->where('personnel_id', $personnelId)
+                ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId))))
+            ->when($sousSystemeId, fn($q) => $q->whereHas('classe', fn($c) => $c->where('sous_systeme_id', $sousSystemeId)))
+            ->when($departementId, fn($q) => $q->where(fn($q2) => $q2
+                ->whereHas('enseignant', fn($p) => $p->where('departement_id', $departementId))
+                ->orWhereHas('classe.titulaire', fn($p) => $p->where('departement_id', $departementId))))
+            ->with(['enseignant', 'classe.titulaire'])
+            ->get()
+            ->filter(fn(ClasseMatiere $cm) => ($cm->enseignant ?? $cm->classe?->titulaire) !== null)
+            ->groupBy(fn(ClasseMatiere $cm) => $cm->personnel_id ?? $cm->classe->titulaire_id);
 
-                if ($personnelId) {
-                    $q->where(fn($q2) => $q2
-                        ->where('personnel_id', $personnelId)
-                        ->orWhereHas('classe', fn($c) => $c->where('titulaire_id', $personnelId)));
-                }
+        $seances = Seance::forSchool($schoolId)
+            ->whereBetween('date_seance', [$debut, $fin])
+            ->whereIn('classe_matiere_id', $affectations->flatten()->pluck('id'))
+            ->get(['id', 'classe_matiere_id', 'date_seance', 'heure_debut', 'heure_fin', 'statut'])
+            ->groupBy('classe_matiere_id');
 
-                if ($sousSystemeId) {
-                    $q->whereHas('classe', fn($c) => $c->where('sous_systeme_id', $sousSystemeId));
-                }
-
-                if ($departementId) {
-                    $q->where(fn($q2) => $q2
-                        ->whereHas('enseignant', fn($p) => $p->where('departement_id', $departementId))
-                        ->orWhereHas('classe.titulaire', fn($p) => $p->where('departement_id', $departementId)));
-                }
-            })
-            ->with(['classeMatiere.enseignant', 'classeMatiere.classe.titulaire'])
-            ->get(['id', 'classe_matiere_id', 'date_seance', 'heure_debut', 'heure_fin', 'statut']);
-
-        return $seances
-            ->groupBy(fn(Seance $s) => $s->classeMatiere->personnel_id ?? $s->classeMatiere->classe->titulaire_id)
-            ->map(fn(Collection $seancesPersonnel) => $this->ligne($seancesPersonnel, $granularite))
+        return $affectations
+            ->map(fn(Collection $cours) => $this->ligne(
+                $cours,
+                $cours->flatMap(fn(ClasseMatiere $cm) => $seances->get($cm->id) ?? collect()),
+                $debut,
+                $fin,
+                $granularite,
+            ))
             ->sortBy('nom_complet')
             ->values();
     }
 
-    /** @param Collection<int, Seance> $seances */
-    private function ligne(Collection $seances, string $granularite): array
+    /**
+     * @param  Collection<int, ClasseMatiere>  $cours
+     * @param  Collection<int, Seance>  $seances
+     */
+    private function ligne(Collection $cours, Collection $seances, CarbonImmutable $debut, CarbonImmutable $fin, string $granularite): array
     {
-        $classeMatiere = $seances->first()->classeMatiere;
-        $personnel = $classeMatiere->enseignant ?? $classeMatiere->classe->titulaire;
+        $premier = $cours->first();
+        $personnel = $premier->enseignant ?? $premier->classe->titulaire;
+        $ids = $cours->pluck('id');
 
-        $periodes = $seances
-            ->groupBy(fn(Seance $s) => $this->cle($s->date_seance, $granularite))
-            ->map(fn(Collection $groupe, string $cle) => $this->resume($groupe) + ['periode' => $cle])
-            ->sortBy('periode')
+        $prevuParDate = $this->emploiDuTemps->creneauxPrevusParDate(
+            $ids,
+            Carbon::parse($debut->toDateString()),
+            Carbon::parse($this->borneHaute($fin)->toDateString()),
+        );
+
+        $realiseParDate = $seances->groupBy(fn(Seance $s) => $s->date_seance->format('Y-m-d'));
+
+        // L'union des deux : une période sans aucun créneau prévu mais avec
+        // une séance déclarée (rattrapage, cours ajouté hors grille) doit
+        // apparaître, et l'inverse aussi.
+        $periodes = $prevuParDate->keys()->merge($realiseParDate->keys())
+            ->groupBy(fn(string $date) => $this->cle(Carbon::parse($date), $granularite))
+            ->map(fn(Collection $dates, string $cle) => $this->resume(
+                $dates->flatMap(fn(string $d) => $realiseParDate->get($d) ?? collect()),
+                $dates->sum(fn(string $d) => $prevuParDate->get($d)['heures'] ?? 0.0),
+                $dates->sum(fn(string $d) => $prevuParDate->get($d)['creneaux'] ?? 0),
+            ) + ['periode' => $cle])
+            ->sortKeys()
             ->values();
 
         return [
@@ -84,27 +112,43 @@ class SuiviActiviteService
             'nom_complet' => $personnel->nom_complet,
             'fonction' => $personnel->fonction,
             'periodes' => $periodes,
-            'totaux' => $this->resume($seances),
+            'totaux' => $this->resume($seances, (float) $prevuParDate->sum('heures'), (int) $prevuParDate->sum('creneaux')),
         ];
     }
 
-    /** @param Collection<int, Seance> $groupe */
-    private function resume(Collection $groupe): array
+    /**
+     * Prévu/réalisé d'un groupe de séances. Le prévu vient de l'emploi du
+     * temps (cf. `EmploiDuTempsService::creneauxPrevusParDate()`), jamais du
+     * nombre de séances matérialisées : sans génération préalable, celles-ci
+     * se réduisent à ce que l'enseignant a lui-même déclaré, donc à un taux
+     * de couverture artificiellement parfait.
+     *
+     * @param  Collection<int, Seance>  $groupe
+     */
+    private function resume(Collection $groupe, float $heuresPrevues, int $creneauxPrevus): array
     {
-        $prevues = (float) $groupe->sum(fn(Seance $s) => $s->dureeHeures());
         $realisees = (float) $groupe->where('statut', 'effectuee')->sum(fn(Seance $s) => $s->dureeHeures());
+        $faites = $groupe->where('statut', 'effectuee')->count();
 
         return [
-            'heures_prevues' => round($prevues, 1),
+            'heures_prevues' => round($heuresPrevues, 1),
             'heures_realisees' => round($realisees, 1),
-            'taux' => $prevues > 0 ? round($realisees / $prevues * 100, 1) : 0.0,
-            'seances_prevues' => $groupe->count(),
-            'seances_realisees' => $groupe->where('statut', 'effectuee')->count(),
+            'taux' => $heuresPrevues > 0 ? round($realisees / $heuresPrevues * 100, 1) : 0.0,
+            'seances_prevues' => $creneauxPrevus,
+            'seances_realisees' => $faites,
             'seances_annulees' => $groupe->where('statut', 'annulee')->count(),
-            'seances_en_retard' => $groupe->where('statut', 'prevue')
-                ->filter(fn(Seance $s) => $s->date_seance->lt(now()->startOfDay()))
-                ->count(),
+            // En creux : un créneau que personne n'a jamais ouvert n'a pas de
+            // ligne dans `seances` et échappait au comptage par statut.
+            'seances_en_retard' => max(0, $creneauxPrevus - $faites),
         ];
+    }
+
+    /** Pas de « prévu » au-delà d'aujourd'hui : un cours à venir n'est pas en retard. */
+    private function borneHaute(CarbonImmutable $fin): CarbonImmutable
+    {
+        $aujourdhui = CarbonImmutable::now()->endOfDay();
+
+        return $fin->greaterThan($aujourdhui) ? $aujourdhui : $fin;
     }
 
     /**
@@ -148,6 +192,15 @@ class SuiviActiviteService
                 ->whereDate('date_seance', '>=', $dates[0])->whereDate('date_seance', '<=', $dates[1])
                 ->get(['statut', 'heure_debut', 'heure_fin', 'date_seance']);
 
+            // Le prévu vient de la grille, arrêté à aujourd'hui : sur le
+            // trimestre ou l'année, compter les créneaux encore à venir
+            // afficherait un retard permanent dès la rentrée.
+            $prevu = $this->emploiDuTemps->totalPrevu(
+                $classeMatiereIds,
+                Carbon::parse($dates[0]),
+                Carbon::parse($dates[1])->min(Carbon::now())->endOfDay(),
+            );
+
             $lecons = ProgressionItem::whereIn('classe_matiere_id', $classeMatiereIds)->lecons();
             $prevues = (clone $lecons)->where(function ($q) use ($dates, $periode, $annee, $trimestre) {
                 $q->whereDate('date_prevue', '>=', $dates[0])->whereDate('date_prevue', '<=', $dates[1]);
@@ -170,7 +223,7 @@ class SuiviActiviteService
                     ->whereDate('date_seance', '>=', $dates[0])->whereDate('date_seance', '<=', $dates[1])))
                 ->count();
 
-            return $this->resume($seances) + [
+            return $this->resume($seances, (float) $prevu['heures'], (int) $prevu['creneaux']) + [
                 'lecons_prevues' => $prevues,
                 'lecons_realisees' => $faites,
                 'date_debut' => $dates[0],

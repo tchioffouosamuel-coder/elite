@@ -10,8 +10,10 @@ use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\RegleValidationSeance;
 use App\Models\School;
 use App\Models\Seance;
+use App\Models\SousSysteme;
 use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\CataloguePermissions;
@@ -211,5 +213,84 @@ class MaJourneeQrRequisTest extends TestCase
         $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->firstOrFail();
         $this->assertSame('effectuee', $seance->statut);
         $this->assertNull($seance->qr_verifie_le);
+    }
+
+    public function test_la_regle_de_l_ecole_s_applique_sans_surcharge_sur_la_fiche(): void
+    {
+        RegleValidationSeance::create([
+            'school_id' => $this->school->id, 'sous_systeme_id' => null,
+            'methode_validation' => 'libre', 'delai_valeur' => 15, 'delai_unite' => 'minutes',
+        ]);
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel())
+            ->assertOk();
+    }
+
+    /**
+     * La règle est résolue avec la classe de la séance, donc avec son
+     * sous-système. Sans elle, seule la règle « toute l'école » était visible
+     * — un enseignant d'une section soumise au QR aurait été dispensé parce
+     * que l'école, elle, ne l'exige pas.
+     */
+    public function test_la_regle_du_sous_systeme_prime_sur_celle_de_l_ecole(): void
+    {
+        $sousSysteme = SousSysteme::create([
+            'school_id' => $this->school->id, 'code' => 'ANG', 'nom' => 'Anglophone',
+        ]);
+        $this->classe->update(['sous_systeme_id' => $sousSysteme->id]);
+
+        RegleValidationSeance::create([
+            'school_id' => $this->school->id, 'sous_systeme_id' => null,
+            'methode_validation' => 'libre', 'delai_valeur' => 15, 'delai_unite' => 'minutes',
+        ]);
+        RegleValidationSeance::create([
+            'school_id' => $this->school->id, 'sous_systeme_id' => $sousSysteme->id,
+            'methode_validation' => 'qr', 'delai_valeur' => 15, 'delai_unite' => 'minutes',
+        ]);
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel())
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('seances', [
+            'classe_matiere_id' => $this->classeMatiere->id, 'statut' => 'effectuee',
+        ]);
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", $this->corpsAppel([
+                'qr_token' => 'TOKEN-SALLE-6EA',
+            ]))
+            ->assertOk();
+    }
+
+    /**
+     * L'écran de déclaration doit verrouiller sur la règle de LA séance : le
+     * client ne peut pas se contenter de celle portée par `/me`, résolue sans
+     * classe donc aveugle aux règles par sous-système.
+     */
+    public function test_la_feuille_du_jour_annonce_la_methode_exigee_et_son_origine(): void
+    {
+        $sousSysteme = SousSysteme::create([
+            'school_id' => $this->school->id, 'code' => 'ANG', 'nom' => 'Anglophone',
+        ]);
+        $this->classe->update(['sous_systeme_id' => $sousSysteme->id]);
+        RegleValidationSeance::create([
+            'school_id' => $this->school->id, 'sous_systeme_id' => $sousSysteme->id,
+            'methode_validation' => 'code', 'delai_valeur' => 15, 'delai_unite' => 'minutes',
+        ]);
+
+        $this->actingAs($this->prof(), 'sanctum')
+            ->getJson("/api/v1/ma-journee/{$this->classeMatiere->id}")
+            ->assertOk()
+            ->assertJsonPath('data.seance.methode_validation_seance', 'code')
+            ->assertJsonPath('data.seance.validation_source', 'regle');
+
+        // Une dispense doit se lire comme telle, pas passer pour une règle.
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/v1/ma-journee/{$this->classeMatiere->id}")
+            ->assertOk()
+            ->assertJsonPath('data.seance.methode_validation_seance', 'libre')
+            ->assertJsonPath('data.seance.validation_source', 'direction');
     }
 }
