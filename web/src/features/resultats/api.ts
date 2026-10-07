@@ -4,6 +4,18 @@ import type { ApiResponse } from "@/shared/types/api";
 
 export interface Remplissage {
   trimestre: { id: number; libelle: string };
+  unites: {
+    id: number;
+    libelle: string;
+    bareme?: number;
+    volets?: string[];
+    enseignant: string | null;
+    taux: number;
+  }[];
+}
+
+interface RemplissageSecondaireBrut {
+  trimestre: { id: number; libelle: string };
   matieres: {
     classe_matiere_id: number;
     matiere: string;
@@ -66,7 +78,7 @@ export async function fetchRemplissage(
   trimestreId?: number,
   ecoleType?: TypeEcole | null,
 ): Promise<Remplissage> {
-  const { data } = await http.get<ApiResponse<Remplissage | RemplissagePrimaireBrut>>(
+  const { data } = await http.get<ApiResponse<RemplissageSecondaireBrut | RemplissagePrimaireBrut>>(
     endpoint(classeId, "remplissage", ecoleType),
     {
       params: trimestreId ? { trimestre_id: trimestreId } : undefined,
@@ -75,17 +87,13 @@ export async function fetchRemplissage(
 
   const brut = data.data;
 
-  // Le primaire suit désormais des compétences, pas des matières. L'écran de
-  // remplissage est commun aux deux cycles : on ramène ici la réponse à
-  // l'enveloppe unique qu'il attend, plutôt que d'y ajouter un aiguillage.
-  // `classe_matiere_id` porte alors l'identifiant de l'attribution de
-  // compétence — c'est bien lui que la grille de saisie du primaire attend.
+  // Les écrans sont communs aux cycles, mais l'unité évaluée diffère.
   if ("competences" in brut) {
     return {
       trimestre: brut.trimestre,
-      matieres: brut.competences.map((ligne) => ({
-        classe_matiere_id: ligne.classe_competence_id,
-        matiere: ligne.competence,
+      unites: brut.competences.map((ligne) => ({
+        id: ligne.classe_competence_id,
+        libelle: ligne.competence,
         bareme: ligne.bareme,
         volets: ligne.volets,
         enseignant: ligne.enseignant,
@@ -94,7 +102,17 @@ export async function fetchRemplissage(
     };
   }
 
-  return brut;
+  return {
+    trimestre: brut.trimestre,
+    unites: brut.matieres.map((ligne) => ({
+      id: ligne.classe_matiere_id,
+      libelle: ligne.matiere,
+      bareme: ligne.bareme,
+      volets: ligne.volets,
+      enseignant: ligne.enseignant,
+      taux: ligne.taux,
+    })),
+  };
 }
 
 export async function fetchClassement(

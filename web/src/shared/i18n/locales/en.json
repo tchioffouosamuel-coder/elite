@@ -892,6 +892,9 @@
   "resultats": {
     "title": "Results",
     "remplissage": "Grade entry status",
+    "elements_suivis": "Assessed items",
+    "aucune_matiere_enseignant": "No subjects are assigned to you at the moment.",
+    "aucune_competence_enseignant": "No competencies are assigned to you at the moment.",
     "classement": "Class ranking",
     "palmares": "Honor roll",
     "rang": "Rank",

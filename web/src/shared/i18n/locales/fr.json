@@ -935,6 +935,9 @@
   "resultats": {
     "title": "Résultats",
     "remplissage": "État de remplissage des notes",
+    "elements_suivis": "Éléments évalués",
+    "aucune_matiere_enseignant": "Aucune matière ne vous est affectée pour le moment.",
+    "aucune_competence_enseignant": "Aucune compétence ne vous est affectée pour le moment.",
     "classement": "Classement",
     "palmares": "Palmarès",
     "rang": "Rang",

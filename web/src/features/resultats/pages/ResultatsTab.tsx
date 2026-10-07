@@ -103,9 +103,9 @@ export function ResultatsTab({ classeId }: { classeId: number }) {
             <Spinner />
           ) : (
             <div className="flex flex-col gap-2.5">
-              {remplissage?.matieres.map((m) => (
-                <div key={m.classe_matiere_id} className="flex items-center gap-3">
-                  <span className="w-40 flex-none truncate text-sm text-navy-600">{m.matiere}</span>
+              {remplissage?.unites.map((m) => (
+                <div key={m.id} className="flex items-center gap-3">
+                  <span className="w-40 flex-none truncate text-sm text-navy-600">{m.libelle}</span>
                   <div className="h-2 flex-1 rounded-full bg-cream-100">
                     <div
                       className={`h-2 rounded-full ${m.taux >= 80 ? 'bg-green-500' : m.taux >= 50 ? 'bg-gold-500' : 'bg-red-500'}`}

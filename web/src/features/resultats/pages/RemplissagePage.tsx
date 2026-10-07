@@ -28,7 +28,7 @@ function couleurTaux(taux: number): string {
 interface LigneClasse {
   id: number
   nom: string
-  nbMatieres: number | null
+  nbUnites: number | null
   responsable: string | null
   taux: number | null
   ecole?: string
@@ -98,8 +98,8 @@ export function RemplissagePage() {
   const lignesClasses: LigneClasse[] = useMemo(
     () =>
       classes.map((c, i) => {
-        const matieres = remplissageParClasse[i]?.data?.matieres
-        const taux = matieres && matieres.length > 0 ? matieres.reduce((s, m) => s + m.taux, 0) / matieres.length : null
+        const unites = remplissageParClasse[i]?.data?.unites
+        const taux = unites && unites.length > 0 ? unites.reduce((s, m) => s + m.taux, 0) / unites.length : null
         const responsable = !estEnseignant
           ? estSecondaire((c as Classe).school?.type)
             ? ((c as Classe).professeur_principal?.nom_complet ?? null)
@@ -112,7 +112,7 @@ export function RemplissagePage() {
         return {
           id: c.id,
           nom: c.nom,
-          nbMatieres: matieres ? matieres.length : null,
+          nbUnites: unites ? unites.length : null,
           responsable,
           taux,
           ecole,
@@ -138,10 +138,10 @@ export function RemplissagePage() {
       cellule: (l) => <span className="font-semibold text-navy-900">{l.nom}</span>,
     },
     {
-      cle: 'nbMatieres',
-      entete: 'Matières',
-      valeur: (l) => l.nbMatieres,
-      cellule: (l) => <span className="tabular-nums">{l.nbMatieres ?? '—'}</span>,
+      cle: 'nbUnites',
+      entete: t('resultats.elements_suivis'),
+      valeur: (l) => l.nbUnites,
+      cellule: (l) => <span className="tabular-nums">{l.nbUnites ?? '—'}</span>,
     },
     ...(!estEnseignant
       ? [
@@ -182,12 +182,17 @@ export function RemplissagePage() {
     },
   ]
 
-  const colonnesMatieres: Colonne<Remplissage['matieres'][number]>[] = [
+  const libelleUnites = secondaireClasseActive ? t('matieres.title') : t('competences.title')
+  const messageVideUnites = secondaireClasseActive
+    ? t('progression.aucune_matiere_classe')
+    : t('competences.aucune_dans_classe')
+
+  const colonnesUnites: Colonne<Remplissage['unites'][number]>[] = [
     {
-      cle: 'matiere',
-      entete: 'Matière',
-      valeur: (ligne) => ligne.matiere,
-      cellule: (ligne) => <span className="font-medium">{ligne.matiere}</span>,
+      cle: 'unite',
+      entete: libelleUnites,
+      valeur: (ligne) => ligne.libelle,
+      cellule: (ligne) => <span className="font-medium">{ligne.libelle}</span>,
     },
     ...(estEnseignant
       ? []
@@ -195,9 +200,9 @@ export function RemplissagePage() {
         {
           cle: 'enseignant',
           entete: 'Enseignant',
-          valeur: (ligne: Remplissage['matieres'][number]) => ligne.enseignant,
-          cellule: (ligne: Remplissage['matieres'][number]) => ligne.enseignant ?? '—',
-        } satisfies Colonne<Remplissage['matieres'][number]>,
+          valeur: (ligne: Remplissage['unites'][number]) => ligne.enseignant,
+          cellule: (ligne: Remplissage['unites'][number]) => ligne.enseignant ?? '—',
+        } satisfies Colonne<Remplissage['unites'][number]>,
       ]),
     {
       cle: 'volets',
@@ -284,7 +289,9 @@ export function RemplissagePage() {
 
       {estEnseignant && classesEnseignant.length === 0 ? (
         <Card>
-          <EmptyState label="Aucune matière ne vous est affectée pour le moment." />
+          <EmptyState
+            label={t(secondaireClasseActive ? 'resultats.aucune_matiere_enseignant' : 'resultats.aucune_competence_enseignant')}
+          />
         </Card>
       ) : classeActive === null ? (
         <DataTable
@@ -298,20 +305,20 @@ export function RemplissagePage() {
         />
       ) : isLoading ? (
         <Spinner />
-      ) : !data?.matieres.length ? (
+      ) : !data?.unites.length ? (
         <Card>
-          <EmptyState label={t('progression.aucune_matiere_classe')} />
+          <EmptyState label={messageVideUnites} />
         </Card>
       ) : (
         <>
           <h2 className="-mt-2 text-sm font-semibold text-navy-600">{classeActiveNom}</h2>
           <DataTable
-            colonnes={colonnesMatieres}
-            lignes={data.matieres}
-            cleLigne={(ligne) => ligne.classe_matiere_id}
-            placeholderRecherche={t('matieres.search_placeholder')}
-            messageVide={t('progression.aucune_matiere_classe')}
-            onLigneClick={(ligne) => setMatiereSelectionnee(ligne.classe_matiere_id)}
+            colonnes={colonnesUnites}
+            lignes={data.unites}
+            cleLigne={(ligne) => ligne.id}
+            placeholderRecherche={secondaireClasseActive ? t('matieres.search_placeholder') : t('competences.recherche')}
+            messageVide={t('common.no_results')}
+            onLigneClick={(ligne) => setMatiereSelectionnee(ligne.id)}
           />
         </>
       )}
