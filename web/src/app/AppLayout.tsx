@@ -71,6 +71,7 @@ import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
+import { estPersonnelDirection } from '@/shared/lib/direction'
 import { logout } from '@/features/auth/api'
 import { NotificationBell } from './NotificationBell'
 import { DesktopStatusIndicator } from '@/features/desktop/DesktopStatusIndicator'
@@ -98,7 +99,7 @@ const navGroups = [
     items: [
       { to: '/', label: 'nav.dashboard', icon: LayoutDashboard, permission: 'dashboard.view', masquerPourChauffeur: true, keywords: ['accueil', 'home', 'statistiques'] },
       { to: '/annonces', label: 'nav.annonces', icon: Megaphone, permission: 'annonces.view', keywords: ['actualites', 'news', 'communication', 'information'] },
-      { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view', keywords: ['livres', 'books', 'library', 'documents', 'emprunt'] },
+      { to: '/bibliotheque', label: 'nav.bibliotheque', icon: Library, permission: 'bibliotheque.view', masquerPourEnseignant: true, keywords: ['livres', 'books', 'library', 'documents', 'emprunt'] },
       {
         to: '/enseignant/mes-informations',
         label: 'nav.mesInformations',
@@ -161,15 +162,16 @@ const navGroups = [
         // Même principe que « Mes avances » : borné au compte connecté,
         // sans privilège dédié — cf. PersonnelEspaceController::mesBudgets().
         estPersonnel: true,
+        masquerPourEnseignant: true,
       },
     ],
   },
   {
     label: 'nav.group.staff',
     items: [
-      { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
-      { to: '/personnel/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'personnel.view', keywords: ['liste personnalisée', 'enseignants', 'professeurs', 'export enseignants'] },
-      { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
+      { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
+      { to: '/personnel/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['liste personnalisée', 'enseignants', 'professeurs', 'export enseignants'] },
+      { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
       { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'fonctions.create|fonctions.update|fonctions.delete|fonctions.import', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
       { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'banques.create|banques.update|banques.delete|banques.import|banques.mouvements', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
       { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permission: 'regles_seance.create|regles_seance.update|regles_seance.delete', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
@@ -178,6 +180,7 @@ const navGroups = [
         label: 'nav.departements',
         icon: Building2,
         permission: 'personnel.view',
+        masquerPourEnseignant: true,
         types: ['secondaire'] as TypeEcole[],
       },
       {
@@ -242,7 +245,15 @@ const navGroups = [
         // conseiller d'orientation ou chef de département.
         avecAttribution: true,
       },
-      { to: '/classes', label: 'nav.classes', icon: School, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['salles de classe'] },
+      {
+        to: '/classes',
+        label: 'nav.classes',
+        icon: School,
+        permission: 'classes.view',
+        masquerPourTitulaire: true,
+        enseignantGestionClasses: true,
+        keywords: ['salles de classe'],
+      },
       { to: '/classes/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['liste personnalisée', 'export classe', 'rapport de classe'] },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['students', 'inscriptions', 'fiche eleve'] },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.transferer', masquerPourTitulaire: true, keywords: ['changement de classe', 'transfer'] },
@@ -327,6 +338,7 @@ const navGroups = [
         // confondues, avec leur statut — `personnel.view` exclut déjà
         // l'enseignant ordinaire, pas besoin de `masquerPourTitulaire`.
         permission: 'personnel.view',
+        masquerPourEnseignant: true,
       },
       {
         to: '/ma-journee',
@@ -396,12 +408,12 @@ const navGroups = [
       { to: '/chauffeur/itineraire', label: 'nav.monItineraire', icon: RouteIcon, permission: 'bus.view', estChauffeur: true, keywords: ['itineraire', 'arrets', 'ramassage', 'pointage'] },
       { to: '/chauffeur/eleves', label: 'nav.mesElevesTransportes', icon: Users, permission: 'bus.view', estChauffeur: true, keywords: ['eleves', 'contacts parents', 'telephone'] },
 
-      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
-      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['itineraires', 'routes'] },
-      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['stops', 'points de ramassage'] },
-      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['eleves transport', 'affectation bus'] },
-      { to: '/bus/liste-personnalisee', label: 'nav.busListePersonnalisee', icon: ClipboardList, permission: 'bus.view', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['liste personnalisee', 'manifeste', 'regroupement'] },
-      { to: '/bus/remplacements', label: 'nav.busRemplacements', icon: CalendarOff, permission: 'bus.remplacement', masquerPourTitulaire: true, masquerPourChauffeur: true, keywords: ['relais', 'chauffeur empeche', 'remplacement'] },
+      { to: '/bus/vehicules', label: 'nav.busVehicules', icon: Bus, permission: 'bus.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['vehicules', 'cars', 'chauffeurs'] },
+      { to: '/bus/trajets', label: 'nav.busTrajets', icon: RouteIcon, permission: 'bus.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['itineraires', 'routes'] },
+      { to: '/bus/arrets', label: 'nav.busArrets', icon: MapPin, permission: 'bus.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['stops', 'points de ramassage'] },
+      { to: '/bus/eleves', label: 'nav.busAffectations', icon: Users, permission: 'bus.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['eleves transport', 'affectation bus'] },
+      { to: '/bus/liste-personnalisee', label: 'nav.busListePersonnalisee', icon: ClipboardList, permission: 'bus.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['liste personnalisee', 'manifeste', 'regroupement'] },
+      { to: '/bus/remplacements', label: 'nav.busRemplacements', icon: CalendarOff, permission: 'bus.remplacement', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourChauffeur: true, keywords: ['relais', 'chauffeur empeche', 'remplacement'] },
     ],
   },
   {
@@ -417,7 +429,14 @@ const navGroups = [
   {
     label: 'nav.group.resultats',
     items: [
-      { to: '/bulletins', label: 'nav.bulletins', icon: FileText, permission: 'bulletins.view', keywords: ['notes', 'report card', 'releve'] },
+      {
+        to: '/bulletins',
+        label: 'nav.bulletins',
+        icon: FileText,
+        permission: 'bulletins.view',
+        masquerPourEnseignantSansAccesBulletins: true,
+        keywords: ['notes', 'report card', 'releve'],
+      },
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view', keywords: ['saisie des notes', 'grades'] },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view', keywords: ['classement', 'ranking', 'meilleurs eleves'] },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
@@ -584,6 +603,14 @@ export function AppLayout() {
   // (hérité par exemple du rôle parent d'un compte fusionné).
   const voitFinancesEcole = peutVoirFinancesEcole(user, can)
 
+  // Les enseignants ordinaires ne peuvent ni gérer les bulletins ni accéder
+  // au catalogue de classes depuis le menu mobile ; garder les mêmes filtres.
+  const enseignantPeutVoirBulletins =
+    !user?.est_enseignant ||
+    estPersonnelDirection(user) ||
+    user?.roles.includes('surveillant_general') ||
+    can('bulletins.publish')
+
   // Dirige au moins un département : ouvre « Mon département », sur son seul
   // département (cf. EnseignantController::monDepartement()).
   const estChefDepartement = aAttribution('chef_departement')
@@ -605,6 +632,14 @@ export function AppLayout() {
           const itemsAutorises = group.items.filter(
             (item) =>
               (!('permission' in item) || can(item.permission)) &&
+              (!('enseignantGestionClasses' in item) ||
+                !item.enseignantGestionClasses ||
+                !user?.est_enseignant ||
+                can('classes.create|classes.update|classes.delete')) &&
+              (!('masquerPourEnseignant' in item) || !item.masquerPourEnseignant || !user?.est_enseignant) &&
+              (!('masquerPourEnseignantSansAccesBulletins' in item) ||
+                !item.masquerPourEnseignantSansAccesBulletins ||
+                enseignantPeutVoirBulletins) &&
               (!('avecAttribution' in item) || !item.avecAttribution || aUneAttribution) &&
               (!('superAdminOnly' in item) || !item.superAdminOnly || user?.is_super_admin) &&
               (!('types' in item) || !typeEcole || (item.types as TypeEcole[]).includes(typeEcole)) &&
@@ -640,7 +675,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole],
+    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole, enseignantPeutVoirBulletins],
   )
 
   /**
