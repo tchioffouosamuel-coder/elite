@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Classe;
-use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Departement;
 use App\Models\Matiere;
@@ -168,13 +167,14 @@ class Perimetre
     }
 
     /**
-     * Classes où l'agent enseigne : affectation matière au secondaire,
-     * titulariat au primaire et en maternelle — où il tient toute la classe
-     * sans être nommé sur chaque matière — et classes où une compétence lui a
-     * été confiée sans qu'il en soit titulaire. Cette dernière n'installe pas
-     * forcément de matière (une compétence du référentiel officiel n'en a
-     * souvent aucune) : sans elle, l'intervenant ne verrait pas la classe où
-     * on vient pourtant de lui confier un bloc à noter.
+     * Classes où l'agent enseigne comme périmètre complet : affectation
+     * matière au secondaire, titulariat au primaire et en maternelle — où il
+     * tient toute la classe sans être nommé sur chaque matière.
+     *
+     * Une compétence primaire/maternelle confiée à un intervenant ne lui ouvre
+     * pas toute la classe : il garde ses routes dédiées de saisie, mais les
+     * listes générales d'élèves, de classes et le tableau de bord restent
+     * bornés aux classes dont il est réellement titulaire.
      *
      * @return list<int>
      */
@@ -192,15 +192,12 @@ class Perimetre
 
         $affectees = ClasseMatiere::where('personnel_id', $personnelId)
             ->where('statut', 'actif')
+            ->whereHas('classe.school', fn ($q) => $q->where('type', 'secondaire'))
             ->pluck('classe_id');
 
         $tenues = Classe::where('titulaire_id', $personnelId)->pluck('id');
 
-        $confiees = ClasseCompetence::where('personnel_id', $personnelId)
-            ->where('statut', 'actif')
-            ->pluck('classe_id');
-
-        return $this->classesEnseignees = $affectees->merge($tenues)->merge($confiees)->unique()->values()->all();
+        return $this->classesEnseignees = $affectees->merge($tenues)->unique()->values()->all();
     }
 
     /**

@@ -46,6 +46,8 @@ class DashboardService extends BaseService
             if ($classes->isNotEmpty()) {
                 return $this->statsClasse($schoolId, $classes, $user);
             }
+
+            return $this->statsEnseignantSansClasse($schoolId);
         }
 
         // Mode agrégé sur plusieurs écoles (super admin, "Toutes les écoles") :
@@ -56,6 +58,33 @@ class DashboardService extends BaseService
         }
 
         return $this->statsEcole($schoolId);
+    }
+
+    /**
+     * Un enseignant borné sans classe complète ne doit jamais retomber sur le
+     * tableau de bord d'établissement, qui exposerait les effectifs de toute
+     * l'école. Ses affectations ponctuelles restent disponibles dans « Mes
+     * matières » ou « Mes compétences ».
+     *
+     * @param  int|array<int>  $schoolId
+     */
+    private function statsEnseignantSansClasse(int|array $schoolId): array
+    {
+        $anneeActive = AnneeScolaire::whereIn('school_id', (array) $schoolId)->where('is_active', true)->first();
+
+        return [
+            'scope' => 'classe',
+            'classe' => ['id' => 0, 'nom' => 'Aucune classe affectée'],
+            'annee_scolaire_active' => $anneeActive?->libelle,
+            'effectifs' => ['eleves' => 0, 'matieres' => 0, 'classes' => 0],
+            'repartition_genre' => ['garcons' => 0, 'filles' => 0],
+            'indicateurs' => [
+                'taux_filles' => 0,
+                'taux_remplissage_notes' => null,
+                'taux_progression' => null,
+            ],
+            'activite_recente' => [],
+        ];
     }
 
     /**

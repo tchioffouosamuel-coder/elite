@@ -221,6 +221,31 @@ class CompetenceResponsableTest extends TestCase
         $this->assertTrue($notes->peutSaisir($utilisateurTitulaire, $attribution));
     }
 
+    /** Une compétence confiée ne transforme pas toute la classe en classe de l'intervenant. */
+    public function test_confier_une_competence_n_ouvre_pas_toute_la_classe_a_l_intervenant(): void
+    {
+        $attribution = $this->attribuer($this->competence());
+        $this->confier($attribution, $this->intervenant->id);
+
+        $this->assertTrue(app(NotePrimaireService::class)->peutSaisir(
+            $this->utilisateurIntervenant,
+            $attribution->fresh(['classe']),
+        ));
+        $this->assertSame([], $this->utilisateurIntervenant->fresh()->perimetre()->classes());
+
+        $this->actingAs($this->utilisateurIntervenant->fresh(), 'sanctum')
+            ->getJson('/api/v1/classes')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->actingAs($this->utilisateurIntervenant->fresh(), 'sanctum')
+            ->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.scope', 'classe')
+            ->assertJsonPath('data.effectifs.classes', 0)
+            ->assertJsonPath('data.effectifs.eleves', 0);
+    }
+
     /** Un agent d'une autre école ne peut pas se voir confier la compétence. */
     public function test_un_agent_d_une_autre_ecole_est_refuse(): void
     {
