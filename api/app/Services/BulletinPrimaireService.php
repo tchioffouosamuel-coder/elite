@@ -7,6 +7,7 @@ use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Eleve;
 use App\Models\Note;
+use App\Models\ObservationEvaluation;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
@@ -48,6 +49,11 @@ class BulletinPrimaireService extends BaseService
 
         $sequences = $trimestre->sequencesRetenues();
         $tousEleves = $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get();
+        $observations = ObservationEvaluation::whereIn('eleve_id', $tousEleves->pluck('id'))
+            ->whereIn('classe_competence_id', $affectations->pluck('id'))
+            ->where('trimestre_id', $trimestre->id)
+            ->get()
+            ->keyBy(fn (ObservationEvaluation $observation) => "{$observation->eleve_id}:{$observation->classe_competence_id}");
 
         // La maternelle n'a ni moyenne, ni rang, ni classement : on ne les
         // calcule même pas, plutôt que de les produire pour ne pas les afficher.
@@ -115,8 +121,8 @@ class BulletinPrimaireService extends BaseService
             ],
             'eleves' => $elevesDuDocument
                 ->map(fn(Eleve $eleve) => $parAppreciation
-                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours, $titulaireNom)
-                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours, $titulaireNom))
+                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours, $titulaireNom, $observations)
+                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours, $titulaireNom, $observations))
                 ->all(),
         ];
     }
@@ -139,6 +145,7 @@ class BulletinPrimaireService extends BaseService
         Collection $sequences,
         Collection $jours,
         string $titulaireNom,
+        Collection $observations,
     ): array {
         $notes = Note::where('eleve_id', $eleve->id)
             ->whereIn('classe_competence_id', $affectations->pluck('id'))
@@ -152,7 +159,7 @@ class BulletinPrimaireService extends BaseService
         // rien d'exploitable — il faut passer par les identifiants.
         $rangSequence = $sequences->values()->pluck('id')->flip();
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($notes, $rangSequence, $titulaireNom) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $notes, $rangSequence, $titulaireNom, $observations) {
             $competence = $cc->competence;
 
             return [
@@ -160,6 +167,7 @@ class BulletinPrimaireService extends BaseService
                 'matiere_en' => $competence->label_en,
                 'abreviation' => $competence->abbreviation,
                 'enseignant' => $titulaireNom,
+                'observation' => $observations->get("{$eleve->id}:{$cc->id}")?->texte,
                 'volets' => collect($cc->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
                     $retenue = $notes
                         ->where('classe_competence_id', $cc->id)
@@ -202,10 +210,11 @@ class BulletinPrimaireService extends BaseService
         Collection $classement,
         Collection $jours,
         string $titulaireNom,
+        Collection $observations,
     ): array {
         $totauxParSequence = array_fill_keys($sequences->pluck('id')->all(), 0.0);
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom, $observations) {
             $resultat = $this->moyennes->noteCompetenceEleve($eleve, $cc, $trimestre);
             $competence = $cc->competence;
             $repartition = $cc->repartitionVolets();
@@ -223,6 +232,7 @@ class BulletinPrimaireService extends BaseService
                 'abreviation' => $competence->abbreviation,
                 'bareme' => $resultat['bareme'],
                 'enseignant' => $titulaireNom,
+                'observation' => $observations->get("{$eleve->id}:{$cc->id}")?->texte,
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
                 // Un volet à 0 point n'a rien à afficher — {@see ClasseCompetence::voletsNotes()}.
                 'volets' => collect($cc->voletsNotes())->map(fn(string $composante) => [

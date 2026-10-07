@@ -21,6 +21,7 @@ class BulkSaveNotesRequest extends FormRequest
             'notes' => ['required', 'array', 'min:1'],
             'notes.*.eleve_id' => ['required', $this->scopedExists('eleves')],
             'notes.*.valeur' => ['nullable', 'numeric', 'min:0', 'max:20'],
+            'notes.*.observation' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ];
     }
 }

@@ -6,6 +6,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Appreciation;
 use App\Models\ClasseCompetence;
 use App\Models\Note;
+use App\Models\ObservationEvaluation;
 use App\Models\Sequence;
 use App\Models\Trimestre;
 use App\Models\User;
@@ -60,9 +61,12 @@ class NotePrimaireService extends BaseService
         $notes = Note::where('classe_competence_id', $classeCompetence->id)
             ->whereIn('sequence_id', $sequences->pluck('id'))
             ->get();
+        $observations = ObservationEvaluation::where('classe_competence_id', $classeCompetence->id)
+            ->where('trimestre_id', $trimestre->id)
+            ->pluck('texte', 'eleve_id');
 
         $lignes = $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
-            ->map(function ($eleve) use ($notes, $composantes, $sequences) {
+            ->map(function ($eleve) use ($notes, $composantes, $sequences, $observations) {
                 $parEleve = $notes->where('eleve_id', $eleve->id);
 
                 $valeurs = [];
@@ -83,6 +87,7 @@ class NotePrimaireService extends BaseService
                     'nom_complet' => $eleve->nom_complet,
                     'notes' => $valeurs,
                     'appreciations' => $appreciations,
+                    'observation' => $observations->get($eleve->id),
                 ];
             });
 
@@ -150,8 +155,10 @@ class NotePrimaireService extends BaseService
                 fn ($q) => $q->where('annee_scolaire_id', $anneeActive->id)
             )->pluck('id')->flip()
             : collect();
+        $sequenceTrimestreIds = Sequence::whereIn('id', collect($notes)->pluck('sequence_id')->unique())
+            ->pluck('trimestre_id', 'id');
 
-        return $this->transaction(function () use ($classeCompetence, $notes, $user, $personnelId, $eleveIdsValides, $composantesValides, $sequenceIdsValides, $maternelle, $appreciationsValides) {
+        return $this->transaction(function () use ($classeCompetence, $notes, $user, $personnelId, $eleveIdsValides, $composantesValides, $sequenceIdsValides, $sequenceTrimestreIds, $maternelle, $appreciationsValides) {
             if ($user) {
                 $ids = collect($notes)->pluck('sequence_id')->unique();
                 $sequences = Sequence::with('trimestre.anneeScolaire')->whereIn('id', $ids)
@@ -162,6 +169,7 @@ class NotePrimaireService extends BaseService
                 }
             }
             $count = 0;
+            $observationsEnregistrees = [];
 
             foreach ($notes as $row) {
                 // Défense en profondeur : un élève d'une autre classe, une séquence
@@ -200,6 +208,23 @@ class NotePrimaireService extends BaseService
                     ],
                     $attributs,
                 );
+
+                $trimestreId = $sequenceTrimestreIds->get($row['sequence_id']);
+                $cleObservation = "{$row['eleve_id']}:{$trimestreId}";
+
+                if (array_key_exists('observation', $row) && ! isset($observationsEnregistrees[$cleObservation])) {
+                    ObservationEvaluation::updateOrCreate(
+                        [
+                            'eleve_id' => $row['eleve_id'],
+                            'trimestre_id' => $trimestreId,
+                            'classe_matiere_id' => null,
+                            'classe_competence_id' => $classeCompetence->id,
+                        ],
+                        ['texte' => $row['observation'] === '' ? null : $row['observation']],
+                    );
+                    $observationsEnregistrees[$cleObservation] = true;
+                }
+
                 $count++;
             }
 

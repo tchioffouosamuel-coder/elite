@@ -11,7 +11,7 @@ import {
   type GrillePrimaire,
   type NotePrimaireInput,
 } from '@/features/primaire/api'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
@@ -147,6 +147,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
   const user = useAuthStore((s) => s.user)
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
+  const [observations, setObservations] = useState<Record<number, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
   const { data: trimestres } = useQuery({
@@ -179,7 +180,9 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
     // Les deux modes partagent la même carte de cellules : au primaire elle
     // porte une note, en maternelle l'identifiant du niveau coché.
     const initial: Record<string, string> = {}
+    const initialObservations: Record<number, string> = {}
     for (const ligne of grille.lignes) {
+      initialObservations[ligne.eleve_id] = ligne.observation ?? ''
       for (const composante of grille.composantes) {
         for (const sequence of grille.sequences) {
           const valeur =
@@ -191,6 +194,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
       }
     }
     setValeurs(initial)
+    setObservations(initialObservations)
   }, [grille])
 
   const notesInvalides =
@@ -221,6 +225,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
               eleve_id: ligne.eleve_id,
               sequence_id: sequence.id,
               composante,
+              observation: observations[ligne.eleve_id] ?? '',
               ...(grille.mode === 'appreciation'
                 ? { appreciation_id: vide ? null : Number(brut) }
                 : { valeur: vide ? null : Number(brut) }),
@@ -267,7 +272,15 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
         <Spinner />
       ) : grille.mode === 'appreciation' ? (
         <>
-          <GrilleAppreciations grille={grille} valeurs={valeurs} onChange={setValeurs} peutModifier={peutModifier} />
+          <GrilleAppreciations
+            grille={grille}
+            valeurs={valeurs}
+            observations={observations}
+            observationEditable={sequencesEditables.length > 0}
+            onChange={setValeurs}
+            onObservationChange={setObservations}
+            peutModifier={peutModifier}
+          />
 
           <div className="flex items-center gap-3">
             <Button onClick={handleSave} disabled={submitting || sequencesEditables.length === 0}>
@@ -311,6 +324,9 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                     className="border-b border-l border-navy-100 px-3 py-2 text-center"
                   >
                     Totaux
+                  </th>
+                  <th rowSpan={2} className="border-b border-l border-navy-100 px-3 py-2 text-left">
+                    {t('notes.observation')}
                   </th>
                 </tr>
                 <tr>
@@ -390,6 +406,20 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                       <td className="border-l-2 border-navy-100 px-3 py-2 text-center font-bold text-navy-900 bg-cream-100/50">
                         {noteTotalTrimestre.toFixed(2)}
                       </td>
+                      <td className="border-l border-navy-50 px-2 py-1.5">
+                        <Textarea
+                          aria-label={`${t('notes.observation')} - ${ligne.nom_complet}`}
+                          placeholder={t('notes.observation_placeholder')}
+                          rows={2}
+                          maxLength={2000}
+                          disabled={sequencesEditables.length === 0}
+                          value={observations[ligne.eleve_id] ?? ''}
+                          onChange={(event) =>
+                            setObservations((precedent) => ({ ...precedent, [ligne.eleve_id]: event.target.value }))
+                          }
+                          className="min-w-52"
+                        />
+                      </td>
                     </tr>
                   )
                 })}
@@ -422,12 +452,18 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
 function GrilleAppreciations({
   grille,
   valeurs,
+  observations,
+  observationEditable,
   onChange,
+  onObservationChange,
   peutModifier,
 }: {
   grille: GrillePrimaire
   valeurs: Record<string, string>
+  observations: Record<number, string>
+  observationEditable: boolean
   onChange: (maj: (v: Record<string, string>) => Record<string, string>) => void
+  onObservationChange: (maj: (v: Record<number, string>) => Record<number, string>) => void
   peutModifier: (sequence: GrillePrimaire['sequences'][number]) => boolean
 }) {
   const { t } = useTranslation()
@@ -464,6 +500,9 @@ function GrilleAppreciations({
                   {!peutModifier(sequence) && <span className="block text-[0.625rem] font-normal">{t('notes.fermee')}</span>}
                 </th>
               ))}
+              <th className="border-b border-l border-navy-100 px-3 py-2 text-left">
+                {t('notes.observation')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -521,6 +560,22 @@ function GrilleAppreciations({
                       </td>
                     )
                   })}
+                  {indexVolet === 0 && (
+                    <td rowSpan={grille.composantes.length} className="border-l border-navy-50 px-2 py-1.5 align-top">
+                      <Textarea
+                        aria-label={`${t('notes.observation')} - ${ligne.nom_complet}`}
+                        placeholder={t('notes.observation_placeholder')}
+                        rows={3}
+                        maxLength={2000}
+                        disabled={!observationEditable}
+                        value={observations[ligne.eleve_id] ?? ''}
+                        onChange={(event) =>
+                          onObservationChange((precedent) => ({ ...precedent, [ligne.eleve_id]: event.target.value }))
+                        }
+                        className="min-w-52"
+                      />
+                    </td>
+                  )}
                 </tr>
               )),
             )}

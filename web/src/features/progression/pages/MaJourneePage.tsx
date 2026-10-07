@@ -87,10 +87,9 @@ export function MaJourneePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
-  // Comment ce compte prouve sa présence : scanner (par défaut), saisir le
-  // code de la salle, ou aucune preuve exigée — réglé sur sa fiche personnel
-  // (cf. User::methodeValidationSeance côté API).
-  const methodeValidation = useAuthStore((s) => s.user?.methode_validation_seance ?? 'qr')
+  // Repli tant que la feuille du jour n'est pas chargée : la règle du compte,
+  // résolue sans classe côté `/me`, donc aveugle aux règles par sous-système.
+  const methodeDuCompte = useAuthStore((s) => s.user?.methode_validation_seance ?? 'qr')
   // Arrivée depuis le scan d'un QR code de salle : l'affectation résolue est
   // déjà connue, pas besoin de la faire choisir une seconde fois.
   const preselection = (location.state as { classeMatiereId?: number } | null)?.classeMatiereId
@@ -141,6 +140,14 @@ export function MaJourneePage() {
     enabled: affectationId !== '',
     retry: false,
   })
+
+  // La règle de CE cours fait foi : c'est elle que le serveur exigera, et
+  // elle seule tient compte du sous-système de la classe. Verrouiller sur
+  // celle du compte, c'était masquer le champ de preuve pour un enseignant
+  // que le serveur allait refuser — ou l'exiger alors qu'il en est dispensé.
+  const methodeValidation = feuille?.seance.methode_validation_seance ?? methodeDuCompte
+  const preuveExigee = methodeValidation !== 'libre'
+  const preuveFournie = !preuveExigee || qrToken !== null || (methodeValidation === 'code' && codeSalle.trim() !== '')
 
   useEffect(() => {
     if (!feuille) return
@@ -443,7 +450,9 @@ export function MaJourneePage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Button onClick={enregistrer} disabled={submitting}>
+                {/* Le serveur refuse en 403 sans preuve : mieux vaut un
+                    bouton inactif qu'un aller-retour qui perd la saisie. */}
+                <Button onClick={enregistrer} disabled={submitting || !preuveFournie}>
                   <Save className="h-4 w-4" />
                   {t('common.save')}
                 </Button>

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Imports\NoteImport;
 use App\Models\ClasseMatiere;
 use App\Models\Note;
+use App\Models\ObservationEvaluation;
 use App\Models\Sequence;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -21,11 +22,15 @@ class NoteService extends BaseService
      */
     public function grille(ClasseMatiere $classeMatiere, int $sequenceId): Collection
     {
+        $trimestreId = Sequence::whereKey($sequenceId)->value('trimestre_id');
         $notes = Note::where('classe_matiere_id', $classeMatiere->id)
             ->where('sequence_id', $sequenceId)
             ->where('composante', 'unique')
             ->get()
             ->keyBy('eleve_id');
+        $observations = ObservationEvaluation::where('classe_matiere_id', $classeMatiere->id)
+            ->where('trimestre_id', $trimestreId)
+            ->pluck('texte', 'eleve_id');
 
         return $classeMatiere->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
             ->map(fn ($eleve) => [
@@ -33,6 +38,7 @@ class NoteService extends BaseService
                 'nom_complet' => $eleve->nom_complet,
                 'note_id' => $notes->get($eleve->id)?->id,
                 'valeur' => $notes->get($eleve->id)?->valeur !== null ? (float) $notes->get($eleve->id)->valeur : null,
+                'observation' => $observations->get($eleve->id),
             ]);
     }
 
@@ -42,10 +48,11 @@ class NoteService extends BaseService
     public function sauvegarderEnLot(ClasseMatiere $classeMatiere, int $sequenceId, array $notes, ?User $user): int
     {
         $personnelId = $user?->personnel?->id;
+        $sequence = Sequence::with('trimestre')->findOrFail($sequenceId);
 
         $eleveIdsValides = $classeMatiere->classe->eleves()->pluck('id')->flip();
 
-        return $this->transaction(function () use ($classeMatiere, $sequenceId, $notes, $user, $personnelId, $eleveIdsValides) {
+        return $this->transaction(function () use ($classeMatiere, $sequenceId, $sequence, $notes, $user, $personnelId, $eleveIdsValides) {
             if ($user) {
                 Sequence::with('trimestre.anneeScolaire')->lockForUpdate()->findOrFail($sequenceId)
                     ->verifierSaisieNotes($user, $classeMatiere->classe->school_id);
@@ -70,6 +77,19 @@ class NoteService extends BaseService
                     ],
                     ['valeur' => $row['valeur'] ?? null, 'saisi_par' => $personnelId]
                 );
+
+                if (array_key_exists('observation', $row)) {
+                    ObservationEvaluation::updateOrCreate(
+                        [
+                            'eleve_id' => $row['eleve_id'],
+                            'trimestre_id' => $sequence->trimestre_id,
+                            'classe_matiere_id' => $classeMatiere->id,
+                            'classe_competence_id' => null,
+                        ],
+                        ['texte' => $row['observation'] === '' ? null : $row['observation']],
+                    );
+                }
+
                 $count++;
             }
 

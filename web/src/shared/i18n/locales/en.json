@@ -795,6 +795,8 @@
     "title": "Grades",
     "sequence": "Sequence",
     "valeur": "Grade / 20",
+    "observation": "Observation",
+    "observation_placeholder": "Teacher's observation…",
     "select_prompt": "Choose a subject and a sequence to display the grade sheet.",
     "saved": "{{count}} grade(s) saved.",
     "trimestre": "Term",

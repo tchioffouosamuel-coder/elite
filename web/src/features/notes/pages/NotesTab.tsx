@@ -6,7 +6,7 @@ import { fetchClasseMatieres, fetchTrimestresPourClasse } from '@/features/pedag
 import { useAuthStore } from '@/shared/store/authStore'
 import { peutSaisirSequence } from '../saisieSequence'
 import { fetchGrilleNotes, sauvegarderNotes } from '@/features/notes/api'
-import { Input, Select } from '@/shared/ui/Field'
+import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes, confirmer, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
@@ -129,6 +129,7 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
 
   // valeurs[eleve_id][sequence_id] = texte saisi (chaîne vide = pas de note)
   const [valeurs, setValeurs] = useState<Record<number, Record<number, string>>>({})
+  const [observations, setObservations] = useState<Record<number, string>>({})
   const [noms, setNoms] = useState<Record<number, string>>({})
   const [reconduireSource, setReconduireSource] = useState<number | ''>('')
   const [reconduireCible, setReconduireCible] = useState<number | ''>('')
@@ -171,6 +172,10 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
         return suivant
       })
       setNoms((precedent) => ({ ...precedent, ...Object.fromEntries(requete.data!.map((l) => [l.eleve_id, l.nom_complet])) }))
+      setObservations((precedent) => ({
+        ...precedent,
+        ...Object.fromEntries(requete.data!.map((l) => [l.eleve_id, l.observation ?? ''])),
+      }))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grillesSignature, sequences.map((s) => s.id).join(',')])
@@ -228,7 +233,11 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
       for (const sequence of sequencesEditables) {
         const notes = lignes.map((l) => {
           const v = valeurs[l.eleve_id]?.[sequence.id] ?? ''
-          return { eleve_id: l.eleve_id, valeur: v.trim() === '' ? null : Number(v) }
+          return {
+            eleve_id: l.eleve_id,
+            valeur: v.trim() === '' ? null : Number(v),
+            observation: observations[l.eleve_id] ?? '',
+          }
         })
         const result = await sauvegarderNotes(classeMatiereId, sequence.id, notes)
         total += result.saved
@@ -307,6 +316,7 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
                   </Th>
                 ))}
                 <Th className="text-center">{t('notes.trim_colonne')}</Th>
+                <Th>{t('notes.observation')}</Th>
               </tr>
             </Thead>
             <tbody>
@@ -327,6 +337,20 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
                       </Td>
                     ))}
                     <Td className="text-center font-semibold">{moyenne !== null ? moyenne.toFixed(2) : '—'}</Td>
+                    <Td>
+                      <Textarea
+                        aria-label={`${t('notes.observation')} - ${ligne.nom_complet}`}
+                        placeholder={t('notes.observation_placeholder')}
+                        rows={2}
+                        maxLength={2000}
+                        disabled={sequencesEditables.length === 0}
+                        value={observations[ligne.eleve_id] ?? ''}
+                        onChange={(event) =>
+                          setObservations((precedent) => ({ ...precedent, [ligne.eleve_id]: event.target.value }))
+                        }
+                        className="min-w-52"
+                      />
+                    </Td>
                   </Tr>
                 )
               })}

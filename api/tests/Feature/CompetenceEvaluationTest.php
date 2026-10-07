@@ -395,6 +395,35 @@ class CompetenceEvaluationTest extends TestCase
         $this->assertSame($eleve->id, $donnees['eleves'][0]['eleve']->id);
     }
 
+    public function test_l_observation_de_la_grille_primaire_est_enregistree_et_affichee_au_bulletin(): void
+    {
+        $competence = $this->competence();
+        $eleve = $this->eleve('ELEVE OBSERVATION');
+        $attribution = $this->attribuer($competence);
+        $texte = 'Doit prendre confiance lors des activités orales.';
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire", [
+                'notes' => [[
+                    'eleve_id' => $eleve->id,
+                    'sequence_id' => $this->sequence->id,
+                    'composante' => 'oral',
+                    'valeur' => 7,
+                    'observation' => $texte,
+                ]],
+            ])
+            ->assertOk();
+
+        $this->getJson("/api/v1/classe-competences/{$attribution->id}/notes-primaire?trimestre_id={$this->trimestre->id}")
+            ->assertOk()
+            ->assertJsonPath('data.lignes.0.observation', $texte);
+
+        $donnees = app(\App\Services\BulletinPrimaireService::class)
+            ->donneesClasse($this->classe->fresh(), $this->trimestre);
+
+        $this->assertSame($texte, $donnees['eleves'][0]['lignes'][0]['observation']);
+    }
+
     /**
      * Une compétence déjà notée exige la confirmation du mot de passe avant
      * de se supprimer, plutôt que d'être bloquée à sec.

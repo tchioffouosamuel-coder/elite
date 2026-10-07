@@ -812,6 +812,8 @@
     "sequence": "Séquence",
     "trimestre": "Trimestre",
     "valeur": "Note / 20",
+    "observation": "Observation",
+    "observation_placeholder": "Observation de l'enseignant…",
     "select_prompt": "Choisissez une matière et une séquence pour afficher la grille.",
     "saved": "{{count}} note(s) enregistrée(s).",
     "bareme_hint": "Matière notée sur {{bareme}}, répartie ainsi par volet et par séquence : {{repartition}}.",

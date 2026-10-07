@@ -11,6 +11,7 @@ use App\Models\Eleve;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\Preinscription;
 use App\Models\School;
 use App\Models\Sequence;
 use App\Models\Trimestre;
@@ -208,6 +209,51 @@ class NotesTrimestreActifTest extends TestCase
         $corps['notes'][0]['valeur'] = 7;
         $this->postJson($url, $corps)->assertOk();
         $this->assertDatabaseHas('notes', ['eleve_id' => $eleve->id, 'valeur' => 7]);
+    }
+
+    public function test_l_observation_de_la_grille_secondaire_est_enregistree_et_renvoyee_au_bulletin(): void
+    {
+        $prof = $this->enseignant('Prof observation', 'prof.observation@test.local');
+        [$attribution, $eleve] = $this->classeMatiereAvecEleve($prof);
+        Preinscription::create([
+            'school_id' => $this->school->id,
+            'annee_scolaire_id' => $this->trimestreActif->annee_scolaire_id,
+            'eleve_id' => $eleve->id,
+            'type' => 'existant',
+            'statut' => 'validee',
+            'donnees_eleve' => [],
+            'donnees_tuteurs' => [],
+        ]);
+        $url = "/api/v1/classe-matieres/{$attribution->id}/notes";
+        $texte = 'Participe activement en classe.';
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson($url, [
+                'sequence_id' => $this->sequenceActive->id,
+                'notes' => [[
+                    'eleve_id' => $eleve->id,
+                    'valeur' => 15,
+                    'observation' => $texte,
+                ]],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('observations_evaluations', [
+            'eleve_id' => $eleve->id,
+            'trimestre_id' => $this->trimestreActif->id,
+            'classe_matiere_id' => $attribution->id,
+            'texte' => $texte,
+        ]);
+
+        $this->getJson("{$url}?sequence_id={$this->sequenceActive->id}")
+            ->assertOk()
+            ->assertJsonPath('data.0.observation', $texte);
+
+        $bulletin = app(\App\Services\BulletinService::class)
+            ->donneesClasse($attribution->classe, $this->trimestreActif);
+        $ligne = collect($bulletin['eleves'][0]['groupes'])->flatten(1)->first();
+
+        $this->assertSame($texte, $ligne['observation']);
     }
 
     public function test_import_et_synchronisation_ne_contournent_pas_une_sequence_fermee(): void

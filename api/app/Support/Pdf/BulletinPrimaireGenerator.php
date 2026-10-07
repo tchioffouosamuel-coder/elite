@@ -294,6 +294,10 @@ class BulletinPrimaireGenerator
                         . ($ligne['matiere_en']
                             ? '<br><span style="font-size:2.6mm;color:' . self::ARDOISE . ';">' . $this->e($ligne['matiere_en']) . '</span>'
                             : '')
+                        . (! empty($ligne['observation'])
+                            ? '<br><span style="font-size:2.3mm;color:' . self::ARDOISE . ';">Observation : '
+                                . $this->e($ligne['observation']) . '</span>'
+                            : '')
                         . '</td>';
                 }
 
@@ -394,7 +398,11 @@ class BulletinPrimaireGenerator
                     $corps .= '<td class="left matiere-cell" rowspan="' . $nbVolets . '">'
                         . '<span class="matiere">' . $this->e($ligne['matiere']) . '</span> '
                         . '<span style="color:' . self::ARDOISE . ';">/ ' . $this->e($ligne['matiere_en']) . '</span><br>'
-                        . '<span class="bareme">Sur / Over ' . $ligne['bareme'] . '</span></td>';
+                        . '<span class="bareme">Sur / Over ' . $ligne['bareme'] . '</span>'
+                        . (! empty($ligne['observation'])
+                            ? '<br><span class="bareme">Observation : ' . $this->e($ligne['observation']) . '</span>'
+                            : '')
+                        . '</td>';
                 }
 
                 $corps .= '<td class="volet left">' . $this->e($volet['libelle'])

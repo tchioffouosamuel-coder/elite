@@ -6,6 +6,7 @@ export interface NoteCellule {
   nom_complet: string
   note_id: number | null
   valeur: number | null
+  observation: string | null
 }
 
 export async function fetchGrilleNotes(classeMatiereId: number, sequenceId: number): Promise<NoteCellule[]> {
@@ -18,7 +19,7 @@ export async function fetchGrilleNotes(classeMatiereId: number, sequenceId: numb
 export async function sauvegarderNotes(
   classeMatiereId: number,
   sequenceId: number,
-  notes: { eleve_id: number; valeur: number | null }[],
+  notes: { eleve_id: number; valeur: number | null; observation?: string | null }[],
 ): Promise<{ saved: number }> {
   const { data } = await http.post<ApiResponse<{ saved: number }>>(`/classe-matieres/${classeMatiereId}/notes`, {
     sequence_id: sequenceId,

@@ -1,3 +1,4 @@
+import { estPersonnelDirection } from '@/shared/lib/direction'
 import type { AuthUser } from '@/shared/store/authStore'
 
 export function peutSaisirSequence(
@@ -6,8 +7,7 @@ export function peutSaisirSequence(
   trimestreActif: boolean,
 ): boolean {
   if (!user) return false
-  const direction = user.is_super_admin || user.roles.some((r) =>
-    ['super_admin', 'admin_ecole', 'admin_college', 'censeur_sg'].includes(r))
+  const direction = estPersonnelDirection(user)
   return (direction || trimestreActif) &&
     ((!user.est_enseignant && direction) || sequence.saisie_ouverte === true)
 }

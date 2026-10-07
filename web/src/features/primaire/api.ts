@@ -96,6 +96,7 @@ export interface GrillePrimaire {
   lignes: {
     eleve_id: number
     nom_complet: string
+    observation: string | null
     /** notes[composante][sequence_id] — primaire. */
     notes: Record<Composante, Record<number, number | null>>
     /** appreciations[composante][sequence_id] — maternelle. */
@@ -110,6 +111,7 @@ export interface NotePrimaireInput {
   valeur?: number | null
   /** Renseigné en maternelle, à la place de `valeur`. */
   appreciation_id?: number | null
+  observation?: string | null
 }
 
 /** La grille porte sur une compétence : c'est elle que le bulletin note. */

@@ -13,6 +13,8 @@ import {
   type Programme,
 } from '@/features/progression/api'
 import { succes, erreur as alerteErreur } from '@/shared/lib/alertes'
+import { estPersonnelDirection } from '@/shared/lib/direction'
+import { useAuthStore } from '@/shared/store/authStore'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
@@ -71,6 +73,12 @@ function transformer(
 
 export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { classeMatiereId: number; lectureSeule?: boolean }) {
   const { t } = useTranslation()
+  // « Date Taught » n'est plus saisissable par celui qui doit prouver sa
+  // présence pour enseigner : elle suit la déclaration faite dans « Ma
+  // journée » (le serveur ignore la valeur envoyée — cf.
+  // `ProgressionService::remplacerArbre()`). La direction, déjà dispensée de
+  // la preuve pour pouvoir corriger à distance, garde la main.
+  const dateRealiseeEditable = useAuthStore((s) => estPersonnelDirection(s.user))
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreurChargement, setErreurChargement] = useState(false)
@@ -289,9 +297,11 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
                   <input
                     type="date"
                     value={item.date_realisee ?? ''}
-                    readOnly={lectureSeule}
+                    readOnly={lectureSeule || !dateRealiseeEditable}
+                    disabled={!lectureSeule && !dateRealiseeEditable}
+                    title={dateRealiseeEditable ? undefined : "Renseignée automatiquement quand la leçon est déclarée dans « Ma journée »."}
                     onChange={(e) => modifier(monChemin, { date_realisee: e.target.value || null })}
-                    className={`w-40 ${CHAMP_CLASSES}`}
+                    className={`w-40 ${CHAMP_CLASSES} ${!lectureSeule && !dateRealiseeEditable ? 'cursor-not-allowed bg-navy-50/60 text-navy-400' : ''}`}
                   />
                 </label>
 

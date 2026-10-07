@@ -199,7 +199,7 @@ class BulletinGenerator
                     .'<td>'.$this->nombre($ligne['min']).'</td>'
                     .'<td>'.$this->nombre($ligne['max']).'</td>'
                     .'<td>'.$this->e((string) ($ligne['rang'] ?? '—')).'</td>'
-                    .'<td></td></tr>';
+                    .'<td class="left mini">'.$this->e($ligne['observation'] ?? '').'</td></tr>';
             }
         }
 

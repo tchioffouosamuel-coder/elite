@@ -7,6 +7,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Note;
+use App\Models\ObservationEvaluation;
 use App\Models\Sanction;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
@@ -56,6 +57,11 @@ class BulletinService extends BaseService
             : $tousEleves->whereIn('id', $eleveIds)->values();
 
         $elevesDuDocument = $this->parOrdreDeMerite($elevesDuDocument, $classementGeneral);
+        $observations = ObservationEvaluation::whereIn('eleve_id', $tousEleves->pluck('id'))
+            ->whereIn('classe_matiere_id', $affectations->pluck('id'))
+            ->where('trimestre_id', $trimestre->id)
+            ->get()
+            ->keyBy(fn (ObservationEvaluation $observation) => "{$observation->eleve_id}:{$observation->classe_matiere_id}");
 
         return [
             'classe' => $classe,
@@ -70,7 +76,7 @@ class BulletinService extends BaseService
             ],
             'stats' => $stats,
             'eleves' => $elevesDuDocument->map(fn (Eleve $eleve) => $this->donneesEleve(
-                $eleve, $trimestre, $affectations, $sequences, $classementGeneral, $classementsMatiere
+                $eleve, $trimestre, $affectations, $sequences, $classementGeneral, $classementsMatiere, $observations
             ))->all(),
         ];
     }
@@ -122,6 +128,7 @@ class BulletinService extends BaseService
         Collection $sequences,
         Collection $classementGeneral,
         Collection $classementsMatiere,
+        Collection $observations,
     ): array {
         $notes = Note::where('eleve_id', $eleve->id)
             ->whereIn('classe_matiere_id', $affectations->pluck('id'))
@@ -132,7 +139,7 @@ class BulletinService extends BaseService
         $matieresFaibles = [];
 
         $lignes = $affectations->map(function (ClasseMatiere $cm) use (
-            $eleve, $trimestre, $sequences, $notes, $classementsMatiere, &$matieresFaibles
+            $eleve, $trimestre, $sequences, $notes, $classementsMatiere, $observations, &$matieresFaibles
         ) {
             $notesMatiere = ($notes->get($cm->id) ?? collect())->keyBy('sequence_id');
             $moyenne = $this->moyennes->moyenneMatiereEleve($eleve, $cm, $trimestre);
@@ -164,6 +171,7 @@ class BulletinService extends BaseService
                 'rang' => $classement->firstWhere('eleve_id', $eleve->id)['rang'] ?? null,
                 'min' => $valeurs->isNotEmpty() ? (float) $valeurs->min() : null,
                 'max' => $valeurs->isNotEmpty() ? (float) $valeurs->max() : null,
+                'observation' => $observations->get("{$eleve->id}:{$cm->id}")?->texte,
             ];
         });
 

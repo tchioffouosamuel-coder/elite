@@ -7,6 +7,7 @@ use App\Models\ClasseMatiere;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\ProgressionItem;
 use App\Models\School;
 use App\Models\User;
 use App\Support\CataloguePermissions;
@@ -152,5 +153,90 @@ class ProgressionPerimetreTest extends TestCase
             ->getJson('/api/v1/progression')
             ->assertOk()
             ->assertJsonFragment(['classe' => 'FORM 3']);
+    }
+
+    /** @return array{0: User, 1: ClasseMatiere} */
+    private function affectationDe(string $nom): array
+    {
+        $prof = $this->enseignant($nom);
+        $classe = Classe::create(['school_id' => $this->school->id, 'nom' => 'FORM 4']);
+        $matiere = Matiere::create(['school_id' => $this->school->id, 'nom' => 'Biology']);
+
+        return [$prof, ClasseMatiere::create([
+            'classe_id' => $classe->id, 'matiere_id' => $matiere->id,
+            'personnel_id' => $prof->personnel->id, 'coefficient' => 1, 'statut' => 'actif',
+        ])];
+    }
+
+    /**
+     * Sans ce verrou, toute la règle de validation des séances se contourne
+     * depuis l'éditeur de progression : l'enseignant renseigne « Date
+     * Taught » à la main et sa leçon compte comme réalisée — sans séance,
+     * sans appel et sans preuve de présence.
+     */
+    public function test_l_enseignant_ne_peut_pas_marquer_une_lecon_realisee_depuis_la_progression(): void
+    {
+        [$prof, $classeMatiere] = $this->affectationDe('Munyah Guilienne');
+
+        $this->actingAs($prof, 'sanctum')
+            ->putJson("/api/v1/classe-matieres/{$classeMatiere->id}/progression", [
+                'items' => [[
+                    'type' => 'lecon', 'titre' => 'Photosynthese',
+                    'date_realisee' => '2026-09-02',
+                ]],
+            ])
+            ->assertOk();
+
+        $this->assertNull(ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->sole()->date_realisee);
+    }
+
+    /** Une date déjà posée par une déclaration ne doit pas être effacée par une simple édition du programme. */
+    public function test_l_edition_du_programme_preserve_la_date_posee_par_la_declaration(): void
+    {
+        [$prof, $classeMatiere] = $this->affectationDe('Munyah Guilienne');
+
+        $lecon = ProgressionItem::create([
+            'classe_matiere_id' => $classeMatiere->id, 'type' => 'lecon',
+            'titre' => 'Photosynthese', 'ordre' => 1, 'date_realisee' => '2026-09-02',
+        ]);
+
+        $this->actingAs($prof, 'sanctum')
+            ->putJson("/api/v1/classe-matieres/{$classeMatiere->id}/progression", [
+                'items' => [[
+                    'id' => $lecon->id, 'type' => 'lecon', 'titre' => 'Photosynthese (revu)',
+                    'date_realisee' => null,
+                ]],
+            ])
+            ->assertOk();
+
+        $lecon->refresh();
+        $this->assertSame('Photosynthese (revu)', $lecon->titre);
+        $this->assertSame('2026-09-02', $lecon->date_realisee?->toDateString());
+    }
+
+    /** La direction, déjà dispensée de la preuve, garde la main pour corriger. */
+    public function test_la_direction_peut_corriger_la_date_de_realisation(): void
+    {
+        [, $classeMatiere] = $this->affectationDe('Munyah Guilienne');
+
+        $admin = User::create([
+            'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $admin->assignRole('super_admin');
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/v1/classe-matieres/{$classeMatiere->id}/progression", [
+                'items' => [[
+                    'type' => 'lecon', 'titre' => 'Photosynthese',
+                    'date_realisee' => '2026-09-02',
+                ]],
+            ])
+            ->assertOk();
+
+        $this->assertSame(
+            '2026-09-02',
+            ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->sole()->date_realisee?->toDateString(),
+        );
     }
 }

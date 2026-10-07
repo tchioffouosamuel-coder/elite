@@ -426,6 +426,15 @@ export interface FeuilleJournee {
     donnees_personnalisees: Record<string, string | number | boolean>;
     /** Déclaration verrouillée (cf. `SeanceController`, `appelVerrouillePour`). */
     verrouille?: boolean;
+    /**
+     * Preuve exigée pour CETTE séance — `qr`, `code` ou `libre`. Résolue
+     * serveur avec la classe de la séance, donc avec son sous-système : elle
+     * peut différer de celle portée par le compte (`/me`), qui ignore la
+     * classe et ne voit que la règle « toute l'école ».
+     */
+    methode_validation_seance?: 'qr' | 'code' | 'libre';
+    /** D'où vient la méthode : `direction` (dispense de rôle), `agent`, `regle`, `defaut`. */
+    validation_source?: 'direction' | 'agent' | 'regle' | 'defaut';
   };
   lecons: {
     id: number;

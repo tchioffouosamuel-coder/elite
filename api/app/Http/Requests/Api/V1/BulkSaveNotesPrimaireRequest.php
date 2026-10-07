@@ -29,6 +29,7 @@ class BulkSaveNotesPrimaireRequest extends FormRequest
             // Maternelle : le volet porte un niveau d'appréciation au lieu d'une
             // note. Le service borne l'identifiant au référentiel de l'école.
             'notes.*.appreciation_id' => ['nullable', 'integer', 'exists:appreciations,id'],
+            'notes.*.observation' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ];
     }
 }

@@ -53,7 +53,7 @@ class ProgressionController extends Controller
     public function save(SaveProgressionRequest $request, int $classeMatiereId): JsonResponse
     {
         $classeMatiere = $this->affectation($classeMatiereId);
-        $compte = $this->service->remplacerArbre($classeMatiere, $request->input('items', []));
+        $compte = $this->service->remplacerArbre($classeMatiere, $request->input('items', []), $request->user());
         $this->recalculerDates($classeMatiere);
 
         return ApiResponse::success(

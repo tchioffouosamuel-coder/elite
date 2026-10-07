@@ -8,6 +8,7 @@ use App\Models\ProgressionItem;
 use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -358,11 +359,22 @@ class ProgressionService extends BaseService
      *
      * @param  array<int, array<string, mixed>>  $noeuds
      */
-    public function remplacerArbre(ClasseMatiere $classeMatiere, array $noeuds): int
+    public function remplacerArbre(ClasseMatiere $classeMatiere, array $noeuds, ?User $auteur = null): int
     {
-        return $this->transaction(function () use ($classeMatiere, $noeuds) {
+        // « Date Taught » ne se saisit pas à la main par celui qui doit
+        // prouver sa présence pour enseigner : sinon toute la règle de
+        // validation des séances se contourne depuis l'éditeur de
+        // progression — on coche la date, la leçon compte comme réalisée,
+        // sans séance, sans appel et sans QR. Elle suit la déclaration faite
+        // dans « Ma journée » (cf. `MaJourneeService::enregistrer()`, qui la
+        // pose sur la séance qui a réellement couvert la leçon). La direction
+        // garde la main, comme elle est déjà dispensée de la preuve pour
+        // pouvoir corriger à distance.
+        $dateRealiseeEditable = $auteur === null || $auteur->estPersonnelDirection();
+
+        return $this->transaction(function () use ($classeMatiere, $noeuds, $dateRealiseeEditable) {
             $conserves = [];
-            $compte = $this->enregistrerNiveau($classeMatiere, $noeuds, null, $conserves);
+            $compte = $this->enregistrerNiveau($classeMatiere, $noeuds, null, $conserves, $dateRealiseeEditable);
 
             // Ce qui n'a pas été renvoyé par le client a été supprimé dans
             // l'éditeur : la cascade emporte les sous-éléments et les liens
@@ -379,7 +391,7 @@ class ProgressionService extends BaseService
      * @param  array<int, array<string, mixed>>  $noeuds
      * @param  array<int, int>  $conserves
      */
-    private function enregistrerNiveau(ClasseMatiere $classeMatiere, array $noeuds, ?int $parentId, array &$conserves): int
+    private function enregistrerNiveau(ClasseMatiere $classeMatiere, array $noeuds, ?int $parentId, array &$conserves, bool $dateRealiseeEditable = true): int
     {
         $compte = 0;
 
@@ -422,6 +434,13 @@ class ProgressionService extends BaseService
                 ? ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->find($noeud['id'])
                 : null;
 
+            // Hors direction, la date de réalisation reste celle que le
+            // serveur a posée : on garde la valeur stockée plutôt que celle
+            // renvoyée par l'éditeur, et une leçon neuve naît non traitée.
+            if (! $dateRealiseeEditable) {
+                $attributs['date_realisee'] = $item?->date_realisee;
+            }
+
             if ($item) {
                 $item->update($attributs);
             } else {
@@ -432,7 +451,7 @@ class ProgressionService extends BaseService
             $compte++;
 
             if (! empty($noeud['enfants'])) {
-                $compte += $this->enregistrerNiveau($classeMatiere, $noeud['enfants'], $item->id, $conserves);
+                $compte += $this->enregistrerNiveau($classeMatiere, $noeud['enfants'], $item->id, $conserves, $dateRealiseeEditable);
             }
         }
 
