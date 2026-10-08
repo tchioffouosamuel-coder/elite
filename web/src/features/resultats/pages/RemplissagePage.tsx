@@ -7,6 +7,7 @@ import { fetchTrimestres, fetchTrimestresPourClasse } from '@/features/pedagogie
 import { SaisieSequencesPanel } from './SaisieSequencesPanel'
 import { fetchRemplissage, type Remplissage } from '@/features/resultats/api'
 import { fetchMesAffectationsActives } from '@/features/pedagogie/api'
+import { fetchMesCompetences } from '@/features/enseignant/api'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
 import { NotesPrimaireTab } from '@/features/primaire/pages/NotesPrimaireTab'
 import { useAuthStore } from '@/shared/store/authStore'
@@ -14,7 +15,7 @@ import { estSecondaire } from '@/shared/lib/ecole'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Field'
-import { EmptyState, Spinner } from '@/shared/ui/Feedback'
+import { EmptyState, ErrorState, Spinner } from '@/shared/ui/Feedback'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
 
@@ -39,19 +40,26 @@ interface LigneClasse {
 export function RemplissagePage() {
   const { t } = useTranslation()
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
+  const secondaireEcole = useAuthStore((s) => estSecondaire(s.activeSchool()?.type))
   const [classeId, setClasseId] = useState<number | ''>('')
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [matiereSelectionnee, setMatiereSelectionnee] = useState<number | null>(null)
 
-  // Un enseignant ne doit choisir que parmi les classes où il intervient
-  // (titulaire ou matière affectée) — pas la liste complète de l'établissement,
-  // qui n'aurait pour lui aucun sens et exposerait des classes hors de son périmètre.
+  // Au primaire et en maternelle, une compétence peut être attribuée sans
+  // matière associée : les classes doivent venir des compétences elles-mêmes.
   const { data: toutesLesClasses } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses(), enabled: !estEnseignant })
-  const { data: mesAffectations } = useQuery({
+  const affectationsMatieres = useQuery({
     queryKey: ['mes-affectations-actives'],
     queryFn: fetchMesAffectationsActives,
-    enabled: estEnseignant,
+    enabled: estEnseignant && secondaireEcole,
   })
+  const affectationsCompetences = useQuery({
+    queryKey: ['enseignant-mes-competences'],
+    queryFn: fetchMesCompetences,
+    enabled: estEnseignant && !secondaireEcole,
+  })
+  const affectationsEnseignant = secondaireEcole ? affectationsMatieres : affectationsCompetences
+  const mesAffectations = affectationsEnseignant.data
   const { data: trimestres } = useQuery({
     queryKey: classeId ? ['trimestres', Number(classeId)] : ['trimestres'],
     queryFn: () => classeId ? fetchTrimestresPourClasse(Number(classeId)) : fetchTrimestres(),
@@ -78,7 +86,7 @@ export function RemplissagePage() {
   const classeActiveObjet = classes.find((c) => c.id === classeActive) as Classe | undefined
   const secondaireClasseActive = estSecondaire(classeActiveObjet?.school?.type)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['remplissage', classeActive, trimestreId],
     queryFn: () => fetchRemplissage(classeActive!, trimestreActif, classeActiveObjet?.school?.type),
     enabled: classeActive !== null,
@@ -287,10 +295,14 @@ export function RemplissagePage() {
 
       <SaisieSequencesPanel trimestres={trimestres ?? []} />
 
-      {estEnseignant && classesEnseignant.length === 0 ? (
+      {estEnseignant && affectationsEnseignant.isLoading ? (
+        <Spinner />
+      ) : estEnseignant && affectationsEnseignant.isError ? (
+        <ErrorState />
+      ) : estEnseignant && classesEnseignant.length === 0 ? (
         <Card>
           <EmptyState
-            label={t(secondaireClasseActive ? 'resultats.aucune_matiere_enseignant' : 'resultats.aucune_competence_enseignant')}
+            label={t(secondaireEcole ? 'resultats.aucune_matiere_enseignant' : 'resultats.aucune_competence_enseignant')}
           />
         </Card>
       ) : classeActive === null ? (
@@ -305,6 +317,8 @@ export function RemplissagePage() {
         />
       ) : isLoading ? (
         <Spinner />
+      ) : isError ? (
+        <ErrorState />
       ) : !data?.unites.length ? (
         <Card>
           <EmptyState label={messageVideUnites} />
