@@ -1264,13 +1264,11 @@ app.whenReady().then(async () => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        // `frame-src` distinct de `default-src` : l'aperçu de document (PDF
-        // généré, converti en blob puis affiché dans un <iframe>) ne
-        // s'affichait pas sans ce `blob:` explicite — `default-src` ne le
-        // couvre pas pour le framing, seulement pour les autres types de
-        // ressources.
+        // `frame-src` distinct de `default-src` : les aperçus PDF chargés
+        // dans un <iframe> utilisent des URL `data:` (desktop) ou `blob:`
+        // (web); les deux doivent être explicitement autorisées.
         "Content-Security-Policy": [
-          "default-src 'self' 'unsafe-inline' data: blob: http: https:; frame-src 'self' blob:",
+          "default-src 'self' 'unsafe-inline' data: blob: http: https:; frame-src 'self' data: blob:",
         ],
       },
     });
