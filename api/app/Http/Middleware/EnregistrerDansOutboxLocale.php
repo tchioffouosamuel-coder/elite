@@ -41,7 +41,8 @@ class EnregistrerDansOutboxLocale
         }
 
         $corps = $this->corpsAvecFichiers($request);
-        if ($metaModification = $this->metaModificationEleve($request)) {
+        $metaModification = $this->metaModificationEleve($request);
+        if ($metaModification) {
             $corps['__sync'] = [
                 ...(is_array($corps['__sync'] ?? null) ? $corps['__sync'] : []),
                 'modification_eleve' => $metaModification,
@@ -60,7 +61,7 @@ class EnregistrerDansOutboxLocale
             // distant n'aurait que le contexte, sans rapport, de l'appel
             // `/api/v1/sync` qui le transporte (cf. migration
             // `add_school_id_to_sync_outbox_table`).
-            'school_id' => app('tenant.school_id'),
+            'school_id' => $metaModification['school_id'] ?? app('tenant.school_id'),
             // Compte auteur de cette écriture : plusieurs comptes pouvant
             // désormais être provisionnés sur le même poste, c'est ce qui
             // permet à `SyncPush` de rejouer chaque lot avec le bon jeton

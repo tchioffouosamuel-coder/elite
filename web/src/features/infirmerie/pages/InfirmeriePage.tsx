@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { CalendarDays, Coins, HeartPulse, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { COLONNES_IMPORT_VISITES_INFIRMERIE, deleteVisiteInfirmerie, fetchVisitesInfirmerie, type VisiteInfirmerie } from '@/features/infirmerie/api'
 import { fetchClasses, fetchSchools } from '@/features/classes/api'
@@ -159,7 +159,7 @@ export function InfirmeriePage() {
       valeur: (v) => v.eleve.nom_complet,
       cellule: (v) => (
         <div className="flex min-w-0 flex-col">
-          <span className="truncate font-semibold text-navy-900">{v.eleve.nom_complet}</span>
+          <Link to={`/infirmerie/patients/${v.eleve.id}?visite=${v.id}`} className="truncate font-semibold text-navy-900 hover:underline" onClick={(event) => event.stopPropagation()}>{v.eleve.nom_complet}</Link>
           <span className="truncate text-xs text-navy-400">{v.classe?.nom ?? '—'}</span>
         </div>
       ),
@@ -211,7 +211,7 @@ export function InfirmeriePage() {
           cle: 'actions',
           entete: t('common.actions'),
           cellule: (v: VisiteInfirmerie) => (
-            <div className="flex justify-end gap-1">
+            <div className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>
               {can('infirmerie.update') && (
                 <button
                   type="button"
@@ -300,6 +300,7 @@ export function InfirmeriePage() {
           colonnes={colonnes}
           lignes={lignes}
           cleLigne={(v) => v.id}
+          onLigneClick={(v) => navigate(`/infirmerie/patients/${v.eleve.id}?visite=${v.id}`)}
           placeholderRecherche={t('infirmerie.search_placeholder')}
           messageVide={t('infirmerie.empty')}
           largeurMin={980}

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ModificationEleve;
 use App\Services\ModificationEleveService;
 use App\Support\Tenant;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -83,11 +84,6 @@ class ModificationEleveAdminController extends Controller
     private function trouverPourTraitement(Request $request, int $id): ModificationEleve
     {
         $requete = ModificationEleve::forSchool(Tenant::schoolIds());
-        $modification = (clone $requete)->find($id);
-        if ($modification) {
-            return $modification;
-        }
-
         $meta = $request->input('__sync.modification_eleve');
         if (! is_array($meta) || ! $request->header('Idempotency-Key')) {
             return $requete->findOrFail($id);
@@ -96,14 +92,22 @@ class ModificationEleveAdminController extends Controller
         $schoolId = (int) ($meta['school_id'] ?? 0);
         $donnees = $meta['donnees'] ?? null;
         if (! in_array($schoolId, Tenant::schoolIds(), true) || ! is_array($donnees)) {
-            return $requete->findOrFail($id);
+            throw (new ModelNotFoundException)->setModel(ModificationEleve::class, [$id]);
         }
 
         $empreinte = $this->empreinteDonnees($donnees);
 
-        $candidats = ModificationEleve::forSchool($schoolId)
+        $identite = ModificationEleve::forSchool($schoolId)
             ->where('eleve_id', (int) ($meta['eleve_id'] ?? 0))
-            ->where('tuteur_id', (int) ($meta['tuteur_id'] ?? 0))
+            ->where('tuteur_id', (int) ($meta['tuteur_id'] ?? 0));
+
+        // L'id local peut aussi exister sur le serveur pour une autre demande.
+        $modification = (clone $identite)->find($id);
+        if ($modification && $this->empreinteDonnees($modification->donnees ?? []) === $empreinte) {
+            return $modification;
+        }
+
+        $candidats = $identite
             ->where('statut', 'en_attente')
             ->latest()
             ->get();
@@ -114,7 +118,7 @@ class ModificationEleveAdminController extends Controller
             }
         }
 
-        return $requete->findOrFail($id);
+        throw (new ModelNotFoundException)->setModel(ModificationEleve::class, [$id]);
     }
 
     /** @param array<string, mixed> $donnees */

@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreVisiteInfirmerieRequest;
 use App\Http\Requests\Api\V1\UpdateVisiteInfirmerieRequest;
+use App\Http\Resources\Api\V1\EleveResource;
 use App\Http\Resources\Api\V1\VisiteInfirmerieResource;
 use App\Imports\VisiteInfirmerieImport;
 use App\Models\Eleve;
@@ -65,6 +66,27 @@ class VisiteInfirmerieController extends Controller
             ->get();
 
         return ApiResponse::success(VisiteInfirmerieResource::collection($visites));
+    }
+
+    public function patient(Request $request, int $eleveId): JsonResponse
+    {
+        $user = $request->user();
+        $eleve = Eleve::forSchool(Tenant::schoolIds())
+            ->when(! $user->canAny(self::ECRITURES), fn ($q) => $q->dansPerimetre($user))
+            ->with(['school', 'classe', 'tuteurs.telephones'])
+            ->findOrFail($eleveId);
+
+        $visites = VisiteInfirmerie::forSchool(Tenant::schoolIds())
+            ->where('eleve_id', $eleve->id)
+            ->with(self::AVEC_RELATIONS)
+            ->latest('date_visite')
+            ->orderByDesc('id')
+            ->get();
+
+        return ApiResponse::success([
+            'patient' => new EleveResource($eleve),
+            'visites' => VisiteInfirmerieResource::collection($visites),
+        ]);
     }
 
     public function store(StoreVisiteInfirmerieRequest $request): JsonResponse

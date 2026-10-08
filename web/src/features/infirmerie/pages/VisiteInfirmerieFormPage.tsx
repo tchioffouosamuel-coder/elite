@@ -268,6 +268,7 @@ export function VisiteInfirmerieFormPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['infirmerie', 'visites'] })
+      queryClient.invalidateQueries({ queryKey: ['infirmerie', 'patients'] })
       queryClient.invalidateQueries({ queryKey: ['inventaire'] })
       queryClient.invalidateQueries({ queryKey: ['infirmerie-visites'] })
       navigate(urlRetour)
@@ -488,7 +489,7 @@ export function VisiteInfirmerieFormPage() {
             {serverError && <p className="text-sm text-red-500">{serverError}</p>}
 
             <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => navigate('/infirmerie')}>
+              <Button type="button" variant="secondary" onClick={() => navigate(urlRetour)}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>

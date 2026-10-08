@@ -1,5 +1,6 @@
 import { http } from '@/shared/lib/http'
 import type { ApiResponse } from '@/shared/types/api'
+import type { Eleve } from '@/features/eleves/api'
 
 export type TypeTraitement = 'interne' | 'externe' | 'mixte'
 
@@ -81,6 +82,16 @@ export interface VisitesInfirmerieParams {
 
 export async function fetchVisitesInfirmerie(params: VisitesInfirmerieParams = {}): Promise<VisiteInfirmerie[]> {
   const { data } = await http.get<ApiResponse<VisiteInfirmerie[]>>('/infirmerie/visites', { params })
+  return data.data
+}
+
+export interface DossierPatientInfirmerie {
+  patient: Eleve
+  visites: VisiteInfirmerie[]
+}
+
+export async function fetchPatientInfirmerie(eleveId: number): Promise<DossierPatientInfirmerie> {
+  const { data } = await http.get<ApiResponse<DossierPatientInfirmerie>>(`/infirmerie/patients/${eleveId}`)
   return data.data
 }
 

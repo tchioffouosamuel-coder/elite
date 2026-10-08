@@ -1234,6 +1234,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy')->middleware('permission:sanctions.delete');
 
             Route::middleware('permission:infirmerie.view')->group(function () {
+                Route::get('infirmerie/patients/{eleveId}', [VisiteInfirmerieController::class, 'patient'])->name('infirmerie.patients.show');
                 Route::get('infirmerie/visites', [VisiteInfirmerieController::class, 'index'])->name('infirmerie.visites.index');
                 Route::get('infirmerie/visites/export', [VisiteInfirmerieController::class, 'export'])->name('infirmerie.visites.export');
                 Route::get('infirmerie/visites/modele', [VisiteInfirmerieController::class, 'modele'])->name('infirmerie.visites.modele');

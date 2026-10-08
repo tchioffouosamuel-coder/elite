@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\ModificationEleve;
 use App\Models\SyncTombstone;
 use App\Support\Sync\RegistreSync;
 use Illuminate\Database\Eloquent\Collection;
@@ -223,7 +224,7 @@ class SyncController extends Controller
             // sans rapport, de l'appel `/api/v1/sync` englobant), et surtout
             // la clé d'idempotence — c'est elle qui rend le rejeu d'un lot
             // inoffensif.
-            $this->enTetesServeur($request, $operation['id'], $operation['school_id'] ?? null),
+            $this->enTetesServeur($request, $operation['id'], $this->ecoleOperation($request, $operation)),
             json_encode($corps)
         );
 
@@ -327,6 +328,30 @@ class SyncController extends Controller
             // d'idempotence : rejouer le lot entier ne recrée rien.
             'HTTP_IDEMPOTENCY_KEY' => $idOperation,
         ];
+    }
+
+    /** Retrouve aussi l'ecole des validations mises en file avant le correctif multi-ecoles. */
+    private function ecoleOperation(Request $request, array $operation): ?int
+    {
+        $schoolId = $operation['school_id'] ?? null;
+        if ($operation['methode'] !== 'POST'
+            || ! preg_match('#^modifications-eleves/(\d+)/(valider|rejeter)$#', $operation['chemin'], $matches)) {
+            return $schoolId;
+        }
+
+        $meta = $operation['corps']['__sync']['modification_eleve'] ?? null;
+        if (is_array($meta)) {
+            $ecoleDemande = filter_var($meta['school_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($ecoleDemande !== false) {
+                // ScopeEtablissement verifie l'acces a cette ecole sur la sous-requete.
+                return $ecoleDemande;
+            }
+        }
+
+        // Les anciennes outbox ont un corps vide et l'ecole par defaut du compte.
+        return ModificationEleve::forSchool($request->user()->ecolesAccessibles()->pluck('id')->all())
+            ->whereKey((int) $matches[1])
+            ->value('school_id') ?? $schoolId;
     }
 
     /**

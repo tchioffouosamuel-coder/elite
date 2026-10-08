@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Eleve;
+use App\Models\ModificationEleve;
 use App\Models\NotificationInterne;
 use App\Models\School;
 use App\Models\SyncOutbox;
@@ -145,5 +146,200 @@ class ModificationEleveParentTest extends TestCase
         $this->assertSame($modification->id, $outbox->corps['__sync']['modification_eleve']['id']);
         $this->assertSame($this->eleve->id, $outbox->corps['__sync']['modification_eleve']['eleve_id']);
         $this->assertSame(['adresse' => 'Adresse locale'], $outbox->corps['__sync']['modification_eleve']['donnees']);
+    }
+
+    public function test_loutbox_utilise_lecole_de_la_fiche_en_mode_agrege(): void
+    {
+        config(['sync.local_replica' => true]);
+        $ecoleParDefaut = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $ecoleParDefaut->id]);
+        $admin->schools()->attach($this->school->id);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse locale']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/modifications-eleves/{$modification->id}/valider")
+            ->assertOk();
+
+        $outbox = SyncOutbox::query()->enAttente()->where('chemin', "modifications-eleves/{$modification->id}/valider")->firstOrFail();
+        $this->assertSame($this->school->id, $outbox->school_id);
+    }
+
+    public function test_le_push_repare_lecole_dune_ancienne_validation_sans_metadonnees(): void
+    {
+        $ecoleParDefaut = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $ecoleParDefaut->id]);
+        $admin->schools()->attach($this->school->id);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse distante']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'ancienne-validation-mauvaise-ecole',
+                'methode' => 'POST',
+                'chemin' => "modifications-eleves/{$modification->id}/valider",
+                'school_id' => $ecoleParDefaut->id,
+                'corps' => [],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 200);
+
+        $this->assertSame('validee', $modification->fresh()->statut);
+        $this->assertSame('Adresse distante', $this->eleve->fresh()->adresse);
+    }
+
+    public function test_le_push_utilise_lecole_des_metadonnees_quand_lid_local_differe(): void
+    {
+        $ecoleParDefaut = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $ecoleParDefaut->id]);
+        $admin->schools()->attach($this->school->id);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $donnees = ['adresse' => 'Adresse distante'];
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, $donnees);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'validation-meta-mauvaise-ecole',
+                'methode' => 'POST',
+                'chemin' => 'modifications-eleves/999999/valider',
+                'school_id' => $ecoleParDefaut->id,
+                'corps' => ['__sync' => ['modification_eleve' => [
+                    'school_id' => $this->school->id,
+                    'eleve_id' => $this->eleve->id,
+                    'tuteur_id' => $this->tuteur->id,
+                    'donnees' => $donnees,
+                ]]],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 200);
+
+        $this->assertSame('validee', $modification->fresh()->statut);
+    }
+
+    public function test_le_push_ne_valide_pas_une_fiche_dune_ecole_inaccessible(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $autreEcole->id]);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse protegee']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'validation-ecole-inaccessible',
+                'methode' => 'POST',
+                'chemin' => "modifications-eleves/{$modification->id}/valider",
+                'school_id' => $autreEcole->id,
+                'corps' => [],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 404);
+
+        $this->assertSame('en_attente', $modification->fresh()->statut);
+    }
+
+    public function test_le_push_rejette_une_ancienne_demande_dans_la_bonne_ecole_et_peut_etre_rejoue(): void
+    {
+        $ecoleParDefaut = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $ecoleParDefaut->id]);
+        $admin->schools()->attach($this->school->id);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse rejetee']);
+        $operation = [
+            'id' => 'ancien-rejet-mauvaise-ecole',
+            'methode' => 'POST',
+            'chemin' => "modifications-eleves/{$modification->id}/rejeter",
+            'school_id' => $ecoleParDefaut->id,
+            'corps' => ['motif' => 'Adresse incorrecte'],
+        ];
+
+        for ($rejeu = 0; $rejeu < 2; $rejeu++) {
+            $this->actingAs($admin, 'sanctum')
+                ->postJson('/api/v1/sync', ['operations' => [$operation]])
+                ->assertOk()
+                ->assertJsonPath('data.resultats.0.statut', 200);
+        }
+
+        $this->assertSame('rejetee', $modification->fresh()->statut);
+        $this->assertSame('Adresse incorrecte', $modification->fresh()->motif_rejet);
+        $this->assertNotSame('Adresse rejetee', $this->eleve->fresh()->adresse);
+    }
+
+    public function test_le_push_refuse_une_ecole_inaccessible_dans_les_metadonnees(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $autreEcole->id]);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $donnees = ['adresse' => 'Adresse protegee'];
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, $donnees);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'validation-meta-ecole-inaccessible',
+                'methode' => 'POST',
+                'chemin' => 'modifications-eleves/999999/valider',
+                'school_id' => $autreEcole->id,
+                'corps' => ['__sync' => ['modification_eleve' => [
+                    'school_id' => $this->school->id,
+                    'eleve_id' => $this->eleve->id,
+                    'tuteur_id' => $this->tuteur->id,
+                    'donnees' => $donnees,
+                ]]],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 403);
+
+        $this->assertSame('en_attente', $modification->fresh()->statut);
+    }
+
+    public function test_une_requete_web_ne_peut_pas_changer_lecole_ciblee(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre ecole', 'code' => 'AE', 'type' => 'secondaire', 'is_active' => true]);
+        $admin = User::factory()->create(['school_id' => $autreEcole->id]);
+        $admin->schools()->attach($this->school->id);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse protegee']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/modifications-eleves/{$modification->id}/valider", [], ['X-School-Id' => $autreEcole->id])
+            ->assertNotFound();
+
+        $this->assertSame('en_attente', $modification->fresh()->statut);
+    }
+
+    public function test_le_push_ne_valide_pas_une_autre_demande_en_cas_de_collision_didentifiants(): void
+    {
+        $admin = User::factory()->create(['school_id' => $this->school->id]);
+        $admin->givePermissionTo('modifications_eleves.valider');
+        $donnees = ['adresse' => 'Adresse attendue'];
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, $donnees);
+        $autreEleve = Eleve::create([
+            'school_id' => $this->school->id, 'matricule' => '26SEC2', 'nom_complet' => 'Autre eleve',
+            'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $autreDemande = ModificationEleve::create([
+            'school_id' => $this->school->id, 'eleve_id' => $autreEleve->id, 'tuteur_id' => $this->tuteur->id,
+            'donnees' => ['adresse' => 'Autre adresse'], 'statut' => 'en_attente',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'validation-collision-id-local',
+                'methode' => 'POST',
+                'chemin' => "modifications-eleves/{$autreDemande->id}/valider",
+                'school_id' => $this->school->id,
+                'corps' => ['__sync' => ['modification_eleve' => [
+                    'school_id' => $this->school->id,
+                    'eleve_id' => $this->eleve->id,
+                    'tuteur_id' => $this->tuteur->id,
+                    'donnees' => $donnees,
+                ]]],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 200);
+
+        $this->assertSame('validee', $modification->fresh()->statut);
+        $this->assertSame('en_attente', $autreDemande->fresh()->statut);
+        $this->assertSame('Adresse attendue', $this->eleve->fresh()->adresse);
+        $this->assertNotSame('Autre adresse', $autreEleve->fresh()->adresse);
     }
 }

@@ -54,6 +54,7 @@ import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
 import { RevendicationsPage } from '@/features/revendications/pages/RevendicationsPage'
 import { InfirmeriePage } from '@/features/infirmerie/pages/InfirmeriePage'
+import { PatientInfirmeriePage } from '@/features/infirmerie/pages/PatientInfirmeriePage'
 import { VisiteInfirmerieFormPage } from '@/features/infirmerie/pages/VisiteInfirmerieFormPage'
 import { BusVehiculesPage } from '@/features/bus/pages/BusVehiculesPage'
 import { BusVehiculeDepensesPage } from '@/features/bus/pages/BusVehiculeDepensesPage'
@@ -240,6 +241,7 @@ export const router = createHashRouter([
       { path: 'sanctions', element: <ProtectedRoute permission="discipline.view"><SanctionsPage /></ProtectedRoute> },
       { path: 'revendications', element: <ProtectedRoute permission="revendications.view"><RevendicationsPage /></ProtectedRoute> },
       { path: 'infirmerie', element: <ProtectedRoute permission="infirmerie.view"><InfirmeriePage /></ProtectedRoute> },
+      { path: 'infirmerie/patients/:eleveId', element: <ProtectedRoute permission="infirmerie.view"><PatientInfirmeriePage /></ProtectedRoute> },
       { path: 'infirmerie/nouvelle', element: <ProtectedRoute permission="infirmerie.create"><VisiteInfirmerieFormPage /></ProtectedRoute> },
       { path: 'infirmerie/:id/edit', element: <ProtectedRoute permission="infirmerie.update"><VisiteInfirmerieFormPage /></ProtectedRoute> },
       { path: 'bus/vehicules', element: <ProtectedRoute permission="bus.view" masquerPourChauffeur><BusVehiculesPage /></ProtectedRoute> },
