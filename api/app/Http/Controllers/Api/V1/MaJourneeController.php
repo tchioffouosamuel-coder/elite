@@ -94,6 +94,7 @@ class MaJourneeController extends Controller
             // court affiché à côté du QR, saisi à la main.
             'qr_token' => ['nullable', 'string'],
             'code_salle' => ['nullable', 'string'],
+            ...$this->reglesActionsLecons(),
         ]);
 
         // Contrôle avancé, avant `seanceDuJour()` : sans lui, un refus pour
@@ -146,6 +147,7 @@ class MaJourneeController extends Controller
             $data['code_salle'] ?? null,
             // Absent de la requête (client plus ancien) : on garde la saisie existante.
             array_key_exists('contenu', $data) ? $data['contenu'] : $seance->contenu,
+            $data['actions_lecons'] ?? [],
         );
 
         return ApiResponse::success(
@@ -186,7 +188,37 @@ class MaJourneeController extends Controller
             ...collect(ProgressionItem::CHAMPS_FICHE)->mapWithKeys(fn($champ) => [$champ => $lecon->$champ])->all(),
             'duree_prevue' => $lecon->duree_prevue,
             'colonnes_libres' => $lecon->colonnes_libres ?? [],
+            'semaine' => $lecon->semaine,
+            'date_prevue' => $lecon->date_prevue?->format('Y-m-d'),
+            'date_realisee' => $lecon->date_realisee?->format('Y-m-d'),
+            'duree' => $lecon->duree,
         ]);
+    }
+
+    private function reglesActionsLecons(): array
+    {
+        $prefixe = 'actions_lecons.*.fiche';
+        $regles = [
+            'actions_lecons' => ['sometimes', 'array', 'max:100'],
+            'actions_lecons.*.operation_id' => ['required', 'uuid', 'distinct'],
+            'actions_lecons.*.action' => ['required', 'in:creer,modifier,supprimer'],
+            'actions_lecons.*.lecon_id' => ['required', 'integer', 'not_in:0'],
+            $prefixe => ['required_unless:actions_lecons.*.action,supprimer', 'array'],
+            $prefixe.'.titre' => ['required_unless:actions_lecons.*.action,supprimer', 'string', 'max:255'],
+            $prefixe.'.description' => ['nullable', 'string', 'max:2000'],
+            $prefixe.'.duree_prevue' => ['nullable', 'integer', 'min:1', 'max:200'],
+            $prefixe.'.semaine' => ['nullable', 'string', 'max:20'],
+            $prefixe.'.date_prevue' => ['nullable', 'date'],
+            $prefixe.'.date_realisee' => ['prohibited'],
+            $prefixe.'.duree' => ['nullable', 'string', 'max:50'],
+            $prefixe.'.colonnes_libres' => ['nullable', 'array'],
+            $prefixe.'.colonnes_libres.*' => ['nullable', 'string', 'max:1000'],
+        ];
+        foreach (ProgressionItem::CHAMPS_FICHE as $champ) {
+            $regles[$prefixe.'.'.$champ] = ['nullable', 'string', 'max:4000'];
+        }
+
+        return $regles;
     }
 
     /**

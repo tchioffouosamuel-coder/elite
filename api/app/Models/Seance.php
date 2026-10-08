@@ -29,6 +29,7 @@ class Seance extends Model
         'contenu',
         'statut',
         'observations',
+        'journal_lecons',
         'donnees_personnalisees',
         'appel_verrouille_le',
         'qr_verifie_le',
@@ -39,6 +40,7 @@ class Seance extends Model
         return [
             'date_seance' => 'date',
             'donnees_personnalisees' => 'array',
+            'journal_lecons' => 'array',
             'appel_verrouille_le' => 'datetime',
             'qr_verifie_le' => 'datetime',
         ];

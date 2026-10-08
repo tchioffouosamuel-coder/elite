@@ -8,13 +8,16 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\ProgressionItem;
+use App\Models\ProgressionColonne;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\PreuvePresence;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -290,6 +293,9 @@ class MaJourneeService extends BaseService
                 'statut' => $seance->statut,
                 'contenu' => $seance->contenu,
                 'observations' => $seance->observations,
+                'observations_libres' => collect(explode("\n", $seance->observations ?? ''))
+                    ->reject(fn ($ligne) => collect($seance->journal_lecons ?? [])->pluck('message')->contains($ligne))
+                    ->implode("\n"),
                 'donnees_personnalisees' => $seance->donnees_personnalisees ?? [],
                 // L'appel ET les leçons cochées se soumettent ensemble ici : le
                 // même verrou couvre les deux, un délai après la première
@@ -312,6 +318,10 @@ class MaJourneeService extends BaseService
                     ?->toIso8601String(),
             ],
             'lecons' => $lecons,
+            'cycle' => ProgressionItem::cyclePour($classeMatiere->classe->school->type),
+            'journal_lecons' => collect($seance->journal_lecons ?? [])->pluck('message')->filter()->values(),
+            'colonnes' => ProgressionColonne::where('classe_matiere_id', $classeMatiere->id)
+                ->orderBy('ordre')->get(['id', 'libelle']),
             'appel' => $this->emploiDuTemps->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
                 'nom_complet' => $ligne['eleve']->nom_complet,
@@ -348,6 +358,7 @@ class MaJourneeService extends BaseService
         ?string $qrToken = null,
         ?string $codeSalle = null,
         ?string $contenu = null,
+        array $actionsLecons = [],
     ): array {
         // Preuve de présence exigée ici, dans le service, et non chez
         // l'appelant : c'est le seul endroit qui marque une séance
@@ -368,7 +379,15 @@ class MaJourneeService extends BaseService
             'La déclaration de cette séance est verrouillée depuis plus de '.$seance->minutesVerrouillageAppel().' minutes. Contactez le Surveillant Général pour une correction.'
         );
 
-        [$resultat, $nouvelles] = $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $user, $observations, $donneesPersonnalisees, $qrVerifie, $contenu) {
+        [$resultat, $nouvelles] = $this->transaction(function () use ($classeMatiere, $seance, $leconIds, $appel, $user, $observations, $donneesPersonnalisees, $qrVerifie, $contenu, $actionsLecons) {
+            $seance = Seance::whereKey($seance->id)->lockForUpdate()->firstOrFail();
+            abort_if($seance->appelVerrouillePour($user), 403, 'La déclaration de cette séance est verrouillée.');
+            [$leconIds, $journal] = $this->appliquerActionsLecons($classeMatiere, $seance, $user, $actionsLecons, $leconIds);
+            // Les traces restent présentes même si une correction ne renvoie que la note libre.
+            $traces = collect($journal)->pluck('message')->filter();
+            $note = collect(explode("\n", $observations ?? ''))
+                ->reject(fn ($ligne) => $traces->contains($ligne))->implode("\n");
+            $observations = collect([trim($note), ...$traces])->filter()->implode("\n");
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
             $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
                 ->lecons()
@@ -398,6 +417,7 @@ class MaJourneeService extends BaseService
                 'statut' => 'effectuee',
                 'contenu' => $contenu,
                 'observations' => $observations,
+                'journal_lecons' => $journal ?: null,
                 'donnees_personnalisees' => $donneesPersonnalisees ?: null,
                 // Figé une seule fois, que l'appel ait été rempli ou non : une
                 // déclaration de leçons seule doit tout autant se verrouiller.
@@ -417,6 +437,69 @@ class MaJourneeService extends BaseService
         }
 
         return $resultat;
+    }
+
+    private function appliquerActionsLecons(ClasseMatiere $cm, Seance $seance, User $user, array $actions, array $ids): array
+    {
+        $journal = $seance->journal_lecons ?? [];
+        $correspondances = [];
+        $auteur = $user->estPersonnelDirection() ? 'La direction' : "L'enseignant";
+        foreach ($actions as $index => $action) {
+            $deja = collect($journal)->first(fn ($entree) => $entree['operation_id'] === $action['operation_id']);
+            if ($deja) {
+                abort_if($deja['user_id'] !== $user->id, 403);
+                $correspondances[$action['lecon_id']] = $deja['lecon_id'];
+                continue;
+            }
+            $id = $correspondances[$action['lecon_id']] ?? $action['lecon_id'];
+            $fiche = Arr::only($action['fiche'] ?? [], [
+                'titre', 'description', 'duree_prevue', 'semaine', 'date_prevue', 'duree', 'colonnes_libres',
+                ...ProgressionItem::CHAMPS_FICHE,
+            ]);
+            if ($action['action'] === 'creer') {
+                if ($id >= 0) {
+                    throw ValidationException::withMessages(["actions_lecons.$index.lecon_id" => 'Une nouvelle leçon doit porter un identifiant temporaire négatif.']);
+                }
+                $lecon = ProgressionItem::create([
+                    ...$fiche, 'classe_matiere_id' => $cm->id, 'type' => 'lecon',
+                    'ordre' => (ProgressionItem::where('classe_matiere_id', $cm->id)->max('ordre') ?? -1) + 1,
+                ]);
+                $correspondances[$id] = $lecon->id;
+                $message = "$auteur a créé la leçon « {$lecon->titre} ».";
+            } else {
+                $lecon = ProgressionItem::where('classe_matiere_id', $cm->id)->lecons()->lockForUpdate()->find($id);
+                if (! $lecon) {
+                    throw ValidationException::withMessages(["actions_lecons.$index.lecon_id" => "Cette leçon n'existe pas dans cette affectation."]);
+                }
+                if ($action['action'] === 'supprimer') {
+                    if ($lecon->estTraitee()) {
+                        throw ValidationException::withMessages(["actions_lecons.$index.lecon_id" => 'Une leçon déjà traitée ne peut pas être supprimée.']);
+                    }
+                    $message = "$auteur a supprimé la leçon « {$lecon->titre} ».";
+                    $lecon->delete();
+                    $ids = array_values(array_diff($ids, [$action['lecon_id']]));
+                } else {
+                    if (array_key_exists('date_prevue', $fiche)
+                        && ($fiche['date_prevue'] ? Carbon::parse($fiche['date_prevue'])->format('Y-m-d') : null) !== $lecon->date_prevue?->format('Y-m-d')) {
+                        throw ValidationException::withMessages(["actions_lecons.$index.fiche.date_prevue" => 'La date planifiée ne peut pas être modifiée lors de la validation.']);
+                    }
+                    unset($fiche['date_prevue']);
+                    $titreAvant = $lecon->titre;
+                    $lecon->fill($fiche);
+                    $champs = array_keys($lecon->getDirty());
+                    $lecon->save();
+                    $message = $champs === [] ? null : "$auteur a modifié la leçon « $titreAvant »"
+                        .($titreAvant !== $lecon->titre ? " : nouveau titre « {$lecon->titre} »" : '').'.';
+                }
+            }
+            $journal[] = [
+                'operation_id' => $action['operation_id'], 'user_id' => $user->id,
+                'lecon_id' => $lecon->id, 'action' => $action['action'],
+                'message' => $message, 'date' => now()->toIso8601String(),
+            ];
+        }
+
+        return [array_map(fn ($id) => $correspondances[$id] ?? $id, $ids), $journal];
     }
 
     /**

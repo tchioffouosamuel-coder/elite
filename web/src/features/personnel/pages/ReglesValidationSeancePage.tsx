@@ -65,17 +65,11 @@ export function ReglesValidationSeancePage() {
     }
   }
 
-  /**
-   * La règle n'est qu'un défaut : une fiche de personnel qui porte sa propre
-   * méthode l'emporte (cf. `User::methodeValidationSeance()`). « Appliquer »
-   * lève ces surcharges sur le périmètre, pour que tout le monde suive la
-   * règle — aujourd'hui et après chaque modification de celle-ci.
-   */
+  /** « Appliquer » remet tous les enseignants de l'école en héritage. */
   const handleAppliquer = async (regle: RegleValidationSeance) => {
-    const perimetre = regle.sous_systeme ?? "toute l'école"
     const confirme = await confirmer({
       titre: 'Appliquer cette règle ?',
-      message: `Les agents de ${perimetre} qui ont une méthode de validation définie sur leur fiche la perdront et suivront cette règle. Les règles définies pour un sous-système plus précis ne sont pas touchées.`,
+      message: "Tous les enseignants perdront la méthode définie sur leur fiche et passeront à « Hériter du réglage de l'école ».",
       action: 'Appliquer',
       destructif: false,
     })
@@ -126,7 +120,7 @@ export function ReglesValidationSeancePage() {
       cellule: (r) => (
         <div className="flex items-center gap-1">
           <button
-            title="Appliquer au périmètre (lève les méthodes définies fiche par fiche)"
+            title="Mettre tous les enseignants en héritage du réglage de l'école"
             disabled={enCours === r.id}
             onClick={() => handleAppliquer(r)}
             className="rounded-lg p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-gold-700 disabled:cursor-not-allowed disabled:opacity-50"

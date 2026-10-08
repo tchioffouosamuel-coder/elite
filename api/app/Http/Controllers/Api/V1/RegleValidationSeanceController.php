@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\RegleValidationSeanceResource;
-use App\Models\Classe;
-use App\Models\ClasseMatiere;
+use App\Models\FonctionReferentiel;
 use App\Models\Personnel;
 use App\Models\RegleValidationSeance;
+use App\Support\FonctionRoles;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,37 +73,21 @@ class RegleValidationSeanceController extends Controller
         return ApiResponse::success(null, 'Règle supprimée.');
     }
 
-    /**
-     * Lève les surcharges individuelles du périmètre : les agents qui
-     * portaient une méthode sur leur fiche repassent à `null`, donc suivent
-     * de nouveau cette règle — et continueront de la suivre si elle change.
-     */
+    /** Tous les enseignants de l'école repassent en héritage de la règle école. */
     public function appliquer(Request $request, int $id): JsonResponse
     {
         $this->authorizeSuperAdmin($request);
 
         $regle = RegleValidationSeance::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $fonctionEnseignantIds = FonctionReferentiel::where('school_id', $regle->school_id)
+            ->get(['id', 'label_fr'])
+            ->filter(fn (FonctionReferentiel $fonction) => FonctionRoles::role($fonction->label_fr) === 'enseignant')
+            ->pluck('id')
+            ->all();
 
         $agents = Personnel::where('school_id', $regle->school_id)
             ->whereNotNull('methode_validation_seance')
-            ->when(
-                $regle->sous_systeme_id !== null,
-                fn ($q) => $q->where(fn ($w) => $w
-                    // Un agent n'a pas de sous-système en propre : il relève de
-                    // celui des classes où il intervient (cf.
-                    // `User::methodeValidationSeance()`, qui résout la règle sur
-                    // le sous-système de la classe de la séance) — matières
-                    // enseignées au secondaire, classe tenue au primaire.
-                    ->whereIn('id', ClasseMatiere::query()
-                        ->select('classe_matieres.personnel_id')
-                        ->join('classes', 'classes.id', '=', 'classe_matieres.classe_id')
-                        ->where('classes.sous_systeme_id', $regle->sous_systeme_id)
-                        ->whereNotNull('classe_matieres.personnel_id'))
-                    ->orWhereIn('id', Classe::query()
-                        ->select('titulaire_id')
-                        ->where('sous_systeme_id', $regle->sous_systeme_id)
-                        ->whereNotNull('titulaire_id'))),
-            );
+            ->whereIn('fonction_id', $fonctionEnseignantIds);
 
         $nombre = (clone $agents)->count();
         $agents->update(['methode_validation_seance' => null]);
@@ -111,8 +95,8 @@ class RegleValidationSeanceController extends Controller
         return ApiResponse::success(
             ['agents' => $nombre],
             $nombre === 0
-                ? "Aucune surcharge individuelle à lever : la règle s'appliquait déjà à tout le périmètre."
-                : $nombre.' agent(s) repassent sous cette règle.',
+                ? "Aucune surcharge individuelle à lever : les enseignants héritaient déjà du réglage de l'école."
+                : $nombre." enseignant(s) héritent désormais du réglage de l'école.",
         );
     }
 

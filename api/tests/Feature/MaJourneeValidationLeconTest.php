@@ -11,6 +11,7 @@ use App\Models\Matiere;
 use App\Models\NotificationInterne;
 use App\Models\Personnel;
 use App\Models\ProgressionItem;
+use App\Models\ProgressionColonne;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\Trimestre;
@@ -19,6 +20,7 @@ use App\Support\CataloguePermissions;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -198,5 +200,111 @@ class MaJourneeValidationLeconTest extends TestCase
 
         $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole();
         $this->assertSame([$this->lecons[1]->id], $seance->lecons()->pluck('progression_items.id')->all());
+    }
+
+    private function action(string $action, int $id, array $fiche = []): array
+    {
+        return [
+            'operation_id' => (string) Str::uuid(), 'action' => $action, 'lecon_id' => $id,
+            ...($action === 'supprimer' ? [] : ['fiche' => $fiche]),
+        ];
+    }
+
+    private function enregistrerActions(array $actions, array $ids = [], array $autres = [])
+    {
+        return $this->actingAs($this->prof, 'sanctum')
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", [
+                'lecons' => $ids, 'appel' => [], 'qr_token' => 'TOKEN-SALLE-5EA',
+                'actions_lecons' => $actions, ...$autres,
+            ]);
+    }
+
+    public function test_creation_de_la_fiche_et_validation_avec_trace_dans_les_observations(): void
+    {
+        $colonne = ProgressionColonne::create(['classe_matiere_id' => $this->classeMatiere->id, 'libelle' => 'Support', 'ordre' => 0]);
+        $action = $this->action('creer', -1, [
+            'titre' => 'Les indépendances', 'topic' => 'Les indépendances',
+            'expected_learning_outcomes' => 'Identifier les dates',
+            'semaine' => '4', 'date_prevue' => now()->toDateString(), 'duree' => '2',
+            'colonnes_libres' => [$colonne->id => 'Carte'],
+        ]);
+        $this->enregistrerActions([$action], [-1], ['observations' => 'Cours terminé.'])
+            ->assertOk()->assertJsonPath('data.lecons.2.faite_aujourdhui', true)
+            ->assertJsonPath('data.seance.observations_libres', 'Cours terminé.');
+        $lecon = ProgressionItem::where('titre', 'Les indépendances')->sole();
+        $this->assertSame('Identifier les dates', $lecon->expected_learning_outcomes);
+        $this->assertSame('Carte', $lecon->colonnes_libres[$colonne->id]);
+        $this->assertSame(now()->toDateString(), $lecon->date_realisee->toDateString());
+        $this->assertSame($this->prof->id, $this->validePar($lecon));
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole();
+        $this->assertStringContainsString("L'enseignant a créé la leçon « Les indépendances ».", $seance->observations);
+
+        // Une requête rejouée après une coupure ne recrée ni la leçon ni sa trace.
+        $this->enregistrerActions([$action], [-1], ['observations' => 'Cours terminé.'])->assertOk();
+        $this->assertSame(1, ProgressionItem::where('titre', 'Les indépendances')->count());
+        $this->assertCount(1, $seance->refresh()->journal_lecons);
+        $this->assertSame(1, substr_count($seance->observations, 'a créé la leçon'));
+        $this->enregistrerActions([], [$lecon->id], ['observations' => 'Note corrigée.'])->assertOk();
+        $this->assertStringContainsString('Note corrigée.', $seance->refresh()->observations);
+        $this->assertStringContainsString('a créé la leçon', $seance->observations);
+    }
+
+    public function test_creation_sans_cocher_faite_ne_valide_pas_la_lecon(): void
+    {
+        $this->enregistrerActions([$this->action('creer', -1, ['titre' => 'À préparer'])])->assertOk();
+        $lecon = ProgressionItem::where('titre', 'À préparer')->sole();
+        $this->assertNull($lecon->date_realisee);
+        $this->assertFalse($lecon->estTraitee());
+    }
+
+    public function test_modification_preserve_la_date_planifiee_et_trace_le_changement(): void
+    {
+        $lecon = $this->lecons[0];
+        $lecon->update(['date_prevue' => '2026-09-15']);
+        $this->enregistrerActions([$this->action('modifier', $lecon->id, [
+            'titre' => 'Les empires', 'assessment' => 'Quiz',
+        ])], [$lecon->id])->assertOk();
+        $this->assertSame('2026-09-15', $lecon->refresh()->date_prevue->toDateString());
+        $this->assertSame('Quiz', $lecon->assessment);
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole();
+        $this->assertStringContainsString("L'enseignant a modifié la leçon « Les empires africains »", $seance->observations);
+        $this->enregistrerActions([$this->action('modifier', $lecon->id, [
+            'titre' => 'Autre titre', 'date_prevue' => '2026-10-15',
+        ])])->assertUnprocessable()->assertJsonValidationErrors('actions_lecons.0.fiche.date_prevue');
+        $this->assertSame('Les empires', $lecon->refresh()->titre);
+    }
+
+    public function test_une_action_invalide_annule_tous_les_changements_de_lecons(): void
+    {
+        $this->enregistrerActions([
+            $this->action('creer', -1, ['titre' => 'Ne doit pas rester']),
+            $this->action('modifier', 999999, ['titre' => 'Inconnue']),
+        ])->assertUnprocessable();
+        $this->assertDatabaseMissing('progression_items', ['titre' => 'Ne doit pas rester']);
+        $this->assertSame('prevue', Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole()->statut);
+    }
+
+    public function test_suppression_tracee_et_refusee_pour_une_lecon_deja_traitee(): void
+    {
+        $lecon = $this->lecons[0];
+        $this->enregistrerActions([$this->action('supprimer', $lecon->id)])->assertOk();
+        $this->assertDatabaseMissing('progression_items', ['id' => $lecon->id]);
+        $this->assertStringContainsString('a supprimé la leçon', Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole()->observations);
+        $this->valider($this->prof, [$this->lecons[1]->id])->assertOk();
+        $this->enregistrerActions([$this->action('supprimer', $this->lecons[1]->id)])->assertUnprocessable();
+        $this->assertDatabaseHas('progression_items', ['id' => $this->lecons[1]->id]);
+    }
+
+    public function test_les_actions_exigent_la_preuve_et_ne_modifient_pas_la_structure_du_programme(): void
+    {
+        $action = $this->action('creer', -1, ['titre' => 'Nouvelle', 'parent_id' => 99999, 'type' => 'module']);
+        $this->enregistrerActions([$action], [], ['qr_token' => null])->assertForbidden();
+        $this->assertDatabaseMissing('progression_items', ['titre' => 'Nouvelle']);
+        $this->enregistrerActions([$action])->assertOk();
+        $lecon = ProgressionItem::where('titre', 'Nouvelle')->sole();
+        $this->assertSame('lecon', $lecon->type);
+        $this->assertNull($lecon->parent_id);
+        $this->enregistrerActions([$this->action('modifier', $lecon->id, ['titre' => 'Nouvelle', 'date_realisee' => now()->toDateString()])])
+            ->assertUnprocessable()->assertJsonValidationErrors('actions_lecons.0.fiche.date_realisee');
     }
 }

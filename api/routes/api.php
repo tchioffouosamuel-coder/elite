@@ -366,8 +366,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('regles-validation-seance', [RegleValidationSeanceController::class, 'store'])->name('regles-validation-seance.store')->middleware('permission:regles_seance.create');
             Route::put('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'update'])->name('regles-validation-seance.update')->middleware('permission:regles_seance.update');
             Route::delete('regles-validation-seance/{id}', [RegleValidationSeanceController::class, 'destroy'])->name('regles-validation-seance.destroy')->middleware('permission:regles_seance.delete');
-            // Applique la règle au périmètre : lève les surcharges portées par
-            // les fiches de personnel, qui repassent sous la règle.
+            // Applique la règle école : tous les enseignants repassent en
+            // héritage, sans surcharge portée par leur fiche.
             Route::post('regles-validation-seance/{id}/appliquer', [RegleValidationSeanceController::class, 'appliquer'])->name('regles-validation-seance.appliquer')->middleware('permission:regles_seance.update');
 
             Route::post('personnels', [PersonnelController::class, 'store'])->name('personnels.store')->middleware('permission:personnel.create');
