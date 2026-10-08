@@ -45,6 +45,15 @@ function blobEnDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+async function blobPdfEnDataUrl(blob: Blob): Promise<string> {
+  const signature = await blob.slice(0, 5).text();
+  if (signature !== "%PDF-") {
+    throw new Error("Le serveur n'a pas renvoyé un fichier PDF valide.");
+  }
+
+  return blobEnDataUrl(blob);
+}
+
 /**
  * Affiche un PDF en aperçu plein écran dans l'application (plutôt que de
  * l'ouvrir dans un nouvel onglet) : l'utilisateur reste dans son contexte de
@@ -68,7 +77,7 @@ export async function ouvrirDocument(
     headers,
     responseType: "blob",
   });
-  const dataUrl = await blobEnDataUrl(response.data as Blob);
+  const dataUrl = await blobPdfEnDataUrl(response.data as Blob);
 
   useDocumentPreviewStore.getState().open(dataUrl, titre);
 }
@@ -88,7 +97,7 @@ export async function imprimerDocument(
     headers,
     responseType: "blob",
   });
-  const dataUrl = await blobEnDataUrl(response.data as Blob);
+  const dataUrl = await blobPdfEnDataUrl(response.data as Blob);
 
   await new Promise<void>((resolve, reject) => {
     const iframe = document.createElement("iframe");

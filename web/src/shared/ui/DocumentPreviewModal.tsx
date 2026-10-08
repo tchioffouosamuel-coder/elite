@@ -24,8 +24,12 @@ export function DocumentPreviewModal() {
 
   return createPortal(
     <div
-      className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-navy-900/50 backdrop-blur-sm"
-      role="presentation"
+      className={`animate-fade-in fixed inset-x-0 bottom-0 z-50 flex flex-col bg-navy-900/50 backdrop-blur-sm ${
+        window.desktop ? 'top-9' : 'top-0'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={titre}
     >
       <div className="flex flex-none items-center justify-between gap-3 border-b border-navy-100/70 bg-white px-4 py-3 sm:px-6">
         <h2 className="min-w-0 truncate font-display text-base font-bold tracking-tight text-navy-900 sm:text-lg">
@@ -45,7 +49,7 @@ export function DocumentPreviewModal() {
             type="button"
             onClick={close}
             aria-label="Fermer"
-            className="rounded-full p-1.5 text-navy-400 transition-colors hover:bg-cream-100 hover:text-navy-700"
+            className="rounded-full bg-cream-50 p-1.5 text-navy-700 transition-colors hover:bg-cream-100"
           >
             <X className="h-5 w-5" />
           </button>
@@ -57,6 +61,7 @@ export function DocumentPreviewModal() {
           src={url}
           title={titre}
           className="h-full w-full border-0"
+          key={url}
           onLoad={() => setCharge(true)}
         />
       </div>

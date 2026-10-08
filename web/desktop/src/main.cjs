@@ -1266,9 +1266,10 @@ app.whenReady().then(async () => {
         ...details.responseHeaders,
         // `frame-src` distinct de `default-src` : les aperçus PDF chargés
         // dans un <iframe> utilisent des URL `data:` (desktop) ou `blob:`
-        // (web); les deux doivent être explicitement autorisées.
+        // (web). Chromium ouvre ensuite son lecteur PDF interne via
+        // `chrome-extension:`, qui doit également être autorisé.
         "Content-Security-Policy": [
-          "default-src 'self' 'unsafe-inline' data: blob: http: https:; frame-src 'self' data: blob:",
+          "default-src 'self' 'unsafe-inline' data: blob: http: https:; frame-src 'self' data: blob: chrome-extension:",
         ],
       },
     });
