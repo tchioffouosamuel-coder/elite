@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\Eleve;
 use App\Models\EmploiDuTemps;
 use App\Models\AuditLog;
 use App\Models\Banque;
@@ -327,5 +328,54 @@ class RegistreSyncTest extends TestCase
 
         $this->assertContains($classeEnseignee->id, $ids);
         $this->assertNotContains($classeHorsPerimetre->id, $ids);
+    }
+
+    /** Les écrans élèves ont besoin du référentiel classes dès que le compte peut consulter les élèves. */
+    public function test_lentite_classes_est_synchronisee_avec_eleves_view(): void
+    {
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+
+        $school = School::create(['name' => 'Maternelle', 'code' => 'MAT', 'type' => 'maternelle', 'is_active' => true]);
+        $classe = Classe::create(['school_id' => $school->id, 'nom' => 'Petite section']);
+        Eleve::create([
+            'school_id' => $school->id,
+            'classe_id' => $classe->id,
+            'matricule' => 'MAT-001',
+            'nom_complet' => 'Élève Maternelle',
+            'statut' => 'actif',
+        ]);
+
+        $fonction = FonctionReferentiel::create([
+            'school_id' => $school->id,
+            'label_fr' => 'Secrétaire',
+            'label_en' => 'Secretary',
+        ]);
+        $fonction->synchroniserPermissions(['eleves.view']);
+
+        $user = User::create([
+            'name' => 'Secrétaire',
+            'email' => 'secretaire.registre@test.local',
+            'password' => 'password',
+            'school_id' => $school->id,
+            'is_active' => true,
+        ]);
+        Personnel::create([
+            'school_id' => $school->id,
+            'user_id' => $user->id,
+            'fonction_id' => $fonction->id,
+            'nom_complet' => 'Secrétaire de test',
+            'sexe' => 'F',
+            'statut' => 'actif',
+        ]);
+
+        $reponse = $this->actingAs($user->fresh(), 'sanctum')
+            ->getJson('/api/v1/sync?entites=classes,eleves')
+            ->assertOk();
+
+        $this->assertSame($classe->id, $reponse->json('data.donnees.classes.0.id'));
+        $this->assertSame('Petite section', $reponse->json('data.donnees.classes.0.nom'));
+        $this->assertSame($classe->id, $reponse->json('data.donnees.eleves.0.classe_id'));
     }
 }

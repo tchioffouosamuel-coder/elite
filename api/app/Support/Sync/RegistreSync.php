@@ -308,7 +308,7 @@ class RegistreSync
                 'colonnes' => ['id', 'school_id', 'niveau_id', 'niveau_scolaire_id', 'professeur_principal_id', 'titulaire_id', 'surveillant_general_id', 'nom', 'sigle', 'sous_systeme_id', 'niveau_classe', 'filiere', 'capacite', 'qr_token'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s)
                     ->when($classesPerimetre !== null, fn(Builder $q2) => $q2->whereIn('id', $classesPerimetre)),
-                'permission' => 'classes.view',
+                'permission' => ['classes.view', 'eleves.view'],
             ],
             'classe_matieres' => [
                 'modele' => ClasseMatiere::class,
@@ -994,7 +994,7 @@ class RegistreSync
      * Le compte a-t-il droit à cette entité ? Même règle pour le comptage et
      * pour le tirage (cf. SyncController).
      *
-     * @param  array{permission: ?string, reserve_super_admin?: bool}  $definition
+     * @param  array{permission: null|string|list<string>, reserve_super_admin?: bool}  $definition
      */
     public static function autorise(array $definition, User $user): bool
     {
@@ -1002,7 +1002,19 @@ class RegistreSync
             return false;
         }
 
-        return $definition['permission'] === null || $user->can($definition['permission']);
+        $permissions = $definition['permission'];
+
+        if ($permissions === null) {
+            return true;
+        }
+
+        foreach ((array) $permissions as $permission) {
+            if ($user->can($permission)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<string> */
