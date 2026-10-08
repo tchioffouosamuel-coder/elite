@@ -8,6 +8,7 @@ use App\Models\Amortissement;
 use App\Models\AnneeScolaire;
 use App\Models\Annonce;
 use App\Models\Apee;
+use App\Models\ActivityLog;
 use App\Models\AuditLog;
 use App\Models\AssuranceScolaire;
 use App\Models\AvanceSalaire;
@@ -168,6 +169,18 @@ class RegistreSync
                     'user_role', 'action', 'module', 'route', 'methode', 'url',
                     'parametres', 'donnees', 'changements', 'statut_http',
                     'duree_ms', 'ip_address', 'user_agent',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
+                'reserve_super_admin' => true,
+                'horodatage' => 'created_at',
+            ],
+            'activity_logs' => [
+                'modele' => ActivityLog::class,
+                'colonnes' => [
+                    'id', 'created_at', 'school_id', 'user_id', 'causer_nom',
+                    'causer_role', 'action', 'description', 'subject_type',
+                    'subject_id', 'ip_address',
                 ],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => null,
@@ -1055,7 +1068,7 @@ class RegistreSync
     {
         return match ($entite) {
             'schools' => $m->id,
-            'settings', 'audit_logs', 'regles_validation_seances' => $m->school_id,
+            'settings', 'audit_logs', 'activity_logs', 'regles_validation_seances' => $m->school_id,
             'banques', 'banque_mouvements' => null,
             'annee_scolaires', 'niveaux', 'sous_systemes', 'departements', 'matieres', 'classes',
             'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'utilisateurs', 'tuteurs', 'seances',

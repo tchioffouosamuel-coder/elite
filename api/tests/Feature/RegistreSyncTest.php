@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
@@ -118,6 +119,7 @@ class RegistreSyncTest extends TestCase
             'saisie_ouverte' => false,
         ]);
         Setting::set($school->id, 'num_sequences', 3);
+        $user = User::factory()->create(['school_id' => $school->id]);
         AuditLog::create([
             'created_at' => now()->subMinute(),
             'school_id' => $school->id,
@@ -126,6 +128,15 @@ class RegistreSyncTest extends TestCase
             'methode' => 'GET',
             'url' => '/api/v1/eleves',
             'statut_http' => 200,
+        ]);
+        ActivityLog::create([
+            'created_at' => now()->subMinute(),
+            'school_id' => $school->id,
+            'user_id' => $user->id,
+            'causer_nom' => 'Super administrateur',
+            'causer_role' => 'Super administrateur',
+            'action' => 'connexion',
+            'description' => 'Connexion à l’application.',
         ]);
         $banque = Banque::create([
             'nom' => 'Banque de test',
@@ -147,11 +158,10 @@ class RegistreSyncTest extends TestCase
             'delai_unite' => 'jours',
         ]);
 
-        $user = User::factory()->create(['school_id' => $school->id]);
         $user->assignRole('super_admin');
 
         $reponse = $this->actingAs($user, 'sanctum')
-            ->getJson('/api/v1/sync?entites=schools,settings,audit_logs,banques,banque_mouvements,regles_validation_seances,annee_scolaires,calendrier_scolaires,trimestres,sequences,fonction_referentiel')
+            ->getJson('/api/v1/sync?entites=schools,settings,audit_logs,activity_logs,banques,banque_mouvements,regles_validation_seances,annee_scolaires,calendrier_scolaires,trimestres,sequences,fonction_referentiel')
             ->assertOk();
 
         $this->assertSame('École distante', $reponse->json('data.donnees.schools.0.name'));
@@ -159,6 +169,7 @@ class RegistreSyncTest extends TestCase
         $this->assertSame('num_sequences', $reponse->json('data.donnees.settings.0.key'));
         $this->assertSame('3', $reponse->json('data.donnees.settings.0.value'));
         $this->assertSame('/api/v1/eleves', $reponse->json('data.donnees.audit_logs.0.url'));
+        $this->assertSame('Connexion à l’application.', $reponse->json('data.donnees.activity_logs.0.description'));
         $this->assertSame('Banque de test', $reponse->json('data.donnees.banques.0.nom'));
         $this->assertSame(125000, $reponse->json('data.donnees.banques.0.solde'));
         $this->assertSame('Dépôt de test', $reponse->json('data.donnees.banque_mouvements.0.libelle'));

@@ -293,6 +293,20 @@ class DesktopSyncTest extends TestCase
                             'user_agent' => 'Desktop',
                             'updated_at' => now()->subMinute()->toIso8601ZuluString(),
                         ]],
+                        'activity_logs' => [[
+                            'id' => 7202,
+                            'created_at' => now()->subMinute()->toIso8601ZuluString(),
+                            'school_id' => 9,
+                            'user_id' => 42,
+                            'causer_nom' => 'Super administrateur',
+                            'causer_role' => 'Super administrateur',
+                            'action' => 'connexion',
+                            'description' => 'Connexion à l’application.',
+                            'subject_type' => null,
+                            'subject_id' => null,
+                            'ip_address' => '127.0.0.1',
+                            'updated_at' => now()->subMinute()->toIso8601ZuluString(),
+                        ]],
                     ],
                     'suppressions' => [],
                 ],
@@ -321,6 +335,12 @@ class DesktopSyncTest extends TestCase
             'school_id' => 9,
             'action' => 'consultation',
             'url' => '/api/v1/eleves',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'id' => 7202,
+            'school_id' => 9,
+            'action' => 'connexion',
+            'description' => 'Connexion à l’application.',
         ]);
     }
 

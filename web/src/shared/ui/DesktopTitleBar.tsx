@@ -20,7 +20,7 @@ export function DesktopTitleBar() {
 
   return createPortal(
     <div
-      className="fixed inset-x-0 top-0 z-[2147483647] flex h-9 select-none items-center border-b border-white/10 bg-[#140d1d] px-3 text-white"
+      className="fixed inset-x-0 top-0 z-[2147483647] flex h-[var(--desktop-titlebar-height)] select-none items-center border-b border-white/10 bg-[#140d1d] px-3 text-white"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       onDoubleClick={() => window.desktop?.toggleMaximizeWindow()}
     >

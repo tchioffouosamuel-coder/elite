@@ -78,6 +78,8 @@
 }
 
 html.desktop-shell {
+  --desktop-titlebar-height: 2.25rem;
+  --app-top-offset: var(--desktop-titlebar-height);
   --font-sans: "Montserrat Embarquee", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: "Montserrat Embarquee", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -121,7 +123,7 @@ body {
  */
 html.desktop-shell #root {
   position: fixed;
-  inset: 2.25rem 0 0 0;
+  inset: var(--desktop-titlebar-height) 0 0 0;
   min-height: 0;
   overflow: auto;
 }

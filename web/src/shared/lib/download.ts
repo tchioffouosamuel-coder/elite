@@ -1,5 +1,6 @@
 import { http } from "@/shared/lib/http";
 import { useDocumentPreviewStore } from "@/shared/store/documentPreviewStore";
+import { imprimerPdf } from "@/shared/lib/pdf";
 
 /**
  * Téléchargement de fichier authentifié (Excel/Word/PDF) : l'API exige un
@@ -26,7 +27,11 @@ export async function telechargerFichier(
   const match = disposition?.match(/filename="?([^";]+)"?/);
   const filename = match?.[1] ?? nomParDefaut;
 
-  const blobUrl = URL.createObjectURL(response.data as Blob);
+  telechargerBlob(response.data as Blob, filename);
+}
+
+export function telechargerBlob(blob: Blob, filename: string): void {
+  const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = blobUrl;
   a.download = filename;
@@ -36,22 +41,13 @@ export async function telechargerFichier(
   URL.revokeObjectURL(blobUrl);
 }
 
-function blobEnDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function blobPdfEnDataUrl(blob: Blob): Promise<string> {
+async function verifierPdf(blob: Blob): Promise<Blob> {
   const signature = await blob.slice(0, 5).text();
   if (signature !== "%PDF-") {
     throw new Error("Le serveur n'a pas renvoyé un fichier PDF valide.");
   }
 
-  return blobEnDataUrl(blob);
+  return blob;
 }
 
 /**
@@ -60,11 +56,8 @@ async function blobPdfEnDataUrl(blob: Blob): Promise<string> {
  * travail et valide l'impression depuis la boîte de dialogue du navigateur
  * plutôt que d'être redirigé vers une autre page.
  *
- * `data:` plutôt qu'un blob URL : dans l'app desktop (fenêtre chargée en
- * `file://`), Electron/Chromium refuse de charger un `<iframe src="blob:...">`
- * — restriction au niveau du navigateur, indépendante de la CSP — alors
- * qu'une URI `data:` s'affiche sans problème dans ce contexte comme dans un
- * navigateur classique.
+ * Le PDF est transmis au lecteur embarque sous forme binaire, y compris
+ * hors-ligne dans le client desktop charge en file://.
  */
 export async function ouvrirDocument(
   url: string,
@@ -77,9 +70,9 @@ export async function ouvrirDocument(
     headers,
     responseType: "blob",
   });
-  const dataUrl = await blobPdfEnDataUrl(response.data as Blob);
+  const document = await verifierPdf(response.data as Blob);
 
-  useDocumentPreviewStore.getState().open(dataUrl, titre);
+  useDocumentPreviewStore.getState().open(document, titre);
 }
 
 /**
@@ -97,48 +90,5 @@ export async function imprimerDocument(
     headers,
     responseType: "blob",
   });
-  const dataUrl = await blobPdfEnDataUrl(response.data as Blob);
-
-  await new Promise<void>((resolve, reject) => {
-    const iframe = document.createElement("iframe");
-    let nettoye = false;
-
-    const nettoyer = () => {
-      if (nettoye) return;
-      nettoye = true;
-      iframe.remove();
-    };
-
-    iframe.style.position = "fixed";
-    iframe.style.left = "-10000px";
-    iframe.style.top = "0";
-    iframe.style.width = "1px";
-    iframe.style.height = "1px";
-    iframe.style.border = "0";
-    iframe.style.opacity = "0";
-    iframe.setAttribute("aria-hidden", "true");
-
-    iframe.onload = () => {
-      try {
-        const fenetre = iframe.contentWindow;
-        if (!fenetre) throw new Error("Fenêtre d'impression indisponible.");
-
-        fenetre.focus();
-        fenetre.print();
-        window.setTimeout(nettoyer, 60_000);
-        resolve();
-      } catch (error) {
-        nettoyer();
-        reject(error);
-      }
-    };
-
-    iframe.onerror = () => {
-      nettoyer();
-      reject(new Error("Impossible de charger le reçu à imprimer."));
-    };
-
-    document.body.appendChild(iframe);
-    iframe.src = dataUrl;
-  });
+  await imprimerPdf(await verifierPdf(response.data as Blob));
 }
