@@ -49,7 +49,7 @@ class FonctionReferentiel extends Model
      * @param  list<string>  $codes
      * @return list<string> les codes réellement enregistrés
      */
-    public function synchroniserPermissions(array $codes): array
+    public function synchroniserPermissions(array $codes, bool $touch = true): array
     {
         $retenus = array_values(array_unique(array_filter($codes, CataloguePermissions::existe(...))));
 
@@ -63,7 +63,10 @@ class FonctionReferentiel extends Model
         }
 
         $ids = Permission::whereIn('name', $retenus)->where('guard_name', 'web')->pluck('id');
-        $this->permissions()->sync($ids);
+        $changements = $this->permissions()->sync($ids);
+        if ($touch && ($changements['attached'] !== [] || $changements['detached'] !== [] || $changements['updated'] !== [])) {
+            $this->touch();
+        }
 
         // Les droits d'un agent sont résolus à chaque requête à partir du cache
         // de permissions de spatie : sans purge, un retrait de privilège

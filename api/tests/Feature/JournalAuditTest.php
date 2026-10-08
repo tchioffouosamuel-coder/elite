@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Eleve;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -130,6 +131,46 @@ class JournalAuditTest extends TestCase
 
         $detail = $this->actingAs($user)->getJson('/api/v1/audit/'.$reponse->json('data.0.id'))->assertOk();
         $this->assertNotEmpty($detail->json('data.changements'));
+    }
+
+    public function test_le_journal_associe_les_requetes_sur_un_eleve_a_son_nom(): void
+    {
+        $user = $this->superAdmin();
+        $school = School::create([
+            'name' => 'Elites Secondaire',
+            'code' => 'ES',
+            'type' => 'secondaire',
+            'is_active' => true,
+        ]);
+        $eleve = Eleve::create([
+            'school_id' => $school->id,
+            'matricule' => 'EL-16410',
+            'nom_complet' => 'Awa Exemple',
+            'sexe' => 'F',
+            'statut' => 'actif',
+        ]);
+        $log = AuditLog::create([
+            'created_at' => now(),
+            'school_id' => $school->id,
+            'user_id' => $user->id,
+            'user_nom' => $user->name,
+            'action' => 'consultation',
+            'module' => 'parent',
+            'route' => 'api.v1.parent.enfants.assiduite',
+            'methode' => 'GET',
+            'url' => "/api/v1/parent/enfants/{$eleve->id}/assiduite",
+            'parametres' => ['eleveId' => $eleve->id],
+            'statut_http' => 200,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/v1/audit')
+            ->assertOk()
+            ->assertJsonPath('data.0.sujet', 'Awa Exemple');
+
+        $this->getJson('/api/v1/audit/'.$log->id)
+            ->assertOk()
+            ->assertJsonPath('data.sujet', 'Awa Exemple');
     }
 
     public function test_les_notifications_peuvent_etre_masquees_dans_la_liste_les_stats_et_export(): void

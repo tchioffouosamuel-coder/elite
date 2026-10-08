@@ -22,6 +22,7 @@ export interface EntreeAudit {
   user_id: number | null;
   user_nom: string | null;
   user_role: string | null;
+  sujet?: string | null;
   action: ActionAudit;
   action_libelle: string;
   module: string | null;

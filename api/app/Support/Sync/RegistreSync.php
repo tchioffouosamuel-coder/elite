@@ -479,8 +479,17 @@ class RegistreSync
             'fonction_referentiel' => [
                 'modele' => FonctionReferentiel::class,
                 'colonnes' => ['id', 'school_id', 'label_fr', 'label_en'],
+                'relations' => ['permissions:id,name'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
                 'permission' => 'personnel.view',
+                'extras' => fn(FonctionReferentiel $f) => [
+                    'permissions' => $f->codesPermissions()->values()->all(),
+                ],
+                'apres_sauvegarde' => function (FonctionReferentiel $f, array $ligne): void {
+                    // Le serveur touche la fonction quand ses privilèges
+                    // changent; conserver ici son horodatage distant.
+                    $f->synchroniserPermissions($ligne['permissions'] ?? [], touch: false);
+                },
             ],
 
             // --- Comptes utilisateurs, pour l'écran « Comptes utilisateurs »

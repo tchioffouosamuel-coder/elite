@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Activity, AlertTriangle, Eraser, LogIn, PencilLine, Radio, RefreshCw, ScrollText, Search, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Code2, Eraser, LogIn, PencilLine, Radio, RefreshCw, ScrollText, Search, Users, UserRound } from 'lucide-react'
 import { clsx } from 'clsx'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
@@ -18,7 +18,7 @@ import {
   parametresExportAudit,
   type FiltresAudit,
 } from '@/features/audit/api'
-import { TON_ACTION, dateIso, formaterHorodatage, libelleModule } from '@/features/audit/libelles'
+import { descriptionUsager, roleUsager, TON_ACTION, dateIso, formaterHorodatage, libelleModule } from '@/features/audit/libelles'
 import { DetailAuditModal } from '@/features/audit/pages/DetailAuditModal'
 
 const INTERVALLE_DIRECT_MS = 5000
@@ -46,11 +46,20 @@ function filtresPeriode(jours: number): Pick<FiltresAudit, 'du' | 'au'> {
  * journalise pas (cf. config `audit.routes_actualisation_auto`).
  */
 export function JournalAuditPage() {
+  const [mode, setMode] = useState<'usager' | 'developpeur'>(() => {
+    if (typeof window === 'undefined') return 'developpeur'
+    return window.localStorage.getItem('audit-mode') === 'usager' ? 'usager' : 'developpeur'
+  })
   const [filtres, setFiltres] = useState<FiltresAudit>(filtresPeriode(0))
   const [recherche, setRecherche] = useState('')
   const [page, setPage] = useState(1)
   const [direct, setDirect] = useState(false)
   const [detailId, setDetailId] = useState<number | null>(null)
+
+  const changerMode = (nouveauMode: 'usager' | 'developpeur') => {
+    setMode(nouveauMode)
+    window.localStorage.setItem('audit-mode', nouveauMode)
+  }
 
   const appliquer = (modif: Partial<FiltresAudit>) => {
     setFiltres((f) => ({ ...f, ...modif }))
@@ -89,11 +98,21 @@ export function JournalAuditPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre="Console d'audit"
-        sousTitre="Journal de toutes les actions effectuées sur le système"
+        titre={mode === 'usager' ? 'Historique des activités' : "Console d'audit"}
+        sousTitre={mode === 'usager' ? 'Consultez les actions effectuées dans votre établissement.' : 'Journal de toutes les actions effectuées sur le système'}
         icon={ScrollText}
         actions={
           <>
+            <div className="flex rounded-xl border border-navy-100 bg-white p-1">
+              <Button type="button" size="sm" variant={mode === 'usager' ? 'primary' : 'ghost'} onClick={() => changerMode('usager')}>
+                <UserRound className="h-4 w-4" />
+                Mode usager
+              </Button>
+              <Button type="button" size="sm" variant={mode === 'developpeur' ? 'primary' : 'ghost'} onClick={() => changerMode('developpeur')}>
+                <Code2 className="h-4 w-4" />
+                Mode développeur
+              </Button>
+            </div>
             <Button
               type="button"
               variant={direct ? 'primary' : 'secondary'}
@@ -121,17 +140,22 @@ export function JournalAuditPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Actions" value={s?.total ?? '—'} icon={Activity} />
+        <StatCard label={mode === 'usager' ? 'Activités enregistrées' : 'Actions'} value={s?.total ?? '—'} icon={Activity} />
         <StatCard label="Connexions" value={s ? connexions : '—'} icon={LogIn} accent="green" />
         <StatCard
-          label="Connexions échouées"
+          label={mode === 'usager' ? 'Tentatives échouées' : 'Connexions échouées'}
           value={s ? echecs : '—'}
           icon={AlertTriangle}
           accent={echecs > 0 ? 'red' : 'navy'}
           onClick={() => appliquer({ action: 'connexion_echouee' })}
         />
-        <StatCard label="Créations / modifs / suppressions" value={s ? ecritures : '—'} icon={PencilLine} accent="gold" />
-        <StatCard label="Utilisateurs actifs" value={s?.utilisateurs_distincts ?? '—'} icon={Users} />
+        <StatCard
+          label={mode === 'usager' ? 'Dossiers créés ou modifiés' : 'Créations / modifs / suppressions'}
+          value={s ? ecritures : '—'}
+          icon={PencilLine}
+          accent="gold"
+        />
+        <StatCard label={mode === 'usager' ? 'Personnes actives' : 'Utilisateurs actifs'} value={s?.utilisateurs_distincts ?? '—'} icon={Users} />
       </div>
 
       <Card>
@@ -201,14 +225,16 @@ export function JournalAuditPage() {
                 </option>
               ))}
             </Select>
-            <Select label="Méthode" value={filtres.methode ?? ''} onChange={(e) => appliquer({ methode: e.target.value || undefined })}>
-              <option value="">Toutes</option>
-              {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
+            {mode === 'developpeur' && (
+              <Select label="Méthode" value={filtres.methode ?? ''} onChange={(e) => appliquer({ methode: e.target.value || undefined })}>
+                <option value="">Toutes</option>
+                {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Select label="Résultat" value={filtres.statut ?? ''} onChange={(e) => appliquer({ statut: e.target.value || undefined })}>
               <option value="">Tous</option>
               <option value="succes">Succès</option>
@@ -223,7 +249,7 @@ export function JournalAuditPage() {
               <Input
                 label="Recherche"
                 icon={Search}
-                placeholder="Nom, URL, route… puis Entrée"
+                placeholder={mode === 'usager' ? 'Nom ou activité… puis Entrée' : 'Nom, URL, route… puis Entrée'}
                 value={recherche}
                 onChange={(e) => setRecherche(e.target.value)}
                 onBlur={() => appliquer({ recherche: recherche.trim() || undefined })}
@@ -253,7 +279,9 @@ export function JournalAuditPage() {
             </ul>
           </Card>
           <Card>
-            <h3 className="mb-2 text-sm font-semibold text-navy-800">Modules les plus sollicités</h3>
+            <h3 className="mb-2 text-sm font-semibold text-navy-800">
+              {mode === 'usager' ? 'Rubriques les plus consultées' : 'Modules les plus sollicités'}
+            </h3>
             <ul className="flex flex-col gap-1.5">
               {s.top_modules.map((m) => (
                 <li key={m.module}>
@@ -286,10 +314,10 @@ export function JournalAuditPage() {
                 <Th>Date et heure</Th>
                 <Th>Utilisateur</Th>
                 <Th>Action</Th>
-                <Th>Module</Th>
-                <Th>Requête</Th>
-                <Th>Résultat</Th>
-                <Th>IP</Th>
+                {mode === 'developpeur' && <Th>Module</Th>}
+                <Th>{mode === 'usager' ? 'Activité' : 'Requête'}</Th>
+                <Th>{mode === 'usager' ? 'État' : 'Résultat'}</Th>
+                {mode === 'developpeur' && <Th>IP</Th>}
               </tr>
             </Thead>
             <tbody>
@@ -298,27 +326,37 @@ export function JournalAuditPage() {
                   <Td className="whitespace-nowrap font-mono text-xs">{formaterHorodatage(e.created_at)}</Td>
                   <Td>
                     <div className="font-medium">{e.user_nom ?? <span className="text-navy-400">Anonyme</span>}</div>
-                    {e.user_role && <div className="text-xs text-navy-400">{e.user_role}</div>}
+                    {e.user_role && <div className="text-xs text-navy-400">{mode === 'usager' ? roleUsager(e.user_role) : e.user_role}</div>}
                   </Td>
                   <Td>
                     <Badge tone={TON_ACTION[e.action] ?? 'neutral'}>{e.action_libelle}</Badge>
-                    {e.nb_changements > 0 && (
+                    {mode === 'developpeur' && e.nb_changements > 0 && (
                       <div className="mt-1 text-xs text-navy-400">
                         {e.nb_changements} enregistrement{e.nb_changements > 1 ? 's' : ''}
                       </div>
                     )}
                   </Td>
-                  <Td className="whitespace-nowrap">{libelleModule(e.module)}</Td>
+                  {mode === 'developpeur' && <Td className="whitespace-nowrap">{libelleModule(e.module)}</Td>}
                   <Td>
-                    <div className="max-w-md truncate font-mono text-xs" title={e.url}>
-                      <span className="font-semibold">{e.methode}</span> {e.url}
-                    </div>
+                    {mode === 'usager' ? (
+                      <div className="max-w-md text-sm text-navy-800">{descriptionUsager(e.action, e.module, e.url, e.sujet)}</div>
+                    ) : (
+                      <div className="max-w-md truncate font-mono text-xs" title={e.url}>
+                        <span className="font-semibold">{e.methode}</span> {e.url}
+                      </div>
+                    )}
                   </Td>
                   <Td className="whitespace-nowrap">
-                    <Badge tone={e.statut_http >= 400 ? 'red' : 'green'}>{e.statut_http}</Badge>
-                    {e.duree_ms !== null && <span className="ml-2 text-xs text-navy-400">{e.duree_ms} ms</span>}
+                    {mode === 'usager' ? (
+                      <Badge tone={e.statut_http >= 400 ? 'red' : 'green'}>{e.statut_http >= 400 ? 'À vérifier' : 'Réussie'}</Badge>
+                    ) : (
+                      <>
+                        <Badge tone={e.statut_http >= 400 ? 'red' : 'green'}>{e.statut_http}</Badge>
+                        {e.duree_ms !== null && <span className="ml-2 text-xs text-navy-400">{e.duree_ms} ms</span>}
+                      </>
+                    )}
                   </Td>
-                  <Td className="whitespace-nowrap font-mono text-xs">{e.ip_address ?? '—'}</Td>
+                  {mode === 'developpeur' && <Td className="whitespace-nowrap font-mono text-xs">{e.ip_address ?? '—'}</Td>}
                 </Tr>
               ))}
             </tbody>
@@ -327,7 +365,7 @@ export function JournalAuditPage() {
         </>
       )}
 
-      {detailId !== null && <DetailAuditModal id={detailId} onClose={() => setDetailId(null)} />}
+      {detailId !== null && <DetailAuditModal id={detailId} mode={mode} onClose={() => setDetailId(null)} />}
     </div>
   )
 }

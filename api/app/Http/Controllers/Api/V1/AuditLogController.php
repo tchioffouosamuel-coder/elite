@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Eleve;
 use App\Support\Tenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -29,8 +30,23 @@ class AuditLogController extends Controller
         $page = $this->requeteFiltree($request)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(max(1, min($request->integer('per_page', 50), 200)))
-            ->through(fn (AuditLog $log) => $this->formater($log));
+            ->paginate(max(1, min($request->integer('per_page', 50), 200)));
+
+        $idsEleves = $page->getCollection()
+            ->map(fn (AuditLog $log) => $this->eleveId($log))
+            ->filter()
+            ->unique()
+            ->values();
+        $requeteEleves = Eleve::query()->whereIn('id', $idsEleves);
+        if ($request->user()->school_id !== null) {
+            $requeteEleves->whereIn('school_id', Tenant::schoolIds());
+        }
+        $nomsEleves = $idsEleves->isEmpty() ? collect() : $requeteEleves->pluck('nom_complet', 'id');
+
+        $page->through(fn (AuditLog $log) => $this->formater(
+            $log,
+            sujet: $nomsEleves->get($this->eleveId($log)),
+        ));
 
         return ApiResponse::paginated($page);
     }
@@ -39,7 +55,11 @@ class AuditLogController extends Controller
     {
         $log = $this->requetePerimetre($request)->with('school:id,name')->findOrFail($id);
 
-        return ApiResponse::success($this->formater($log, detail: true));
+        return ApiResponse::success($this->formater(
+            $log,
+            detail: true,
+            sujet: $this->nomEleve($log),
+        ));
     }
 
     /**
@@ -184,7 +204,7 @@ class AuditLogController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function formater(AuditLog $log, bool $detail = false): array
+    private function formater(AuditLog $log, bool $detail = false, ?string $sujet = null): array
     {
         $ligne = [
             'id' => $log->id,
@@ -204,6 +224,7 @@ class AuditLogController extends Controller
             'duree_ms' => $log->duree_ms,
             'ip_address' => $log->ip_address,
             'nb_changements' => count($log->changements ?? []),
+            'sujet' => $sujet,
         ];
 
         if ($detail) {
@@ -214,5 +235,29 @@ class AuditLogController extends Controller
         }
 
         return $ligne;
+    }
+
+    private function nomEleve(AuditLog $log): ?string
+    {
+        $id = $this->eleveId($log);
+
+        return $id === null ? null : Eleve::query()->whereKey($id)->value('nom_complet');
+    }
+
+    private function eleveId(AuditLog $log): ?int
+    {
+        $url = (string) $log->url;
+        if (preg_match('~/(?:parent/)?enfants/(\d+)(?:/|$)~', $url, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        if (preg_match('~/eleves/(\d+)(?:/|$)~', $url, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        $parametres = $log->parametres ?? [];
+        $id = $parametres['eleveId'] ?? $parametres['eleve_id'] ?? null;
+
+        return is_numeric($id) ? (int) $id : null;
     }
 }

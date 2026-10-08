@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Eleve;
 use App\Models\NotificationInterne;
 use App\Models\School;
+use App\Models\SyncOutbox;
 use App\Models\Tuteur;
 use App\Models\User;
 use App\Services\ModificationEleveService;
@@ -82,5 +83,67 @@ class ModificationEleveParentTest extends TestCase
 
         $notification = NotificationInterne::where('user_id', $destinataire->id)->where('type', 'modification_eleve')->firstOrFail();
         $this->assertSame("/modifications-eleves?id={$modification->id}", $notification->lien);
+    }
+
+    /** Régression desktop : une validation rejouée avec un id local différent doit retrouver la demande distante équivalente. */
+    public function test_le_push_sync_valide_une_modification_creee_localement_avec_id_different(): void
+    {
+        $admin = User::create([
+            'name' => 'Super Admin', 'email' => 'admin@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $admin->givePermissionTo('modifications_eleves.valider');
+
+        $donnees = ['adresse' => 'Nouvelle adresse'];
+        $modificationServeur = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, $donnees);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/sync', ['operations' => [[
+                'id' => 'op-validation-modification-locale',
+                'methode' => 'POST',
+                'chemin' => 'modifications-eleves/999999/valider',
+                'school_id' => $this->school->id,
+                'corps' => [
+                    '__sync' => [
+                        'modification_eleve' => [
+                            'id' => 999999,
+                            'school_id' => $this->school->id,
+                            'eleve_id' => $this->eleve->id,
+                            'tuteur_id' => $this->tuteur->id,
+                            'donnees' => $donnees,
+                        ],
+                    ],
+                ],
+            ]]])
+            ->assertOk()
+            ->assertJsonPath('data.resultats.0.statut', 200);
+
+        $this->assertSame('validee', $modificationServeur->fresh()->statut);
+        $this->assertSame('Nouvelle adresse', $this->eleve->fresh()->adresse);
+    }
+
+    /** Régression desktop : l'outbox doit transporter l'identité stable de la demande traitée localement. */
+    public function test_loutbox_desktop_joint_lidentite_de_la_modification_validee(): void
+    {
+        config(['sync.local_replica' => true]);
+
+        $admin = User::create([
+            'name' => 'Super Admin', 'email' => 'admin-local@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $admin->givePermissionTo('modifications_eleves.valider');
+
+        $modification = app(ModificationEleveService::class)->soumettre($this->tuteur, $this->eleve, ['adresse' => 'Adresse locale']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/modifications-eleves/{$modification->id}/valider")
+            ->assertOk();
+
+        $outbox = SyncOutbox::query()->enAttente()->where('chemin', "modifications-eleves/{$modification->id}/valider")->first();
+
+        $this->assertNotNull($outbox);
+        $this->assertSame($modification->id, $outbox->corps['__sync']['modification_eleve']['id']);
+        $this->assertSame($this->eleve->id, $outbox->corps['__sync']['modification_eleve']['eleve_id']);
+        $this->assertSame(['adresse' => 'Adresse locale'], $outbox->corps['__sync']['modification_eleve']['donnees']);
     }
 }

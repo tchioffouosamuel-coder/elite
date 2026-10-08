@@ -115,6 +115,14 @@ class DesktopSyncTest extends TestCase
                             'delai_unite' => 'jours',
                             'updated_at' => now()->subDay()->toIso8601ZuluString(),
                         ]],
+                        'fonction_referentiel' => [[
+                            'id' => 9917,
+                            'school_id' => 9,
+                            'label_fr' => 'Enseignant',
+                            'label_en' => 'Teacher',
+                            'permissions' => ['eleves.view', 'notes.view'],
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
                         'annee_scolaires' => [[
                             'id' => 9913,
                             'school_id' => 9,
@@ -122,6 +130,24 @@ class DesktopSyncTest extends TestCase
                             'date_debut' => '2026-09-01',
                             'date_fin' => '2027-06-30',
                             'is_active' => true,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'trimestres' => [[
+                            'id' => 9915,
+                            'annee_scolaire_id' => 9913,
+                            'libelle' => 'Trimestre 1',
+                            'ordre' => 1,
+                            'date_debut' => '2026-09-01',
+                            'date_fin' => '2026-12-31',
+                            'is_active' => true,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'sequences' => [[
+                            'id' => 9916,
+                            'trimestre_id' => 9915,
+                            'ordre' => 1,
+                            'libelle' => 'Séquence 1',
+                            'saisie_ouverte' => false,
                             'updated_at' => now()->subDay()->toIso8601ZuluString(),
                         ]],
                         'calendrier_scolaires' => [[
@@ -212,6 +238,8 @@ class DesktopSyncTest extends TestCase
             'delai_valeur' => 3,
             'delai_unite' => 'jours',
         ]);
+        $fonction = \App\Models\FonctionReferentiel::findOrFail(9917);
+        $this->assertEqualsCanonicalizing(['eleves.view', 'notes.view'], $fonction->codesPermissions()->all());
         $this->assertDatabaseHas('calendrier_scolaires', [
             'id' => 9914,
             'annee_scolaire_id' => 9913,
@@ -219,6 +247,12 @@ class DesktopSyncTest extends TestCase
             'motif' => 'Fête de Noël',
         ]);
         $this->assertSame('2026-12-25', \App\Models\CalendrierScolaire::findOrFail(9914)->date->toDateString());
+        $this->assertDatabaseHas('sequences', [
+            'id' => 9916,
+            'trimestre_id' => 9915,
+            'libelle' => 'Séquence 1',
+            'saisie_ouverte' => false,
+        ]);
 
         Artisan::call('sync:fichiers');
 

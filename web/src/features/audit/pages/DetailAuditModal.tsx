@@ -3,7 +3,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { Badge } from '@/shared/ui/Badge'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { fetchDetailAudit, type ChangementAudit } from '@/features/audit/api'
-import { TON_ACTION, formaterHorodatage, libelleModule } from '@/features/audit/libelles'
+import { descriptionUsager, libelleChampUsager, libelleModeleUsager, roleUsager, TON_ACTION, formaterHorodatage, libelleModule, valeurUsager } from '@/features/audit/libelles'
 
 const LIBELLE_OPERATION: Record<ChangementAudit['operation'], { libelle: string; ton: 'green' | 'gold' | 'red' }> = {
   created: { libelle: 'Création', ton: 'green' },
@@ -67,19 +67,75 @@ function TableChangement({ changement }: { changement: ChangementAudit }) {
 }
 
 /** Détail complet d'une entrée du journal : contexte, données envoyées et écritures en base. */
-export function DetailAuditModal({ id, onClose }: { id: number; onClose: () => void }) {
+export function DetailAuditModal({ id, mode = 'developpeur', onClose }: { id: number; mode?: 'usager' | 'developpeur'; onClose: () => void }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['audit-detail', id],
     queryFn: () => fetchDetailAudit(id),
   })
 
   return (
-    <Modal title={`Entrée d'audit #${id}`} onClose={onClose} taille="lg">
+    <Modal title={mode === 'usager' ? 'Détail de l’activité' : `Entrée d'audit #${id}`} onClose={onClose} taille="lg">
       {isLoading ? (
         <Spinner />
       ) : isError || !data ? (
         <ErrorState />
       ) : (
+        mode === 'usager' ? (
+          <div className="flex flex-col gap-5">
+            <p className="text-base font-medium text-navy-800">
+              {descriptionUsager(data.action, data.module, data.url, data.sujet)}
+            </p>
+            <dl className="divide-y divide-navy-50">
+              <Ligne label="Date et heure">{formaterHorodatage(data.created_at)}</Ligne>
+              <Ligne label="Personne">
+                {data.user_nom ?? 'Utilisateur inconnu'}
+                {data.user_role && <span className="text-navy-400"> · {roleUsager(data.user_role)}</span>}
+              </Ligne>
+              {data.school && <Ligne label="Établissement">{data.school}</Ligne>}
+              {data.sujet && <Ligne label="Personne concernée">{data.sujet}</Ligne>}
+              <Ligne label="Résultat">
+                <Badge tone={data.statut_http >= 400 ? 'red' : 'green'}>
+                  {data.statut_http >= 400 ? 'La demande n’a pas abouti' : 'Demande traitée avec succès'}
+                </Badge>
+              </Ligne>
+            </dl>
+            <section className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-navy-800">Modifications effectuées</h3>
+              {data.changements && data.changements.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {data.changements.map((changement, i) => {
+                    const operation = LIBELLE_OPERATION[changement.operation]
+                    const champs = Array.from(new Set([...Object.keys(changement.avant ?? {}), ...Object.keys(changement.apres ?? {})]))
+                      .map((champ) => ({ champ, libelle: libelleChampUsager(champ) }))
+                      .filter((champ): champ is { champ: string; libelle: string } => champ.libelle !== null)
+                    return (
+                      <li key={i} className="rounded-xl border border-navy-100 p-3">
+                        <div className="flex items-center gap-2">
+                          <Badge tone={operation.ton}>{operation.libelle}</Badge>
+                          <span className="font-medium text-navy-800">{libelleModeleUsager(changement.modele)}</span>
+                        </div>
+                        {champs.length > 0 && (
+                          <ul className="mt-2 flex flex-col gap-1 text-sm">
+                            {champs.map(({ champ, libelle }) => (
+                              <li key={champ} className="text-navy-600">
+                                <span className="font-medium">{libelle} :</span>{' '}
+                                {changement.operation !== 'created' && <span className="text-red-600">{valeurUsager(changement.avant?.[champ])}</span>}
+                                {changement.operation === 'updated' && ' → '}
+                                {changement.operation !== 'deleted' && <span className="text-green-700">{valeurUsager(changement.apres?.[champ])}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-navy-500">Aucune modification de dossier n’a été enregistrée pour cette activité.</p>
+              )}
+            </section>
+          </div>
+        ) : (
         <div className="flex flex-col gap-5">
           <dl className="divide-y divide-navy-50">
             <Ligne label="Date et heure">{formaterHorodatage(data.created_at)}</Ligne>
@@ -138,6 +194,7 @@ export function DetailAuditModal({ id, onClose }: { id: number; onClose: () => v
             )}
           </section>
         </div>
+        )
       )}
     </Modal>
   )

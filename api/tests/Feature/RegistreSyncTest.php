@@ -15,9 +15,11 @@ use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\RegleValidationSeance;
+use App\Models\Sequence;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\Setting;
+use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use App\Support\Sync\RegistreSync;
@@ -81,6 +83,12 @@ class RegistreSyncTest extends TestCase
             'address' => 'Adresse de test',
             'is_active' => true,
         ]);
+        $fonction = FonctionReferentiel::create([
+            'school_id' => $school->id,
+            'label_fr' => 'Enseignant',
+            'label_en' => 'Teacher',
+        ]);
+        $fonction->synchroniserPermissions(['eleves.view', 'notes.view']);
         $annee = AnneeScolaire::create([
             'school_id' => $school->id,
             'libelle' => '2026-2027',
@@ -93,6 +101,20 @@ class RegistreSyncTest extends TestCase
             'date' => '2026-12-25',
             'est_ouvert' => false,
             'motif' => 'Fête de Noël',
+        ]);
+        $trimestre = Trimestre::create([
+            'annee_scolaire_id' => $annee->id,
+            'libelle' => 'Trimestre 1',
+            'ordre' => 1,
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2026-12-31',
+            'is_active' => true,
+        ]);
+        Sequence::create([
+            'trimestre_id' => $trimestre->id,
+            'ordre' => 1,
+            'libelle' => 'Séquence 1',
+            'saisie_ouverte' => false,
         ]);
         Setting::set($school->id, 'num_sequences', 3);
         AuditLog::create([
@@ -128,7 +150,7 @@ class RegistreSyncTest extends TestCase
         $user->assignRole('super_admin');
 
         $reponse = $this->actingAs($user, 'sanctum')
-            ->getJson('/api/v1/sync?entites=schools,settings,audit_logs,banques,banque_mouvements,regles_validation_seances,annee_scolaires,calendrier_scolaires')
+            ->getJson('/api/v1/sync?entites=schools,settings,audit_logs,banques,banque_mouvements,regles_validation_seances,annee_scolaires,calendrier_scolaires,trimestres,sequences,fonction_referentiel')
             ->assertOk();
 
         $this->assertSame('École distante', $reponse->json('data.donnees.schools.0.name'));
@@ -142,6 +164,29 @@ class RegistreSyncTest extends TestCase
         $this->assertSame('code', $reponse->json('data.donnees.regles_validation_seances.0.methode_validation'));
         $this->assertSame('2026-2027', $reponse->json('data.donnees.annee_scolaires.0.libelle'));
         $this->assertSame('Fête de Noël', $reponse->json('data.donnees.calendrier_scolaires.0.motif'));
+        $this->assertFalse($reponse->json('data.donnees.sequences.0.saisie_ouverte'));
+        $this->assertEqualsCanonicalizing(
+            ['eleves.view', 'notes.view'],
+            $reponse->json('data.donnees.fonction_referentiel.0.permissions'),
+        );
+    }
+
+    public function test_changer_les_privileges_dune_fonction_actualise_son_horodatage_sync(): void
+    {
+        $school = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $fonction = FonctionReferentiel::create([
+            'school_id' => $school->id,
+            'label_fr' => 'Enseignant',
+            'label_en' => 'Teacher',
+        ]);
+        \DB::table('fonction_referentiel')->where('id', $fonction->id)->update([
+            'updated_at' => now()->subDays(2),
+        ]);
+        $fonction->refresh();
+
+        $fonction->synchroniserPermissions(['eleves.view']);
+
+        $this->assertTrue($fonction->fresh()->updated_at->greaterThan(now()->subMinute()));
     }
 
     /** Chaque modèle du registre existe réellement et sait dire sous quelle école ranger sa pierre tombale (ou explicitement aucune). */

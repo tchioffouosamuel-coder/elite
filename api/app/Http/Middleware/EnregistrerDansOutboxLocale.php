@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\DesktopProvisioning;
+use App\Models\ModificationEleve;
 use App\Models\SyncOutbox;
 use Closure;
 use Illuminate\Http\Request;
@@ -39,6 +40,14 @@ class EnregistrerDansOutboxLocale
             return $reponse;
         }
 
+        $corps = $this->corpsAvecFichiers($request);
+        if ($metaModification = $this->metaModificationEleve($request)) {
+            $corps['__sync'] = [
+                ...(is_array($corps['__sync'] ?? null) ? $corps['__sync'] : []),
+                'modification_eleve' => $metaModification,
+            ];
+        }
+
         SyncOutbox::create([
             'id' => (string) Str::uuid(),
             'methode' => $request->method(),
@@ -57,10 +66,43 @@ class EnregistrerDansOutboxLocale
             // permet à `SyncPush` de rejouer chaque lot avec le bon jeton
             // plutôt qu'un jeton unique choisi arbitrairement.
             'desktop_provisioning_id' => DesktopProvisioning::pourUtilisateur($request->user()->id)?->id,
-            'corps' => $this->corpsAvecFichiers($request),
+            'corps' => $corps,
         ]);
 
         return $reponse;
+    }
+
+    /**
+     * Les demandes créées sur un poste desktop hors-ligne peuvent recevoir un
+     * autre auto-incrément une fois rejouées sur le serveur distant. Pour les
+     * actions métier suivantes (`valider`/`rejeter`), on garde donc l'identité
+     * stable de la demande locale afin que le serveur retrouve sa copie.
+     *
+     * @return array{id: int, school_id: int, eleve_id: int, tuteur_id: int, donnees: array<string, mixed>}|null
+     */
+    private function metaModificationEleve(Request $request): ?array
+    {
+        if (! $request->routeIs(['api.v1.modifications-eleves.valider', 'api.v1.modifications-eleves.rejeter'])) {
+            return null;
+        }
+
+        $id = (int) $request->route('id');
+        if (! $id) {
+            return null;
+        }
+
+        $modification = ModificationEleve::find($id);
+        if (! $modification) {
+            return null;
+        }
+
+        return [
+            'id' => $modification->id,
+            'school_id' => $modification->school_id,
+            'eleve_id' => $modification->eleve_id,
+            'tuteur_id' => $modification->tuteur_id,
+            'donnees' => $modification->donnees ?? [],
+        ];
     }
 
     /**

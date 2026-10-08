@@ -55,7 +55,7 @@ class ModificationEleveAdminController extends Controller
 
     public function valider(Request $request, int $id): JsonResponse
     {
-        $m = ModificationEleve::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $m = $this->trouverPourTraitement($request, $id);
 
         try {
             $m = $this->service->valider($m, $request->user()?->id);
@@ -68,7 +68,7 @@ class ModificationEleveAdminController extends Controller
 
     public function rejeter(Request $request, int $id): JsonResponse
     {
-        $m = ModificationEleve::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $m = $this->trouverPourTraitement($request, $id);
         $data = $request->validate(['motif' => ['required', 'string', 'min:3', 'max:255']]);
 
         try {
@@ -78,6 +78,59 @@ class ModificationEleveAdminController extends Controller
         }
 
         return ApiResponse::success($this->resume($m), 'Modification rejetée.');
+    }
+
+    private function trouverPourTraitement(Request $request, int $id): ModificationEleve
+    {
+        $requete = ModificationEleve::forSchool(Tenant::schoolIds());
+        $modification = (clone $requete)->find($id);
+        if ($modification) {
+            return $modification;
+        }
+
+        $meta = $request->input('__sync.modification_eleve');
+        if (! is_array($meta) || ! $request->header('Idempotency-Key')) {
+            return $requete->findOrFail($id);
+        }
+
+        $schoolId = (int) ($meta['school_id'] ?? 0);
+        $donnees = $meta['donnees'] ?? null;
+        if (! in_array($schoolId, Tenant::schoolIds(), true) || ! is_array($donnees)) {
+            return $requete->findOrFail($id);
+        }
+
+        $empreinte = $this->empreinteDonnees($donnees);
+
+        $candidats = ModificationEleve::forSchool($schoolId)
+            ->where('eleve_id', (int) ($meta['eleve_id'] ?? 0))
+            ->where('tuteur_id', (int) ($meta['tuteur_id'] ?? 0))
+            ->where('statut', 'en_attente')
+            ->latest()
+            ->get();
+
+        foreach ($candidats as $candidat) {
+            if ($this->empreinteDonnees($candidat->donnees ?? []) === $empreinte) {
+                return $candidat;
+            }
+        }
+
+        return $requete->findOrFail($id);
+    }
+
+    /** @param array<string, mixed> $donnees */
+    private function empreinteDonnees(array $donnees): string
+    {
+        $normaliser = function (mixed $valeur) use (&$normaliser): mixed {
+            if (! is_array($valeur)) {
+                return $valeur;
+            }
+
+            ksort($valeur);
+
+            return array_map($normaliser, $valeur);
+        };
+
+        return json_encode($normaliser($donnees), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function resume(ModificationEleve $m): array
