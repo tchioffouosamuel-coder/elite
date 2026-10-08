@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Banque extends Model
 {
-    protected $fillable = ['nom', 'code', 'numero_compte_ecole'];
+    protected $fillable = ['nom', 'code', 'numero_compte_ecole', 'solde'];
 
     protected function casts(): array
     {

@@ -53,6 +53,7 @@ class DesktopSyncTest extends TestCase
      */
     public function test_provisionne_un_poste_puis_le_premier_clonage_tire_les_donnees(): void
     {
+        Storage::fake('public');
         Http::fake([
             '*/api/v1/sync*' => Http::response([
                 'success' => true,
@@ -60,6 +61,80 @@ class DesktopSyncTest extends TestCase
                     'curseur' => '2026-01-01T00:00:00Z',
                     'complet' => true,
                     'donnees' => [
+                        'schools' => [[
+                            'id' => 9,
+                            'name' => 'École distante mise à jour',
+                            'code' => 'ED',
+                            'type' => 'secondaire',
+                            'national_school_code' => 'NS-42',
+                            'logo_path' => 'ecoles/9/logo.png',
+                            'stamp_path' => null,
+                            'signature_path' => null,
+                            'address' => 'Adresse distante',
+                            'phone' => null,
+                            'email' => null,
+                            'header_fr' => null,
+                            'header_en' => null,
+                            'is_active' => true,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'settings' => [[
+                            'id' => 9901,
+                            'school_id' => 9,
+                            'key' => 'num_sequences',
+                            'value' => '3',
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'banques' => [[
+                            'id' => 9910,
+                            'nom' => 'Banque distante',
+                            'code' => 'BD',
+                            'numero_compte_ecole' => '00991',
+                            'solde' => 50000,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'banque_mouvements' => [[
+                            'id' => 9911,
+                            'banque_id' => 9910,
+                            'type' => 'depot',
+                            'montant' => 50000,
+                            'date_mouvement' => '2026-10-01',
+                            'libelle' => 'Dépôt initial',
+                            'reference' => null,
+                            'cle_idempotence' => null,
+                            'bulletin_paie_id' => null,
+                            'effectue_par' => null,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'regles_validation_seances' => [[
+                            'id' => 9912,
+                            'school_id' => 9,
+                            'sous_systeme_id' => null,
+                            'methode_validation' => 'code',
+                            'delai_valeur' => 3,
+                            'delai_unite' => 'jours',
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'annee_scolaires' => [[
+                            'id' => 9913,
+                            'school_id' => 9,
+                            'libelle' => '2026-2027',
+                            'date_debut' => '2026-09-01',
+                            'date_fin' => '2027-06-30',
+                            'is_active' => true,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
+                        'calendrier_scolaires' => [[
+                            'id' => 9914,
+                            'annee_scolaire_id' => 9913,
+                            'date' => '2026-12-25',
+                            'est_ouvert' => false,
+                            'motif' => 'Fête de Noël',
+                            'sous_systeme_id' => null,
+                            'niveau_id' => null,
+                            'classe_id' => null,
+                            'updated_at' => now()->subDay()->toIso8601ZuluString(),
+                        ]],
                         'eleves' => [[
                             'id' => 501,
                             'school_id' => 9,
@@ -74,6 +149,7 @@ class DesktopSyncTest extends TestCase
                     'suppressions' => [],
                 ],
             ], 200),
+            '*/storage/ecoles/9/logo.png' => Http::response('logo distant', 200),
         ]);
 
         $reponse = $this->postJson('/api/v1/desktop/provisionner', [
@@ -106,10 +182,112 @@ class DesktopSyncTest extends TestCase
         Artisan::call('sync:pull');
 
         $this->assertDatabaseHas('eleves', ['id' => 501, 'nom_complet' => 'ELEVE DISTANT']);
+        $this->assertDatabaseHas('schools', [
+            'id' => 9,
+            'name' => 'École distante mise à jour',
+            'national_school_code' => 'NS-42',
+            'logo_path' => 'ecoles/9/logo.png',
+        ]);
+        $this->assertDatabaseHas('settings', [
+            'id' => 9901,
+            'school_id' => 9,
+            'key' => 'num_sequences',
+            'value' => '3',
+        ]);
+        $this->assertDatabaseHas('banques', [
+            'id' => 9910,
+            'nom' => 'Banque distante',
+            'numero_compte_ecole' => '00991',
+            'solde' => 50000,
+        ]);
+        $this->assertDatabaseHas('banque_mouvements', [
+            'id' => 9911,
+            'banque_id' => 9910,
+            'libelle' => 'Dépôt initial',
+        ]);
+        $this->assertDatabaseHas('regles_validation_seances', [
+            'id' => 9912,
+            'school_id' => 9,
+            'methode_validation' => 'code',
+            'delai_valeur' => 3,
+            'delai_unite' => 'jours',
+        ]);
+        $this->assertDatabaseHas('calendrier_scolaires', [
+            'id' => 9914,
+            'annee_scolaire_id' => 9913,
+            'est_ouvert' => false,
+            'motif' => 'Fête de Noël',
+        ]);
+        $this->assertSame('2026-12-25', \App\Models\CalendrierScolaire::findOrFail(9914)->date->toDateString());
+
+        Artisan::call('sync:fichiers');
+
+        $this->assertSame('logo distant', Storage::disk('public')->get('ecoles/9/logo.png'));
 
         $provisioning = DesktopProvisioning::pourUtilisateur(42);
         $ecole = $provisioning->ecoles()->where('school_id', 9)->firstOrFail();
         $this->assertNotNull($ecole->dernier_pull_le);
+    }
+
+    public function test_pull_desktop_replique_le_journal_audit_pour_un_super_admin(): void
+    {
+        Http::fake([
+            '*/api/v1/sync*' => Http::response([
+                'success' => true,
+                'data' => [
+                    'curseur' => now()->toIso8601ZuluString(),
+                    'complet' => true,
+                    'donnees' => [
+                        'audit_logs' => [[
+                            'id' => 7201,
+                            'created_at' => now()->subMinute()->toIso8601ZuluString(),
+                            'school_id' => 9,
+                            'user_id' => 42,
+                            'user_nom' => 'Super administrateur',
+                            'user_role' => 'Super administrateur',
+                            'action' => 'consultation',
+                            'module' => 'eleves',
+                            'route' => 'eleves.index',
+                            'methode' => 'GET',
+                            'url' => '/api/v1/eleves',
+                            'parametres' => null,
+                            'donnees' => null,
+                            'changements' => null,
+                            'statut_http' => 200,
+                            'duree_ms' => 12,
+                            'ip_address' => '127.0.0.1',
+                            'user_agent' => 'Desktop',
+                            'updated_at' => now()->subMinute()->toIso8601ZuluString(),
+                        ]],
+                    ],
+                    'suppressions' => [],
+                ],
+            ], 200),
+        ]);
+
+        $this->postJson('/api/v1/desktop/provisionner', [
+            'serveur_url' => 'https://distant.test',
+            'token' => 'jeton-acces',
+            'refresh_token' => 'jeton-refresh',
+            'password' => 'motdepasse-local',
+            'schools' => [['id' => 9, 'name' => 'École distante', 'code' => 'ED', 'type' => 'secondaire']],
+            'user' => [
+                'id' => 42,
+                'name' => 'Super administrateur',
+                'school_id' => 9,
+                'roles' => ['super_admin'],
+                'permissions' => [],
+            ],
+        ])->assertCreated();
+
+        Artisan::call('sync:pull');
+
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => 7201,
+            'school_id' => 9,
+            'action' => 'consultation',
+            'url' => '/api/v1/eleves',
+        ]);
     }
 
     /** Un compte non borné à une seule école (super admin) réplique chacune de ses écoles, avec un curseur propre à chacune. */
@@ -421,17 +599,29 @@ class DesktopSyncTest extends TestCase
     /** Une ligne locale plus récente que celle reçue n'est pas écrasée : elle n'a pas encore été poussée. */
     public function test_sync_pull_garde_la_ligne_locale_si_elle_est_plus_recente(): void
     {
+        Storage::fake('public');
         $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
         $this->provisionnerSansHttp($ecole);
         $this->creerEleveAvecId(602, $ecole->id, 'VERSION LOCALE');
 
-        Http::fake(['*/api/v1/sync*' => Http::response($this->reponseSyncAvecUnEleve(
+        $payload = $this->reponseSyncAvecUnEleve(
             id: 602, nom: 'VERSION DISTANTE PERIMEE', updatedAt: now()->subDays(2), schoolId: $ecole->id,
-        ), 200)]);
+        );
+        $payload['data']['donnees']['eleves'][0]['photo_path'] = 'eleves/photos/602.jpg';
+
+        Http::fake([
+            '*/api/v1/sync*' => Http::response($payload, 200),
+            '*/storage/eleves/photos/602.jpg' => Http::response('photo élève', 200),
+        ]);
 
         Artisan::call('sync:pull');
 
         $this->assertDatabaseHas('eleves', ['id' => 602, 'nom_complet' => 'VERSION LOCALE']);
+        $this->assertDatabaseHas('sync_fichiers_en_attente', ['chemin' => 'eleves/photos/602.jpg']);
+
+        Artisan::call('sync:fichiers');
+
+        $this->assertSame('photo élève', Storage::disk('public')->get('eleves/photos/602.jpg'));
     }
 
     /** À l'inverse, une ligne distante plus récente écrase la version locale obsolète. */

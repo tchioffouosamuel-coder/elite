@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Vide la file de fichiers en attente ({@see SyncFichierEnAttente}), alimentée
@@ -62,13 +63,15 @@ class SyncFichiers extends Command
                         continue;
                     }
 
-                    $destination = storage_path('app/public/'.$fichier->chemin);
+                    if (! Storage::disk('public')->put($fichier->chemin, $reponse->body())) {
+                        $echecs++;
+                        Log::warning('sync:fichiers écriture locale échouée', [
+                            'chemin' => $fichier->chemin,
+                        ]);
 
-                    if (! is_dir(dirname($destination))) {
-                        mkdir(dirname($destination), 0755, true);
+                        continue;
                     }
 
-                    file_put_contents($destination, $reponse->body());
                     $fichier->delete();
                 }
             });

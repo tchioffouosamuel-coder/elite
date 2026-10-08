@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DesktopProvisioning;
 use App\Models\DesktopProvisioningEcole;
 use App\Models\SyncFichierEnAttente;
+use App\Models\SyncOutbox;
 use App\Observers\ContactsTuteurObserver;
 use App\Support\Sync\RafraichitJetonDesktop;
 use App\Support\Sync\RegistreSync;
@@ -429,6 +430,13 @@ class SyncPull extends Command
         $existantes = $definition['modele']::query()
             ->findMany(array_filter(array_column($bloc, 'id')))
             ->getDictionary();
+        $modificationEcoleEnAttente = $cle === 'schools' && SyncOutbox::query()
+            ->enAttente()
+            ->where('school_id', $ecoleProvisioning->school_id)
+            ->where(fn ($q) => $q
+                ->where('chemin', 'ecole')
+                ->orWhere('chemin', 'like', 'ecole/images/%'))
+            ->exists();
         $fichiers = [];
         $traitees = 0;
 
@@ -440,14 +448,23 @@ class SyncPull extends Command
             // d'une poignée déjà en défaut ailleurs. SQLite n'annule que
             // l'instruction fautive : la transaction du bloc, elle, continue.
             try {
-                $instance = $this->appliquerLigne($definition, $ligne, $existantes[$ligne['id'] ?? null] ?? null);
+                $instance = $this->appliquerLigne(
+                    $definition,
+                    $ligne,
+                    $existantes[$ligne['id'] ?? null] ?? null,
+                    $modificationEcoleEnAttente,
+                );
 
                 if ($instance !== null) {
                     // Une ligne répétée dans le même bloc doit retrouver
                     // celle qu'on vient d'écrire, pas tenter de la recréer.
                     $existantes[$instance->getKey()] = $instance;
-                    array_push($fichiers, ...$this->fichiersReferences($provisioning, $ligne));
                 }
+                // Une donnée locale plus récente peut empêcher l'upsert sans
+                // empêcher le téléchargement du fichier référencé. C'est
+                // notamment nécessaire au reclonage d'un poste existant dont
+                // les photos manquent encore localement.
+                array_push($fichiers, ...$this->fichiersReferences($provisioning, $ligne));
                 $traitees++;
             } catch (QueryException $e) {
                 Log::warning('sync:pull ligne ignorée', [
@@ -570,20 +587,24 @@ class SyncPull extends Command
      *                elle a été ignorée (conflit : la version locale est plus
      *                récente, pas encore poussée).
      */
-    private function appliquerLigne(array $definition, array $ligne, ?Model $existante): ?Model
+    private function appliquerLigne(array $definition, array $ligne, ?Model $existante, bool $modificationEcoleEnAttente = false): ?Model
     {
         if (! isset($ligne['id'])) {
             return null;
         }
 
         $modele = $definition['modele'];
+        $horodatage = $definition['horodatage'] ?? 'updated_at';
+        $horodatageDistant = $ligne['updated_at'] ?? $ligne[$horodatage] ?? null;
 
-        // La ligne distante ne porte pas forcément `updated_at` (colonnes
-        // projetées par `RegistreSync`) : sans base de comparaison, on
-        // applique — c'est le cas d'une création locale jamais vue avant.
+        // Une entité immuable peut utiliser `created_at` comme horodatage de
+        // synchronisation ; le protocole le transporte sous `updated_at`.
         if (
-            $existante !== null && isset($ligne['updated_at'], $existante->updated_at)
-            && $existante->updated_at->gt($ligne['updated_at'])
+            ! (($definition['priorite_serveur'] ?? false) && ! $modificationEcoleEnAttente)
+            && $existante !== null
+            && $horodatageDistant !== null
+            && $existante->getAttribute($horodatage) !== null
+            && $existante->getAttribute($horodatage)->gt($horodatageDistant)
         ) {
             return null;
         }
@@ -623,7 +644,7 @@ class SyncPull extends Command
         // pour que l'arbitrage compare toujours deux dates de modification
         // réelles, jamais une date de sauvegarde locale.
         $instance->timestamps = false;
-        if (isset($ligne['updated_at'])) {
+        if ($horodatage === 'updated_at' && isset($ligne['updated_at'])) {
             $instance->updated_at = $ligne['updated_at'];
         }
         // `timestamps = false` désactive aussi la gestion automatique de
@@ -634,7 +655,7 @@ class SyncPull extends Command
         // Le registre ne projette de toute façon jamais le vrai `created_at`
         // distant (cf. `RegistreSync`) : la valeur de `updated_at` de cette
         // même ligne reste le repli le plus proche de la réalité.
-        if ($existante === null) {
+        if ($existante === null && $instance->created_at === null) {
             $instance->created_at = $instance->updated_at ?? now();
         }
         if (isset($definition['avant_sauvegarde'])) {

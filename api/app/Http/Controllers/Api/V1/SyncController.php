@@ -121,7 +121,7 @@ class SyncController extends Controller
                 // avec une ligne locale pas encore poussée (le plus récent
                 // gagne). Le mobile, qui l'ignorait déjà, n'est pas affecté.
                 $donnees[$cle] = $lignes->map(fn ($ligne) => [
-                    ...$this->projeter($ligne, $definition['colonnes']),
+                    ...$this->projeter($ligne, $definition['colonnes'], $definition['horodatage'] ?? 'updated_at'),
                     ...(isset($definition['extras']) ? ($definition['extras'])($ligne) : []),
                 ])->all();
             }
@@ -337,14 +337,16 @@ class SyncController extends Controller
      */
     private function lot(array $definition, int $schoolId, ?Carbon $depuis, int $limite): array
     {
+        $horodatage = $definition['horodatage'] ?? 'updated_at';
+
         // `updated_at` est sélectionné même s'il n'est pas exposé : c'est lui
         // qui porte le curseur. Il est retiré de la charge utile plus loin,
         // par la projection sur `colonnes`.
-        $construire = function () use ($definition, $schoolId, $depuis) {
+        $construire = function () use ($definition, $schoolId, $depuis, $horodatage) {
             $requete = $definition['modele']::query()
-                ->select(array_values(array_unique([...$definition['colonnes'], 'updated_at'])))
+                ->select(array_values(array_unique([...$definition['colonnes'], $horodatage])))
                 ->with($definition['relations'] ?? [])
-                ->orderBy('updated_at')
+                ->orderBy($horodatage)
                 ->orderBy('id');
 
             ($definition['portee'])($requete, $schoolId);
@@ -374,7 +376,7 @@ class SyncController extends Controller
                 // de plusieurs jours réapparaissant indéfiniment quel que soit
                 // le curseur envoyé.
                 $requete->where(
-                    'updated_at', '>',
+                    $horodatage, '>',
                     $depuis->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s.u'),
                 );
             }
@@ -390,7 +392,7 @@ class SyncController extends Controller
         }
 
         $lignes = $lignes->take($limite);
-        $borne = $lignes->last()->updated_at;
+        $borne = $lignes->last()->getAttribute($horodatage);
 
         /*
          * Les horodatages sont à la seconde : plusieurs lignes peuvent partager
@@ -398,16 +400,16 @@ class SyncController extends Controller
          * curseur en `>` sauterait définitivement celles restées hors du lot
          * (cas réel après un import Excel de plusieurs centaines d'élèves).
          */
-        $sansQueue = $lignes->filter(fn ($ligne) => $ligne->updated_at->lt($borne))->values();
+        $sansQueue = $lignes->filter(fn ($ligne) => $ligne->getAttribute($horodatage)->lt($borne))->values();
 
         if ($sansQueue->isNotEmpty()) {
-            return [$sansQueue, $sansQueue->last()->updated_at];
+            return [$sansQueue, $sansQueue->last()->getAttribute($horodatage)];
         }
 
         // Tout le lot tient dans la même seconde : on renvoie le groupe entier,
         // quitte à dépasser le plafond, faute de quoi le curseur n'avancerait
         // jamais et le client boucherait indéfiniment.
-        return [$construire()->where('updated_at', $borne)->get(), $borne];
+        return [$construire()->where($horodatage, $borne)->get(), $borne];
     }
 
     /**
@@ -433,18 +435,24 @@ class SyncController extends Controller
      * @param  list<string>  $colonnes
      * @return array<string, mixed>
      */
-    private function projeter($ligne, array $colonnes): array
+    private function projeter($ligne, array $colonnes, string $horodatage = 'updated_at'): array
     {
         $casts = $ligne->getCasts();
         $projection = [];
 
-        foreach ([...$colonnes, 'updated_at'] as $colonne) {
+        foreach (array_values(array_unique([...$colonnes, $horodatage])) as $colonne) {
             $valeur = $ligne->getAttribute($colonne);
             $castee = (string) ($casts[$colonne] ?? '');
 
             $projection[$colonne] = $valeur instanceof \DateTimeInterface && preg_match('/^date(:|$)/', $castee)
                 ? $valeur->format('Y-m-d')
                 : $valeur;
+        }
+
+        // Le protocole expose un horodatage uniforme pour l'arbitrage desktop,
+        // même quand l'entité n'a pas de colonne `updated_at` (journal immuable).
+        if ($horodatage !== 'updated_at') {
+            $projection['updated_at'] = $projection[$horodatage];
         }
 
         return $projection;

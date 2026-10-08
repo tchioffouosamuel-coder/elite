@@ -8,8 +8,11 @@ use App\Models\Amortissement;
 use App\Models\AnneeScolaire;
 use App\Models\Annonce;
 use App\Models\Apee;
+use App\Models\AuditLog;
 use App\Models\AssuranceScolaire;
 use App\Models\AvanceSalaire;
+use App\Models\Banque;
+use App\Models\BanqueMouvement;
 use App\Models\BudgetFonctionnement;
 use App\Models\BudgetPersonnel;
 use App\Models\BulletinPublication;
@@ -23,6 +26,7 @@ use App\Models\ChampPersonnalise;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
+use App\Models\CalendrierScolaire;
 use App\Models\Competence;
 use App\Models\CompteComptable;
 use App\Models\ConseilEcole;
@@ -65,10 +69,13 @@ use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
 use App\Models\RapportRentreeTexte;
 use App\Models\RapportTrimestreTexte;
+use App\Models\RegleValidationSeance;
 use App\Models\Remise;
 use App\Models\Revendication;
 use App\Models\Sanction;
 use App\Models\Seance;
+use App\Models\School;
+use App\Models\Setting;
 use App\Models\Sequence;
 use App\Models\SousSysteme;
 use App\Models\TrancheScolarite;
@@ -90,7 +97,7 @@ use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 /**
- * Catalogue des entités que le mobile réplique dans sa base locale.
+ * Catalogue des entités que les clients répliquent dans leur base locale.
  *
  * Une entité n'est pas décrite par une Resource existante : celles-ci imbriquent
  * les relations (`classe` complète dans `EleveResource`) pour un affichage web
@@ -118,6 +125,8 @@ class RegistreSync
      *     portee: callable(Builder, int): Builder,
      *     permission: ?string,
      *     reserve_super_admin?: bool,
+     *     priorite_serveur?: bool,
+     *     horodatage?: string,
      *     relations?: list<string>,
      *     extras?: callable(\Illuminate\Database\Eloquent\Model): array<string, mixed>,
      *     avant_sauvegarde?: callable(\Illuminate\Database\Eloquent\Model, bool): void,
@@ -133,10 +142,78 @@ class RegistreSync
 
         return [
             // --- Référentiels : socle nécessaire à l'affichage de tout le reste.
+            'schools' => [
+                'modele' => School::class,
+                'colonnes' => [
+                    'id', 'name', 'code', 'type', 'national_school_code',
+                    'logo_path', 'stamp_path', 'signature_path', 'address',
+                    'phone', 'email', 'header_fr', 'header_en', 'is_active',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->whereKey($s),
+                'permission' => null,
+                // La fiche provisionnée localement n'est qu'un squelette. Les
+                // modifications faites hors ligne restent protégées par l'outbox.
+                'priorite_serveur' => true,
+            ],
+            'settings' => [
+                'modele' => Setting::class,
+                'colonnes' => ['id', 'school_id', 'key', 'value'],
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
+            ],
+            'audit_logs' => [
+                'modele' => AuditLog::class,
+                'colonnes' => [
+                    'id', 'created_at', 'school_id', 'user_id', 'user_nom',
+                    'user_role', 'action', 'module', 'route', 'methode', 'url',
+                    'parametres', 'donnees', 'changements', 'statut_http',
+                    'duree_ms', 'ip_address', 'user_agent',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
+                'reserve_super_admin' => true,
+                'horodatage' => 'created_at',
+            ],
+            // Référentiel global (la colonne school_id a été supprimée) :
+            // les personnels et les banques d'un poste partagent les mêmes IDs.
+            'banques' => [
+                'modele' => Banque::class,
+                'colonnes' => ['id', 'nom', 'code', 'numero_compte_ecole', 'solde'],
+                'portee' => fn(Builder $q, int $s) => $q,
+                'permission' => 'personnel.view',
+            ],
+            'banque_mouvements' => [
+                'modele' => BanqueMouvement::class,
+                'colonnes' => [
+                    'id', 'banque_id', 'type', 'montant', 'date_mouvement',
+                    'libelle', 'reference', 'cle_idempotence', 'bulletin_paie_id',
+                    'effectue_par',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('banque'),
+                'permission' => 'personnel.view',
+            ],
+            'regles_validation_seances' => [
+                'modele' => RegleValidationSeance::class,
+                'colonnes' => [
+                    'id', 'school_id', 'sous_systeme_id', 'methode_validation',
+                    'delai_valeur', 'delai_unite',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => 'personnel.view',
+            ],
             'annee_scolaires' => [
                 'modele' => AnneeScolaire::class,
                 'colonnes' => ['id', 'school_id', 'libelle', 'date_debut', 'date_fin', 'is_active'],
                 'portee' => fn(Builder $q, int $s) => $q->where('school_id', $s),
+                'permission' => null,
+            ],
+            'calendrier_scolaires' => [
+                'modele' => CalendrierScolaire::class,
+                'colonnes' => [
+                    'id', 'annee_scolaire_id', 'date', 'est_ouvert', 'motif',
+                    'sous_systeme_id', 'niveau_id', 'classe_id',
+                ],
+                'portee' => fn(Builder $q, int $s) => $q->whereHas('anneeScolaire', fn($a) => $a->where('school_id', $s)),
                 'permission' => null,
             ],
             'trimestres' => [
@@ -956,6 +1033,9 @@ class RegistreSync
     public static function ecoleDe(string $entite, object $m): ?int
     {
         return match ($entite) {
+            'schools' => $m->id,
+            'settings', 'audit_logs', 'regles_validation_seances' => $m->school_id,
+            'banques', 'banque_mouvements' => null,
             'annee_scolaires', 'niveaux', 'sous_systemes', 'departements', 'matieres', 'classes',
             'emplois_du_temps', 'eleves', 'personnels', 'fonction_referentiel', 'utilisateurs', 'tuteurs', 'seances',
             'annonces', 'notifications_internes', 'competences', 'appreciations',
@@ -973,6 +1053,7 @@ class RegistreSync
             'document_references' => $m->school_id,
 
             'trimestres' => $m->anneeScolaire?->school_id,
+            'calendrier_scolaires' => $m->anneeScolaire?->school_id,
             'sequences' => $m->trimestre?->anneeScolaire?->school_id,
             'classe_matieres', 'classe_competences' => $m->classe?->school_id,
             'progression_items', 'champs_personnalises', 'progression_colonnes' => $m->classeMatiere?->classe?->school_id,

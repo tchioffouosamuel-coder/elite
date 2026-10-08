@@ -5,12 +5,19 @@ namespace Tests\Feature;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
+use App\Models\AuditLog;
+use App\Models\Banque;
+use App\Models\BanqueMouvement;
+use App\Models\AnneeScolaire;
+use App\Models\CalendrierScolaire;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
+use App\Models\RegleValidationSeance;
 use App\Models\School;
 use App\Models\Seance;
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\CataloguePermissions;
 use App\Support\Sync\RegistreSync;
@@ -41,7 +48,10 @@ class RegistreSyncTest extends TestCase
 
         foreach (RegistreSync::entites($user) as $cle => $definition) {
             $requete = $definition['modele']::query()
-                ->select(array_values(array_unique([...$definition['colonnes'], 'updated_at'])));
+                ->select(array_values(array_unique([
+                    ...$definition['colonnes'],
+                    $definition['horodatage'] ?? 'updated_at',
+                ])));
 
             ($definition['portee'])($requete, $user->school_id ?? 1);
 
@@ -53,6 +63,85 @@ class RegistreSyncTest extends TestCase
         }
 
         $this->assertTrue(true);
+    }
+
+    public function test_sync_renvoie_le_profil_de_lecole_et_ses_parametres(): void
+    {
+        foreach (CataloguePermissions::codes() as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+        $school = School::create([
+            'name' => 'École distante',
+            'code' => 'ED',
+            'type' => 'secondaire',
+            'national_school_code' => 'NS-42',
+            'logo_path' => 'ecoles/1/logo.png',
+            'address' => 'Adresse de test',
+            'is_active' => true,
+        ]);
+        $annee = AnneeScolaire::create([
+            'school_id' => $school->id,
+            'libelle' => '2026-2027',
+            'date_debut' => '2026-09-01',
+            'date_fin' => '2027-06-30',
+            'is_active' => true,
+        ]);
+        CalendrierScolaire::create([
+            'annee_scolaire_id' => $annee->id,
+            'date' => '2026-12-25',
+            'est_ouvert' => false,
+            'motif' => 'Fête de Noël',
+        ]);
+        Setting::set($school->id, 'num_sequences', 3);
+        AuditLog::create([
+            'created_at' => now()->subMinute(),
+            'school_id' => $school->id,
+            'user_nom' => 'Super administrateur',
+            'action' => 'consultation',
+            'methode' => 'GET',
+            'url' => '/api/v1/eleves',
+            'statut_http' => 200,
+        ]);
+        $banque = Banque::create([
+            'nom' => 'Banque de test',
+            'code' => 'BT',
+            'numero_compte_ecole' => '001234',
+            'solde' => 125000,
+        ]);
+        BanqueMouvement::create([
+            'banque_id' => $banque->id,
+            'type' => 'depot',
+            'montant' => 25000,
+            'date_mouvement' => '2026-10-01',
+            'libelle' => 'Dépôt de test',
+        ]);
+        RegleValidationSeance::create([
+            'school_id' => $school->id,
+            'methode_validation' => 'code',
+            'delai_valeur' => 2,
+            'delai_unite' => 'jours',
+        ]);
+
+        $user = User::factory()->create(['school_id' => $school->id]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/sync?entites=schools,settings,audit_logs,banques,banque_mouvements,regles_validation_seances,annee_scolaires,calendrier_scolaires')
+            ->assertOk();
+
+        $this->assertSame('École distante', $reponse->json('data.donnees.schools.0.name'));
+        $this->assertSame('ecoles/1/logo.png', $reponse->json('data.donnees.schools.0.logo_path'));
+        $this->assertSame('num_sequences', $reponse->json('data.donnees.settings.0.key'));
+        $this->assertSame('3', $reponse->json('data.donnees.settings.0.value'));
+        $this->assertSame('/api/v1/eleves', $reponse->json('data.donnees.audit_logs.0.url'));
+        $this->assertSame('Banque de test', $reponse->json('data.donnees.banques.0.nom'));
+        $this->assertSame(125000, $reponse->json('data.donnees.banques.0.solde'));
+        $this->assertSame('Dépôt de test', $reponse->json('data.donnees.banque_mouvements.0.libelle'));
+        $this->assertSame('code', $reponse->json('data.donnees.regles_validation_seances.0.methode_validation'));
+        $this->assertSame('2026-2027', $reponse->json('data.donnees.annee_scolaires.0.libelle'));
+        $this->assertSame('Fête de Noël', $reponse->json('data.donnees.calendrier_scolaires.0.motif'));
     }
 
     /** Chaque modèle du registre existe réellement et sait dire sous quelle école ranger sa pierre tombale (ou explicitement aucune). */
