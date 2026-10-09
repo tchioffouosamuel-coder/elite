@@ -74,6 +74,7 @@ import { useUiStore } from '@/shared/store/uiStore'
 import { estPersonnelDirection } from '@/shared/lib/direction'
 import { logout } from '@/features/auth/api'
 import { NotificationBell } from './NotificationBell'
+import { ActionHistoryButtons } from '@/shared/ui/ActionHistory'
 import { DesktopStatusIndicator } from '@/features/desktop/DesktopStatusIndicator'
 
 type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
@@ -996,6 +997,7 @@ export function AppLayout() {
             {groupesTopbar.length === 0 && <div className="min-w-0 flex-1" />}
 
             <DesktopStatusIndicator />
+            {!window.desktop && <ActionHistoryButtons />}
             <NotificationBell />
 
             <div className="flex flex-none gap-1 rounded-full bg-cream-100 p-1 text-xs font-bold">

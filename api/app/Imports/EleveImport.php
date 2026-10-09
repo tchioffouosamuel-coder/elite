@@ -5,6 +5,7 @@ namespace App\Imports;
 use App\Models\Classe;
 use App\Models\DetteAnterieure;
 use App\Models\Eleve;
+use App\Models\EleveTuteur;
 use App\Models\School;
 use App\Models\Tuteur;
 use App\Services\ScolariteService;
@@ -457,7 +458,13 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         // réimport, une ligne sans aucun contact détacherait les tuteurs saisis
         // à la main. Elle ne dit rien des tuteurs, on ne touche donc à rien.
         if ($rattachements !== []) {
-            $eleve->tuteurs()->sync($rattachements);
+            // Eloquent rend aussi les liens supprimables/restaurables dans l'historique.
+            foreach (EleveTuteur::where('eleve_id', $eleve->id)->whereNotIn('tuteur_id', array_keys($rattachements))->get() as $lien) {
+                $lien->delete();
+            }
+            foreach ($rattachements as $tuteurId => $attributs) {
+                EleveTuteur::updateOrCreate(['eleve_id' => $eleve->id, 'tuteur_id' => $tuteurId], $attributs);
+            }
         }
     }
 

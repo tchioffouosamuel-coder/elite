@@ -7,6 +7,7 @@ use App\Console\Commands\PurgerJournalAudit;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\EnregistrerDansOutboxLocale;
+use App\Http\Middleware\EnregistrerActionAnnulable;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
 use App\Http\Middleware\JournaliserAudit;
 use App\Http\Middleware\Idempotence;
@@ -94,6 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // Sans effet tant que `SYNC_LOCAL_REPLICA` n'est pas activé (client
             // desktop offline) : ne coûte rien au serveur distant.
             'outbox-local' => EnregistrerDansOutboxLocale::class,
+            'historique-actions' => EnregistrerActionAnnulable::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

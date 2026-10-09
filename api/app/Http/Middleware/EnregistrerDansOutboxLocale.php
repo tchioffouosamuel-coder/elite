@@ -41,6 +41,9 @@ class EnregistrerDansOutboxLocale
         }
 
         $corps = $this->corpsAvecFichiers($request);
+        if ($uuid = $request->attributes->get('historique.uuid')) {
+            $corps['__historique_action'] = $uuid;
+        }
         $metaModification = $this->metaModificationEleve($request);
         if ($metaModification) {
             $corps['__sync'] = [
@@ -50,7 +53,8 @@ class EnregistrerDansOutboxLocale
         }
 
         SyncOutbox::create([
-            'id' => (string) Str::uuid(),
+            'id' => (string) Str::uuid7(),
+            'created_at' => now(),
             'methode' => $request->method(),
             // Chemin relatif à `/api/v1/`, tel qu'attendu par
             // `SyncController::rejouer()` côté serveur distant.
@@ -61,7 +65,7 @@ class EnregistrerDansOutboxLocale
             // distant n'aurait que le contexte, sans rapport, de l'appel
             // `/api/v1/sync` qui le transporte (cf. migration
             // `add_school_id_to_sync_outbox_table`).
-            'school_id' => $metaModification['school_id'] ?? app('tenant.school_id'),
+            'school_id' => $request->attributes->get('historique.school_id') ?? $metaModification['school_id'] ?? app('tenant.school_id'),
             // Compte auteur de cette écriture : plusieurs comptes pouvant
             // désormais être provisionnés sur le même poste, c'est ce qui
             // permet à `SyncPush` de rejouer chaque lot avec le bon jeton

@@ -19,6 +19,8 @@ class SyncOutbox extends Model
 
     public $timestamps = false;
 
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
     protected $fillable = ['id', 'methode', 'chemin', 'school_id', 'desktop_provisioning_id', 'corps', 'created_at', 'pushed_at', 'tentatives'];
 
     protected function casts(): array
@@ -32,6 +34,6 @@ class SyncOutbox extends Model
 
     public function scopeEnAttente($query)
     {
-        return $query->whereNull('pushed_at')->orderBy('created_at');
+        return $query->whereNull('pushed_at')->orderBy('created_at')->orderBy('id');
     }
 }

@@ -24,6 +24,7 @@ return [
         'api.v1.sync.comptage',
         'api.v1.notifications.non-lues',
         'api.v1.desktop.statut-sync',
+        'api.v1.historique.index',
     ],
 
     /*
@@ -54,6 +55,7 @@ return [
      */
     'modeles_exclus' => [
         App\Models\AuditLog::class,
+        App\Models\ActionAnnulable::class,
         App\Models\ActivityLog::class,
         App\Models\SyncOutbox::class,
         App\Models\SyncTombstone::class,

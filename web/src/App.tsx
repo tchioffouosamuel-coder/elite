@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from '@/app/router'
 import { DocumentPreviewModal } from '@/shared/ui/DocumentPreviewModal'
 import { DesktopTitleBar } from '@/shared/ui/DesktopTitleBar'
+import { ActionHistoryProvider } from '@/shared/ui/ActionHistory'
 import '@/shared/i18n'
 
 const queryClient = new QueryClient({
@@ -21,9 +22,11 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <DesktopTitleBar />
-      <RouterProvider router={router} />
-      <DocumentPreviewModal />
+      <ActionHistoryProvider>
+        <DesktopTitleBar />
+        <RouterProvider router={router} />
+        <DocumentPreviewModal />
+      </ActionHistoryProvider>
     </QueryClientProvider>
   )
 }

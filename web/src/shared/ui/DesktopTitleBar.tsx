@@ -1,17 +1,20 @@
 import { createPortal } from 'react-dom'
 import { Minus, Redo2, Square, Undo2, X } from 'lucide-react'
 import logoMark from '@/assets/logo-mark.png'
+import { useActionHistory } from '@/shared/lib/actionHistoryContext'
 
 function TitleBarButton({
   label,
   onClick,
   children,
   danger = false,
+  disabled = false,
 }: {
   label: string
   onClick: () => void
   children: React.ReactNode
   danger?: boolean
+  disabled?: boolean
 }) {
   return (
     <button
@@ -20,7 +23,8 @@ function TitleBarButton({
       aria-label={label}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`flex h-full w-11 items-center justify-center text-white/60 hover:text-white ${
+      disabled={disabled}
+      className={`flex h-full w-11 items-center justify-center text-white/60 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white/60 ${
         danger ? 'hover:bg-red-500' : 'hover:bg-white/10'
       }`}
     >
@@ -43,6 +47,7 @@ function TitleBarButton({
  * par la classe `desktop-shell` (cf. main.tsx et index.css).
  */
 export function DesktopTitleBar() {
+  const history = useActionHistory()
   if (!window.desktop) return null
 
   return createPortal(
@@ -55,11 +60,12 @@ export function DesktopTitleBar() {
         <img src={logoMark} alt="" className="h-5 w-5 rounded-md object-contain" />
         <span className="truncate">Elites School</span>
       </div>
-      <div className="ml-auto flex h-full items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <TitleBarButton label="Annuler (Ctrl+Z)" onClick={() => window.desktop?.undo()}>
+      <div className="ml-auto flex h-full items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        onDoubleClick={(event) => event.stopPropagation()}>
+        <TitleBarButton label={history.undoLabel} onClick={history.undo} disabled={!history.canUndo}>
           <Undo2 className="h-4 w-4" />
         </TitleBarButton>
-        <TitleBarButton label="Rétablir (Ctrl+Y)" onClick={() => window.desktop?.redo()}>
+        <TitleBarButton label={history.redoLabel} onClick={history.redo} disabled={!history.canRedo}>
           <Redo2 className="h-4 w-4" />
         </TitleBarButton>
         <span className="mx-1 h-4 w-px bg-white/15" aria-hidden />

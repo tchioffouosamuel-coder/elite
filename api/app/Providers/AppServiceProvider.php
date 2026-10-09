@@ -12,6 +12,7 @@ use App\Models\TuteurTelephone;
 use App\Observers\ContactsTuteurObserver;
 use App\Observers\TombstoneObserver;
 use App\Support\Audit\CollecteurChangements;
+use App\Support\Historique\CollecteurActions;
 use App\Support\Sync\RegistreSync;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -41,6 +42,8 @@ class AppServiceProvider extends ServiceProvider
         // Une seule instance par processus : la pile qu'elle tient suit les
         // requêtes (et sous-requêtes de synchronisation) en cours.
         $this->app->singleton(CollecteurChangements::class);
+        $this->app->singleton(CollecteurActions::class);
+        $this->app->singleton(\App\Support\Historique\DependancesImport::class);
     }
 
     /**
@@ -69,6 +72,15 @@ class AppServiceProvider extends ServiceProvider
             Event::listen("eloquent.{$evenement}: *", function (string $nom, array $donnees) use ($evenement) {
                 if (($donnees[0] ?? null) instanceof Model) {
                     app(CollecteurChangements::class)->enregistrer($evenement, $donnees[0]);
+                    app(CollecteurActions::class)->enregistrer($evenement, $donnees[0]);
+                }
+            });
+        }
+
+        foreach (['updating', 'deleting'] as $evenement) {
+            Event::listen("eloquent.{$evenement}: *", function (string $nom, array $donnees) {
+                if (($donnees[0] ?? null) instanceof Model) {
+                    app(CollecteurActions::class)->verrouiller($donnees[0]);
                 }
             });
         }

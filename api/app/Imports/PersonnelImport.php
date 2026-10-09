@@ -487,7 +487,7 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             return;
         }
 
-        Classe::whereKey($classeId)->update(['titulaire_id' => $personnel->id]);
+        Classe::findOrFail($classeId)->update(['titulaire_id' => $personnel->id]);
     }
 
     /** @return array<string, int> */

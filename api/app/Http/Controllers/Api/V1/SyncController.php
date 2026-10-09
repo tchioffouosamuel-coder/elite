@@ -211,6 +211,8 @@ class SyncController extends Controller
         // pourrait viser n'importe quelle route de l'application.
         $chemin = '/api/v1/'.ltrim(str_replace('..', '', $operation['chemin']), '/');
         $corps = $operation['corps'] ?? [];
+        $actionUuid = $corps['__historique_action'] ?? null;
+        unset($corps['__historique_action']);
         $fichiersTemporaires = [];
         $fichiers = $this->extraireFichiers($corps, $fichiersTemporaires);
 
@@ -229,6 +231,10 @@ class SyncController extends Controller
         );
 
         $sousRequete->setUserResolver(fn () => $request->user());
+        if (is_string($actionUuid)) {
+            $sousRequete->headers->set('X-Action-Id', $actionUuid);
+        }
+        $sousRequete->attributes->set('historique.synchronisation', true);
 
         try {
             $reponse = app()->handle($sousRequete);

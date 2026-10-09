@@ -1,4 +1,5 @@
 import axios from "axios";
+import { newActionId } from '@/shared/lib/actionId';
 import type { AxiosError } from "axios";
 
 declare module "axios" {
@@ -29,6 +30,16 @@ export const http = axios.create({
   headers: { Accept: "application/json" },
 });
 
+let pendingWrites = 0;
+export const getPendingWrites = () => pendingWrites;
+const isWrite = (method?: string) => ['post', 'put', 'patch', 'delete'].includes((method ?? '').toLowerCase());
+
+function finishWrite(method?: string) {
+  if (!isWrite(method)) return;
+  pendingWrites = Math.max(0, pendingWrites - 1);
+  window.dispatchEvent(new Event('app:write-finished'));
+}
+
 http.interceptors.request.use((config) => {
   const { token, user, activeSchoolId } = useAuthStore.getState();
   const { locale } = useUiStore.getState();
@@ -50,13 +61,23 @@ http.interceptors.request.use((config) => {
     config.headers["X-School-Id"] = String(schoolId);
   config.headers["X-Locale"] = locale;
 
+  if (isWrite(config.method)) {
+    config.headers['X-Action-Id'] ??= newActionId();
+    pendingWrites += 1;
+    window.dispatchEvent(new Event('app:write-started'));
+  }
+
   return config;
 });
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    finishWrite(response.config.method);
+    return response;
+  },
   async (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
     const config = error.config;
+    finishWrite(config?.method);
 
     // Un jeton Sanctum expiré ne peut pas être "rafraîchi" silencieusement
     // (il n'y a pas de refresh-token séparé) : on ferme simplement la session.

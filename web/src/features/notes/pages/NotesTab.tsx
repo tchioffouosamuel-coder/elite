@@ -156,6 +156,15 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
   // Ne préremplit chaque séquence qu'une fois : une invalidation de query ne
   // doit pas écraser une saisie déjà en cours (même garde que RemplirNotesPage).
   const prefillFait = useRef<Set<number>>(new Set())
+  useEffect(() => {
+    const refreshHistory = (event: Event) => {
+      const action = (event as CustomEvent).detail
+      if (Number(action.contexte.classeMatiereId) !== classeMatiereId) return
+      for (const id of action.contexte.sequence_ids ?? []) prefillFait.current.delete(id)
+    }
+    window.addEventListener('app:history-applied', refreshHistory)
+    return () => window.removeEventListener('app:history-applied', refreshHistory)
+  }, [classeMatiereId])
   const grillesSignature = grilles.map((g) => g.dataUpdatedAt).join(',')
 
   useEffect(() => {

@@ -1122,22 +1122,6 @@ function createWindow() {
   // ou cette URL, exactement comme le ferait un nouvel onglet de navigateur.
   window.webContents.setWindowOpenHandler(() => ({ action: "allow" }));
 
-  window.webContents.on("before-input-event", (event, input) => {
-    const touche = input.key.toLowerCase();
-    const modifieurPrincipal = input.control || input.meta;
-    if (!modifieurPrincipal || input.alt) return;
-
-    if (touche === "z" && !input.shift) {
-      event.preventDefault();
-      executerCommandeEdition("undo");
-    }
-
-    if (touche === "y" || (touche === "z" && input.shift)) {
-      event.preventDefault();
-      executerCommandeEdition("redo");
-    }
-  });
-
   window.webContents.on("did-finish-load", () => {
     window.webContents.send("desktop:startup-status", etapeDemarrage);
   });

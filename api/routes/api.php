@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ArchiveClasseController;
 use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuditLogController;
+use App\Http\Controllers\Api\V1\HistoriqueActionsController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
 use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
@@ -228,7 +229,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // `idempotence` couvre d'un coup les 84 écritures métier : le mobile
         // peut rejouer n'importe laquelle sans risque de doublon, sans avoir
         // à déclarer route par route lesquelles sont rejouables.
-        Route::middleware(['tenant', 'idempotence', 'outbox-local'])->group(function () {
+        Route::middleware(['tenant', 'idempotence', 'historique-actions', 'outbox-local'])->group(function () {
+
+            Route::get('historique-actions', [HistoriqueActionsController::class, 'index'])->name('historique.index');
+            Route::post('historique-actions/{uuid}/annuler', [HistoriqueActionsController::class, 'annuler'])->whereUuid('uuid')->name('historique.annuler');
+            Route::post('historique-actions/{uuid}/retablir', [HistoriqueActionsController::class, 'retablir'])->whereUuid('uuid')->name('historique.retablir');
 
             /*
              * Synchronisation de l'application mobile. Aucun privilège propre :
