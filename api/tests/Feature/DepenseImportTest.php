@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Imports\DepenseImport;
 use App\Models\Depense;
 use App\Models\School;
+use App\Models\User;
+use App\Services\DepenseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -34,12 +37,12 @@ class DepenseImportTest extends TestCase
         // le crée (`refondre_plan_comptable_ecole`) — pas besoin de le re-seeder.
     }
 
-    private function fichier(array $lignes): UploadedFile
+    private function fichier(array $lignes, ?array $entetes = null): UploadedFile
     {
         $feuille = (new Spreadsheet)->getActiveSheet();
 
         $feuille->fromArray([
-            ['Date', 'Libelle', 'Montant', 'Mode', 'Beneficiaire', 'N Facture', 'Responsable', 'Compte comptable', 'Source', 'Statut'],
+            $entetes ?? ['Date', 'Libelle', 'Montant', 'Mode', 'Beneficiaire', 'N Facture', 'Responsable', 'Compte comptable', 'Source', 'Statut'],
             ...$lignes,
         ], null, 'A1');
 
@@ -110,7 +113,7 @@ class DepenseImportTest extends TestCase
         $this->assertSame(2, Depense::where('libelle', 'Achat répété')->count());
     }
 
-    public function test_une_ligne_sans_libelle_ou_montant_est_ignoree(): void
+    public function test_une_ligne_sans_libelle_ou_montant_est_signalee(): void
     {
         $import = new DepenseImport($this->school->id);
         Excel::import($import, $this->fichier([
@@ -120,5 +123,76 @@ class DepenseImportTest extends TestCase
 
         $this->assertSame(0, $import->importedCount);
         $this->assertSame(0, Depense::count());
+        $this->assertCount(2, $import->failures());
+        $this->assertSame(2, $import->failures()[0]->row());
+        $this->assertSame('libelle', $import->failures()[0]->attribute());
+        $this->assertStringContainsString('Libellé manquant', $import->failures()[0]->errors()[0]);
+        $this->assertSame(3, $import->failures()[1]->row());
+        $this->assertSame('montant', $import->failures()[1]->attribute());
+    }
+
+    public function test_les_entetes_non_reconnus_produisent_des_erreurs(): void
+    {
+        $import = new DepenseImport($this->school->id);
+        Excel::import($import, $this->fichier([
+            ['2026-09-05', 'Fournitures', 10000],
+        ], ['Date', 'Description', 'Amount']));
+
+        $this->assertSame(0, $import->importedCount);
+        $this->assertCount(2, $import->failures());
+        $this->assertSame('Fournitures', $import->failures()[0]->values()['_donnees']['description']);
+    }
+
+    public function test_les_numeros_de_ligne_restent_exacts_apres_une_ligne_vide(): void
+    {
+        $import = new DepenseImport($this->school->id);
+        Excel::import($import, $this->fichier([
+            ['2026-09-05', 'Fournitures', 10000],
+            [null, null, null],
+            ['2026-09-05', 'Montant incorrect', 'invalide'],
+            ['2026-09-05', 'Montant nul', 0],
+        ]));
+
+        $this->assertSame(1, $import->importedCount);
+        $this->assertSame([4, 5], $import->failures()->map(fn ($failure) => $failure->row())->all());
+    }
+
+    public function test_les_erreurs_metier_conservent_la_ligne_et_ses_donnees(): void
+    {
+        $service = $this->mock(DepenseService::class);
+        $service->shouldReceive('enregistrer')->once()->andThrow(new \RuntimeException('Dépense refusée.'));
+        $import = new DepenseImport($this->school->id);
+        Excel::import($import, $this->fichier([
+            [null, null, null],
+            ['2026-09-05', 'Fournitures', 10000],
+        ]));
+
+        $this->assertSame(0, $import->importedCount);
+        $this->assertCount(0, $import->failures());
+        $this->assertSame(3, $import->erreurs[0]['ligne']);
+        $this->assertSame('Fournitures', $import->erreurs[0]['nom']);
+        $this->assertSame('Dépense refusée.', $import->erreurs[0]['message']);
+        $this->assertSame(10000, $import->erreurs[0]['donnees']['montant']);
+    }
+
+    public function test_le_total_des_echecs_compte_les_lignes_invalides_et_les_erreurs_metier(): void
+    {
+        $user = User::create(['school_id' => $this->school->id, 'name' => 'Root', 'email' => 'root@test.local', 'password' => 'password', 'is_active' => true]);
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        $user->assignRole('super_admin');
+        $this->mock(DepenseService::class)
+            ->shouldReceive('enregistrer')->once()->andThrow(new \RuntimeException('Dépense refusée.'));
+
+        $this->actingAs($user, 'sanctum')->withHeader('X-School-Id', $this->school->id)
+            ->postJson('/api/v1/depenses/import', ['file' => $this->fichier([
+                ['2026-09-05', null, null],
+                ['2026-09-05', 'Fournitures', 10000],
+            ])])
+            ->assertOk()
+            ->assertJsonPath('data.imported', 0)
+            ->assertJsonPath('data.failed', 2)
+            ->assertJsonCount(2, 'data.errors')
+            ->assertJsonPath('data.erreurs_metier.0.ligne', 3)
+            ->assertJsonPath('data.erreurs_metier.0.message', 'Dépense refusée.');
     }
 }

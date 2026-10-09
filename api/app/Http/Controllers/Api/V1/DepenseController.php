@@ -65,7 +65,7 @@ class DepenseController extends Controller
         return ApiResponse::success(
             [
                 'imported' => $import->importedCount,
-                'failed' => count($import->failures()),
+                'failed' => $import->failures()->unique(fn ($failure) => $failure->row())->count() + count($import->erreurs),
                 'errors' => $import->failures(),
                 'erreurs_metier' => $import->erreurs,
                 'comptes_non_rattaches' => $import->comptesNonRattaches,

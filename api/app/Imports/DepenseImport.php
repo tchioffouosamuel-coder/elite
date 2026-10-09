@@ -7,12 +7,13 @@ use App\Services\DepenseService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Concerns\OnEachRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Row;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Throwable;
 
@@ -29,7 +30,7 @@ use Throwable;
  * personnel ou à une rémunération) : réimporter le même fichier double
  * chaque dépense, comme resaisir deux fois le même bordereau papier.
  */
-class DepenseImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithHeadingRow, WithValidation
+class DepenseImport implements OnEachRow, SkipsEmptyRows, SkipsOnFailure, WithHeadingRow, WithValidation
 {
     use SkipsFailures;
 
@@ -54,7 +55,7 @@ class DepenseImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wit
     /** @var array<string, int> libellé de dépense => nombre de lignes dont le compte comptable saisi n'a pas été reconnu */
     public array $comptesNonRattaches = [];
 
-    /** @var array<int, string> libellé des lignes en échec métier (budget insuffisant, etc.) — distinct de failures(), qui ne couvre que la validation de forme */
+    /** @var array<int, array{ligne: int, nom: string, message: string, donnees: array}> */
     public array $erreurs = [];
 
     /** @var Collection<string, CompteComptable>|null code/libellé normalisé => compte */
@@ -62,49 +63,63 @@ class DepenseImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wit
 
     public function __construct(private readonly int $schoolId, private readonly ?int $saisiPar = null) {}
 
-    public function collection(Collection $rows): void
+    public function prepareForValidation(array $data, int $index): array
     {
-        $service = app(DepenseService::class);
+        return [
+            ...$this->normaliser($data),
+            // Conserve les cellules d'origine, même si aucun en-tête n'est reconnu.
+            '_donnees' => array_filter($data, fn ($valeur) => $valeur !== null && $valeur !== ''),
+        ];
+    }
 
-        foreach ($rows as $row) {
-            $ligne = $this->normaliser($row instanceof Collection ? $row->all() : $row);
+    public function onRow(Row $row): void
+    {
+        $ligne = $row->toArray(null, false, false);
+        [$compteId, $compteBrut] = $this->compteId($ligne['compte']);
 
-            if ($ligne['libelle'] === null || $ligne['montant'] === null) {
-                continue;
-            }
+        if ($compteBrut !== null && $compteId === null) {
+            $this->comptesNonRattaches[$ligne['libelle']] = ($this->comptesNonRattaches[$ligne['libelle']] ?? 0) + 1;
+        }
 
-            [$compteId, $compteBrut] = $this->compteId($ligne['compte']);
+        try {
+            app(DepenseService::class)->enregistrer($this->schoolId, [
+                'libelle' => $ligne['libelle'],
+                'montant' => $ligne['montant'],
+                'date_depense' => $ligne['date_depense'],
+                'compte_comptable_id' => $compteId,
+                'mode' => $ligne['mode'] ?? 'especes',
+                'beneficiaire' => $ligne['beneficiaire'],
+                'reference_facture' => $ligne['reference_facture'],
+                'responsable' => $ligne['responsable'],
+                'source' => $ligne['source'] ?? 'caisse',
+                'statut' => $ligne['statut'] ?? 'payee',
+            ], $this->saisiPar);
 
-            if ($compteBrut !== null && $compteId === null) {
-                $this->comptesNonRattaches[$ligne['libelle']] = ($this->comptesNonRattaches[$ligne['libelle']] ?? 0) + 1;
-            }
-
-            try {
-                $service->enregistrer($this->schoolId, [
-                    'libelle' => $ligne['libelle'],
-                    'montant' => $ligne['montant'],
-                    'date_depense' => $ligne['date_depense'],
-                    'compte_comptable_id' => $compteId,
-                    'mode' => $ligne['mode'] ?? 'especes',
-                    'beneficiaire' => $ligne['beneficiaire'],
-                    'reference_facture' => $ligne['reference_facture'],
-                    'responsable' => $ligne['responsable'],
-                    'source' => $ligne['source'] ?? 'caisse',
-                    'statut' => $ligne['statut'] ?? 'payee',
-                ], $this->saisiPar);
-
-                $this->importedCount++;
-            } catch (Throwable $e) {
-                $this->erreurs[] = "{$ligne['libelle']} : {$e->getMessage()}";
-            }
+            $this->importedCount++;
+        } catch (Throwable $e) {
+            $this->erreurs[] = [
+                'ligne' => $row->getIndex(),
+                'nom' => $ligne['libelle'],
+                'message' => $e->getMessage(),
+                'donnees' => $ligne['_donnees'],
+            ];
         }
     }
 
     public function rules(): array
     {
         return [
-            '*.libelle' => ['nullable', 'string'],
-            '*.montant' => ['nullable', 'numeric'],
+            'libelle' => ['required', 'string'],
+            'montant' => ['required', 'integer', 'min:1'],
+        ];
+    }
+
+    public function customValidationMessages(): array
+    {
+        return [
+            'libelle.required' => 'Libellé manquant ou colonne Libelle non reconnue.',
+            'montant.required' => 'Montant manquant, non numérique ou colonne Montant non reconnue.',
+            'montant.min' => 'Le montant doit être supérieur à zéro.',
         ];
     }
 

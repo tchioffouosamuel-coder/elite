@@ -7,23 +7,26 @@ use App\Models\InventaireArticle;
 use App\Models\MalaiseReferentiel;
 use App\Models\VisiteInfirmerie;
 use App\Services\InfirmerieService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Concerns\OnEachRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Row;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use Throwable;
 
-class VisiteInfirmerieImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithHeadingRow, WithValidation
+class VisiteInfirmerieImport implements OnEachRow, SkipsEmptyRows, SkipsOnFailure, WithHeadingRow, WithValidation
 {
     use SkipsFailures;
 
     public int $importedCount = 0;
 
     public int $updatedCount = 0;
+
+    public array $erreurs = [];
 
     private const COLONNES = [
         'id' => 'id',
@@ -99,17 +102,18 @@ class VisiteInfirmerieImport implements SkipsEmptyRows, SkipsOnFailure, ToCollec
             }
         }
 
-        return $ligne;
+        return [...$ligne, '_donnees' => array_filter($data, fn ($valeur) => $valeur !== null && $valeur !== '')];
     }
 
-    public function collection(Collection $rows): void
+    public function onRow(Row $row): void
     {
-        foreach ($rows as $row) {
-            $ligne = $row instanceof Collection ? $row->all() : $row;
+        $ligne = $row->toArray(null, false, false);
+
+        try {
             $eleve = $this->eleve($ligne);
 
             if (! $eleve) {
-                continue;
+                throw new \RuntimeException('Élève introuvable dans cette école : vérifiez le matricule ou le nom.');
             }
 
             $donnees = [
@@ -140,6 +144,13 @@ class VisiteInfirmerieImport implements SkipsEmptyRows, SkipsOnFailure, ToCollec
                 $this->service->creer($donnees, $malaises, $materiels);
                 $this->importedCount++;
             }
+        } catch (Throwable $e) {
+            $this->erreurs[] = [
+                'ligne' => $row->getIndex(),
+                'nom' => $ligne['nom_eleve'] ?? $ligne['matricule_eleve'] ?? null,
+                'message' => $e->getMessage(),
+                'donnees' => $ligne['_donnees'],
+            ];
         }
     }
 

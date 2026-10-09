@@ -156,8 +156,9 @@ class VisiteInfirmerieController extends Controller
             [
                 'imported' => $import->importedCount,
                 'updated' => $import->updatedCount,
-                'failed' => count($import->failures()),
+                'failed' => $import->failures()->unique(fn ($failure) => $failure->row())->count() + count($import->erreurs),
                 'errors' => $import->failures(),
+                'erreurs_metier' => $import->erreurs,
             ],
             "{$import->importedCount} visite(s) créée(s), {$import->updatedCount} mise(s) à jour.",
         );

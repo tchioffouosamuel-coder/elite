@@ -76,25 +76,25 @@ function texteDepuis(valeur: unknown): string {
   return ''
 }
 
-function erreurDepuisTexte(texte: string, index: number): ImportFailure {
+function erreurDepuisTexte(texte: string): ImportFailure {
   const message = texte.trim()
   const correspondance = message.match(/^(?:Ligne|Row)\s+(\d+)(?:\s+\(([^)]+)\))?\s*:\s*(.+)$/i)
 
   return {
-    ligne: correspondance ? Number(correspondance[1]) : index + 1,
+    ligne: correspondance ? Number(correspondance[1]) : null,
     nom: correspondance?.[2] ?? null,
     message: correspondance?.[3]?.trim() || message || "Erreur d'import.",
   }
 }
 
-function normaliserErreurImport(erreur: unknown, index: number): ImportFailure | null {
-  if (typeof erreur === 'string') return erreurDepuisTexte(erreur, index)
+function normaliserErreurImport(erreur: unknown): ImportFailure | null {
+  if (typeof erreur === 'string') return erreurDepuisTexte(erreur)
   if (!estObjet(erreur)) return null
 
   const donnees = estObjet(erreur.donnees)
     ? erreur.donnees
     : estObjet(erreur.values)
-      ? erreur.values
+      ? estObjet(erreur.values._donnees) ? erreur.values._donnees : erreur.values
       : undefined
   const ligne = nombreOuNull(erreur.ligne ?? erreur.row ?? erreur.line ?? erreur.numero)
   const nom = texteDepuis(
@@ -109,7 +109,7 @@ function normaliserErreurImport(erreur: unknown, index: number): ImportFailure |
   const messageBrut = texteDepuis(erreur.message ?? erreur.erreur ?? erreur.error ?? erreur.errors ?? erreur.motif)
   const message = [attribut, messageBrut].filter(Boolean).join(' : ') || "Erreur d'import."
 
-  return { ligne: ligne ?? index + 1, lot: nombreOuNull(erreur.lot) ?? undefined, message, nom, donnees }
+  return { ligne, lot: nombreOuNull(erreur.lot) ?? undefined, message, nom, donnees }
 }
 
 function normaliserErreursImport(resultat: ImportResult): ImportFailure[] {
@@ -220,6 +220,7 @@ export function ImportModal({
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [detailsErreur, setDetailsErreur] = useState<string[]>([])
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [progressToken, setProgressToken] = useState<string | null>(null)
   const [erreurSelectionnee, setErreurSelectionnee] = useState<{
@@ -346,6 +347,9 @@ export function ImportModal({
     if (!file) return
     setSubmitting(true)
     setError(null)
+    setDetailsErreur([])
+    setResult(null)
+    setErreurSelectionnee(null)
     const token = progressUrl && !decoupe ? crypto.randomUUID() : null
     setProgressToken(token)
     setProgress(progressUrl || decoupe ? { processed: 0, total: 0, current_name: null } : null)
@@ -368,7 +372,9 @@ export function ImportModal({
       setResult(data.data)
       onImported()
     } catch (err) {
-      setError((err as ApiError).message)
+      const apiError = err as ApiError
+      setError(apiError.message)
+      setDetailsErreur(Object.entries(apiError.errors ?? {}).map(([champ, messages]) => `${champ} : ${texteDepuis(messages)}`))
     } finally {
       setSubmitting(false)
     }
@@ -436,12 +442,23 @@ export function ImportModal({
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null)
+              setResult(null)
+              setError(null)
+              setDetailsErreur([])
+              setErreurSelectionnee(null)
+            }}
             className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-navy-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cream-50"
           />
         </label>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && (
+          <div role="alert" className="break-words text-sm text-red-500">
+            <p>{error}</p>
+            {detailsErreur.map((detail, index) => <p key={index}>{detail}</p>)}
+          </div>
+        )}
         {submitting && progress && (
           <div className="rounded-lg border border-navy-100 bg-cream-50 p-3" aria-live="polite">
             <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-navy-600">
@@ -458,10 +475,18 @@ export function ImportModal({
         )}
         {result && (
           <div className="flex flex-col gap-1.5 text-sm">
-            <p className="text-green-600">
+            <p className={result.failed > 0 || erreursImport.length > 0 ? 'text-red-600' : result.imported > 0 || (result.updated ?? 0) > 0 ? 'text-green-600' : 'text-amber-600'}>
               {t('import.result', { imported: result.imported, failed: result.failed })}
               {result.updated ? ` ${t('import.updated', { count: result.updated })}` : ''}
             </p>
+            {result.imported === 0 && !result.updated && !result.failed && erreursImport.length === 0 && (
+              <p role="alert" className="text-amber-600">
+                Aucune ligne n'a été importée. Vérifiez que la première ligne du fichier contient les en-têtes attendus et que les lignes suivantes contiennent les données.
+              </p>
+            )}
+            {result.failed > 0 && erreursImport.length === 0 && (
+              <p role="alert" className="text-red-600">Le serveur n'a pas fourni le détail des échecs.</p>
+            )}
             {!!result.affectations && (
               <p className="text-navy-500">{t('import.affectations', { count: result.affectations })}</p>
             )}
@@ -509,8 +534,8 @@ export function ImportModal({
                 )
                   .sort(([, a], [, b]) => b.length - a.length)
                   .map(([message, erreurs]) => (
-                    <div key={message} className="flex items-center justify-between gap-3 text-xs text-red-500">
-                      <span><span className="font-semibold">{erreurs.length}×</span> {message}</span>
+                    <div key={message} className="flex flex-wrap items-center justify-between gap-3 text-xs text-red-500">
+                      <span className="min-w-0 flex-1 basis-48 break-words"><span className="font-semibold">{erreurs.length}×</span> {message}</span>
                       <div className="flex flex-none gap-1">
                         <Button type="button" size="sm" variant="secondary" onClick={() => setErreurSelectionnee({ message, erreurs })}>
                           <Eye className="h-3.5 w-3.5" />
@@ -550,7 +575,7 @@ export function ImportModal({
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurSelectionnee.message}</p>
             <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
               {erreurSelectionnee.erreurs.map((erreur, index) => (
-                <div key={`${erreur.lot ?? 0}-${erreur.ligne ?? index}`} className="flex flex-col gap-1 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+                <div key={index} className="flex flex-col gap-1 break-words border-b border-navy-50 px-3 py-2 text-sm last:border-0">
                   <div className="flex justify-between gap-3">
                     <span className="font-semibold text-navy-800">{erreur.ligne ? `Ligne ${erreur.ligne}` : 'Ligne non précisée'}{erreur.nom ? ` · ${erreur.nom}` : ''}</span>
                     {erreur.lot && <span className="text-navy-400">Lot {erreur.lot}</span>}
