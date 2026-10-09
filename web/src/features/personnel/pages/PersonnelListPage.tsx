@@ -38,6 +38,7 @@ import { Modal } from '@/shared/ui/Modal'
 export function PersonnelListPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
@@ -235,7 +236,7 @@ export function PersonnelListPage() {
   })
 
   const colonnes: Colonne<Personnel>[] = [
-    ...(can('personnel.update|personnel.archiver|personnel.delete')
+    ...(canAny('personnel.update|personnel.archiver|personnel.delete')
       ? [
         {
           cle: 'selection',
@@ -489,7 +490,7 @@ export function PersonnelListPage() {
         }
       />
 
-      {selectedIds.size > 0 && can('personnel.update|personnel.archiver|personnel.delete') && (
+      {selectedIds.size > 0 && canAny('personnel.update|personnel.archiver|personnel.delete') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{selectedIds.size} membre(s) du personnel sélectionné(s)</p>

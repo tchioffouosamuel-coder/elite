@@ -44,6 +44,7 @@ const COLONNES_MATIERES = [
 export function MatieresPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -231,7 +232,7 @@ export function MatieresPage() {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (m) =>
-        can('matieres.update|matieres.delete') && (
+        canAny('matieres.update|matieres.delete') && (
           <div className="flex items-center gap-1">
             {can('matieres.update') && (
               <button

@@ -35,6 +35,7 @@ const STATUT_TONE: Record<StatutSanction, 'gold' | 'green' | 'neutral'> = {
 export function SanctionsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [classeFiltre, setClasseFiltre] = useState<number | ''>('')
   const [showForm, setShowForm] = useState(false)
@@ -133,7 +134,7 @@ export function SanctionsPage() {
       valeur: (s) => s.statut,
       cellule: (s) => <Badge tone={STATUT_TONE[s.statut]}>{t(`discipline.statut_${s.statut}`)}</Badge>,
     },
-    ...(can('sanctions.update|sanctions.delete')
+    ...(canAny('sanctions.update|sanctions.delete')
       ? [
         {
           cle: 'actions',
@@ -183,7 +184,7 @@ export function SanctionsPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('discipline.sanctions')}</h1>
-        {can('sanctions.create|sanctions.update') && (
+        {canAny('sanctions.create|sanctions.update') && (
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={genererPv}>
               <FileDown className="h-4 w-4" />

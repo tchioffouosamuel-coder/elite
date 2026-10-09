@@ -39,6 +39,7 @@ export function BusTrajetDetailPage() {
   const { id } = useParams<{ id: string }>()
   const trajetId = Number(id)
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
 
   const [showArretForm, setShowArretForm] = useState(false)
@@ -128,7 +129,7 @@ export function BusTrajetDetailPage() {
                     )}
                   </div>
                 </div>
-                {can('bus_arrets.update|bus_arrets.delete') && (
+                {canAny('bus_arrets.update|bus_arrets.delete') && (
                   <div className="flex items-center gap-1">
                     {can('bus_arrets.update') && (
                       <button

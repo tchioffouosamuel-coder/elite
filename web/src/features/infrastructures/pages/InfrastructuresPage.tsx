@@ -54,6 +54,7 @@ const TYPES_AVEC_MATERIAU_ETAT: TypeInfrastructure[] = ['salle_classe', 'bloc_ad
 export function InfrastructuresPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
 
   const [infraEnEdition, setInfraEnEdition] = useState<Infrastructure | null>(null)
@@ -134,7 +135,7 @@ export function InfrastructuresPage() {
       cellule: (i) => (i.besoin_quantite ? <span className="tabular-nums text-gold-600">{i.besoin_quantite}</span> : '—'),
       masquerMobile: true,
     },
-    ...(can('infrastructures.update|infrastructures.delete')
+    ...(canAny('infrastructures.update|infrastructures.delete')
       ? [
           {
             cle: 'actions',
@@ -221,7 +222,7 @@ export function InfrastructuresPage() {
       valeur: (e) => e.statut,
       cellule: (e) => (e.statut ? <Badge tone={TONE_ETAT[e.statut]}>{t(`infrastructures.etat_${e.statut}`)}</Badge> : '—'),
     },
-    ...(can('equipements.update|equipements.delete')
+    ...(canAny('equipements.update|equipements.delete')
       ? [
           {
             cle: 'actions',
@@ -270,7 +271,7 @@ export function InfrastructuresPage() {
             <Building2 className="h-4 w-4" />
             {t('infrastructures.section_infra')}
           </h2>
-          {can('infrastructures.create|infrastructures.import') && (
+          {canAny('infrastructures.create|infrastructures.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('infrastructures.section_infra')}
@@ -315,7 +316,7 @@ export function InfrastructuresPage() {
             <Sofa className="h-4 w-4" />
             {t('infrastructures.section_equipements')}
           </h2>
-          {can('equipements.create|equipements.import') && (
+          {canAny('equipements.create|equipements.import') && (
             <div className="flex items-center gap-2">
             <ImportExportBar
               titreImport={t('infrastructures.section_equipements')}

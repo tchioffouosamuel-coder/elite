@@ -28,6 +28,7 @@ import type { ApiError } from '@/shared/types/api'
 export function BusTrajetsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -95,7 +96,7 @@ export function BusTrajetsPage() {
         ),
       masquerMobile: true,
     },
-    ...(can('bus_trajets.update|bus_trajets.delete')
+    ...(canAny('bus_trajets.update|bus_trajets.delete')
       ? [
           {
             cle: 'actions',
@@ -146,7 +147,7 @@ export function BusTrajetsPage() {
         sousTitre={t('bus.trajets_subtitle')}
         icon={RouteIcon}
         actions={
-          can('bus_trajets.create|bus_trajets.import') && (
+          canAny('bus_trajets.create|bus_trajets.import') && (
             <>
               {can('bus_trajets.import') && (
                 <Button variant="secondary" onClick={() => setShowImport(true)}>

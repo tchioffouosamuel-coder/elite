@@ -70,6 +70,7 @@ function SelectionClasses({
 export function TarifsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
@@ -430,7 +431,7 @@ export function TarifsPage() {
                       {!frais.is_active && <Badge tone="neutral">Désactivé</Badge>}
                     </div>
                   </div>
-                  {can('frais_annexes.update|frais_annexes.delete') && (
+                  {canAny('frais_annexes.update|frais_annexes.delete') && (
                     // `flex-none` : les actions gardent leur largeur, c'est le
                     // libellé qui cède s'il faut tronquer.
                     <div className="flex flex-none items-center gap-1.5">

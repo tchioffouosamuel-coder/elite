@@ -71,6 +71,7 @@ const RUBRIQUES_AUTRES: { value: RubriqueTexteRentree; label: string }[] = [
 export function RapportRentreePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const user = useAuthStore((s) => s.user)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const setActiveSchool = useAuthStore((s) => s.setActiveSchool)
@@ -188,7 +189,7 @@ export function RapportRentreePage() {
     { cle: 'nature', entete: t('rapportRentree.nature_col'), valeur: (v) => v.nature_visite, cellule: (v) => v.nature_visite ?? '—' },
     { cle: 'objectifs', entete: t('rapportRentree.objectifs_col'), valeur: (v) => v.objectifs, cellule: (v) => v.objectifs ?? '—', masquerMobile: true },
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (v) => v.observations, cellule: (v) => v.observations ?? '—', masquerMobile: true },
-    ...(can('visites_autorites.update|visites_autorites.delete')
+    ...(canAny('visites_autorites.update|visites_autorites.delete')
       ? [
         {
           cle: 'actions',
@@ -218,7 +219,7 @@ export function RapportRentreePage() {
     { cle: 'faites', entete: t('rapportRentree.faites_col'), valeur: (a) => a.faites, cellule: (a) => a.faites ?? '—' },
     { cle: 'taux', entete: t('rapportRentree.taux_col'), valeur: (a) => a.taux_affichage, cellule: (a) => (a.taux_affichage !== null ? <span className="font-semibold tabular-nums">{a.taux_affichage}%</span> : '—') },
     { cle: 'observations', entete: t('rapportRentree.observations_col'), valeur: (a) => a.observations, cellule: (a) => a.observations ?? '—', masquerMobile: true },
-    ...(can('activites_rentree.update|activites_rentree.delete')
+    ...(canAny('activites_rentree.update|activites_rentree.delete')
       ? [
         {
           cle: 'actions',
@@ -247,7 +248,7 @@ export function RapportRentreePage() {
     { cle: 'vendeur', entete: t('rapportRentree.vendeur_col'), valeur: (v) => v.vendeur_nom, cellule: (v) => v.vendeur_nom ?? '—' },
     { cle: 'dossier', entete: t('rapportRentree.dossier_medical_col'), valeur: (v) => (v.dossier_medical_ok === null ? null : v.dossier_medical_ok ? 1 : 0), cellule: (v) => (v.dossier_medical_ok === null ? '—' : v.dossier_medical_ok ? t('common.yes') : t('common.no')) },
     { cle: 'frais', entete: t('rapportRentree.frais_verses_col'), valeur: (v) => v.frais_verses, cellule: (v) => <span className="tabular-nums">{v.frais_verses}</span> },
-    ...(can('ventes_denrees.update|ventes_denrees.delete')
+    ...(canAny('ventes_denrees.update|ventes_denrees.delete')
       ? [
         {
           cle: 'actions',

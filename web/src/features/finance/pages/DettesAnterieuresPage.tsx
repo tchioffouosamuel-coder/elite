@@ -29,6 +29,7 @@ import type { ApiError } from '@/shared/types/api'
 export function DettesAnterieuresPage() {
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const montantsMasques = useUiStore((s) => s.montantsMasques)
 
@@ -105,7 +106,7 @@ export function DettesAnterieuresPage() {
         actions={
           <>
             <ToggleMontantsMasques />
-            {can('dettes_anterieures.import|dettes_anterieures.create') && (
+            {canAny('dettes_anterieures.import|dettes_anterieures.create') && (
               <>
                 {can('dettes_anterieures.import') && (
                   <Button variant="secondary" onClick={() => setImportOuvert(true)}>

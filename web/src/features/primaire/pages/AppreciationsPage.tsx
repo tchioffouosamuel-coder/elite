@@ -36,6 +36,7 @@ import type { ApiError } from '@/shared/types/api'
 export function AppreciationsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [formOuvert, setFormOuvert] = useState(false)
   const [enEdition, setEnEdition] = useState<Appreciation | null>(null)
@@ -169,7 +170,7 @@ export function AppreciationsPage() {
         </Badge>
       ),
     },
-    ...(can('appreciations.update|appreciations.delete')
+    ...(canAny('appreciations.update|appreciations.delete')
       ? [
         {
           cle: 'actions',
@@ -220,7 +221,7 @@ export function AppreciationsPage() {
         sousTitre={t('appreciations.subtitle')}
         icon={SmilePlus}
         actions={
-          can('appreciations.create|appreciations.import') && (
+          canAny('appreciations.create|appreciations.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('appreciations.title')}

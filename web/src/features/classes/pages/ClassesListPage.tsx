@@ -46,6 +46,7 @@ const COLONNES_AFFECTATIONS = ['nom', 'classes', 'enseignant', 'coefficient', 'q
 export function ClassesListPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [showForm, setShowForm] = useState(false)
@@ -174,7 +175,7 @@ export function ClassesListPage() {
   }
 
   const colonnes: Colonne<Classe>[] = [
-    ...(can('classes.update|classes.delete|classes.fusionner')
+    ...(canAny('classes.update|classes.delete|classes.fusionner')
       ? [
         {
           cle: 'checkbox',
@@ -279,7 +280,7 @@ export function ClassesListPage() {
       cle: 'actions',
       entete: t('common.actions'),
       cellule: (c) =>
-        can('classes.update|classes.delete') && (
+        canAny('classes.update|classes.delete') && (
           <div className="flex items-center gap-1">
             <button
               title={t('classes.view')}
@@ -337,7 +338,7 @@ export function ClassesListPage() {
         titre={t('classes.title')}
         icon={School}
         actions={
-          can('classes.create|classes.import') && (
+          canAny('classes.create|classes.import') && (
             <>
               <ImportExportBar
                 titreImport={t('import.title')}
@@ -386,7 +387,7 @@ export function ClassesListPage() {
         </div>
       )}
 
-      {selectedClasses.size > 0 && can('classes.update|classes.delete|classes.fusionner') && (
+      {selectedClasses.size > 0 && canAny('classes.update|classes.delete|classes.fusionner') && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between gap-4">
             <p className="font-medium text-navy-900">{selectedClasses.size} classe(s) sélectionnée(s)</p>

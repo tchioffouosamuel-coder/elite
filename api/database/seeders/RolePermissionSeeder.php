@@ -89,6 +89,7 @@ class RolePermissionSeeder extends Seeder
             ...self::CLASSES,
             'niveaux.*',
             'eleves.view',
+            'identification.view',
             ...self::ELEVES,
             'pedagogie.view',
             ...self::PEDAGOGIE,
@@ -130,6 +131,7 @@ class RolePermissionSeeder extends Seeder
             ...self::CLASSES,
             'niveaux.*',
             'eleves.view',
+            'identification.view',
             ...self::ELEVES,
             'pedagogie.view',
             ...self::PEDAGOGIE,
@@ -169,6 +171,7 @@ class RolePermissionSeeder extends Seeder
             'personnel.view',
             'classes.view',
             'eleves.view',
+            'identification.view',
             'pedagogie.view',
             'notes.view',
             'notes.create',
@@ -201,6 +204,7 @@ class RolePermissionSeeder extends Seeder
             'personnel.view',
             'classes.view',
             'eleves.view',
+            'identification.view',
             'discipline.view',
             ...self::DISCIPLINE,
             ...self::INFIRMERIE,
@@ -235,6 +239,7 @@ class RolePermissionSeeder extends Seeder
         ],
         'econome' => [
             'eleves.view',
+            'identification.view',
             ...self::INVENTAIRE,
             ...self::INFRASTRUCTURES,
             'point_de_vente.*',
@@ -294,6 +299,7 @@ class RolePermissionSeeder extends Seeder
         'infirmier' => [
             ...self::INFIRMERIE,
             'eleves.view',
+            'identification.view',
             'dashboard.view',
         ],
         /*

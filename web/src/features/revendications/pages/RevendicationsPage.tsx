@@ -36,6 +36,7 @@ const STATUT_TONE: Record<StatutRevendication, 'gold' | 'blue' | 'green' | 'red'
 export function RevendicationsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [statutFiltre, setStatutFiltre] = useState<StatutRevendication | ''>('')
   const [showForm, setShowForm] = useState(false)
@@ -99,7 +100,7 @@ export function RevendicationsPage() {
       valeur: (r) => r.statut,
       cellule: (r) => <Badge tone={STATUT_TONE[r.statut]}>{t(`revendications.statut_${r.statut}`)}</Badge>,
     },
-    ...(can('revendications.update|revendications.delete')
+    ...(canAny('revendications.update|revendications.delete')
       ? [
         {
           cle: 'actions',

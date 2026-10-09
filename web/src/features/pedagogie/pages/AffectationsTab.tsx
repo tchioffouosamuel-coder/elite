@@ -61,6 +61,7 @@ export function AffectationsTab({
 }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -109,7 +110,7 @@ export function AffectationsTab({
   const { data: personnels } = useQuery({
     queryKey: ['personnels', 'all'],
     queryFn: () => fetchPersonnels({ per_page: 100 }),
-    enabled: can('affectations.create|affectations.update'),
+    enabled: canAny('affectations.create|affectations.update'),
   })
 
   // Au primaire et en maternelle, le titulaire tient seul la classe : on
@@ -271,7 +272,7 @@ export function AffectationsTab({
   const colonnes: Colonne<ClasseMatiere>[] =
     affectations
       ? [
-        ...(can('affectations.create|affectations.update|affectations.delete')
+        ...(canAny('affectations.create|affectations.update|affectations.delete')
           ? [
             {
               cle: 'selection',
@@ -325,7 +326,7 @@ export function AffectationsTab({
           valeur: (a) => a.quota_horaire ?? 0,
           cellule: (a) => a.quota_horaire ?? '—',
         },
-        ...(can('affectations.update|affectations.delete')
+        ...(canAny('affectations.update|affectations.delete')
           ? [
             {
               cle: 'actions',
@@ -507,7 +508,7 @@ export function AffectationsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {can('affectations.create|affectations.update|affectations.delete|competences.attribuer|matieres.import') && (
+      {canAny('affectations.create|affectations.update|affectations.delete|competences.attribuer|matieres.import') && (
         <div className="flex justify-end gap-2">
           {competencesSelectionnees.size > 0 && !secondaire && can('competences.attribuer') && (
             <>
@@ -637,7 +638,7 @@ export function AffectationsTab({
             messageVide="Aucune affectation pour cette classe."
             parPage={10}
             outils={
-              selectedIds.size > 0 && can('affectations.create|affectations.delete') ? (
+              selectedIds.size > 0 && canAny('affectations.create|affectations.delete') ? (
                 <div className="flex items-center gap-2">
                   {can('affectations.create') && (
                     <Button variant="secondary" size="sm" onClick={() => setShowCopyModal(true)}>

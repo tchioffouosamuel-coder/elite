@@ -1,6 +1,33 @@
 import { createPortal } from 'react-dom'
-import { Minus, Square, X } from 'lucide-react'
+import { Minus, Redo2, Square, Undo2, X } from 'lucide-react'
 import logoMark from '@/assets/logo-mark.png'
+
+function TitleBarButton({
+  label,
+  onClick,
+  children,
+  danger = false,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      className={`flex h-full w-11 items-center justify-center text-white/60 hover:text-white ${
+        danger ? 'hover:bg-red-500' : 'hover:bg-white/10'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
 
 /**
  * Barre de titre du client desktop : la fenêtre Electron est sans cadre
@@ -29,15 +56,22 @@ export function DesktopTitleBar() {
         <span className="truncate">Elites School</span>
       </div>
       <div className="ml-auto flex h-full items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <button type="button" onClick={() => window.desktop?.minimizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Réduire">
+        <TitleBarButton label="Annuler (Ctrl+Z)" onClick={() => window.desktop?.undo()}>
+          <Undo2 className="h-4 w-4" />
+        </TitleBarButton>
+        <TitleBarButton label="Rétablir (Ctrl+Y)" onClick={() => window.desktop?.redo()}>
+          <Redo2 className="h-4 w-4" />
+        </TitleBarButton>
+        <span className="mx-1 h-4 w-px bg-white/15" aria-hidden />
+        <TitleBarButton label="Réduire" onClick={() => window.desktop?.minimizeWindow()}>
           <Minus className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" onClick={() => window.desktop?.toggleMaximizeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-white/10 hover:text-white" aria-label="Agrandir">
+        </TitleBarButton>
+        <TitleBarButton label="Agrandir" onClick={() => window.desktop?.toggleMaximizeWindow()}>
           <Square className="h-3 w-3" />
-        </button>
-        <button type="button" onClick={() => window.desktop?.closeWindow()} className="flex h-full w-11 items-center justify-center text-white/60 hover:bg-red-500 hover:text-white" aria-label="Fermer">
+        </TitleBarButton>
+        <TitleBarButton label="Fermer" onClick={() => window.desktop?.closeWindow()} danger>
           <X className="h-4 w-4" />
-        </button>
+        </TitleBarButton>
       </div>
     </div>,
     document.body,

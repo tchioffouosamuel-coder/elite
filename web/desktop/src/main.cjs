@@ -1075,6 +1075,12 @@ let mainWindow = null;
 /** Dernière étape de démarrage annoncée, rejouée à l'écran d'attente s'il finit de charger après elle. */
 let etapeDemarrage = "Démarrage…";
 
+function executerCommandeEdition(action) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (action === "undo") mainWindow.webContents.undo();
+  if (action === "redo") mainWindow.webContents.redo();
+}
+
 function signalerEtapeDemarrage(message) {
   etapeDemarrage = message;
   mainWindow?.webContents.send("desktop:startup-status", message);
@@ -1115,6 +1121,22 @@ function createWindow() {
   // d'autorisation). `allow` ouvre une vraie fenêtre Electron sur ce blob
   // ou cette URL, exactement comme le ferait un nouvel onglet de navigateur.
   window.webContents.setWindowOpenHandler(() => ({ action: "allow" }));
+
+  window.webContents.on("before-input-event", (event, input) => {
+    const touche = input.key.toLowerCase();
+    const modifieurPrincipal = input.control || input.meta;
+    if (!modifieurPrincipal || input.alt) return;
+
+    if (touche === "z" && !input.shift) {
+      event.preventDefault();
+      executerCommandeEdition("undo");
+    }
+
+    if (touche === "y" || (touche === "z" && input.shift)) {
+      event.preventDefault();
+      executerCommandeEdition("redo");
+    }
+  });
 
   window.webContents.on("did-finish-load", () => {
     window.webContents.send("desktop:startup-status", etapeDemarrage);
@@ -1242,6 +1264,14 @@ ipcMain.handle("desktop:window-toggle-maximize", () => {
 
 ipcMain.handle("desktop:window-close", () => {
   mainWindow?.close();
+});
+
+ipcMain.handle("desktop:edit-undo", () => {
+  executerCommandeEdition("undo");
+});
+
+ipcMain.handle("desktop:edit-redo", () => {
+  executerCommandeEdition("redo");
 });
 
 ipcMain.handle("desktop:check-for-updates", async () => {

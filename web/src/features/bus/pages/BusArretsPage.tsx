@@ -33,6 +33,7 @@ interface LigneArret extends BusArret {
 export function BusArretsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -104,7 +105,7 @@ export function BusArretsPage() {
         </span>
       ),
     },
-    ...(can('bus_arrets.update|bus_arrets.delete')
+    ...(canAny('bus_arrets.update|bus_arrets.delete')
       ? [
         {
           cle: 'actions',
@@ -155,7 +156,7 @@ export function BusArretsPage() {
         sousTitre={t('bus.arrets_subtitle')}
         icon={MapPin}
         actions={
-          can('bus_arrets.create|bus_arrets.import') && (
+          canAny('bus_arrets.create|bus_arrets.import') && (
             <>
               {can('bus_arrets.import') && (
                 <Button variant="secondary" onClick={() => setShowImport(true)}>

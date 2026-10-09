@@ -30,6 +30,7 @@ export function PatientInfirmeriePage() {
   const visiteSelectionnee = Number(searchParams.get('visite'))
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [suppression, setSuppression] = useState<number | null>(null)
   const urlPatient = `/infirmerie/patients/${eleveId}`
@@ -161,7 +162,7 @@ export function PatientInfirmeriePage() {
                     <Champ label={t('infirmerie.cout_autre_materiel')}>{montant(visite.cout_autre_materiel)}</Champ>
                     <Champ label={t('infirmerie.cout_total')}><strong>{montant(visite.cout_total)}</strong></Champ>
                   </dl>
-                  {can('infirmerie.update|infirmerie.delete') && (
+                  {canAny('infirmerie.update|infirmerie.delete') && (
                     <div className="mt-4 flex justify-end gap-2">
                       {can('infirmerie.update') && <Button variant="secondary" onClick={() => navigate(`/infirmerie/${visite.id}/edit?retour=${encodeURIComponent(`${urlPatient}?visite=${visite.id}`)}`)}><Pencil className="h-4 w-4" />{t('common.edit')}</Button>}
                       {can('infirmerie.delete') && <Button variant="danger" disabled={suppression !== null} onClick={() => supprimer(visite.id)}><Trash2 className="h-4 w-4" />{t('common.delete')}</Button>}

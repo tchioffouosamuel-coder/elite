@@ -43,6 +43,7 @@ function redirectionParDefaut(user: AuthUser | null | undefined): string {
 export function ProtectedRoute({
   children,
   permission,
+  permissions,
   enseignantOnly = false,
   enseignantPrimaireOnly = false,
   superAdminOnly = false,
@@ -60,6 +61,7 @@ export function ProtectedRoute({
 }: {
   children: ReactNode
   permission?: string
+  permissions?: readonly string[]
   /**
    * Restreint aux comptes exerçant une fonction d'enseignement — y compris le
    * super admin, qui a bien la permission technique mais n'est titulaire
@@ -130,7 +132,7 @@ export function ProtectedRoute({
    */
   animateurNiveauOnly?: boolean
 }) {
-  const { token, user, can, aAttribution, activeSchool, refreshUser } = useAuthStore()
+  const { token, user, can, canAll, aAttribution, activeSchool, refreshUser } = useAuthStore()
 
   // Le profil vient du stockage local et peut dater d'une version antérieure de
   // l'API (permissions ou établissements accessibles modifiés depuis). On le
@@ -184,6 +186,7 @@ export function ProtectedRoute({
 
   if (superAdminOnly && !user?.is_super_admin) return <Navigate to={redirectionParDefaut(user)} replace />
   if (permission && !can(permission)) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (permissions && !canAll(permissions)) return <Navigate to={redirectionParDefaut(user)} replace />
   if (enseignantOnly && !user?.est_enseignant) return <Navigate to={redirectionParDefaut(user)} replace />
   if (enseignantPrimaireOnly && !user?.is_super_admin && !can('progression.update') && (!user?.est_enseignant || !['primaire', 'maternelle'].includes(activeSchool()?.type ?? ''))) {
     return <Navigate to={redirectionParDefaut(user)} replace />

@@ -291,9 +291,9 @@ export const router = createHashRouter([
         // pas les bloquer avant même d'y arriver.
         element: <ProtectedRoute permission="appel.saisir"><QrScanPage /></ProtectedRoute>,
       },
-      { path: 'identification', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><IdentificationPage /></ProtectedRoute> },
-      { path: 'identification/classes/:classeId', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><IdentificationClassePage /></ProtectedRoute> },
-      { path: 'photos-examen', element: <ProtectedRoute permission="eleves.view" masquerPourTitulaire masquerPourVendeur><PhotosExamenPage /></ProtectedRoute> },
+      { path: 'identification', element: <ProtectedRoute permissions={['identification.view', 'classes.view', 'eleves.view']} masquerPourTitulaire masquerPourVendeur><IdentificationPage /></ProtectedRoute> },
+      { path: 'identification/classes/:classeId', element: <ProtectedRoute permissions={['identification.view', 'classes.view', 'eleves.view']} masquerPourTitulaire masquerPourVendeur><IdentificationClassePage /></ProtectedRoute> },
+      { path: 'photos-examen', element: <ProtectedRoute permissions={['identification.view', 'classes.view', 'eleves.view']} masquerPourTitulaire masquerPourVendeur><PhotosExamenPage /></ProtectedRoute> },
       { path: 'session', element: <ProtectedRoute permission="annees_scolaires.view"><SessionPage /></ProtectedRoute> },
       { path: 'caisse', element: <ProtectedRoute permission="finance.view" financesEcole><CaissePage /></ProtectedRoute> },
       { path: 'caisse/insolvables', element: <ProtectedRoute permission="finance.view" financesEcole><InsolvablesPage /></ProtectedRoute> },

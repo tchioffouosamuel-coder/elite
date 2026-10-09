@@ -172,9 +172,9 @@ const navGroups = [
       { to: '/personnel', label: 'nav.personnel', icon: Users, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['agents', 'employes', 'staff', 'enseignants', 'professeurs'] },
       { to: '/personnel/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['liste personnalisée', 'enseignants', 'professeurs', 'export enseignants'] },
       { to: '/personnel/suivi-activite', label: 'nav.suiviActivite', icon: CalendarClock, permission: 'personnel.view', masquerPourEnseignant: true, keywords: ['presence', 'pointage', 'assiduite', 'activity'] },
-      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permission: 'fonctions.create|fonctions.update|fonctions.delete|fonctions.import', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
-      { to: '/banques', label: 'nav.banques', icon: Landmark, permission: 'banques.create|banques.update|banques.delete|banques.import|banques.mouvements', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
-      { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permission: 'regles_seance.create|regles_seance.update|regles_seance.delete', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
+      { to: '/fonctions-referentiel', label: 'nav.fonctionsReferentiel', icon: BriefcaseBusiness, permissionsAny: 'fonctions.create|fonctions.update|fonctions.delete|fonctions.import', superAdminOnly: true, keywords: ['postes', 'metiers', 'fonctions'] },
+      { to: '/banques', label: 'nav.banques', icon: Landmark, permissionsAny: 'banques.create|banques.update|banques.delete|banques.import|banques.mouvements', superAdminOnly: true, keywords: ['banque', 'virement', 'domiciliation', 'compte'] },
+      { to: '/regles-validation-seance', label: 'nav.reglesValidationSeance', icon: ShieldCheck, permissionsAny: 'regles_seance.create|regles_seance.update|regles_seance.delete', superAdminOnly: true, keywords: ['validation', 'appel', 'qr', 'ma journee', 'verrouillage', 'delai'] },
       {
         to: '/departements',
         label: 'nav.departements',
@@ -446,12 +446,12 @@ const navGroups = [
   {
     label: 'nav.group.identification',
     items: [
-      { to: '/identification', label: 'nav.identification', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['carte scolaire', 'badge', 'id card'] },
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permissions: ['identification.view', 'classes.view', 'eleves.view'], masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['carte scolaire', 'badge', 'id card'] },
       {
         to: '/photos-examen',
         label: 'nav.photosExamen',
         icon: ScanFace,
-        permission: 'eleves.view',
+        permissions: ['identification.view', 'classes.view', 'eleves.view'],
         // BEPC/Probatoire/BAC (OBC) sont des examens du secondaire ; le
         // primaire ne prépare que le CEP (DECC), la maternelle aucun examen.
         types: ['secondaire'] as TypeEcole[],
@@ -462,7 +462,7 @@ const navGroups = [
         to: '/photos-examen',
         label: 'nav.photosExamenPrimaire',
         icon: ScanFace,
-        permission: 'eleves.view',
+        permissions: ['identification.view', 'classes.view', 'eleves.view'],
         types: ['primaire'] as TypeEcole[],
         masquerPourTitulaire: true,
         masquerPourVendeur: true,
@@ -519,7 +519,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, can, aAttribution, clearSession, activeSchool } = useAuthStore()
+  const { user, can, canAny, canAll, aAttribution, clearSession, activeSchool } = useAuthStore()
   const { locale, setLocale, sidebarOpen, toggleSidebar } = useUiStore()
   const [menuOuvert, setMenuOuvert] = useState(false)
   const [groupeTopbarOuvert, setGroupeTopbarOuvert] = useState<string | null>(null)
@@ -632,10 +632,12 @@ export function AppLayout() {
           const itemsAutorises = group.items.filter(
             (item) =>
               (!('permission' in item) || can(item.permission)) &&
+              (!('permissionsAny' in item) || canAny(item.permissionsAny)) &&
+              (!('permissions' in item) || canAll(item.permissions)) &&
               (!('enseignantGestionClasses' in item) ||
                 !item.enseignantGestionClasses ||
                 !user?.est_enseignant ||
-                can('classes.create|classes.update|classes.delete')) &&
+                canAny('classes.create|classes.update|classes.delete')) &&
               (!('masquerPourEnseignant' in item) || !item.masquerPourEnseignant || !user?.est_enseignant) &&
               (!('masquerPourEnseignantSansAccesBulletins' in item) ||
                 !item.masquerPourEnseignantSansAccesBulletins ||
@@ -675,7 +677,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole, enseignantPeutVoirBulletins],
+    [can, canAny, canAll, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole, enseignantPeutVoirBulletins],
   )
 
   /**

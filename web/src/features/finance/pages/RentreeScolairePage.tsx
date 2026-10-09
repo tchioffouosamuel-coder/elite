@@ -45,6 +45,7 @@ const LIBELLES_RUBRIQUE: Record<RubriqueBudgetFonctionnement, string> = {
 export function RentreeScolairePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
 
   const { data: annees } = useQuery({ queryKey: ['annees-scolaires'], queryFn: fetchAnneesScolaires })
@@ -124,7 +125,7 @@ export function RentreeScolairePage() {
     { cle: 'effectif', entete: t('rentree.effectif_col'), valeur: (a) => a.effectif, cellule: (a) => <span className="tabular-nums">{a.effectif}</span> },
     { cle: 'assureur', entete: t('rentree.assureur_col'), valeur: (a) => a.nom_assureur, cellule: (a) => a.nom_assureur ?? '—' },
     { cle: 'police', entete: t('rentree.police_col'), valeur: (a) => a.numero_police, cellule: (a) => a.numero_police ?? '—' },
-    ...(can('assurances_scolaires.update|assurances_scolaires.delete')
+    ...(canAny('assurances_scolaires.update|assurances_scolaires.delete')
       ? [
           {
             cle: 'actions',

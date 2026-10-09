@@ -50,6 +50,7 @@ function couleurCss(couleur: string | null): string {
 export function BusVehiculesPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -137,7 +138,7 @@ export function BusVehiculesPage() {
           >
             <FileBarChart className="h-4 w-4" />
           </button>
-          {can('bus_vehicules.update|bus_vehicules.delete') && (
+          {canAny('bus_vehicules.update|bus_vehicules.delete') && (
             <>
               {can('bus_vehicules.update') && (
                 <button
@@ -183,7 +184,7 @@ export function BusVehiculesPage() {
         sousTitre={t('bus.vehicules_subtitle')}
         icon={Bus}
         actions={
-          can('bus_vehicules.create|bus_vehicules.import') && (
+          canAny('bus_vehicules.create|bus_vehicules.import') && (
             <div className="flex items-center gap-2">
               <ImportExportBar
                 titreImport={t('bus.vehicules_title')}

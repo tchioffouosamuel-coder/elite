@@ -77,6 +77,7 @@ function formatMontant(montant: number, locale: string): string {
 export function InfirmeriePage() {
   const { t, i18n } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [ecoleFiltre, setEcoleFiltre] = useState<FiltreNombre>('')
@@ -205,7 +206,7 @@ export function InfirmeriePage() {
         v.cout_total > 0 ? <Badge tone="gold">{formatMontant(v.cout_total, i18n.language)}</Badge> : <span>—</span>,
       largeur: '140px',
     },
-    ...(can('infirmerie.update|infirmerie.delete')
+    ...(canAny('infirmerie.update|infirmerie.delete')
       ? [
         {
           cle: 'actions',
@@ -253,7 +254,7 @@ export function InfirmeriePage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('infirmerie.title')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-navy-500">{t('infirmerie.subtitle')}</p>
         </div>
-        {can('infirmerie.create|infirmerie.import') && (
+        {canAny('infirmerie.create|infirmerie.import') && (
           <div className="flex flex-wrap items-center gap-2">
             <ImportExportBar
               titreImport={t('infirmerie.import_title')}

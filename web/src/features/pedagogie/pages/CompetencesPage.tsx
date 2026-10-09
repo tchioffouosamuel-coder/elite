@@ -38,6 +38,7 @@ import type { ApiError } from '@/shared/types/api'
 export function CompetencesPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [formOuvert, setFormOuvert] = useState(false)
   const [enEdition, setEnEdition] = useState<Competence | null>(null)
@@ -166,7 +167,7 @@ export function CompetencesPage() {
       ),
       masquerMobile: true,
     },
-    ...(can('competences.update|competences.delete')
+    ...(canAny('competences.update|competences.delete')
       ? [
         {
           cle: 'actions',
@@ -226,7 +227,7 @@ export function CompetencesPage() {
         sousTitre={t('competences.subtitle')}
         icon={Target}
         actions={
-          can('competences.create|competences.import|competences.delete') && (
+          canAny('competences.create|competences.import|competences.delete') && (
             <>
               <ImportExportBar
                 titreImport={t('competences.title')}

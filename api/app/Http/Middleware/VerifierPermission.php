@@ -28,11 +28,12 @@ use Symfony\Component\HttpFoundation\Response;
  * contrôleur — cf. App\Support\Perimetre.
  *
  * Usage : `->middleware('permission:eleves.update')`, ou plusieurs privilèges
- * séparés par `|` — il suffit d'en détenir un.
+ * séparés par `|` quand l'action les exige tous. Pour les rares endpoints
+ * partagés entre plusieurs parcours, ajouter `,any`.
  */
 class VerifierPermission
 {
-    public function handle(Request $request, Closure $next, string $permissions): Response
+    public function handle(Request $request, Closure $next, string $permissions, string $mode = 'all'): Response
     {
         $user = $request->user();
 
@@ -43,6 +44,8 @@ class VerifierPermission
         $requises = array_values(array_filter(explode('|', $permissions)));
         $classeId = $this->classeConcernee($request->route());
         $departementId = $classeId === null ? $this->departementConcerne($request->route()) : null;
+        $modeAny = $mode === 'any';
+        $refusees = [];
 
         foreach ($requises as $permission) {
             $accorde = match (true) {
@@ -51,30 +54,40 @@ class VerifierPermission
                 default => $user->aLaPermission($permission),
             };
 
-            if ($accorde) {
+            if ($modeAny && $accorde) {
                 return $next($request);
             }
+
+            if (! $accorde) {
+                $refusees[] = $permission;
+            }
+        }
+
+        if (! $modeAny && $refusees === []) {
+            return $next($request);
         }
 
         // Détenir le privilège mais pas sur cette classe n'est pas la même
         // chose que ne pas l'avoir : dire « il vous manque “Consulter les
         // classes” » à un enseignant qui consulte les siennes tous les jours
         // l'enverrait réclamer un droit qu'il a déjà.
-        if ($classeId !== null && $this->detientUnDesPrivileges($user, $requises)) {
+        if ($classeId !== null && $this->detientLesPrivilegesAttendus($user, $requises, $modeAny)) {
             return ApiResponse::forbidden(
                 "Cette classe n'entre pas dans votre périmètre : vous n'y enseignez pas et elle ne vous a pas été confiée.",
                 $requises,
             );
         }
 
-        if ($departementId !== null && $this->detientUnDesPrivileges($user, $requises)) {
+        if ($departementId !== null && $this->detientLesPrivilegesAttendus($user, $requises, $modeAny)) {
             return ApiResponse::forbidden(
                 "Ce département n'entre pas dans votre périmètre : vous n'en êtes pas le chef.",
                 $requises,
             );
         }
 
-        return ApiResponse::forbidden($this->message($requises), $requises);
+        $manquantes = $modeAny ? $requises : $refusees;
+
+        return ApiResponse::forbidden($this->message($manquantes, $modeAny), $manquantes);
     }
 
     /**
@@ -124,12 +137,40 @@ class VerifierPermission
     /**
      * @param  list<string>  $requises
      */
-    private function message(array $requises): string
+    private function detientTousLesPrivileges(mixed $user, array $requises): bool
+    {
+        foreach ($requises as $permission) {
+            if (! $user->aLaPermission($permission)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<string>  $requises
+     */
+    private function detientLesPrivilegesAttendus(mixed $user, array $requises, bool $modeAny): bool
+    {
+        return $modeAny
+            ? $this->detientUnDesPrivileges($user, $requises)
+            : $this->detientTousLesPrivileges($user, $requises);
+    }
+
+    /**
+     * @param  list<string>  $requises
+     */
+    private function message(array $requises, bool $modeAny): string
     {
         $libelles = array_map(fn (string $code) => '« '.CataloguePermissions::libelle($code).' »', $requises);
 
-        return count($libelles) === 1
-            ? 'Privilège requis pour cette action : '.$libelles[0].'.'
-            : "Cette action demande l'un de ces privilèges : ".implode(', ', $libelles).'.';
+        if (count($libelles) === 1) {
+            return 'Privilège requis pour cette action : '.$libelles[0].'.';
+        }
+
+        return $modeAny
+            ? "Cette action demande l'un de ces privilèges : ".implode(', ', $libelles).'.'
+            : 'Cette action demande tous ces privilèges : '.implode(', ', $libelles).'.';
     }
 }

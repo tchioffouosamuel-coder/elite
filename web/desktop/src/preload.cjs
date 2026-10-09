@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("desktop", {
   toggleMaximizeWindow: () =>
     ipcRenderer.invoke("desktop:window-toggle-maximize"),
   closeWindow: () => ipcRenderer.invoke("desktop:window-close"),
+  undo: () => ipcRenderer.invoke("desktop:edit-undo"),
+  redo: () => ipcRenderer.invoke("desktop:edit-redo"),
 
   getAppVersion: () => ipcRenderer.invoke("desktop:get-app-version"),
 

@@ -56,6 +56,7 @@ const LIBELLES: Record<StatutPaiement, string> = {
 export function CaissePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -179,7 +180,7 @@ export function CaissePage() {
           <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
             {d.remise > 0 ? francs(d.remise) : '—'}
           </span>
-          {d.remise > 0 && can('remises.update|remises.delete') && (
+          {d.remise > 0 && canAny('remises.update|remises.delete') && (
             <button
               type="button"
               title="Modifier ou supprimer la remise"

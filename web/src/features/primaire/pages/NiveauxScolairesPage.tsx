@@ -30,6 +30,7 @@ import type { ApiError } from '@/shared/types/api'
 export function NiveauxScolairesPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -269,7 +270,7 @@ export function NiveauxScolairesPage() {
           >
             <Eye className="h-4 w-4" />
           </button>
-          {can('niveaux_scolaires.update|niveaux_scolaires.delete') && (
+          {canAny('niveaux_scolaires.update|niveaux_scolaires.delete') && (
             <>
               {can('niveaux_scolaires.update') && (
                 <button
@@ -306,7 +307,7 @@ export function NiveauxScolairesPage() {
     <div className="flex flex-col gap-5">
       <PageHeader titre={t('niveaux.title')} sousTitre={t('niveaux.hint')} icon={Layers} />
 
-      {can('niveaux_scolaires.create|niveaux_scolaires.update') && (
+      {canAny('niveaux_scolaires.create|niveaux_scolaires.update') && (
         <div className="flex max-w-3xl flex-wrap items-end gap-2">
           {(schools?.length ?? 0) > 1 && !editingId && (
             <div className="w-56 flex-none">

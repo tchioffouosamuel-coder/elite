@@ -117,8 +117,9 @@ function plagePeriodes(periodes: readonly Periode[], heureDebut: string, heureFi
 export function EmploiDuTempsPage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
-  const peutGerer = can('emploi_du_temps.create|emploi_du_temps.update|emploi_du_temps.delete|emploi_du_temps.import|seances.generer|edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer')
+  const peutGerer = canAny('emploi_du_temps.create|emploi_du_temps.update|emploi_du_temps.delete|emploi_du_temps.import|seances.generer|edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer')
   const peutPublierBibliotheque = can('bibliotheque.create')
   const queryClient = useQueryClient()
 
@@ -352,7 +353,7 @@ export function EmploiDuTempsPage() {
                     {t('emploiDuTemps.ajouter_creneau')}
                   </Button>
                 )}
-                {can('edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer') && (
+                {canAny('edt_elements.create|edt_elements.update|edt_elements.delete|edt_elements.appliquer') && (
                   <Button variant="secondary" onClick={() => setElementsOuverts(true)}>
                     Pauses & activités
                   </Button>

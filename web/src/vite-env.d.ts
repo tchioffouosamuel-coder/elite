@@ -61,6 +61,8 @@ interface Window {
     minimizeWindow: () => Promise<void>;
     toggleMaximizeWindow: () => Promise<void>;
     closeWindow: () => Promise<void>;
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
     getAppVersion: () => Promise<string>;
     checkForUpdates: () => Promise<{ skipped: boolean; error?: string }>;
     quitAndInstall: () => Promise<void>;

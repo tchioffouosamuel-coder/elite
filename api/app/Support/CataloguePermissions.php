@@ -120,6 +120,9 @@ class CataloguePermissions
             'matricules_nationaux.update' => ['Modifier un matricule national', 'Edit a national ID number'],
             'matricules_nationaux.import' => ['Importer les matricules nationaux', 'Import national ID numbers'],
         ]],
+        'identification' => ['Identification', 'Identification', [
+            'identification.view' => ['Consulter les photos, cartes scolaires et photos d\'examen', 'View photos, ID cards and exam photos'],
+        ]],
         'tuteurs' => ['Parents et tuteurs', 'Parents and guardians', [
             'tuteurs.view' => ["Consulter les tuteurs et l'usage du portail parent", 'View guardians and parent portal usage'],
             'tuteurs.update' => ['Rattacher des enfants à un tuteur', 'Link children to a guardian'],

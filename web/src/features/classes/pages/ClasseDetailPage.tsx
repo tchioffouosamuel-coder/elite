@@ -109,7 +109,7 @@ export function ClasseDetailPage() {
           icon: GitBranch,
           onClick: () => navigate(`/progression/classes/${classe.id}`),
         },
-        can('eleves.view') && {
+        can('identification.view') && can('eleves.view') && {
           label: t('nav.identification'),
           icon: ScanFace,
           onClick: () => navigate(`/identification/classes/${classe.id}`),

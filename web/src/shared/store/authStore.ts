@@ -110,14 +110,12 @@ interface AuthState {
   refreshUser: (user: AuthUser) => void
   setActiveSchool: (schoolId: number | null) => void
   clearSession: () => void
-  /**
-   * Le compte détient-il ce privilège ? Plusieurs codes séparés par `|`
-   * (`eleves.update|eleves.delete`) : il suffit d'en détenir un — même
-   * convention que le middleware `permission` côté API. Sert aux éléments
-   * qui regroupent plusieurs actions (colonne de sélection, menu d'actions),
-   * chaque action restant conditionnée à son propre privilège.
-   */
+  /** Le compte détient-il ce privilège précis ? */
   can: (permission: string) => boolean
+  /** Le compte détient-il au moins un des privilèges listés ? */
+  canAny: (permissions: string | readonly string[]) => boolean
+  /** Le compte détient-il tous les privilèges listés ? */
+  canAll: (permissions: string | readonly string[]) => boolean
   /** Le compte porte-t-il cette responsabilité, sur au moins une classe ? */
   aAttribution: (code: CodeAttribution) => boolean
   activeSchool: () => EcoleAccessible | null
@@ -133,6 +131,12 @@ function ecoleParDefaut(user: AuthUser): number | null {
   if (user.is_super_admin) return null
 
   return user.school_id ?? user.ecoles_accessibles?.[0]?.id ?? null
+}
+
+function codesPermissions(permissions: string | readonly string[]): string[] {
+  return typeof permissions === 'string'
+    ? permissions.split('|').filter(Boolean)
+    : permissions.flatMap((permission) => permission.split('|')).filter(Boolean)
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -166,7 +170,17 @@ export const useAuthStore = create<AuthState>()(
       can: (permission) => {
         const user = get().user
         if (!user) return false
-        return user.is_super_admin || permission.split('|').some((code) => user.permissions.includes(code))
+        return user.is_super_admin || user.permissions.includes(permission)
+      },
+      canAny: (permissions) => {
+        const user = get().user
+        if (!user) return false
+        return user.is_super_admin || codesPermissions(permissions).some((code) => user.permissions.includes(code))
+      },
+      canAll: (permissions) => {
+        const user = get().user
+        if (!user) return false
+        return user.is_super_admin || codesPermissions(permissions).every((code) => user.permissions.includes(code))
       },
       aAttribution: (code) => (get().user?.attributions ?? []).some((a) => a.code === code),
       activeSchool: () => {

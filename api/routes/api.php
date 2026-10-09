@@ -524,11 +524,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::put('sous-systemes/{id}', [SousSystemeController::class, 'update'])->name('sous-systemes.update')->middleware('permission:sous_systemes.update');
             Route::delete('sous-systemes/{id}', [SousSystemeController::class, 'destroy'])->name('sous-systemes.destroy')->middleware('permission:sous_systemes.delete');
 
-            Route::middleware('permission:eleves.view')->group(function () {
+            Route::middleware('permission:identification.view')->group(function () {
                 // Photos DECC & OBC : réservées aux classes d'examen.
                 Route::get('photos-examen/classes', [PhotoExamenController::class, 'classes'])->name('photos-examen.classes');
                 Route::get('photos-examen/classes/{classeId}', [PhotoExamenController::class, 'candidats'])->name('photos-examen.candidats');
                 Route::get('photos-examen/classes/{classeId}/archive', [PhotoExamenController::class, 'archive'])->name('photos-examen.archive');
+            });
+
+            Route::middleware('permission:eleves.view')->group(function () {
                 Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
                 Route::get('eleves/{id}/parcours', [EleveController::class, 'parcours'])->name('eleves.parcours');
                 Route::get('eleves/recherche-globale', [EleveController::class, 'rechercheGlobale'])->name('eleves.recherche-globale');
@@ -589,7 +592,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // pattern dynamique susceptible de le capturer à sa place.
             Route::get('tuteurs/doublons', [TuteurController::class, 'doublons'])->name('tuteurs.doublons.index')->middleware('permission:tuteurs.view');
             Route::post('tuteurs/doublons/fusionner', [TuteurController::class, 'fusionnerDoublon'])->name('tuteurs.doublons.fusionner')->middleware('permission:tuteurs.fusionner');
-            Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche')->middleware('permission:tuteurs.view|eleves.create|eleves.update|preinscriptions.create');
+            Route::get('tuteurs/recherche', [TuteurController::class, 'recherche'])->name('tuteurs.recherche')->middleware('permission:tuteurs.view|eleves.create|eleves.update|preinscriptions.create,any');
             Route::get('tuteurs/identifiants/pdf', [TuteurController::class, 'identifiantsParentPdf'])->name('tuteurs.identifiants-pdf')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/{id}/compte-parent', [TuteurController::class, 'creerCompteParent'])->name('tuteurs.compte-parent')->middleware('permission:tuteurs.comptes');
             Route::post('tuteurs/{id}/basculer-acces', [TuteurController::class, 'basculerAcces'])->name('tuteurs.basculer-acces')->middleware('permission:tuteurs.comptes');
@@ -1041,10 +1044,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
              * donner la caisse ni la flotte ; le contrôleur borne l'élève au
              * périmètre du compte (ses classes).
              */
-            Route::middleware('permission:finance.view|eleves.situation')->group(function () {
+            Route::middleware('permission:finance.view|eleves.situation,any')->group(function () {
                 Route::get('eleves/{eleveId}/scolarite', [ScolariteController::class, 'dossier'])->name('scolarite.dossier');
             });
-            Route::middleware('permission:bus.view|eleves.situation')->group(function () {
+            Route::middleware('permission:bus.view|eleves.situation,any')->group(function () {
                 Route::get('eleves/{eleveId}/transport', [BusAffectationController::class, 'eleve'])->name('bus.eleve');
             });
 

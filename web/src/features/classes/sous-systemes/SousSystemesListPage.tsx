@@ -16,6 +16,7 @@ import { SousSystemeFormModal } from './SousSystemeFormModal'
 export function SousSystemesListPage() {
     const { t } = useTranslation()
     const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
     const queryClient = useQueryClient()
 
     const [showForm, setShowForm] = useState(false)
@@ -88,7 +89,7 @@ export function SousSystemesListPage() {
             cle: 'actions',
             entete: t('common.actions'),
             cellule: (s) =>
-                can('sous_systemes.update|sous_systemes.delete') ? (
+                canAny('sous_systemes.update|sous_systemes.delete') ? (
                     <div className="flex items-center gap-1">
                         {can('sous_systemes.update') && (
                             <button
@@ -119,7 +120,7 @@ export function SousSystemesListPage() {
                 titre={t('sousSystemes.title')}
                 icon={Layers}
                 actions={
-                    can('sous_systemes.create|sous_systemes.import') && (
+                    canAny('sous_systemes.create|sous_systemes.import') && (
                         <div className="flex items-center gap-2">
                             <ImportExportBar
                                 titreImport={t('sousSystemes.title')}

@@ -68,6 +68,7 @@ const TONE_ETAT: Record<EtatArticle, 'green' | 'gold' | 'red' | 'neutral'> = {
 export function InventairePage() {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queryClient = useQueryClient()
   const [categorie, setCategorie] = useState<CategorieArticle | ''>('')
   const [etat, setEtat] = useState<EtatArticle | ''>('')
@@ -245,7 +246,7 @@ export function InventairePage() {
       cellule: (a) => (a.valeur_totale > 0 ? <span className="tabular-nums">{francs(a.valeur_totale)}</span> : '—'),
       masquerMobile: true,
     },
-    ...(can('inventaire.etiquettes|inventaire.update|inventaire.delete')
+    ...(canAny('inventaire.etiquettes|inventaire.update|inventaire.delete')
       ? [
         {
           cle: 'actions',
@@ -324,7 +325,7 @@ export function InventairePage() {
         sousTitre={t('inventaire.subtitle')}
         icon={Boxes}
         actions={
-          can('inventaire.create|inventaire.import|inventaire.etiquettes') && (
+          canAny('inventaire.create|inventaire.import|inventaire.etiquettes') && (
             <>
               <ImportExportBar
                 titreImport={t('inventaire.title')}

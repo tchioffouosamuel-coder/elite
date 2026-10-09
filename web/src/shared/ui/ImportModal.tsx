@@ -37,13 +37,89 @@ interface ImportResult {
    * renvoyée — sans `lot`, un même numéro de ligne réapparaîtrait
    * identique à chaque lot puisque chacun est un petit fichier à part.
    */
-  erreurs?: { ligne: number; lot?: number; message: string; nom?: string | null; donnees?: Record<string, unknown> }[]
+  erreurs?: ImportFailure[]
+  /** Même détail, sous le nom renvoyé par les imports basés sur Laravel Excel. */
+  errors?: unknown[]
+  /** Erreurs métier parfois ajoutées à côté des erreurs de validation Excel. */
+  erreurs_metier?: unknown[]
 }
 
 interface ImportProgress {
   processed: number
   total: number
   current_name: string | null
+}
+
+interface ImportFailure {
+  ligne: number | null
+  lot?: number
+  message: string
+  nom?: string | null
+  donnees?: Record<string, unknown>
+}
+
+function estObjet(valeur: unknown): valeur is Record<string, unknown> {
+  return typeof valeur === 'object' && valeur !== null && !Array.isArray(valeur)
+}
+
+function nombreOuNull(valeur: unknown): number | null {
+  if (typeof valeur === 'number' && Number.isFinite(valeur)) return valeur
+  if (typeof valeur === 'string' && valeur.trim() !== '' && Number.isFinite(Number(valeur))) return Number(valeur)
+  return null
+}
+
+function texteDepuis(valeur: unknown): string {
+  if (typeof valeur === 'string') return valeur
+  if (typeof valeur === 'number' || typeof valeur === 'boolean') return String(valeur)
+  if (Array.isArray(valeur)) return valeur.map(texteDepuis).filter(Boolean).join(' ')
+  if (estObjet(valeur)) return Object.values(valeur).map(texteDepuis).filter(Boolean).join(' ')
+  return ''
+}
+
+function erreurDepuisTexte(texte: string, index: number): ImportFailure {
+  const message = texte.trim()
+  const correspondance = message.match(/^(?:Ligne|Row)\s+(\d+)(?:\s+\(([^)]+)\))?\s*:\s*(.+)$/i)
+
+  return {
+    ligne: correspondance ? Number(correspondance[1]) : index + 1,
+    nom: correspondance?.[2] ?? null,
+    message: correspondance?.[3]?.trim() || message || "Erreur d'import.",
+  }
+}
+
+function normaliserErreurImport(erreur: unknown, index: number): ImportFailure | null {
+  if (typeof erreur === 'string') return erreurDepuisTexte(erreur, index)
+  if (!estObjet(erreur)) return null
+
+  const donnees = estObjet(erreur.donnees)
+    ? erreur.donnees
+    : estObjet(erreur.values)
+      ? erreur.values
+      : undefined
+  const ligne = nombreOuNull(erreur.ligne ?? erreur.row ?? erreur.line ?? erreur.numero)
+  const nom = texteDepuis(
+    erreur.nom
+      ?? erreur.name
+      ?? erreur.nom_complet
+      ?? donnees?.nom
+      ?? donnees?.nom_eleve
+      ?? donnees?.nom_complet,
+  ) || null
+  const attribut = texteDepuis(erreur.attribute ?? erreur.champ)
+  const messageBrut = texteDepuis(erreur.message ?? erreur.erreur ?? erreur.error ?? erreur.errors ?? erreur.motif)
+  const message = [attribut, messageBrut].filter(Boolean).join(' : ') || "Erreur d'import."
+
+  return { ligne: ligne ?? index + 1, lot: nombreOuNull(erreur.lot) ?? undefined, message, nom, donnees }
+}
+
+function normaliserErreursImport(resultat: ImportResult): ImportFailure[] {
+  return [
+    ...(resultat.erreurs ?? []),
+    ...(resultat.errors ?? []),
+    ...(resultat.erreurs_metier ?? []),
+  ]
+    .map(normaliserErreurImport)
+    .filter((erreur): erreur is ImportFailure => erreur !== null)
 }
 
 /**
@@ -148,12 +224,12 @@ export function ImportModal({
   const [progressToken, setProgressToken] = useState<string | null>(null)
   const [erreurSelectionnee, setErreurSelectionnee] = useState<{
     message: string
-    erreurs: NonNullable<ImportResult['erreurs']>
+    erreurs: ImportFailure[]
   } | null>(null)
 
-  const exporterErreurs = (erreurs: NonNullable<ImportResult['erreurs']>, nomFichier: string) => {
+  const exporterErreurs = (erreurs: ImportFailure[], nomFichier: string) => {
     const lignes: Record<string, unknown>[] = erreurs.map((erreur) => ({
-      Ligne: erreur.ligne,
+      Ligne: erreur.ligne ?? '',
       Nom: erreur.nom ?? '',
       Erreur: erreur.message,
       ...erreur.donnees,
@@ -235,7 +311,7 @@ export function ImportModal({
     // Additionnés au fil des lots plutôt que renvoyés en un bloc : chaque
     // requête ne porte que le résultat de son propre lot.
     const agrege: ImportResult = { imported: 0, failed: 0 }
-    const cartes: (keyof ImportResult)[] = ['classes_introuvables', 'enseignants_introuvables', 'affectations_non_rattachees']
+    const cartes: (keyof ImportResult)[] = ['classes_introuvables', 'enseignants_introuvables', 'affectations_non_rattachees', 'trajets_introuvables', 'matieres_introuvables']
 
     for (let i = 0; i < lots; i++) {
       const { data: lot } = await http.post<{ data: ImportResult }>(
@@ -255,8 +331,9 @@ export function ImportModal({
         for (const [nom, n] of Object.entries(libelles)) courant[nom] = (courant[nom] ?? 0) + n
           ; (agrege[cle] as Record<string, number>) = courant
       }
-      if (r.erreurs && r.erreurs.length > 0) {
-        agrege.erreurs = [...(agrege.erreurs ?? []), ...r.erreurs.map((e) => ({ ...e, lot: i + 1 }))]
+      const erreursLot = normaliserErreursImport(r)
+      if (erreursLot.length > 0) {
+        agrege.erreurs = [...(agrege.erreurs ?? []), ...erreursLot.map((e) => ({ ...e, lot: e.lot ?? i + 1 }))]
       }
 
       setProgress({ processed: i + 1, total: lots, current_name: null })
@@ -296,6 +373,8 @@ export function ImportModal({
       setSubmitting(false)
     }
   }
+
+  const erreursImport = result ? normaliserErreursImport(result) : []
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -419,11 +498,11 @@ export function ImportModal({
                 </p>
               ) : null,
             )}
-            {result.erreurs && result.erreurs.length > 0 && (
+            {erreursImport.length > 0 && (
               <div className="mt-1 flex flex-col gap-1 rounded-lg border border-red-100 bg-red-50 p-2.5">
                 <p className="text-xs font-semibold text-red-600">{t('import.erreurs_detail')}</p>
                 {Object.entries(
-                  result.erreurs.reduce<Record<string, NonNullable<ImportResult['erreurs']>>>((acc, e) => {
+                  erreursImport.reduce<Record<string, ImportFailure[]>>((acc, e) => {
                     acc[e.message] = [...(acc[e.message] ?? []), e]
                     return acc
                   }, {}),
@@ -470,10 +549,10 @@ export function ImportModal({
           <div className="flex flex-col gap-3">
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurSelectionnee.message}</p>
             <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-100">
-              {erreurSelectionnee.erreurs.map((erreur) => (
-                <div key={`${erreur.lot ?? 0}-${erreur.ligne}`} className="flex flex-col gap-1 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
+              {erreurSelectionnee.erreurs.map((erreur, index) => (
+                <div key={`${erreur.lot ?? 0}-${erreur.ligne ?? index}`} className="flex flex-col gap-1 border-b border-navy-50 px-3 py-2 text-sm last:border-0">
                   <div className="flex justify-between gap-3">
-                    <span className="font-semibold text-navy-800">Ligne {erreur.ligne}{erreur.nom ? ` · ${erreur.nom}` : ''}</span>
+                    <span className="font-semibold text-navy-800">{erreur.ligne ? `Ligne ${erreur.ligne}` : 'Ligne non précisée'}{erreur.nom ? ` · ${erreur.nom}` : ''}</span>
                     {erreur.lot && <span className="text-navy-400">Lot {erreur.lot}</span>}
                   </div>
                   <span className="text-red-600">{erreur.message}</span>
