@@ -80,6 +80,7 @@ class HistoriqueActionsService
                     $ecoles[] = (int) $ecole;
                     $schoolId ??= (int) $ecole;
                 }
+
                 continue;
             }
             if ($ligne['modele'] === Eleve::class || $ligne['modele'] === Personnel::class) {
@@ -98,11 +99,14 @@ class HistoriqueActionsService
             $capture['incompatible'] = true;
         }
 
-        $this->requete($request->user())->where('etat', 'annulee')->update(['etat' => 'abandonnee']);
+        if ($changements !== [] || $capture['incompatible']) {
+            $this->requete($request->user())->where('etat', 'annulee')->update(['etat' => 'abandonnee']);
+        }
         $uuid = $request->attributes->get('historique.uuid') ?: Str::uuid()->toString();
         abort_unless(Str::isUuid($uuid), 422, 'Identifiant d\'action invalide.');
         if ($import) {
             $contexte['school_ids'] = array_values(array_unique($ecoles ?: [(int) $schoolId]));
+            $schoolId = $contexte['school_ids'][0];
             if ($groupe = $request->attributes->get('historique.groupe')) {
                 $changements = $this->fusionner($groupe->changements, $changements);
                 $contexte['school_ids'] = array_values(array_unique([...$groupe->contexte['school_ids'], ...$contexte['school_ids']]));
@@ -116,7 +120,7 @@ class HistoriqueActionsService
         if ($groupe = $request->attributes->get('historique.groupe')) {
             $groupe->update([
                 'contexte' => $contexte, 'changements' => $capture['incompatible'] ? [] : $changements,
-                'etat' => $capture['incompatible'] ? 'indisponible' : 'appliquee', 'revision' => $groupe->revision + 1,
+                'etat' => $capture['incompatible'] ? 'indisponible' : ($changements === [] ? 'vide' : 'appliquee'), 'revision' => $groupe->revision + 1,
             ]);
 
             return $groupe;
@@ -126,10 +130,10 @@ class HistoriqueActionsService
             'user_id' => $request->user()->id,
             'school_id' => $schoolId,
             'route' => $route,
-            'libelle' => self::definition($route)[1],
+            'libelle' => self::definition($route)[1] ?? 'Import non annulable',
             'contexte' => $contexte,
             'changements' => $capture['incompatible'] ? [] : $changements,
-            'etat' => $capture['incompatible'] ? 'indisponible' : 'appliquee',
+            'etat' => $capture['incompatible'] ? 'indisponible' : ($changements === [] ? 'vide' : 'appliquee'),
         ]);
         $request->attributes->set('historique.uuid', $uuid);
 
@@ -157,6 +161,9 @@ class HistoriqueActionsService
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $action = $this->requete($request->user())->where('uuid', $uuid)->lockForUpdate()->firstOrFail();
             $request->attributes->set('historique.school_id', $action->school_id);
+            if (count($action->contexte['school_ids'] ?? []) > 1) {
+                $request->attributes->set('historique.ecoles_outbox', $action->contexte['school_ids']);
+            }
             abort_unless($action->revision === $request->integer('revision'), 409, 'Cette action a deja ete modifiee. Actualisez l\'historique.');
             abort_unless($action->etat === ($retablir ? 'annulee' : 'appliquee'), 409, 'Cette action ne peut plus etre annulee ou retablie.');
             // Une operation synchronisee vise son UUID, jamais la derniere action du serveur.

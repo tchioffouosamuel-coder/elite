@@ -36,11 +36,20 @@ class EnregistrerDansOutboxLocale
         if (! config('sync.local_replica')
             || ! in_array($request->method(), self::METHODES_MUTANTES, true)
             || ! $reponse->isSuccessful()
-            || $request->routeIs(['api.v1.sync.*', 'api.v1.auth.*', 'api.v1.desktop.*'])) {
+            || $request->routeIs(['api.v1.sync.*', 'api.v1.auth.*', 'api.v1.desktop.*', 'api.v1.eleves.import-preparer'])) {
             return $reponse;
         }
 
         $corps = $this->corpsAvecFichiers($request);
+        if ($ecoles = $request->attributes->get('historique.ecoles_outbox')) {
+            $corps['__historique_ecoles'] = $ecoles;
+        }
+        if ($request->routeIs('api.v1.eleves.import-traiter')) {
+            $corps['__import_dernier'] = $request->attributes->get('historique.import_dernier', false);
+            if ($fichier = $request->attributes->get('historique.import_fichier')) {
+                $corps['file'] = $this->encoderFichier($fichier);
+            }
+        }
         if ($uuid = $request->attributes->get('historique.uuid')) {
             $corps['__historique_action'] = $uuid;
         }

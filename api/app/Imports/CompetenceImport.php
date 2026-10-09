@@ -81,7 +81,9 @@ class CompetenceImport implements SkipsEmptyRows, ToCollection, WithHeadingRow
     public function __construct(
         private readonly int $schoolId,
         private readonly CompetenceAttributionService $attribution,
-    ) {}
+    ) {
+        Resolveur::viderCache();
+    }
 
     /**
      * En-têtes du modèle téléchargeable — et du fichier que l'export produit :

@@ -212,7 +212,8 @@ class SyncController extends Controller
         $chemin = '/api/v1/'.ltrim(str_replace('..', '', $operation['chemin']), '/');
         $corps = $operation['corps'] ?? [];
         $actionUuid = $corps['__historique_action'] ?? null;
-        unset($corps['__historique_action']);
+        $ecolesHistorique = $corps['__historique_ecoles'] ?? null;
+        unset($corps['__historique_action'], $corps['__historique_ecoles']);
         $fichiersTemporaires = [];
         $fichiers = $this->extraireFichiers($corps, $fichiersTemporaires);
 
@@ -235,6 +236,11 @@ class SyncController extends Controller
             $sousRequete->headers->set('X-Action-Id', $actionUuid);
         }
         $sousRequete->attributes->set('historique.synchronisation', true);
+        if (is_array($ecolesHistorique) && $ecolesHistorique !== []
+            && preg_match('#^/api/v1/(eleves/import(?:/traiter/[^/]+)?|historique-actions/[^/]+/(annuler|retablir))$#', $chemin)) {
+            $sousRequete->headers->remove('X-School-Id');
+            $sousRequete->attributes->set('historique.ecoles', $ecolesHistorique);
+        }
 
         try {
             $reponse = app()->handle($sousRequete);

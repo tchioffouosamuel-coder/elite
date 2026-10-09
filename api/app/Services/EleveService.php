@@ -522,7 +522,7 @@ class EleveService extends BaseService
     public function importerChunk(int|array $schoolId, string $token, int $index, ?int $importePar = null): array
     {
         $dossier = $this->dossierImportDecoupe($token);
-        $chemin = "{$dossier}/{$index}.xlsx";
+        $chemin = $this->fichierLot($token, $index);
 
         if (! is_file($chemin)) {
             throw new RuntimeException("Ce lot est introuvable — il a peut-être déjà été traité, ou l'import a expiré.");
@@ -530,13 +530,22 @@ class EleveService extends BaseService
 
         $resultat = $this->importFromExcel($schoolId, $chemin, $importePar);
 
-        @unlink($chemin);
         $dernier = ! is_file("{$dossier}/" . ($index + 1) . '.xlsx');
-        if ($dernier) {
-            @rmdir($dossier);
-        }
+        DB::afterCommit(function () use ($chemin, $dossier, $dernier) {
+            @unlink($chemin);
+            if ($dernier) {
+                @rmdir($dossier);
+            }
+        });
 
         return ['resultat' => $resultat, 'dernier' => $dernier];
+    }
+
+    public function fichierLot(string $token, int $index): string
+    {
+        abort_unless(Str::isUuid($token) && $index >= 0, 422, 'Lot d\'import invalide.');
+
+        return $this->dossierImportDecoupe($token).'/'.$index.'.xlsx';
     }
 
     private function dossierImportDecoupe(string $token): string

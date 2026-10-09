@@ -24,7 +24,8 @@ class CollecteurActions
             return;
         }
         $actuel = $modele::whereKey($modele->getKey())->lockForUpdate()->first();
-        abort_unless($actuel && self::valeurs($actuel) == self::valeurs($modele, $modele->getRawOriginal()), 409,
+        $original = self::valeurs($modele, $modele->getRawOriginal());
+        abort_unless($actuel && array_intersect_key(self::valeurs($actuel), $original) == $original, 409,
             'Ces donnees ont change pendant l\'import. Relancez-le.');
     }
 

@@ -7,10 +7,10 @@ use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Personnel;
 use App\Models\User;
+use App\Services\AnnulationImportService;
 use App\Services\HistoriqueActionsService;
 use App\Support\Historique\CollecteurActions;
 use App\Support\Historique\ImportsAnnulables;
-use App\Models\ActionAnnulable;
 use App\Support\Tenant;
 use Closure;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -28,14 +28,24 @@ class EnregistrerActionAnnulable
 
     public function handle(Request $request, Closure $next): Response
     {
+        if ($ecoles = $request->attributes->get('historique.ecoles')) {
+            abort_unless(is_array($ecoles)
+                && count(array_filter($ecoles, fn ($id) => is_int($id) && $id > 0)) === count($ecoles)
+                && array_diff($ecoles, Tenant::schoolIds()) === [], 403,
+                'Un etablissement de cet import n\'est plus accessible.');
+            app()->bind('tenant.school_ids', fn () => $ecoles);
+        }
         if ($request->routeIs('api.v1.historique.annuler', 'api.v1.historique.retablir')) {
             return $this->transaction(fn () => $next($request));
         }
         if (! HistoriqueActionsService::definition($request->route()?->getName())) {
             $reponse = $next($request);
             if ($reponse->isSuccessful() && ! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
-                && ! $request->routeIs(['api.v1.historique.*', 'api.v1.sync.*', 'api.v1.desktop.*', 'api.v1.notifications.*', 'api.v1.appareils.*'])) {
+                && ! $request->routeIs(['api.v1.historique.*', 'api.v1.sync.*', 'api.v1.desktop.*', 'api.v1.notifications.*', 'api.v1.appareils.*', 'api.v1.eleves.import-preparer'])) {
                 $this->historique->requete($request->user())->where('etat', 'annulee')->update(['etat' => 'abandonnee']);
+                if ($request->routeIs('*.import', '*.import-traiter', '*.import-classe', '*.import-ocr')) {
+                    $this->historique->enregistrer($request, ['changements' => [], 'incompatible' => true]);
+                }
             }
 
             return $reponse;
@@ -48,15 +58,21 @@ class EnregistrerActionAnnulable
             if ($request->routeIs('api.v1.eleves.import-traiter')) {
                 $precedente = $this->historique->requete($request->user())->orderByDesc('id')->lockForUpdate()->first();
                 if ($request->attributes->get('historique.synchronisation')) {
-                    $precedente = $this->historique->requete($request->user())->where('uuid', $uuid)->lockForUpdate()->first() ?? $precedente;
+                    $precedente = $this->historique->requete($request->user())->where('uuid', $uuid)->lockForUpdate()->first();
                 }
                 if ($precedente?->route === $request->route()->getName() && ($precedente->contexte['token'] ?? null) === $request->route('token')) {
-                    abort_unless(in_array($precedente->etat, ['appliquee', 'indisponible'], true), 409, 'Cet import a deja ete annule. Preparez un nouvel import.');
+                    abort_unless(in_array($precedente->etat, ['appliquee', 'indisponible', 'vide'], true), 409, 'Cet import a deja ete annule. Preparez un nouvel import.');
+                    if ($precedente->etat === 'appliquee') {
+                        app(AnnulationImportService::class)->verifier($precedente);
+                    }
                     $request->attributes->set('historique.groupe', $precedente);
                     $uuid = $precedente->uuid;
                 }
             }
             $request->attributes->set('historique.uuid', $uuid);
+            if ($request->routeIs('api.v1.eleves.import', 'api.v1.eleves.import-traiter') && Tenant::isAggregate()) {
+                $request->attributes->set('historique.ecoles_outbox', Tenant::schoolIds());
+            }
             // Les fiches sont relues par le controleur apres la prise du verrou.
             if ($request->routeIs('api.v1.eleves.update', 'api.v1.personnels.update')) {
                 $modele = $request->routeIs('api.v1.eleves.update') ? Eleve::class : Personnel::class;

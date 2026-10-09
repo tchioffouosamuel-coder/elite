@@ -15,6 +15,11 @@ class Resolveur
     /** @var array<string, array<string, int>> classe => (clé normalisée => id), mémorisé le temps de la requête */
     private static array $cache = [];
 
+    public static function viderCache(): void
+    {
+        self::$cache = [];
+    }
+
     /**
      * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modele
      * @param  list<string>  $colonnes  Colonnes candidates, dans l'ordre de préférence.

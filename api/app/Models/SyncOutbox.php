@@ -23,6 +23,13 @@ class SyncOutbox extends Model
 
     protected $fillable = ['id', 'methode', 'chemin', 'school_id', 'desktop_provisioning_id', 'corps', 'created_at', 'pushed_at', 'tentatives'];
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $operation) {
+            $operation->created_at ??= now();
+        });
+    }
+
     protected function casts(): array
     {
         return [

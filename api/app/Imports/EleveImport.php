@@ -89,14 +89,22 @@ class EleveImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithH
         'adresse' => 'adresse',
         'nom_parents' => 'pere_nom',
         'nom_pere' => 'pere_nom',
+        'nom_du_pere' => 'pere_nom',
         'tel_pere' => 'pere_telephone',
+        'telephone_du_pere' => 'pere_telephone',
         'fonction_pere' => 'pere_profession',
+        'profession_du_pere' => 'pere_profession',
         'nom_mere' => 'mere_nom',
+        'nom_de_la_mere' => 'mere_nom',
         'tel_mere' => 'mere_telephone',
+        'telephone_de_la_mere' => 'mere_telephone',
         'fonction_mere' => 'mere_profession',
+        'profession_de_la_mere' => 'mere_profession',
         'tuteur_nom_complet' => 'tuteur_nom',
+        'nom_du_tuteur' => 'tuteur_nom',
         'tel_autre' => 'tuteur_telephone',
         'tuteur_telephone' => 'tuteur_telephone',
+        'telephone_du_tuteur' => 'tuteur_telephone',
 
         /*
          * Situation financière de l'année couverte par le fichier. Le nom de

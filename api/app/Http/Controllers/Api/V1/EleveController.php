@@ -461,12 +461,21 @@ class EleveController extends Controller
         $schoolId = Tenant::isAggregate() ? Tenant::schoolIds() : Tenant::schoolId();
 
         try {
-            ['resultat' => $result, 'dernier' => $dernier] = $this->service->importerChunk(
-                $schoolId,
-                $token,
-                $data['index'],
-                $request->user()?->id,
-            );
+            if ($request->attributes->get('historique.synchronisation') && $request->hasFile('file')) {
+                $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv'], '__import_dernier' => ['required', 'boolean']]);
+                $result = $this->service->importFromExcel($schoolId, $request->file('file'), $request->user()->id);
+                $dernier = $request->boolean('__import_dernier');
+            } else {
+                $chemin = $this->service->fichierLot($token, $data['index']);
+                if (config('sync.local_replica') && is_file($chemin)) {
+                    // L'outbox emporte le lot, pas un chemin temporaire propre a ce poste.
+                    $request->attributes->set('historique.import_fichier', new \Illuminate\Http\UploadedFile($chemin, $data['index'].'.xlsx', null, null, true));
+                }
+                ['resultat' => $result, 'dernier' => $dernier] = $this->service->importerChunk(
+                    $schoolId, $token, $data['index'], $request->user()?->id,
+                );
+            }
+            $request->attributes->set('historique.import_dernier', $dernier);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }

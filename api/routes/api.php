@@ -216,7 +216,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // 'tenant' ajouté explicitement à ces trois-là seulement.
         Route::get('niveaux/export', [NiveauController::class, 'export'])->name('niveaux.export')->middleware(['tenant', 'permission:niveaux.view']);
         Route::get('niveaux/modele', [NiveauController::class, 'modele'])->name('niveaux.modele')->middleware('permission:niveaux.view');
-        Route::post('niveaux/import', [NiveauController::class, 'import'])->name('niveaux.import')->middleware(['tenant', 'permission:niveaux.import']);
+        Route::post('niveaux/import', [NiveauController::class, 'import'])->name('niveaux.import')->middleware(['tenant', 'idempotence', 'historique-actions', 'outbox-local', 'permission:niveaux.import']);
         Route::post('niveaux', [NiveauController::class, 'store'])->name('niveaux.store')->middleware('permission:niveaux.create');
         Route::get('niveaux/{id}', [NiveauController::class, 'show'])->name('niveaux.show')->middleware('permission:niveaux.view');
         Route::put('niveaux/{id}', [NiveauController::class, 'update'])->name('niveaux.update')->middleware('permission:niveaux.update');

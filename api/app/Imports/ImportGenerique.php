@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Support\ImportExport\SpecificationModele;
+use App\Support\ImportExport\Resolveur;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
@@ -28,7 +29,9 @@ class ImportGenerique implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
     public function __construct(
         private readonly SpecificationModele $spec,
         private readonly int $schoolId,
-    ) {}
+    ) {
+        Resolveur::viderCache();
+    }
 
     /**
      * @param  array<string, mixed>  $data
