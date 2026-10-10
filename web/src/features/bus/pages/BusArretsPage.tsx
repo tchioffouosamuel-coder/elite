@@ -21,6 +21,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { ImportModal } from '@/shared/ui/ImportModal'
+import { ExportButton } from '@/shared/ui/ExportButton'
 import { confirmerSuppression, erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { TarifsArretFields } from './TarifsArretFields'
@@ -156,28 +157,29 @@ export function BusArretsPage() {
         sousTitre={t('bus.arrets_subtitle')}
         icon={MapPin}
         actions={
-          canAny('bus_arrets.create|bus_arrets.import') && (
-            <>
-              {can('bus_arrets.import') && (
-                <Button variant="secondary" onClick={() => setShowImport(true)}>
-                  <Upload className="h-4 w-4" />
-                  {t('import.title')}
-                </Button>
-              )}
-              {can('bus_arrets.create') && (
-                <Button
-                  onClick={() => {
-                    setArretEnEdition(null)
-                    setShowForm(true)
-                  }}
-                  disabled={!trajets || trajets.length === 0}
-                >
-                  <Plus className="h-4 w-4" />
-                  {t('bus.arret_add')}
-                </Button>
-              )}
-            </>
-          )
+          <div className="flex items-center gap-2">
+            {/* Consulter la page suffit pour l'export : il ne sort rien que le
+                tableau ci-dessous ne montre déjà, contrairement à l'import. */}
+            <ExportButton url="/bus/arrets/export" nomFichier="arrets-bus.xlsx" />
+            {can('bus_arrets.import') && (
+              <Button variant="secondary" onClick={() => setShowImport(true)}>
+                <Upload className="h-4 w-4" />
+                {t('import.title')}
+              </Button>
+            )}
+            {can('bus_arrets.create') && (
+              <Button
+                onClick={() => {
+                  setArretEnEdition(null)
+                  setShowForm(true)
+                }}
+                disabled={!trajets || trajets.length === 0}
+              >
+                <Plus className="h-4 w-4" />
+                {t('bus.arret_add')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -211,7 +213,7 @@ export function BusArretsPage() {
         <ImportModal
           title={t('import.title')}
           url="/bus/arrets/import"
-          columns={['trajet', 'nom', 'lieu_dit', 'ordre', 'heure_passage']}
+          columns={['trajet', 'nom', 'lieu_dit', 'ordre', 'heure_passage', 'tarif_aller_simple', 'tarif_retour_simple', 'tarif_aller_retour']}
           onClose={() => setShowImport(false)}
           onImported={invalidate}
         />

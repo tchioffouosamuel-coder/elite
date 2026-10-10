@@ -16,7 +16,11 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 /**
  * Colonnes attendues (en-têtes insensibles à la casse) : trajet, nom,
- * lieu_dit, ordre, heure_passage.
+ * lieu_dit, ordre, heure_passage, tarif_aller_simple, tarif_retour_simple,
+ * tarif_aller_retour — les mêmes, dans le même ordre, que produit
+ * {@see \App\Exports\BusArretExport} : un export corrigé dans un tableur se
+ * réimporte donc sans rien perdre. Un tarif laissé vide reste vide, et
+ * l'arrêt retombe sur la grille de son trajet (cf. BusArret::tarifPour).
  *
  * ToCollection plutôt que ToModel : chaque ligne doit résoudre un trajet par
  * nom (les arrêts n'ont pas de `school_id` propre, cf. RegistreSync) et une
@@ -61,6 +65,9 @@ class BusArretImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, Wi
                 'lieu_dit' => $ligne['lieu_dit'] ?? null,
                 'ordre' => $ordre,
                 'heure_passage' => self::heure($ligne['heure_passage'] ?? null),
+                'tarif_aller_simple' => self::entier($ligne['tarif_aller_simple'] ?? null),
+                'tarif_retour_simple' => self::entier($ligne['tarif_retour_simple'] ?? null),
+                'tarif_aller_retour' => self::entier($ligne['tarif_aller_retour'] ?? null),
             ]);
 
             $this->dernierOrdre[$trajetId] = $ordre;

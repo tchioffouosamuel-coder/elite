@@ -1122,6 +1122,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:finance.rapports')->group(function () {
                 Route::get('depenses/bilan/pdf', [DepenseController::class, 'bilanPdf'])->name('depenses.bilan-pdf');
+                Route::get('depenses/export', [DepenseController::class, 'export'])->name('depenses.export');
 
                 /*
                  * État de synthèse des charges et dépenses : le document que
@@ -1264,6 +1265,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('bus/vehicules/{id}/eleves/pdf', [BusVehiculeController::class, 'elevesPdf'])->name('bus.vehicules.eleves-pdf');
                 Route::get('bus/vehicules/{id}/bilan/pdf', [BusVehiculeController::class, 'bilanPdf'])->name('bus.vehicules.bilan-pdf');
                 Route::get('bus/trajets', [BusTrajetController::class, 'index'])->name('bus.trajets.index');
+                Route::get('bus/arrets/export', [BusTrajetController::class, 'exportArrets'])->name('bus.arrets.export');
                 Route::get('bus/trajets/{id}', [BusTrajetController::class, 'show'])->name('bus.trajets.show');
                 Route::get('bus/affectations', [BusAffectationController::class, 'index'])->name('bus.affectations.index');
                 Route::get('bus/affectations/liste-personnalisee/modeles', [BusAffectationController::class, 'modelesListePersonnalisee'])->name('bus.affectations.liste-personnalisee.modeles.index');

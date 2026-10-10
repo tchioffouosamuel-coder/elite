@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\BusArretExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Imports\BusArretImport;
@@ -14,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BusTrajetController extends Controller
 {
@@ -134,6 +136,15 @@ class BusTrajetController extends Controller
     }
 
     // ---- Arrêts ---------------------------------------------------------
+
+    /**
+     * Tous les arrêts, à plat avec le nom de leur trajet — la même vue que
+     * la page Arrêts, et le gabarit que relit l'import ci-dessus.
+     */
+    public function exportArrets(): BinaryFileResponse
+    {
+        return Excel::download(new BusArretExport(), 'arrets-bus.xlsx');
+    }
 
     public function ajouterArret(Request $request, int $trajetId): JsonResponse
     {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ReceiptText, Plus, Ban, Paperclip, CheckCircle2, Wallet, TrendingDown, FileText, FileSpreadsheet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card, StatCard } from '@/shared/ui/Card'
@@ -15,6 +15,8 @@ import { ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { annulerDepense, fetchDepenses, francs, payerDepense, type Depense } from '@/features/finance/api'
 import { DepenseFormModal } from '@/features/finance/pages/DepenseFormModal'
+import { ExportButton } from '@/shared/ui/ExportButton'
+import { useValeurRetardee } from '@/shared/lib/valeurRetardee'
 import type { ApiError } from '@/shared/types/api'
 
 const TONS = { payee: 'green', engagee: 'gold', annulee: 'red' } as const
@@ -25,8 +27,8 @@ const SOURCES = { caisse: 'Caisse', revenu_personnel: 'Revenu personnel', budget
  * Suivi des dépenses.
  *
  * La ventilation par compte est affichée à côté de la liste : c'est elle qui
- * répond à « où part l'argent », alors que la liste répond à « qu'a-t-on payé
- * ce mois-ci ». Les deux questions se posent en même temps.
+ * répond à « où part l'argent », alors que la liste répond à « qu'a-t-on
+ * payé ». Les deux questions se posent en même temps.
  */
 export function DepensesPage() {
   const { t } = useTranslation()
@@ -34,9 +36,11 @@ export function DepensesPage() {
   const activeSchoolId = useAuthStore((s) => s.activeSchoolId)
   const queryClient = useQueryClient()
 
-  const debutMoisCourant = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
-
-  const [du, setDu] = useState(debutMoisCourant)
+  // Aucune période présélectionnée : la page s'ouvre sur l'intégralité des
+  // dépenses. Un « Du » prérempli au 1er du mois courant donnait une liste
+  // vide à l'arrivée dès qu'aucune dépense n'avait encore été saisie ce
+  // mois-ci, sans que rien ne signale qu'un filtre était déjà actif.
+  const [du, setDu] = useState('')
   const [au, setAu] = useState('')
   const [statut, setStatut] = useState('')
   const [terme, setTerme] = useState('')
@@ -44,13 +48,27 @@ export function DepensesPage() {
   const [formOuvert, setFormOuvert] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
+  // La recherche porte sur le serveur : interrogé à chaque caractère, il
+  // rechargeait le tableau sous les doigts de celui qui tape. Le champ reste
+  // piloté par `terme` (frappe instantanée), seule la requête attend que la
+  // saisie retombe.
+  const termeRecherche = useValeurRetardee(terme)
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['depenses', activeSchoolId, du, au, statut, terme, page],
-    queryFn: () => fetchDepenses({ du: du || null, au: au || null, statut: statut || null, q: terme || null, page }),
+    queryKey: ['depenses', activeSchoolId, du, au, statut, termeRecherche, page],
+    queryFn: () =>
+      fetchDepenses({ du: du || null, au: au || null, statut: statut || null, q: termeRecherche || null, page }),
+    // Garde la page précédente affichée pendant la requête suivante : sans
+    // ça, chaque changement de filtre repasse par l'état de chargement et
+    // fait disparaître le tableau.
+    placeholderData: keepPreviousData,
   })
 
   // Un nouveau filtre repart de la première page : la page 3 d'une recherche
-  // précédente n'a aucune raison d'exister dans les résultats du nouveau filtre.
+  // précédente n'a aucune raison d'exister dans les résultats du nouveau
+  // filtre. Pour la recherche, la remise à 1 se fait dès la frappe et non à
+  // l'expiration du retard — attendre aurait lancé une requête sur la page
+  // courante avec le nouveau terme, aussitôt remplacée par celle de la page 1.
   const filtrer = <T,>(setter: (v: T) => void) => (v: T) => {
     setter(v)
     setPage(1)
@@ -191,6 +209,21 @@ export function DepensesPage() {
                 <FileText className="h-4 w-4" />
                 Bilan PDF
               </Button>
+            )}
+            {can('finance.rapports') && (
+              // Mêmes filtres que la liste : le fichier doit correspondre à
+              // ce que l'écran montre au moment du clic, sinon personne ne
+              // sait à quoi le rapprocher.
+              <ExportButton
+                url="/depenses/export"
+                params={{
+                  du: du || undefined,
+                  au: au || undefined,
+                  statut: statut || undefined,
+                  q: termeRecherche || undefined,
+                }}
+                nomFichier="depenses.xlsx"
+              />
             )}
             {can('finance.depenses') && (
               <Button variant="secondary" onClick={() => setShowImport(true)}>

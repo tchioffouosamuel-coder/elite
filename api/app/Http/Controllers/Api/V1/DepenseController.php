@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Exports\DepenseExport;
 use App\Http\Requests\Api\V1\Concerns\ScopedRules;
 use App\Imports\DepenseImport;
 use App\Models\CompteComptable;
@@ -16,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class DepenseController extends Controller
@@ -197,6 +199,18 @@ class DepenseController extends Controller
             'vehicule_id' => $request->integer('vehicule_id') ?: null,
             'q' => $request->string('q')->toString() ?: null,
         ];
+    }
+
+    /**
+     * Les dépenses de la période en Excel — mêmes filtres que la liste
+     * (`du`, `au`, `statut`, `q`), et non paginées : l'écran en montre 30 à
+     * la fois, le fichier doit porter la période entière.
+     */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $bilan = $this->service->bilan(Tenant::schoolId(), $this->filtres($request), null);
+
+        return Excel::download(new DepenseExport($bilan['depenses']), 'depenses.xlsx');
     }
 
     /** Bilan de la periode en PDF : ventilation par poste, puis detail chronologique. */
