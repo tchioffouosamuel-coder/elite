@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { peutVoirFinancesEcole } from '@/app/financesEcole'
+import { estPersonnelDirection } from '@/shared/lib/direction'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
 import { fetchMe } from '@/features/auth/api'
@@ -48,6 +49,8 @@ export function ProtectedRoute({
   enseignantPrimaireOnly = false,
   superAdminOnly = false,
   masquerPourTitulaire = false,
+  masquerPourEnseignant = false,
+  masquerPourEnseignantOrdinaire = false,
   masquerPourVendeur = false,
   masquerPourChauffeur = false,
   chauffeurOnly = false,
@@ -78,6 +81,19 @@ export function ProtectedRoute({
    * par une URL directe.
    */
   masquerPourTitulaire?: boolean
+  /**
+   * Ferme cette route à l'enseignant : sa plateforme s'arrête aux écrans de
+   * sa fonction, exactement comme l'app mobile (cf. le redirect de
+   * `app_router.dart` sur `estEnseignant`). Masquer l'entrée du menu
+   * (`masquerPourEnseignant` dans AppLayout) n'empêcherait pas d'y entrer par
+   * une URL directe.
+   */
+  masquerPourEnseignant?: boolean
+  /**
+   * Même chose, mais l'enseignant qui siège à la direction garde l'accès —
+   * pendant de `peutVoirIdentification()` côté mobile.
+   */
+  masquerPourEnseignantOrdinaire?: boolean
   /**
    * Ferme cette route au rôle vendeur : il garde `eleves.view` pour peupler
    * le sélecteur d'élève au comptoir (vente à crédit), mais l'écran complet
@@ -200,6 +216,10 @@ export function ProtectedRoute({
   const typeEcole = activeSchool()?.type
   const estTitulaireDeClasse = Boolean(user?.est_enseignant) && (typeEcole === 'primaire' || typeEcole === 'maternelle')
   if (masquerPourTitulaire && estTitulaireDeClasse) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (masquerPourEnseignant && user?.est_enseignant) return <Navigate to={redirectionParDefaut(user)} replace />
+  if (masquerPourEnseignantOrdinaire && user?.est_enseignant && !estPersonnelDirection(user)) {
+    return <Navigate to={redirectionParDefaut(user)} replace />
+  }
   if (masquerPourVendeur && user?.est_vendeur) return <Navigate to={redirectionParDefaut(user)} replace />
   if (masquerPourChauffeur && user?.est_chauffeur) return <Navigate to={redirectionParDefaut(user)} replace />
   if (chauffeurOnly && !user?.est_chauffeur) return <Navigate to={redirectionParDefaut(user)} replace />

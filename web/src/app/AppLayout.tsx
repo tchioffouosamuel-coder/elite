@@ -207,6 +207,9 @@ const navGroups = [
         label: 'nav.niveaux',
         icon: Layers,
         permission: 'pedagogie.view',
+        // Référentiel des degrés de l'école : administration, pas
+        // enseignement — l'enseignant a « Mon niveau » s'il l'anime.
+        masquerPourEnseignant: true,
         // La maternelle ne s'organise pas en degrés : l'entrée ne la concerne pas.
         types: ['primaire'] as TypeEcole[],
         keywords: ['degres', 'cycles', 'levels'],
@@ -255,10 +258,10 @@ const navGroups = [
         enseignantGestionClasses: true,
         keywords: ['salles de classe'],
       },
-      { to: '/classes/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'classes.view', masquerPourTitulaire: true, keywords: ['liste personnalisée', 'export classe', 'rapport de classe'] },
+      { to: '/classes/liste-personnalisee', label: 'nav.listePersonnalisee', icon: ClipboardList, permission: 'classes.view', masquerPourTitulaire: true, masquerPourEnseignant: true, keywords: ['liste personnalisée', 'export classe', 'rapport de classe'] },
       { to: '/eleves', label: 'nav.eleves', icon: UserRound, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['students', 'inscriptions', 'fiche eleve'] },
       { to: '/eleves/transferts', label: 'nav.transferts', icon: Repeat, permission: 'eleves.transferer', masquerPourTitulaire: true, keywords: ['changement de classe', 'transfer'] },
-      { to: '/matricules-nationaux', label: 'nav.matriculesNationaux', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['matricule national', 'ministere', 'secondaire'] },
+      { to: '/matricules-nationaux', label: 'nav.matriculesNationaux', icon: IdCard, permission: 'eleves.view', masquerPourTitulaire: true, masquerPourEnseignant: true, masquerPourVendeur: true, keywords: ['matricule national', 'ministere', 'secondaire'] },
       { to: '/archives', label: 'nav.archives', icon: Archive, permission: 'conseil_classe.view', masquerPourTitulaire: true, keywords: ['conseil de classe', 'historique'] },
     ],
   },
@@ -275,7 +278,7 @@ const navGroups = [
   {
     label: 'nav.group.pedagogie',
     items: [
-      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true, keywords: ['subjects', 'coefficients'] },
+      { to: '/matieres', label: 'nav.matieres', icon: BookOpen, permission: 'pedagogie.view', masquerPourTitulaire: true, masquerPourEnseignant: true, keywords: ['subjects', 'coefficients'] },
       {
         to: '/progression',
         label: 'nav.progression',
@@ -289,6 +292,9 @@ const navGroups = [
         icon: CalendarRange,
         permission: 'pedagogie.view',
         masquerPourTitulaire: true,
+        // Le calendrier de l'établissement se règle à la direction ;
+        // l'enseignant le subit, il ne le pose pas.
+        masquerPourEnseignant: true,
       },
       // Référentiel d'évaluation du primaire et de la maternelle : au
       // secondaire la matière se note elle-même, l'écran n'y a rien à montrer.
@@ -361,7 +367,9 @@ const navGroups = [
         estEnseignant: true,
       },
       { to: '/emploi-du-temps', label: 'nav.emploiDuTemps', icon: CalendarClock, permission: 'emploi_du_temps.view', keywords: ['horaire', 'planning', 'timetable', 'creneaux'] },
-      { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view', keywords: ['appel', 'cours', 'presence'] },
+      // Registre de toutes les séances de l'école : « Ma journée » est le
+      // pendant de l'enseignant, qui n'a pas à suivre les cours des autres.
+      { to: '/seances', label: 'nav.seances', icon: ClipboardCheck, permission: 'emploi_du_temps.view', masquerPourEnseignant: true, keywords: ['appel', 'cours', 'presence'] },
       { to: '/codes-qr', label: 'nav.codesQr', icon: QrCode, permission: 'emploi_du_temps.update', keywords: ['qr code', 'scan'] },
     ],
   },
@@ -440,14 +448,16 @@ const navGroups = [
       },
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view', keywords: ['saisie des notes', 'grades'] },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view', keywords: ['classement', 'ranking', 'meilleurs eleves'] },
-      { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
-      { to: '/revendications', label: 'nav.revendications', icon: Gavel, permission: 'revendications.view', keywords: ['reclamations', 'contestations', 'notes contestees'] },
+      { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', masquerPourEnseignant: true, keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
+      // Les réclamations de notes s'instruisent au secrétariat pédagogique,
+      // pas chez l'enseignant dont la note est contestée.
+      { to: '/revendications', label: 'nav.revendications', icon: Gavel, permission: 'revendications.view', masquerPourEnseignant: true, keywords: ['reclamations', 'contestations', 'notes contestees'] },
     ],
   },
   {
     label: 'nav.group.identification',
     items: [
-      { to: '/identification', label: 'nav.identification', icon: IdCard, permissions: ['identification.view', 'classes.view', 'eleves.view'], masquerPourTitulaire: true, masquerPourVendeur: true, keywords: ['carte scolaire', 'badge', 'id card'] },
+      { to: '/identification', label: 'nav.identification', icon: IdCard, permissions: ['identification.view', 'classes.view', 'eleves.view'], masquerPourTitulaire: true, masquerPourEnseignantOrdinaire: true, masquerPourVendeur: true, keywords: ['carte scolaire', 'badge', 'id card'] },
       {
         to: '/photos-examen',
         label: 'nav.photosExamen',
@@ -456,6 +466,7 @@ const navGroups = [
         // BEPC/Probatoire/BAC (OBC) sont des examens du secondaire ; le
         // primaire ne prépare que le CEP (DECC), la maternelle aucun examen.
         types: ['secondaire'] as TypeEcole[],
+        masquerPourEnseignantOrdinaire: true,
         masquerPourVendeur: true,
         keywords: ['bepc', 'probatoire', 'bac', 'obc'],
       },
@@ -466,6 +477,7 @@ const navGroups = [
         permissions: ['identification.view', 'classes.view', 'eleves.view'],
         types: ['primaire'] as TypeEcole[],
         masquerPourTitulaire: true,
+        masquerPourEnseignantOrdinaire: true,
         masquerPourVendeur: true,
         keywords: ['cep', 'decc'],
       },
@@ -606,9 +618,13 @@ export function AppLayout() {
 
   // Les enseignants ordinaires ne peuvent ni gérer les bulletins ni accéder
   // au catalogue de classes depuis le menu mobile ; garder les mêmes filtres.
+  // Un enseignant qui siège à la direction garde les écrans d'établissement
+  // que sa fonction lui ouvre — cf. `peutVoirIdentification()` côté mobile.
+  const estDirection = estPersonnelDirection(user)
+
   const enseignantPeutVoirBulletins =
     !user?.est_enseignant ||
-    estPersonnelDirection(user) ||
+    estDirection ||
     user?.roles.includes('surveillant_general') ||
     can('bulletins.publish')
 
@@ -640,6 +656,10 @@ export function AppLayout() {
                 !user?.est_enseignant ||
                 canAny('classes.create|classes.update|classes.delete')) &&
               (!('masquerPourEnseignant' in item) || !item.masquerPourEnseignant || !user?.est_enseignant) &&
+              (!('masquerPourEnseignantOrdinaire' in item) ||
+                !item.masquerPourEnseignantOrdinaire ||
+                !user?.est_enseignant ||
+                estDirection) &&
               (!('masquerPourEnseignantSansAccesBulletins' in item) ||
                 !item.masquerPourEnseignantSansAccesBulletins ||
                 enseignantPeutVoirBulletins) &&
@@ -678,7 +698,7 @@ export function AppLayout() {
           return { ...group, items: itemsUniques }
         })
         .filter((group) => group.items.length > 0),
-    [can, canAny, canAll, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole, enseignantPeutVoirBulletins],
+    [can, canAny, canAll, requeteMenu, t, typeEcole, user?.is_super_admin, user?.est_enseignant, estTitulaireDeClasse, estVendeur, estChauffeur, aUneAttribution, estPersonnel, estParentEtPersonnel, estChefDepartement, estProfesseurPrincipal, estAnimateurNiveau, voitFinancesEcole, enseignantPeutVoirBulletins, estDirection],
   )
 
   /**
