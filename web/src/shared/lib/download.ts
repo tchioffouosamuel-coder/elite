@@ -1,6 +1,38 @@
 import { http } from "@/shared/lib/http";
 import { useDocumentPreviewStore } from "@/shared/store/documentPreviewStore";
 import { imprimerPdf } from "@/shared/lib/pdf";
+import { erreur } from "@/shared/lib/alertes";
+import type { ApiError } from "@/shared/types/api";
+
+/**
+ * Presque tous les appels d'ouverture de document sont des `onClick={() =>
+ * ouvrirDocument(...)}` sans `catch` : un reçu qui échouait ne produisait donc
+ * aucun message, seulement un rejet de promesse non traité — à l'écran, un
+ * bouton qui « ne fait rien ». L'erreur est présentée ici, une fois pour tous
+ * les appelants, comme l'intercepteur HTTP le fait déjà pour les 403.
+ *
+ * `signalerErreur: false` rend la main à un appelant qui sait mieux quoi dire
+ * (cf. le bulletin de l'élève, qui traite le 422 comme une information et non
+ * comme une panne).
+ */
+export interface OptionsDocument {
+  signalerErreur?: boolean;
+}
+
+async function presenter(
+  action: () => Promise<void>,
+  { signalerErreur = true }: OptionsDocument,
+): Promise<void> {
+  try {
+    await action();
+  } catch (e) {
+    if (!signalerErreur) throw e;
+    const { message, status } = e as Partial<ApiError>;
+    // Un 403 a déjà sa propre fenêtre modale (cf. l'intercepteur) ; `erreur()`
+    // la dédoublonne, mais autant ne pas la déclencher du tout.
+    if (status !== 403) erreur(message ?? String(e));
+  }
+}
 
 /**
  * Téléchargement de fichier authentifié (Excel/Word/PDF) : l'API exige un
@@ -64,15 +96,18 @@ export async function ouvrirDocument(
   params?: Record<string, string | number | undefined>,
   headers?: Record<string, string>,
   titre?: string,
+  options: OptionsDocument = {},
 ): Promise<void> {
-  const response = await http.get(url, {
-    params,
-    headers,
-    responseType: "blob",
-  });
-  const document = await verifierPdf(response.data as Blob);
+  return presenter(async () => {
+    const response = await http.get(url, {
+      params,
+      headers,
+      responseType: "blob",
+    });
+    const document = await verifierPdf(response.data as Blob);
 
-  useDocumentPreviewStore.getState().open(document, titre);
+    useDocumentPreviewStore.getState().open(document, titre);
+  }, options);
 }
 
 /**
@@ -84,11 +119,14 @@ export async function imprimerDocument(
   url: string,
   params?: Record<string, string | number | undefined>,
   headers?: Record<string, string>,
+  options: OptionsDocument = {},
 ): Promise<void> {
-  const response = await http.get(url, {
-    params,
-    headers,
-    responseType: "blob",
-  });
-  await imprimerPdf(await verifierPdf(response.data as Blob));
+  return presenter(async () => {
+    const response = await http.get(url, {
+      params,
+      headers,
+      responseType: "blob",
+    });
+    await imprimerPdf(await verifierPdf(response.data as Blob));
+  }, options);
 }

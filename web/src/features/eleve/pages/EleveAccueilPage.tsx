@@ -55,7 +55,11 @@ export function EleveAccueilPage() {
 
   const voirBulletin = async () => {
     try {
-      await ouvrirDocument('/eleve/bulletin')
+      // `signalerErreur: false` : le 422 est traité ici comme une information
+      // (bulletin pas encore publié), pas comme une panne.
+      await ouvrirDocument('/eleve/bulletin', undefined, undefined, undefined, {
+        signalerErreur: false,
+      })
     } catch (err) {
       const apiErr = err as ApiError
       if (apiErr.status === 422) info(apiErr.message)

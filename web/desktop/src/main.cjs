@@ -158,6 +158,20 @@ function resolvePhpArgsServeur() {
   const args = resolvePhpArgsCommuns();
   const extOpcache = path.join(resolvePhpBundleDir(), "ext", "php_opcache.dll");
 
+  // `ELITES_PHP_BINARY` est une aide au débogage, mais elle annule aussi
+  // l'OPcache (cf. `resolvePhpArgsCommuns`) : toutes les requêtes deviennent
+  // ~3,5 fois plus lentes, sans rien à l'écran pour l'expliquer. Comme c'est
+  // une variable d'environnement — donc posable une fois pour toutes et
+  // oubliée ensuite, y compris pour l'application installée —, on le dit.
+  if (process.env.ELITES_PHP_BINARY && !resolvePhpArgsServeur.avertissementEmis) {
+    resolvePhpArgsServeur.avertissementEmis = true;
+    console.warn(
+      `[php] ELITES_PHP_BINARY=${process.env.ELITES_PHP_BINARY} : PHP du système utilisé, ` +
+        "OPcache désactivé, chaque requête recompile Laravel. Supprimez cette variable " +
+        "(setx ELITES_PHP_BINARY \"\") pour retrouver le PHP embarqué et des requêtes normales.",
+    );
+  }
+
   if (args.length === 0 || !fs.existsSync(extOpcache)) return args;
 
   return [
