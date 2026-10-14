@@ -490,8 +490,19 @@ class EmploiDuTempsController extends Controller
         return collect($data['classes_associees'])->concat($classesDuGroupe)->unique()->values()->all();
     }
 
+    /**
+     * La classe visée, bornée au périmètre du compte : `emploi_du_temps.view`
+     * ouvre la route, mais un enseignant n'a affaire qu'aux classes où il
+     * intervient — sans ce contrôle, l'identifiant d'une classe voisine
+     * suffisait à lire son emploi du temps, que la liste ne propose pourtant
+     * pas (cf. `classes()`, déjà filtrée par `dansPerimetre`).
+     */
     private function classe(int $id): Classe
     {
-        return Classe::forSchool(Tenant::schoolIds())->findOrFail($id);
+        $classe = Classe::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        abort_unless(request()->user()->perimetre()->couvre($classe->id), 403);
+
+        return $classe;
     }
 }

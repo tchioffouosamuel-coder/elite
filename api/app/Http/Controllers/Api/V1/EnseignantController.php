@@ -8,11 +8,13 @@ use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\ClasseMatiere;
 use App\Models\Departement;
+use App\Models\EmploiDuTemps;
 use App\Models\Evaluation;
 use App\Models\NiveauScolaire;
 use App\Models\Personnel;
 use App\Models\Remuneration;
 use App\Models\Sequence;
+use App\Services\EmploiDuTempsService;
 use App\Services\EvaluationService;
 use App\Services\NotePrimaireService;
 use App\Services\NoteService;
@@ -193,6 +195,36 @@ class EnseignantController extends Controller
             'affectations' => $lignes,
             'taux_remplissage_moyen' => $tauxAvecValeur->isEmpty() ? null : (int) round($tauxAvecValeur->avg()),
         ]);
+    }
+
+    /**
+     * Mon gabarit hebdomadaire, toutes classes confondues : les créneaux des
+     * affectations dont je suis l'enseignant, dans l'ordre de la semaine.
+     *
+     * La vue par classe (`EmploiDuTempsController::index`) répond à « que se
+     * passe-t-il dans cette classe » ; celle-ci à « où dois-je être cette
+     * semaine », qu'aucune route ne savait dire — l'application mobile devait
+     * sinon interroger chaque classe et recoudre le résultat.
+     *
+     * Les créneaux hors cours (pauses, activités) n'y figurent pas : ils ne
+     * portent pas d'affectation, donc pas d'enseignant.
+     */
+    public function monEmploiDuTemps(Request $request): JsonResponse
+    {
+        $personnelId = $request->user()->personnel?->id;
+
+        if ($personnelId === null) {
+            return ApiResponse::success([]);
+        }
+
+        $creneaux = EmploiDuTemps::forSchool(Tenant::schoolIds())
+            ->whereHas('classeMatiere', fn ($q) => $q->where('personnel_id', $personnelId)->where('statut', 'actif'))
+            ->with(['classe', 'classeMatiere.matiere', 'classeMatiere.enseignant', 'salleReference', 'classesAssociees'])
+            ->orderBy('jour')
+            ->orderBy('heure_debut')
+            ->get();
+
+        return ApiResponse::success($creneaux->map(EmploiDuTempsService::presenter(...))->values());
     }
 
     /**

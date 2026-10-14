@@ -754,6 +754,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::put('mes-informations', [EnseignantController::class, 'mettreAJourMesInformations'])->name('mes-informations.update');
                 Route::get('remuneration', [EnseignantController::class, 'maRemuneration'])->name('remuneration.show');
                 Route::get('mon-departement', [EnseignantController::class, 'monDepartement'])->name('mon-departement.show');
+                Route::get('mon-emploi-du-temps', [EnseignantController::class, 'monEmploiDuTemps'])->name('mon-emploi-du-temps.show');
                 Route::get('ma-classe-prof-principal', [EnseignantController::class, 'maClasseProfPrincipal'])->name('ma-classe-prof-principal.show');
                 Route::get('mon-niveau', [EnseignantController::class, 'monNiveau'])->name('mon-niveau.show');
                 Route::post('classe-matieres/{classeMatiereId}/evaluations', [EnseignantController::class, 'ajouterEvaluation'])->name('evaluations.store');

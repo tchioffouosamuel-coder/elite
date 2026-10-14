@@ -8,6 +8,7 @@ use App\Models\Departement;
 use App\Models\FonctionReferentiel;
 use App\Models\Personnel;
 use App\Services\CompteAgentService;
+use App\Support\FonctionRoles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -181,6 +182,9 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
 
     /** @var array<string, int>|null clé normalisée => id de classe */
     private ?array $classes = null;
+
+    /** @var Collection<int, FonctionReferentiel>|null référentiel de l'école */
+    private ?Collection $fonctionsReferentiel = null;
 
     public function __construct(private readonly int $schoolId) {}
 
@@ -395,6 +399,12 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
      * « Nursery 1-A »). On ne devine pas une fonction à partir d'une classe :
      * mieux vaut laisser vide et la saisir, la fonction porte les privilèges.
      *
+     * Le libellé est rapproché du référentiel dans les deux langues et à la
+     * normalisation près (cf. `FonctionRoles::normaliser`) : « Teacher »
+     * retombe sur « Enseignant », qui porte déjà ses privilèges, au lieu de
+     * créer une fonction homonyme et vierge — un enseignant rattaché à
+     * celle-ci n'aurait ni `notes.view` ni `est_enseignant`.
+     *
      * @param  array<string, mixed>  $ligne
      */
     private function fonctionId(array $ligne): ?int
@@ -405,17 +415,42 @@ class PersonnelImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, W
             return null;
         }
 
-        $fonction = FonctionReferentiel::forSchool($this->schoolId)
-            ->whereRaw('LOWER(label_fr) = ?', [Str::lower($libelle)])
-            ->first();
+        $recherche = FonctionRoles::normaliser($libelle);
+
+        $fonction = $this->fonctionsReferentiel()->first(
+            fn (FonctionReferentiel $f) => FonctionRoles::normaliser((string) $f->label_fr) === $recherche
+                || ($f->label_en !== null && FonctionRoles::normaliser($f->label_en) === $recherche)
+        );
+
+        if ($fonction) {
+            return $fonction->id;
+        }
 
         // Une fonction inconnue est ajoutée au référentiel plutôt que de faire
         // échouer la ligne : l'import sert à reprendre un existant, pas à le
         // juger. Elle arrive sans privilège, à doter depuis l'écran dédié.
-        return ($fonction ?: FonctionReferentiel::create([
+        $creee = FonctionReferentiel::create([
             'school_id' => $this->schoolId,
             'label_fr' => $libelle,
-        ]))->id;
+        ]);
+
+        // Les lignes suivantes du même classeur doivent la retrouver plutôt
+        // que d'en créer une par agent.
+        $this->fonctionsReferentiel()->push($creee);
+
+        return $creee->id;
+    }
+
+    /**
+     * Référentiel des fonctions de l'école, lu une fois pour tout le classeur :
+     * le rapprochement se fait en PHP (accents, casse, ponctuation) là où une
+     * comparaison SQL ne saurait pas normaliser.
+     *
+     * @return Collection<int, FonctionReferentiel>
+     */
+    private function fonctionsReferentiel(): Collection
+    {
+        return $this->fonctionsReferentiel ??= FonctionReferentiel::forSchool($this->schoolId)->get();
     }
 
     /**
