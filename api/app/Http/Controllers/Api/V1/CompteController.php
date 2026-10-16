@@ -324,7 +324,7 @@ class CompteController extends Controller
 
         return [
             'id' => $u->id,
-            'nom' => $u->name,
+            'nom' => $u->personnel?->nom_complet ?? $u->name,
             'email' => $u->email,
             'phone' => $u->phone,
             'est_actif' => $u->is_active,
