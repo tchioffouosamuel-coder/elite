@@ -59,6 +59,7 @@ class SituationEnseignantController extends Controller
                 'classe' => $a->eleve->classe?->nom,
                 'trajet' => $a->trajet?->nom,
                 'arret' => $a->arret?->nom,
+                'option_trajet' => $a->option_trajet,
             ])
             ->sortBy(['classe', 'nom_complet'])
             ->values();

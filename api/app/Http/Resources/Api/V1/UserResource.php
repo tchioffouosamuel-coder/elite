@@ -56,6 +56,12 @@ class UserResource extends JsonResource
              * PersonnelEspaceController).
              */
             'est_personnel' => $this->personnel()->exists(),
+            // Point 21 de la punch-list Elites-tech : identifie la fiche à
+            // téléverser (`POST personnels/{id}/photo`) et la photo déjà en
+            // place, pour que l'écran « Mon profil » n'ait pas besoin d'un
+            // second appel juste pour ça.
+            'personnel_id' => $this->whenNotNull($this->personnel?->id),
+            'avatar_url' => $this->whenNotNull($this->personnel?->photo_path ? Storage::disk('public')->url($this->personnel->photo_path) : null),
             /*
              * Responsabilités nominatives : professeur principal, surveillant
              * général, censeur, conseiller d'orientation, chef de département,

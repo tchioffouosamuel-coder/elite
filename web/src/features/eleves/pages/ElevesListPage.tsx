@@ -200,6 +200,7 @@ export function ElevesListPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const queryClient = useQueryClient()
   const [showImport, setShowImport] = useState(false)
@@ -397,7 +398,7 @@ export function ElevesListPage() {
     {
       cle: 'photo',
       entete: '',
-      cellule: (e) => <PhotoCell eleve={e} canManage={can('eleves.update')} />,
+      cellule: (e) => <PhotoCell eleve={e} canManage={canAny(['eleves.update', 'eleves.photo'])} />,
     },
     {
       cle: 'matricule',

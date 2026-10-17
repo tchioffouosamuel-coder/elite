@@ -6,6 +6,7 @@ use App\Imports\PersonnelImport;
 use App\Models\Personnel;
 use App\Models\User;
 use App\Repositories\PersonnelRepository;
+use App\Services\Concerns\TraitePhotoCarree;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -17,6 +18,8 @@ use RuntimeException;
 
 class PersonnelService extends BaseService
 {
+    use TraitePhotoCarree;
+
     public function __construct(
         private readonly PersonnelRepository $repository,
         private readonly CompteAgentService $comptes,
@@ -172,6 +175,26 @@ class PersonnelService extends BaseService
      * bloquer la suppression. Le compte de connexion, lui, n'a pas de raison de
      * survivre à l'agent qu'il représentait.
      */
+    /** Point 21 de la punch-list Elites-tech : chaque agent peut téléverser sa propre photo de profil. */
+    public function updatePhoto(Personnel $personnel, UploadedFile $file): Personnel
+    {
+        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhotoCarree($file, ['personnel_id' => $personnel->id]);
+
+        $path = 'personnels/photos/' . $personnel->id . '.' . $extension;
+        Storage::disk('public')->put($path, $contenu);
+
+        return $this->repository->update($personnel, ['photo_path' => $path]);
+    }
+
+    public function deletePhoto(Personnel $personnel): Personnel
+    {
+        if ($personnel->photo_path) {
+            Storage::disk('public')->delete($personnel->photo_path);
+        }
+
+        return $this->repository->update($personnel, ['photo_path' => null]);
+    }
+
     public function delete(Personnel $personnel): void
     {
         $this->transaction(function () use ($personnel) {

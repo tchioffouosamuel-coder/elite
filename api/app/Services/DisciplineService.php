@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Imports\AbsenceImport;
 use App\Models\AbsenceTrimestre;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
@@ -10,10 +11,15 @@ use App\Models\Presence;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
+use App\Services\Concerns\DetecteConflitsRemplacement;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DisciplineService extends BaseService
 {
+    use DetecteConflitsRemplacement;
+
     /** Pointages valant présence : un élève en retard s'est bien présenté. */
     private const STATUTS_PRESENCE = ['present', 'retard'];
 
@@ -221,6 +227,98 @@ class DisciplineService extends BaseService
             }
 
             return $count;
+        });
+    }
+
+    /**
+     * Matricule et nom des élèves actifs de la classe — modèle vide à
+     * remplir hors ligne puis réimporter via {@see importerAbsencesDepuisExcel()}.
+     *
+     * @return Collection<int, array{matricule: ?string, nom_complet:string}>
+     */
+    public function lignesModele(Classe $classe): Collection
+    {
+        return $classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
+            ->map(fn (Eleve $eleve) => ['matricule' => $eleve->matricule, 'nom_complet' => $eleve->nom_complet]);
+    }
+
+    /**
+     * Valide puis écrit un fichier de corrections d'assiduité — même
+     * garantie que {@see \App\Services\NoteService::importFromExcel()} :
+     * les lignes invalides sont rapportées sans bloquer les autres, mais si
+     * au moins une ligne valide remplacerait une correction déjà saisie et
+     * différente, RIEN n'est écrit tant que le client n'a pas confirmé via
+     * `$confirmerRemplacement`.
+     *
+     * Réservé au secondaire : au primaire et en maternelle l'assiduité se
+     * déduit des appels (cf. {@see sauvegarderEnLot()}), il n'y a donc rien
+     * à importer ici.
+     *
+     * @return array{imported: int, failed: int, errors: mixed, confirmation_requise: bool, conflits: array}
+     */
+    public function importerAbsencesDepuisExcel(int $schoolId, Classe $classe, Trimestre $trimestre, UploadedFile $file, ?User $user, bool $confirmerRemplacement = false): array
+    {
+        abort_if(
+            ! $classe->school->estSecondaire(),
+            422,
+            "Au primaire et en maternelle, l'assiduité se déduit des appels : il n'y a rien à importer ici."
+        );
+
+        $import = new AbsenceImport($schoolId, $classe->eleves()->pluck('id')->flip());
+
+        return $this->transaction(function () use ($import, $file, $trimestre, $user, $confirmerRemplacement) {
+            Excel::import($import, $file);
+
+            $existantes = AbsenceTrimestre::where('trimestre_id', $trimestre->id)
+                ->whereIn('eleve_id', collect($import->lignes)->pluck('eleve_id'))
+                ->get()->keyBy('eleve_id');
+            $noms = Eleve::whereIn('id', collect($import->lignes)->pluck('eleve_id'))->pluck('nom_complet', 'id');
+
+            $conflits = $this->detecterConflits(
+                $import->lignes,
+                $existantes,
+                fn (array $l) => $l['eleve_id'],
+                fn (array $l, AbsenceTrimestre $existante) => (float) $existante->heures_justifiees !== $l['heures_justifiees']
+                    || (float) $existante->heures_non_justifiees !== $l['heures_non_justifiees'],
+                fn (array $l, AbsenceTrimestre $existante) => [
+                    'eleve_id' => $l['eleve_id'],
+                    'nom_complet' => $noms->get($l['eleve_id']),
+                    'heures_actuelles' => ['justifiees' => (float) $existante->heures_justifiees, 'non_justifiees' => (float) $existante->heures_non_justifiees],
+                    'heures_fichier' => ['justifiees' => $l['heures_justifiees'], 'non_justifiees' => $l['heures_non_justifiees']],
+                ],
+            );
+
+            if ($conflits !== [] && ! $confirmerRemplacement) {
+                return [
+                    'imported' => 0,
+                    'failed' => count($import->failures()),
+                    'errors' => $import->failures(),
+                    'confirmation_requise' => true,
+                    'conflits' => $conflits,
+                ];
+            }
+
+            $personnelId = $user?->personnel?->id;
+            $count = 0;
+            foreach ($import->lignes as $ligne) {
+                AbsenceTrimestre::updateOrCreate(
+                    ['eleve_id' => $ligne['eleve_id'], 'trimestre_id' => $trimestre->id],
+                    [
+                        'heures_justifiees' => $ligne['heures_justifiees'],
+                        'heures_non_justifiees' => $ligne['heures_non_justifiees'],
+                        'mis_a_jour_par' => $personnelId,
+                    ]
+                );
+                $count++;
+            }
+
+            return [
+                'imported' => $count,
+                'failed' => count($import->failures()),
+                'errors' => $import->failures(),
+                'confirmation_requise' => false,
+                'conflits' => [],
+            ];
         });
     }
 

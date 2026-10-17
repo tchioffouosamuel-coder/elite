@@ -27,6 +27,18 @@ interface FormValues {
 
 type SortieRecu = 'preview' | 'print'
 
+/** Date + heure lisibles, pour l'audit « qui a enregistré / annulé ce versement ». */
+function formatDateHeure(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 /**
  * Encaissement au comptoir, en page dédiée plutôt qu'en modale : la
  * répartition par rubrique a besoin de place, et un reçu qui s'imprime juste
@@ -93,7 +105,7 @@ export function EncaissementPage() {
 
   const montant = Number(watch('montant') || 0)
   const resteApres = (dossier?.reste_a_payer ?? 0) - montant
-  const versements = (dossier?.versements ?? []).filter((v) => !v.annule).sort((a, b) => new Date(b.date_versement + 'T' + (b.heure_versement ?? '00:00:00')).getTime() - new Date(a.date_versement + 'T' + (a.heure_versement ?? '00:00:00')).getTime())
+  const versements = (dossier?.versements ?? []).slice().sort((a, b) => new Date(b.date_versement + 'T' + (b.heure_versement ?? '00:00:00')).getTime() - new Date(a.date_versement + 'T' + (a.heure_versement ?? '00:00:00')).getTime())
 
   // La répartition suggérée suit le montant saisi tant que l'utilisateur n'a
   // pas encore touché aux champs — dès qu'il en modifie un, on ne l'écrase
@@ -241,12 +253,30 @@ export function EncaissementPage() {
                     {versements.map((v) => {
                       const date = v.date_versement ? new Date(`${v.date_versement}T${v.heure_versement ?? '00:00:00'}`) : null
                       return (
-                        <tr key={v.id} className="align-middle text-navy-700">
+                        <tr key={v.id} className={`align-middle text-navy-700 ${v.annule ? 'opacity-60' : ''}`}>
                           <td className="px-2 py-2">{date ? date.toLocaleDateString('fr-FR') : '—'}</td>
                           <td className="px-2 py-2">{v.heure_versement ? v.heure_versement.slice(0, 5) : '—'}</td>
-                          <td className="px-2 py-2 text-right font-semibold tabular-nums text-green-600">{francs(v.montant)}</td>
+                          <td className={`px-2 py-2 text-right font-semibold tabular-nums ${v.annule ? 'text-navy-400 line-through' : 'text-green-600'}`}>
+                            {francs(v.montant)}
+                          </td>
                           <td className="px-2 py-2">{v.mode}</td>
-                          <td className="px-2 py-2 font-medium text-navy-800">{v.numero_recu}</td>
+                          <td className="px-2 py-2 font-medium text-navy-800">
+                            <div className="flex flex-col gap-0.5">
+                              <span>
+                                {v.numero_recu}
+                                {v.annule && <span className="ml-1.5 text-xs font-semibold text-red-500">(annulé)</span>}
+                              </span>
+                              <span className="text-[0.625rem] font-normal text-navy-400">
+                                Enregistré par {v.cree_par} le {formatDateHeure(v.created_at)}
+                              </span>
+                              {v.annule_par && (
+                                <span className="text-[0.625rem] font-semibold text-red-500">
+                                  Annulé par {v.annule_par} le {formatDateHeure(v.annule_le)}
+                                  {v.motif_annulation ? ` — ${v.motif_annulation}` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       )
                     })}

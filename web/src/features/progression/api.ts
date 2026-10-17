@@ -79,6 +79,10 @@ export interface Programme {
   lecons: number;
   traitees: number;
   taux: number;
+  // BUG1 : vraie si cette fiche est commune à toutes les classes où
+  // l'enseignant donne cette matière à ce niveau, plutôt que propre à cette
+  // seule affectation.
+  progression_partagee?: boolean;
 }
 
 export async function fetchProgramme(

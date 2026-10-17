@@ -4,16 +4,17 @@ use App\Http\Controllers\Api\V1\AbsenceController;
 use App\Http\Controllers\Api\V1\ActiviteRentreeController;
 use App\Http\Controllers\Api\V1\AnneeScolaireController;
 use App\Http\Controllers\Api\V1\AnnonceController;
-use App\Http\Controllers\Api\V1\BibliothequeController;
 use App\Http\Controllers\Api\V1\ApeeController;
 use App\Http\Controllers\Api\V1\AppreciationController;
+use App\Http\Controllers\Api\V1\AppreciationSequenceController;
 use App\Http\Controllers\Api\V1\ArchiveClasseController;
 use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
 use App\Http\Controllers\Api\V1\AuditLogController;
-use App\Http\Controllers\Api\V1\HistoriqueActionsController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
+use App\Http\Controllers\Api\V1\BanqueController;
+use App\Http\Controllers\Api\V1\BibliothequeController;
 use App\Http\Controllers\Api\V1\BudgetFonctionnementController;
 use App\Http\Controllers\Api\V1\BudgetPersonnelController;
 use App\Http\Controllers\Api\V1\BulletinController;
@@ -23,11 +24,11 @@ use App\Http\Controllers\Api\V1\BusPaiementController;
 use App\Http\Controllers\Api\V1\BusRemplacementController;
 use App\Http\Controllers\Api\V1\BusTrajetController;
 use App\Http\Controllers\Api\V1\BusVehiculeController;
+use App\Http\Controllers\Api\V1\CalendrierScolaireController;
 use App\Http\Controllers\Api\V1\CarteScolaireController;
 use App\Http\Controllers\Api\V1\ChauffeurEspaceController;
 use App\Http\Controllers\Api\V1\ClasseController;
 use App\Http\Controllers\Api\V1\ClasseMatiereController;
-use App\Http\Controllers\Api\V1\CalendrierScolaireController;
 use App\Http\Controllers\Api\V1\CompetenceController;
 use App\Http\Controllers\Api\V1\CompteController;
 use App\Http\Controllers\Api\V1\ConseilClasseController;
@@ -37,36 +38,33 @@ use App\Http\Controllers\Api\V1\DemandeArticleInventaireAdminController;
 use App\Http\Controllers\Api\V1\DemandeAvanceSalaireAdminController;
 use App\Http\Controllers\Api\V1\DepartementController;
 use App\Http\Controllers\Api\V1\DepenseController;
-use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\DesktopProvisioningController;
 use App\Http\Controllers\Api\V1\DetteAnterieureController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\EleveController;
 use App\Http\Controllers\Api\V1\EleveEspaceController;
 use App\Http\Controllers\Api\V1\EleveRapportsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsController;
 use App\Http\Controllers\Api\V1\EmploiDuTempsElementController;
-use App\Http\Controllers\Api\V1\TroncCommunGroupeController;
 use App\Http\Controllers\Api\V1\EnseignantController;
 use App\Http\Controllers\Api\V1\EtatSyntheseController;
 use App\Http\Controllers\Api\V1\EvaluationController;
-use App\Http\Controllers\Api\V1\BanqueController;
-use App\Http\Controllers\Api\V1\RegleValidationSeanceController;
 use App\Http\Controllers\Api\V1\FonctionReferentielController;
+use App\Http\Controllers\Api\V1\HistoriqueActionsController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\InsolvablesController;
 use App\Http\Controllers\Api\V1\InventaireController;
 use App\Http\Controllers\Api\V1\JustificationAbsenceAdminController;
 use App\Http\Controllers\Api\V1\ListeClassePersonnaliseeController;
-use App\Http\Controllers\Api\V1\ListeEnseignantPersonnaliseeController;
 use App\Http\Controllers\Api\V1\ListeElevesController;
+use App\Http\Controllers\Api\V1\ListeEnseignantPersonnaliseeController;
 use App\Http\Controllers\Api\V1\MaJourneeController;
 use App\Http\Controllers\Api\V1\MalaiseReferentielController;
 use App\Http\Controllers\Api\V1\MatiereController;
 use App\Http\Controllers\Api\V1\MatriculeNationalController;
 use App\Http\Controllers\Api\V1\MigrationStatusController;
 use App\Http\Controllers\Api\V1\ModificationEleveAdminController;
-use App\Http\Controllers\Api\V1\RouteListController;
 use App\Http\Controllers\Api\V1\MoratoireController;
 use App\Http\Controllers\Api\V1\NiveauController;
 use App\Http\Controllers\Api\V1\NiveauScolaireController;
@@ -92,27 +90,33 @@ use App\Http\Controllers\Api\V1\RapportRentreeExportController;
 use App\Http\Controllers\Api\V1\RapportRentreeTexteController;
 use App\Http\Controllers\Api\V1\RapportTrimestreExportController;
 use App\Http\Controllers\Api\V1\RapportTrimestreTexteController;
+use App\Http\Controllers\Api\V1\RegleValidationSeanceController;
 use App\Http\Controllers\Api\V1\RemiseController;
-use App\Http\Controllers\Api\V1\SalleController;
 use App\Http\Controllers\Api\V1\RemunerationController;
 use App\Http\Controllers\Api\V1\ResultatController;
 use App\Http\Controllers\Api\V1\ResultatPrimaireController;
 use App\Http\Controllers\Api\V1\RevendicationController;
+use App\Http\Controllers\Api\V1\RouteListController;
+use App\Http\Controllers\Api\V1\SalleController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\SchoolController;
-use App\Http\Controllers\Api\V1\SmsCallbackController;
-use App\Http\Controllers\Api\V1\SituationEnseignantController;
 use App\Http\Controllers\Api\V1\ScolariteController;
 use App\Http\Controllers\Api\V1\SeanceController;
+use App\Http\Controllers\Api\V1\SequenceController;
 use App\Http\Controllers\Api\V1\SettingController;
+use App\Http\Controllers\Api\V1\SituationEnseignantController;
+use App\Http\Controllers\Api\V1\SmsCallbackController;
 use App\Http\Controllers\Api\V1\SousSystemeController;
 use App\Http\Controllers\Api\V1\StatistiqueController;
 use App\Http\Controllers\Api\V1\SuiviActiviteController;
+use App\Http\Controllers\Api\V1\SuiviSaisiesController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TarifsController;
 use App\Http\Controllers\Api\V1\TrancheScolariteController;
 use App\Http\Controllers\Api\V1\TrimestreController;
+use App\Http\Controllers\Api\V1\TroncCommunGroupeController;
 use App\Http\Controllers\Api\V1\TuteurController;
+use App\Http\Controllers\Api\V1\ValeurSuggereeController;
 use App\Http\Controllers\Api\V1\VenteDenreeController;
 use App\Http\Controllers\Api\V1\VerificationBulletinController;
 use App\Http\Controllers\Api\V1\VerificationController;
@@ -201,6 +205,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('auth/mot-de-passe', [AuthController::class, 'changerMotDePasse'])->name('auth.mot-de-passe');
         Route::put('auth/profil', [AuthController::class, 'updateProfil'])->name('auth.profil');
+
+        // personnels.photo (point 21) : tout agent téléverse sa propre photo de
+        // profil sans passer par `personnel.update` — le contrôleur vérifie
+        // lui-même que la fiche visée est la sienne, sinon exige ce privilège.
+        Route::post('personnels/{id}/photo', [PersonnelController::class, 'photo'])->name('personnels.photo')->middleware('tenant');
+        Route::delete('personnels/{id}/photo', [PersonnelController::class, 'supprimerPhoto'])->name('personnels.photo.destroy')->middleware('tenant');
 
         Route::get('system/migrations/status', MigrationStatusController::class)
             ->middleware('super_admin')
@@ -588,8 +598,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('eleves/import/preparer', [EleveController::class, 'importPreparer'])->name('eleves.import-preparer')->middleware('permission:eleves.import');
             Route::post('eleves/import/traiter/{token}', [EleveController::class, 'importerLot'])->name('eleves.import-traiter')->middleware('permission:eleves.import');
             Route::post('eleves/{id}/transfert', [EleveController::class, 'transfert'])->name('eleves.transfert')->middleware('permission:eleves.transferer');
-            Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo')->middleware('permission:eleves.update');
-            Route::delete('eleves/{id}/photo', [EleveController::class, 'supprimerPhoto'])->name('eleves.photo.destroy')->middleware('permission:eleves.update');
+            // eleves.photo (BUG2) : un enseignant prend/change la photo d'un
+            // élève de ses classes sans avoir eleves.update, qui ouvrirait
+            // en plus l'édition complète de la fiche. Le périmètre reste
+            // posé par Eleve::dansPerimetre() dans EleveService::find().
+            Route::post('eleves/{id}/photo', [EleveController::class, 'photo'])->name('eleves.photo')->middleware('permission:eleves.update|eleves.photo,any');
+            Route::delete('eleves/{id}/photo', [EleveController::class, 'supprimerPhoto'])->name('eleves.photo.destroy')->middleware('permission:eleves.update|eleves.photo,any');
+            // eleves.numero_ordre (point 19) : l'enseignant corrige le numéro
+            // de liste d'un élève de sa classe sans porter eleves.update.
+            Route::patch('eleves/{id}/numero-ordre', [EleveController::class, 'numeroOrdre'])->name('eleves.numero-ordre')->middleware('permission:eleves.update|eleves.numero_ordre,any');
+            // Autocomplétion des champs texte libres du formulaire
+            // d'inscription (lieu de naissance, adresse, profession du
+            // tuteur...) — même couple de permissions que `tuteurs/recherche`
+            // ci-dessous, déjà ouvert à la saisie d'une fiche élève.
+            Route::get('valeurs-suggerees', [ValeurSuggereeController::class, 'index'])->name('valeurs-suggerees.index')->middleware('permission:eleves.create|eleves.update,any');
 
             Route::get('tuteurs', [TuteurController::class, 'index'])->name('tuteurs.index')->middleware('permission:tuteurs.view');
             // Avant `tuteurs/{id}/...` plus bas, même précaution que pour
@@ -883,18 +905,32 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::post('trimestres', [TrimestreController::class, 'store'])->name('trimestres.store')->middleware('permission:trimestres.create');
             Route::put('trimestres/{id}', [TrimestreController::class, 'update'])->name('trimestres.update')->middleware('permission:trimestres.update');
-            Route::patch('sequences/{id}/saisie', [\App\Http\Controllers\Api\V1\SequenceController::class, 'saisie'])->name('sequences.saisie')->middleware('permission:trimestres.update');
+            Route::patch('sequences/{id}/saisie', [SequenceController::class, 'saisie'])->name('sequences.saisie')->middleware('permission:trimestres.update');
             Route::post('trimestres/{id}/activer', [TrimestreController::class, 'activate'])->name('trimestres.activate')->middleware('permission:trimestres.activer');
             Route::post('trimestres/{id}/generer-seances', [TrimestreController::class, 'genererSeances'])->name('trimestres.generer-seances')->middleware('permission:trimestres.seances');
             Route::post('trimestres/{id}/supprimer-seances', [TrimestreController::class, 'supprimerSeances'])->name('trimestres.supprimer-seances')->middleware('permission:trimestres.seances');
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-matieres/{classeMatiereId}/notes', [NoteController::class, 'index'])->name('notes.index');
+                Route::get('classe-matieres/{classeMatiereId}/notes/export', [NoteController::class, 'export'])->name('notes.export');
+                Route::get('classe-matieres/{classeMatiereId}/notes/modele', [NoteController::class, 'modele'])->name('notes.modele');
+                Route::get('classe-matieres/{classeMatiereId}/appreciations-sequence', [AppreciationSequenceController::class, 'index'])->name('appreciations-sequence.index');
             });
 
             Route::middleware('permission:notes.create')->group(function () {
                 Route::post('classe-matieres/{classeMatiereId}/notes', [NoteController::class, 'bulkStore'])->name('notes.bulk-store');
                 Route::post('classe-matieres/{classeMatiereId}/notes/import', [NoteController::class, 'import'])->name('notes.import');
+                Route::post('classe-matieres/{classeMatiereId}/appreciations-sequence', [AppreciationSequenceController::class, 'bulkStore'])->name('appreciations-sequence.bulk-store');
+            });
+
+            /*
+             * Tableau de suivi transverse (point 15 de la punch-list) : notes
+             * manquantes et leçons en retard, classe par classe, matière par
+             * matière, pour la séquence active — réservé à la direction, pas
+             * à l'enseignant ordinaire (contrairement à `notes.view`).
+             */
+            Route::middleware('permission:pedagogie.suivi_saisies')->group(function () {
+                Route::get('suivi-saisies', [SuiviSaisiesController::class, 'index'])->name('suivi-saisies.index');
             });
 
             /*
@@ -913,10 +949,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
+                Route::get('classe-competences/{classeCompetenceId}/appreciations-sequence-primaire', [AppreciationSequenceController::class, 'indexPrimaire'])->name('appreciations-sequence-primaire.index');
             });
 
             Route::middleware('permission:notes.create')->group(function () {
                 Route::post('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'bulkStore'])->name('notes-primaire.bulk-store');
+                Route::post('classe-competences/{classeCompetenceId}/appreciations-sequence-primaire', [AppreciationSequenceController::class, 'bulkStorePrimaire'])->name('appreciations-sequence-primaire.bulk-store');
             });
 
             Route::middleware('permission:notes.view')->group(function () {
@@ -1011,6 +1049,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:discipline.view')->group(function () {
                 Route::get('classes/{classeId}/absences', [AbsenceController::class, 'index'])->name('absences.index');
+                Route::get('classes/{classeId}/absences/modele', [AbsenceController::class, 'modele'])->name('absences.modele');
                 Route::get('classes/{classeId}/bilan-disciplinaire', [AbsenceController::class, 'bilan'])->name('absences.bilan');
                 Route::get('classes/{classeId}/frequentation', [AbsenceController::class, 'frequentation'])->name('absences.frequentation');
                 Route::get('classes/{classeId}/bilan-disciplinaire/pdf', [AbsenceController::class, 'bilanPdf'])->name('absences.bilan.pdf');
@@ -1239,6 +1278,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::post('classes/{classeId}/absences', [AbsenceController::class, 'bulkStore'])->name('absences.bulk-store')->middleware('permission:absences.saisir');
+            Route::post('classes/{classeId}/absences/import', [AbsenceController::class, 'import'])->name('absences.import')->middleware('permission:absences.saisir');
             Route::post('sanctions', [SanctionController::class, 'store'])->name('sanctions.store')->middleware('permission:sanctions.create');
             Route::put('sanctions/{id}', [SanctionController::class, 'update'])->name('sanctions.update')->middleware('permission:sanctions.update');
             Route::delete('sanctions/{id}', [SanctionController::class, 'destroy'])->name('sanctions.destroy')->middleware('permission:sanctions.delete');

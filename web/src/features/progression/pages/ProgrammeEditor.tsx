@@ -366,6 +366,9 @@ export function ProgrammeEditor({ classeMatiereId, lectureSeule = false }: { cla
           <p className="text-sm text-navy-400">
             {t('progression.avancement', { traitees: programme.traitees, lecons: programme.lecons })}
           </p>
+          {programme.progression_partagee && (
+            <p className="mt-1 text-xs font-medium text-gold-600">{t('progression.fiche_partagee')}</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-32">

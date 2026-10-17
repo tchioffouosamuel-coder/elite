@@ -57,6 +57,18 @@ class RoutesProtegeesTest extends TestCase
         // ajouter au-delà de celui déjà vérifié entité par entité.
         'api.v1.sync.comptage',
 
+        // Historique des actions annulables : `index` ne lit que les actions
+        // du compte connecté (cf. HistoriqueActionsService::requete(), filtrée
+        // sur `user_id`) ; `annuler`/`retablir` revalident en plus, avant
+        // d'agir, que l'appelant détient toujours le privilège qu'exigeait
+        // l'action d'origine (cf. HistoriqueActionsService::autoriser()). Un
+        // privilège unique en amont serait soit trop large (l'historique
+        // mélange des actions de nature différente), soit redondant avec
+        // cette revérification.
+        'api.v1.historique.index',
+        'api.v1.historique.annuler',
+        'api.v1.historique.retablir',
+
         // Enregistrement de son propre appareil pour les notifications push.
         'api.v1.appareils.store',
         'api.v1.appareils.destroy',
@@ -183,6 +195,18 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.enseignant.ma-classe-prof-principal.show',
         'api.v1.enseignant.mon-niveau.show',
         'api.v1.enseignant.evaluations.store',
+        // Emploi du temps personnel de l'enseignant : même principe que les
+        // autres routes `enseignant.*` ci-dessus — bornée à son propre
+        // service, sans middleware dédié (cf. EnseignantController::monEmploiDuTemps()).
+        'api.v1.enseignant.mon-emploi-du-temps.show',
+
+        // Photo de profil du personnel (point 21 de la punch-list
+        // Elites-tech) : même principe que `parent.enfants.completer.photo`
+        // ci-dessus — le contrôleur vérifie lui-même que la fiche visée est
+        // celle de l'appelant, sinon exige `personnel.update`
+        // (cf. PersonnelController::autoriserPhoto()).
+        'api.v1.personnels.photo',
+        'api.v1.personnels.photo.destroy',
     ];
 
     /**

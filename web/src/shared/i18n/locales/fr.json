@@ -94,6 +94,7 @@
     "codesQr": "Codes QR",
     "bulletins": "Bulletins",
     "remplissage": "Remplissage des notes",
+    "suiviSaisies": "Suivi des saisies",
     "identification": "Photos & cartes",
     "openMenu": "Ouvrir le menu",
     "hideMenu": "Réduire le menu",
@@ -206,8 +207,9 @@
     "bus": "Transport",
     "student": "Élève",
     "matricule": "Matricule",
-    "route": "Trajet",
-    "stop": "Arrêt",
+    "stop": "Destination / Arrêt",
+    "aller": "Aller",
+    "retour": "Retour",
     "noInsolvables": "Aucun élève insolvable dans vos classes.",
     "noBus": "Aucun élève de vos classes ne prend le bus."
   },
@@ -507,6 +509,8 @@
     "aucune_classe_confiee": "Aucune classe ne vous est confiée pour le moment.",
     "eleves_tab_search_placeholder": "Rechercher un nom, un matricule…",
     "eleves_tab_empty": "Aucun élève dans cette classe.",
+    "numero_ordre": "N°",
+    "numero_ordre_error": "Impossible d'enregistrer ce numéro — il est peut-être déjà pris dans cette classe.",
     "responsables_tab": "Responsables",
     "responsables_title": "Responsables de la classe",
     "responsable_non_defini": "Non défini",
@@ -637,6 +641,8 @@
       "step_confirmation_description": "Vérification des données",
       "page_description_edit": "Modifier les informations de l'élève",
       "page_description_create": "Inscrire un nouvel élève",
+      "eleve_en_cours": "Élève en cours de saisie",
+      "nouvel_eleve": "Nouvel élève",
       "identite_title": "Identité de l'élève",
       "nom_complet_required": "Le nom complet est requis",
       "sexe_required": "Le sexe est requis",
@@ -825,7 +831,10 @@
     "reconduire_confirm_titre": "Reconduire les notes ?",
     "reconduire_confirm_message": "Les notes déjà saisies dans la séquence de destination seront écrasées.",
     "reconduire_ok": "Notes reconduites — pensez à enregistrer.",
-    "invalid_hint": "Corrigez les notes hors barème avant d'enregistrer."
+    "invalid_hint": "Corrigez les notes hors barème avant d'enregistrer.",
+    "appreciation_sequence": "Appréciation",
+    "appreciation_sequence_placeholder": "Appréciation (60 car. max)",
+    "import_title": "Importer les notes"
   },
   "niveaux": {
     "title": "Niveaux d'enseignement",
@@ -856,6 +865,7 @@
   },
   "discipline": {
     "title": "Discipline",
+    "import_title": "Importer les corrections d'assiduité",
     "sanctions": "Sanctions",
     "add_sanction": "Enregistrer une sanction",
     "type": "Type",
@@ -933,6 +943,19 @@
     "empty": "Aucune réclamation enregistrée.",
     "delete_target": "la réclamation « {{objet}} »",
     "deleted": "Réclamation supprimée."
+  },
+  "suivi_saisies": {
+    "title": "Suivi des saisies",
+    "subtitle": "Notes manquantes et progression en retard, pour la séquence active.",
+    "classe": "Classe",
+    "notes_saisies": "Notes saisies",
+    "lecons_faites": "Leçons faites",
+    "toutes_classes": "Toutes les classes",
+    "toutes_matieres": "Toutes les matières",
+    "alerte": "{{count}} ligne(s) sous 50 % — à relancer en priorité.",
+    "aucune_sequence_active": "Aucune séquence active pour le moment.",
+    "empty": "Aucune donnée pour ces filtres.",
+    "search": "Rechercher une classe ou une matière…"
   },
   "resultats": {
     "title": "Résultats",
@@ -1194,7 +1217,10 @@
     "save_changes": "Enregistrer",
     "updated": "Profil mis à jour.",
     "password_title": "Changer mon mot de passe",
-    "password_hint": "Vos autres sessions seront fermées après le changement."
+    "password_hint": "Vos autres sessions seront fermées après le changement.",
+    "change_photo": "Changer la photo",
+    "photo_updated": "Photo de profil mise à jour.",
+    "photo_deleted": "Photo de profil supprimée."
   },
   "session": {
     "title": "Année scolaire",
@@ -1258,7 +1284,14 @@
     "dettes_ignorees": "{{count}} dette(s) déjà importée(s), non dupliquée(s).",
     "paiements": "{{count}} paiement(s) supplémentaire(s) enregistré(s).",
     "processing": "Importation en cours…",
-    "erreurs_detail": "Motifs d'échec les plus fréquents :"
+    "erreurs_detail": "Motifs d'échec les plus fréquents :",
+    "sequence_cible": "Séquence visée",
+    "conflits_titre": "{{count}} valeur(s) déjà saisie(s) différeraient du fichier",
+    "conflits_failed": "{{count}} autre(s) ligne(s) en échec, hors conflits.",
+    "conflit_ligne": "Ligne",
+    "conflit_valeur_actuelle": "Valeur actuelle",
+    "conflit_valeur_fichier": "Valeur du fichier",
+    "confirmer_remplacement": "Remplacer quand même"
   },
   "progression": {
     "title": "Progression pédagogique",
@@ -1282,6 +1315,7 @@
     "traitee": "Traitée",
     "validee_par": "Validée par {{nom}}",
     "avancement": "{{traitees}} leçon(s) traitée(s) sur {{lecons}}",
+    "fiche_partagee": "Partagée avec vos autres classes de ce niveau",
     "saved": "Programme enregistré ({{count}} leçon(s)).",
     "lecon": "Leçon",
     "importer_fiche": "Importer la fiche",

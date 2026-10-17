@@ -16,6 +16,7 @@ class PersonnelResource extends JsonResource
             'fonction_id' => $this->fonction_id,
             'fonction' => $this->fonction,
             'affectation' => $this->affectation,
+            'photo_url' => $this->photo_path ? asset('storage/' . $this->photo_path) : null,
             'departement' => $this->whenLoaded('departement', fn () => [
                 'id' => $this->departement?->id,
                 'nom' => $this->departement?->nom,

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\SituationCaisseExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Exports\SituationCaisseExport;
 use App\Http\Resources\Api\V1\DossierScolariteResource;
 use App\Models\AnneeScolaire;
 use App\Models\DossierScolarite;
@@ -77,7 +77,13 @@ class ScolariteController extends Controller
 
         $dossier = $this->service->dossier($eleve, $this->annee($request, $eleve->school_id));
         $dossier->load('eleve.classe');
-        $dossier->loadMissing(['fraisAnnexes', 'versements' => fn($q) => $q->valides()->with('lignes'), 'busAffectations.trajet']);
+        $dossier->loadMissing(['fraisAnnexes', 'busAffectations.trajet']);
+        // `avecTotaux()` (appelé par `$this->service->dossier()`) a déjà
+        // chargé `versements` filtré aux seuls valides — on le recharge ici
+        // sans filtre : l'historique du personnel doit montrer les
+        // annulations, pas seulement les versements valides, contrairement
+        // au portail parent qui réutilise ce même scope.
+        $dossier->load(['versements' => fn ($q) => $q->with(['lignes', 'encaisseur', 'annulePar'])]);
 
         return ApiResponse::success(new DossierScolariteResource($dossier, avecRubriques: true));
     }
@@ -129,14 +135,14 @@ class ScolariteController extends Controller
 
         $reste = $dossier->fresh()?->reste_a_payer ?? 0;
         $message = "Paiement de {$this->francs($versement->montant)} reçu pour {$dossier->eleve->nom_complet} (reçu {$versement->numero_recu}). "
-            . ($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
+            .($reste > 0 ? "Reste à payer : {$this->francs($reste)}." : 'Scolarité soldée.');
 
         $this->notifications->notifier($tuteur, $canaux, $dossier->school_id, 'Confirmation de paiement', $message);
     }
 
     private function francs(int $montant): string
     {
-        return number_format($montant, 0, ',', ' ') . ' F';
+        return number_format($montant, 0, ',', ' ').' F';
     }
 
     public function annuler(Request $request, int $versementId): JsonResponse
@@ -161,7 +167,7 @@ class ScolariteController extends Controller
 
         return response((new RecuVersementGenerator)->build($versement), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-' . Str::slug($versement->numero_recu) . '.pdf"',
+            'Content-Disposition' => 'inline; filename="recu-'.Str::slug($versement->numero_recu).'.pdf"',
         ]);
     }
 

@@ -91,6 +91,7 @@ export function EleveDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const { id } = useParams<{ id: string }>()
   const eleveId = Number(id)
@@ -294,13 +295,13 @@ export function EleveDetailPage() {
           icon: Pencil,
           onClick: () => navigate(`/eleves/${eleve.id}/edit`),
         },
-        can('eleves.update') && {
+        canAny(['eleves.update', 'eleves.photo']) && {
           label: t('eleves.photo_title'),
           icon: Camera,
           onClick: () => photoInputRef.current?.click(),
           disabled: photoEnCours,
         },
-        can('eleves.update') && Boolean(eleve.photo_url) && {
+        canAny(['eleves.update', 'eleves.photo']) && Boolean(eleve.photo_url) && {
           label: t('eleves.photo_delete_title'),
           icon: Trash2,
           onClick: supprimerPhoto,

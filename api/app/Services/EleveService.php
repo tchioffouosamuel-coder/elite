@@ -11,21 +11,22 @@ use App\Models\Tuteur;
 use App\Models\TuteurTelephone;
 use App\Models\User;
 use App\Repositories\EleveRepository;
+use App\Services\Concerns\TraitePhotoCarree;
 use App\Services\ScolariteService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Closure;
 use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class EleveService extends BaseService
 {
+    use TraitePhotoCarree;
+
     public function __construct(
         private readonly EleveRepository $repository,
         private readonly ScolariteService $scolarite,
@@ -58,11 +59,50 @@ class EleveService extends BaseService
 
             $attributes['matricule'] = ($attributes['matricule'] ?? null) ?: Eleve::genererMatricule($schoolId);
 
+            // Point 19 de la punch-list Elites-tech : le nouvel élève reçoit le
+            // prochain numéro libre de sa classe — jamais un renumérotage de
+            // l'effectif déjà en place, qui bougerait les numéros que
+            // l'enseignant a déjà notés ailleurs (listes papier, cahier).
+            if (($attributes['classe_id'] ?? null) !== null && ($attributes['numero_ordre'] ?? null) === null) {
+                $attributes['numero_ordre'] = $this->prochainNumeroOrdre((int) $attributes['classe_id']);
+            }
+
             $eleve = $this->repository->create([...$attributes, 'school_id' => $schoolId]);
             $this->syncTuteurs($eleve, $schoolId, $tuteurs);
 
             return $eleve->load('tuteurs.telephones');
         });
+    }
+
+    /** Premier numéro non pris dans la classe — jamais un recomptage de l'effectif existant. */
+    private function prochainNumeroOrdre(int $classeId): int
+    {
+        return 1 + (int) (Eleve::where('classe_id', $classeId)->max('numero_ordre') ?? 0);
+    }
+
+    /**
+     * Fixe ou corrige manuellement le numéro de liste d'un élève — ce que
+     * l'enseignant fait quand le tri alphabétique ne correspond pas à l'ordre
+     * qu'il utilise réellement en classe (point 19 de la punch-list
+     * Elites-tech). Refuse un numéro déjà pris par un camarade de la même
+     * classe : deux élèves affichant "N°12" serait plus trompeur qu'utile.
+     */
+    public function definirNumeroOrdre(Eleve $eleve, int $numero): Eleve
+    {
+        if ($eleve->classe_id === null) {
+            throw new RuntimeException("Cet élève n'est rattaché à aucune classe.");
+        }
+
+        $pris = Eleve::where('classe_id', $eleve->classe_id)
+            ->where('id', '!=', $eleve->id)
+            ->where('numero_ordre', $numero)
+            ->exists();
+
+        if ($pris) {
+            throw new RuntimeException("Le numéro {$numero} est déjà attribué à un autre élève de cette classe.");
+        }
+
+        return $this->repository->update($eleve, ['numero_ordre' => $numero]);
     }
 
     /** @param int|array<int> $schoolIds */
@@ -127,99 +167,17 @@ class EleveService extends BaseService
             'school_id' => $classe->school_id,
             'classe_id' => $classe->id,
             'statut' => 'actif',
+            // Le numéro qu'il portait dans son ancienne classe n'a aucun sens
+            // dans la nouvelle (et pourrait déjà y être pris) — il en reçoit
+            // un nouveau, comme un élève qui y serait admis pour la première
+            // fois (cf. point 19 de la punch-list Elites-tech).
+            'numero_ordre' => $this->prochainNumeroOrdre($classe->id),
         ]);
-    }
-
-    /** Décoder une image en tant que bitmap RVBA coûte largeur × hauteur × 4 octets à GD. */
-    private const MAX_PIXELS_PHOTO = 40_000_000;
-
-    /**
-     * Recadre en carré (centre) et redimensionne en 600x600 JPEG, comme upload_photo.php dans _smapp.
-     *
-     * @return array{contenu: string, extension: string}
-     */
-    private function traiterPhoto(Eleve $eleve, UploadedFile $file): array
-    {
-        $chemin = $file->getRealPath();
-        if ($chemin === false) {
-            $this->logPhotoIllisible($eleve, $file, '');
-            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
-        }
-
-        $contenu = @file_get_contents($chemin);
-
-        if ($contenu === false || $contenu === '') {
-            $this->logPhotoIllisible($eleve, $file, $chemin);
-            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
-        }
-
-        // getimagesize() ne lit que l'en-tête (quelques Ko), sans décoder les
-        // pixels : une photo de téléphone à très haute résolution (ex. 8000x6000,
-        // sous la barre des 5 Mo une fois compressée) ferait dépasser le
-        // memory_limit de PHP dans imagecreatefromstring() ci-dessous — une
-        // erreur fatale non rattrapable par try/catch, contrairement à un
-        // Throwable classique. On la rejette donc proprement avant, plutôt
-        // que de planter la requête.
-        $dimensions = @getimagesizefromstring($contenu);
-        if ($dimensions === false) {
-            $this->logPhotoIllisible($eleve, $file, $chemin, $contenu);
-            throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
-        }
-        [$width, $height, $type] = $dimensions;
-        if ($width * $height > self::MAX_PIXELS_PHOTO) {
-            throw new UnprocessableEntityHttpException('Photo trop grande (résolution excessive) : réduisez sa taille avant de l\'envoyer.');
-        }
-
-        // Certains hébergements PHP n'activent pas GD malgré la validation
-        // correcte de l'image. Dans ce cas, conserver le fichier original
-        // permet de terminer l'inscription sans appeler une fonction absente.
-        if (! function_exists('imagecreatefromstring') || ! function_exists('imagecreatetruecolor') || ! function_exists('imagejpeg')) {
-            $extension = $type === IMAGETYPE_PNG ? 'png' : 'jpg';
-
-            return ['contenu' => $contenu, 'extension' => $extension];
-        }
-
-        // Marge de sécurité pour les photos de résolution normale mais
-        // néanmoins volumineuses à décoder ; restaurée après coup.
-        $limiteAnterieure = ini_set('memory_limit', '512M');
-
-        try {
-            $source = $this->decoderPhoto($chemin, $contenu, $type);
-            if ($source === false) {
-                $this->logPhotoIllisible($eleve, $file, $chemin, $contenu);
-                throw new UnprocessableEntityHttpException('Image illisible : le fichier envoyé n\'est pas une photo valide.');
-            }
-
-            $side = min($width, $height);
-            $srcX = intdiv($width - $side, 2);
-            $srcY = intdiv($height - $side, 2);
-
-            $square = imagecreatetruecolor(600, 600);
-            $blanc = imagecolorallocate($square, 255, 255, 255);
-            imagefill($square, 0, 0, $blanc);
-            imagecopyresampled($square, $source, 0, 0, $srcX, $srcY, 600, 600, $side, $side);
-            imagedestroy($source);
-
-            ob_start();
-            imagejpeg($square, null, 90);
-            $contents = ob_get_clean();
-            imagedestroy($square);
-        } finally {
-            // @ : ini_set() émet un warning (converti en exception par Laravel)
-            // s'il ne peut pas redescendre sous la mémoire déjà consommée par
-            // le décodage ci-dessus. Sans conséquence : la limite ne compte que
-            // pour la requête en cours, qui se termine juste après.
-            if ($limiteAnterieure !== false) {
-                @ini_set('memory_limit', $limiteAnterieure);
-            }
-        }
-
-        return ['contenu' => $contents, 'extension' => 'jpg'];
     }
 
     public function updatePhoto(Eleve $eleve, UploadedFile $file): Eleve
     {
-        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhoto($eleve, $file);
+        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhotoCarree($file, ['eleve_id' => $eleve->id]);
 
         $path = 'eleves/photos/' . $eleve->id . '.' . $extension;
         Storage::disk('public')->put($path, $contenu);
@@ -235,7 +193,7 @@ class EleveService extends BaseService
      */
     public function stockerPhotoPendante(Eleve $eleve, UploadedFile $file): string
     {
-        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhoto($eleve, $file);
+        ['contenu' => $contenu, 'extension' => $extension] = $this->traiterPhotoCarree($file, ['eleve_id' => $eleve->id]);
 
         $path = 'eleves/photos_pending/' . $eleve->id . '.' . $extension;
         Storage::disk('public')->put($path, $contenu);
@@ -271,65 +229,6 @@ class EleveService extends BaseService
         }
 
         return $this->repository->update($eleve, ['photo_path' => null]);
-    }
-
-    /**
-     * Décode selon le type réellement détecté par `getimagesizefromstring()`.
-     * Le repli `imagecreatefromstring()` couvre les variantes que GD sait lire
-     * mais dont la constante n'est pas explicitement listée ici.
-     *
-     * @return \GdImage|false
-     */
-    private function decoderPhoto(string $chemin, string $contenu, int $type): \GdImage|false
-    {
-        $decodeur = match ($type) {
-            IMAGETYPE_JPEG => function_exists('imagecreatefromjpeg') ? 'imagecreatefromjpeg' : null,
-            IMAGETYPE_PNG => function_exists('imagecreatefrompng') ? 'imagecreatefrompng' : null,
-            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? 'imagecreatefromwebp' : null,
-            IMAGETYPE_AVIF => function_exists('imagecreatefromavif') ? 'imagecreatefromavif' : null,
-            default => null,
-        };
-
-        if ($decodeur !== null) {
-            $source = @$decodeur($chemin);
-
-            if ($source !== false) {
-                return $source;
-            }
-        }
-
-        return @imagecreatefromstring($contenu);
-    }
-
-    /**
-     * Trace le contexte d'un échec « image illisible » — sans ça, l'erreur
-     * renvoyée au client ne dit pas si le fichier reçu est vide, tronqué
-     * (upload interrompu en cours de route), ou dans un format que GD ne
-     * décode pas (ex. WebP/HEIC, non compilés dans l'extension gd de
-     * l'image Docker). Les 12 premiers octets (signature de format) suffisent
-     * à trancher sans avoir à rejouer l'upload.
-     */
-    private function logPhotoIllisible(Eleve $eleve, UploadedFile $file, string $chemin, ?string $contenu = null): void
-    {
-        $tailleDisque = @filesize($chemin);
-        $signature = $contenu !== null
-            ? substr($contenu, 0, 12)
-            : @file_get_contents($chemin, false, null, 0, 12);
-        $gd = extension_loaded('gd') ? gd_info() : [];
-
-        Log::warning('Photo illisible reçue pour un élève', [
-            'eleve_id' => $eleve->id,
-            'nom_original' => $file->getClientOriginalName(),
-            'mime_annonce' => $file->getClientMimeType(),
-            'taille_annoncee' => $file->getSize(),
-            'taille_sur_disque' => $tailleDisque,
-            'signature_hex' => $signature !== false ? bin2hex($signature) : null,
-            'gd_charge' => extension_loaded('gd'),
-            'gd_jpeg' => $gd['JPEG Support'] ?? null,
-            'gd_png' => $gd['PNG Support'] ?? null,
-            'gd_webp' => $gd['WebP Support'] ?? null,
-            'gd_avif' => $gd['AVIF Support'] ?? null,
-        ]);
     }
 
     /**

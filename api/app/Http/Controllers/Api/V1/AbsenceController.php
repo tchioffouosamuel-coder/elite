@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\AbsenceModeleExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkSaveAbsencesRequest;
@@ -15,6 +16,9 @@ use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class AbsenceController extends Controller
@@ -46,6 +50,51 @@ class AbsenceController extends Controller
         $count = $this->service->sauvegarderEnLot($classe, $trimestre, $request->input('absences'), $request->user());
 
         return ApiResponse::success(['saved' => $count], "{$count} enregistrement(s) mis à jour.");
+    }
+
+    /** Modèle vide (matricule + nom déjà remplis) à téléverser via import(). */
+    public function modele(int $classeId): BinaryFileResponse
+    {
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+
+        abort_if(
+            ! $classe->school->estSecondaire(),
+            422,
+            "Au primaire et en maternelle, l'assiduité se déduit des appels : il n'y a rien à importer ici."
+        );
+
+        $nomFichier = 'modele-absences-'.Str::slug($classe->nom).'.xlsx';
+
+        return Excel::download(new AbsenceModeleExport($this->service->lignesModele($classe)), $nomFichier);
+    }
+
+    public function import(Request $request, int $classeId): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv'], 'trimestre_id' => ['required', 'integer']]);
+
+        $classe = Classe::forSchool(Tenant::schoolIds())->with('school')->findOrFail($classeId);
+        $trimestre = Trimestre::whereHas(
+            'anneeScolaire',
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+        )->findOrFail($request->integer('trimestre_id'));
+
+        $result = $this->service->importerAbsencesDepuisExcel(
+            $classe->school_id, $classe, $trimestre, $request->file('file'), $request->user(),
+            $request->boolean('confirmer_remplacement'),
+        );
+
+        // Au moins une ligne valide remplacerait une correction déjà
+        // saisie et différente : rien n'a été écrit, l'écran doit faire
+        // confirmer explicitement avant de renvoyer la même requête.
+        if ($result['confirmation_requise']) {
+            return ApiResponse::error(
+                'Cet import remplacerait des corrections déjà saisies : ajoutez confirmer_remplacement=1 pour confirmer.',
+                409,
+                ['conflits' => $result['conflits'], 'failed' => $result['failed'], 'errors' => $result['errors']],
+            );
+        }
+
+        return ApiResponse::success($result, "{$result['imported']} correction(s) importée(s).");
     }
 
     public function bilan(Request $request, int $classeId): JsonResponse

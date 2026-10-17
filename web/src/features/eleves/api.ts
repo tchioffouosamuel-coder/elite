@@ -50,6 +50,7 @@ export interface Eleve {
   matricule: string | null;
   matricule_national: string | null;
   nom_complet: string;
+  numero_ordre: number | null;
   sexe: "M" | "F";
   date_naissance: string | null;
   age: number | null;
@@ -179,6 +180,30 @@ export async function rechercherMatriculeNational(
   return data.data;
 }
 
+/** Champs acceptés par l'autocomplétion de valeurs suggérées (cf. `fetchValeursSuggerees`). */
+export type ChampValeurSuggeree =
+  | "eleves.lieu_naissance"
+  | "eleves.adresse"
+  | "tuteurs.adresse"
+  | "tuteurs.profession";
+
+/**
+ * Valeurs déjà saisies pour un champ donné, pour l'autocomplétion "douce" (la
+ * saisie reste libre) des champs texte répétitifs du formulaire d'inscription.
+ * Sans `q` : valeurs les plus fréquentes/récentes (plafonnées à 15 côté API).
+ * Avec `q` : recherche par sous-chaîne, insensible à la casse et aux accents.
+ */
+export async function fetchValeursSuggerees(
+  champ: ChampValeurSuggeree,
+  q?: string,
+): Promise<string[]> {
+  const { data } = await http.get<ApiResponse<{ valeurs: string[] }>>(
+    "/valeurs-suggerees",
+    { params: { champ, q: q || undefined } },
+  );
+  return data.data.valeurs;
+}
+
 export async function fetchEleve(id: number): Promise<Eleve> {
   const { data } = await http.get<ApiResponse<Eleve>>(`/eleves/${id}`);
   return data.data;
@@ -239,6 +264,12 @@ export async function uploadElevePhoto(id: number, file: File): Promise<Eleve> {
 
 export async function deleteElevePhoto(id: number): Promise<Eleve> {
   const { data } = await http.delete<ApiResponse<Eleve>>(`/eleves/${id}/photo`);
+  return data.data;
+}
+
+/** Point 19 de la punch-list Elites-tech : l'enseignant corrige le numéro de liste sans porter eleves.update. */
+export async function definirNumeroOrdreEleve(id: number, numeroOrdre: number): Promise<Eleve> {
+  const { data } = await http.patch<ApiResponse<Eleve>>(`/eleves/${id}/numero-ordre`, { numero_ordre: numeroOrdre });
   return data.data;
 }
 

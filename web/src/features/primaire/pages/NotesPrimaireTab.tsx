@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Search } from 'lucide-react'
 import { fetchCompetencesClasse, fetchTrimestresPourClasse, type ClasseCompetence } from '@/features/pedagogie/api'
 import {
   fetchGrillePrimaire,
   sauvegarderNotesPrimaire,
+  fetchAppreciationsSequencePrimaire,
+  sauvegarderAppreciationsSequencePrimaire,
   LIBELLES_COMPOSANTES,
   type Composante,
   type GrillePrimaire,
@@ -18,6 +20,7 @@ import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
+import { AppreciationSequenceInput } from '@/shared/ui/AppreciationSequenceInput'
 import { useAuthStore } from '@/shared/store/authStore'
 import { peutSaisirSequence } from '@/features/notes/saisieSequence'
 
@@ -148,6 +151,8 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [observations, setObservations] = useState<Record<number, string>>({})
+  // appreciations[eleve_id][sequence_id] — uniquement les deux premières séquences du trimestre (point 16).
+  const [appreciationsSeq, setAppreciationsSeq] = useState<Record<number, Record<number, string>>>({})
   const [submitting, setSubmitting] = useState(false)
 
   const { data: trimestres } = useQuery({
@@ -173,6 +178,32 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
     trimestreChoisi?.is_active === true,
   )
   const sequencesEditables = grille?.sequences.filter(peutModifier) ?? []
+
+  // L'appréciation de séquence ne porte que sur la 1re et la 2e séquence du
+  // trimestre — toujours les deux premières de la liste (cf. point 16).
+  const sequencesAppreciables = grille?.sequences.slice(0, 2) ?? []
+  const appreciationsQueries = useQueries({
+    queries: sequencesAppreciables.map((s) => ({
+      queryKey: ['grille-appreciations-primaire', classeMatiereId, s.id],
+      queryFn: () => fetchAppreciationsSequencePrimaire(Number(classeMatiereId), s.id),
+      enabled: !!grille,
+    })),
+  })
+  const appreciationsSignature = appreciationsQueries.map((q) => q.dataUpdatedAt).join(',')
+
+  useEffect(() => {
+    if (!grille) return
+    const suivant: Record<number, Record<number, string>> = {}
+    appreciationsQueries.forEach((requete, index) => {
+      const sequenceId = sequencesAppreciables[index]?.id
+      if (!sequenceId || !requete.data) return
+      for (const ligne of requete.data) {
+        suivant[ligne.eleve_id] = { ...(suivant[ligne.eleve_id] ?? {}), [sequenceId]: ligne.texte ?? '' }
+      }
+    })
+    setAppreciationsSeq(suivant)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grille, appreciationsSignature])
 
   useEffect(() => {
     if (!grille) return
@@ -235,6 +266,19 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
       }
 
       const resultat = await sauvegarderNotesPrimaire(Number(classeMatiereId), notes)
+
+      // Seules les deux premières séquences du trimestre portent une
+      // appréciation, et seulement si elles sont encore ouvertes (point 16).
+      for (const sequence of sequencesAppreciables) {
+        if (!sequencesEditables.some((s) => s.id === sequence.id)) continue
+        const appreciationsPayload = grille.lignes.map((ligne) => ({
+          eleve_id: ligne.eleve_id,
+          texte: (appreciationsSeq[ligne.eleve_id]?.[sequence.id] ?? '').trim() || null,
+        }))
+        await sauvegarderAppreciationsSequencePrimaire(Number(classeMatiereId), sequence.id, appreciationsPayload)
+        queryClient.invalidateQueries({ queryKey: ['grille-appreciations-primaire', classeMatiereId, sequence.id] })
+      }
+
       succes(t('notes.saved', { count: resultat.saved }))
       queryClient.invalidateQueries({ queryKey: ['grille-primaire', classeMatiereId, trimestreId] })
     } catch (err) {
@@ -325,6 +369,11 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                   >
                     Totaux
                   </th>
+                  {sequencesAppreciables.map((sequence, index) => (
+                    <th key={`appreciation-${sequence.id}`} rowSpan={2} className="border-b border-l border-navy-100 px-3 py-2 text-left">
+                      {t('notes.appreciation_sequence')} S{index + 1}
+                    </th>
+                  ))}
                   <th rowSpan={2} className="border-b border-l border-navy-100 px-3 py-2 text-left">
                     {t('notes.observation')}
                   </th>
@@ -406,6 +455,19 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
                       <td className="border-l-2 border-navy-100 px-3 py-2 text-center font-bold text-navy-900 bg-cream-100/50">
                         {noteTotalTrimestre.toFixed(2)}
                       </td>
+                      {sequencesAppreciables.map((sequence) => (
+                        <td key={`appreciation-${sequence.id}`} className="border-l border-navy-50 px-2 py-1.5">
+                          <AppreciationSequenceInput
+                            readOnly={!peutModifier(sequence)}
+                            value={appreciationsSeq[ligne.eleve_id]?.[sequence.id] ?? ''}
+                            onChange={(v) =>
+                              setAppreciationsSeq((prev) => ({ ...prev, [ligne.eleve_id]: { ...prev[ligne.eleve_id], [sequence.id]: v } }))
+                            }
+                            eleveLabel={ligne.nom_complet}
+                            className="w-32"
+                          />
+                        </td>
+                      ))}
                       <td className="border-l border-navy-50 px-2 py-1.5">
                         <Textarea
                           aria-label={`${t('notes.observation')} - ${ligne.nom_complet}`}

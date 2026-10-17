@@ -44,7 +44,16 @@ class EleveRepository extends BaseRepository
             ->when($filters['classe_id'] ?? null, fn($query, $id) => $query->where('classe_id', $id))
             ->when($filters['sexe'] ?? null, fn($query, $sexe) => $query->where('sexe', $sexe))
             ->when($filters['statut'] ?? null, fn($query, $statut) => $query->where('statut', $statut))
-            ->orderBy('nom_complet')
+            // Liste d'une classe précise (point 19 de la punch-list
+            // Elites-tech) : triée par numéro de liste, pas alphabétiquement —
+            // c'est tout le sens de la numérotation. Les élèves sans numéro
+            // (pas encore backfillés) restent à la fin plutôt que de remonter
+            // en tête avec un NULL traité comme 0.
+            ->when(
+                $filters['classe_id'] ?? null,
+                fn($query) => $query->orderByRaw('numero_ordre IS NULL')->orderBy('numero_ordre')->orderBy('nom_complet'),
+                fn($query) => $query->orderBy('nom_complet'),
+            )
             ->paginate($perPage);
     }
 

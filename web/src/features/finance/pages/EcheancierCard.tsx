@@ -152,49 +152,57 @@ export function EcheancierCard({
               </p>
             )}
 
-            {lignes.map((ligne, index) => (
-              <div key={index} className="grid grid-cols-12 items-end gap-2">
-                <div className="col-span-12 sm:col-span-5">
-                  <Input
-                    label={index === 0 ? 'Libellé' : undefined}
-                    value={ligne.libelle}
-                    disabled={!peutModifier}
-                    onChange={(e) => modifier(index, 'libelle', e.target.value)}
-                  />
+            {lignes.map((ligne, index) => {
+              // `data.tranches` conserve l'ordre du référentiel : les lignes du
+              // brouillon y correspondent par index tant qu'on ne réordonne pas.
+              const joursRestants = data?.tranches[index]?.jours_restants ?? null
+              return (
+                <div key={index} className="flex flex-col gap-1">
+                  <div className="grid grid-cols-12 items-end gap-2">
+                    <div className="col-span-12 sm:col-span-5">
+                      <Input
+                        label={index === 0 ? 'Libellé' : undefined}
+                        value={ligne.libelle}
+                        disabled={!peutModifier}
+                        onChange={(e) => modifier(index, 'libelle', e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-5 sm:col-span-2">
+                      <Input
+                        label={index === 0 ? '%' : undefined}
+                        type="number"
+                        min={0.01}
+                        max={100}
+                        step={0.01}
+                        value={ligne.pourcentage}
+                        disabled={!peutModifier}
+                        onChange={(e) => modifier(index, 'pourcentage', e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-4">
+                      <Input
+                        label={index === 0 ? 'Échéance' : undefined}
+                        type="date"
+                        value={ligne.date_echeance}
+                        disabled={!peutModifier}
+                        onChange={(e) => modifier(index, 'date_echeance', e.target.value)}
+                      />
+                    </div>
+                    {peutModifier && (
+                      <button
+                        type="button"
+                        title="Retirer la tranche"
+                        onClick={() => retirer(index)}
+                        className="col-span-1 mb-1 flex h-9 items-center justify-center rounded-lg text-navy-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {joursRestants != null && <BadgeJoursRestants joursRestants={joursRestants} />}
                 </div>
-                <div className="col-span-5 sm:col-span-2">
-                  <Input
-                    label={index === 0 ? '%' : undefined}
-                    type="number"
-                    min={0.01}
-                    max={100}
-                    step={0.01}
-                    value={ligne.pourcentage}
-                    disabled={!peutModifier}
-                    onChange={(e) => modifier(index, 'pourcentage', e.target.value)}
-                  />
-                </div>
-                <div className="col-span-6 sm:col-span-4">
-                  <Input
-                    label={index === 0 ? 'Échéance' : undefined}
-                    type="date"
-                    value={ligne.date_echeance}
-                    disabled={!peutModifier}
-                    onChange={(e) => modifier(index, 'date_echeance', e.target.value)}
-                  />
-                </div>
-                {peutModifier && (
-                  <button
-                    type="button"
-                    title="Retirer la tranche"
-                    onClick={() => retirer(index)}
-                    className="col-span-1 mb-1 flex h-9 items-center justify-center rounded-lg text-navy-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-navy-100 pt-3">
@@ -235,5 +243,27 @@ export function EcheancierCard({
         </>
       )}
     </Card>
+  )
+}
+
+/** Compte à rebours jusqu'à l'échéance d'une tranche, ou le retard si elle est dépassée. */
+function BadgeJoursRestants({ joursRestants }: { joursRestants: number }) {
+  if (joursRestants < 0) {
+    return (
+      <span className="w-fit rounded-full bg-red-50 px-2 py-0.5 text-[0.6875rem] font-semibold text-red-600">
+        En retard de {Math.abs(joursRestants)} jour{Math.abs(joursRestants) > 1 ? 's' : ''}
+      </span>
+    )
+  }
+
+  const proche = joursRestants <= 3
+  return (
+    <span
+      className={`w-fit rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ${
+        proche ? 'bg-gold-50 text-gold-700' : 'bg-navy-50 text-navy-500'
+      }`}
+    >
+      {joursRestants} jour{joursRestants > 1 ? 's' : ''} restant{joursRestants > 1 ? 's' : ''}
+    </span>
   )
 }

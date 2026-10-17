@@ -199,11 +199,37 @@ class BulletinGenerator
                     .'<td>'.$this->nombre($ligne['min']).'</td>'
                     .'<td>'.$this->nombre($ligne['max']).'</td>'
                     .'<td>'.$this->e((string) ($ligne['rang'] ?? '—')).'</td>'
-                    .'<td class="left mini">'.$this->e($ligne['observation'] ?? '').'</td></tr>';
+                    .'<td class="left mini">'.$this->e($ligne['observation'] ?? '').$this->appreciationsSequence($ligne).'</td></tr>';
             }
         }
 
         return '<table>'.$entete.$corps.'</table>';
+    }
+
+    /**
+     * Appréciations des séquences 1 et 2 (point 16 de la punch-list),
+     * compactes — « Séq.1: ... / Séq.2: ... » — affichées sous l'observation
+     * de trimestre quand l'une au moins est renseignée. Vide ailleurs : seul
+     * le bulletin du premier trimestre les porte (cf. `BulletinService`).
+     */
+    private function appreciationsSequence(array $ligne): string
+    {
+        $seq1 = $ligne['appreciation_sequence_1'] ?? null;
+        $seq2 = $ligne['appreciation_sequence_2'] ?? null;
+
+        if ($seq1 === null && $seq2 === null) {
+            return '';
+        }
+
+        $parties = [];
+        if ($seq1 !== null) {
+            $parties[] = 'Séq.1: '.$this->e($seq1);
+        }
+        if ($seq2 !== null) {
+            $parties[] = 'Séq.2: '.$this->e($seq2);
+        }
+
+        return '<br><span style="font-size:2.2mm;color:'.self::ARDOISE.';">'.implode(' / ', $parties).'</span>';
     }
 
     private function competences(array $competences): string

@@ -134,6 +134,42 @@ export async function sauvegarderNotesPrimaire(
   return data.data
 }
 
+/**
+ * Point 16 de la punch-list, variante primaire/maternelle : même appréciation
+ * courte (60 caractères), mais rattachée à la compétence plutôt qu'à la
+ * matière — seules la 1re et la 2e séquence d'un trimestre l'acceptent (le
+ * serveur renvoie un 422 sinon, cf. AppreciationSequenceService côté API).
+ */
+export interface AppreciationCellule {
+  eleve_id: number
+  nom_complet: string
+  id: number | null
+  texte: string | null
+}
+
+export async function fetchAppreciationsSequencePrimaire(
+  classeCompetenceId: number,
+  sequenceId: number,
+): Promise<AppreciationCellule[]> {
+  const { data } = await http.get<ApiResponse<AppreciationCellule[]>>(
+    `/classe-competences/${classeCompetenceId}/appreciations-sequence-primaire`,
+    { params: { sequence_id: sequenceId } },
+  )
+  return data.data
+}
+
+export async function sauvegarderAppreciationsSequencePrimaire(
+  classeCompetenceId: number,
+  sequenceId: number,
+  appreciations: { eleve_id: number; texte: string | null }[],
+): Promise<{ saved: number }> {
+  const { data } = await http.post<ApiResponse<{ saved: number }>>(
+    `/classe-competences/${classeCompetenceId}/appreciations-sequence-primaire`,
+    { sequence_id: sequenceId, appreciations },
+  )
+  return data.data
+}
+
 /* ------------------------------------------------------------------ */
 /* Résultats                                                           */
 /* ------------------------------------------------------------------ */

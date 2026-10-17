@@ -172,6 +172,29 @@ class SettingsCatalog
                 'label_fr' => 'Mentions légales en pied de document (arrêté, comptes, immatriculation)',
                 'label_en' => 'Legal notices in document footer (order, accounts, registration)',
             ],
+            // Reçu de caisse (ticket thermique 80 mm) : deux réglages propres
+            // à ce document, distincts des informations générales de l'école
+            // (`schools.name`/`code`/`phone`), que d'autres documents utilisent
+            // tels quels. Demandés par Elites-tech (points 4 et 5) : le sigle
+            // affiché au centre de l'en-tête du reçu, et le téléphone imprimé
+            // dessous, doivent pouvoir différer de ce qu'affichent les autres
+            // documents sans toucher à la fiche établissement elle-même.
+            [
+                'key' => 'recu_nom_etablissement',
+                'groupe' => 'documents',
+                'type' => 'text',
+                'default' => '',
+                'label_fr' => "Nom court affiché sur le reçu de caisse (défaut : code puis nom de l'établissement)",
+                'label_en' => 'Short name printed on the cash receipt (defaults to the school code, then its name)',
+            ],
+            [
+                'key' => 'recu_telephone',
+                'groupe' => 'documents',
+                'type' => 'text',
+                'default' => '',
+                'label_fr' => "Téléphone affiché sur le reçu de caisse (défaut : téléphone de l'établissement)",
+                'label_en' => "Phone number printed on the cash receipt (defaults to the school's phone)",
+            ],
             // Un élève dont le retard dépasse ce pourcentage de sa scolarité
             // apparaît sur la liste des insolvables — indépendant du statut
             // binaire impayé/partiel déjà utilisé à la caisse.
@@ -194,7 +217,7 @@ class SettingsCatalog
                 'groupe' => 'finance',
                 'type' => 'number',
                 'default' => 0,
-                'label_fr' => "Délai de grâce après une échéance avant de compter le retard (jours)",
+                'label_fr' => 'Délai de grâce après une échéance avant de compter le retard (jours)',
                 'label_en' => 'Grace period after a due date before counting arrears (days)',
             ],
             [
@@ -230,7 +253,7 @@ class SettingsCatalog
                 'groupe' => 'personnel',
                 'type' => 'text',
                 'default' => 'elite.school',
-                'label_fr' => "Domaine des adresses e-mail générées pour le personnel",
+                'label_fr' => 'Domaine des adresses e-mail générées pour le personnel',
                 'label_en' => 'Domain for generated staff email addresses',
             ],
             // Section I du rapport de rentrée MINEDUB — identité administrative

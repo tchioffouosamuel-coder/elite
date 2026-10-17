@@ -9,6 +9,8 @@ use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Models\User;
+use App\Support\Progression\ResolveurFicheProgression;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -29,7 +31,7 @@ class ProgressionService extends BaseService
      */
     public function arbre(ClasseMatiere $classeMatiere): Collection
     {
-        $items = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $items = ResolveurFicheProgression::itemsScope($classeMatiere)
             ->with('sequence.trimestre')
             ->withCount('seances')
             ->orderBy('ordre')->orderBy('id')
@@ -52,7 +54,7 @@ class ProgressionService extends BaseService
      */
     public function programmeParent(ClasseMatiere $classeMatiere): array
     {
-        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $lecons = ResolveurFicheProgression::itemsScope($classeMatiere)
             ->where('type', 'lecon')
             ->withCount('seances')
             ->orderBy('ordre')->orderBy('id')
@@ -96,15 +98,18 @@ class ProgressionService extends BaseService
         $debut = $semaines['precedente'];
         $fin = $semaines['suivante']->clone()->endOfWeek(Carbon::SUNDAY);
 
-        $classeMatiereIds = $classe->classeMatieres()->where('statut', 'actif')->pluck('id');
-
-        $lecons = ProgressionItem::whereIn('classe_matiere_id', $classeMatiereIds)
-            ->lecons()
-            ->whereBetween('date_prevue', [$debut->toDateString(), $fin->toDateString()])
-            ->with('classeMatiere.matiere')
-            ->withCount('seances')
-            ->orderBy('date_prevue')
-            ->get();
+        // Interrogée affectation par affectation (et non en un seul whereIn) :
+        // une affectation à fiche partagée (cf. BUG1) ne vit pas sous son
+        // propre classe_matiere_id, un whereIn la raterait.
+        $lecons = $classe->classeMatieres()->where('statut', 'actif')->get()
+            ->flatMap(fn (ClasseMatiere $cm) => ResolveurFicheProgression::itemsScope($cm)
+                ->lecons()
+                ->whereBetween('date_prevue', [$debut->toDateString(), $fin->toDateString()])
+                ->with('classeMatiere.matiere', 'matiere')
+                ->withCount('seances')
+                ->get()
+                ->each(fn (ProgressionItem $item) => $item->setAttribute('_matiere_nom', $item->classeMatiere?->matiere->nom ?? $item->matiere?->nom)))
+            ->unique('id');
 
         $resultat = [];
         foreach ($semaines as $cle => $lundi) {
@@ -117,7 +122,7 @@ class ProgressionService extends BaseService
                     ->filter(fn (ProgressionItem $l) => $l->date_prevue?->betweenIncluded($lundi, $dimanche))
                     ->map(fn (ProgressionItem $l) => [
                         'id' => $l->id,
-                        'matiere' => $l->classeMatiere->matiere->nom,
+                        'matiere' => $l->_matiere_nom,
                         'titre' => $l->titre,
                         'date_prevue' => $l->date_prevue->toDateString(),
                         'traitee' => $l->seances_count > 0,
@@ -226,7 +231,7 @@ class ProgressionService extends BaseService
      */
     public function tauxAffectation(ClasseMatiere $classeMatiere): array
     {
-        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->lecons();
+        $lecons = ResolveurFicheProgression::itemsScope($classeMatiere)->lecons();
 
         $total = (clone $lecons)->count();
         $traitees = (clone $lecons)->has('seances')->count();
@@ -280,7 +285,7 @@ class ProgressionService extends BaseService
 
         $sequenceIds = $trimestre->sequencesRetenues()->pluck('id');
 
-        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $lecons = ResolveurFicheProgression::itemsScope($classeMatiere)
             ->lecons()
             ->whereIn('sequence_id', $sequenceIds);
 
@@ -373,13 +378,18 @@ class ProgressionService extends BaseService
         $dateRealiseeEditable = $auteur === null || $auteur->estPersonnelDirection();
 
         return $this->transaction(function () use ($classeMatiere, $noeuds, $dateRealiseeEditable) {
+            // Résolu une seule fois pour tout l'arbre : historique ou
+            // partagé (cf. BUG1), la même fiche ne bascule pas de mode entre
+            // deux nœuds d'un même enregistrement.
+            $porteur = ResolveurFicheProgression::attributsCreation($classeMatiere, ProgressionItem::class);
+
             $conserves = [];
-            $compte = $this->enregistrerNiveau($classeMatiere, $noeuds, null, $conserves, $dateRealiseeEditable);
+            $compte = $this->enregistrerNiveau($classeMatiere, $porteur, $noeuds, null, $conserves, $dateRealiseeEditable);
 
             // Ce qui n'a pas été renvoyé par le client a été supprimé dans
             // l'éditeur : la cascade emporte les sous-éléments et les liens
             // vers les séances.
-            ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+            $this->requeteSelonPorteur($porteur)
                 ->whereNotIn('id', $conserves ?: [0])
                 ->delete();
 
@@ -387,11 +397,34 @@ class ProgressionService extends BaseService
         });
     }
 
+    /** Reconstruit la portée (historique ou partagée) à partir des attributs résolus par `ResolveurFicheProgression`. */
+    private function requeteSelonPorteur(array $porteur): Builder
+    {
+        if ($porteur['classe_matiere_id'] !== null) {
+            return ProgressionItem::where('classe_matiere_id', $porteur['classe_matiere_id']);
+        }
+
+        return ProgressionItem::whereNull('classe_matiere_id')
+            ->where('matiere_id', $porteur['matiere_id'])
+            ->where('personnel_id', $porteur['personnel_id'])
+            ->when(
+                $porteur['niveau_scolaire_id'] !== null,
+                fn ($q) => $q->where('niveau_scolaire_id', $porteur['niveau_scolaire_id']),
+                fn ($q) => $q->whereNull('niveau_scolaire_id'),
+            )
+            ->when(
+                $porteur['niveau_classe'] !== null,
+                fn ($q) => $q->where('niveau_classe', $porteur['niveau_classe']),
+                fn ($q) => $q->whereNull('niveau_classe'),
+            );
+    }
+
     /**
+     * @param  array<string, mixed>  $porteur  Attributs de rattachement résolus (cf. ResolveurFicheProgression)
      * @param  array<int, array<string, mixed>>  $noeuds
      * @param  array<int, int>  $conserves
      */
-    private function enregistrerNiveau(ClasseMatiere $classeMatiere, array $noeuds, ?int $parentId, array &$conserves, bool $dateRealiseeEditable = true): int
+    private function enregistrerNiveau(ClasseMatiere $classeMatiere, array $porteur, array $noeuds, ?int $parentId, array &$conserves, bool $dateRealiseeEditable = true): int
     {
         $compte = 0;
 
@@ -399,7 +432,7 @@ class ProgressionService extends BaseService
             $estLecon = $noeud['type'] === 'lecon';
 
             $attributs = [
-                'classe_matiere_id' => $classeMatiere->id,
+                ...$porteur,
                 'parent_id' => $parentId,
                 'type' => $noeud['type'],
                 'titre' => $noeud['titre'],
@@ -431,7 +464,7 @@ class ProgressionService extends BaseService
             }
 
             $item = isset($noeud['id'])
-                ? ProgressionItem::where('classe_matiere_id', $classeMatiere->id)->find($noeud['id'])
+                ? $this->requeteSelonPorteur($porteur)->find($noeud['id'])
                 : null;
 
             // Hors direction, la date de réalisation reste celle que le
@@ -451,7 +484,7 @@ class ProgressionService extends BaseService
             $compte++;
 
             if (! empty($noeud['enfants'])) {
-                $compte += $this->enregistrerNiveau($classeMatiere, $noeud['enfants'], $item->id, $conserves, $dateRealiseeEditable);
+                $compte += $this->enregistrerNiveau($classeMatiere, $porteur, $noeud['enfants'], $item->id, $conserves, $dateRealiseeEditable);
             }
         }
 

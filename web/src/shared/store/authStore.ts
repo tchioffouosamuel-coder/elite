@@ -78,6 +78,10 @@ export interface AuthUser {
    * périmètre « moi-même », que ne traduit aucun privilège de gestion.
    */
   est_personnel?: boolean
+  /** Id de la fiche personnel du compte — cible de `POST personnels/{id}/photo` (point 21). */
+  personnel_id?: number
+  /** Photo de profil déjà enregistrée sur la fiche personnel, le cas échéant. */
+  avatar_url?: string | null
   /**
    * Responsabilités nominatives confiées au compte, avec les classes (et pour
    * le chef de département, les départements) concernées. Distinct des

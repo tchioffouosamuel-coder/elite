@@ -128,6 +128,7 @@ export interface EleveSituation {
   classe: string | null
   trajet?: string | null
   arret?: string | null
+  option_trajet?: 'aller_simple' | 'retour_simple' | 'aller_retour' | null
 }
 
 export async function fetchMesInsolvables(): Promise<EleveSituation[]> {

@@ -94,6 +94,7 @@
     "codesQr": "QR codes",
     "bulletins": "Report cards",
     "remplissage": "Marks completion",
+    "suiviSaisies": "Entry tracking",
     "identification": "Photos & ID cards",
     "openMenu": "Open menu",
     "hideMenu": "Collapse menu",
@@ -206,8 +207,9 @@
     "bus": "Transport",
     "student": "Student",
     "matricule": "Student ID",
-    "route": "Route",
-    "stop": "Stop",
+    "stop": "Destination / Stop",
+    "aller": "Outbound",
+    "retour": "Return",
     "noInsolvables": "No insolvent student in your classes.",
     "noBus": "No student in your classes uses the bus."
   },
@@ -491,6 +493,8 @@
     "aucune_classe_confiee": "No class is assigned to you at the moment.",
     "eleves_tab_search_placeholder": "Search a name, a student ID…",
     "eleves_tab_empty": "No student in this class.",
+    "numero_ordre": "No.",
+    "numero_ordre_error": "Couldn't save this number — it may already be taken in this class.",
     "responsables_tab": "Officers",
     "responsables_title": "Class officers",
     "responsable_non_defini": "Not set",
@@ -621,6 +625,8 @@
       "step_confirmation_description": "Data review",
       "page_description_edit": "Edit the student's information",
       "page_description_create": "Enroll a new student",
+      "eleve_en_cours": "Student being enrolled",
+      "nouvel_eleve": "New student",
       "identite_title": "Student identity",
       "nom_complet_required": "Full name is required",
       "sexe_required": "Sex is required",
@@ -809,10 +815,14 @@
     "reconduire_confirm_titre": "Carry over grades?",
     "reconduire_confirm_message": "Grades already entered in the target sequence will be overwritten.",
     "reconduire_ok": "Grades carried over — remember to save.",
-    "invalid_hint": "Fix out-of-range grades before saving."
+    "invalid_hint": "Fix out-of-range grades before saving.",
+    "appreciation_sequence": "Remark",
+    "appreciation_sequence_placeholder": "Remark (60 char. max)",
+    "import_title": "Import grades"
   },
   "discipline": {
     "title": "Discipline",
+    "import_title": "Import attendance corrections",
     "sanctions": "Sanctions",
     "add_sanction": "Record a sanction",
     "type": "Type",
@@ -890,6 +900,19 @@
     "empty": "No complaint recorded.",
     "delete_target": "the complaint “{{objet}}”",
     "deleted": "Complaint deleted."
+  },
+  "suivi_saisies": {
+    "title": "Entry tracking",
+    "subtitle": "Missing grades and overdue progression, for the active sequence.",
+    "classe": "Class",
+    "notes_saisies": "Grades entered",
+    "lecons_faites": "Lessons done",
+    "toutes_classes": "All classes",
+    "toutes_matieres": "All subjects",
+    "alerte": "{{count}} row(s) below 50% — follow up on these first.",
+    "aucune_sequence_active": "No active sequence right now.",
+    "empty": "No data for these filters.",
+    "search": "Search a class or subject…"
   },
   "resultats": {
     "title": "Results",
@@ -1151,7 +1174,10 @@
     "save_changes": "Save",
     "updated": "Profile updated.",
     "password_title": "Change my password",
-    "password_hint": "Your other sessions will be closed after the change."
+    "password_hint": "Your other sessions will be closed after the change.",
+    "change_photo": "Change photo",
+    "photo_updated": "Profile photo updated.",
+    "photo_deleted": "Profile photo deleted."
   },
   "session": {
     "title": "School year",
@@ -1215,7 +1241,14 @@
     "dettes_ignorees": "{{count}} debt(s) already imported, not duplicated.",
     "paiements": "{{count}} additional payment(s) recorded.",
     "processing": "Import in progress…",
-    "erreurs_detail": "Most common failure reasons:"
+    "erreurs_detail": "Most common failure reasons:",
+    "sequence_cible": "Target sequence",
+    "conflits_titre": "{{count}} already-entered value(s) differ from the file",
+    "conflits_failed": "{{count}} other failed row(s), unrelated to conflicts.",
+    "conflit_ligne": "Row",
+    "conflit_valeur_actuelle": "Current value",
+    "conflit_valeur_fichier": "File value",
+    "confirmer_remplacement": "Replace anyway"
   },
   "niveaux": {
     "title": "Teaching levels",
@@ -1304,6 +1337,7 @@
     "traitee": "Covered",
     "validee_par": "Validated by {{nom}}",
     "avancement": "{{traitees}} of {{lecons}} lesson(s) covered",
+    "fiche_partagee": "Shared with your other classes at this level",
     "saved": "Syllabus saved ({{count}} lesson(s)).",
     "lecon": "Lesson",
     "importer_fiche": "Import sheet",

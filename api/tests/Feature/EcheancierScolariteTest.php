@@ -325,4 +325,75 @@ class EcheancierScolariteTest extends TestCase
         $this->assertSame('2e tranche', $echeancier['prochaine_echeance']['libelle']);
         $this->assertSame(0, $echeancier['retard']);
     }
+
+    // ----------------------------------------------------- Compte à rebours
+
+    /** Jours restants positifs avant l'échéance, négatifs (retard) après. */
+    public function test_jours_restants_se_calcule_pour_une_echeance_future_et_passee(): void
+    {
+        $this->echeancier();
+        $this->travelTo(CarbonImmutable::parse('2025-10-05'));
+        $dossier = $this->dossier();
+
+        $tranches = app(EcheancierService::class)->pourDossier($dossier)['tranches'];
+
+        // 1re tranche au 15/10, encore à venir au 5/10 : 10 jours restants.
+        $this->assertSame(10, $tranches[0]['jours_restants']);
+        // 2e tranche au 15/01/2026 : largement à venir.
+        $this->assertGreaterThan(0, $tranches[1]['jours_restants']);
+
+        $this->travelTo(CarbonImmutable::parse('2025-10-20'));
+        $tranches = app(EcheancierService::class)->pourDossier($dossier->fresh())['tranches'];
+
+        // Échéance du 15/10 dépassée de 5 jours au 20/10.
+        $this->assertSame(-5, $tranches[0]['jours_restants']);
+    }
+
+    /** Sans date d'échéance exploitable, le champ reste nul plutôt qu'un faux zéro. */
+    public function test_jours_restants_est_nul_sans_echeance(): void
+    {
+        $tranche = new TrancheScolarite(['date_echeance' => null]);
+
+        $this->assertNull($tranche->joursRestants());
+    }
+
+    // -------------------------------------------------------------- Audit
+
+    /** L'historique des paiements porte le nom de qui a encaissé et quand. */
+    public function test_l_historique_des_paiements_porte_le_createur_et_la_date(): void
+    {
+        $dossier = $this->dossier(36000);
+
+        $reponse = $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/v1/eleves/{$dossier->eleve_id}/scolarite")
+            ->assertOk();
+
+        $versement = $reponse->json('data.versements.0');
+
+        $this->assertSame('Root', $versement['cree_par']);
+        $this->assertNotNull($versement['created_at']);
+        $this->assertFalse($versement['annule']);
+        $this->assertNull($versement['annule_par']);
+    }
+
+    /** Un versement annulé porte aussi qui a annulé et quand, à côté du créateur. */
+    public function test_l_historique_des_paiements_porte_l_annulation(): void
+    {
+        $dossier = $this->dossier(36000);
+        $versement = $dossier->versements->first();
+
+        app(ScolariteService::class)->annuler($versement, 'Erreur de saisie', $this->admin->id);
+
+        $reponse = $this->actingAs($this->admin, 'sanctum')
+            ->getJson("/api/v1/eleves/{$dossier->eleve_id}/scolarite")
+            ->assertOk();
+
+        $ligne = $reponse->json('data.versements.0');
+
+        $this->assertSame('Root', $ligne['cree_par']);
+        $this->assertTrue($ligne['annule']);
+        $this->assertSame('Root', $ligne['annule_par']);
+        $this->assertNotNull($ligne['annule_le']);
+        $this->assertSame('Erreur de saisie', $ligne['motif_annulation']);
+    }
 }

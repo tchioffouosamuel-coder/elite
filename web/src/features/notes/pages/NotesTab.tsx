@@ -5,7 +5,7 @@ import { ChevronRight, Repeat, Search } from 'lucide-react'
 import { fetchClasseMatieres, fetchTrimestresPourClasse } from '@/features/pedagogie/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { peutSaisirSequence } from '../saisieSequence'
-import { fetchGrilleNotes, sauvegarderNotes } from '@/features/notes/api'
+import { fetchGrilleNotes, sauvegarderNotes, fetchAppreciationsSequence, sauvegarderAppreciationsSequence } from '@/features/notes/api'
 import { Input, Select, Textarea } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { succes, confirmer, erreur } from '@/shared/lib/alertes'
@@ -13,6 +13,10 @@ import type { ApiError } from '@/shared/types/api'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
+import { AppreciationSequenceInput } from '@/shared/ui/AppreciationSequenceInput'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
+
+const COLONNES_IMPORT_NOTES = ['Matricule', 'Nom complet', 'Note']
 
 /** Couleur douce de ligne selon la moyenne du trimestre — mêmes seuils que RemplirNotesPage / la version mobile. */
 function couleurLigne(moyenne: number | null): string | undefined {
@@ -130,10 +134,15 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
   // valeurs[eleve_id][sequence_id] = texte saisi (chaîne vide = pas de note)
   const [valeurs, setValeurs] = useState<Record<number, Record<number, string>>>({})
   const [observations, setObservations] = useState<Record<number, string>>({})
+  // appreciations[eleve_id][sequence_id] — uniquement les séquences 1 et 2 (cf. `sequencesAppreciables`).
+  const [appreciations, setAppreciations] = useState<Record<number, Record<number, string>>>({})
   const [noms, setNoms] = useState<Record<number, string>>({})
   const [reconduireSource, setReconduireSource] = useState<number | ''>('')
   const [reconduireCible, setReconduireCible] = useState<number | ''>('')
   const [submitting, setSubmitting] = useState(false)
+  // Séquence visée par l'import/export Excel (point 17) — par défaut la
+  // première séquence encore ouverte à la saisie, sinon la première du tout.
+  const [sequenceImportId, setSequenceImportId] = useState<number | ''>('')
 
   const { data: trimestres } = useQuery({
     queryKey: ['trimestres', classeId], queryFn: () => fetchTrimestresPourClasse(classeId),
@@ -153,9 +162,21 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
     })),
   })
 
+  // L'appréciation de séquence ne porte que sur la 1re et la 2e séquence
+  // d'un trimestre — le serveur rejette tout le reste (cf. point 16).
+  const sequencesAppreciables = sequences.filter((s) => s.ordre <= 2)
+  const grillesAppreciations = useQueries({
+    queries: sequencesAppreciables.map((s) => ({
+      queryKey: ['grille-appreciations', classeMatiereId, s.id],
+      queryFn: () => fetchAppreciationsSequence(classeMatiereId, s.id),
+      enabled: !!classeMatiereId,
+    })),
+  })
+
   // Ne préremplit chaque séquence qu'une fois : une invalidation de query ne
   // doit pas écraser une saisie déjà en cours (même garde que RemplirNotesPage).
   const prefillFait = useRef<Set<number>>(new Set())
+  const prefillAppreciationFait = useRef<Set<number>>(new Set())
   useEffect(() => {
     const refreshHistory = (event: Event) => {
       const action = (event as CustomEvent).detail
@@ -188,6 +209,31 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grillesSignature, sequences.map((s) => s.id).join(',')])
+
+  const grillesAppreciationsSignature = grillesAppreciations.map((g) => g.dataUpdatedAt).join(',')
+  useEffect(() => {
+    grillesAppreciations.forEach((requete, index) => {
+      const sequenceId = sequencesAppreciables[index]?.id
+      if (!sequenceId || !requete.data || prefillAppreciationFait.current.has(sequenceId)) return
+      prefillAppreciationFait.current.add(sequenceId)
+
+      setAppreciations((precedent) => {
+        const suivant = { ...precedent }
+        for (const ligne of requete.data!) {
+          suivant[ligne.eleve_id] = { ...(suivant[ligne.eleve_id] ?? {}), [sequenceId]: ligne.texte ?? '' }
+        }
+        return suivant
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grillesAppreciationsSignature, sequencesAppreciables.map((s) => s.id).join(',')])
+
+  useEffect(() => {
+    if (sequenceImportId === '' && sequences.length > 0) {
+      setSequenceImportId((sequencesEditables[0] ?? sequences[0]).id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequences.map((s) => s.id).join(',')])
 
   const lignes = Object.entries(noms)
     .map(([id, nom_complet]) => ({ eleve_id: Number(id), nom_complet }))
@@ -252,6 +298,17 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
         total += result.saved
         prefillFait.current.delete(sequence.id)
         queryClient.invalidateQueries({ queryKey: ['grille-notes', classeMatiereId, sequence.id] })
+
+        // Seules les séquences 1 et 2 portent une appréciation (cf. point 16).
+        if (sequence.ordre <= 2) {
+          const appreciationsSequence = lignes.map((l) => ({
+            eleve_id: l.eleve_id,
+            texte: (appreciations[l.eleve_id]?.[sequence.id] ?? '').trim() || null,
+          }))
+          await sauvegarderAppreciationsSequence(classeMatiereId, sequence.id, appreciationsSequence)
+          prefillAppreciationFait.current.delete(sequence.id)
+          queryClient.invalidateQueries({ queryKey: ['grille-appreciations', classeMatiereId, sequence.id] })
+        }
       }
       succes(t('notes.saved', { count: total }))
     } catch (err) {
@@ -268,6 +325,38 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
         <h3 className="text-lg font-semibold text-navy-900">{matiere.matiere.nom}</h3>
         <p className="text-sm text-navy-500">{matiere.enseignant?.nom_complet ?? '—'}</p>
       </div>
+
+      {sequences.length > 0 && sequenceImportId !== '' && (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-navy-100 bg-white/75 p-3 shadow-soft">
+          <Select
+            label={t('import.sequence_cible')}
+            value={sequenceImportId}
+            onChange={(e) => setSequenceImportId(e.target.value ? Number(e.target.value) : '')}
+            className="max-w-48"
+          >
+            {sequences.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.libelle}
+              </option>
+            ))}
+          </Select>
+          <ImportExportBar
+            titreImport={t('notes.import_title')}
+            importUrl={`classe-matieres/${classeMatiereId}/notes/import`}
+            exportUrl={`classe-matieres/${classeMatiereId}/notes/export`}
+            modeleUrl={`classe-matieres/${classeMatiereId}/notes/modele`}
+            colonnes={COLONNES_IMPORT_NOTES}
+            nomFichier={`notes-${matiere.matiere.nom}`}
+            exportParams={{ sequence_id: sequenceImportId }}
+            extraFields={{ sequence_id: sequenceImportId }}
+            peutImporter={sequencesEditables.some((s) => s.id === sequenceImportId)}
+            onImported={() => {
+              prefillFait.current.delete(Number(sequenceImportId))
+              queryClient.invalidateQueries({ queryKey: ['grille-notes', classeMatiereId, Number(sequenceImportId)] })
+            }}
+          />
+        </div>
+      )}
 
       {sequences.length > 1 && sequencesEditables.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-navy-100 bg-white/75 p-3 shadow-soft">
@@ -343,6 +432,15 @@ function NotesDetail({ classeId, classeMatiereId, matiere }: NotesDetailProps) {
                           onChange={(v) => setValeurs((prev) => ({ ...prev, [ligne.eleve_id]: { ...prev[ligne.eleve_id], [s.id]: v } }))}
                           className="w-24"
                         />
+                        {s.ordre <= 2 && (
+                          <AppreciationSequenceInput
+                            readOnly={!sequencesEditables.some((editable) => editable.id === s.id)}
+                            value={appreciations[ligne.eleve_id]?.[s.id] ?? ''}
+                            onChange={(v) => setAppreciations((prev) => ({ ...prev, [ligne.eleve_id]: { ...prev[ligne.eleve_id], [s.id]: v } }))}
+                            eleveLabel={ligne.nom_complet}
+                            className="mt-1 w-24"
+                          />
+                        )}
                       </Td>
                     ))}
                     <Td className="text-center font-semibold">{moyenne !== null ? moyenne.toFixed(2) : '—'}</Td>

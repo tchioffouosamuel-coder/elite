@@ -8,13 +8,13 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\ProgressionItem;
-use App\Models\ProgressionColonne;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
 use App\Support\PreuvePresence;
-use Illuminate\Support\Carbon;
+use App\Support\Progression\ResolveurFicheProgression;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -263,7 +263,7 @@ class MaJourneeService extends BaseService
         $validateurs = User::with('personnel')->whereIn('id', $faites->filter()->unique())->get()->keyBy('id');
         $validees = $faites->map(fn (?int $userId) => $userId !== null && $validateurs->has($userId) ? self::nomDe($validateurs->get($userId)) : null);
 
-        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $lecons = ResolveurFicheProgression::itemsScope($classeMatiere)
             ->lecons()
             ->with('parent.parent', 'sequence')
             ->withCount('seances')
@@ -320,7 +320,7 @@ class MaJourneeService extends BaseService
             'lecons' => $lecons,
             'cycle' => ProgressionItem::cyclePour($classeMatiere->classe->school->type),
             'journal_lecons' => collect($seance->journal_lecons ?? [])->pluck('message')->filter()->values(),
-            'colonnes' => ProgressionColonne::where('classe_matiere_id', $classeMatiere->id)
+            'colonnes' => ResolveurFicheProgression::colonnesScope($classeMatiere)
                 ->orderBy('ordre')->get(['id', 'libelle']),
             'appel' => $this->emploiDuTemps->feuilleAppel($seance)->map(fn ($ligne) => [
                 'eleve_id' => $ligne['eleve']->id,
@@ -389,7 +389,7 @@ class MaJourneeService extends BaseService
                 ->reject(fn ($ligne) => $traces->contains($ligne))->implode("\n");
             $observations = collect([trim($note), ...$traces])->filter()->implode("\n");
             // Une leçon d'un autre programme n'a rien à faire dans cette séance.
-            $valides = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+            $valides = ResolveurFicheProgression::itemsScope($classeMatiere)
                 ->lecons()
                 ->whereIn('id', $leconIds)
                 ->pluck('id');
@@ -449,6 +449,7 @@ class MaJourneeService extends BaseService
             if ($deja) {
                 abort_if($deja['user_id'] !== $user->id, 403);
                 $correspondances[$action['lecon_id']] = $deja['lecon_id'];
+
                 continue;
             }
             $id = $correspondances[$action['lecon_id']] ?? $action['lecon_id'];
@@ -461,13 +462,13 @@ class MaJourneeService extends BaseService
                     throw ValidationException::withMessages(["actions_lecons.$index.lecon_id" => 'Une nouvelle leçon doit porter un identifiant temporaire négatif.']);
                 }
                 $lecon = ProgressionItem::create([
-                    ...$fiche, 'classe_matiere_id' => $cm->id, 'type' => 'lecon',
-                    'ordre' => (ProgressionItem::where('classe_matiere_id', $cm->id)->max('ordre') ?? -1) + 1,
+                    ...$fiche, ...ResolveurFicheProgression::attributsCreation($cm, ProgressionItem::class), 'type' => 'lecon',
+                    'ordre' => (ResolveurFicheProgression::itemsScope($cm)->max('ordre') ?? -1) + 1,
                 ]);
                 $correspondances[$id] = $lecon->id;
                 $message = "$auteur a créé la leçon « {$lecon->titre} ».";
             } else {
-                $lecon = ProgressionItem::where('classe_matiere_id', $cm->id)->lecons()->lockForUpdate()->find($id);
+                $lecon = ResolveurFicheProgression::itemsScope($cm)->lecons()->lockForUpdate()->find($id);
                 if (! $lecon) {
                     throw ValidationException::withMessages(["actions_lecons.$index.lecon_id" => "Cette leçon n'existe pas dans cette affectation."]);
                 }

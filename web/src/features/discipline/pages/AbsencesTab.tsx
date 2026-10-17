@@ -11,7 +11,10 @@ import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Card'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner } from '@/shared/ui/Feedback'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { useAuthStore } from '@/shared/store/authStore'
+
+const COLONNES_IMPORT_ABSENCES = ['Matricule', 'Nom complet', 'Heures justifiées', 'Heures non justifiées']
 
 export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleType?: TypeEcole | null }) {
   const { t } = useTranslation()
@@ -127,16 +130,32 @@ export function AbsencesTab({ classeId, ecoleType }: { classeId: number; ecoleTy
             </option>
           ))}
         </Select>
-        {trimestreId && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => ouvrirDocument(`/classes/${classeId}/bilan-disciplinaire/pdf`, { trimestre_id: Number(trimestreId) })}
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            {t('export.pdf')}
-          </Button>
-        )}
+        <div className="flex flex-wrap items-end gap-2">
+          {peutModifier && trimestreId && (
+            <ImportExportBar
+              titreImport={t('discipline.import_title')}
+              importUrl={`classes/${classeId}/absences/import`}
+              modeleUrl={`classes/${classeId}/absences/modele`}
+              colonnes={COLONNES_IMPORT_ABSENCES}
+              nomFichier={`absences-${classeId}`}
+              // Pas d'export pour l'assiduité (point 18) : seulement le
+              // modèle vierge et l'import, cf. AbsenceController côté API.
+              peutExporter={false}
+              extraFields={{ trimestre_id: Number(trimestreId) }}
+              onImported={() => void refetch()}
+            />
+          )}
+          {trimestreId && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => ouvrirDocument(`/classes/${classeId}/bilan-disciplinaire/pdf`, { trimestre_id: Number(trimestreId) })}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              {t('export.pdf')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {bilan && (

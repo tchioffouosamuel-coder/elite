@@ -112,6 +112,8 @@ class CataloguePermissions
             'eleves.situation' => ['Consulter la situation financière et le transport des élèves de ses classes (lecture seule)', "View the fees and transport of one's own pupils (read-only)"],
             'eleves.create' => ['Inscrire un élève', 'Enrol a pupil'],
             'eleves.update' => ["Modifier la fiche, la classe et la photo d'un élève", "Edit a pupil's record, class and photo"],
+            'eleves.photo' => ["Prendre ou changer la photo d'un élève de ses classes, sans modifier le reste de sa fiche", "Capture or change the photo of a pupil in one's own classes, without editing the rest of their record"],
+            'eleves.numero_ordre' => ["Corriger le numéro de liste d'un élève de ses classes, sans modifier le reste de sa fiche", "Correct a pupil's class list number in one's own classes, without editing the rest of their record"],
             'eleves.delete' => ['Supprimer un élève', 'Delete a pupil'],
             'eleves.import' => ['Importer des élèves', 'Import pupils'],
             'eleves.transferer' => ['Transférer des élèves de classe en lot, ou vers un autre établissement', 'Bulk transfer pupils to another class, or to another school'],
@@ -162,6 +164,7 @@ class CataloguePermissions
             'tronc_commun.delete' => ['Supprimer un groupe de tronc commun', 'Delete a common-core group'],
             'calendrier_scolaire.create' => ['Ajouter un jour au calendrier scolaire', 'Add a day to the school calendar'],
             'calendrier_scolaire.delete' => ['Retirer un jour du calendrier scolaire', 'Remove a day from the school calendar'],
+            'pedagogie.suivi_saisies' => ['Consulter le suivi des saisies de notes et de la progression (séquence active)', 'View the tracking of mark entries and progression (active sequence)'],
         ]],
         'competences' => ['Compétences et appréciations', 'Competences and appraisals', [
             'competences.create' => ['Créer une compétence', 'Create a competence'],

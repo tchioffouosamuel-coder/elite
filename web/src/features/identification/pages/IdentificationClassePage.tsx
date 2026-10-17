@@ -16,7 +16,7 @@ import { EmptyState, Spinner } from '@/shared/ui/Feedback'
 export function IdentificationClassePage() {
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const can = useAuthStore((s) => s.can)
+    const canAny = useAuthStore((s) => s.canAny)
     const { classeId: classeIdParam } = useParams<{ classeId: string }>()
     const classeId = Number(classeIdParam)
     const [editionEnCours, setEditionEnCours] = useState(false)
@@ -88,7 +88,7 @@ export function IdentificationClassePage() {
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         {eleves.map((eleve) => (
-                            <VignetteEleve key={eleve.id} eleve={eleve} classeId={classeId} peutModifier={can('eleves.update')} />
+                            <VignetteEleve key={eleve.id} eleve={eleve} classeId={classeId} peutModifier={canAny(['eleves.update', 'eleves.photo'])} />
                         ))}
                     </div>
                 </>

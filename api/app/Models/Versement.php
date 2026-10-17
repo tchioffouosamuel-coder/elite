@@ -56,6 +56,12 @@ class Versement extends Model
         return $this->belongsTo(User::class, 'encaisse_par');
     }
 
+    /** Qui a annulé ce versement, le cas échéant — distinct de l'encaisseur. */
+    public function annulePar(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'annule_par');
+    }
+
     /** Ecritures du journal issues de cet encaissement, contrepassees a l'annulation. */
     public function ecritures(): MorphMany
     {

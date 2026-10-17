@@ -28,22 +28,22 @@ class DossierScolariteResource extends JsonResource
                 'classe' => $this->eleve?->classe?->nom,
                 'classe_id' => $this->eleve?->classe_id,
                 // Sert aux relances : le contact principal de la famille.
-                'contact' => $this->whenLoaded('eleve', fn() => $this->eleve->tuteurs->first()?->telephone),
+                'contact' => $this->whenLoaded('eleve', fn () => $this->eleve->tuteurs->first()?->telephone),
             ],
             'montant_scolarite' => $this->montant_scolarite,
             'remise' => $this->remise,
             'report_dette' => $this->report_dette,
-            'frais_annexes' => $this->whenLoaded('fraisAnnexes', fn() => $this->fraisAnnexes->map(fn($f) => [
+            'frais_annexes' => $this->whenLoaded('fraisAnnexes', fn () => $this->fraisAnnexes->map(fn ($f) => [
                 'id' => $f->id,
                 'libelle' => $f->libelle,
                 'montant' => $f->montant,
             ])->values()),
-            'bus' => $this->when($this->montant_bus > 0, fn() => [
+            'bus' => $this->when($this->montant_bus > 0, fn () => [
                 'trajet' => $this->bus_actif?->trajet?->nom,
                 'option_trajet' => $this->bus_actif?->option_trajet,
                 'montant' => $this->montant_bus,
             ]),
-            'rubriques' => $this->when($this->avecRubriques, fn() => $this->rubriques),
+            'rubriques' => $this->when($this->avecRubriques, fn () => $this->rubriques),
             'total_du' => $this->total_du,
             'total_paye' => $this->total_paye,
             'reste_a_payer' => $this->reste_a_payer,
@@ -52,14 +52,23 @@ class DossierScolariteResource extends JsonResource
             'avance' => $this->avance,
             'statut_paiement' => $this->statut_paiement,
             'taux_recouvrement' => $this->taux_recouvrement,
-            'versements' => $this->whenLoaded('versements', fn() => $this->versements->map(fn($v) => [
+            'versements' => $this->whenLoaded('versements', fn () => $this->versements->map(fn ($v) => [
                 'id' => $v->id,
                 'numero_recu' => $v->numero_recu,
                 'date_versement' => $v->date_versement?->format('Y-m-d'),
                 'heure_versement' => $v->created_at?->format('H:i:s'),
                 'montant' => $v->montant,
                 'mode' => $v->mode,
+                // Traçabilité (point 12) : qui a encaissé et quand — `encaisse_par`
+                // est posé à la création, jamais modifié après coup.
+                'cree_par' => $v->encaisseur?->name,
+                'created_at' => $v->created_at?->toAtomString(),
                 'annule' => $v->estAnnule(),
+                // Un versement ne se modifie jamais : seule l'annulation, tracée
+                // ici, constitue la « modification » possible de ce registre.
+                'annule_par' => $v->annulePar?->name,
+                'annule_le' => $v->annule_le?->toAtomString(),
+                'motif_annulation' => $v->motif_annulation,
             ])->values()),
             'observation' => $this->observation,
         ];

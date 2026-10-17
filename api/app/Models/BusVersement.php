@@ -68,6 +68,12 @@ class BusVersement extends Model
         return $this->belongsTo(User::class, 'encaisse_par');
     }
 
+    /** Qui a annulé ce versement, le cas échéant — distinct de l'encaisseur. */
+    public function annulePar(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'annule_par');
+    }
+
     /** Écritures du journal issues de cet encaissement, contrepassées à l'annulation. */
     public function ecritures(): MorphMany
     {

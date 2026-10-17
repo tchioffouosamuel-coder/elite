@@ -50,6 +50,44 @@ interface ImportProgress {
   current_name: string | null
 }
 
+/**
+ * Conflit détecté par un import « valeur par valeur » (notes, absences…) :
+ * le fichier contredit une valeur déjà saisie. Toujours `valeur_actuelle` /
+ * `valeur_fichier`, le reste varie selon la ressource (élève, séquence…) —
+ * on l'affiche tel quel plutôt que de connaître chaque forme à l'avance.
+ */
+export interface ConflitImport {
+  valeur_actuelle: unknown
+  valeur_fichier: unknown
+  [cle: string]: unknown
+}
+
+function libelleConflit(conflit: ConflitImport): string {
+  // `nom_complet` (élève) suffit à identifier la ligne quand il est présent ;
+  // sinon on affiche tout ce qui reste hormis les deux valeurs comparées et
+  // le simple identifiant numérique, peu lisible seul.
+  if (typeof conflit.nom_complet === 'string' && conflit.nom_complet) return conflit.nom_complet
+
+  return Object.entries(conflit)
+    .filter(([cle]) => !['valeur_actuelle', 'valeur_fichier', 'eleve_id'].includes(cle))
+    .map(([, valeur]) => texteDepuis(valeur))
+    .filter(Boolean)
+    .join(' · ') || '—'
+}
+
+/**
+ * Un 409 d'import « avec conflits » renvoie `errors.conflits` plutôt que la
+ * forme habituelle `Record<champ, messages[]>` — on le détecte ainsi sans
+ * casser les imports qui n'ont jamais ce cas (tout le reste du catalogue).
+ */
+function extraireConflits(errors: unknown): { conflits: ConflitImport[]; failed: number } | null {
+  if (!estObjet(errors) || !Array.isArray(errors.conflits)) return null
+  return {
+    conflits: errors.conflits as ConflitImport[],
+    failed: nombreOuNull(errors.failed) ?? 0,
+  }
+}
+
 interface ImportFailure {
   ligne: number | null
   lot?: number
@@ -227,6 +265,7 @@ export function ImportModal({
     message: string
     erreurs: ImportFailure[]
   } | null>(null)
+  const [conflitInfo, setConflitInfo] = useState<{ conflits: ConflitImport[]; failed: number } | null>(null)
 
   const exporterErreurs = (erreurs: ImportFailure[], nomFichier: string) => {
     const lignes: Record<string, unknown>[] = erreurs.map((erreur) => ({
@@ -286,16 +325,27 @@ export function ImportModal({
   // Les colonnes attendues dépendent du choix : afficher celles du primaire à
   // qui importe un fichier de secondaire l'enverrait corriger le mauvais.
   const colonnesAttendues = choix?.options.find((o) => o.valeur === choisi)?.colonnes ?? columns
-  const champsSupplementaires = {
+  /**
+   * `forcerRemplacement` n'est posé que sur le renvoi déclenché depuis le
+   * panneau de conflits (voir plus bas) : jamais sur le premier essai, pour
+   * que le serveur ait toujours l'occasion de signaler un conflit avant qu'on
+   * ne l'écrase.
+   */
+  const construireChamps = (forcerRemplacement = false): Record<string, string | number> => ({
     ...extraFields,
     ...(anneeChoisie ? { annee_scolaire_id: anneeChoisie } : {}),
-  }
+    ...(forcerRemplacement ? { confirmer_remplacement: 1 } : {}),
+  })
   // Ne cible qu'une requête à la fois — jamais le contexte global de l'appli
   // (cf. `ImportEcole` ci-dessus) : c'est ce qui permet à un super admin en
   // mode agrégé de choisir l'école visée sans quitter « Toutes les écoles ».
   const enTetesEcole = ecoles && ecoleChoisie ? { 'X-School-Id': ecoleChoisie } : undefined
 
-  const handleSubmitDecoupe = async (decoupeConfig: ImportDecoupe, fichier: File) => {
+  const handleSubmitDecoupe = async (
+    decoupeConfig: ImportDecoupe,
+    fichier: File,
+    champsSupplementaires: Record<string, string | number>,
+  ) => {
     const formData = new FormData()
     formData.append('file', fichier)
     if (choix) formData.append(choix.nom, choisi)
@@ -343,19 +393,21 @@ export function ImportModal({
     setResult(agrege)
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (forcerRemplacement = false) => {
     if (!file) return
     setSubmitting(true)
     setError(null)
     setDetailsErreur([])
     setResult(null)
     setErreurSelectionnee(null)
+    setConflitInfo(null)
+    const champsSupplementaires = construireChamps(forcerRemplacement)
     const token = progressUrl && !decoupe ? crypto.randomUUID() : null
     setProgressToken(token)
     setProgress(progressUrl || decoupe ? { processed: 0, total: 0, current_name: null } : null)
     try {
       if (decoupe) {
-        await handleSubmitDecoupe(decoupe, file)
+        await handleSubmitDecoupe(decoupe, file, champsSupplementaires)
         onImported()
         return
       }
@@ -373,8 +425,15 @@ export function ImportModal({
       onImported()
     } catch (err) {
       const apiError = err as ApiError
-      setError(apiError.message)
-      setDetailsErreur(Object.entries(apiError.errors ?? {}).map(([champ, messages]) => `${champ} : ${texteDepuis(messages)}`))
+      // Conflit (409) : valeurs déjà saisies et différentes du fichier — on
+      // laisse choisir plutôt que d'écraser ou d'ignorer silencieusement.
+      const conflits = apiError.status === 409 ? extraireConflits(apiError.errors) : null
+      if (conflits) {
+        setConflitInfo(conflits)
+      } else {
+        setError(apiError.message)
+        setDetailsErreur(Object.entries(apiError.errors ?? {}).map(([champ, messages]) => `${champ} : ${texteDepuis(messages)}`))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -448,6 +507,7 @@ export function ImportModal({
               setError(null)
               setDetailsErreur([])
               setErreurSelectionnee(null)
+              setConflitInfo(null)
             }}
             className="w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm shadow-soft file:mr-3 file:rounded-lg file:border-0 file:bg-navy-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cream-50"
           />
@@ -470,6 +530,44 @@ export function ImportModal({
                 className="h-full rounded-full bg-gold-500 transition-[width] duration-300"
                 style={{ width: `${progress.total > 0 ? Math.min(100, progress.processed * 100 / progress.total) : 8}%` }}
               />
+            </div>
+          </div>
+        )}
+        {conflitInfo && (
+          <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-semibold text-amber-700">
+              {t('import.conflits_titre', { count: conflitInfo.conflits.length })}
+            </p>
+            {!!conflitInfo.failed && (
+              <p className="text-xs text-amber-600">{t('import.conflits_failed', { count: conflitInfo.failed })}</p>
+            )}
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-amber-100 bg-white">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-amber-100 text-left text-amber-700">
+                    <th className="px-2 py-1">{t('import.conflit_ligne')}</th>
+                    <th className="px-2 py-1">{t('import.conflit_valeur_actuelle')}</th>
+                    <th className="px-2 py-1">{t('import.conflit_valeur_fichier')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conflitInfo.conflits.map((conflit, index) => (
+                    <tr key={index} className="border-b border-amber-50 last:border-0">
+                      <td className="px-2 py-1 text-navy-600">{libelleConflit(conflit)}</td>
+                      <td className="px-2 py-1 font-semibold text-navy-700">{texteDepuis(conflit.valeur_actuelle) || '—'}</td>
+                      <td className="px-2 py-1 font-semibold text-gold-600">{texteDepuis(conflit.valeur_fichier) || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setConflitInfo(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="button" onClick={() => void handleSubmit(true)}>
+                {t('import.confirmer_remplacement')}
+              </Button>
             </div>
           </div>
         )}
@@ -557,10 +655,10 @@ export function ImportModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             {result ? t('common.close') : t('common.cancel')}
           </Button>
-          {!result && (
+          {!result && !conflitInfo && (
             <Button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={!file || submitting || (!!ecoles?.length && !ecoleChoisie)}
             >
               <Upload className="h-4 w-4" />

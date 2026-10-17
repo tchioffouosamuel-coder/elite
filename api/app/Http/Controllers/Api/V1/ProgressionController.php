@@ -6,6 +6,8 @@ use App\Exports\ProgressionModeleClasseExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveProgressionRequest;
+use App\Imports\ProgressionImport;
+use App\Imports\ProgressionImportClasseAdapter;
 use App\Models\AnneeScolaire;
 use App\Models\ChampPersonnalise;
 use App\Models\Classe;
@@ -13,17 +15,17 @@ use App\Models\ClasseMatiere;
 use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
 use App\Models\Trimestre;
-use App\Imports\ProgressionImport;
-use App\Imports\ProgressionImportClasseAdapter;
-use App\Services\ProgressionService;
 use App\Services\CalendrierScolaireService;
+use App\Services\ProgressionService;
 use App\Support\Pdf\ProgressionFicheGenerator;
+use App\Support\Progression\ResolveurFicheProgression;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -47,6 +49,10 @@ class ProgressionController extends Controller
             'colonnes' => $this->colonnesArray($classeMatiere),
             ...$this->cartouche($classeMatiere),
             ...$this->service->tauxAffectation($classeMatiere),
+            // BUG1 : vrai si cette fiche est commune à toutes les classes où
+            // cet enseignant donne cette matière à ce niveau, plutôt que
+            // propre à cette seule affectation.
+            'progression_partagee' => ResolveurFicheProgression::estPartagee($classeMatiere),
         ]);
     }
 
@@ -103,7 +109,7 @@ class ProgressionController extends Controller
         $ligneAttendue = $cycle === 'secondaire' ? 8 : 7;
 
         if ($ligneReelle === null) {
-            return ApiResponse::error("Ce fichier ne ressemble pas à une fiche de progression : la colonne « Week » est introuvable.", 422);
+            return ApiResponse::error('Ce fichier ne ressemble pas à une fiche de progression : la colonne « Week » est introuvable.', 422);
         }
 
         if ($ligneReelle !== $ligneAttendue) {
@@ -146,15 +152,15 @@ class ProgressionController extends Controller
             ->with(['matiere.departement', 'enseignant', 'classe.school', 'classe.titulaire'])
             ->when(
                 request()->user()?->perimetre()->matieresRestreintesDans($classe->id),
-                fn($q) => $q->where('personnel_id', request()->user()->perimetre()->personnelId())
+                fn ($q) => $q->where('personnel_id', request()->user()->perimetre()->personnelId())
             )
             ->get()
-            ->sortBy(fn(ClasseMatiere $cm) => $cm->matiere->nom)
+            ->sortBy(fn (ClasseMatiere $cm) => $cm->matiere->nom)
             ->values();
 
         abort_if($affectations->isEmpty(), 404, "Aucune matière n'est affectée à cette classe.");
 
-        $nomFichier = 'modele-progression-' . Str::slug($classe->nom) . '.xlsx';
+        $nomFichier = 'modele-progression-'.Str::slug($classe->nom).'.xlsx';
 
         return Excel::download(
             new ProgressionModeleClasseExport($affectations, $cycle, $this->anneeScolaireActive($classe->school_id)),
@@ -180,7 +186,7 @@ class ProgressionController extends Controller
         $cycle = ProgressionItem::cyclePour($classe->school->type);
         $fichier = $request->file('fichier');
 
-        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $lecteur = IOFactory::createReaderForFile($fichier->getRealPath());
         $lecteur->setReadDataOnly(true);
         $feuilles = $lecteur->listWorksheetInfo($fichier->getRealPath());
         $classeur = $lecteur->load($fichier->getRealPath());
@@ -238,12 +244,12 @@ class ProgressionController extends Controller
 
         Excel::import(new ProgressionImportClasseAdapter($imports), $fichier);
 
-        $creees = array_sum(array_map(fn(ProgressionImport $i) => $i->creees, $imports));
-        $completees = array_sum(array_map(fn(ProgressionImport $i) => $i->completees, $imports));
+        $creees = array_sum(array_map(fn (ProgressionImport $i) => $i->creees, $imports));
+        $completees = array_sum(array_map(fn (ProgressionImport $i) => $i->completees, $imports));
 
-        $message = "{$creees} leçon(s) créée(s), {$completees} complétée(s) sur " . count($imports) . ' matière(s).';
+        $message = "{$creees} leçon(s) créée(s), {$completees} complétée(s) sur ".count($imports).' matière(s).';
         if ($ignorees !== []) {
-            $message .= ' ' . count($ignorees) . ' feuille(s) ignorée(s) : ' . implode(', ', $ignorees) . '.';
+            $message .= ' '.count($ignorees).' feuille(s) ignorée(s) : '.implode(', ', $ignorees).'.';
         }
 
         return ApiResponse::success([
@@ -261,14 +267,14 @@ class ProgressionController extends Controller
 
         $trimestreId = $request->integer('trimestre_id') ?: null;
 
-        $lecons = ProgressionItem::where('classe_matiere_id', $classeMatiere->id)
+        $lecons = ResolveurFicheProgression::itemsScope($classeMatiere)
             ->where('type', 'lecon')
             ->with('sequence.trimestre')
-            ->when($trimestreId, fn($q, $id) => $q->whereHas('sequence', fn($sq) => $sq->where('trimestre_id', $id)))
+            ->when($trimestreId, fn ($q, $id) => $q->whereHas('sequence', fn ($sq) => $sq->where('trimestre_id', $id)))
             ->orderBy('ordre')->orderBy('id')
             ->get();
 
-        $colonnes = $classeMatiere->progressionColonnes;
+        $colonnes = ResolveurFicheProgression::colonnesScope($classeMatiere)->orderBy('ordre')->get();
         $cycle = ProgressionItem::cyclePour($classeMatiere->classe->school->type);
 
         $termeAffiche = $trimestreId
@@ -284,11 +290,11 @@ class ProgressionController extends Controller
             $this->anneeScolaireActive($classeMatiere->classe->school_id),
         );
 
-        $nomFichier = 'progression-' . \Illuminate\Support\Str::slug($classeMatiere->classe->nom . '-' . $classeMatiere->matiere->nom) . '.pdf';
+        $nomFichier = 'progression-'.Str::slug($classeMatiere->classe->nom.'-'.$classeMatiere->matiere->nom).'.pdf';
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $nomFichier . '"',
+            'Content-Disposition' => 'inline; filename="'.$nomFichier.'"',
         ]);
     }
 
@@ -299,7 +305,7 @@ class ProgressionController extends Controller
         $perimetre = $request->user()->perimetre();
 
         $affectations = ClasseMatiere::where('classe_id', $classe->id)
-            ->with(['classe.school', 'classe.titulaire', 'matiere.departement', 'enseignant', 'progressionColonnes'])
+            ->with(['classe.school', 'classe.titulaire', 'matiere.departement', 'enseignant'])
             ->when(
                 $perimetre->matieresRestreintesDans($classe->id),
                 fn ($q) => $q->where('personnel_id', $perimetre->personnelId())
@@ -310,16 +316,16 @@ class ProgressionController extends Controller
 
         abort_if($affectations->isEmpty(), 404, "Aucune matière n'est affectée à cette classe.");
 
-        $items = ProgressionItem::whereIn('classe_matiere_id', $affectations->pluck('id'))
-            ->where('type', 'lecon')
-            ->orderBy('ordre')->orderBy('id')
-            ->get()
-            ->groupBy('classe_matiere_id');
-
+        // Une affectation à fiche partagée (cf. BUG1) ne vit pas sous son
+        // propre classe_matiere_id : résolue affectation par affectation
+        // plutôt qu'en un seul whereIn/groupBy.
         $fiches = $affectations->map(fn (ClasseMatiere $cm) => [
             'affectation' => $cm,
-            'lecons' => $items->get($cm->id, collect()),
-            'colonnes' => $cm->progressionColonnes,
+            'lecons' => ResolveurFicheProgression::itemsScope($cm)
+                ->where('type', 'lecon')
+                ->orderBy('ordre')->orderBy('id')
+                ->get(),
+            'colonnes' => ResolveurFicheProgression::colonnesScope($cm)->orderBy('ordre')->get(),
         ]);
 
         $pdf = (new ProgressionFicheGenerator)->buildClasse(
@@ -353,7 +359,7 @@ class ProgressionController extends Controller
         if ($trimestreId = $request->integer('trimestre_id') ?: null) {
             $trimestre = Trimestre::whereHas(
                 'anneeScolaire',
-                fn($q) => $q->whereIn('school_id', Tenant::schoolIds())
+                fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
             )->findOrFail($trimestreId);
 
             return ApiResponse::success($this->service->tauxClasseTrimestre($classe, $trimestre, $personnelId));
@@ -370,7 +376,7 @@ class ProgressionController extends Controller
         return ApiResponse::success($this->service->tauxEtablissement(
             Tenant::schoolIds(),
             $perimetre->classes(),
-            fn(Classe $classe) => $perimetre->matieresRestreintesDans($classe->id) ? $perimetre->personnelId() : null,
+            fn (Classe $classe) => $perimetre->matieresRestreintesDans($classe->id) ? $perimetre->personnelId() : null,
         ));
     }
 
@@ -442,22 +448,26 @@ class ProgressionController extends Controller
         $classeMatiere = $this->affectation($classeMatiereId);
 
         $data = $request->validate([
-            'colonnes' => ['present', 'array', 'max:' . ProgressionColonne::MAX_PAR_MATIERE],
+            'colonnes' => ['present', 'array', 'max:'.ProgressionColonne::MAX_PAR_MATIERE],
             'colonnes.*.id' => ['nullable', 'integer'],
             'colonnes.*.libelle' => ['required', 'string', 'max:60'],
         ]);
 
+        // Résolu une seule fois : historique ou partagé (cf. BUG1), les
+        // colonnes d'un même enregistrement ne basculent pas de mode entre
+        // deux lignes.
+        $porteur = ResolveurFicheProgression::attributsCreation($classeMatiere, ProgressionColonne::class);
         $conserves = [];
 
         foreach (array_values($data['colonnes']) as $ordre => $colonne) {
             $attributs = [
-                'classe_matiere_id' => $classeMatiere->id,
+                ...$porteur,
                 'libelle' => $colonne['libelle'],
                 'ordre' => $ordre + 1,
             ];
 
             $item = isset($colonne['id'])
-                ? ProgressionColonne::where('classe_matiere_id', $classeMatiere->id)->find($colonne['id'])
+                ? ResolveurFicheProgression::colonnesScope($classeMatiere)->find($colonne['id'])
                 : null;
 
             $item = $item ? tap($item)->update($attributs) : ProgressionColonne::create($attributs);
@@ -468,7 +478,7 @@ class ProgressionController extends Controller
         // saisies restent dans le JSON des leçons, simplement orphelines —
         // elles réapparaîtraient si la colonne était recréée avec le même id,
         // ce qui n'arrive jamais puisque l'id est auto-incrémenté.
-        ProgressionColonne::where('classe_matiere_id', $classeMatiere->id)
+        ResolveurFicheProgression::colonnesScope($classeMatiere)
             ->whereNotIn('id', $conserves ?: [0])
             ->delete();
 
@@ -478,11 +488,14 @@ class ProgressionController extends Controller
     /** @return list<array{id: int, libelle: string, ordre: int}> */
     private function colonnesArray(ClasseMatiere $classeMatiere): array
     {
-        return $classeMatiere->progressionColonnes->map(fn(ProgressionColonne $c) => [
-            'id' => $c->id,
-            'libelle' => $c->libelle,
-            'ordre' => $c->ordre,
-        ])->values()->all();
+        return ResolveurFicheProgression::colonnesScope($classeMatiere)
+            ->orderBy('ordre')
+            ->get()
+            ->map(fn (ProgressionColonne $c) => [
+                'id' => $c->id,
+                'libelle' => $c->libelle,
+                'ordre' => $c->ordre,
+            ])->values()->all();
     }
 
     /**

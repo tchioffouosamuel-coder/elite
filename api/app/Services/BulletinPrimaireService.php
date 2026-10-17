@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\Appreciation;
+use App\Models\AppreciationSequence;
 use App\Models\Classe;
 use App\Models\ClasseCompetence;
 use App\Models\Eleve;
 use App\Models\Note;
 use App\Models\ObservationEvaluation;
+use App\Models\Sequence;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
@@ -55,12 +56,14 @@ class BulletinPrimaireService extends BaseService
             ->get()
             ->keyBy(fn (ObservationEvaluation $observation) => "{$observation->eleve_id}:{$observation->classe_competence_id}");
 
+        $appreciationsSequence = $this->appreciationsSequence($trimestre, $tousEleves->pluck('id'), $affectations->pluck('id'));
+
         // La maternelle n'a ni moyenne, ni rang, ni classement : on ne les
         // calcule même pas, plutôt que de les produire pour ne pas les afficher.
         $parAppreciation = (bool) $classe->school?->estMaternelle();
 
         $classement = $parAppreciation ? collect() : $this->moyennes->classementGeneral($classe, $trimestre);
-        $moyennes = $classement->pluck('moyenne')->filter(fn($m) => $m !== null);
+        $moyennes = $classement->pluck('moyenne')->filter(fn ($m) => $m !== null);
 
         // Au primaire l'absence se compte en journées déduites des appels :
         // calculées ici en un bloc pour toute la classe, plutôt qu'une requête
@@ -82,15 +85,15 @@ class BulletinPrimaireService extends BaseService
         // l'ordre alphabétique, seul ordre qui ait un sens sans moyenne.
         if (! $parAppreciation) {
             $rangs = $classement
-                ->filter(fn(array $ligne) => $ligne['rang'] !== null)
-                ->mapWithKeys(fn(array $ligne) => [$ligne['eleve']->id => $ligne['rang']]);
+                ->filter(fn (array $ligne) => $ligne['rang'] !== null)
+                ->mapWithKeys(fn (array $ligne) => [$ligne['eleve']->id => $ligne['rang']]);
 
             // Ordre de mérite : la liasse se distribue en conseil du premier au
             // dernier. Les élèves sans note, donc sans rang, ferment la marche.
             // Clé unique : un tableau ferait interpréter chaque closure comme
             // un comparateur `($a, $b) => int`, pas comme un extracteur de clé.
             $elevesDuDocument = $elevesDuDocument
-                ->sortBy(fn(Eleve $eleve) => $rangs->has($eleve->id)
+                ->sortBy(fn (Eleve $eleve) => $rangs->has($eleve->id)
                     ? sprintf('0%06d', $rangs->get($eleve->id))
                     : '1'.$eleve->nom_complet)
                 ->values();
@@ -116,15 +119,50 @@ class BulletinPrimaireService extends BaseService
                 'moyenne_classe' => $moyennes->isNotEmpty() ? round((float) $moyennes->avg(), 2) : null,
                 'premier' => $moyennes->isNotEmpty() ? (float) $moyennes->max() : null,
                 'dernier' => $moyennes->isNotEmpty() ? (float) $moyennes->min() : null,
-                'admis' => $moyennes->filter(fn($m) => $m >= 10)->count(),
+                'admis' => $moyennes->filter(fn ($m) => $m >= 10)->count(),
                 'evalues' => $moyennes->count(),
             ],
             'eleves' => $elevesDuDocument
-                ->map(fn(Eleve $eleve) => $parAppreciation
-                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours, $titulaireNom, $observations)
-                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours, $titulaireNom, $observations))
+                ->map(fn (Eleve $eleve) => $parAppreciation
+                    ? $this->donneesEleveMaternelle($eleve, $affectations, $sequences, $jours, $titulaireNom, $observations, $appreciationsSequence)
+                    : $this->donneesEleve($eleve, $trimestre, $affectations, $sequences, $classement, $jours, $titulaireNom, $observations, $appreciationsSequence))
                 ->all(),
         ];
+    }
+
+    /**
+     * Même logique que `BulletinService::appreciationsSequence()` : les
+     * appréciations des séquences 1 et 2 du trimestre, par élève et par
+     * compétence — vide hors premier trimestre. Clé `"eleve_id:classe_competence_id"`,
+     * valeur `[1 => ?string, 2 => ?string]`.
+     *
+     * @param  Collection<int, int>  $eleveIds
+     * @param  Collection<int, int>  $classeCompetenceIds
+     * @return Collection<string, array<int, ?string>>
+     */
+    private function appreciationsSequence(Trimestre $trimestre, Collection $eleveIds, Collection $classeCompetenceIds): Collection
+    {
+        if ($trimestre->ordre !== 1) {
+            return collect();
+        }
+
+        $sequencesParOrdre = Sequence::where('trimestre_id', $trimestre->id)
+            ->whereIn('ordre', [1, 2])
+            ->pluck('ordre', 'id');
+
+        if ($sequencesParOrdre->isEmpty()) {
+            return collect();
+        }
+
+        return AppreciationSequence::whereIn('eleve_id', $eleveIds)
+            ->whereIn('classe_competence_id', $classeCompetenceIds)
+            ->whereIn('sequence_id', $sequencesParOrdre->keys())
+            ->whereNotNull('texte')
+            ->get()
+            ->groupBy(fn (AppreciationSequence $a) => "{$a->eleve_id}:{$a->classe_competence_id}")
+            ->map(fn (Collection $groupe) => $groupe->mapWithKeys(
+                fn (AppreciationSequence $a) => [$sequencesParOrdre->get($a->sequence_id) => $a->texte]
+            )->all());
     }
 
     /**
@@ -146,6 +184,7 @@ class BulletinPrimaireService extends BaseService
         Collection $jours,
         string $titulaireNom,
         Collection $observations,
+        Collection $appreciationsSequence,
     ): array {
         $notes = Note::where('eleve_id', $eleve->id)
             ->whereIn('classe_competence_id', $affectations->pluck('id'))
@@ -159,8 +198,9 @@ class BulletinPrimaireService extends BaseService
         // rien d'exploitable — il faut passer par les identifiants.
         $rangSequence = $sequences->values()->pluck('id')->flip();
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $notes, $rangSequence, $titulaireNom, $observations) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $notes, $rangSequence, $titulaireNom, $observations, $appreciationsSequence) {
             $competence = $cc->competence;
+            $appr = $appreciationsSequence->get("{$eleve->id}:{$cc->id}") ?? [];
 
             return [
                 'matiere' => $competence->label_fr,
@@ -168,11 +208,13 @@ class BulletinPrimaireService extends BaseService
                 'abreviation' => $competence->abbreviation,
                 'enseignant' => $titulaireNom,
                 'observation' => $observations->get("{$eleve->id}:{$cc->id}")?->texte,
+                'appreciation_sequence_1' => $appr[1] ?? null,
+                'appreciation_sequence_2' => $appr[2] ?? null,
                 'volets' => collect($cc->volets())->map(function (string $volet) use ($notes, $cc, $rangSequence) {
                     $retenue = $notes
                         ->where('classe_competence_id', $cc->id)
                         ->where('composante', $volet)
-                        ->sortByDesc(fn(Note $note) => $rangSequence[$note->sequence_id] ?? -1)
+                        ->sortByDesc(fn (Note $note) => $rangSequence[$note->sequence_id] ?? -1)
                         ->first();
 
                     return [
@@ -211,13 +253,15 @@ class BulletinPrimaireService extends BaseService
         Collection $jours,
         string $titulaireNom,
         Collection $observations,
+        Collection $appreciationsSequence,
     ): array {
         $totauxParSequence = array_fill_keys($sequences->pluck('id')->all(), 0.0);
 
-        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom, $observations) {
+        $lignes = $affectations->map(function (ClasseCompetence $cc) use ($eleve, $trimestre, $sequences, &$totauxParSequence, $titulaireNom, $observations, $appreciationsSequence) {
             $resultat = $this->moyennes->noteCompetenceEleve($eleve, $cc, $trimestre);
             $competence = $cc->competence;
             $repartition = $cc->repartitionVolets();
+            $appr = $appreciationsSequence->get("{$eleve->id}:{$cc->id}") ?? [];
 
             foreach ($sequences as $sequence) {
                 $totauxParSequence[$sequence->id] += $resultat['totaux_sequences'][$sequence->id] ?? 0.0;
@@ -233,16 +277,18 @@ class BulletinPrimaireService extends BaseService
                 'bareme' => $resultat['bareme'],
                 'enseignant' => $titulaireNom,
                 'observation' => $observations->get("{$eleve->id}:{$cc->id}")?->texte,
+                'appreciation_sequence_1' => $appr[1] ?? null,
+                'appreciation_sequence_2' => $appr[2] ?? null,
                 // Une ligne par volet : le libellé, son barème, puis une note par séquence.
                 // Un volet à 0 point n'a rien à afficher — {@see ClasseCompetence::voletsNotes()}.
-                'volets' => collect($cc->voletsNotes())->map(fn(string $composante) => [
+                'volets' => collect($cc->voletsNotes())->map(fn (string $composante) => [
                     'code' => $composante,
                     'libelle' => self::LIBELLES_VOLETS[$composante]['fr'],
                     'libelle_en' => self::LIBELLES_VOLETS[$composante]['en'],
                     'bareme' => $repartition[$composante] ?? null,
-                    'notes' => $sequences->map(fn($s) => $resultat['volets'][$composante][$s->id] ?? null)->values()->all(),
+                    'notes' => $sequences->map(fn ($s) => $resultat['volets'][$composante][$s->id] ?? null)->values()->all(),
                 ])->values()->all(),
-                'totaux_sequences' => $sequences->map(fn($s) => $resultat['totaux_sequences'][$s->id] ?? null)->values()->all(),
+                'totaux_sequences' => $sequences->map(fn ($s) => $resultat['totaux_sequences'][$s->id] ?? null)->values()->all(),
                 'note' => $resultat['note'],
                 'appreciation' => $this->moyennes->appreciationCompetence($resultat['note'], $resultat['bareme']),
             ];
@@ -252,7 +298,7 @@ class BulletinPrimaireService extends BaseService
 
         // Moyenne de chaque séquence prise isolément, ramenée sur 20 :
         // `$al1 = ($total1 * 20) / $sum` dans archange.
-        $moyennesSequences = $sequences->map(fn($s) => $general['total_bareme'] > 0
+        $moyennesSequences = $sequences->map(fn ($s) => $general['total_bareme'] > 0
             ? round($totauxParSequence[$s->id] * 20 / $general['total_bareme'], 2)
             : null)->values()->all();
 
@@ -263,7 +309,7 @@ class BulletinPrimaireService extends BaseService
             'total_obtenu' => $general['total_obtenu'],
             'total_bareme' => $general['total_bareme'],
             'moyenne_generale' => $general['moyenne'],
-            'rang' => $classement->first(fn($r) => $r['eleve']->id === $eleve->id)['rang'] ?? null,
+            'rang' => $classement->first(fn ($r) => $r['eleve']->id === $eleve->id)['rang'] ?? null,
             'appreciation_generale' => $this->appreciationGenerale($general['moyenne']),
             'jours_justifies' => (int) ($jours[$eleve->id]['jours_justifies'] ?? 0),
             'jours_non_justifies' => (int) ($jours[$eleve->id]['jours_non_justifies'] ?? 0),

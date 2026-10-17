@@ -13,7 +13,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Spinner } from '@/shared/ui/Feedback'
 import { fetchClasses, fetchNiveaux } from '@/features/classes/api'
-import { createEleve, updateEleve, fetchEleve, rechercheTuteurs, rechercherMatriculeNational, type ElevePayload, type TuteurSuggestion, type MatriculeNationalResult } from '@/features/eleves/api'
+import { createEleve, updateEleve, fetchEleve, rechercheTuteurs, rechercherMatriculeNational, fetchValeursSuggerees, type ElevePayload, type TuteurSuggestion, type MatriculeNationalResult, type ChampValeurSuggeree } from '@/features/eleves/api'
 import { NB_TELEPHONES_MIN, telephonesParDefaut, completerTelephones, type TelephoneEntry } from '@/features/eleves/lib/telephones'
 import { ClasseNiveauPicker } from '@/features/eleves/components/ClasseNiveauPicker'
 import {
@@ -266,6 +266,96 @@ function TuteurTelephonesFields({
                 <Plus className="h-3.5 w-3.5" />
                 {t('eleves.inscription.ajouter_telephone')}
             </button>
+        </div>
+    )
+}
+
+/** Chemins de champ texte pouvant être branchés sur `ValeurSuggereeInput`. */
+type ValeurSuggereeNom = 'lieu_naissance' | 'adresse' | `tuteurs.${number}.profession`
+
+/**
+ * Champ texte avec suggestions "douces" tirées des valeurs déjà saisies pour
+ * ce champ dans l'école (lieu de naissance, adresse, profession…). Ouvertes
+ * dès le focus — vide, l'API renvoie les valeurs les plus fréquentes/récentes
+ * — puis affinées par sous-chaîne dès la frappe (debounce 300ms, comme
+ * `TuteurNomAutocomplete`). Cliquer une suggestion remplit le champ, qui
+ * reste librement modifiable : ce n'est jamais une contrainte de valeur.
+ */
+function ValeurSuggereeInput({
+    name,
+    champApi,
+    label,
+    placeholder,
+    error,
+    register,
+    setValue,
+    watch,
+    t,
+}: {
+    name: ValeurSuggereeNom
+    champApi: ChampValeurSuggeree
+    label: string
+    placeholder?: string
+    error?: string
+    register: UseFormRegister<EleveFormValues>
+    setValue: UseFormSetValue<EleveFormValues>
+    watch: UseFormWatch<EleveFormValues>
+    t: TFunction
+}) {
+    const valeur = (watch(name) ?? '') as string
+    const [termeDebounce, setTermeDebounce] = useState('')
+    const [ouvert, setOuvert] = useState(false)
+
+    useEffect(() => {
+        const minuteur = setTimeout(() => setTermeDebounce(valeur.trim()), 300)
+        return () => clearTimeout(minuteur)
+    }, [valeur])
+
+    const { data: suggestions, isFetching } = useQuery({
+        queryKey: ['valeurs-suggerees', champApi, termeDebounce],
+        queryFn: () => fetchValeursSuggerees(champApi, termeDebounce || undefined),
+        enabled: ouvert,
+    })
+
+    const champ = register(name)
+
+    const afficherSuggestions = ouvert && (suggestions?.length ?? 0) > 0
+
+    return (
+        <div className="relative">
+            <Input
+                label={label}
+                placeholder={placeholder}
+                autoComplete="off"
+                error={error}
+                {...champ}
+                onFocus={() => setOuvert(true)}
+                onBlur={(e) => {
+                    champ.onBlur(e)
+                    // Laisse le `onClick` d'une suggestion s'exécuter avant de fermer la liste.
+                    setTimeout(() => setOuvert(false), 150)
+                }}
+            />
+            {afficherSuggestions && (
+                <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto overflow-x-hidden rounded-xl border border-navy-100 bg-white py-1 shadow-lifted">
+                    {suggestions!.map((suggestion) => (
+                        <li key={suggestion}>
+                            <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                    setValue(name, suggestion, { shouldDirty: true })
+                                    setOuvert(false)
+                                }}
+                                className="block w-full px-3 py-2 text-left text-sm text-navy-900 hover:bg-cream-100"
+                            >
+                                {suggestion}
+                            </button>
+                        </li>
+                    ))}
+                    {isFetching && <li className="px-3 py-2 text-xs text-navy-300">{t('common.loading')}</li>}
+                </ul>
+            )}
         </div>
     )
 }
@@ -609,6 +699,22 @@ export function EleveInscriptionPage() {
                 sousTitre={eleve ? t('eleves.inscription.page_description_edit') : t('eleves.inscription.page_description_create')}
             />
 
+            {/*
+             * Rappel du nom de l'élève, visible à chaque étape (saisie initiale
+             * comprise, via `watch`) — `sticky` plutôt que `fixed` : le défilement
+             * se fait dans <main> (overflow-y-auto), pas dans la fenêtre, donc
+             * `sticky` s'accroche naturellement au haut de cette zone sans calcul
+             * manuel de décalage.
+             */}
+            <div className="sticky top-0 z-20 mt-4 rounded-xl border border-navy-100 bg-white/95 px-4 py-2.5 shadow-soft backdrop-blur-sm">
+                <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-navy-400">
+                    {t('eleves.inscription.eleve_en_cours')}
+                </p>
+                <p className="truncate text-sm font-bold text-navy-900">
+                    {watch('nom_complet')?.trim() || t('eleves.inscription.nouvel_eleve')}
+                </p>
+            </div>
+
             {isLoading && eleveId ? (
                 <div className="mt-6"><Spinner /></div>
             ) : (
@@ -710,11 +816,16 @@ export function EleveInscriptionPage() {
                                             error={errors.date_naissance?.message}
                                         />
                                     </div>
-                                    <Input
+                                    <ValeurSuggereeInput
+                                        name="lieu_naissance"
+                                        champApi="eleves.lieu_naissance"
                                         label={t('eleves.inscription.lieu_naissance_placeholder')}
                                         placeholder={t('eleves.inscription.lieu_naissance_placeholder')}
-                                        {...register('lieu_naissance')}
+                                        register={register}
+                                        setValue={setValue}
+                                        watch={watch}
                                         error={errors.lieu_naissance?.message}
+                                        t={t}
                                     />
                                     <Input
                                         label={t('eleves.inscription.numero_acte_naissance')}
@@ -722,11 +833,16 @@ export function EleveInscriptionPage() {
                                         {...register('numero_acte_naissance')}
                                         error={errors.numero_acte_naissance?.message}
                                     />
-                                    <Input
+                                    <ValeurSuggereeInput
+                                        name="adresse"
+                                        champApi="eleves.adresse"
                                         label={t('eleves.inscription.adresse')}
                                         placeholder={t('eleves.inscription.adresse_placeholder')}
-                                        {...register('adresse')}
+                                        register={register}
+                                        setValue={setValue}
+                                        watch={watch}
                                         error={errors.adresse?.message}
+                                        t={t}
                                     />
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Select
@@ -1006,11 +1122,16 @@ export function EleveInscriptionPage() {
                                                             t={t}
                                                         />
 
-                                                        <Input
+                                                        <ValeurSuggereeInput
+                                                            name={`tuteurs.${index}.profession`}
+                                                            champApi="tuteurs.profession"
                                                             label={t('eleves.inscription.profession')}
                                                             placeholder={t('eleves.inscription.profession')}
-                                                            {...register(`tuteurs.${index}.profession` as const)}
+                                                            register={register}
+                                                            setValue={setValue}
+                                                            watch={watch}
                                                             error={errors.tuteurs?.[index]?.profession?.message}
+                                                            t={t}
                                                         />
 
                                                         <div className="flex items-center justify-between pt-2 border-t border-navy-100">

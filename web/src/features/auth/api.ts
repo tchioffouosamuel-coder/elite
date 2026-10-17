@@ -58,3 +58,14 @@ export async function updateProfil(payload: ProfilPayload): Promise<AuthUser> {
   const { data } = await http.put<ApiResponse<AuthUser>>('/auth/profil', payload)
   return data.data
 }
+
+/** Point 21 de la punch-list Elites-tech : chaque agent téléverse sa propre photo de profil. */
+export async function uploadMaPhoto(personnelId: number, photo: File): Promise<void> {
+  const form = new FormData()
+  form.append('photo', photo)
+  await http.post(`/personnels/${personnelId}/photo`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+
+export async function supprimerMaPhoto(personnelId: number): Promise<void> {
+  await http.delete(`/personnels/${personnelId}/photo`)
+}

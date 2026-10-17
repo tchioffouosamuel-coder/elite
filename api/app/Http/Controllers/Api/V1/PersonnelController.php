@@ -75,6 +75,45 @@ class PersonnelController extends Controller
         return ApiResponse::success(new PersonnelResource($personnel));
     }
 
+    /**
+     * Point 21 de la punch-list Elites-tech : chaque agent peut téléverser sa
+     * propre photo de profil, sans passer par `personnel.update` (qui ouvrirait
+     * aussi l'édition du reste de sa fiche). Qui détient déjà ce privilège —
+     * direction, RH — peut aussi changer la photo d'un autre agent.
+     */
+    public function photo(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['photo' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120']]);
+
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
+        $this->autoriserPhoto($request, $personnel);
+
+        $personnel = $this->service->updatePhoto($personnel, $request->file('photo'));
+
+        return ApiResponse::success(new PersonnelResource($personnel), 'Photo mise à jour.');
+    }
+
+    public function supprimerPhoto(Request $request, int $id): JsonResponse
+    {
+        $personnel = $this->service->find(Tenant::schoolIds(), $id);
+        $this->autoriserPhoto($request, $personnel);
+
+        $personnel = $this->service->deletePhoto($personnel);
+
+        return ApiResponse::success(new PersonnelResource($personnel), 'Photo supprimée.');
+    }
+
+    private function autoriserPhoto(Request $request, Personnel $personnel): void
+    {
+        $user = $request->user();
+
+        if ($user->personnel?->id === $personnel->id || $user->aLaPermission('personnel.update')) {
+            return;
+        }
+
+        abort(403, "Vous ne pouvez changer que votre propre photo de profil.");
+    }
+
     public function update(UpdatePersonnelRequest $request, int $id): JsonResponse
     {
         $personnel = $this->service->find(Tenant::schoolIds(), $id);

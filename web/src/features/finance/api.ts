@@ -74,6 +74,13 @@ export interface DossierScolarite {
     montant: number;
     mode: ModePaiement;
     annule: boolean;
+    /** Nom de l'agent qui a enregistré le versement. */
+    cree_par: string;
+    created_at: string;
+    /** Rempli uniquement quand le versement est annulé. */
+    annule_par: string | null;
+    annule_le: string | null;
+    motif_annulation: string | null;
   }[];
   observation: string | null;
 }
@@ -1088,6 +1095,8 @@ export interface TrancheEcheancier {
   reste: number;
   echue: boolean;
   statut: StatutTranche;
+  /** Jours avant l'échéance (négatif si en retard), null si pas de date d'échéance. */
+  jours_restants: number | null;
 }
 
 /**
@@ -1114,6 +1123,8 @@ export interface TrancheScolarite {
   ordre: number;
   annee_scolaire_id: number;
   school_id: number;
+  /** Jours avant l'échéance (négatif si en retard), null si pas de date d'échéance. */
+  jours_restants: number | null;
 }
 
 export interface TrancheScolaritePayload {

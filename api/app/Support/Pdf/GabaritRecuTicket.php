@@ -5,6 +5,8 @@ namespace App\Support\Pdf;
 use App\Models\School;
 use App\Models\Setting;
 use App\Support\Pdf\Concerns\RenduDocument;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Mpdf\Output\Destination;
 
 /**
@@ -46,8 +48,11 @@ class GabaritRecuTicket
      *     accessoires?: list<array{0: string, 1: int}>|null,
      *     numero: string,
      *     encaisseur: ?string,
+     *     enregistre_le?: Carbon|CarbonInterface|null,
      *     qr?: ?string,
      *     annule?: bool,
+     *     annule_par?: ?string,
+     *     annule_le?: Carbon|CarbonInterface|null,
      * }  $recu
      */
     public function rendre(School $school, array $recu): string
@@ -99,7 +104,9 @@ class GabaritRecuTicket
             .'.hist td{font-size:2.7mm;padding:0.4mm 1mm;border-bottom:0.2mm solid #000}'
             .'.hist .t{font-size:2.9mm;border-bottom:none;padding-top:1.2mm}'
             .'.pied{font-size:2.4mm;text-align:center}'
-            .'.annule{color:#ac3527;font-weight:bold;font-size:3.6mm;text-align:center;margin-top:1mm}';
+            .'.annule{color:#ac3527;font-weight:bold;font-size:3.6mm;text-align:center;margin-top:1mm}'
+            .'.annule-par{color:#ac3527;font-size:2.4mm;text-align:center;margin-top:0.5mm}'
+            .'.enregistre{font-size:2.3mm;font-weight:normal;text-align:center}';
     }
 
     /** Bloc positionné en absolu : mPDF ignore marges et centrage d'un bloc placé dans une cellule. */
@@ -117,17 +124,28 @@ class GabaritRecuTicket
     private function enTete(School $school): string
     {
         $autorisation = Setting::get($school->id, 'numero_autorisation_ouverture');
+        // Téléphone affiché sur le reçu : celui du chef d'établissement par
+        // défaut (`recu_telephone`), distinct du `phone` générique de l'école
+        // qui sert ailleurs (bulletins, portail) — cf. point 5 des retours
+        // d'Elites-tech, qui veut le numéro du chef sur le ticket de caisse.
+        $telephone = Setting::get($school->id, 'recu_telephone', $school->phone);
         $contacts = array_filter([
             $school->address,
-            $school->phone ? 'TEL : '.$school->phone : null,
+            $telephone ? 'TEL / PHONE : '.$telephone : null,
             $school->email ? 'e-mail : '.$school->email : null,
         ]);
 
         $mentions = ($autorisation ? '<div>Autorisation d\'ouverture / Opening order N° : '.$this->e($autorisation).'</div>' : '')
             .($contacts !== [] ? '<div>'.$this->e(implode(', ', $contacts)).'</div>' : '');
 
+        // Sigle central : nom court configurable (`recu_nom_etablissement`),
+        // sinon le code de l'établissement, sinon son nom complet — cf.
+        // point 4 des retours : « Elites-BTA » n'est pas écrit en dur, c'est
+        // la donnée `schools.code` de cette école précise qui s'affiche ici.
+        $sigle = Setting::get($school->id, 'recu_nom_etablissement') ?: ($school->code ?: $school->name);
+
         return $this->bloc(43, 52, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_fr, $school->name)).'</div>')
-            .$this->bloc(97, 42, 5, '<div class="sigle">'.$this->e(mb_strtoupper($school->code ?: $school->name)).'</div>')
+            .$this->bloc(97, 42, 5, '<div class="sigle">'.$this->e(mb_strtoupper($sigle)).'</div>')
             .$this->bloc(141, 55, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_en, $school->name)).'</div>')
             .$this->bloc(43, 153, 15.5, '<div class="mention-ecole">'.$mentions.'</div>');
     }
@@ -166,6 +184,19 @@ class GabaritRecuTicket
 
         if ($recu['annule'] ?? false) {
             $html .= '<div class="annule">*** REÇU ANNULÉ / RECEIPT CANCELLED ***</div>';
+
+            // Qui a annulé et quand : seule « modification » possible d'un
+            // versement (point 12) — un reçu ne se corrige jamais sur place.
+            $annulePar = $recu['annule_par'] ?? null;
+            $annuleLe = $recu['annule_le'] ?? null;
+            if ($annulePar || $annuleLe) {
+                $html .= '<div class="annule-par">'
+                    .'Annulé'.($annulePar ? ' par '.$this->e($annulePar) : '')
+                    .($annuleLe ? ' le '.$this->e($annuleLe->format('d/m/Y')).' à '.$this->e($annuleLe->format('H:i')) : '')
+                    .' / Cancelled'.($annulePar ? ' by '.$this->e($annulePar) : '')
+                    .($annuleLe ? ' on '.$this->e($annuleLe->format('d/m/Y')).' at '.$this->e($annuleLe->format('H:i')) : '')
+                    .'</div>';
+            }
         }
 
         return $html;
@@ -184,9 +215,18 @@ class GabaritRecuTicket
             ? '<img src="'.$recu['qr'].'" style="width:13mm;height:13mm">'
             : '';
 
+        // Date et heure d'enregistrement (point 12), sous le nom du caissier
+        // déjà affiché — c'est la trace de « qui, quand » demandée en plus.
+        $enregistreLe = $recu['enregistre_le'] ?? null;
+        $enregistre = $enregistreLe
+            ? '<div class="enregistre">Enregistré le '.$this->e($enregistreLe->format('d/m/Y')).' à '.$this->e($enregistreLe->format('H:i')).'<br>'
+                .'Recorded on '.$this->e($enregistreLe->format('d/m/Y')).' at '.$this->e($enregistreLe->format('H:i')).'</div>'
+            : '';
+
         return '<div class="pied">'.$qr.'<br>'
             .'N° '.$this->e($recu['numero']).'<br>'
             .'<b>'.$this->e(mb_strtoupper((string) ($recu['encaisseur'] ?? ''))).'</b>'
+            .$enregistre
             .'</div>';
     }
 
@@ -199,10 +239,18 @@ class GabaritRecuTicket
      */
     private function historiques(array $recu): string
     {
-        $lignes = $this->section('Historique des versements', ['Date de paiement', 'Montant'], $this->resumer($recu['versements'], self::MAX_VERSEMENTS, 'versement'));
+        $lignes = $this->section(
+            'Historique des versements / Payment history',
+            ['Date de paiement / Date', 'Montant / Amount'],
+            $this->resumer($recu['versements'], self::MAX_VERSEMENTS, 'versements', 'payments'),
+        );
 
         if (($recu['accessoires'] ?? null) !== null) {
-            $lignes .= $this->section('Historique des accessoires', ['Accessoires', 'Montant'], $this->resumer($recu['accessoires'], self::MAX_ACCESSOIRES, 'accessoire'));
+            $lignes .= $this->section(
+                'Historique des accessoires / Other fees history',
+                ['Accessoires / Other fees', 'Montant / Amount'],
+                $this->resumer($recu['accessoires'], self::MAX_ACCESSOIRES, 'accessoires', 'other fees'),
+            );
         }
 
         return '<table class="hist" rotate="90" style="width:72mm">'.$lignes.'</table>';
@@ -231,7 +279,7 @@ class GabaritRecuTicket
      * @param  list<array{0: string, 1: int}>  $lignes
      * @return list<array{0: string, 1: string}>
      */
-    private function resumer(array $lignes, int $max, string $nom): array
+    private function resumer(array $lignes, int $max, string $nomFr, string $nomEn): array
     {
         $affichees = array_slice($lignes, 0, $max - 1);
         $reste = array_slice($lignes, $max - 1);
@@ -239,7 +287,10 @@ class GabaritRecuTicket
         if (count($reste) === 1) {
             $affichees[] = $reste[0];
         } elseif ($reste !== []) {
-            $affichees[] = ['+ '.count($reste).' '.$nom.'s antérieurs', array_sum(array_column($reste, 1))];
+            $affichees[] = [
+                '+ '.count($reste).' '.$nomFr.' antérieurs / + '.count($reste).' previous '.$nomEn,
+                array_sum(array_column($reste, 1)),
+            ];
         }
 
         return array_map(fn ($l) => [$l[0], self::montant($l[1])], $affichees);

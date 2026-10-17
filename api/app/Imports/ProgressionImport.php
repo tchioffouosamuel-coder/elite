@@ -4,13 +4,16 @@ namespace App\Imports;
 
 use App\Models\ClasseMatiere;
 use App\Models\ProgressionItem;
+use App\Support\Progression\ResolveurFicheProgression;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * Import de la fiche de progression au format du gabarit de l'établissement.
@@ -72,12 +75,12 @@ class ProgressionImport implements ToCollection, WithHeadingRow
     {
         // Leçons déjà en base, indexées par Topic + Sub-topic : c'est ce
         // couple qui identifie une ligne de la feuille.
-        $existantes = ProgressionItem::where('classe_matiere_id', $this->classeMatiere->id)
+        $existantes = ResolveurFicheProgression::itemsScope($this->classeMatiere)
             ->where('type', 'lecon')
             ->get()
             ->keyBy(fn (ProgressionItem $item) => self::cle($item->topic).'|'.self::cle($item->sous_topic));
 
-        $ordre = (int) ProgressionItem::where('classe_matiere_id', $this->classeMatiere->id)->max('ordre');
+        $ordre = (int) ResolveurFicheProgression::itemsScope($this->classeMatiere)->max('ordre');
 
         foreach ($rows as $row) {
             $ligne = $this->canoniser($row instanceof Collection ? $row->all() : (array) $row);
@@ -100,7 +103,7 @@ class ProgressionImport implements ToCollection, WithHeadingRow
             }
 
             $item = ProgressionItem::create([
-                'classe_matiere_id' => $this->classeMatiere->id,
+                ...ResolveurFicheProgression::attributsCreation($this->classeMatiere, ProgressionItem::class),
                 'type' => 'lecon',
                 // Le titre affiché dans la liste : le sujet, le sous-sujet à
                 // défaut — jamais vide, la colonne l'exige.
@@ -230,7 +233,7 @@ class ProgressionImport implements ToCollection, WithHeadingRow
      */
     public static function ligneEnTete(UploadedFile $fichier): ?int
     {
-        $lecteur = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($fichier->getRealPath());
+        $lecteur = IOFactory::createReaderForFile($fichier->getRealPath());
         $lecteur->setReadDataOnly(true);
         $feuille = $lecteur->load($fichier->getRealPath())->getSheet(0);
 
@@ -244,7 +247,7 @@ class ProgressionImport implements ToCollection, WithHeadingRow
      * (`ligneEnTete()`) que pour l'import groupé d'une classe entière, où
      * chaque feuille du classeur doit être vérifiée individuellement.
      */
-    public static function ligneEnTeteFeuille(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $feuille): ?int
+    public static function ligneEnTeteFeuille(Worksheet $feuille): ?int
     {
         foreach ([7, 8] as $ligne) {
             foreach ($feuille->getRowIterator($ligne, $ligne) as $ligneEntete) {

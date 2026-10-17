@@ -3,7 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Eleve;
-use App\Models\Note;
+use App\Services\NoteService;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
@@ -17,18 +17,21 @@ use Maatwebsite\Excel\Concerns\WithValidation;
  * la classe de l'affectation visée) est simplement ignorée — pas d'erreur
  * bloquante, pour tolérer un fichier contenant toute l'école sur un onglet
  * "classe" filtré manuellement par l'utilisateur.
+ *
+ * Ne touche plus la base : les lignes reconnues sont seulement collectées
+ * dans {@see $lignes}, pour que {@see NoteService::importFromExcel()}
+ * puisse détecter un remplacement de note déjà saisie avant d'écrire quoi
+ * que ce soit (cf. `App\Services\Concerns\DetecteConflitsRemplacement`).
  */
 class NoteImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithValidation
 {
     use SkipsFailures;
 
-    public int $importedCount = 0;
+    /** @var list<array{eleve_id:int, valeur:float}> */
+    public array $lignes = [];
 
     public function __construct(
         private readonly int $schoolId,
-        private readonly int $classeMatiereId,
-        private readonly int $sequenceId,
-        private readonly ?int $personnelId,
         private readonly Collection $eleveIdsValides,
     ) {}
 
@@ -45,12 +48,7 @@ class NoteImport implements SkipsOnFailure, ToCollection, WithHeadingRow, WithVa
                 continue;
             }
 
-            Note::updateOrCreate(
-                ['eleve_id' => $eleveId, 'classe_matiere_id' => $this->classeMatiereId, 'sequence_id' => $this->sequenceId],
-                ['valeur' => $row['note'], 'saisi_par' => $this->personnelId]
-            );
-
-            $this->importedCount++;
+            $this->lignes[] = ['eleve_id' => $eleveId, 'valeur' => (float) $row['note']];
         }
     }
 

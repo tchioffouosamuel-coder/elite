@@ -38,6 +38,38 @@ export interface Classement {
   }[];
 }
 
+export interface SuiviSaisiesLigne {
+  classe_id: number
+  classe: string
+  matiere_id: number
+  matiere: string
+  enseignant_id: number | null
+  enseignant: string | null
+  notes_attendues: number
+  notes_saisies: number
+  notes_taux: number
+  lecons_attendues: number
+  lecons_faites: number
+  lecons_taux: number
+}
+
+export interface SuiviSaisies {
+  sequence: { id: number; libelle: string; trimestre: string } | null
+  lignes: SuiviSaisiesLigne[]
+}
+
+/**
+ * Point 15 de la punch-list : tableau de bord admin/HM/principal — notes
+ * manquantes et progression en retard, pour la séquence active de l'école.
+ * Réservé à la permission `pedagogie.suivi_saisies` (jamais un enseignant).
+ */
+export async function fetchSuiviSaisies(classeId?: number, matiereId?: number): Promise<SuiviSaisies> {
+  const { data } = await http.get<ApiResponse<SuiviSaisies>>('/suivi-saisies', {
+    params: { classe_id: classeId, matiere_id: matiereId },
+  })
+  return data.data
+}
+
 export interface Palmares {
   trimestre: { id: number; libelle: string };
   eleves: {

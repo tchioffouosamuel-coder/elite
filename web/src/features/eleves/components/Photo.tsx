@@ -17,7 +17,7 @@ export function Photo({ url, nom, eleveId, onReplace, className = '', children }
   className?: string
 }) {
   const { t } = useTranslation()
-  const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const queries = useQueryClient()
   const [open, setOpen] = useState(false)
   const [camera, setCamera] = useState(false)
@@ -28,7 +28,10 @@ export function Photo({ url, nom, eleveId, onReplace, className = '', children }
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const menu = useRef<HTMLDetailsElement>(null)
-  const editable = eleveId !== undefined && can('eleves.update')
+  // eleves.photo (BUG2) : un enseignant peut prendre/changer la photo d'un
+  // élève de ses classes sans porter eleves.update, qui ouvre tout le reste
+  // de la fiche.
+  const editable = eleveId !== undefined && canAny(['eleves.update', 'eleves.photo'])
 
   useEffect(() => {
     if (open && !camera) dialog.current?.showModal()

@@ -117,7 +117,8 @@ class HistoriqueImportsTest extends TestCase
         $deux = Eleve::create(['school_id' => $this->school->id, 'classe_id' => $attribution->classe_id, 'matricule' => 'E2', 'nom_complet' => 'Deux', 'sexe' => 'M']);
         $note = Note::create(['eleve_id' => $un->id, 'classe_matiere_id' => $attribution->id, 'sequence_id' => $sequence->id, 'valeur' => 12]);
         $this->postJson('/api/v1/classe-matieres/'.$attribution->id.'/notes/import', [
-            'sequence_id' => $sequence->id, 'file' => $this->fichier([['Matricule', 'Note'], ['E1', 16], ['E2', 18]]),
+            'sequence_id' => $sequence->id, 'confirmer_remplacement' => 1,
+            'file' => $this->fichier([['Matricule', 'Note'], ['E1', 16], ['E2', 18]]),
         ])->assertOk();
         $action = ActionAnnulable::sole();
         $this->assertCount(2, $action->changements);

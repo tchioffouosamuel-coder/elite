@@ -502,6 +502,27 @@ class EleveController extends Controller
     }
 
     /**
+     * Point 19 de la punch-list Elites-tech : l'enseignant corrige à la main
+     * le numéro de liste d'un élève de sa classe, sans que ça déplace les
+     * autres numéros ni porte eleves.update (qui ouvre tout le reste de la
+     * fiche).
+     */
+    public function numeroOrdre(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['numero_ordre' => ['required', 'integer', 'min:1']]);
+
+        $eleve = $this->service->find(Tenant::schoolIds(), $id, $request->user());
+
+        try {
+            $eleve = $this->service->definirNumeroOrdre($eleve, (int) $data['numero_ordre']);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(new EleveResource($eleve), 'Numéro de liste mis à jour.');
+    }
+
+    /**
      * Transfert d'un élève vers une autre école du complexe. La classe d'arrivée
      * est obligatoire : sans elle l'élève se retrouverait dans un établissement
      * où il n'est rattaché à aucun enseignement, invisible des listes de classe.

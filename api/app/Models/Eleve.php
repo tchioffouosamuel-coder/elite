@@ -17,6 +17,7 @@ class Eleve extends Model
         'school_id',
         'user_id',
         'classe_id',
+        'numero_ordre',
         'matricule',
         'matricule_national',
         'nom_complet',
@@ -168,12 +169,12 @@ class Eleve extends Model
     {
         $annee = now()->format('y');
         $plusGrandNumero = static::query()
-            ->where('matricule', 'like', $annee . 'ELITES-%')
+            ->where('matricule', 'like', $annee.'ELITES-%')
             ->pluck('matricule')
-            ->map(fn(?string $matricule) => preg_match('/^\d{2}ELITES-(\d{4})$/', (string) $matricule, $matches) ? (int) $matches[1] : 0)
+            ->map(fn (?string $matricule) => preg_match('/^\d{2}ELITES-(\d{4})$/', (string) $matricule, $matches) ? (int) $matches[1] : 0)
             ->max();
 
-        return $annee . 'ELITES-' . str_pad((string) ($plusGrandNumero + 1), 4, '0', STR_PAD_LEFT);
+        return $annee.'ELITES-'.str_pad((string) ($plusGrandNumero + 1), 4, '0', STR_PAD_LEFT);
     }
 
     public function school(): BelongsTo
@@ -190,6 +191,40 @@ class Eleve extends Model
     public function classe(): BelongsTo
     {
         return $this->belongsTo(Classe::class);
+    }
+
+    public function historiquesScolarite(): HasMany
+    {
+        return $this->hasMany(HistoriqueScolariteEleve::class);
+    }
+
+    /**
+     * Classe de l'élève pour une année scolaire donnée — pour un reçu ou tout
+     * autre document qui doit rester juste même rejoué longtemps après.
+     *
+     * `classe_id` sur la fiche élève ne porte que la classe ACTUELLE : au
+     * passage en classe supérieure (cf. ConseilClasseService::valider()),
+     * elle change, et un élève diplômé ou exclu la perd (mise à `null`). Un
+     * reçu d'un versement ancien, réimprimé après ce passage, afficherait
+     * alors « — » au lieu de la classe réellement fréquentée au moment du
+     * paiement. `historiques_scolarite_eleves` fige justement « cet élève,
+     * cette année-là, telle classe » : on s'y réfère d'abord pour une année
+     * révolue, et seulement à `classe_id` en direct pour l'année active (où
+     * aucun historique n'existe encore puisque le conseil ne l'a pas validée).
+     */
+    public function classeLibellePour(?AnneeScolaire $annee): ?string
+    {
+        if ($annee !== null && ! $annee->is_active) {
+            $historique = $this->relationLoaded('historiquesScolarite')
+                ? $this->historiquesScolarite->firstWhere('annee_scolaire_id', $annee->id)
+                : HistoriqueScolariteEleve::where('eleve_id', $this->id)->where('annee_scolaire_id', $annee->id)->first();
+
+            if ($historique) {
+                return $historique->classe_nom;
+            }
+        }
+
+        return $this->classe?->nom;
     }
 
     public function preinscriptions(): HasMany

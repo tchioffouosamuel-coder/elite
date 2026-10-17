@@ -32,6 +32,9 @@ class ProgressionItem extends Model
         'learners_activities', 'facilitators_activities',
         'assessment', 'assignment', 'remarks',
         'semaine', 'date_prevue', 'date_realisee', 'duree', 'colonnes_libres',
+        // Clé de partage (BUG1) : cf. classe_matiere_id, ci-dessus, et
+        // App\Support\Progression\ResolveurFicheProgression.
+        'matiere_id', 'niveau_scolaire_id', 'niveau_classe', 'personnel_id',
     ];
 
     /**
@@ -61,10 +64,16 @@ class ProgressionItem extends Model
         'colonnes_libres' => 'array',
     ];
 
-    /** Scopé par école via la classe qui porte l'affectation. */
+    /**
+     * Scopé par école via la classe qui porte l'affectation — ou, pour une
+     * ligne partagée (`classe_matiere_id` nul, cf. BUG1), via la matière.
+     */
     public function scopeForSchool(Builder $query, int|array $schoolId): Builder
     {
-        return $query->whereHas('classeMatiere.classe', fn ($q) => is_array($schoolId) ? $q->whereIn('school_id', $schoolId) : $q->where('school_id', $schoolId));
+        return $query->where(function (Builder $q) use ($schoolId) {
+            $q->whereHas('classeMatiere.classe', fn ($q2) => is_array($schoolId) ? $q2->whereIn('school_id', $schoolId) : $q2->where('school_id', $schoolId))
+                ->orWhereHas('matiere', fn ($q2) => is_array($schoolId) ? $q2->whereIn('school_id', $schoolId) : $q2->where('school_id', $schoolId));
+        });
     }
 
     public function scopeLecons(Builder $query): Builder
@@ -75,6 +84,21 @@ class ProgressionItem extends Model
     public function classeMatiere(): BelongsTo
     {
         return $this->belongsTo(ClasseMatiere::class);
+    }
+
+    public function matiere(): BelongsTo
+    {
+        return $this->belongsTo(Matiere::class);
+    }
+
+    public function niveauScolaire(): BelongsTo
+    {
+        return $this->belongsTo(NiveauScolaire::class);
+    }
+
+    public function personnel(): BelongsTo
+    {
+        return $this->belongsTo(Personnel::class);
     }
 
     public function parent(): BelongsTo

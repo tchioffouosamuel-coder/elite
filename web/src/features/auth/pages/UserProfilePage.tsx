@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
 import { useForm } from 'react-hook-form'
-import { Building2, IdCard, KeyRound, Pencil, Settings, ShieldCheck, UserCircle } from 'lucide-react'
+import { Building2, Camera, IdCard, KeyRound, Loader2, Pencil, Settings, ShieldCheck, Trash2, UserCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/shared/ui/Badge'
 import { Card } from '@/shared/ui/Card'
@@ -10,8 +10,8 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Input } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { useAuthStore, type AuthUser } from '@/shared/store/authStore'
-import { changerMotDePasse, updateProfil } from '@/features/auth/api'
-import { succes } from '@/shared/lib/alertes'
+import { changerMotDePasse, fetchMe, supprimerMaPhoto, updateProfil, uploadMaPhoto } from '@/features/auth/api'
+import { succes, erreur } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 
 const TYPE_TONE: Record<string, 'blue' | 'green' | 'gold'> = {
@@ -24,6 +24,108 @@ function initials(name?: string): string {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+/** Point 21 de la punch-list Elites-tech : chaque agent téléverse sa propre photo de profil. */
+function PhotoProfil({ user }: { user: AuthUser }) {
+  const { t } = useTranslation()
+  const refreshUser = useAuthStore((s) => s.refreshUser)
+  const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+
+  if (!user.personnel_id) {
+    return (
+      <span className="flex h-20 w-20 flex-none items-center justify-center rounded-2xl bg-navy-800 font-display text-2xl font-bold text-cream-50 shadow-card">
+        {initials(user.name)}
+      </span>
+    )
+  }
+
+  const choisir = (file?: File) => {
+    if (!file) return
+    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      erreur(t('photos.invalid'))
+      return
+    }
+    void (async () => {
+      setBusy(true)
+      try {
+        await uploadMaPhoto(user.personnel_id!, file)
+        refreshUser(await fetchMe())
+        succes(t('profile.photo_updated'))
+      } catch (err) {
+        erreur((err as ApiError).message ?? t('photos.action_error'))
+      } finally {
+        setBusy(false)
+      }
+    })()
+  }
+
+  const supprimer = () => {
+    void (async () => {
+      setBusy(true)
+      try {
+        await supprimerMaPhoto(user.personnel_id!)
+        refreshUser(await fetchMe())
+        succes(t('profile.photo_deleted'))
+      } catch (err) {
+        erreur((err as ApiError).message ?? t('photos.action_error'))
+      } finally {
+        setBusy(false)
+      }
+    })()
+  }
+
+  return (
+    <div className="group relative h-20 w-20 flex-none">
+      {user.avatar_url ? (
+        <img src={user.avatar_url} alt={user.name} className="h-20 w-20 rounded-2xl object-cover shadow-card" />
+      ) : (
+        <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-navy-800 font-display text-2xl font-bold text-cream-50 shadow-card">
+          {initials(user.name)}
+        </span>
+      )}
+      <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-2xl bg-navy-900/0 opacity-0 transition-opacity group-hover:bg-navy-900/60 group-hover:opacity-100">
+        {busy ? (
+          <Loader2 className="h-5 w-5 animate-spin text-white" />
+        ) : (
+          <>
+            <button
+              type="button"
+              title={t('profile.change_photo')}
+              aria-label={t('profile.change_photo')}
+              className="rounded-lg p-1.5 text-white hover:bg-white/20"
+              onClick={() => input.current?.click()}
+            >
+              <Camera className="h-4 w-4" />
+            </button>
+            {user.avatar_url && (
+              <button
+                type="button"
+                title={t('common.delete')}
+                aria-label={t('common.delete')}
+                className="rounded-lg p-1.5 text-white hover:bg-white/20"
+                onClick={supprimer}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          choisir(file)
+        }}
+      />
+    </div>
+  )
 }
 
 export function UserProfilePage() {
@@ -44,9 +146,7 @@ export function UserProfilePage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]">
         <Card className="flex flex-col gap-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <span className="flex h-20 w-20 flex-none items-center justify-center rounded-2xl bg-navy-800 font-display text-2xl font-bold text-cream-50 shadow-card">
-              {initials(user.name)}
-            </span>
+            <PhotoProfil user={user} />
             <div className="min-w-0">
               <h1 className="truncate font-display text-2xl font-bold tracking-tight text-navy-900">{user.name}</h1>
               <p className="mt-1 truncate text-sm text-navy-500">{user.email}</p>

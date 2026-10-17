@@ -1119,6 +1119,30 @@ function dateCourte(valeur: string | null): string {
   return valeur ? new Date(valeur).toLocaleDateString('fr-FR') : '—'
 }
 
+/** Compte à rebours jusqu'à l'échéance d'une tranche, ou le retard si elle est dépassée — bilingue comme le reste du portail parent. */
+function BadgeJoursRestants({ joursRestants }: { joursRestants: number }) {
+  if (joursRestants < 0) {
+    const n = Math.abs(joursRestants)
+    return (
+      <span className="w-fit rounded-full bg-red-50 px-2 py-0.5 text-[0.6875rem] font-semibold text-red-600">
+        En retard de {n} jour{n > 1 ? 's' : ''} / {n} day{n > 1 ? 's' : ''} overdue
+      </span>
+    )
+  }
+
+  const proche = joursRestants <= 3
+  return (
+    <span
+      className={`w-fit rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ${
+        proche ? 'bg-gold-50 text-gold-700' : 'bg-navy-50 text-navy-500'
+      }`}
+    >
+      {joursRestants} jour{joursRestants > 1 ? 's' : ''} restant{joursRestants > 1 ? 's' : ''} / {joursRestants} day
+      {joursRestants > 1 ? 's' : ''} remaining
+    </span>
+  )
+}
+
 /**
  * Échéancier de la scolarité tel que la famille le lit : ce qui est dû, à
  * quelle date, et ce qui reste sur chaque tranche.
@@ -1166,6 +1190,9 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-medium text-navy-800">{tranche.libelle}</span>
                   <span className="text-[0.6875rem] text-navy-400">{dateCourte(tranche.date_echeance)}</span>
+                  {tranche.jours_restants != null && tranche.statut !== 'soldee' && (
+                    <BadgeJoursRestants joursRestants={tranche.jours_restants} />
+                  )}
                 </span>
               </span>
               <span className="flex flex-col items-end">

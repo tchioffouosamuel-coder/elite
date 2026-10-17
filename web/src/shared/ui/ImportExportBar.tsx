@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
@@ -26,10 +26,14 @@ export function ImportExportBar({
   ecoles,
   ecoleId,
   peutImporter = true,
+  peutExporter = true,
+  extraFields,
+  exportParams,
+  note,
 }: {
   titreImport: string
   importUrl: string
-  exportUrl: string
+  exportUrl?: string
   modeleUrl: string
   colonnes: string[]
   nomFichier: string
@@ -45,14 +49,26 @@ export function ImportExportBar({
    * et l'export restent proposés, pas le bouton d'import.
    */
   peutImporter?: boolean
+  /** Certaines ressources (ex. absences) n'ont pas d'export, seulement modèle + import. */
+  peutExporter?: boolean
+  /**
+   * Champs fixes ajoutés au corps de l'import (ex. `sequence_id`,
+   * `trimestre_id`) — un contexte que le fichier ne porte pas lui-même.
+   */
+  extraFields?: Record<string, string | number>
+  /** Mêmes valeurs que `extraFields`, mais pour les requêtes GET export/modèle. */
+  exportParams?: Record<string, string | number | undefined>
+  note?: ReactNode
 }) {
   const { t } = useTranslation()
   const [importOuvert, setImportOuvert] = useState(false)
 
   return (
     <>
-      <TemplateDownloadButton url={modeleUrl} nomFichier={`modele-${nomFichier}.xlsx`} />
-      <ExportButton url={exportUrl} nomFichier={`${nomFichier}.xlsx`} />
+      <TemplateDownloadButton url={modeleUrl} params={exportParams} nomFichier={`modele-${nomFichier}.xlsx`} />
+      {peutExporter && exportUrl && (
+        <ExportButton url={exportUrl} params={exportParams} nomFichier={`${nomFichier}.xlsx`} />
+      )}
       {peutImporter && (
         <Button type="button" variant="secondary" onClick={() => setImportOuvert(true)}>
           <Upload className="h-4 w-4" />
@@ -70,6 +86,8 @@ export function ImportExportBar({
           anneeScolaireId={anneesScolaires?.find((annee) => annee.is_active)?.id}
           ecoles={ecoles}
           ecoleId={ecoleId}
+          extraFields={extraFields}
+          note={note}
           onClose={() => setImportOuvert(false)}
           // Rafraîchit la liste en fond, sans fermer la fenêtre : celle-ci
           // affiche le résultat (« X importées, Y échouées ») juste après —

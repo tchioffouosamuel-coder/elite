@@ -1,8 +1,9 @@
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, FileDown, FileText, FileSpreadsheet, AlertTriangle, Bus, Clock } from 'lucide-react'
-import { fetchEleves, fetchTableauAges, telephonesTuteur, type Eleve } from '@/features/eleves/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, FileDown, FileText, FileSpreadsheet, AlertTriangle, Bus, Clock, Pencil } from 'lucide-react'
+import { fetchEleves, fetchTableauAges, telephonesTuteur, definirNumeroOrdreEleve, type Eleve } from '@/features/eleves/api'
+import { erreur } from '@/shared/lib/alertes'
 import { EleveParentsPhones } from '@/features/eleves/components/EleveParentsPhones'
 import { ouvrirBulletin } from '@/features/resultats/api'
 import { fetchInsolvables, francs } from '@/features/finance/api'
@@ -19,13 +20,31 @@ import { useAuthStore } from '@/shared/store/authStore'
 export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType?: TypeEcole | null }) {
   const { t } = useTranslation()
   const can = useAuthStore((s) => s.can)
+  const canAny = useAuthStore((s) => s.canAny)
   const estEnseignant = useAuthStore((s) => s.user?.est_enseignant ?? false)
   const estSecondaire = estSecondaireHelper(ecoleType)
+  const queries = useQueryClient()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['eleves', { classe_id: classeId }],
     queryFn: () => fetchEleves({ classe_id: classeId, per_page: 1000 }),
   })
+
+  // eleves.numero_ordre (point 19) : l'enseignant corrige le numéro de liste
+  // d'un élève de sa classe sans porter eleves.update, qui ouvre tout le
+  // reste de la fiche.
+  const peutNumeroter = canAny(['eleves.update', 'eleves.numero_ordre'])
+  const modifierNumero = async (eleve: Eleve, valeur: string) => {
+    const numero = Number.parseInt(valeur, 10)
+    if (!Number.isInteger(numero) || numero < 1) return
+    if (numero === eleve.numero_ordre) return
+    try {
+      await definirNumeroOrdreEleve(eleve.id, numero)
+      await queries.invalidateQueries({ queryKey: ['eleves', { classe_id: classeId }] })
+    } catch (err) {
+      erreur(err && typeof err === 'object' && 'message' in err ? String(err.message) : t('classes.numero_ordre_error'))
+    }
+  }
 
   // Qui a souscrit au bus — surtout utile au secondaire, où l'effectif d'une
   // classe n'est pas suivi par un seul titulaire comme au primaire.
@@ -37,6 +56,12 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
   const busParEleve = new Map((transport ?? []).map((e) => [e.id, e.bus]))
 
   const colonnes: Colonne<Eleve>[] = [
+    {
+      cle: 'numero_ordre',
+      entete: t('classes.numero_ordre'),
+      valeur: (e) => e.numero_ordre ?? 0,
+      cellule: (e) => <NumeroOrdreCell eleve={e} editable={peutNumeroter} onChange={(valeur) => modifierNumero(e, valeur)} />,
+    },
     {
       cle: 'matricule',
       entete: t('eleves.matricule'),
@@ -175,6 +200,45 @@ export function ElevesTab({ classeId, ecoleType }: { classeId: number; ecoleType
           quelle heure — au secondaire, la colonne Bus ci-dessus suffit. */}
       {!estSecondaire && can('bus.view') && <TransportClasse classeId={classeId} />}
     </div>
+  )
+}
+
+/** Point 19 de la punch-list Elites-tech : numéro de liste, modifiable à la main par qui a le droit. */
+function NumeroOrdreCell({ eleve, editable, onChange }: { eleve: Eleve; editable: boolean; onChange: (valeur: string) => void }) {
+  const [valeur, setValeur] = useState(String(eleve.numero_ordre ?? ''))
+  const [edition, setEdition] = useState(false)
+
+  if (!editable) {
+    return <span className="tabular-nums text-navy-500">{eleve.numero_ordre ?? '—'}</span>
+  }
+
+  if (!edition) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setValeur(String(eleve.numero_ordre ?? '')); setEdition(true) }}
+        className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 tabular-nums text-navy-700 hover:bg-cream-100"
+      >
+        {eleve.numero_ordre ?? '—'}
+        <Pencil className="h-3 w-3 text-navy-300" />
+      </button>
+    )
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      autoFocus
+      value={valeur}
+      onChange={(event) => setValeur(event.target.value)}
+      onBlur={() => { setEdition(false); if (valeur) onChange(valeur) }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') { setEdition(false); if (valeur) onChange(valeur) }
+        if (event.key === 'Escape') setEdition(false)
+      }}
+      className="w-16 rounded-lg border border-navy-200 px-1.5 py-0.5 text-sm tabular-nums"
+    />
   )
 }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\NoteExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkSaveNotesRequest;
@@ -11,6 +12,9 @@ use App\Services\NoteService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class NoteController extends Controller
 {
@@ -74,8 +78,62 @@ class NoteController extends Controller
             fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
         )->findOrFail($request->integer('sequence_id'));
 
-        $result = $this->service->importFromExcel($classeMatiere->classe->school_id, $classeMatiere, $sequence->id, $request->user(), $request->file('file'));
+        $result = $this->service->importFromExcel(
+            $classeMatiere->classe->school_id, $classeMatiere, $sequence->id, $request->user(), $request->file('file'),
+            $request->boolean('confirmer_remplacement'),
+        );
+
+        // Au moins une ligne valide remplacerait une note déjà saisie et
+        // différente : rien n'a été écrit, l'écran doit faire confirmer
+        // explicitement avant de renvoyer la même requête avec le drapeau.
+        if ($result['confirmation_requise']) {
+            return ApiResponse::error(
+                'Cet import remplacerait des notes déjà saisies : ajoutez confirmer_remplacement=1 pour confirmer.',
+                409,
+                ['conflits' => $result['conflits'], 'failed' => $result['failed'], 'errors' => $result['errors']],
+            );
+        }
 
         return ApiResponse::success($result, "{$result['imported']} note(s) importée(s).");
+    }
+
+    /** Export des notes d'une affectation/séquence — colonnes alignées avec l'import. */
+    public function export(Request $request, int $classeMatiereId): BinaryFileResponse
+    {
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())->with(['classe', 'matiere'])->findOrFail($classeMatiereId);
+
+        if (! $this->service->peutSaisir($request->user(), $classeMatiere)) {
+            abort(403, "Vous n'êtes pas l'enseignant assigné à cette matière pour cette classe.");
+        }
+
+        $request->validate(['sequence_id' => ['required', 'integer']]);
+        $sequence = Sequence::whereHas(
+            'trimestre.anneeScolaire',
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+        )->findOrFail($request->integer('sequence_id'));
+
+        $nomFichier = 'notes-'.Str::slug($classeMatiere->classe->nom.'-'.$classeMatiere->matiere->nom.'-'.$sequence->libelle).'.xlsx';
+
+        return Excel::download(new NoteExport($this->service->lignesExport($classeMatiere, $sequence->id)), $nomFichier);
+    }
+
+    /** Modèle vide (matricule + nom déjà remplis, note à saisir) à téléverser via import(). */
+    public function modele(Request $request, int $classeMatiereId): BinaryFileResponse
+    {
+        $classeMatiere = ClasseMatiere::forSchool(Tenant::schoolIds())->with(['classe', 'matiere'])->findOrFail($classeMatiereId);
+
+        if (! $this->service->peutSaisir($request->user(), $classeMatiere)) {
+            abort(403, "Vous n'êtes pas l'enseignant assigné à cette matière pour cette classe.");
+        }
+
+        $request->validate(['sequence_id' => ['required', 'integer']]);
+        $sequence = Sequence::whereHas(
+            'trimestre.anneeScolaire',
+            fn ($q) => $q->whereIn('school_id', Tenant::schoolIds())
+        )->findOrFail($request->integer('sequence_id'));
+
+        $nomFichier = 'modele-notes-'.Str::slug($classeMatiere->classe->nom.'-'.$classeMatiere->matiere->nom).'.xlsx';
+
+        return Excel::download(new NoteExport($this->service->lignesExport($classeMatiere, $sequence->id, pourModele: true)), $nomFichier);
     }
 }

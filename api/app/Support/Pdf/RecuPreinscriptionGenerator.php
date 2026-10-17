@@ -26,27 +26,31 @@ class RecuPreinscriptionGenerator
         $annee = $scolarite?->dossier?->anneeScolaire ?? $bus?->affectation?->anneeScolaire;
 
         $montants = [
-            ['Name of the student', mb_strtoupper($eleve?->nom_complet ?? '—')],
-            ['Student class', mb_strtoupper($eleve?->classe?->nom ?? '—')],
+            ["Nom de l'élève / Name of the student", mb_strtoupper($eleve?->nom_complet ?? '—')],
+            ['Classe / Class', mb_strtoupper($eleve?->classeLibellePour($annee) ?? '—')],
         ];
         if ($scolarite) {
-            $montants[] = ['School Fee paid', GabaritRecuTicket::francs((int) $scolarite->montant)];
+            $montants[] = ['Scolarité versée / School fee paid', GabaritRecuTicket::francs((int) $scolarite->montant)];
+            // Total dû sur le dossier de l'année, net de remise — demande
+            // explicite d'Elites-tech (point 7) : seuls le payé et le reste
+            // apparaissaient jusqu'ici, jamais le total de la scolarité.
+            $montants[] = ['Montant total de la scolarité / Total tuition amount due', GabaritRecuTicket::francs((int) $scolarite->dossier->total_du)];
         }
         if ($bus) {
-            $montants[] = ['Transport Fee', GabaritRecuTicket::francs((int) $bus->montant).' ('.mb_strtoupper($bus->mois->translatedFormat('F Y')).')'];
+            $montants[] = ['Frais de transport / Transport fee', GabaritRecuTicket::francs((int) $bus->montant).' ('.mb_strtoupper($bus->mois->translatedFormat('F Y')).')'];
         }
-        $montants[] = ['Total paid', GabaritRecuTicket::francs((int) ($scolarite?->montant ?? 0) + (int) ($bus?->montant ?? 0))];
+        $montants[] = ['Total versé / Total paid', GabaritRecuTicket::francs((int) ($scolarite?->montant ?? 0) + (int) ($bus?->montant ?? 0))];
         if ($scolarite) {
-            $montants[] = ['Left to pay', GabaritRecuTicket::francs(max(0, $scolarite->dossier->total_du - $scolarite->dossier->total_paye))];
+            $montants[] = ['Reste à payer / Balance due', GabaritRecuTicket::francs(max(0, $scolarite->dossier->total_du - $scolarite->dossier->total_paye))];
         }
 
         return (new GabaritRecuTicket)->rendre($school, [
-            'titre' => 'REÇU DE PRÉINSCRIPTION',
+            'titre' => 'REÇU DE PRÉINSCRIPTION / PRE-REGISTRATION RECEIPT',
             'mentions' => [
-                ['Student ID :', $eleve?->matricule ?: '—'],
-                ['school year', $annee?->libelle ?? '—'],
-                ['payment date', $principal->date_versement->format('d/m/Y')],
-                ['payment method', GabaritRecuTicket::libelleMode($principal->mode)],
+                ['Matricule / Student ID :', $eleve?->matricule ?: '—'],
+                ['Année scolaire / School year', $annee?->libelle ?? '—'],
+                ['Date de paiement / Payment date', $principal->date_versement->format('d/m/Y')],
+                ['Mode de paiement / Payment method', GabaritRecuTicket::libelleMode($principal->mode)],
             ],
             'montants' => $montants,
             'versements' => $scolarite

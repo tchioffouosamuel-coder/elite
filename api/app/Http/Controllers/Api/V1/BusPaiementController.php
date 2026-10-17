@@ -31,7 +31,10 @@ class BusPaiementController extends Controller
     public function situation(int $affectationId): JsonResponse
     {
         $affectation = $this->affectation($affectationId);
-        $affectation->load(['eleve.classe', 'trajet', 'arret', 'versements' => fn($q) => $q->orderByDesc('mois')]);
+        $affectation->load([
+            'eleve.classe', 'trajet', 'arret',
+            'versements' => fn ($q) => $q->orderByDesc('mois')->with(['encaisseur', 'annulePar']),
+        ]);
 
         return ApiResponse::success([
             'affectation' => [
@@ -54,7 +57,7 @@ class BusPaiementController extends Controller
             'total_paye' => $affectation->total_paye,
             'reste_a_payer' => $affectation->reste_a_payer,
             'statut_paiement' => $affectation->statut_paiement,
-            'versements' => $affectation->versements->map(fn(BusVersement $v) => $this->resumerVersement($v))->values(),
+            'versements' => $affectation->versements->map(fn (BusVersement $v) => $this->resumerVersement($v))->values(),
         ]);
     }
 
@@ -116,7 +119,7 @@ class BusPaiementController extends Controller
 
         return response((new RecuVersementBusGenerator)->build($versement), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-bus-' . Str::slug($versement->numero_recu) . '.pdf"',
+            'Content-Disposition' => 'inline; filename="recu-bus-'.Str::slug($versement->numero_recu).'.pdf"',
         ]);
     }
 
@@ -134,7 +137,7 @@ class BusPaiementController extends Controller
 
         $mois = $versement->mois->translatedFormat('F Y');
         $message = "Paiement du transport scolaire de {$affectation->eleve->nom_complet} pour {$mois} : "
-            . "{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
+            ."{$this->francs($versement->montant)} reçu (reçu {$versement->numero_recu}).";
 
         // L'école de l'élève, pas celle du trajet : voir BusPaiementService::encaisser().
         $this->notifications->notifier($tuteur, $canaux, $affectation->eleve->school_id, 'Confirmation de paiement — transport', $message);
@@ -142,7 +145,7 @@ class BusPaiementController extends Controller
 
     private function francs(int $montant): string
     {
-        return number_format($montant, 0, ',', ' ') . ' F';
+        return number_format($montant, 0, ',', ' ').' F';
     }
 
     /** @return array<string, mixed> */
@@ -156,14 +159,20 @@ class BusPaiementController extends Controller
             'montant' => $v->montant,
             'remise' => $v->remise,
             'mode' => $v->mode,
+            // Traçabilité (point 12) : voir le même choix sur DossierScolariteResource.
+            'cree_par' => $v->encaisseur?->name,
+            'created_at' => $v->created_at?->toAtomString(),
             'annule' => $v->estAnnule(),
+            'annule_par' => $v->annulePar?->name,
+            'annule_le' => $v->annule_le?->toAtomString(),
+            'motif_annulation' => $v->motif_annulation,
         ];
     }
 
     private function affectation(int $id): BusAffectation
     {
         // Par l'élève, pas par le trajet : cf. BusService::listerAffectations().
-        return BusAffectation::whereHas('eleve', fn($q) => $q->forSchool(Tenant::schoolIds()))
+        return BusAffectation::whereHas('eleve', fn ($q) => $q->forSchool(Tenant::schoolIds()))
             ->with('anneeScolaire')
             ->findOrFail($id);
     }

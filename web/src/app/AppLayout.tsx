@@ -447,6 +447,9 @@ const navGroups = [
         keywords: ['notes', 'report card', 'releve'],
       },
       { to: '/remplissage', label: 'nav.remplissage', icon: ListChecks, permission: 'notes.view', keywords: ['saisie des notes', 'grades'] },
+      // Réservé à la direction : jamais l'enseignant ordinaire, même avec
+      // `notes.view` (cf. CataloguePermissions / RolePermissionSeeder).
+      { to: '/suivi-saisies', label: 'nav.suiviSaisies', icon: ClipboardCheck, permission: 'pedagogie.suivi_saisies', masquerPourEnseignant: true, keywords: ['tableau de bord', 'notes manquantes', 'progression en retard', 'suivi pedagogique'] },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view', keywords: ['classement', 'ranking', 'meilleurs eleves'] },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', masquerPourEnseignant: true, keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
       // Les réclamations de notes s'instruisent au secrétariat pédagogique,

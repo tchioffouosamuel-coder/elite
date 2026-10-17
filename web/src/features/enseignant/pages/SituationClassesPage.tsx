@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { Bus, Wallet } from 'lucide-react'
+import { Bus, Check, Wallet } from 'lucide-react'
 import clsx from 'clsx'
 import { fetchMesInsolvables, fetchMesElevesBus, type EleveSituation } from '@/features/enseignant/api'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -10,6 +10,11 @@ import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 
 type Onglet = 'insolvables' | 'bus'
+
+/** `option_trajet` encode un aller et/ou un retour ; on l'éclate en deux booléens pour l'affichage. */
+function prendAllerRetour(option: EleveSituation['option_trajet']): { aller: boolean; retour: boolean } {
+  return { aller: option === 'aller_simple' || option === 'aller_retour', retour: option === 'retour_simple' || option === 'aller_retour' }
+}
 
 /** Regroupe les élèves par classe, dans l'ordre déjà trié par l'API. */
 function parClasse(eleves: EleveSituation[]): [string, EleveSituation[]][] {
@@ -82,19 +87,28 @@ export function SituationClassesPage() {
                 <tr>
                   <Th>{t('situationClasses.student')}</Th>
                   <Th>{t('situationClasses.matricule')}</Th>
-                  {onglet === 'bus' && <Th>{t('situationClasses.route')}</Th>}
                   {onglet === 'bus' && <Th>{t('situationClasses.stop')}</Th>}
+                  {onglet === 'bus' && <Th className="text-center">{t('situationClasses.aller')}</Th>}
+                  {onglet === 'bus' && <Th className="text-center">{t('situationClasses.retour')}</Th>}
                 </tr>
               </Thead>
               <tbody>
-                {eleves.map((e) => (
-                  <Tr key={e.id}>
-                    <Td className="font-medium">{e.nom_complet}</Td>
-                    <Td className="tabular-nums text-navy-500">{e.matricule ?? '—'}</Td>
-                    {onglet === 'bus' && <Td>{e.trajet ?? '—'}</Td>}
-                    {onglet === 'bus' && <Td>{e.arret ?? '—'}</Td>}
-                  </Tr>
-                ))}
+                {eleves.map((e) => {
+                  const { aller, retour } = prendAllerRetour(e.option_trajet)
+                  return (
+                    <Tr key={e.id}>
+                      <Td className="font-medium">{e.nom_complet}</Td>
+                      <Td className="tabular-nums text-navy-500">{e.matricule ?? '—'}</Td>
+                      {onglet === 'bus' && <Td>{e.arret ?? e.trajet ?? '—'}</Td>}
+                      {onglet === 'bus' && (
+                        <Td className="text-center">{aller && <Check className="mx-auto h-4 w-4 text-emerald-600" aria-label={t('situationClasses.aller')} />}</Td>
+                      )}
+                      {onglet === 'bus' && (
+                        <Td className="text-center">{retour && <Check className="mx-auto h-4 w-4 text-emerald-600" aria-label={t('situationClasses.retour')} />}</Td>
+                      )}
+                    </Tr>
+                  )
+                })}
               </tbody>
             </Table>
           </Card>

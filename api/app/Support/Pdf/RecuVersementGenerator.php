@@ -17,7 +17,7 @@ class RecuVersementGenerator
 {
     public function build(Versement $versement): string
     {
-        $versement->loadMissing(['lignes', 'encaisseur', 'dossier.eleve.classe', 'dossier.anneeScolaire', 'dossier.fraisAnnexes', 'dossier.versements.lignes']);
+        $versement->loadMissing(['lignes', 'encaisseur', 'annulePar', 'dossier.eleve.classe', 'dossier.anneeScolaire', 'dossier.fraisAnnexes', 'dossier.versements.lignes']);
 
         $dossier = $versement->dossier;
         $eleve = $dossier->eleve;
@@ -26,21 +26,27 @@ class RecuVersementGenerator
         [$du, $paye, $reste] = $busSeul ? $this->montantsBus($versement, $dossier) : $this->montantsScolarite($versement, $dossier);
 
         $montants = [
-            ['Name of the student', mb_strtoupper($eleve->nom_complet)],
-            ['Student class', mb_strtoupper($eleve->classe?->nom ?? '—')],
+            ["Nom de l'élève / Name of the student", mb_strtoupper($eleve->nom_complet)],
+            ['Classe / Class', mb_strtoupper($eleve->classeLibellePour($dossier->anneeScolaire) ?? '—')],
             // Montant net : `total_du` tient déjà compte d'une éventuelle remise.
-            [$busSeul ? 'Transport Fee' : 'School Fee', GabaritRecuTicket::francs($du)],
-            ['Amount paid', GabaritRecuTicket::francs($paye)],
-            ['Left to pay', GabaritRecuTicket::francs($reste)],
+            [$busSeul ? 'Frais de transport / Transport fee' : 'Frais de scolarité / School fee', GabaritRecuTicket::francs($du)],
+            // Montant total dû, net de remise — distinct du libellé ci-dessus
+            // qui ne nommait que le poste : demande explicite d'Elites-tech
+            // (point 7), qui ne voyait nulle part le total à devoir sur le reçu.
+            [$busSeul ? 'Montant total du transport / Total transport amount due' : 'Montant total de la scolarité / Total tuition amount due', GabaritRecuTicket::francs($du)],
+            ['Montant versé / Amount paid', GabaritRecuTicket::francs($paye)],
+            ['Reste à payer / Balance due', GabaritRecuTicket::francs($reste)],
         ];
 
         return (new GabaritRecuTicket)->rendre($dossier->school, [
-            'titre' => $busSeul ? 'REÇU DE PAIEMENT DES FRAIS DE TRANSPORT' : 'REÇU DE PAIEMENT DES FRAIS DE SCOLARITÉ',
+            'titre' => $busSeul
+                ? 'REÇU DE PAIEMENT DES FRAIS DE TRANSPORT / TRANSPORT FEE PAYMENT RECEIPT'
+                : 'REÇU DE PAIEMENT DES FRAIS DE SCOLARITÉ / TUITION FEE PAYMENT RECEIPT',
             'mentions' => [
-                ['Student ID :', $eleve->matricule ?: '—'],
-                ['school year', $dossier->anneeScolaire?->libelle ?? '—'],
-                ['payment date', $versement->date_versement->format('d/m/Y')],
-                ['payment method', GabaritRecuTicket::libelleMode($versement->mode)],
+                ['Matricule / Student ID :', $eleve->matricule ?: '—'],
+                ['Année scolaire / School year', $dossier->anneeScolaire?->libelle ?? '—'],
+                ['Date de paiement / Payment date', $versement->date_versement->format('d/m/Y')],
+                ['Mode de paiement / Payment method', GabaritRecuTicket::libelleMode($versement->mode)],
             ],
             'montants' => $montants,
             'versements' => $this->valides($dossier)->sortByDesc(fn (Versement $v) => $this->ordre($v))
@@ -49,8 +55,13 @@ class RecuVersementGenerator
                 ->map(fn (array $r) => [$r['libelle'], (int) $r['montant_paye']])->values()->all(),
             'numero' => $versement->numero_recu,
             'encaisseur' => $versement->encaisseur?->name,
+            // Traçabilité (point 12) : date et heure d'enregistrement, en
+            // plus du nom déjà affiché — demande explicite d'Elites-tech.
+            'enregistre_le' => $versement->created_at,
             'qr' => $this->qrCode($versement),
             'annule' => $versement->estAnnule(),
+            'annule_par' => $versement->annulePar?->name,
+            'annule_le' => $versement->annule_le,
         ]);
     }
 

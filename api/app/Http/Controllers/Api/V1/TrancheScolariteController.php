@@ -30,7 +30,7 @@ class TrancheScolariteController extends Controller
 
     protected function specificationImportExport(): SpecificationModele
     {
-        return new TrancheScolariteSpec();
+        return new TrancheScolariteSpec;
     }
 
     public function __construct(private readonly EcheancierService $service) {}
@@ -43,7 +43,7 @@ class TrancheScolariteController extends Controller
             ?: AnneeScolaire::whereIn('school_id', $schoolIds)->where('is_active', true)->value('id');
 
         if (! $anneeId) {
-            return ApiResponse::error("Aucune année scolaire active pour cet établissement.", 422);
+            return ApiResponse::error('Aucune année scolaire active pour cet établissement.', 422);
         }
 
         $tranches = TrancheScolarite::forSchool($schoolIds)
@@ -143,6 +143,7 @@ class TrancheScolariteController extends Controller
             'libelle' => $tranche->libelle,
             'pourcentage' => (float) $tranche->pourcentage,
             'date_echeance' => $tranche->date_echeance?->format('Y-m-d'),
+            'jours_restants' => $tranche->joursRestants(),
             'ordre' => $tranche->ordre,
             'annee_scolaire_id' => $tranche->annee_scolaire_id,
             'school_id' => $tranche->school_id,

@@ -143,7 +143,7 @@ class EnseignantFicheEleveTest extends TestCase
             ->assertJsonPath('data.0.id', $this->eleveAMoi->id)
             ->assertJsonPath('data.0.trajet', 'Ligne Nord')
             ->assertJsonPath('data.0.arret', 'Carrefour');
-        $this->assertSame(['id', 'matricule', 'nom_complet', 'classe', 'trajet', 'arret'], array_keys($reponse->json('data.0')));
+        $this->assertSame(['id', 'matricule', 'nom_complet', 'classe', 'trajet', 'arret', 'option_trajet'], array_keys($reponse->json('data.0')));
     }
 
     public function test_la_liste_des_insolvables_de_l_enseignant_ne_porte_aucun_montant(): void

@@ -633,6 +633,13 @@ export interface VersementBus {
   montant: number;
   mode: ModePaiementBus;
   annule: boolean;
+  /** Nom de l'agent qui a enregistré le versement. */
+  cree_par: string;
+  created_at: string;
+  /** Rempli uniquement quand le versement est annulé. */
+  annule_par: string | null;
+  annule_le: string | null;
+  motif_annulation: string | null;
 }
 
 export interface SituationPaiementBus {

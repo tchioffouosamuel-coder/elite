@@ -51,6 +51,18 @@ function libelleMois(mois: string): string {
   return new Date(mois).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 }
 
+/** Date + heure lisibles, pour l'audit « qui a enregistré / annulé ce versement ». */
+function formatDateHeure(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 /**
  * Paiement du transport scolaire, mois par mois — un registre à part de la
  * caisse de scolarité : chaque mensualité porte son propre reçu, sans lien
@@ -304,8 +316,21 @@ export function BusPaiementPage() {
                 {situation.versements.map((v) => (
                   <tr key={v.id} className={v.annule ? 'opacity-50' : undefined}>
                     <td className="px-3 py-2 font-medium text-navy-800">
-                      {v.numero_recu}
-                      {v.annule && <span className="ml-1.5 text-xs font-semibold text-red-500">(annulé)</span>}
+                      <div className="flex flex-col gap-0.5">
+                        <span>
+                          {v.numero_recu}
+                          {v.annule && <span className="ml-1.5 text-xs font-semibold text-red-500">(annulé)</span>}
+                        </span>
+                        <span className="text-[0.625rem] font-normal text-navy-400">
+                          Enregistré par {v.cree_par} le {formatDateHeure(v.created_at)}
+                        </span>
+                        {v.annule_par && (
+                          <span className="text-[0.625rem] font-semibold text-red-500">
+                            Annulé par {v.annule_par} le {formatDateHeure(v.annule_le)}
+                            {v.motif_annulation ? ` — ${v.motif_annulation}` : ''}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2 capitalize text-navy-600">{libelleMois(v.mois)}</td>
                     <td className="px-3 py-2 text-navy-600">{new Date(v.date_versement).toLocaleDateString('fr-FR')}</td>

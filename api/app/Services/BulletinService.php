@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Models\AbsenceTrimestre;
+use App\Models\AppreciationSequence;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Note;
 use App\Models\ObservationEvaluation;
 use App\Models\Sanction;
+use App\Models\Sequence;
 use App\Models\Trimestre;
 use Illuminate\Support\Collection;
 
@@ -63,6 +65,8 @@ class BulletinService extends BaseService
             ->get()
             ->keyBy(fn (ObservationEvaluation $observation) => "{$observation->eleve_id}:{$observation->classe_matiere_id}");
 
+        $appreciationsSequence = $this->appreciationsSequence($trimestre, $tousEleves->pluck('id'), $affectations->pluck('id'));
+
         return [
             'classe' => $classe,
             'school' => $classe->school,
@@ -76,9 +80,44 @@ class BulletinService extends BaseService
             ],
             'stats' => $stats,
             'eleves' => $elevesDuDocument->map(fn (Eleve $eleve) => $this->donneesEleve(
-                $eleve, $trimestre, $affectations, $sequences, $classementGeneral, $classementsMatiere, $observations
+                $eleve, $trimestre, $affectations, $sequences, $classementGeneral, $classementsMatiere, $observations, $appreciationsSequence
             ))->all(),
         ];
+    }
+
+    /**
+     * Appréciations des séquences 1 et 2 du trimestre, par élève et par
+     * affectation — vide hors premier trimestre : lui seul les affiche (point
+     * 16 de la punch-list). Clé `"eleve_id:classe_matiere_id"`, valeur
+     * `[1 => ?string, 2 => ?string]` indexée par l'ordre de la séquence.
+     *
+     * @param  Collection<int, int>  $eleveIds
+     * @param  Collection<int, int>  $classeMatiereIds
+     * @return Collection<string, array<int, ?string>>
+     */
+    private function appreciationsSequence(Trimestre $trimestre, Collection $eleveIds, Collection $classeMatiereIds): Collection
+    {
+        if ($trimestre->ordre !== 1) {
+            return collect();
+        }
+
+        $sequencesParOrdre = Sequence::where('trimestre_id', $trimestre->id)
+            ->whereIn('ordre', [1, 2])
+            ->pluck('ordre', 'id');
+
+        if ($sequencesParOrdre->isEmpty()) {
+            return collect();
+        }
+
+        return AppreciationSequence::whereIn('eleve_id', $eleveIds)
+            ->whereIn('classe_matiere_id', $classeMatiereIds)
+            ->whereIn('sequence_id', $sequencesParOrdre->keys())
+            ->whereNotNull('texte')
+            ->get()
+            ->groupBy(fn (AppreciationSequence $a) => "{$a->eleve_id}:{$a->classe_matiere_id}")
+            ->map(fn (Collection $groupe) => $groupe->mapWithKeys(
+                fn (AppreciationSequence $a) => [$sequencesParOrdre->get($a->sequence_id) => $a->texte]
+            )->all());
     }
 
     /**
@@ -129,6 +168,7 @@ class BulletinService extends BaseService
         Collection $classementGeneral,
         Collection $classementsMatiere,
         Collection $observations,
+        Collection $appreciationsSequence,
     ): array {
         $notes = Note::where('eleve_id', $eleve->id)
             ->whereIn('classe_matiere_id', $affectations->pluck('id'))
@@ -139,7 +179,7 @@ class BulletinService extends BaseService
         $matieresFaibles = [];
 
         $lignes = $affectations->map(function (ClasseMatiere $cm) use (
-            $eleve, $trimestre, $sequences, $notes, $classementsMatiere, $observations, &$matieresFaibles
+            $eleve, $trimestre, $sequences, $notes, $classementsMatiere, $observations, $appreciationsSequence, &$matieresFaibles
         ) {
             $notesMatiere = ($notes->get($cm->id) ?? collect())->keyBy('sequence_id');
             $moyenne = $this->moyennes->moyenneMatiereEleve($eleve, $cm, $trimestre);
@@ -172,6 +212,10 @@ class BulletinService extends BaseService
                 'min' => $valeurs->isNotEmpty() ? (float) $valeurs->min() : null,
                 'max' => $valeurs->isNotEmpty() ? (float) $valeurs->max() : null,
                 'observation' => $observations->get("{$eleve->id}:{$cm->id}")?->texte,
+                // Séquences 1 et 2 du trimestre 1 seulement — vide ailleurs
+                // (point 16 de la punch-list).
+                'appreciation_sequence_1' => $appreciationsSequence->get("{$eleve->id}:{$cm->id}")[1] ?? null,
+                'appreciation_sequence_2' => $appreciationsSequence->get("{$eleve->id}:{$cm->id}")[2] ?? null,
             ];
         });
 

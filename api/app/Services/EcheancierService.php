@@ -55,7 +55,7 @@ class EcheancierService extends BaseService
      */
     public function tranches(int $schoolId, int $anneeScolaireId): Collection
     {
-        $cle = $schoolId . ':' . $anneeScolaireId;
+        $cle = $schoolId.':'.$anneeScolaireId;
 
         return $this->trancheCache[$cle] ??= TrancheScolarite::where('school_id', $schoolId)
             ->where('annee_scolaire_id', $anneeScolaireId)
@@ -137,6 +137,10 @@ class EcheancierService extends BaseService
                 'ordre' => $tranche->ordre,
                 'pourcentage' => (float) $tranche->pourcentage,
                 'date_echeance' => $tranche->date_echeance?->format('Y-m-d'),
+                // Compte à rebours brut (positif = jours restants, négatif =
+                // jours de retard), indépendant du délai de grâce ci-dessus
+                // qui ne décale que le passage au statut « en retard ».
+                'jours_restants' => $tranche->joursRestants($aujourdHui),
                 'montant' => $montant,
                 'montant_paye' => $couvert,
                 'reste' => $reste,

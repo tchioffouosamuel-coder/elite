@@ -23,6 +23,8 @@ const GROUP_LABELS: Record<string, { fr: string; en: string }> = {
   finance: { fr: 'Finance', en: 'Finance' },
   personnel: { fr: 'Comptes du personnel', en: 'Staff accounts' },
   identite_etablissement: { fr: "Identité de l'établissement", en: 'School identity' },
+  documents: { fr: 'Documents', en: 'Documents' },
+  passage: { fr: 'Passage de classe', en: 'Grade promotion' },
   paie_permanents: { fr: 'Paie — taux du personnel permanent', en: 'Payroll — permanent staff rates' },
   paie_vacataires: { fr: 'Paie — taux des vacataires', en: 'Payroll — hourly staff rates' },
 }
