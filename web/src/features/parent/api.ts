@@ -336,6 +336,54 @@ export async function fetchSanctionsEnfant(
   return data.data;
 }
 
+// ------------------------------------------------------ Notes de séquence
+
+export type TendanceNote = "progression" | "stagnation" | "baisse" | null;
+
+export interface NoteSequenceValeur {
+  sequence_id: number;
+  libelle: string;
+  valeur?: number | null;
+  total?: number | null;
+  appreciation?: { id: number; label_fr: string; emoji: string | null; couleur: string | null } | null;
+}
+
+/** Une matière (secondaire) ou une compétence (primaire/maternelle) — jamais de rang ni de moyenne de classe. */
+export interface MatiereNotesEnfant {
+  matiere_id?: number;
+  competence_id?: number;
+  matiere?: string;
+  competence?: string;
+  abreviation: string | null;
+  coefficient?: number;
+  mode?: "note" | "appreciation";
+  bareme?: number | null;
+  notes: NoteSequenceValeur[];
+  moyenne: number | null;
+  tendance: TendanceNote;
+}
+
+export interface NotesSequenceEnfant {
+  eleve: { id: number; nom_complet: string };
+  trimestre: { id: number; libelle: string };
+  sequences: { id: number; libelle: string }[];
+  matieres?: MatiereNotesEnfant[];
+  competences?: MatiereNotesEnfant[];
+  moyenne_generale: number | null;
+  tendance_generale: TendanceNote;
+}
+
+export async function fetchNotesSequenceEnfant(
+  eleveId: number,
+  trimestreId?: number,
+): Promise<NotesSequenceEnfant> {
+  const { data } = await http.get<ApiResponse<NotesSequenceEnfant>>(
+    `/parent/enfants/${eleveId}/notes`,
+    { params: trimestreId ? { trimestre_id: trimestreId } : undefined },
+  );
+  return data.data;
+}
+
 // --------------------------------------------------- Révision d'identité/santé
 
 export interface ModificationEnfantPayload {

@@ -124,6 +124,7 @@ class RolePermissionSeeder extends Seeder
             ...self::EMPLOI_DU_TEMPS,
             'appel.saisir',
             'revendications.*',
+            'avis.*',
         ],
         'admin_college' => [
             ...self::ETABLISSEMENT,
@@ -167,6 +168,7 @@ class RolePermissionSeeder extends Seeder
             ...self::EMPLOI_DU_TEMPS,
             'appel.saisir',
             'revendications.*',
+            'avis.*',
         ],
         'censeur_sg' => [
             'conseil_classe.view',
@@ -197,6 +199,7 @@ class RolePermissionSeeder extends Seeder
             ...self::EMPLOI_DU_TEMPS,
             'appel.saisir',
             'revendications.*',
+            'avis.*',
         ],
         /*
          * Le surveillant général tient la discipline : absences, sanctions,
@@ -227,6 +230,7 @@ class RolePermissionSeeder extends Seeder
             'bibliotheque.view',
             'dashboard.view',
             'revendications.view',
+            'avis.*',
         ],
         'enseignant' => [
             'classes.view',
@@ -245,6 +249,7 @@ class RolePermissionSeeder extends Seeder
             'emploi_du_temps.view',
             'appel.saisir',
             'revendications.view',
+            'avis.create',
         ],
         'econome' => [
             'eleves.view',
@@ -284,6 +289,7 @@ class RolePermissionSeeder extends Seeder
             'discipline.view',
             'finance.view',
             'annonces.view',
+            'avis.create',
         ],
         /*
          * Portail élève : lecture seule sur son propre dossier — pas de

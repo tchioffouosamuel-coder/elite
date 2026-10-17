@@ -21,6 +21,7 @@ use App\Services\CompteEleveService;
 use App\Services\EleveFusionService;
 use App\Services\EleveService;
 use App\Services\PreinscriptionService;
+use App\Services\ScolariteService;
 use App\Services\SettingsCatalog;
 use App\Support\Pdf\IdentifiantsGenerator;
 use App\Support\Tenant;
@@ -42,6 +43,7 @@ class EleveController extends Controller
         private readonly CompteEleveService $comptes,
         private readonly AuthService $auth,
         private readonly EleveFusionService $fusion,
+        private readonly ScolariteService $scolarite,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -63,6 +65,7 @@ class EleveController extends Controller
 
         $this->marquerNonReinscrits($paginator->getCollection());
         $this->marquerTotalVersements($paginator->getCollection());
+        $this->marquerSoldesScolarite($paginator->getCollection());
         $paginator->getCollection()->each(fn(Eleve $eleve) => $eleve->setAttribute(
             'preinscription_active',
             $this->preinscriptions->estPreinscritAnneeActive($eleve),
@@ -292,6 +295,18 @@ class EleveController extends Controller
             ->withSum(['versements as total_versements' => fn($query) => $query->valides()], 'montant')
             ->get()->groupBy('eleve_id')
             ->map(fn($dossiers) => (int) $dossiers->sum('total_versements'));
+    }
+
+    /** Montant payé et reste à payer de l'année active, pour la scolarité (cf. ScolariteService::soldesPourListe). */
+    private function marquerSoldesScolarite(\Illuminate\Support\Collection $eleves): void
+    {
+        $soldes = $this->scolarite->soldesPourListe($eleves);
+
+        $eleves->each(function (Eleve $eleve) use ($soldes) {
+            $solde = $soldes->get($eleve->id);
+            $eleve->setAttribute('montant_paye', $solde['total_paye'] ?? 0);
+            $eleve->setAttribute('dette', $solde['reste_a_payer'] ?? 0);
+        });
     }
 
     private function nomDoublon(string $nom): string

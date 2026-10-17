@@ -407,10 +407,20 @@ export function ElevesListPage() {
       cellule: (e) => <span className="font-mono text-xs">{e.matricule ?? '—'}</span>,
     },
     {
-      cle: 'matricule_national',
-      entete: t('eleves.matricule_national'),
-      valeur: (e) => e.matricule_national,
-      cellule: (e) => <span className="font-mono text-xs">{e.matricule_national ?? '—'}</span>,
+      cle: 'montant_paye',
+      entete: t('eleves.montant_paye'),
+      valeur: (e) => e.montant_paye ?? 0,
+      cellule: (e) => <span className="tabular-nums text-emerald-700">{(e.montant_paye ?? 0).toLocaleString('fr-FR')} FCFA</span>,
+    },
+    {
+      cle: 'dette',
+      entete: t('eleves.dette'),
+      valeur: (e) => e.dette ?? 0,
+      cellule: (e) => (
+        <span className={`tabular-nums ${(e.dette ?? 0) > 0 ? 'font-semibold text-red-700' : 'text-navy-400'}`}>
+          {(e.dette ?? 0).toLocaleString('fr-FR')} FCFA
+        </span>
+      ),
     },
     {
       cle: 'nom',

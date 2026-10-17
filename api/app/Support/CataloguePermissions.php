@@ -393,6 +393,16 @@ class CataloguePermissions
             'conseil_classe.update' => ['Mener un conseil de classe (seuil, destinations, exclusions et grâces)', 'Run a class council (threshold, destinations, exclusions and pardons)'],
             'conseil_classe.valider' => ["Valider un conseil de classe de fin d'année", 'Validate an end-of-year class council'],
         ]],
+        /*
+         * Espace d'évaluation (point 24) : avis libres déposés par les
+         * parents, les enseignants et le personnel. `avis.create` ouvre le
+         * dépôt sur son propre compte ; `avis.view` ouvre la consultation et
+         * le filtrage côté administration.
+         */
+        'avis' => ['Espace d\'évaluation', 'Feedback space', [
+            'avis.create' => ['Déposer un avis', 'Submit a feedback entry'],
+            'avis.view' => ['Consulter et filtrer les avis déposés', 'View and filter submitted feedback'],
+        ]],
     ];
 
     /**

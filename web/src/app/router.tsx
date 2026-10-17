@@ -52,6 +52,8 @@ import { CompetencesPage } from '@/features/pedagogie/pages/CompetencesPage'
 import { AppreciationsPage } from '@/features/primaire/pages/AppreciationsPage'
 import { MatiereFormPage } from '@/features/pedagogie/pages/MatiereFormPage'
 import { SanctionsPage } from '@/features/discipline/pages/SanctionsPage'
+import { AvisFormPage } from '@/features/avis/pages/AvisFormPage'
+import { AvisAdminPage } from '@/features/avis/pages/AvisAdminPage'
 import { RevendicationsPage } from '@/features/revendications/pages/RevendicationsPage'
 import { InfirmeriePage } from '@/features/infirmerie/pages/InfirmeriePage'
 import { PatientInfirmeriePage } from '@/features/infirmerie/pages/PatientInfirmeriePage'
@@ -195,6 +197,8 @@ export const router = createHashRouter([
       { path: 'anciens-reinscrits', element: <ProtectedRoute permission="dashboard.view" masquerPourChauffeur><AnciensReinscritsPage /></ProtectedRoute> },
       { path: 'journal-activite', element: <ProtectedRoute permission="dashboard.view" superAdminOnly><JournalActivitePage /></ProtectedRoute> },
       { path: 'profil', element: <ProtectedRoute><UserProfilePage /></ProtectedRoute> },
+      { path: 'avis', element: <ProtectedRoute permission="avis.create"><AvisFormPage /></ProtectedRoute> },
+      { path: 'avis/recus', element: <ProtectedRoute permission="avis.view"><AvisAdminPage /></ProtectedRoute> },
       { path: 'personnel', element: <ProtectedRoute permission="personnel.view" masquerPourEnseignant><PersonnelListPage /></ProtectedRoute> },
       { path: 'personnel/nouveau', element: <ProtectedRoute permission="personnel.create"><PersonnelFormPage /></ProtectedRoute> },
       { path: 'personnel/:id/edit', element: <ProtectedRoute permission="personnel.update"><PersonnelFormPage /></ProtectedRoute> },

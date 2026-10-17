@@ -45,11 +45,13 @@ import {
   fetchVisitesInfirmerieEnfant,
   fetchSanctionsEnfant,
   completerPhotoEnfant,
+  fetchNotesSequenceEnfant,
   type MotifJustification,
   type LeconsSemaine,
   type JourAssiduite,
   type EnfantDossier,
   type ModificationEnfantPayload,
+  type TendanceNote,
 } from '@/features/parent/api'
 import { PhotoCaptureModal } from '@/features/parent/components/PhotoCaptureModal'
 import { Photo } from '@/features/eleves/components/Photo'
@@ -258,6 +260,7 @@ export function ParentEnfantPage() {
       </Card>
 
       <FinanceCard eleveId={eleveId} />
+      <NotesCard eleveId={eleveId} />
       <LeconsSemaineCard eleveId={eleveId} />
       <EmploiDuTempsCard eleveId={eleveId} />
       <TauxAssiduiteCard eleveId={eleveId} />
@@ -970,6 +973,86 @@ function ObservationsCard({ eleveId }: { eleveId: number }) {
         </div>
       )}
     </Card>
+  )
+}
+
+const TENDANCE_ICON: Record<NonNullable<TendanceNote>, typeof TrendingUp> = {
+  progression: TrendingUp,
+  stagnation: ChevronRight,
+  baisse: TrendingUp,
+}
+
+const TENDANCE_TONE: Record<NonNullable<TendanceNote>, 'green' | 'neutral' | 'red'> = {
+  progression: 'green',
+  stagnation: 'neutral',
+  baisse: 'red',
+}
+
+/** Notes de séquence de l'enfant (point 23) : tendance par matière et globale, jamais de rang ni de moyenne de classe. */
+function NotesCard({ eleveId }: { eleveId: number }) {
+  const { t } = useTranslation()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['parent-notes', eleveId],
+    queryFn: () => fetchNotesSequenceEnfant(eleveId),
+  })
+
+  const lignes = data?.matieres ?? data?.competences ?? []
+
+  return (
+    <Card>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-500">
+        <TrendingUp className="h-4 w-4" />
+        {t('parentNotes.title')}
+      </h2>
+
+      {isLoading ? (
+        <Spinner />
+      ) : error ? (
+        <ErrorState message={error?.message} />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {data && (
+            <div className="flex items-center justify-between rounded-lg bg-navy-50 px-3 py-2">
+              <span className="text-sm font-semibold text-navy-700">
+                {t('parentNotes.moyenne_generale')} : {data.moyenne_generale ?? '—'}
+              </span>
+              <TendanceBadge tendance={data.tendance_generale} />
+            </div>
+          )}
+
+          {lignes.length === 0 ? (
+            <p className="px-1 text-sm text-navy-400">{t('parentNotes.aucune_note')}</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-navy-50">
+              {lignes.map((ligne) => (
+                <div key={ligne.matiere_id ?? ligne.competence_id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <span className="text-sm font-medium text-navy-700">{ligne.matiere ?? ligne.competence}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-navy-500">{ligne.moyenne ?? '—'}</span>
+                    <TendanceBadge tendance={ligne.tendance} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function TendanceBadge({ tendance }: { tendance: TendanceNote }) {
+  const { t } = useTranslation()
+
+  if (!tendance) return <span className="text-xs text-navy-400">{t('parentNotes.tendance_indisponible')}</span>
+
+  const Icon = TENDANCE_ICON[tendance]
+
+  return (
+    <Badge tone={TENDANCE_TONE[tendance]}>
+      <Icon className={`h-3 w-3 ${tendance === 'baisse' ? 'rotate-90' : ''}`} />
+      {t(`parentNotes.tendance_${tendance}`)}
+    </Badge>
   )
 }
 

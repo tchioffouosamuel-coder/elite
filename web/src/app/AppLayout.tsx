@@ -64,6 +64,8 @@ import {
   Archive,
   CalendarX,
   MessageSquare,
+  MessageSquarePlus,
+  MessageSquareText,
   Route as RouteIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -396,6 +398,13 @@ const navGroups = [
         icon: BarChart3,
         permission: 'bulletins.view',
       },
+    ],
+  },
+  {
+    label: 'nav.group.avis',
+    items: [
+      { to: '/avis', label: 'nav.avis', icon: MessageSquarePlus, permission: 'avis.create', keywords: ['evaluation', 'feedback', 'satisfaction'] },
+      { to: '/avis/recus', label: 'nav.avisRecus', icon: MessageSquareText, permission: 'avis.view', masquerPourEnseignant: true, keywords: ['evaluation', 'feedback', 'avis parents'] },
     ],
   },
   {

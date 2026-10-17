@@ -12,8 +12,10 @@ use App\Models\Eleve;
 use App\Models\ModificationEleve;
 use App\Models\Moratoire;
 use App\Models\Observation;
+use App\Models\Note;
 use App\Models\Presence;
 use App\Models\Sanction;
+use App\Models\Sequence;
 use App\Models\Setting;
 use App\Models\Trimestre;
 use App\Models\Tuteur;
@@ -28,6 +30,8 @@ use App\Services\EmploiDuTempsService;
 use App\Services\JustificationAbsenceService;
 use App\Services\BibliothequeService;
 use App\Services\ModificationEleveService;
+use App\Services\MoyenneService;
+use App\Services\MoyennePrimaireService;
 use App\Services\ObservationService;
 use App\Services\DisciplineService;
 use App\Services\ProgressionService;
@@ -40,6 +44,7 @@ use App\Support\Pdf\BulletinPrimaireGenerator;
 use App\Support\Pdf\EmploiDuTempsGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -66,6 +71,8 @@ class ParentEspaceController extends Controller
         private readonly BibliothequeService $bibliotheque,
         private readonly EmploiDuTempsGenerator $emploiDuTempsPdf,
         private readonly EleveService $eleves,
+        private readonly MoyenneService $moyennes,
+        private readonly MoyennePrimaireService $moyennesPrimaire,
     ) {}
 
     /**
@@ -485,6 +492,210 @@ class ParentEspaceController extends Controller
             'date_exclusion' => $exclusionActive?->date_sanction?->format('Y-m-d'),
             'sanctions' => SanctionResource::collection($sanctions),
         ]);
+    }
+
+    /**
+     * Notes de séquence de l'enfant (point 23) : par matière (ou compétence
+     * au primaire) et une moyenne générale, chacune accompagnée d'une
+     * tendance par rapport à la séquence précédente — jamais de rang ni de
+     * moyenne de classe, qui resteraient réservés au personnel (cf.
+     * {@see NoteEleveController}, dont ce point de terminaison est une
+     * version allégée). Les résultats trimestriels (bulletin) restent soumis
+     * à l'activation par l'admin ({@see bulletin()}) ; la séquence, elle, est
+     * toujours visible dès qu'une note existe.
+     */
+    public function notes(Request $request, int $eleveId): JsonResponse
+    {
+        $eleve = ParentAccess::assertEnfant($request->user(), $eleveId);
+
+        if (! $eleve->classe) {
+            return ApiResponse::error("Cet élève n'est affecté à aucune classe.", 422);
+        }
+
+        $school = $eleve->classe->school;
+
+        $trimestre = $request->integer('trimestre_id')
+            ? Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $school->id))->findOrFail($request->integer('trimestre_id'))
+            : Trimestre::whereHas('anneeScolaire', fn ($q) => $q->where('school_id', $school->id))->where('is_active', true)->firstOrFail();
+
+        $sequences = $trimestre->sequencesRetenues();
+        [$courante, $precedente] = $this->sequencesDeComparaison($sequences);
+
+        $donnees = $school->estSecondaire()
+            ? $this->notesParMatiereSansClassement($eleve, $trimestre, $sequences, $courante, $precedente)
+            : $this->notesParCompetenceSansClassement($eleve, $trimestre, $sequences, $courante, $precedente);
+
+        return ApiResponse::success([
+            'eleve' => ['id' => $eleve->id, 'nom_complet' => $eleve->nom_complet],
+            'trimestre' => ['id' => $trimestre->id, 'libelle' => $trimestre->libelle],
+            'sequences' => $sequences->map(fn ($s) => ['id' => $s->id, 'libelle' => $s->libelle])->values(),
+            ...$donnees,
+        ]);
+    }
+
+    /**
+     * Séquence de référence pour la tendance (celle dont la saisie est
+     * ouverte — cf. `SequenceController::saisie()`, le même interrupteur que
+     * le point 14 — ou la dernière séquence retenue du trimestre si aucune
+     * n'est ouverte, ex. entre deux trimestres) et celle qui la précède dans
+     * le même trimestre — comparer avec un trimestre antérieur sort du cadre
+     * de ce premier jalon (point 23).
+     *
+     * @return array{0: ?Sequence, 1: ?Sequence}
+     */
+    private function sequencesDeComparaison(Collection $sequences): array
+    {
+        if ($sequences->isEmpty()) {
+            return [null, null];
+        }
+
+        // Plusieurs séquences restent `saisie_ouverte` à la fois tant que
+        // l'admin ne les ferme pas une à une (cf. Sequence::$attributes) :
+        // la dernière encore ouverte est celle où l'enseignement en est
+        // réellement, pas la première qui matcherait sinon toujours.
+        $courante = $sequences->filter(fn ($s) => $s->saisie_ouverte)->last() ?? $sequences->last();
+        $precedente = $sequences->first(fn ($s) => $s->ordre === $courante->ordre - 1);
+
+        return [$courante, $precedente];
+    }
+
+    /** "progression" / "stagnation" / "baisse", ou `null` si l'une des deux valeurs manque. */
+    private function tendance(?float $actuelle, ?float $precedente): ?string
+    {
+        if ($actuelle === null || $precedente === null) {
+            return null;
+        }
+
+        $ecart = round($actuelle - $precedente, 2);
+
+        if ($ecart > 0.5) {
+            return 'progression';
+        }
+
+        if ($ecart < -0.5) {
+            return 'baisse';
+        }
+
+        return 'stagnation';
+    }
+
+    /** @return array{matieres: Collection, moyenne_generale: ?float, tendance_generale: ?string} */
+    private function notesParMatiereSansClassement(Eleve $eleve, Trimestre $trimestre, Collection $sequences, ?Sequence $courante, ?Sequence $precedente): array
+    {
+        $affectations = $eleve->classe->classeMatieres()->where('statut', 'actif')->with('matiere')->get();
+
+        $notes = Note::where('eleve_id', $eleve->id)
+            ->whereIn('classe_matiere_id', $affectations->pluck('id'))
+            ->whereIn('sequence_id', $sequences->pluck('id'))
+            ->get()
+            ->groupBy('classe_matiere_id');
+
+        $matieres = $affectations->map(function ($cm) use ($eleve, $trimestre, $sequences, $notes, $courante, $precedente) {
+            $notesMatiere = ($notes->get($cm->id) ?? collect())->keyBy('sequence_id');
+            $valeurCourante = $courante ? $notesMatiere->get($courante->id)?->valeur : null;
+            $valeurPrecedente = $precedente ? $notesMatiere->get($precedente->id)?->valeur : null;
+
+            return [
+                'matiere_id' => $cm->matiere_id,
+                'matiere' => $cm->matiere->nom,
+                'abreviation' => $cm->matiere->abbreviation,
+                'coefficient' => (float) $cm->coefficient,
+                'notes' => $sequences->map(fn ($s) => [
+                    'sequence_id' => $s->id,
+                    'libelle' => $s->libelle,
+                    'valeur' => $notesMatiere->get($s->id)?->valeur !== null
+                        ? (float) $notesMatiere->get($s->id)->valeur
+                        : null,
+                ])->values(),
+                'moyenne' => $this->moyennes->moyenneMatiereEleve($eleve, $cm, $trimestre),
+                'tendance' => $this->tendance(
+                    $valeurCourante !== null ? (float) $valeurCourante : null,
+                    $valeurPrecedente !== null ? (float) $valeurPrecedente : null,
+                ),
+            ];
+        })->values();
+
+        $general = $this->moyennes->moyenneGeneraleEleve($eleve, $trimestre);
+        $moyenneCourante = $courante ? $this->moyennes->moyenneSequenceEleve($eleve, $courante) : null;
+        $moyennePrecedente = $precedente ? $this->moyennes->moyenneSequenceEleve($eleve, $precedente) : null;
+
+        return [
+            'matieres' => $matieres,
+            'moyenne_generale' => $general['moyenne'],
+            'tendance_generale' => $this->tendance($moyenneCourante, $moyennePrecedente),
+        ];
+    }
+
+    /** @return array{competences: Collection, moyenne_generale: ?float, tendance_generale: ?string} */
+    private function notesParCompetenceSansClassement(Eleve $eleve, Trimestre $trimestre, Collection $sequences, ?Sequence $courante, ?Sequence $precedente): array
+    {
+        $affectations = $eleve->classe->classeCompetences()->where('statut', 'actif')->with('competence')->get();
+
+        $competences = $affectations->map(function ($cc) use ($eleve, $trimestre, $sequences, $courante, $precedente) {
+            // Compétence de maternelle évaluée par appréciation, pas par note
+            // chiffrée : aucune tendance numérique ne peut s'en déduire.
+            if ($cc->notation === null) {
+                $notesParSequence = Note::where('eleve_id', $eleve->id)
+                    ->where('classe_competence_id', $cc->id)
+                    ->whereIn('sequence_id', $sequences->pluck('id'))
+                    ->whereNotNull('appreciation_id')
+                    ->with('appreciation')
+                    ->get()
+                    ->keyBy('sequence_id');
+
+                return [
+                    'competence_id' => $cc->competence_id,
+                    'competence' => $cc->competence->label_fr,
+                    'abreviation' => $cc->competence->abbreviation,
+                    'mode' => 'appreciation',
+                    'notes' => $sequences->map(function ($s) use ($notesParSequence) {
+                        $appreciation = $notesParSequence->get($s->id)?->appreciation;
+
+                        return [
+                            'sequence_id' => $s->id,
+                            'libelle' => $s->libelle,
+                            'appreciation' => $appreciation ? [
+                                'id' => $appreciation->id,
+                                'label_fr' => $appreciation->label_fr,
+                                'emoji' => $appreciation->emoji,
+                                'couleur' => $appreciation->couleur,
+                            ] : null,
+                        ];
+                    })->values(),
+                    'moyenne' => null,
+                    'tendance' => null,
+                ];
+            }
+
+            $resultat = $this->moyennesPrimaire->noteCompetenceEleve($eleve, $cc, $trimestre);
+            $totalCourant = $courante ? ($resultat['totaux_sequences'][$courante->id] ?? null) : null;
+            $totalPrecedent = $precedente ? ($resultat['totaux_sequences'][$precedente->id] ?? null) : null;
+
+            return [
+                'competence_id' => $cc->competence_id,
+                'competence' => $cc->competence->label_fr,
+                'abreviation' => $cc->competence->abbreviation,
+                'mode' => 'note',
+                'bareme' => $resultat['bareme'],
+                'notes' => $sequences->map(fn ($s) => [
+                    'sequence_id' => $s->id,
+                    'libelle' => $s->libelle,
+                    'total' => $resultat['totaux_sequences'][$s->id] ?? null,
+                ])->values(),
+                'moyenne' => $resultat['note'],
+                'tendance' => $this->tendance($totalCourant, $totalPrecedent),
+            ];
+        })->values();
+
+        $general = $this->moyennesPrimaire->moyenneGeneraleEleve($eleve, $trimestre);
+        $moyenneCourante = $courante ? $this->moyennesPrimaire->moyenneSequenceEleve($eleve, $courante) : null;
+        $moyennePrecedente = $precedente ? $this->moyennesPrimaire->moyenneSequenceEleve($eleve, $precedente) : null;
+
+        return [
+            'competences' => $competences,
+            'moyenne_generale' => $general['moyenne'],
+            'tendance_generale' => $this->tendance($moyenneCourante, $moyennePrecedente),
+        ];
     }
 
     /** Bulletin PDF du trimestre actif (ou demandé) — le même document que celui remis par l'école. */

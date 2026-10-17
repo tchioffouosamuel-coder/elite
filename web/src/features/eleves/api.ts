@@ -72,6 +72,10 @@ export interface Eleve {
   non_reinscrit_annee_active: boolean;
   preinscription_active?: boolean;
   total_versements?: number;
+  /** Payé sur l'année active (absent si non calculé par l'endpoint appelé). */
+  montant_paye?: number;
+  /** Reste à payer sur l'année active (absent si non calculé par l'endpoint appelé). */
+  dette?: number;
   school_id: number | null;
   school: {
     id: number;

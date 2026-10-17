@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\AppreciationSequenceController;
 use App\Http\Controllers\Api\V1\ArchiveClasseController;
 use App\Http\Controllers\Api\V1\AssuranceScolaireController;
 use App\Http\Controllers\Api\V1\AttestationController;
+use App\Http\Controllers\Api\V1\AvisAdminController;
+use App\Http\Controllers\Api\V1\AvisController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvanceSalaireController;
@@ -700,6 +702,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('enfants/{eleveId}/completer', [ParentEspaceController::class, 'completerEnfant'])->name('enfants.completer');
                 Route::post('enfants/{eleveId}/completer/photo', [ParentEspaceController::class, 'completerPhotoEnfant'])->name('enfants.completer.photo');
                 Route::get('enfants/{eleveId}/finance', [ParentEspaceController::class, 'finance'])->name('enfants.finance');
+                Route::get('enfants/{eleveId}/notes', [ParentEspaceController::class, 'notes'])->name('enfants.notes');
                 Route::get('enfants/{eleveId}/bulletin', [ParentEspaceController::class, 'bulletin'])->name('enfants.bulletin');
                 Route::get('enfants/{eleveId}/progression', [ParentEspaceController::class, 'progression'])->name('enfants.progression');
                 Route::get('enfants/{eleveId}/progression/{classeMatiereId}', [ParentEspaceController::class, 'progressionMatiere'])->name('enfants.progression.show');
@@ -1003,6 +1006,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('revendications', [RevendicationController::class, 'store'])->name('revendications.store')->middleware('permission:revendications.create');
             Route::put('revendications/{id}', [RevendicationController::class, 'update'])->name('revendications.update')->middleware('permission:revendications.update');
             Route::delete('revendications/{id}', [RevendicationController::class, 'destroy'])->name('revendications.destroy')->middleware('permission:revendications.delete');
+
+            /*
+             * Espace d'évaluation (point 24) : parent, enseignant ou
+             * personnel dépose un avis libre sur son propre compte ; seule la
+             * lecture/filtrage côté administration est un privilège distinct.
+             */
+            Route::post('avis', [AvisController::class, 'store'])->name('avis.store')->middleware('permission:avis.create');
+            Route::get('mes-avis', [AvisController::class, 'mesAvis'])->name('avis.mes-avis')->middleware('permission:avis.create');
+            Route::get('avis', [AvisAdminController::class, 'index'])->name('avis.index')->middleware('permission:avis.view');
 
             Route::middleware('permission:emploi_du_temps.view')->group(function () {
                 Route::get('emploi-du-temps/classes', [EmploiDuTempsController::class, 'classes'])->name('edt.classes');

@@ -711,47 +711,7 @@ class ScolariteService extends BaseService
             ->orderBy('nom_complet')
             ->get();
 
-        $dossiers = DossierScolarite::forSchool($schoolId)
-            ->where('annee_scolaire_id', $anneeScolaireId)
-            ->whereIn('eleve_id', $eleves->pluck('id'))
-            ->avecTotaux()
-            ->get()
-            ->keyBy('eleve_id');
-
-        // Projection commune aux élèves sans dossier, précalculée par classe
-        // (un frais obligatoire peut être circonscrit à certaines classes)
-        // plutôt que relue élève par élève.
-        $fraisObligatoiresParClasse = [];
-        foreach ($eleves->pluck('classe_id')->unique() as $classeId) {
-            $fraisObligatoiresParClasse[$classeId ?? 0] = (int) $this->fraisObligatoires($schoolId, $anneeScolaireId, $classeId)->sum('montant');
-        }
-
-        // Souscriptions bus actives, groupées par élève : un dossier projeté
-        // (jamais ouvert) n'a aucune relation chargée depuis la base et doit
-        // les recevoir explicitement pour que le transport compte dans le dû.
-        $busParEleve = BusAffectation::whereIn('eleve_id', $eleves->pluck('id'))
-            ->where('annee_scolaire_id', $anneeScolaireId)
-            ->actives()
-            ->with('trajet')
-            ->get()
-            ->groupBy('eleve_id');
-
-        $lignes = $eleves
-            ->map(function (Eleve $eleve) use ($dossiers, $annee, $fraisObligatoiresParClasse, $busParEleve) {
-                $dossier = $dossiers->get($eleve->id);
-
-                if ($dossier) {
-                    $dossier->setRelation('eleve', $eleve);
-
-                    return $dossier;
-                }
-
-                // Dossier projeté, non enregistré : il porte `id = null`, ce qui
-                // signale à l'interface qu'il faut l'ouvrir avant d'encaisser.
-                $fraisObligatoires = $fraisObligatoiresParClasse[$eleve->classe_id ?? 0] ?? 0;
-
-                return $this->dossierProjete($eleve, $annee, $fraisObligatoires, $busParEleve->get($eleve->id, new EloquentCollection));
-            })
+        $lignes = $this->construireLignes($eleves, $schoolId, $annee)
             // Le statut se déduit des versements : il ne peut pas se filtrer en
             // SQL sans dupliquer le calcul des soldes dans la requête.
             ->when(
@@ -1003,6 +963,96 @@ class ScolariteService extends BaseService
                 'total_reste' => (int) $lignes->sum('reste'),
             ],
         ];
+    }
+
+    /**
+     * Construit, pour un lot d'élèves d'UNE école sur UNE année, la ligne de
+     * dossier (réel ou projeté) qui porte `total_du`/`total_paye`/`reste_a_payer`.
+     * Factorisé entre `situation()` et `soldesPourListe()` : même calcul,
+     * seule la liste d'élèves en entrée change.
+     *
+     * @param  Collection<int, Eleve>  $eleves
+     * @return Collection<int, DossierScolarite>
+     */
+    private function construireLignes(Collection $eleves, int $schoolId, AnneeScolaire $annee): Collection
+    {
+        $dossiers = DossierScolarite::forSchool($schoolId)
+            ->where('annee_scolaire_id', $annee->id)
+            ->whereIn('eleve_id', $eleves->pluck('id'))
+            ->avecTotaux()
+            ->get()
+            ->keyBy('eleve_id');
+
+        // Projection commune aux élèves sans dossier, précalculée par classe
+        // (un frais obligatoire peut être circonscrit à certaines classes)
+        // plutôt que relue élève par élève.
+        $fraisObligatoiresParClasse = [];
+        foreach ($eleves->pluck('classe_id')->unique() as $classeId) {
+            $fraisObligatoiresParClasse[$classeId ?? 0] = (int) $this->fraisObligatoires($schoolId, $annee->id, $classeId)->sum('montant');
+        }
+
+        // Souscriptions bus actives, groupées par élève : un dossier projeté
+        // (jamais ouvert) n'a aucune relation chargée depuis la base et doit
+        // les recevoir explicitement pour que le transport compte dans le dû.
+        $busParEleve = BusAffectation::whereIn('eleve_id', $eleves->pluck('id'))
+            ->where('annee_scolaire_id', $annee->id)
+            ->actives()
+            ->with('trajet')
+            ->get()
+            ->groupBy('eleve_id');
+
+        return $eleves
+            ->map(function (Eleve $eleve) use ($dossiers, $annee, $fraisObligatoiresParClasse, $busParEleve) {
+                $dossier = $dossiers->get($eleve->id);
+
+                if ($dossier) {
+                    $dossier->setRelation('eleve', $eleve);
+
+                    return $dossier;
+                }
+
+                // Dossier projeté, non enregistré : il porte `id = null`, ce qui
+                // signale à l'interface qu'il faut l'ouvrir avant d'encaisser.
+                $fraisObligatoires = $fraisObligatoiresParClasse[$eleve->classe_id ?? 0] ?? 0;
+
+                return $this->dossierProjete($eleve, $annee, $fraisObligatoires, $busParEleve->get($eleve->id, new EloquentCollection));
+            })
+            ->values();
+    }
+
+    /**
+     * Montant payé et reste à payer pour un lot d'élèves déjà chargés
+     * ailleurs (ex. liste générale des élèves), toutes écoles confondues —
+     * chaque élève est rattaché à l'année active de SA propre école.
+     * Contrairement à `situation()`, ne filtre ni par préinscription ni par
+     * statut actif : affiche le solde de quiconque figure dans la liste.
+     *
+     * @param  Collection<int, Eleve>  $eleves
+     * @return Collection<int, array{total_paye: int, reste_a_payer: int}> indexée par eleve_id
+     */
+    public function soldesPourListe(Collection $eleves): Collection
+    {
+        if ($eleves->isEmpty()) {
+            return collect();
+        }
+
+        $soldes = collect();
+
+        foreach ($eleves->groupBy('school_id') as $schoolId => $elevesEcole) {
+            $annee = AnneeScolaire::where('school_id', $schoolId)->where('is_active', true)->first();
+            if ($annee === null) {
+                continue;
+            }
+
+            foreach ($this->construireLignes($elevesEcole, (int) $schoolId, $annee) as $ligne) {
+                $soldes->put($ligne->eleve_id, [
+                    'total_paye' => (int) $ligne->total_paye,
+                    'reste_a_payer' => (int) $ligne->reste_a_payer,
+                ]);
+            }
+        }
+
+        return $soldes;
     }
 
     /**

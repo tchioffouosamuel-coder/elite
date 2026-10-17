@@ -138,6 +138,7 @@ class RoutesProtegeesTest extends TestCase
         'api.v1.parent.enfants.index',
         'api.v1.parent.enfants.show',
         'api.v1.parent.enfants.finance',
+        'api.v1.parent.enfants.notes',
         'api.v1.parent.enfants.bulletin',
         'api.v1.parent.enfants.progression',
         'api.v1.parent.enfants.progression.show',
