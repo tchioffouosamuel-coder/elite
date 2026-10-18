@@ -34,21 +34,22 @@ class PermissionsTest extends TestCase
     }
 
     /** Agent rattaché à une fonction, sans rôle ni permission directe. */
-    private function agent(array $permissionsDeLaFonction): User
+    private function agent(array $permissionsDeLaFonction, ?School $ecole = null): User
     {
+        $schoolId = ($ecole ?? $this->school)->id;
         $fonction = FonctionReferentiel::create([
-            'school_id' => $this->school->id,
+            'school_id' => $schoolId,
             'label_fr' => 'Fonction de test '.uniqid(),
         ]);
         $fonction->synchroniserPermissions($permissionsDeLaFonction);
 
         $user = User::create([
             'name' => 'Agent', 'email' => 'agent'.uniqid().'@test.local', 'password' => 'password',
-            'school_id' => $this->school->id, 'is_active' => true,
+            'school_id' => $schoolId, 'is_active' => true,
         ]);
 
         Personnel::create([
-            'school_id' => $this->school->id,
+            'school_id' => $schoolId,
             'user_id' => $user->id,
             'fonction_id' => $fonction->id,
             'nom_complet' => 'Agent de test',
@@ -228,6 +229,34 @@ class PermissionsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.permissions_fonction', ['eleves.view'])
             ->assertJsonPath('data.permissions_directes', ['finance.encaisser']);
+    }
+
+    /**
+     * Mode agrégé (super admin sans X-School-Id) : la liste du personnel porte
+     * sur tout le complexe, les privilèges individuels doivent suivre le même
+     * périmètre. Sinon un agent bien listé renvoie 404 dès qu'il dépend d'une
+     * autre école que celle du compte.
+     */
+    public function test_les_privileges_individuels_d_un_agent_d_une_autre_ecole_du_complexe_sont_accessibles(): void
+    {
+        $autreEcole = School::create([
+            'name' => 'Elites Maternelle', 'code' => 'EM', 'type' => 'maternelle', 'is_active' => true,
+        ]);
+        $agent = $this->agent(['eleves.view'], $autreEcole);
+        $personnelId = $agent->personnel->id;
+        $root = $this->root();
+
+        $this->actingAs($root, 'sanctum')
+            ->getJson("/api/v1/personnels/{$personnelId}/permissions")
+            ->assertOk()
+            ->assertJsonPath('data.permissions_fonction', ['eleves.view']);
+
+        $this->actingAs($root, 'sanctum')
+            ->putJson("/api/v1/personnels/{$personnelId}/permissions", ['permissions' => ['finance.encaisser']])
+            ->assertOk()
+            ->assertJsonPath('data.permissions_directes', ['finance.encaisser']);
+
+        $this->assertTrue($agent->fresh()->aLaPermission('finance.encaisser'));
     }
 
     public function test_un_agent_ordinaire_ne_peut_pas_gerer_les_privileges_individuels(): void

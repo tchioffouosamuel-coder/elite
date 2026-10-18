@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\FonctionReferentiel;
 use App\Models\Personnel;
 use App\Support\CataloguePermissions;
+use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Permission;
@@ -94,7 +95,7 @@ class PermissionController extends Controller
      */
     public function showUtilisateur(int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->with('user', 'fonctionReference.permissions:id,name')->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->with('user', 'fonctionReference.permissions:id,name')->findOrFail($personnelId);
 
         abort_unless($personnel->user, 404, "Cet agent n'a pas de compte de connexion.");
 
@@ -114,7 +115,7 @@ class PermissionController extends Controller
      */
     public function updateUtilisateur(Request $request, int $personnelId): JsonResponse
     {
-        $personnel = Personnel::forSchool(app('tenant.school_id'))->with('user')->findOrFail($personnelId);
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->with('user')->findOrFail($personnelId);
 
         abort_unless($personnel->user, 404, "Cet agent n'a pas de compte de connexion.");
 
