@@ -40,6 +40,7 @@ import { AccorderAvanceModal } from '@/features/finance/AccorderAvanceModal'
 import { AllouerBudgetModal } from '@/features/finance/AllouerBudgetModal'
 import { RemunerationModal } from '@/features/finance/pages/RemunerationModal'
 import { CreateAccountModal } from '@/features/personnel/pages/CreateAccountModal'
+import { PrivilegesIndividuelsTab } from '@/features/personnel/PrivilegesIndividuelsTab'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire } from '@/shared/lib/ecole'
@@ -77,6 +78,7 @@ export function PersonnelDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const can = useAuthStore((s) => s.can)
+  const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin)
   const { id } = useParams<{ id: string }>()
   const personnelId = Number(id)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -107,6 +109,7 @@ export function PersonnelDetailPage() {
     can('finance.paie') && { key: 'avances', label: t('hub.tab.avances') },
     can('finance.budget') && { key: 'budget', label: t('hub.tab.budget') },
     can('personnel.comptes') && { key: 'activite', label: t('hub.tab.activite') },
+    isSuperAdmin && personnel.a_un_compte && { key: 'privileges', label: t('hub.tab.privileges') },
   ].filter(Boolean) as { key: string; label: string }[]
 
   const ongletDemande = searchParams.get('onglet')
@@ -401,6 +404,8 @@ export function PersonnelDetailPage() {
       )}
 
       {onglet === 'activite' && <ActiviteTab personnel={personnel} />}
+
+      {onglet === 'privileges' && <PrivilegesIndividuelsTab personnelId={personnel.id} />}
 
       {compteOuvert && (
         <CreateAccountModal

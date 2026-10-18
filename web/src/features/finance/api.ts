@@ -159,6 +159,27 @@ export async function annulerVersement(
   await http.post(`/versements/${versementId}/annuler`, { motif });
 }
 
+export interface CorrigerVersementPayload {
+  montant: number;
+  date_versement?: string;
+  mode?: ModePaiement;
+  reference_externe?: string;
+  note?: string;
+  motif?: string;
+}
+
+/** Annule le reçu fautif puis ré-encaisse les valeurs corrigées, en un seul appel — depuis la caisse, sans passer par l'écran d'encaissement. */
+export async function corrigerVersement(
+  versementId: number,
+  payload: CorrigerVersementPayload,
+): Promise<{ versement_id: number; numero_recu: string }> {
+  const { data } = await http.post<ApiResponse<{ versement_id: number; numero_recu: string }>>(
+    `/versements/${versementId}/corriger`,
+    payload,
+  );
+  return data.data;
+}
+
 export interface VerificationVersement {
   numero_recu: string;
   eleve: { nom_complet: string; matricule: string | null };
@@ -1286,6 +1307,17 @@ export async function creerDetteAnterieure(
 ): Promise<DetteAnterieure> {
   const { data } = await http.post<ApiResponse<DetteAnterieure>>(
     `/eleves/${eleveId}/dettes-anterieures`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function modifierDetteAnterieure(
+  id: number,
+  payload: { montant: number; motif?: string },
+): Promise<DetteAnterieure> {
+  const { data } = await http.put<ApiResponse<DetteAnterieure>>(
+    `/dettes-anterieures/${id}`,
     payload,
   );
   return data.data;

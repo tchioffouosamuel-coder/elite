@@ -279,6 +279,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'show'])->name('permissions.show');
                 Route::put('fonctions-referentiel/{id}/permissions', [PermissionController::class, 'update'])->name('permissions.update');
 
+                // Privilèges accordés en propre à un agent, en plus de ceux de sa
+                // fonction (cf. User::permissionsDeBase()) — le cumul est volontaire.
+                Route::get('personnels/{id}/permissions', [PermissionController::class, 'showUtilisateur'])->name('personnels.permissions.show');
+                Route::put('personnels/{id}/permissions', [PermissionController::class, 'updateUtilisateur'])->name('personnels.permissions.update');
+
                 // Administration des comptes utilisateurs : liste, activité, et
                 // réinitialisation de mot de passe — même logique de protection
                 // par rôle, pour la même raison. Préfixe distinct de `comptes`
@@ -849,6 +854,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'show'])->name('progression.show');
                 Route::get('classe-matieres/{classeMatiereId}/progression/pdf', [ProgressionController::class, 'pdf'])->name('progression.pdf');
                 Route::get('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'colonnes'])->name('progression-colonnes.index');
+                Route::get('classe-matieres/{classeMatiereId}/progression/cibles-copie', [ProgressionController::class, 'ciblesCopie'])->name('progression.cibles-copie');
                 Route::get('classe-matieres/{classeMatiereId}/champs-personnalises', [ProgressionController::class, 'champs'])->name('champs-personnalises.index');
                 Route::get('classe-matieres/{classeMatiereId}/evaluations', [EvaluationController::class, 'index'])->name('evaluations.index');
             });
@@ -858,6 +864,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('calendrier-scolaire/recalculer', [CalendrierScolaireController::class, 'recalculer'])->name('calendrier-scolaire.recalculer')->middleware('permission:calendrier_scolaire.create');
             Route::put('classe-matieres/{classeMatiereId}/progression', [ProgressionController::class, 'save'])->name('progression.save')->middleware('permission:progression.update');
             Route::post('classe-matieres/{classeMatiereId}/progression/import', [ProgressionController::class, 'import'])->name('progression.import')->middleware('permission:progression.import');
+            Route::post('classe-matieres/{classeMatiereId}/progression/copier', [ProgressionController::class, 'copier'])->name('progression.copier')->middleware('permission:progression.update');
             Route::post('classes/{classeId}/progression/import', [ProgressionController::class, 'importClasse'])->name('progression.import-classe')->middleware('permission:progression.import');
             Route::put('classe-matieres/{classeMatiereId}/progression/cartouche', [ProgressionController::class, 'enregistrerCartouche'])->name('progression.cartouche')->middleware('permission:progression.update');
             Route::put('classe-matieres/{classeMatiereId}/progression-colonnes', [ProgressionController::class, 'enregistrerColonnes'])->name('progression-colonnes.save')->middleware('permission:progression.update');
@@ -1125,6 +1132,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('versements/{id}/annuler', [ScolariteController::class, 'annuler'])->name('scolarite.annuler');
             });
 
+            // Corriger un reçu exige à la fois d'annuler (finance.annuler) et
+            // de ré-encaisser (finance.encaisser) — les deux privilèges,
+            // jamais l'un sans l'autre.
+            Route::middleware('permission:finance.annuler|finance.encaisser')->group(function () {
+                Route::post('versements/{id}/corriger', [ScolariteController::class, 'corriger'])->name('scolarite.corriger');
+            });
+
             /*
              * Moratoires, remises individuelles et dettes antérieures : des
              * corrections à la situation d'un élève, réservées à qui peut
@@ -1139,6 +1153,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::delete('remises/{id}', [RemiseController::class, 'destroy'])->name('remises.destroy')->middleware('permission:remises.delete');
 
             Route::post('eleves/{eleveId}/dettes-anterieures', [DetteAnterieureController::class, 'store'])->name('dettes-anterieures.store')->middleware('permission:dettes_anterieures.create');
+            Route::put('dettes-anterieures/{id}', [DetteAnterieureController::class, 'update'])->name('dettes-anterieures.update')->middleware('permission:dettes_anterieures.update');
             Route::delete('dettes-anterieures/{id}', [DetteAnterieureController::class, 'destroy'])->name('dettes-anterieures.destroy')->middleware('permission:dettes_anterieures.delete');
             Route::post('eleves/{eleveId}/dettes-anterieures/oublier', [DetteAnterieureController::class, 'oublier'])->name('dettes-anterieures.oublier')->middleware('permission:dettes_anterieures.oublier');
 

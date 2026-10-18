@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
+use App\Models\ProgressionColonne;
 use App\Models\ProgressionItem;
 use App\Models\Sequence;
 use App\Models\Setting;
@@ -259,6 +260,7 @@ class ProgressionService extends BaseService
             ->with(['matiere', 'enseignant'])->get()
             ->map(fn (ClasseMatiere $cm) => [
                 'classe_matiere_id' => $cm->id,
+                'matiere_id' => $cm->matiere_id,
                 'matiere' => $cm->matiere->nom,
                 'enseignant' => $cm->enseignant?->nom_complet ?? $classe->titulaire?->nom_complet,
                 ...$this->tauxAffectation($cm),
@@ -364,6 +366,140 @@ class ProgressionService extends BaseService
      *
      * @param  array<int, array<string, mixed>>  $noeuds
      */
+    /**
+     * Classes candidates pour une copie de fiche depuis `$source` : même
+     * matière, même école, pas déjà la même fiche partagée (cf.
+     * ResolveurFicheProgression — la copier ne changerait rien, elles voient
+     * déjà le même contenu en direct).
+     *
+     * @return Collection<int, array{classe_matiere_id: int, classe: string, enseignant: ?string, a_deja_une_fiche: bool}>
+     */
+    public function ciblesCopie(ClasseMatiere $source): Collection
+    {
+        $cleSource = ResolveurFicheProgression::cle($source);
+
+        return ClasseMatiere::where('matiere_id', $source->matiere_id)
+            ->where('id', '!=', $source->id)
+            ->where('statut', 'actif')
+            ->whereHas('classe', fn ($q) => $q->where('school_id', $source->classe->school_id))
+            ->with(['classe', 'enseignant'])
+            ->get()
+            ->reject(fn (ClasseMatiere $cm) => $cleSource !== null && ResolveurFicheProgression::cle($cm) === $cleSource)
+            ->map(fn (ClasseMatiere $cm) => [
+                'classe_matiere_id' => $cm->id,
+                'classe' => $cm->classe->nom,
+                'enseignant' => $cm->enseignant?->nom_complet,
+                'a_deja_une_fiche' => ResolveurFicheProgression::itemsScope($cm)->exists(),
+            ])
+            ->values();
+    }
+
+    /**
+     * Copie les leçons et colonnes d'une matière enseignée dans une classe
+     * vers une ou plusieurs autres classes où la même matière est également
+     * enseignée — un point de départ commun quand les classes ne partagent
+     * pas déjà la même fiche (enseignants différents, par ex.). Seul le
+     * contenu pédagogique est repris (titre, description, consignes...) ;
+     * ce qui relève du déroulé réel de LA CLASSE SOURCE ne l'est pas : date
+     * prévue/réalisée, semaine, durée, séquence, ni les séances déjà faites.
+     *
+     * N'écrase jamais une fiche qui a déjà du contenu — la classe cible est
+     * ignorée et signalée dans le résultat plutôt que fusionnée à l'aveugle.
+     *
+     * @param  list<int>  $classeMatiereIdsCibles
+     * @return array{copiees: list<string>, ignorees: list<string>}
+     */
+    public function copierVers(ClasseMatiere $source, array $classeMatiereIdsCibles): array
+    {
+        $cibles = ClasseMatiere::whereIn('id', $classeMatiereIdsCibles)
+            ->where('matiere_id', $source->matiere_id)
+            ->where('id', '!=', $source->id)
+            ->with('classe')
+            ->get();
+
+        $itemsSource = ResolveurFicheProgression::itemsScope($source)->orderBy('ordre')->orderBy('id')->get();
+        $colonnesSource = ResolveurFicheProgression::colonnesScope($source)->orderBy('ordre')->get();
+
+        $copiees = [];
+        $ignorees = [];
+
+        foreach ($cibles as $cible) {
+            $libelle = $cible->classe->nom;
+
+            if (ResolveurFicheProgression::itemsScope($cible)->exists()) {
+                $ignorees[] = $libelle;
+
+                continue;
+            }
+
+            $this->transaction(function () use ($cible, $itemsSource, $colonnesSource) {
+                $porteurItems = ResolveurFicheProgression::attributsCreation($cible, ProgressionItem::class);
+                $porteurColonnes = ResolveurFicheProgression::attributsCreation($cible, ProgressionColonne::class);
+
+                foreach ($colonnesSource as $colonne) {
+                    ProgressionColonne::create([
+                        ...$porteurColonnes,
+                        'libelle' => $colonne->libelle,
+                        'ordre' => $colonne->ordre,
+                    ]);
+                }
+
+                // Les parents se recréent avant leurs enfants pour que
+                // `parent_id` se remappe vers la copie plutôt que l'original
+                // — une boucle à passes multiples plutôt qu'un simple tri,
+                // l'arbre pouvant compter modules > chapitres > leçons.
+                $restants = $itemsSource->keyBy('id');
+                $correspondance = [];
+
+                while ($restants->isNotEmpty()) {
+                    $traites = [];
+
+                    foreach ($restants as $item) {
+                        if ($item->parent_id !== null && ! array_key_exists($item->parent_id, $correspondance)) {
+                            continue;
+                        }
+
+                        $copie = ProgressionItem::create([
+                            ...$porteurItems,
+                            'parent_id' => $item->parent_id ? ($correspondance[$item->parent_id] ?? null) : null,
+                            'type' => $item->type,
+                            'titre' => $item->titre,
+                            'description' => $item->description,
+                            'ordre' => $item->ordre,
+                            'expected_learning_outcomes' => $item->expected_learning_outcomes,
+                            'topic' => $item->topic,
+                            'sous_topic' => $item->sous_topic,
+                            'competence' => $item->competence,
+                            'entry_behaviour' => $item->entry_behaviour,
+                            'teaching_aids' => $item->teaching_aids,
+                            'teaching_learning_strategies' => $item->teaching_learning_strategies,
+                            'learners_activities' => $item->learners_activities,
+                            'facilitators_activities' => $item->facilitators_activities,
+                            'assessment' => $item->assessment,
+                            'assignment' => $item->assignment,
+                            'remarks' => $item->remarks,
+                            'duree_prevue' => $item->duree_prevue,
+                            'colonnes_libres' => $item->colonnes_libres,
+                        ]);
+
+                        $correspondance[$item->id] = $copie->id;
+                        $traites[] = $item->id;
+                    }
+
+                    if ($traites === []) {
+                        break; // garde-fou : ne devrait jamais arriver sur un arbre bien formé
+                    }
+
+                    $restants = $restants->except($traites);
+                }
+            });
+
+            $copiees[] = $libelle;
+        }
+
+        return ['copiees' => $copiees, 'ignorees' => $ignorees];
+    }
+
     public function remplacerArbre(ClasseMatiere $classeMatiere, array $noeuds, ?User $auteur = null): int
     {
         // « Date Taught » ne se saisit pas à la main par celui qui doit

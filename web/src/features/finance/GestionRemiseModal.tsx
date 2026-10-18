@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
 import { Input, MontantInput } from '@/shared/ui/Field'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
-import { fetchRemises, modifierRemise, supprimerRemise, francs, type RemiseIndividuelle } from '@/features/finance/api'
+import { creerRemise, fetchRemises, modifierRemise, supprimerRemise, francs, type RemiseIndividuelle } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
 
 export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
@@ -16,7 +16,7 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
   onChange: () => void
 }) {
   const queryClient = useQueryClient()
-  const [edition, setEdition] = useState<RemiseIndividuelle | null>(null)
+  const [edition, setEdition] = useState<RemiseIndividuelle | 'nouvelle' | null>(null)
   const [montant, setMontant] = useState<number | null>(null)
   const [motif, setMotif] = useState('')
   const { data: remises, isLoading } = useQuery({ queryKey: ['remises', eleveId], queryFn: () => fetchRemises(eleveId) })
@@ -33,11 +33,22 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
     setMotif(remise.motif ?? '')
   }
 
+  const ouvrirCreation = () => {
+    setEdition('nouvelle')
+    setMontant(null)
+    setMotif('')
+  }
+
   const enregistrer = async () => {
     if (!edition || !montant) return
     try {
-      await modifierRemise(edition.id, { montant, motif: motif || undefined })
-      succes('Remise modifiée.')
+      if (edition === 'nouvelle') {
+        await creerRemise(eleveId, { montant, motif: motif || undefined })
+        succes('Remise accordée.')
+      } else {
+        await modifierRemise(edition.id, { montant, motif: motif || undefined })
+        succes('Remise modifiée.')
+      }
       setEdition(null)
       rafraichir()
     } catch (e) {
@@ -92,6 +103,13 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
                 <Button size="sm" onClick={enregistrer} disabled={!montant}>Enregistrer</Button>
               </div>
             </div>
+          )}
+
+          {!edition && (
+            <Button size="sm" variant="secondary" onClick={ouvrirCreation}>
+              <Plus className="h-3.5 w-3.5" />
+              Accorder une remise
+            </Button>
           )}
         </div>
       )}

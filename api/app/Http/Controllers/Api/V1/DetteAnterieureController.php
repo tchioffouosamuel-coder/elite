@@ -132,6 +132,26 @@ class DetteAnterieureController extends Controller
         return ApiResponse::created(new DetteAnterieureResource($dette), 'Dette antérieure enregistrée.');
     }
 
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $dette = DetteAnterieure::forSchool(Tenant::schoolIds())->findOrFail($id);
+
+        $data = $request->validate([
+            'montant' => ['required', 'integer', 'min:1'],
+            'motif' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $dette = $this->service->modifierDetteAnterieure($dette, $data['montant'], $data['motif'] ?? null);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        $dette->load('accordePar:id,name');
+
+        return ApiResponse::success(new DetteAnterieureResource($dette), 'Dette antérieure modifiée.');
+    }
+
     public function destroy(int $id): JsonResponse
     {
         $dette = DetteAnterieure::forSchool(Tenant::schoolIds())->findOrFail($id);

@@ -219,6 +219,7 @@ export async function ouvrirFichesProgressionClassePdf(classeId: number): Promis
 
 export interface TauxMatiere {
   classe_matiere_id: number;
+  matiere_id: number;
   matiere: string;
   enseignant: string | null;
   lecons: number;
@@ -376,6 +377,40 @@ export async function importerProgressionClasse(
   const { data } = await http.post<ApiResponse<ResultatImportClasse>>(
     `/classes/${classeId}/progression/import`,
     corps,
+  );
+  return data.data;
+}
+
+// ------------------------------------------- Copie entre classes (même matière)
+
+export interface CibleCopieProgression {
+  classe_matiere_id: number;
+  classe: string;
+  enseignant: string | null;
+  a_deja_une_fiche: boolean;
+}
+
+export async function fetchCiblesCopieProgression(
+  classeMatiereId: number,
+): Promise<CibleCopieProgression[]> {
+  const { data } = await http.get<ApiResponse<CibleCopieProgression[]>>(
+    `/classe-matieres/${classeMatiereId}/progression/cibles-copie`,
+  );
+  return data.data;
+}
+
+export interface ResultatCopieProgression {
+  copiees: string[];
+  ignorees: string[];
+}
+
+export async function copierProgression(
+  classeMatiereId: number,
+  classeMatiereIdsCibles: number[],
+): Promise<ResultatCopieProgression> {
+  const { data } = await http.post<ApiResponse<ResultatCopieProgression>>(
+    `/classe-matieres/${classeMatiereId}/progression/copier`,
+    { classe_matiere_ids: classeMatiereIdsCibles },
   );
   return data.data;
 }

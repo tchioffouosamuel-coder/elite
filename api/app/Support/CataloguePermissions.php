@@ -360,6 +360,7 @@ class CataloguePermissions
             'moratoires.create' => ['Accorder un moratoire', 'Grant a payment deferral'],
             'moratoires.delete' => ['Supprimer un moratoire', 'Delete a payment deferral'],
             'dettes_anterieures.create' => ['Enregistrer une dette antérieure', 'Record a past debt'],
+            'dettes_anterieures.update' => ['Modifier le montant ou le motif d\'une dette antérieure', 'Edit the amount or reason of a past debt'],
             'dettes_anterieures.delete' => ['Supprimer une dette antérieure', 'Delete a past debt'],
             'dettes_anterieures.import' => ['Importer les dettes antérieures', 'Import past debts'],
             'dettes_anterieures.oublier' => ["Abandonner les dettes antérieures d'un élève", "Write off a pupil's past debts"],

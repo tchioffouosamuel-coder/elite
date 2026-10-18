@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\FonctionReferentiel;
+use App\Models\Personnel;
 use App\Support\CataloguePermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Administration des privilèges, réservée au super administrateur.
@@ -79,5 +82,59 @@ class PermissionController extends Controller
             'permissions' => $retenus,
             'personnels_count' => $fonction->personnels_count,
         ], "Privilèges de « {$fonction->label()} » mis à jour ({$fonction->personnels_count} agent(s) concerné(s)).");
+    }
+
+    /**
+     * Privilèges d'un agent précis : ceux de sa fonction (hérités, non
+     * décochables ici — ça reste le rôle de l'écran « Privilèges » par
+     * fonction) et ceux accordés directement à son compte, en plus. Le cumul
+     * est volontaire (cf. User::permissionsDeBase()) : une exception
+     * individuelle ne doit pas obliger à créer une fonction rien que pour
+     * elle.
+     */
+    public function showUtilisateur(int $personnelId): JsonResponse
+    {
+        $personnel = Personnel::forSchool(app('tenant.school_id'))->with('user', 'fonctionReference.permissions:id,name')->findOrFail($personnelId);
+
+        abort_unless($personnel->user, 404, "Cet agent n'a pas de compte de connexion.");
+
+        return ApiResponse::success([
+            'personnel_id' => $personnel->id,
+            'nom_complet' => $personnel->nom_complet,
+            'modules' => CataloguePermissions::parModule(),
+            'permissions_fonction' => $personnel->fonctionReference?->codesPermissions()->values() ?? [],
+            'permissions_directes' => $personnel->user->getDirectPermissions()->pluck('name')->values(),
+        ]);
+    }
+
+    /**
+     * Remplace les privilèges accordés EN PROPRE à cet agent — n'importe pas
+     * sur ceux hérités de sa fonction, qui restent intacts et se gèrent via
+     * `update()` ci-dessus.
+     */
+    public function updateUtilisateur(Request $request, int $personnelId): JsonResponse
+    {
+        $personnel = Personnel::forSchool(app('tenant.school_id'))->with('user')->findOrFail($personnelId);
+
+        abort_unless($personnel->user, 404, "Cet agent n'a pas de compte de connexion.");
+
+        $data = $request->validate([
+            'permissions' => ['present', 'array'],
+            'permissions.*' => ['string'],
+        ]);
+
+        $retenus = array_values(array_unique(array_filter($data['permissions'], CataloguePermissions::existe(...))));
+
+        foreach ($retenus as $code) {
+            Permission::firstOrCreate(['name' => $code, 'guard_name' => 'web']);
+        }
+
+        $personnel->user->syncPermissions($retenus);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return ApiResponse::success([
+            'personnel_id' => $personnel->id,
+            'permissions_directes' => $retenus,
+        ], "Privilèges individuels de {$personnel->nom_complet} mis à jour.");
     }
 }

@@ -95,6 +95,40 @@ class ProgressionController extends Controller
      * L'import complète sans écraser : une leçon déjà saisie à l'écran ne voit
      * remplir que ses champs restés vides (cf. ProgressionImport).
      */
+    /** Classes candidates pour une copie de fiche depuis cette affectation — même matière, pas déjà la même fiche partagée. */
+    public function ciblesCopie(int $classeMatiereId): JsonResponse
+    {
+        $classeMatiere = $this->affectation($classeMatiereId);
+
+        return ApiResponse::success($this->service->ciblesCopie($classeMatiere));
+    }
+
+    /**
+     * Copie les leçons et colonnes de cette fiche vers une ou plusieurs
+     * autres classes où la même matière est enseignée — jamais sur une
+     * classe qui a déjà du contenu (cf. ProgressionService::copierVers()).
+     */
+    public function copier(Request $request, int $classeMatiereId): JsonResponse
+    {
+        $classeMatiere = $this->affectation($classeMatiereId);
+
+        $data = $request->validate([
+            'classe_matiere_ids' => ['required', 'array', 'min:1'],
+            'classe_matiere_ids.*' => ['integer'],
+        ]);
+
+        $resultat = $this->service->copierVers($classeMatiere, $data['classe_matiere_ids']);
+
+        $message = count($resultat['copiees']) > 0
+            ? 'Fiche copiée vers : '.implode(', ', $resultat['copiees']).'.'
+            : 'Aucune classe copiée.';
+        if (count($resultat['ignorees']) > 0) {
+            $message .= ' Ignorée(s) car déjà une fiche : '.implode(', ', $resultat['ignorees']).'.';
+        }
+
+        return ApiResponse::success($resultat, $message);
+    }
+
     public function import(Request $request, int $classeMatiereId): JsonResponse
     {
         $request->validate([

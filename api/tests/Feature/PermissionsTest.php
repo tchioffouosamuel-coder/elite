@@ -38,12 +38,12 @@ class PermissionsTest extends TestCase
     {
         $fonction = FonctionReferentiel::create([
             'school_id' => $this->school->id,
-            'label_fr' => 'Fonction de test',
+            'label_fr' => 'Fonction de test '.uniqid(),
         ]);
         $fonction->synchroniserPermissions($permissionsDeLaFonction);
 
         $user = User::create([
-            'name' => 'Agent', 'email' => 'agent@test.local', 'password' => 'password',
+            'name' => 'Agent', 'email' => 'agent'.uniqid().'@test.local', 'password' => 'password',
             'school_id' => $this->school->id, 'is_active' => true,
         ]);
 
@@ -169,5 +169,74 @@ class PermissionsTest extends TestCase
             ->assertJsonPath('data.permissions', ['eleves.view', 'eleves.create']);
 
         $this->assertTrue($agent->fresh()->aLaPermission('eleves.create'));
+    }
+
+    private function root(): User
+    {
+        $root = User::create([
+            'name' => 'Root', 'email' => 'root'.uniqid().'@test.local', 'password' => 'password',
+            'school_id' => $this->school->id, 'is_active' => true,
+        ]);
+        $root->assignRole('super_admin');
+
+        return $root;
+    }
+
+    public function test_le_super_admin_accorde_un_privilege_individuel_en_plus_de_la_fonction(): void
+    {
+        $agent = $this->agent(['eleves.view']);
+        $personnelId = $agent->personnel->id;
+
+        $this->actingAs($this->root(), 'sanctum')
+            ->putJson("/api/v1/personnels/{$personnelId}/permissions", ['permissions' => ['finance.encaisser']])
+            ->assertOk()
+            ->assertJsonPath('data.permissions_directes', ['finance.encaisser']);
+
+        $frais = $agent->fresh();
+        $this->assertTrue($frais->aLaPermission('finance.encaisser'));
+        // Le privilège de la fonction reste intact : le cumul n'écrase rien.
+        $this->assertTrue($frais->aLaPermission('eleves.view'));
+    }
+
+    public function test_retirer_un_privilege_individuel_ne_touche_pas_celui_de_la_fonction(): void
+    {
+        $agent = $this->agent(['eleves.view']);
+        $personnelId = $agent->personnel->id;
+        $root = $this->root();
+
+        $this->actingAs($root, 'sanctum')
+            ->putJson("/api/v1/personnels/{$personnelId}/permissions", ['permissions' => ['finance.encaisser']])
+            ->assertOk();
+        $this->actingAs($root, 'sanctum')
+            ->putJson("/api/v1/personnels/{$personnelId}/permissions", ['permissions' => []])
+            ->assertOk()
+            ->assertJsonPath('data.permissions_directes', []);
+
+        $frais = $agent->fresh();
+        $this->assertFalse($frais->aLaPermission('finance.encaisser'));
+        $this->assertTrue($frais->aLaPermission('eleves.view'));
+    }
+
+    public function test_la_lecture_des_privileges_individuels_distingue_fonction_et_direct(): void
+    {
+        $agent = $this->agent(['eleves.view']);
+        $personnelId = $agent->personnel->id;
+        $agent->givePermissionTo('finance.encaisser');
+
+        $this->actingAs($this->root(), 'sanctum')
+            ->getJson("/api/v1/personnels/{$personnelId}/permissions")
+            ->assertOk()
+            ->assertJsonPath('data.permissions_fonction', ['eleves.view'])
+            ->assertJsonPath('data.permissions_directes', ['finance.encaisser']);
+    }
+
+    public function test_un_agent_ordinaire_ne_peut_pas_gerer_les_privileges_individuels(): void
+    {
+        $agent = $this->agent(CataloguePermissions::codes());
+        $autre = $this->agent(['eleves.view']);
+
+        $this->actingAs($agent, 'sanctum')
+            ->getJson("/api/v1/personnels/{$autre->personnel->id}/permissions")
+            ->assertStatus(403);
     }
 }

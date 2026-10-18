@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wallet, Receipt, Ban, Users, TrendingUp, AlertTriangle, ListFilter, History, Settings2, FileDown } from 'lucide-react'
+import { Wallet, Receipt, Users, TrendingUp, AlertTriangle, ListFilter, History, Settings2, FileDown } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { StatCard } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -10,16 +10,16 @@ import { Badge } from '@/shared/ui/Badge'
 import { Select } from '@/shared/ui/Field'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
-import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { ouvrirDocument, telechargerFichier } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { masquer, ToggleMontantsMasques } from '@/shared/ui/MontantMasque'
 import { fetchClasses } from '@/features/classes/api'
-import { fetchSituation, annulerVersement, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
+import { fetchSituation, francs, type DossierScolarite, type StatutPaiement } from '@/features/finance/api'
 import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
+import { GestionDetteAnterieureModal } from '@/features/finance/GestionDetteAnterieureModal'
+import { HistoriqueVersementsModal } from '@/features/finance/HistoriqueVersementsModal'
 import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
-import type { ApiError } from '@/shared/types/api'
 
 const STATUTS: { valeur: StatutPaiement | ''; libelle: string }[] = [
   { valeur: '', libelle: 'Tous les élèves' },
@@ -66,6 +66,11 @@ export function CaissePage() {
   const [statut, setStatut] = useState<StatutPaiement | ''>('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [remiseEleve, setRemiseEleve] = useState<{ id: number; nom: string } | null>(null)
+  const [detteEleve, setDetteEleve] = useState<{ id: number; nom: string } | null>(null)
+  const [historiqueEleve, setHistoriqueEleve] = useState<{
+    nom: string
+    versements: NonNullable<DossierScolarite['versements']>
+  } | null>(null)
 
   const { data: classes } = useQuery({
     queryKey: ['classes', activeSchoolId],
@@ -98,27 +103,6 @@ export function CaissePage() {
     }
 
     setSelectedIds(new Set(dossiers.map((d) => d.eleve.id)))
-  }
-
-  const annuler = async (dossier: DossierScolarite) => {
-    const dernier = dossier.versements?.filter((v) => !v.annule).at(-1)
-    if (!dernier) return
-
-    const ok = await confirmer({
-      titre: `Annuler le reçu ${dernier.numero_recu} ?`,
-      message: `${francs(dernier.montant)} seront retirés du solde de ${dossier.eleve.nom_complet}. Le reçu reste au registre, marqué annulé.`,
-      action: 'Annuler le reçu',
-    })
-    if (!ok) return
-
-    try {
-      await annulerVersement(dernier.id, 'Annulation depuis la caisse')
-      succes(t('finance.receipt_cancelled'))
-      rafraichir()
-    } catch (e) {
-      const err = e as ApiError
-      if (err.status !== 403) erreur(err.message)
-    }
   }
 
   const triDossiers = triEcoleSousSystemeNiveauClasse<DossierScolarite>({
@@ -180,10 +164,10 @@ export function CaissePage() {
           <span className={d.remise > 0 ? 'tabular-nums text-amber-600' : 'tabular-nums text-navy-300'}>
             {d.remise > 0 ? francs(d.remise) : '—'}
           </span>
-          {d.remise > 0 && canAny('remises.update|remises.delete') && (
+          {canAny('remises.create|remises.update|remises.delete') && (
             <button
               type="button"
-              title="Modifier ou supprimer la remise"
+              title="Accorder, modifier ou supprimer une remise"
               onClick={(event) => {
                 event.stopPropagation()
                 setRemiseEleve({ id: d.eleve.id, nom: d.eleve.nom_complet })
@@ -208,9 +192,24 @@ export function CaissePage() {
       entete: 'Dette antérieure',
       valeur: (d) => d.dette_anterieure_restante,
       cellule: (d) => (
-        <span className={d.dette_anterieure_restante > 0 ? 'font-semibold tabular-nums text-red-500' : 'tabular-nums text-navy-300'}>
-          {d.dette_anterieure_restante > 0 ? francs(d.dette_anterieure_restante) : '—'}
-        </span>
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span className={d.dette_anterieure_restante > 0 ? 'font-semibold tabular-nums text-red-500' : 'tabular-nums text-navy-300'}>
+            {d.dette_anterieure_restante > 0 ? francs(d.dette_anterieure_restante) : '—'}
+          </span>
+          {canAny('dettes_anterieures.create|dettes_anterieures.update|dettes_anterieures.delete') && (
+            <button
+              type="button"
+              title="Accorder, modifier ou supprimer une dette antérieure"
+              onClick={(event) => {
+                event.stopPropagation()
+                setDetteEleve({ id: d.eleve.id, nom: d.eleve.nom_complet })
+              }}
+              className="rounded-lg p-1 text-navy-400 hover:bg-cream-100 hover:text-navy-800"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       ),
     },
     {
@@ -246,6 +245,7 @@ export function CaissePage() {
         if (selectedIds.size > 0) return <div className="w-0" />
 
         const dernier = d.versements?.filter((v) => !v.annule).at(-1)
+        const aDesVersements = (d.versements?.length ?? 0) > 0
 
         return (
           <div className="flex min-w-max justify-end gap-1.5">
@@ -265,9 +265,14 @@ export function CaissePage() {
                 <Receipt className="h-3.5 w-3.5" />
               </Button>
             )}
-            {dernier && can('finance.annuler') && (
-              <Button size="sm" variant="danger" title="Annuler le dernier reçu" onClick={() => annuler(d)}>
-                <Ban className="h-3.5 w-3.5" />
+            {aDesVersements && (
+              <Button
+                size="sm"
+                variant="secondary"
+                title="Historique des paiements — corriger ou annuler un reçu précis"
+                onClick={() => setHistoriqueEleve({ nom: d.eleve.nom_complet, versements: d.versements ?? [] })}
+              >
+                <History className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -385,6 +390,22 @@ export function CaissePage() {
           eleveId={remiseEleve.id}
           eleveNom={remiseEleve.nom}
           onClose={() => setRemiseEleve(null)}
+          onChange={rafraichir}
+        />
+      )}
+      {detteEleve && (
+        <GestionDetteAnterieureModal
+          eleveId={detteEleve.id}
+          eleveNom={detteEleve.nom}
+          onClose={() => setDetteEleve(null)}
+          onChange={rafraichir}
+        />
+      )}
+      {historiqueEleve && (
+        <HistoriqueVersementsModal
+          eleveNom={historiqueEleve.nom}
+          versements={historiqueEleve.versements}
+          onClose={() => setHistoriqueEleve(null)}
           onChange={rafraichir}
         />
       )}

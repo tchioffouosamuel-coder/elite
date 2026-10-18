@@ -145,6 +145,36 @@ class ScolariteController extends Controller
         return number_format($montant, 0, ',', ' ').' F';
     }
 
+    /**
+     * Corrige un reçu directement depuis la caisse : annule le reçu fautif et
+     * ré-encaisse les valeurs corrigées en un seul geste (cf.
+     * ScolariteService::corriger()), sans passer par l'écran d'encaissement.
+     */
+    public function corriger(Request $request, int $versementId): JsonResponse
+    {
+        $versement = Versement::forSchool(Tenant::schoolIds())->findOrFail($versementId);
+
+        $donnees = $request->validate([
+            'montant' => ['required', 'integer', 'min:1'],
+            'date_versement' => ['nullable', 'date'],
+            'mode' => ['nullable', 'in:especes,mobile_money,virement,cheque,depot_bancaire'],
+            'reference_externe' => ['nullable', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'motif' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $nouveau = $this->service->corriger($versement, $donnees, $request->user()?->id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(
+            ['versement_id' => $nouveau->id, 'numero_recu' => $nouveau->numero_recu],
+            "Reçu corrigé — nouveau reçu {$nouveau->numero_recu}.",
+        );
+    }
+
     public function annuler(Request $request, int $versementId): JsonResponse
     {
         $versement = Versement::forSchool(Tenant::schoolIds())->findOrFail($versementId);

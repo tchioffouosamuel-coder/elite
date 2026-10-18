@@ -1899,7 +1899,8 @@
       "avances": "Advances",
       "budget": "Budget",
       "parcours": "Track record",
-      "activite": "Activity"
+      "activite": "Activity",
+      "privileges": "Individual privileges"
     },
     "groupe": {
       "dossier": "Record",

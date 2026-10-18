@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, ChevronRight, Download, FileSpreadsheet, FileText, GitBranch, Search, Upload } from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronRight, Copy, Download, FileSpreadsheet, FileText, GitBranch, Search, Upload } from 'lucide-react'
 import { fetchClasses } from '@/features/classes/api'
 import {
   fetchProgressionClasse,
@@ -12,6 +12,7 @@ import {
   importerProgressionClasse,
   ouvrirFichesProgressionClassePdf,
   type TauxClasse,
+  type TauxMatiere,
 } from '@/features/progression/api'
 import { useAuthStore } from '@/shared/store/authStore'
 import { PageHeader } from '@/shared/ui/PageHeader'
@@ -24,6 +25,7 @@ import type { ApiError } from '@/shared/types/api'
 import { ProgrammeEditor } from '@/features/progression/pages/ProgrammeEditor'
 import { EvaluationsEditor } from '@/features/progression/pages/EvaluationsEditor'
 import { ChampsPersonnalisesEditor } from '@/features/progression/pages/ChampsPersonnalisesEditor'
+import { CopierProgressionModal } from '@/features/progression/CopierProgressionModal'
 
 /** Barre d'avancement, lue d'un coup d'œil dans un tableau. */
 function Jauge({ taux }: { taux: number }) {
@@ -191,7 +193,8 @@ function ClassesProgressionView() {
 
       {classeImport && (
         <ImportModeleClasseModal
-          classe={classeImport}
+          classeId={classeImport.classe_id}
+          classeNom={classeImport.classe}
           onClose={() => setClasseImport(null)}
           onImporte={() => queryClient.invalidateQueries({ queryKey: ['progression-etablissement'] })}
         />
@@ -202,11 +205,13 @@ function ClassesProgressionView() {
 
 /** Import groupé de la fiche de progression d'une classe : un classeur, une feuille par matière. */
 function ImportModeleClasseModal({
-  classe,
+  classeId,
+  classeNom,
   onClose,
   onImporte,
 }: {
-  classe: TauxClasse
+  classeId: number
+  classeNom: string
   onClose: () => void
   onImporte: () => void
 }) {
@@ -220,7 +225,7 @@ function ImportModeleClasseModal({
     setEnvoi(true)
     setErreur(null)
     try {
-      const resultat = await importerProgressionClasse(classe.classe_id, fichier)
+      const resultat = await importerProgressionClasse(classeId, fichier)
       onImporte()
       onClose()
       succes(
@@ -241,7 +246,7 @@ function ImportModeleClasseModal({
   }
 
   return (
-    <Modal title={t('progression.import_groupe.titre', { classe: classe.classe })} onClose={onClose}>
+    <Modal title={t('progression.import_groupe.titre', { classe: classeNom })} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div className="flex gap-2 rounded-lg bg-cream-100 p-3 text-xs text-navy-600">
           <FileSpreadsheet className="h-4 w-4 flex-none text-navy-400" />
@@ -281,7 +286,11 @@ function ImportModeleClasseModal({
 function MatieresClasseView({ classeId }: { classeId: number }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [exportEnCours, setExportEnCours] = useState(false)
+  const [telechargementEnCours, setTelechargementEnCours] = useState(false)
+  const [importOuvert, setImportOuvert] = useState(false)
+  const [matiereACopier, setMatiereACopier] = useState<TauxMatiere | null>(null)
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const { data: matieres, isLoading } = useQuery({
     queryKey: ['progression-classe', classeId],
@@ -303,11 +312,32 @@ function MatieresClasseView({ classeId }: { classeId: number }) {
     }
   }
 
+  const telecharger = async () => {
+    setTelechargementEnCours(true)
+    try {
+      await telechargerModeleProgressionClasse(classeId, titre)
+    } catch (err) {
+      alerteErreur((err as ApiError).message)
+    } finally {
+      setTelechargementEnCours(false)
+    }
+  }
+
+  const rafraichir = () => queryClient.invalidateQueries({ queryKey: ['progression-classe', classeId] })
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader titre={titre} sousTitre={sousTitre || t('progression.matieres_classe_hint')} icon={BookOpen} />
         <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={telecharger} disabled={telechargementEnCours}>
+            <Download className="h-4 w-4" />
+            {t('progression.import_groupe.telecharger_modele')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setImportOuvert(true)}>
+            <Upload className="h-4 w-4" />
+            {t('progression.import_groupe.importer')}
+          </Button>
           <Button type="button" variant="secondary" onClick={exporterClasse} disabled={exportEnCours || isLoading}>
             <FileText className="h-4 w-4" />
             {t('progression.pdf_classe')}
@@ -331,6 +361,7 @@ function MatieresClasseView({ classeId }: { classeId: number }) {
               <Th>{t('pedagogie.enseignant')}</Th>
               <Th>{t('progression.lecons')}</Th>
               <Th>{t('progression.avancement_court')}</Th>
+              <Th />
             </tr>
           </Thead>
           <tbody>
@@ -361,10 +392,41 @@ function MatieresClasseView({ classeId }: { classeId: number }) {
                 <Td>
                   <Jauge taux={matiere.taux} />
                 </Td>
+                <Td>
+                  <button
+                    type="button"
+                    title="Copier cette fiche vers d'autres classes"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setMatiereACopier(matiere)
+                    }}
+                    className="rounded-lg border border-navy-200 p-1.5 text-navy-500 shadow-soft transition-colors hover:bg-navy-50"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </Td>
               </Tr>
             ))}
           </tbody>
         </Table>
+      )}
+
+      {importOuvert && (
+        <ImportModeleClasseModal
+          classeId={classeId}
+          classeNom={titre}
+          onClose={() => setImportOuvert(false)}
+          onImporte={rafraichir}
+        />
+      )}
+
+      {matiereACopier && (
+        <CopierProgressionModal
+          classeMatiereId={matiereACopier.classe_matiere_id}
+          matiereNom={matiereACopier.matiere}
+          onClose={() => setMatiereACopier(null)}
+          onCopie={rafraichir}
+        />
       )}
     </div>
   )

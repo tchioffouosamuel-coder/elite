@@ -261,6 +261,44 @@ class ScolariteService extends BaseService
         });
     }
 
+    /**
+     * Corrige le montant ou le motif d'une dette antérieure déjà saisie,
+     * sans repasser par suppression + recréation. Si elle est déjà imputée à
+     * un dossier, le `report_dette` de ce dossier est ajusté du même écart —
+     * jamais en dessous de ce qui a déjà été réglé dessus, même garde-fou que
+     * {@see oublierDetteAnterieure()} pour ne pas transformer un versement
+     * déjà encaissé en avance fictive.
+     */
+    public function modifierDetteAnterieure(DetteAnterieure $dette, int $nouveauMontant, ?string $motif): DetteAnterieure
+    {
+        if ($nouveauMontant <= 0) {
+            throw new RuntimeException('Le montant de la dette doit être supérieur à zéro.');
+        }
+
+        return $this->transaction(function () use ($dette, $nouveauMontant, $motif) {
+            $ecart = $nouveauMontant - $dette->montant;
+
+            if ($dette->imputee_dossier_id !== null && $ecart !== 0) {
+                $dossier = DossierScolarite::findOrFail($dette->imputee_dossier_id);
+                $dejaPaye = (int) (collect($dossier->rubriques)->firstWhere('cle', 'report_dette')['montant_paye'] ?? 0);
+                $nouveauReportDette = $dossier->report_dette + $ecart;
+
+                if ($nouveauReportDette < $dejaPaye) {
+                    throw new RuntimeException(
+                        'Le nouveau montant est inférieur à ce qui a déjà été réglé sur ce reliquat ('
+                        . number_format($dejaPaye, 0, ',', ' ') . ' F déjà versés).',
+                    );
+                }
+
+                $dossier->update(['report_dette' => $nouveauReportDette]);
+            }
+
+            $dette->update(['montant' => $nouveauMontant, 'motif' => $motif]);
+
+            return $dette->fresh();
+        });
+    }
+
     /** Retire une dette non encore imputée — une fois reprise dans un dossier, elle ne se supprime plus isolément. */
     public function supprimerDetteAnterieure(DetteAnterieure $dette): void
     {
@@ -1086,6 +1124,38 @@ class ScolariteService extends BaseService
         ));
 
         return $dossier;
+    }
+
+    /**
+     * Corrige un encaissement en une seule action, depuis la caisse : annule
+     * le reçu fautif (contre-passation comptable, cf. `annuler()`) puis
+     * ré-encaisse immédiatement les valeurs corrigées sur le même dossier —
+     * sans quitter l'écran pour vérifier/corriger ailleurs avant de revenir.
+     * Un nouveau numéro de reçu est attribué : le registre garde la trace des
+     * deux mouvements plutôt que de réécrire le premier.
+     *
+     * @param  array{montant: int, date_versement?: string, mode?: string, reference_externe?: ?string, note?: ?string, motif?: string}  $donnees
+     */
+    public function corriger(Versement $versement, array $donnees, ?int $correcteur = null): Versement
+    {
+        if ($versement->estAnnule()) {
+            throw new RuntimeException('Ce reçu est déjà annulé ; il ne peut plus être corrigé.');
+        }
+
+        return $this->transaction(function () use ($versement, $donnees, $correcteur) {
+            $dossier = $versement->dossier;
+            $motif = $donnees['motif'] ?? "Correction du reçu {$versement->numero_recu}";
+
+            $this->annuler($versement, $motif, $correcteur);
+
+            return $this->encaisser($dossier, [
+                'montant' => $donnees['montant'],
+                'date_versement' => $donnees['date_versement'] ?? $versement->date_versement->toDateString(),
+                'mode' => $donnees['mode'] ?? $versement->mode,
+                'reference_externe' => $donnees['reference_externe'] ?? $versement->reference_externe,
+                'note' => $donnees['note'] ?? $versement->note,
+            ], $correcteur);
+        });
     }
 
     /**
