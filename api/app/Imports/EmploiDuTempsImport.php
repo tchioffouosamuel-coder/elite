@@ -23,11 +23,10 @@ use Throwable;
  * réimporté tel quel : c'est le seul moyen de charger une grille complète
  * sans ressaisir chaque créneau à la main dans le formulaire.
  *
- * La matière doit déjà exister au catalogue de l'école (une ligne d'emploi du
- * temps ne crée pas de matière), mais son affectation à la classe
- * (`ClasseMatiere`) est créée à la volée si elle manque encore — même
- * tolérance que `EmploiDuTempsService::copierVers()`, qui affecte déjà la
- * matière sans enseignant plutôt que d'échouer la copie.
+ * La matière est créée au catalogue de l'école si elle manque, puis son
+ * affectation à la classe (`ClasseMatiere`) est créée à la volée. Les lignes
+ * suivantes réutilisent cette matière, même si la casse ou les accents du
+ * libellé diffèrent.
  *
  * Chaque ligne passe par les mêmes garde-fous que la saisie manuelle
  * (chevauchement, quota horaire hebdomadaire) : une ligne qui les enfreint est
@@ -145,10 +144,11 @@ class EmploiDuTempsImport implements SkipsEmptyRows, ToCollection, WithHeadingRo
 
             $matiereId = $this->matieres()[self::cle($nomMatiere)] ?? null;
             if ($matiereId === null) {
-                $this->matieresIntrouvables[$nomMatiere] = ($this->matieresIntrouvables[$nomMatiere] ?? 0) + 1;
-                $this->ajouterErreur($numeroLigne, 'Matière absente du catalogue de l’école.', $nomMatiere, $ligne);
-
-                continue;
+                $matiereId = Matiere::firstOrCreate([
+                    'school_id' => $this->classe->school_id,
+                    'nom' => $nomMatiere,
+                ])->id;
+                $this->matieres[self::cle($nomMatiere)] = $matiereId;
             }
 
             $classeMatiere = ClasseMatiere::firstOrCreate(

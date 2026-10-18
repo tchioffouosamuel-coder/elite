@@ -1627,7 +1627,7 @@
     "selectionner_toutes_seances": "Select or deselect all sessions",
     "tronc_commun_label": "Shared class",
     "tronc_commun_aide": "Tick the classes that attend this lesson together with this one, at the same time and with the same teacher.",
-    "import_note": "The subject must already exist in the school's catalog; its assignment to this class is created automatically if missing. A slot that overlaps an existing one or exceeds the subject's weekly quota is skipped.",
+    "import_note": "Subjects missing from the school's catalog are created automatically and assigned to this class. A slot that overlaps an existing one or exceeds the subject's weekly quota is skipped.",
     "tronc_commun_resume": "{{count}} classes together: a single roll call will cover all their students.",
     "tronc_commun_badge": "Shared",
     "tronc_commun_porte_par": "Held by {{classe}}",

@@ -80,7 +80,7 @@ class EmploiDuTempsImportExportTest extends TestCase
         $this->assertSame('FOKO PIERRE', $creneau->classeMatiere->enseignant->nom_complet);
     }
 
-    public function test_une_matiere_hors_catalogue_est_signalee_sans_bloquer_les_autres_lignes(): void
+    public function test_une_matiere_hors_catalogue_est_creee_et_ses_creneaux_sont_importes_sans_doublon(): void
     {
         Matiere::create(['school_id' => $this->school->id, 'nom' => 'Mathématiques']);
 
@@ -88,13 +88,61 @@ class EmploiDuTempsImportExportTest extends TestCase
         Excel::import($import, $this->fichier([
             ['Lundi', '08:00', '10:00', 'Matière inconnue', null, null, null],
             ['Mardi', '08:00', '10:00', 'Mathématiques', null, null, null],
+            ['Mercredi', '08:00', '10:00', 'matiere inconnue', null, null, null],
+            ['Jeudi', '08:00', '10:00', 'MATHEMATIQUES', null, null, null],
+        ]));
+
+        $this->assertSame(4, $import->importedCount);
+        $this->assertSame([], $import->matieresIntrouvables);
+        $this->assertSame([], $import->erreurs);
+        $this->assertSame(2, Matiere::where('school_id', $this->school->id)->count());
+
+        $matiere = Matiere::where('school_id', $this->school->id)->where('nom', 'Matière inconnue')->firstOrFail();
+        $affectation = ClasseMatiere::where('classe_id', $this->classe->id)->where('matiere_id', $matiere->id)->sole();
+        $this->assertSame(2, EmploiDuTemps::where('classe_matiere_id', $affectation->id)->count());
+
+        $reimport = $this->import();
+        Excel::import($reimport, $this->fichier([
+            ['Vendredi', '08:00', '10:00', 'MATIERE INCONNUE', null, null, null],
+        ]));
+
+        $this->assertSame(1, $reimport->importedCount);
+        $this->assertSame(2, Matiere::where('school_id', $this->school->id)->count());
+        $this->assertSame(3, EmploiDuTemps::where('classe_matiere_id', $affectation->id)->count());
+    }
+
+    public function test_une_matiere_presente_uniquement_dans_une_autre_ecole_est_creee_dans_l_ecole_cible(): void
+    {
+        $autreEcole = School::create(['name' => 'Autre école', 'code' => 'AUT', 'type' => 'maternelle', 'is_active' => true]);
+        $autreMatiere = Matiere::create(['school_id' => $autreEcole->id, 'nom' => 'WELCOME']);
+        $enseignant = Personnel::create(['school_id' => $this->school->id, 'nom_complet' => 'FOKO PIERRE', 'sexe' => 'M', 'statut' => 'actif']);
+
+        $import = $this->import();
+        Excel::import($import, $this->fichier([
+            ['Lundi', '08:00', '09:00', 'WELCOME', 'FOKO PIERRE', null, null],
         ]));
 
         $this->assertSame(1, $import->importedCount);
-        $this->assertSame(['Matière inconnue' => 1], $import->matieresIntrouvables);
-        $this->assertSame(2, $import->erreurs[0]['ligne']);
-        $this->assertSame('Matière absente du catalogue de l’école.', $import->erreurs[0]['message']);
-        $this->assertSame('Matière inconnue', $import->erreurs[0]['nom']);
+        $this->assertSame([], $import->erreurs);
+        $matiere = Matiere::where('school_id', $this->school->id)->where('nom', 'WELCOME')->sole();
+        $this->assertNotSame($autreMatiere->id, $matiere->id);
+        $creneau = EmploiDuTemps::where('classe_id', $this->classe->id)->with('classeMatiere')->sole();
+        $this->assertSame($matiere->id, $creneau->classeMatiere->matiere_id);
+        $this->assertSame($enseignant->id, $creneau->classeMatiere->personnel_id);
+        $this->assertSame(1, Matiere::where('school_id', $autreEcole->id)->count());
+    }
+
+    public function test_un_horaire_invalide_ne_cree_pas_de_matiere(): void
+    {
+        $import = $this->import();
+        Excel::import($import, $this->fichier([
+            ['Lundi', '10:00', '08:00', 'Matière inconnue', null, null, null],
+        ]));
+
+        $this->assertSame(0, $import->importedCount);
+        $this->assertCount(1, $import->erreurs);
+        $this->assertSame('Jour ou horaire invalide.', $import->erreurs[0]['message']);
+        $this->assertSame(0, Matiere::where('school_id', $this->school->id)->count());
     }
 
     public function test_un_creneau_qui_chevauche_un_existant_est_ignore(): void

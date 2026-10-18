@@ -1644,7 +1644,7 @@
     "selectionner_toutes_seances": "Tout cocher ou décocher",
     "tronc_commun_label": "Tronc commun",
     "tronc_commun_aide": "Cochez les classes qui suivent ce cours avec celle-ci, au même moment et devant le même enseignant.",
-    "import_note": "La matière doit déjà exister au catalogue de l'école ; son affectation à cette classe est créée automatiquement si elle manque. Un créneau qui chevauche l'existant ou dépasse le quota horaire de la matière est ignoré.",
+    "import_note": "Les matières absentes du catalogue de l'école sont créées automatiquement et affectées à cette classe. Un créneau qui chevauche l'existant ou dépasse le quota horaire de la matière est ignoré.",
     "tronc_commun_resume": "{{count}} classes réunies : un seul appel regroupera tous leurs élèves.",
     "tronc_commun_badge": "Tronc commun",
     "tronc_commun_porte_par": "Porté par {{classe}}",
