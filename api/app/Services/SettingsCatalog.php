@@ -188,6 +188,14 @@ class SettingsCatalog
                 'label_en' => 'Short name printed on the cash receipt (defaults to the school code, then its name)',
             ],
             [
+                'key' => 'recu_signataire',
+                'groupe' => 'documents',
+                'type' => 'text',
+                'default' => '',
+                'label_fr' => 'Signataire du reçu de caisse, sous lequel sont laissés la signature et le cachet (défaut : La Directrice / The Principal)',
+                'label_en' => 'Cash receipt signatory, printed above the space left for the signature and stamp (defaults to La Directrice / The Principal)',
+            ],
+            [
                 'key' => 'recu_telephone',
                 'groupe' => 'documents',
                 'type' => 'text',

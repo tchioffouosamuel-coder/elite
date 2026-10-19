@@ -54,6 +54,8 @@ import {
   type TendanceNote,
 } from '@/features/parent/api'
 import { PhotoCaptureModal } from '@/features/parent/components/PhotoCaptureModal'
+import { PaymentProgress } from '@/features/parent/components/PaymentProgress'
+import { paymentDaysRemaining, usePaymentDay } from '@/features/parent/components/usePaymentDay'
 import { Photo } from '@/features/eleves/components/Photo'
 import { francs } from '@/features/finance/api'
 import type { Echeancier as EcheancierType, StatutTranche } from '@/features/finance/api'
@@ -464,6 +466,10 @@ function FinanceCard({ eleveId }: { eleveId: number }) {
               </div>
             ))}
           </dl>
+
+          <div className="mb-4 rounded-xl bg-cream-50 p-3">
+            <PaymentProgress paid={finance.total_paye} total={finance.total_du} />
+          </div>
 
           {finance.echeancier?.actif && <Echeancier echeancier={finance.echeancier} />}
 
@@ -1199,11 +1205,16 @@ const ETATS_TRANCHE: Record<StatutTranche, { libelle: string; classe: string; pa
 }
 
 function dateCourte(valeur: string | null): string {
-  return valeur ? new Date(valeur).toLocaleDateString('fr-FR') : '—'
+  return valeur ? new Date(valeur).toLocaleDateString('fr-FR', { timeZone: 'Africa/Douala' }) : '—'
 }
 
 /** Compte à rebours jusqu'à l'échéance d'une tranche, ou le retard si elle est dépassée — bilingue comme le reste du portail parent. */
 function BadgeJoursRestants({ joursRestants }: { joursRestants: number }) {
+  if (joursRestants === 0) {
+    return <span className="w-fit rounded-full bg-gold-50 px-2 py-0.5 text-xs font-semibold text-gold-800">
+      À régler aujourd’hui / Due today
+    </span>
+  }
   if (joursRestants < 0) {
     const n = Math.abs(joursRestants)
     return (
@@ -1235,6 +1246,7 @@ function BadgeJoursRestants({ joursRestants }: { joursRestants: number }) {
  */
 function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
   const prochaine = echeancier.prochaine_echeance
+  const today = usePaymentDay()
 
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-xl border border-navy-100 bg-white/70 p-3">
@@ -1265,25 +1277,30 @@ function Echeancier({ echeancier }: { echeancier: EcheancierType }) {
       <ul className="flex flex-col divide-y divide-navy-50">
         {echeancier.tranches.map((tranche) => {
           const etat = ETATS_TRANCHE[tranche.statut]
+          const jours = paymentDaysRemaining(tranche.date_echeance, today)
 
           return (
-            <li key={tranche.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className={`h-2 w-2 flex-none rounded-full ${etat.pastille}`} />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium text-navy-800">{tranche.libelle}</span>
-                  <span className="text-[0.6875rem] text-navy-400">{dateCourte(tranche.date_echeance)}</span>
-                  {tranche.jours_restants != null && tranche.statut !== 'soldee' && (
-                    <BadgeJoursRestants joursRestants={tranche.jours_restants} />
-                  )}
+            <li key={tranche.id} className="flex flex-col gap-2 py-3 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className={`h-2 w-2 flex-none rounded-full ${etat.pastille}`} />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-navy-800">{tranche.libelle}</span>
+                    <span className="text-[0.6875rem] text-navy-400">{dateCourte(tranche.date_echeance)}</span>
+                    {jours != null && tranche.statut !== 'soldee' && (
+                      <BadgeJoursRestants joursRestants={jours} />
+                    )}
+                    {jours == null && tranche.statut !== 'soldee' && <span className="text-xs text-navy-400">Sans date limite / No due date</span>}
+                  </span>
                 </span>
-              </span>
-              <span className="flex flex-col items-end">
-                <span className="whitespace-nowrap text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
-                <span className={`whitespace-nowrap text-[0.6875rem] font-semibold ${etat.classe}`}>
-                  {tranche.reste > 0 ? `${etat.libelle} · reste / remaining ${francs(tranche.reste)}` : etat.libelle}
+                <span className="flex flex-col items-end">
+                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-navy-900">{francs(tranche.montant)}</span>
+                  <span className={`text-right text-[0.6875rem] font-semibold ${etat.classe}`}>
+                    {tranche.reste > 0 ? `${etat.libelle} · reste / remaining ${francs(tranche.reste)}` : etat.libelle}
+                  </span>
                 </span>
-              </span>
+              </div>
+              <PaymentProgress paid={tranche.montant_paye} total={tranche.montant} label={tranche.libelle} showLabel={false} />
             </li>
           )
         })}

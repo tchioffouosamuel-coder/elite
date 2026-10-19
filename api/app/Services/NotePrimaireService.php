@@ -168,6 +168,23 @@ class NotePrimaireService extends BaseService
         return (self::LIBELLES_COMPOSANTES[$composante] ?? ucfirst($composante))." S{$ordreSequence}";
     }
 
+    /** Parseur commun à l'import d'une compétence et au classeur par enseignant. */
+    public function preparerImport(ClasseCompetence $classeCompetence, Trimestre $trimestre): NotePrimaireImport
+    {
+        $eleves = $classeCompetence->classe->eleves()->whereNotNull('matricule')->pluck('id', 'matricule')
+            ->mapWithKeys(fn ($id, $matricule) => [self::normaliser((string) $matricule) => $id]);
+        $maternelle = $this->parAppreciation($classeCompetence);
+        $appreciations = $maternelle
+            ? Appreciation::forSchool((int) $classeCompetence->classe->school_id)->get()
+                ->mapWithKeys(fn (Appreciation $a) => [self::normaliser($a->label_fr) => $a->id])
+            : collect();
+
+        return new NotePrimaireImport(
+            $eleves, $classeCompetence->voletsNotes(), $trimestre->sequencesRetenues()->values(),
+            $maternelle, $appreciations, $classeCompetence->repartitionVolets(),
+        );
+    }
+
     /**
      * Importe un fichier rempli depuis {@see lignesExport()} — même garde-fou
      * qu'au secondaire (cf. {@see NoteService::importFromExcel()}) : rien
@@ -178,23 +195,9 @@ class NotePrimaireService extends BaseService
      */
     public function importerDepuisExcel(ClasseCompetence $classeCompetence, Trimestre $trimestre, ?User $user, UploadedFile $file, bool $confirmerRemplacement = false): array
     {
-        $composantes = $classeCompetence->voletsNotes();
         $sequences = $trimestre->sequencesRetenues()->values();
         $maternelle = $this->parAppreciation($classeCompetence);
-        $schoolId = (int) $classeCompetence->classe->school_id;
-
-        $eleveIdsParMatricule = $classeCompetence->classe->eleves()
-            ->whereNotNull('matricule')->pluck('id', 'matricule')
-            ->mapWithKeys(fn ($id, $matricule) => [self::normaliser((string) $matricule) => $id]);
-
-        $appreciationsParLabel = $maternelle
-            ? Appreciation::forSchool($schoolId)->get()->mapWithKeys(fn (Appreciation $a) => [self::normaliser($a->label_fr) => $a->id])
-            : collect();
-
-        $import = new NotePrimaireImport(
-            $eleveIdsParMatricule, $composantes, $sequences, $maternelle,
-            $appreciationsParLabel, $classeCompetence->repartitionVolets(),
-        );
+        $import = $this->preparerImport($classeCompetence, $trimestre);
 
         return $this->transaction(function () use ($import, $file, $user, $classeCompetence, $sequences, $confirmerRemplacement, $maternelle) {
             if ($user) {

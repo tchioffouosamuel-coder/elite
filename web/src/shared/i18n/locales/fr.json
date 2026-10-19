@@ -810,7 +810,11 @@
   },
   "import_export_enseignant": {
     "title": "Import/export par enseignant",
-    "hint": "Télécharger le modèle, exporter ou importer les notes de n'importe quel enseignant, classe par classe.",
+    "hint": "Télécharger le modèle, exporter ou importer toutes les notes d'un enseignant dans un seul fichier Excel.",
+    "fichier_unique": "Fichier unique de l'enseignant",
+    "format_secondaire": "Un seul classeur Excel, avec une feuille par classe et matière pour la séquence choisie. Remplissez les notes puis importez le même fichier sans renommer les feuilles ni les colonnes.",
+    "format_primaire": "Un seul classeur Excel, avec une feuille par classe et un bloc de colonnes par compétence, volet et séquence du trimestre. Remplissez les notes (primaire) ou les appréciations (maternelle), sans modifier les en-têtes.",
+    "aucune_periode": "Aucune période d'évaluation disponible pour cet enseignant.",
     "enseignant": "Enseignant",
     "choisir": "Choisir un enseignant…",
     "choisir_hint": "Choisissez un enseignant pour voir ses matières ou compétences.",

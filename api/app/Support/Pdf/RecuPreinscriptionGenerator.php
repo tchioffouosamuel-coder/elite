@@ -33,7 +33,7 @@ class RecuPreinscriptionGenerator
             // Total dû sur le dossier de l'année, net de remise — demande
             // explicite d'Elites-tech (point 7) : seuls le payé et le reste
             // apparaissaient jusqu'ici, jamais le total de la scolarité.
-            $montants[] = ['Montant total de la scolarité / Total tuition amount due', GabaritRecuTicket::francs((int) $scolarite->dossier->total_du)];
+            $montants[] = ['Montant total de la scolarité / Total school fee amount due', GabaritRecuTicket::francs((int) $scolarite->dossier->total_du)];
         }
         if ($bus) {
             $montants[] = ['Frais de transport / Transport fee', GabaritRecuTicket::francs((int) $bus->montant).' ('.mb_strtoupper($bus->mois->translatedFormat('F Y')).')'];

@@ -18,8 +18,10 @@ use Mpdf\Output\Destination;
  *
  * - à gauche, imprimés de côté, les historiques (versements, accessoires) ;
  * - un trait épais ;
- * - à droite, l'en-tête (nom FR, sigle, nom EN, autorisation, adresse), puis
- *   les mentions de l'élève, les montants, et la zone du cachet.
+ * - au centre, l'en-tête (nom FR, sigle, nom EN, autorisation, adresse), puis
+ *   les mentions de l'élève, les montants, le code QR et le numéro ;
+ * - à droite, la bande réservée à la signature et au cachet du chef
+ *   d'établissement.
  *
  * Les générateurs de reçus ne font que réunir les données (cf. `rendre()`).
  */
@@ -27,14 +29,19 @@ class GabaritRecuTicket
 {
     use RenduDocument;
 
-    private const FORMAT = [80, 200];
+    /**
+     * Rouleau rallongé de 200 à 240 mm : les 40 mm gagnés forment la bande de
+     * droite où le chef d'établissement signe et appose son cachet — demande
+     * du 19/10/2026, le ticket précédent ne laissait de place qu'au cachet.
+     */
+    private const FORMAT = [80, 240];
 
     /**
      * Préfixe d'empreinte du cache de rendus : à incrémenter dès qu'une
      * modification du gabarit change le PDF sans changer le HTML (marges,
      * format, filigrane), pour que les tickets déjà en cache soient recomposés.
      */
-    private const EMPREINTE_VERSION = 'ticket-v1';
+    private const EMPREINTE_VERSION = 'ticket-v2';
 
     /** Largeur du filigrane : tient dans les 80 mm de haut du ticket couché. */
     private const FILIGRANE_LARGEUR = 55;
@@ -110,13 +117,14 @@ class GabaritRecuTicket
             // tableau de premier niveau, qu'il place alors en haut à gauche.
             .'<div style="position:absolute;left:'.self::SEPARATEUR.'mm;top:4mm;height:72mm;width:1mm;border-left:0.9mm solid #000"></div>'
             .$this->enTete($school)
-            .$this->bloc(43, 31, 27, $this->mentions($recu['mentions']))
-            // Titre sur toute la largeur restante, montants dessous ; le
-            // cachet apposé à la main déborde sur leur droite, comme sur le
-            // ticket papier.
-            .$this->bloc(75, 121, 26, '<div class="titre">'.$this->e($recu['titre']).'</div>')
-            .$this->bloc(77, 100, 33, $this->corps($recu))
-            .$this->bloc(176, 20, 51, $this->zoneCachet($recu))
+            .$this->bloc(42, 29, 27, $this->mentions($recu['mentions']))
+            // Titre au-dessus des montants : tant qu'il descendait jusqu'au
+            // premier d'entre eux, il recouvrait le nom de l'élève (retour du
+            // 19/10/2026) — d'où un titre plus large, plus haut et plus petit.
+            .$this->bloc(72, 126, 21, '<div class="titre">'.$this->e($recu['titre']).'</div>')
+            .$this->bloc(72, 104, 32, $this->corps($recu))
+            .$this->bloc(178, 20, 40, $this->zoneCachet($recu))
+            .$this->bloc(200, 36, 14, $this->zoneSignature($school))
             .$this->historiques($recu)
             .'</body></html>';
     }
@@ -135,22 +143,26 @@ class GabaritRecuTicket
 
     private function styles(): string
     {
-        return 'body{font-family:dejavuserifcondensed,serif;font-size:3mm;color:#000;margin:0}'
+        return 'body{font-family:dejavuserifcondensed,serif;font-size:2.7mm;color:#000;margin:0}'
             .'table{border-collapse:collapse}'
-            .'.ecole{font-weight:bold;font-size:3mm;line-height:1.15;text-align:center}'
-            .'.sigle{font-weight:bold;font-size:5mm;text-align:center}'
-            .'.mention-ecole{font-size:2.3mm;font-style:italic;text-align:center;line-height:1.3}'
-            .'.titre{font-weight:bold;font-style:italic;font-size:4.2mm;text-decoration:underline;text-align:center}'
-            .'.cle{font-weight:bold;font-size:3mm;text-decoration:underline;text-align:center}'
-            .'.valeur{font-size:2.8mm;text-align:center;padding-bottom:2.2mm}'
-            .'.lib{font-weight:bold;font-size:3.2mm;text-decoration:underline;padding:0.9mm 2mm 0.9mm 0;vertical-align:top;white-space:nowrap}'
-            .'.val{font-weight:bold;font-size:3.4mm;padding:0.9mm 0;vertical-align:top}'
+            .'.ecole{font-weight:bold;font-size:2.7mm;line-height:1.15;text-align:center}'
+            .'.sigle{font-weight:bold;font-size:4.5mm;text-align:center}'
+            .'.mention-ecole{font-size:2.2mm;font-style:italic;text-align:center;line-height:1.3}'
+            .'.titre{font-weight:bold;font-style:italic;font-size:3.4mm;line-height:1.2;text-decoration:underline;text-align:center}'
+            .'.cle{font-weight:bold;font-size:2.7mm;text-decoration:underline;text-align:center}'
+            .'.valeur{font-size:2.5mm;text-align:center;padding-bottom:1.8mm}'
+            .'.montants{width:100%}'
+            .'.lib{font-weight:bold;font-size:2.8mm;text-decoration:underline;padding:0.7mm 2mm 0.7mm 0;vertical-align:top;white-space:nowrap}'
+            .'.val{font-weight:bold;font-size:3mm;width:40%;padding:0.7mm 0;vertical-align:top}'
             .'.hist td{font-size:2.7mm;padding:0.4mm 1mm;border-bottom:0.2mm solid #000}'
             .'.hist .t{font-size:2.9mm;border-bottom:none;padding-top:1.2mm}'
-            .'.pied{font-size:2.4mm;text-align:center}'
-            .'.annule{color:#ac3527;font-weight:bold;font-size:3.6mm;text-align:center;margin-top:1mm}'
-            .'.annule-par{color:#ac3527;font-size:2.4mm;text-align:center;margin-top:0.5mm}'
-            .'.enregistre{font-size:2.3mm;font-weight:normal;text-align:center}';
+            .'.pied{font-size:2.3mm;text-align:center}'
+            .'.signataire{font-weight:bold;font-size:2.6mm;text-align:center;line-height:1.2}'
+            .'.cachet-mention{font-size:2.2mm;font-style:italic;text-align:center;line-height:1.25;padding-bottom:0.8mm}'
+            .'.cachet{border:0.2mm dashed #000;height:44mm}'
+            .'.annule{color:#ac3527;font-weight:bold;font-size:3.2mm;text-align:center;margin-top:1mm}'
+            .'.annule-par{color:#ac3527;font-size:2.2mm;text-align:center;margin-top:0.5mm}'
+            .'.enregistre{font-size:2.2mm;font-weight:normal;text-align:center}';
     }
 
     /** Bloc positionné en absolu : mPDF ignore marges et centrage d'un bloc placé dans une cellule. */
@@ -182,10 +194,10 @@ class GabaritRecuTicket
         $mentions = ($autorisation ? '<div>Autorisation d\'ouverture / Opening order N° : '.$this->e($autorisation).'</div>' : '')
             .($contacts !== [] ? '<div>'.$this->e(implode(', ', $contacts)).'</div>' : '');
 
-        return $this->bloc(43, 52, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_fr, $school->name)).'</div>')
-            .$this->bloc(97, 42, 4.5, $this->embleme($school))
-            .$this->bloc(141, 55, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_en, $school->name)).'</div>')
-            .$this->bloc(43, 153, 15.5, '<div class="mention-ecole">'.$mentions.'</div>');
+        return $this->bloc(43, 55, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_fr, $school->name)).'</div>')
+            .$this->bloc(100, 40, 4.5, $this->embleme($school))
+            .$this->bloc(145, 55, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_en, $school->name)).'</div>')
+            .$this->bloc(43, 157, 14.5, '<div class="mention-ecole">'.$mentions.'</div>');
     }
 
     /**
@@ -253,7 +265,7 @@ class GabaritRecuTicket
     /** @param  array<string, mixed>  $recu */
     private function corps(array $recu): string
     {
-        $html = '<table>';
+        $html = '<table class="montants">';
         foreach ($recu['montants'] as [$cle, $valeur]) {
             $html .= '<tr><td class="lib">'.$this->e($cle).'</td><td class="val">'.$this->e($valeur).'</td></tr>';
         }
@@ -305,6 +317,22 @@ class GabaritRecuTicket
             .'<b>'.$this->e(mb_strtoupper((string) ($recu['encaisseur'] ?? ''))).'</b>'
             .$enregistre
             .'</div>';
+    }
+
+    /**
+     * Bande de droite, laissée vierge sous le nom du signataire pour sa
+     * signature et son cachet — la raison d'être des 40 mm ajoutés au rouleau.
+     *
+     * Le signataire est configurable (`recu_signataire`) : toutes les écoles
+     * du complexe ne sont pas dirigées par une directrice.
+     */
+    private function zoneSignature(School $school): string
+    {
+        $signataire = Setting::get($school->id, 'recu_signataire') ?: 'La Directrice / The Principal';
+
+        return '<div class="signataire">'.$this->e($signataire).'</div>'
+            .'<div class="cachet-mention">Signature et cachet<br>Signature and stamp</div>'
+            .'<div class="cachet"></div>';
     }
 
     /**

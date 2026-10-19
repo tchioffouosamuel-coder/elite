@@ -73,6 +73,7 @@ use App\Http\Controllers\Api\V1\NiveauScolaireController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NoteEleveController;
 use App\Http\Controllers\Api\V1\NotePrimaireController;
+use App\Http\Controllers\Api\V1\NotesEnseignantController;
 use App\Http\Controllers\Api\V1\NotificationInterneController;
 use App\Http\Controllers\Api\V1\ObservationAdminController;
 use App\Http\Controllers\Api\V1\PaieController;
@@ -989,6 +990,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:pedagogie.suivi_saisies')->group(function () {
                 Route::get('personnels/{personnelId}/classe-matieres', [ClasseMatiereController::class, 'affectationsDe'])->name('classe-matieres.affectations-de');
                 Route::get('personnels/{personnelId}/classe-competences', [CompetenceController::class, 'affectationsDe'])->name('competences.affectations-de');
+                Route::get('personnels/{personnelId}/notes/export', [NotesEnseignantController::class, 'export'])->middleware('permission:notes.view')->name('notes-enseignant.export');
+                Route::get('personnels/{personnelId}/notes/modele', [NotesEnseignantController::class, 'modele'])->middleware('permission:notes.view')->name('notes-enseignant.modele');
+                Route::post('personnels/{personnelId}/notes/import', [NotesEnseignantController::class, 'import'])->middleware('permission:notes.create')->name('notes-enseignant.import');
             });
 
             Route::middleware('permission:notes.view')->group(function () {

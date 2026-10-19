@@ -794,7 +794,11 @@
   },
   "import_export_enseignant": {
     "title": "Import/export by teacher",
-    "hint": "Download the template, export or import the marks of any teacher, class by class.",
+    "hint": "Download a template, export or import all of a teacher's marks in a single Excel workbook.",
+    "fichier_unique": "One workbook per teacher",
+    "format_secondaire": "One Excel workbook, with a sheet per class and subject for the selected sequence. Fill in the marks and import the same workbook without renaming its sheets or columns.",
+    "format_primaire": "One Excel workbook, with a sheet per class and a block of columns per competency, assessment area and sequence of the term. Enter marks (primary) or appreciation labels (nursery), keeping the headings unchanged.",
+    "aucune_periode": "No assessment period available for this teacher.",
     "enseignant": "Teacher",
     "choisir": "Choose a teacher…",
     "choisir_hint": "Choose a teacher to see their subjects or competencies.",

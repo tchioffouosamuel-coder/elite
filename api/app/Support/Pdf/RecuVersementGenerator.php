@@ -32,7 +32,7 @@ class RecuVersementGenerator
             // Montant total dû, net de remise — distinct du libellé ci-dessus
             // qui ne nommait que le poste : demande explicite d'Elites-tech
             // (point 7), qui ne voyait nulle part le total à devoir sur le reçu.
-            [$busSeul ? 'Montant total du transport / Total transport amount due' : 'Montant total de la scolarité / Total tuition amount due', GabaritRecuTicket::francs($du)],
+            [$busSeul ? 'Montant total du transport / Total transport amount due' : 'Montant total de la scolarité / Total school fee amount due', GabaritRecuTicket::francs($du)],
             ['Montant versé / Amount paid', GabaritRecuTicket::francs($paye)],
             ['Reste à payer / Balance due', GabaritRecuTicket::francs($reste)],
         ];
@@ -40,7 +40,7 @@ class RecuVersementGenerator
         return (new GabaritRecuTicket)->rendre($dossier->school, [
             'titre' => $busSeul
                 ? 'REÇU DE PAIEMENT DES FRAIS DE TRANSPORT / TRANSPORT FEE PAYMENT RECEIPT'
-                : 'REÇU DE PAIEMENT DES FRAIS DE SCOLARITÉ / TUITION FEE PAYMENT RECEIPT',
+                : 'REÇU DE PAIEMENT DES FRAIS DE SCOLARITÉ / SCHOOL FEE PAYMENT RECEIPT',
             'mentions' => [
                 ['Matricule / Student ID :', $eleve->matricule ?: '—'],
                 ['Année scolaire / School year', $dossier->anneeScolaire?->libelle ?? '—'],
