@@ -50,7 +50,6 @@ class AttestationService extends BaseService
             'marginTop' => 720, 'marginBottom' => 720, 'marginLeft' => 900, 'marginRight' => 900,
         ]);
 
-        EnTeteWord::filigrane($section, $school);
         EnTeteWord::ajouter($section, $school);
 
         $section->addText('CERTIFICAT DE SCOLARITE', ['bold' => true, 'size' => 15], ['alignment' => 'center', 'spaceAfter' => 0]);
@@ -67,19 +66,19 @@ class AttestationService extends BaseService
 
         // Signataire : « Je soussigné(e) … Le principal du collège … »
         $signataire = $this->signataire($school);
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 120]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 120]);
         $ligne->addText('Je soussigné'.($this->signataireFeminin($signataire) ? 'e' : '').' / ', ['size' => 11]);
         $ligne->addText('I the undersigned', ['size' => 11, 'italic' => true]);
         $ligne->addText(' : ', ['size' => 11]);
         $ligne->addText($signataire?->nom_complet ?? self::POINTILLES, ['size' => 11, 'bold' => true]);
 
         $etablissement = $this->designation($school);
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 0]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 0]);
         $ligne->addText($this->titreFonction($school).' '.$etablissement['fr'].' ', ['size' => 11]);
         $ligne->addText('« '.$school->name.' »', ['size' => 11, 'bold' => true]);
         $ligne->addText(", déclare que l'élève :", ['size' => 11]);
 
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 160]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 160]);
         $ligne->addText($etablissement['en'].' ', ['size' => 11, 'italic' => true]);
         $ligne->addText('« '.$school->name.' »', ['size' => 11, 'italic' => true, 'bold' => true]);
         $ligne->addText(' declares that the student by name:', ['size' => 11, 'italic' => true]);
@@ -103,7 +102,7 @@ class AttestationService extends BaseService
 
         $section->addTextBreak(1, null, ['spaceAfter' => 0]);
 
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 0]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 0]);
         $ligne->addText(
             'Est inscrit'.($feminin ? 'e' : '').' et fréquente régulièrement '.$etablissement['ce']
                 .' durant l\'année scolaire ',
@@ -112,7 +111,7 @@ class AttestationService extends BaseService
         $ligne->addText($annee?->libelle ?? self::POINTILLES, ['size' => 11, 'bold' => true]);
         $ligne->addText('.', ['size' => 11]);
 
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 160]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 160]);
         $ligne->addText(
             'Is registered and regularly present in school within the school year '
                 .($annee?->libelle ?? self::POINTILLES).'.',
@@ -122,12 +121,12 @@ class AttestationService extends BaseService
         $section->addText(
             'En foi de quoi ce certificat lui a été délivré pour servir et valoir ce que de droit.',
             ['size' => 11],
-            ['alignment' => 'both', 'spaceAfter' => 0],
+            ['alignment' => 'center', 'spaceAfter' => 0],
         );
         $section->addText(
             'In testimony whereof this certificate is issued to serve where and when necessary.',
             ['size' => 11, 'italic' => true],
-            ['alignment' => 'both', 'spaceAfter' => 240],
+            ['alignment' => 'center', 'spaceAfter' => 240],
         );
 
         $this->ajouterSignature($section, $school, $signataire);
@@ -138,7 +137,14 @@ class AttestationService extends BaseService
         }
 
         $path = $directory.'/certificat-scolarite-'.uniqid().'.docx';
-        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+        $logoFiligrane = EnTeteWord::filigrane($section, $school, 0.15);
+        try {
+            IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+        } finally {
+            if ($logoFiligrane !== null && is_file($logoFiligrane)) {
+                unlink($logoFiligrane);
+            }
+        }
 
         return $path;
     }
@@ -163,7 +169,7 @@ class AttestationService extends BaseService
     /** Une ligne « Libellé / Label : valeur », le libellé anglais en italique. */
     private function ajouterChamp(Section $section, string $fr, string $en, ?string $valeur, bool $majuscules = false): void
     {
-        $ligne = $section->addTextRun(['alignment' => 'both', 'spaceAfter' => 100]);
+        $ligne = $section->addTextRun(['alignment' => 'center', 'spaceAfter' => 100]);
         $ligne->addText($fr.' / ', ['size' => 11]);
         $ligne->addText($en, ['size' => 11, 'italic' => true]);
         $ligne->addText(' : ', ['size' => 11]);

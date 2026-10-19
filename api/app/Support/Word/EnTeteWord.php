@@ -10,6 +10,7 @@ use DOMNode;
 use DOMText;
 use PhpOffice\PhpWord\Element\Section;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use RuntimeException;
 
 /**
  * En-tête d'établissement pour les documents .docx — équivalent Word de
@@ -41,15 +42,21 @@ class EnTeteWord
      * dans le corps, il décalerait le texte et n'apparaîtrait que sur la
      * première page. `addWatermark` compose l'image derrière le contenu.
      */
-    public static function filigrane(Section $section, School $school): void
+    public static function filigrane(Section $section, School $school, float $opacite = 1): ?string
     {
+        if ($opacite <= 0 || $opacite > 1) {
+            throw new RuntimeException('L’opacité du filigrane doit être supérieure à 0 et inférieure ou égale à 1.');
+        }
+
         $logo = self::cheminImage($school->logo_path);
 
         if ($logo === null) {
-            return;
+            return null;
         }
 
-        $section->addHeader()->addWatermark($logo, [
+        $logoFiligrane = $opacite < 1 ? self::creerLogoTransparent($logo, $opacite) : $logo;
+
+        $section->addHeader()->addWatermark($logoFiligrane, [
             'width' => 260,
             'height' => 260,
             // Pas de marge : elles se cumuleraient au centrage relatif à la
@@ -65,6 +72,66 @@ class EnTeteWord
             // lieu de passer sous le contenu de la page.
             'wrappingStyle' => 'behind',
         ]);
+
+        return $logoFiligrane !== $logo ? $logoFiligrane : null;
+    }
+
+    private static function creerLogoTransparent(string $source, float $opacite): string
+    {
+        $contenu = file_get_contents($source);
+        $imageSource = $contenu === false ? false : @imagecreatefromstring($contenu);
+
+        if ($imageSource === false) {
+            throw new RuntimeException('Impossible de préparer le logo du filigrane.');
+        }
+
+        $largeur = imagesx($imageSource);
+        $hauteur = imagesy($imageSource);
+        $image = imagecreatetruecolor($largeur, $hauteur);
+        if ($image === false) {
+            imagedestroy($imageSource);
+            throw new RuntimeException('Impossible de préparer le logo du filigrane.');
+        }
+
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+
+        try {
+            for ($y = 0; $y < $hauteur; $y++) {
+                for ($x = 0; $x < $largeur; $x++) {
+                    $pixel = imagecolorsforindex($imageSource, imagecolorat($imageSource, $x, $y));
+                    $alpha = 127 - (int) round((127 - $pixel['alpha']) * $opacite);
+                    $couleur = imagecolorallocatealpha(
+                        $image,
+                        $pixel['red'],
+                        $pixel['green'],
+                        $pixel['blue'],
+                        $alpha,
+                    );
+                    imagesetpixel($image, $x, $y, $couleur);
+                }
+            }
+
+            $directory = storage_path('app/tmp');
+            if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+                throw new RuntimeException('Impossible de créer le répertoire temporaire du filigrane.');
+            }
+
+            $path = tempnam($directory, 'filigrane-');
+            if ($path === false) {
+                throw new RuntimeException('Impossible de créer le fichier temporaire du filigrane.');
+            }
+
+            if (! imagepng($image, $path)) {
+                @unlink($path);
+                throw new RuntimeException('Impossible d’enregistrer le logo du filigrane.');
+            }
+
+            return $path;
+        } finally {
+            imagedestroy($image);
+            imagedestroy($imageSource);
+        }
     }
 
     public static function ajouter(Section $section, School $school): void
