@@ -109,6 +109,12 @@ class RegleValidationSeanceController extends Controller
             'methode_validation' => ['required', 'in:qr,code,libre'],
             'delai_valeur' => ['required', 'integer', 'min:1', 'max:9999'],
             'delai_unite' => ['required', 'in:minutes,jours,semaines'],
+            // Cadence quotidienne : 0 = aucune (chaque cours se déclare
+            // séparément), 2 au primaire et à la maternelle. Au-delà de 12,
+            // ce n'est plus une cadence mais une saisie par créneau, que la
+            // grille de l'emploi du temps couvre déjà.
+            'validations_par_jour' => ['required', 'integer', 'min:0', 'max:12'],
+            'appels_par_jour' => ['required', 'integer', 'min:0', 'max:12'],
         ]);
     }
 

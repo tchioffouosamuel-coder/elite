@@ -519,6 +519,12 @@ export async function enregistrerJournee(
   payload: {
     date?: string;
     lecons: number[];
+    actions_lecons?: {
+      operation_id: string;
+      action: 'creer';
+      lecon_id: number;
+      fiche: { titre: string; date_prevue: string };
+    }[];
     contenu?: string | null;
     appel: { eleve_id: number; statut: string; motif: MotifAbsence | null }[];
     observations?: string | null;

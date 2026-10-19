@@ -18,6 +18,8 @@ class RegleValidationSeanceResource extends JsonResource
             'delai_valeur' => $this->delai_valeur,
             'delai_unite' => $this->delai_unite,
             'delai_en_minutes' => $this->delaiEnMinutes(),
+            'validations_par_jour' => $this->validations_par_jour,
+            'appels_par_jour' => $this->appels_par_jour,
         ];
     }
 }

@@ -82,6 +82,7 @@ import { VerificationVersementPage } from '@/features/finance/pages/Verification
 import { VerificationVersementBusPage } from '@/features/bus/pages/VerificationVersementBusPage'
 import { RemplissagePage } from '@/features/resultats/pages/RemplissagePage'
 import { SuiviSaisiesPage } from '@/features/resultats/pages/SuiviSaisiesPage'
+import { ImportExportEnseignantPage } from '@/features/resultats/pages/ImportExportEnseignantPage'
 import { EmploiDuTempsPage } from '@/features/emploiDuTemps/pages/EmploiDuTempsPage'
 import { VerificationEmploiDuTempsPage } from '@/features/emploiDuTemps/pages/VerificationEmploiDuTempsPage'
 import { SeancesPage } from '@/features/emploiDuTemps/pages/SeancesPage'
@@ -275,6 +276,7 @@ export const router = createHashRouter([
       { path: 'bulletins', element: <ProtectedRoute permission="bulletins.view"><BulletinsPage /></ProtectedRoute> },
       { path: 'remplissage', element: <ProtectedRoute permission="notes.view"><RemplissagePage /></ProtectedRoute> },
       { path: 'suivi-saisies', element: <ProtectedRoute permission="pedagogie.suivi_saisies"><SuiviSaisiesPage /></ProtectedRoute> },
+      { path: 'import-export-enseignant', element: <ProtectedRoute permission="pedagogie.suivi_saisies"><ImportExportEnseignantPage /></ProtectedRoute> },
       { path: 'stats-pedagogiques', element: <ProtectedRoute permission="bulletins.view" masquerPourEnseignant><StatsPedagogiquesPage /></ProtectedRoute> },
       { path: 'stats-disciplinaires', element: <ProtectedRoute permission="bulletins.view"><StatsDisciplinairesPage /></ProtectedRoute> },
       { path: 'emploi-du-temps', element: <ProtectedRoute permission="emploi_du_temps.view"><EmploiDuTempsPage /></ProtectedRoute> },
@@ -365,7 +367,7 @@ export const router = createHashRouter([
       { path: 'comptes-parents', element: <ProtectedRoute permission="tuteurs.view"><ComptesParentsPage /></ProtectedRoute> },
       { path: 'comptes-parents/doublons', element: <ProtectedRoute permission="tuteurs.fusionner"><TuteursDoublonsPage /></ProtectedRoute> },
       { path: 'statistiques-parent', element: <ProtectedRoute permission="tuteurs.view"><AdminParentStatsPage /></ProtectedRoute> },
-      { path: 'justifications', element: <ProtectedRoute permission="justifications.view"><JustificationsAdminPage /></ProtectedRoute> },
+      { path: 'justifications', element: <ProtectedRoute permission="justifications.view" masquerPourEnseignant><JustificationsAdminPage /></ProtectedRoute> },
       { path: 'observations', element: <ProtectedRoute permission="observations.view"><ObservationsAdminPage /></ProtectedRoute> },
     ],
   },

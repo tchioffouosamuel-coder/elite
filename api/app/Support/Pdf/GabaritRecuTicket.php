@@ -182,16 +182,49 @@ class GabaritRecuTicket
         $mentions = ($autorisation ? '<div>Autorisation d\'ouverture / Opening order N° : '.$this->e($autorisation).'</div>' : '')
             .($contacts !== [] ? '<div>'.$this->e(implode(', ', $contacts)).'</div>' : '');
 
-        // Sigle central : nom court configurable (`recu_nom_etablissement`),
-        // sinon le code de l'établissement, sinon son nom complet — cf.
-        // point 4 des retours : « Elites-BTA » n'est pas écrit en dur, c'est
-        // la donnée `schools.code` de cette école précise qui s'affiche ici.
-        $sigle = Setting::get($school->id, 'recu_nom_etablissement') ?: ($school->code ?: $school->name);
-
         return $this->bloc(43, 52, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_fr, $school->name)).'</div>')
-            .$this->bloc(97, 42, 5, '<div class="sigle">'.$this->e(mb_strtoupper($sigle)).'</div>')
+            .$this->bloc(97, 42, 4.5, $this->embleme($school))
             .$this->bloc(141, 55, 4, '<div class="ecole">'.$this->e($this->nomEtablissement($school->header_en, $school->name)).'</div>')
             .$this->bloc(43, 153, 15.5, '<div class="mention-ecole">'.$mentions.'</div>');
+    }
+
+    /**
+     * Emblème central du ticket : le logo de l'établissement, qui remplace le
+     * sigle imprimé en toutes lettres jusqu'ici — demande du 19/10/2026, un
+     * reçu se reconnaît mieux à son logo qu'à « ELITES-BTA » écrit en gras.
+     *
+     * Le sigle reste le repli pour un établissement qui n'a pas encore chargé
+     * son logo : nom court configurable (`recu_nom_etablissement`), sinon le
+     * code de l'établissement, sinon son nom complet — cf. point 4 des
+     * retours, « Elites-BTA » n'est pas écrit en dur, c'est la donnée
+     * `schools.code` de cette école précise.
+     */
+    private function embleme(School $school): string
+    {
+        $logo = $this->cheminImage($school->logo_path);
+
+        if ($logo === null) {
+            $sigle = Setting::get($school->id, 'recu_nom_etablissement') ?: ($school->code ?: $school->name);
+
+            return '<div class="sigle">'.$this->e(mb_strtoupper($sigle)).'</div>';
+        }
+
+        $taille = $this->tailleLogo($logo);
+
+        return '<div style="text-align:center"><img src="'.$this->e($logo)
+            .'" style="width:'.$taille['largeur'].'mm;height:'.$taille['hauteur'].'mm"></div>';
+    }
+
+    /**
+     * Boîte du logo sur le ticket : la bande centrale fait 42 mm de large, et
+     * les mentions de l'établissement commencent à 15,5 mm — au-delà de 10 mm
+     * de haut, le logo passerait par-dessus.
+     *
+     * @return array{largeur: float, hauteur: float}
+     */
+    protected function logoBoiteMax(): array
+    {
+        return ['largeur' => 40.0, 'hauteur' => 10.0];
     }
 
     /** Dernière ligne non vide d'un en-tête riche — par convention, le nom de l'établissement. */

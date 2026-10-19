@@ -3,17 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { ArrowLeft, BadgePercent, ChevronDown, ChevronUp, Clock, Eye, Printer, Receipt, Wallet } from 'lucide-react'
+import { ArrowLeft, BadgePercent, Ban, ChevronDown, ChevronUp, Clock, Eye, Pencil, Printer, Receipt, Wallet } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Input, MontantInput, Select, useMontantSaisie } from '@/shared/ui/Field'
 import { Button } from '@/shared/ui/Button'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
-import { erreur, succes } from '@/shared/lib/alertes'
+import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { imprimerDocument, ouvrirDocument } from '@/shared/lib/download'
-import { creerRemise, encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
+import { annulerVersement, creerRemise, encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type DossierScolarite, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
 import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
+import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
+import { GestionDetteAnterieureModal } from '@/features/finance/GestionDetteAnterieureModal'
+import { CorrigerVersementModal } from '@/features/finance/CorrigerVersementModal'
 import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 
@@ -26,6 +29,7 @@ interface FormValues {
 }
 
 type SortieRecu = 'preview' | 'print'
+type Versement = NonNullable<DossierScolarite['versements']>[number]
 
 /** Date + heure lisibles, pour l'audit « qui a enregistré / annulé ce versement ». */
 function formatDateHeure(iso: string | null): string {
@@ -68,19 +72,26 @@ export function EncaissementPage() {
   const [remise, setRemise] = useState<number | null>(null)
   const [motifRemise, setMotifRemise] = useState('')
   const [remiseEnCours, setRemiseEnCours] = useState(false)
+  const [gestionRemises, setGestionRemises] = useState(false)
+  const [gestionDette, setGestionDette] = useState(false)
+  const [versementACorriger, setVersementACorriger] = useState<Versement | null>(null)
+  const [annulationEnCours, setAnnulationEnCours] = useState<number | null>(null)
   const queryClient = useQueryClient()
-  const peutAccorderRemise = useAuthStore((s) => s.can('remises.create'))
+  const can = useAuthStore((s) => s.can)
+  const peutAccorderRemise = can('remises.create')
+  const peutGererRemises = peutAccorderRemise || can('remises.update') || can('remises.delete')
+  const peutGererDette = can('dettes_anterieures.create') || can('dettes_anterieures.update') || can('dettes_anterieures.delete') || can('dettes_anterieures.oublier')
 
   const {
     data: dossier,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['dossier-scolarite', eleveId],
+    queryKey: ['dossier-scolarite', Number(eleveId)],
     queryFn: () => fetchDossier(Number(eleveId)),
     enabled: !!eleveId,
   })
-  const rubriques = dossier?.rubriques ?? []
+  const rubriques = useMemo(() => dossier?.rubriques ?? [], [dossier?.rubriques])
 
   // `values` (pas `defaultValues`) : le dossier arrive après le premier rendu
   // (fetch async), et seul `values` resynchronise le formulaire une fois la
@@ -113,15 +124,42 @@ export function EncaissementPage() {
   useEffect(() => {
     if (allocationsModifiees || rubriques.length === 0) return
     setAllocations(ventilerAutomatiquement(rubriques, montant))
-    // `reste_a_payer` : une remise accordée depuis cette page change le
-    // reste de chaque rubrique sans forcément changer leur nombre.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [montant, rubriques.length, dossier?.reste_a_payer])
+  }, [montant, rubriques, allocationsModifiees])
 
   const totalAlloue = useMemo(() => allocations.reduce((s, v) => s + (v || 0), 0), [allocations])
   const ventilationValide = rubriques.length === 0 || (montant > 0 && totalAlloue === montant)
 
   const retour = () => navigate(urlRetour)
+
+  const rafraichirDossier = async () => {
+    setAllocationsModifiees(false)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['dossier-scolarite', Number(eleveId)] }),
+      queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] }),
+      queryClient.invalidateQueries({ queryKey: ['finance-dettes-anterieures'] }),
+      queryClient.invalidateQueries({ queryKey: ['finance-insolvables'] }),
+    ])
+  }
+
+  const annulerPaiement = async (versement: Versement) => {
+    if (!dossier || annulationEnCours !== null) return
+    const ok = await confirmer({
+      titre: `Annuler le reçu ${versement.numero_recu} ?`,
+      message: `${francs(versement.montant)} seront retirés du total versé de ${dossier.eleve.nom_complet}. Le reçu restera au registre, marqué annulé.`,
+      action: 'Annuler le reçu',
+    })
+    if (!ok) return
+    setAnnulationEnCours(versement.id)
+    try {
+      await annulerVersement(versement.id, "Annulation depuis la page d'encaissement")
+      succes('Reçu annulé.')
+      await rafraichirDossier()
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setAnnulationEnCours(null)
+    }
+  }
 
   /**
    * La remise s'applique tout de suite, avant l'encaissement : le total dû,
@@ -138,10 +176,8 @@ export function EncaissementPage() {
       succes(`Remise de ${francs(remise)} accordée.`)
       setRemise(null)
       setMotifRemise('')
-      setAllocationsModifiees(false)
-      await queryClient.invalidateQueries({ queryKey: ['dossier-scolarite', eleveId] })
+      await rafraichirDossier()
       queryClient.invalidateQueries({ queryKey: ['remises', dossier.eleve.id] })
-      queryClient.invalidateQueries({ queryKey: ['scolarite-situation'] })
     } catch (e) {
       const err = e as ApiError
       if (err.status !== 403) erreur(err.message)
@@ -199,8 +235,8 @@ export function EncaissementPage() {
     }
   }
 
-  if (isLoading || !dossier) return <Spinner />
   if (isError) return <ErrorState />
+  if (isLoading || !dossier) return <Spinner />
 
   return (
     <div className="flex flex-col gap-5">
@@ -231,6 +267,23 @@ export function EncaissementPage() {
             ))}
           </dl>
 
+          {(peutGererRemises || peutGererDette) && (
+            <div className="flex flex-wrap gap-2">
+              {peutGererRemises && (
+                <Button type="button" size="sm" variant="secondary" onClick={() => setGestionRemises(true)}>
+                  <BadgePercent className="h-4 w-4" />
+                  Gérer les remises
+                </Button>
+              )}
+              {peutGererDette && (
+                <Button type="button" size="sm" variant="secondary" onClick={() => setGestionDette(true)}>
+                  <Pencil className="h-4 w-4" />
+                  Gérer la dette antérieure
+                </Button>
+              )}
+            </div>
+          )}
+
           {versements.length > 0 && (
             <div className="rounded-xl border border-navy-100 bg-white p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -247,6 +300,7 @@ export function EncaissementPage() {
                       <th className="px-2 py-2 text-right">Montant</th>
                       <th className="px-2 py-2">Mode</th>
                       <th className="px-2 py-2">Reçu</th>
+                      <th className="px-2 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-navy-100">
@@ -256,7 +310,7 @@ export function EncaissementPage() {
                         <tr key={v.id} className={`align-middle text-navy-700 ${v.annule ? 'opacity-60' : ''}`}>
                           <td className="px-2 py-2">{date ? date.toLocaleDateString('fr-FR') : '—'}</td>
                           <td className="px-2 py-2">{v.heure_versement ? v.heure_versement.slice(0, 5) : '—'}</td>
-                          <td className={`px-2 py-2 text-right font-semibold tabular-nums ${v.annule ? 'text-navy-400 line-through' : 'text-green-600'}`}>
+                          <td className={`whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums ${v.annule ? 'text-navy-400 line-through' : 'text-green-600'}`}>
                             {francs(v.montant)}
                           </td>
                           <td className="px-2 py-2">{v.mode}</td>
@@ -274,6 +328,23 @@ export function EncaissementPage() {
                                   Annulé par {v.annule_par} le {formatDateHeure(v.annule_le)}
                                   {v.motif_annulation ? ` — ${v.motif_annulation}` : ''}
                                 </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-2 py-2">
+                            <div className="flex justify-end gap-1">
+                              <button type="button" title={`Afficher le reçu ${v.numero_recu}`} onClick={() => ouvrirDocument(`/versements/${v.id}/recu`)} className="rounded-lg p-2 text-navy-500 hover:bg-cream-100 hover:text-navy-800">
+                                <Receipt className="h-4 w-4" />
+                              </button>
+                              {!v.annule && can('finance.annuler') && can('finance.encaisser') && (
+                                <button type="button" title={`Modifier le paiement ${v.numero_recu}`} disabled={annulationEnCours !== null} onClick={() => setVersementACorriger(v)} className="rounded-lg p-2 text-navy-500 hover:bg-cream-100 hover:text-navy-800 disabled:opacity-50">
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                              )}
+                              {!v.annule && can('finance.annuler') && (
+                                <button type="button" title={`Annuler le paiement ${v.numero_recu}`} disabled={annulationEnCours !== null} onClick={() => annulerPaiement(v)} className="rounded-lg p-2 text-red-500 hover:bg-red-50 disabled:opacity-50">
+                                  <Ban className="h-4 w-4" />
+                                </button>
                               )}
                             </div>
                           </td>
@@ -508,6 +579,16 @@ export function EncaissementPage() {
           </div>
         )}
       </Card>
+
+      {gestionRemises && (
+        <GestionRemiseModal eleveId={dossier.eleve.id} eleveNom={dossier.eleve.nom_complet} onClose={() => setGestionRemises(false)} onChange={rafraichirDossier} />
+      )}
+      {gestionDette && (
+        <GestionDetteAnterieureModal eleveId={dossier.eleve.id} eleveNom={dossier.eleve.nom_complet} resteDette={dossier.dette_anterieure_restante} onClose={() => setGestionDette(false)} onChange={rafraichirDossier} />
+      )}
+      {versementACorriger && (
+        <CorrigerVersementModal versement={versementACorriger} onClose={() => setVersementACorriger(null)} onCorrige={() => { setVersementACorriger(null); void rafraichirDossier() }} />
+      )}
     </div>
   )
 }

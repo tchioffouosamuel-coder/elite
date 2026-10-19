@@ -414,6 +414,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
                 Route::get('dashboard/indicateurs-pedagogiques', [DashboardController::class, 'indicateursPedagogiques'])->name('dashboard.indicateurs-pedagogiques');
                 Route::get('dashboard/assiduite', [DashboardController::class, 'assiduite'])->name('dashboard.assiduite');
+                Route::get('dashboard/absents-du-jour', [DashboardController::class, 'absentsDuJour'])->name('dashboard.absents-du-jour');
                 Route::get('dashboard/anciens-reinscrits', [DashboardController::class, 'anciensReinscrits'])->name('dashboard.anciens-reinscrits');
                 Route::get('dashboard/anciens-reinscrits/export', [DashboardController::class, 'exportAnciensReinscrits'])->name('dashboard.anciens-reinscrits.export');
             });
@@ -959,11 +960,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
             Route::middleware('permission:notes.view')->group(function () {
                 Route::get('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'index'])->name('notes-primaire.index');
+                Route::get('classe-competences/{classeCompetenceId}/notes-primaire/export', [NotePrimaireController::class, 'export'])->name('notes-primaire.export');
+                Route::get('classe-competences/{classeCompetenceId}/notes-primaire/modele', [NotePrimaireController::class, 'modele'])->name('notes-primaire.modele');
                 Route::get('classe-competences/{classeCompetenceId}/appreciations-sequence-primaire', [AppreciationSequenceController::class, 'indexPrimaire'])->name('appreciations-sequence-primaire.index');
             });
 
             Route::middleware('permission:notes.create')->group(function () {
                 Route::post('classe-competences/{classeCompetenceId}/notes-primaire', [NotePrimaireController::class, 'bulkStore'])->name('notes-primaire.bulk-store');
+                Route::post('classe-competences/{classeCompetenceId}/notes-primaire/import', [NotePrimaireController::class, 'import'])->name('notes-primaire.import');
                 Route::post('classe-competences/{classeCompetenceId}/appreciations-sequence-primaire', [AppreciationSequenceController::class, 'bulkStorePrimaire'])->name('appreciations-sequence-primaire.bulk-store');
             });
 
@@ -976,6 +980,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::middleware('permission:bulletins.view')->group(function () {
                 Route::get('classes/{classeId}/bulletins-primaire', [BulletinPrimaireController::class, 'classe'])->name('bulletins-primaire.classe');
                 Route::get('eleves/{eleveId}/bulletin-primaire', [BulletinPrimaireController::class, 'show'])->name('bulletins-primaire.show');
+            });
+
+            // Import/export des notes par enseignant (point 17) : la direction
+            // choisit un agent et retrouve ses affectations, sans se faire
+            // passer le compte — réservé au même privilège que le tableau de
+            // suivi des saisies, lui aussi transverse à tous les enseignants.
+            Route::middleware('permission:pedagogie.suivi_saisies')->group(function () {
+                Route::get('personnels/{personnelId}/classe-matieres', [ClasseMatiereController::class, 'affectationsDe'])->name('classe-matieres.affectations-de');
+                Route::get('personnels/{personnelId}/classe-competences', [CompetenceController::class, 'affectationsDe'])->name('competences.affectations-de');
             });
 
             Route::middleware('permission:notes.view')->group(function () {

@@ -66,6 +66,7 @@ import {
   MessageSquare,
   MessageSquarePlus,
   MessageSquareText,
+  FileSpreadsheet,
   Route as RouteIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -273,7 +274,7 @@ const navGroups = [
     items: [
       { to: '/preinscriptions', label: 'nav.preinscriptions', icon: ClipboardCheck, permission: 'preinscriptions.view', masquerPourTitulaire: true, keywords: ['inscriptions', 'admissions', 'demandes'] },
       { to: '/modifications-eleves', label: 'nav.modificationsEleves', icon: UserCog, permission: 'modifications_eleves.view', masquerPourTitulaire: true, keywords: ['demandes de modification', 'corrections'] },
-      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'justifications.view', masquerPourTitulaire: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
+      { to: '/justifications', label: 'nav.justifications', icon: CalendarX, permission: 'justifications.view', masquerPourEnseignant: true, keywords: ['absence', 'absences', 'retard', 'justificatif'] },
       { to: '/observations', label: 'nav.observations', icon: MessageSquare, permission: 'observations.view', masquerPourTitulaire: true, keywords: ['remarques', 'notes de vie scolaire', 'commentaires', 'messages'] },
       { to: '/comptes-parents', label: 'nav.comptesParents', icon: KeyRound, permission: 'tuteurs.view', masquerPourTitulaire: true, keywords: ['acces parent', 'identifiants', 'mot de passe', 'login'] },
     ],
@@ -460,6 +461,7 @@ const navGroups = [
       // Réservé à la direction : jamais l'enseignant ordinaire, même avec
       // `notes.view` (cf. CataloguePermissions / RolePermissionSeeder).
       { to: '/suivi-saisies', label: 'nav.suiviSaisies', icon: ClipboardCheck, permission: 'pedagogie.suivi_saisies', masquerPourEnseignant: true, keywords: ['tableau de bord', 'notes manquantes', 'progression en retard', 'suivi pedagogique'] },
+      { to: '/import-export-enseignant', label: 'nav.importExportEnseignant', icon: FileSpreadsheet, permission: 'pedagogie.suivi_saisies', masquerPourEnseignant: true, keywords: ['excel', 'import', 'export', 'notes', 'modele', 'telecharger'] },
       { to: '/palmares', label: 'nav.palmares', icon: Trophy, permission: 'bulletins.view', keywords: ['classement', 'ranking', 'meilleurs eleves'] },
       { to: '/stats-pedagogiques', label: 'nav.statsPedagogiques', icon: BarChart3, permission: 'bulletins.view', masquerPourEnseignant: true, keywords: ['statistiques', 'taux de reussite', 'moyennes'] },
       // Les réclamations de notes s'instruisent au secrétariat pédagogique,

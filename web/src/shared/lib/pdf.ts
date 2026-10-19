@@ -114,7 +114,16 @@ export async function imprimerPdf(source: Blob | DocumentPdf): Promise<void> {
     for (let numero = 1; numero <= prete.pdf.numPages; numero++) {
       const page = await prete.pdf.getPage(numero)
       const viewport = page.getViewport({ scale: 2 })
-      const canvas = doc.createElement('canvas')
+      // Canvas du document principal, pas de celui de l'iframe : pdf.js
+      // déclare les polices embarquées du PDF (@font-face) dans le document
+      // où il a été chargé, et un contexte 2D ne résout ses polices que dans
+      // le document de son propre canvas. Dessiner dans l'iframe revenait
+      // donc à composer le texte avec une police de repli, qui n'a aucun
+      // glyphe aux codes privés utilisés par pdf.js : tout le ticket sortait
+      // en carrés vides à l'impression, alors que l'aperçu — rendu dans le
+      // document principal, lui — était correct. Le canvas n'est qu'un
+      // tampon : seule l'image PNG qui en sort entre dans l'iframe.
+      const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
       await page.render({ canvas, viewport }).promise

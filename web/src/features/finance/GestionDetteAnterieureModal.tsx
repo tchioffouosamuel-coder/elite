@@ -4,13 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
 import { Input, MontantInput } from '@/shared/ui/Field'
-import { Spinner } from '@/shared/ui/Feedback'
+import { ErrorState, Spinner } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import {
   creerDetteAnterieure,
   fetchDettesAnterieures,
   modifierDetteAnterieure,
   supprimerDetteAnterieure,
+  oublierDetteAnterieure,
   francs,
   type DetteAnterieure,
 } from '@/features/finance/api'
@@ -21,17 +23,20 @@ import type { ApiError } from '@/shared/types/api'
  * même patron que `GestionRemiseModal` : liste, édition, suppression et
  * création, sans quitter l'écran pour passer par la page dédiée.
  */
-export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChange }: {
+export function GestionDetteAnterieureModal({ eleveId, eleveNom, resteDette = 0, onClose, onChange }: {
   eleveId: number
   eleveNom: string
+  resteDette?: number
   onClose: () => void
   onChange: () => void
 }) {
   const queryClient = useQueryClient()
+  const can = useAuthStore((s) => s.can)
   const [edition, setEdition] = useState<DetteAnterieure | 'nouvelle' | null>(null)
   const [montant, setMontant] = useState<number | null>(null)
   const [motif, setMotif] = useState('')
-  const { data: dettes, isLoading } = useQuery({
+  const [submitting, setSubmitting] = useState(false)
+  const { data: dettes, isLoading, isError } = useQuery({
     queryKey: ['dettes-anterieures', eleveId],
     queryFn: () => fetchDettesAnterieures(eleveId),
   })
@@ -55,7 +60,8 @@ export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChan
   }
 
   const enregistrer = async () => {
-    if (!edition || !montant) return
+    if (!edition || !montant || montant < 1 || submitting) return
+    setSubmitting(true)
     try {
       if (edition === 'nouvelle') {
         await creerDetteAnterieure(eleveId, { montant, motif: motif || undefined })
@@ -68,6 +74,8 @@ export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChan
       rafraichir()
     } catch (e) {
       erreur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -78,18 +86,41 @@ export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChan
       action: 'Supprimer',
     })
     if (!ok) return
+    setSubmitting(true)
     try {
       await supprimerDetteAnterieure(dette.id)
       succes('Dette antérieure supprimée.')
       rafraichir()
     } catch (e) {
       erreur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const effacerReliquat = async () => {
+    const ok = await confirmer({
+      titre: 'Effacer la dette antérieure restante ?',
+      message: `${francs(resteDette)} ne seront plus dus par ${eleveNom}. Les paiements déjà enregistrés seront conservés.`,
+      action: 'Effacer la dette restante',
+    })
+    if (!ok) return
+    setSubmitting(true)
+    try {
+      await oublierDetteAnterieure(eleveId)
+      succes('Dette antérieure restante effacée.')
+      setEdition(null)
+      rafraichir()
+    } catch (e) {
+      erreur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
     <Modal title={`Dettes antérieures — ${eleveNom}`} onClose={onClose}>
-      {isLoading ? <Spinner /> : (
+      {isLoading ? <Spinner /> : isError ? <ErrorState /> : (
         <div className="flex flex-col gap-3">
           {dettes?.length === 0 && <p className="text-sm text-navy-400">Aucune dette antérieure.</p>}
           {dettes?.map((dette) => (
@@ -102,11 +133,13 @@ export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChan
                 </div>
               </div>
               <div className="flex flex-none gap-1">
-                <button type="button" title="Modifier la dette" onClick={() => ouvrirEdition(dette)} className="rounded-lg p-2 text-navy-400 hover:bg-cream-100 hover:text-navy-800">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                {!dette.imputee && (
-                  <button type="button" title="Supprimer la dette" onClick={() => retirer(dette)} className="rounded-lg p-2 text-navy-300 hover:bg-red-50 hover:text-red-500">
+                {can('dettes_anterieures.update') && (
+                  <button type="button" title="Modifier la dette" disabled={submitting} onClick={() => ouvrirEdition(dette)} className="rounded-lg p-2 text-navy-400 hover:bg-cream-100 hover:text-navy-800">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {!dette.imputee && can('dettes_anterieures.delete') && (
+                  <button type="button" title="Supprimer la dette" disabled={submitting} onClick={() => retirer(dette)} className="rounded-lg p-2 text-navy-300 hover:bg-red-50 hover:text-red-500">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
@@ -119,16 +152,22 @@ export function GestionDetteAnterieureModal({ eleveId, eleveNom, onClose, onChan
               <MontantInput label="Montant de la dette (F CFA)" value={montant} onChange={setMontant} />
               <Input label="Motif (optionnel)" value={motif} onChange={(e) => setMotif(e.target.value)} />
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setEdition(null)}>Annuler</Button>
-                <Button size="sm" onClick={enregistrer} disabled={!montant}>Enregistrer</Button>
+                <Button size="sm" variant="secondary" disabled={submitting} onClick={() => setEdition(null)}>Annuler</Button>
+                <Button size="sm" onClick={enregistrer} disabled={!montant || montant < 1 || submitting}>Enregistrer</Button>
               </div>
             </div>
           )}
 
-          {!edition && (
-            <Button size="sm" variant="secondary" onClick={ouvrirCreation}>
+          {!edition && can('dettes_anterieures.create') && (
+            <Button size="sm" variant="secondary" disabled={submitting} onClick={ouvrirCreation}>
               <Plus className="h-3.5 w-3.5" />
               Enregistrer une dette antérieure
+            </Button>
+          )}
+          {resteDette > 0 && can('dettes_anterieures.oublier') && (
+            <Button size="sm" variant="danger" disabled={submitting} onClick={effacerReliquat}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Effacer la dette restante ({francs(resteDette)})
             </Button>
           )}
         </div>

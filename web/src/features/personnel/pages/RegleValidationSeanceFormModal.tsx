@@ -49,6 +49,8 @@ export function RegleValidationSeanceFormModal({ regle, onClose, onSaved }: Regl
       methode_validation: regle?.methode_validation ?? 'qr',
       delai_valeur: regle?.delai_valeur ?? 15,
       delai_unite: regle?.delai_unite ?? 'minutes',
+      validations_par_jour: regle?.validations_par_jour ?? 0,
+      appels_par_jour: regle?.appels_par_jour ?? 0,
     },
   })
 
@@ -59,6 +61,8 @@ export function RegleValidationSeanceFormModal({ regle, onClose, onSaved }: Regl
       methode_validation: regle?.methode_validation ?? 'qr',
       delai_valeur: regle?.delai_valeur ?? 15,
       delai_unite: regle?.delai_unite ?? 'minutes',
+      validations_par_jour: regle?.validations_par_jour ?? 0,
+      appels_par_jour: regle?.appels_par_jour ?? 0,
     })
   }, [regle, reset])
 
@@ -74,6 +78,8 @@ export function RegleValidationSeanceFormModal({ regle, onClose, onSaved }: Regl
         school_id: values.school_id ? Number(values.school_id) : undefined,
         sous_systeme_id: values.sous_systeme_id ? Number(values.sous_systeme_id) : null,
         delai_valeur: Number(values.delai_valeur),
+        validations_par_jour: Number(values.validations_par_jour),
+        appels_par_jour: Number(values.appels_par_jour),
       }
 
       if (regle) {
@@ -143,6 +149,40 @@ export function RegleValidationSeanceFormModal({ regle, onClose, onSaved }: Regl
         <p className="-mt-2 text-xs text-navy-400">
           Passé ce délai après la première déclaration de la séance, l'enseignant ne peut plus corriger l'appel ni les
           leçons cochées sans passer par le Surveillant Général.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 border-t border-navy-100 pt-4">
+          <Input
+            type="number"
+            min={0}
+            max={12}
+            label="Validations par jour"
+            error={errors.validations_par_jour?.message}
+            {...register('validations_par_jour', {
+              required: 'Indiquez 0 si chaque cours se déclare séparément.',
+              min: { value: 0, message: 'Au moins 0.' },
+              max: { value: 12, message: 'Au plus 12.' },
+            })}
+          />
+          <Input
+            type="number"
+            min={0}
+            max={12}
+            label="Appels par jour"
+            error={errors.appels_par_jour?.message}
+            {...register('appels_par_jour', {
+              required: 'Indiquez 0 si chaque cours a son propre appel.',
+              min: { value: 0, message: 'Au moins 0.' },
+              max: { value: 12, message: 'Au plus 12.' },
+            })}
+          />
+        </div>
+        <p className="-mt-2 text-xs text-navy-400">
+          Cadence attendue de l'enseignant sur la journée. <strong>0</strong> : chaque cours se déclare séparément —
+          c'est le cas du secondaire, et le réglage par défaut. <strong>2</strong> au primaire et à la maternelle, où
+          le même enseignant tient sa classe du matin au soir : une fois ses validations faites, les cours restants de
+          la journée sont réputés faits et les leçons planifiées ce jour-là sont cochées. L'appel de ces classes reste
+          à prendre.
         </p>
 
         <div className="flex justify-end gap-3 pt-4">

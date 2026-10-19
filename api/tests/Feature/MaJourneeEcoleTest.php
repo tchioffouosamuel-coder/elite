@@ -10,6 +10,7 @@ use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\ProgressionItem;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\Trimestre;
@@ -134,8 +135,12 @@ class MaJourneeEcoleTest extends TestCase
 
     public function test_le_statut_reflete_une_seance_deja_declaree(): void
     {
+        $lecon = ProgressionItem::create([
+            'classe_matiere_id' => $this->classeMatiere->id,
+            'type' => 'lecon', 'titre' => 'Leçon du jour',
+        ]);
         $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", ['lecons' => [], 'appel' => []])
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", ['lecons' => [$lecon->id], 'appel' => []])
             ->assertOk();
 
         $reponse = $this->actingAs($this->admin, 'sanctum')

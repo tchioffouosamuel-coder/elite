@@ -116,7 +116,10 @@ class MaJourneeJourCourantTest extends TestCase
     private function corpsAppel(array $extra = []): array
     {
         return [
-            'lecons' => [],
+            'lecons' => [ProgressionItem::firstOrCreate([
+                'classe_matiere_id' => $this->classeMatiere->id,
+                'type' => 'lecon', 'titre' => 'Leçon du jour',
+            ])->id],
             'appel' => [],
             'qr_token' => 'TOKEN-SALLE-5EA',
             ...$extra,
@@ -176,10 +179,7 @@ class MaJourneeJourCourantTest extends TestCase
         $hier = now()->subDay()->format('Y-m-d');
 
         $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}?date={$hier}", [
-                'lecons' => [],
-                'appel' => [],
-            ])
+            ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}?date={$hier}", $this->corpsAppel())
             ->assertOk();
 
         $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->firstOrFail();

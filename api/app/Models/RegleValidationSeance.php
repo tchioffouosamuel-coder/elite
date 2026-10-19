@@ -22,12 +22,16 @@ class RegleValidationSeance extends Model
         'methode_validation',
         'delai_valeur',
         'delai_unite',
+        'validations_par_jour',
+        'appels_par_jour',
     ];
 
     protected function casts(): array
     {
         return [
             'delai_valeur' => 'integer',
+            'validations_par_jour' => 'integer',
+            'appels_par_jour' => 'integer',
         ];
     }
 
@@ -54,6 +58,25 @@ class RegleValidationSeance extends Model
             'semaines' => $this->delai_valeur * 10080,
             default => $this->delai_valeur,
         };
+    }
+
+    /**
+     * Déclarations de séance attendues dans la journée avant que celle-ci
+     * soit réputée faite, ou 0 quand aucune cadence journalière n'est
+     * définie — cas par défaut, où chaque cours se déclare séparément.
+     *
+     * Le primaire et la maternelle attendent 2 : le même enseignant y tient
+     * sa classe du matin au soir, il ne déclare pas créneau par créneau.
+     */
+    public static function validationsAttendues(int $schoolId, ?int $sousSystemeId): int
+    {
+        return max(0, static::pour($schoolId, $sousSystemeId)?->validations_par_jour ?? 0);
+    }
+
+    /** Appels attendus dans la journée, même logique que les validations. */
+    public static function appelsAttendus(int $schoolId, ?int $sousSystemeId): int
+    {
+        return max(0, static::pour($schoolId, $sousSystemeId)?->appels_par_jour ?? 0);
     }
 
     /**

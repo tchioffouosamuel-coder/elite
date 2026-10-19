@@ -16,26 +16,37 @@ use Symfony\Component\Finder\Finder;
  */
 class PurgerCacheRendus extends Command
 {
-    protected $signature = 'pdf:purger-cache {--jours= : Conservation depuis le dernier accès, en jours (défaut : config recu.cache_retention_jours)}';
+    protected $signature = 'pdf:purger-cache
+        {--jours= : Conservation depuis le dernier accès, en jours (défaut : config recu.cache_retention_jours)}
+        {--tout : Vide tout le cache, sans regarder les dates}';
 
     protected $description = 'Purge les rendus PDF mis en cache et non relus depuis la durée de conservation';
 
     public function handle(): int
     {
         $jours = (int) ($this->option('jours') ?? config('recu.cache_retention_jours'));
+        $tout = (bool) $this->option('tout');
         $dossier = CacheRendus::dossier();
 
-        if ($jours <= 0 || ! is_dir($dossier)) {
+        if ((! $tout && $jours <= 0) || ! is_dir($dossier)) {
             $this->info('Rien à purger.');
 
             return self::SUCCESS;
         }
 
-        $limite = now()->subDays($jours);
+        // `--tout` sert à écarter le cache d'un diagnostic : si un ticket
+        // sort mal imprimé, on le vide et on réimprime pour savoir si le
+        // défaut vient du rendu mémorisé ou de la composition elle-même.
+        $fichiers = Finder::create()->files()->in($dossier);
+        if (! $tout) {
+            $limite = now()->subDays($jours);
+            $fichiers = $fichiers->date('< '.$limite->toDateTimeString());
+        }
+
         $supprimes = 0;
         $octets = 0;
 
-        foreach (Finder::create()->files()->in($dossier)->date('< '.$limite->toDateTimeString()) as $fichier) {
+        foreach ($fichiers as $fichier) {
             $taille = $fichier->getSize();
             if (@unlink($fichier->getPathname())) {
                 $supprimes++;

@@ -8,6 +8,7 @@ use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
 use App\Models\ProgressionItem;
+use App\Models\RegleValidationSeance;
 use App\Models\Seance;
 use App\Models\Trimestre;
 use App\Models\User;
@@ -339,8 +340,8 @@ class MaJourneeService extends BaseService
     }
 
     /**
-     * Enregistre la journée : leçons traitées (cochées au programme ou saisies
-     * à la main dans `$contenu`), appel, observations et champs personnalisés.
+     * Enregistre la journée avec au moins une leçon traitée (existante ou
+     * créée sur place), l'appel, les observations et les champs personnalisés.
      *
      * @param  array<int, int>  $leconIds
      * @param  array<int, array<string, mixed>>  $appel
@@ -394,6 +395,12 @@ class MaJourneeService extends BaseService
                 ->whereIn('id', $leconIds)
                 ->pluck('id');
 
+            if ($valides->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'lecons' => 'Marquez au moins une leçon comme faite pour valider ce cours. Si aucune leçon ne correspond, créez-en une.',
+                ]);
+            }
+
             // Pas de sync() : il réécrirait `valide_par` sur les leçons déjà
             // cochées. Une correction ultérieure (par la direction, par
             // exemple) ne doit pas s'approprier ce que l'enseignant a validé —
@@ -427,6 +434,13 @@ class MaJourneeService extends BaseService
                 'qr_verifie_le' => $qrVerifie ? ($seance->qr_verifie_le ?? now()) : $seance->qr_verifie_le,
             ]);
 
+            // Le même cours donné en parallèle à plusieurs classes ne se
+            // déclare qu'une fois, et la journée du primaire se clôt d'elle
+            // même : les deux retombées se jouent dans la transaction, pour
+            // qu'une déclaration partiellement propagée n'existe jamais.
+            $this->propagerAuxJumelles($classeMatiere, $seance, $valides, $contenu, $user);
+            $this->cloturerJourneeSiRequise($classeMatiere, $seance, $user);
+
             return [['lecons' => $valides->count(), 'eleves' => $eleves], $nouvelles];
         });
 
@@ -437,6 +451,170 @@ class MaJourneeService extends BaseService
         }
 
         return $resultat;
+    }
+
+    /**
+     * Même enseignant, même jour, même heure, même matière, plusieurs
+     * classes : c'est un seul cours, déclaré une fois.
+     *
+     * Le tronc commun couvre déjà le cas où la grille a été saisie comme
+     * telle — un créneau, plusieurs classes, une séance. Ici on traite
+     * l'autre cas, le plus courant : la grille a été saisie classe par
+     * classe, il y a donc autant de créneaux et de séances que de classes,
+     * et l'enseignant devait les déclarer une à une alors qu'il n'a fait
+     * cours qu'une fois.
+     *
+     * Seul le cours se propage : leçons traitées, contenu, statut. Jamais
+     * l'appel — chaque classe a ses propres élèves. `appel_verrouille_le`
+     * reste donc vide sur les séances jumelles, sans quoi la propagation
+     * démarrerait la fenêtre de correction d'un appel que l'enseignant n'a
+     * pas encore eu l'occasion de faire, et la lui fermerait au nez.
+     *
+     * @param  Collection<int, int>  $leconIds  leçons validées, telles que résolues dans la fiche de `$cm`
+     */
+    private function propagerAuxJumelles(ClasseMatiere $cm, Seance $seance, Collection $leconIds, ?string $contenu, User $user): void
+    {
+        // Sans enseignant nommé sur l'affectation, « le même enseignant »
+        // n'a pas de sens : rien à propager.
+        if ($cm->personnel_id === null) {
+            return;
+        }
+
+        // Les classes du tronc commun partagent déjà CETTE séance : les
+        // retrouver ici reviendrait à leur en ouvrir une seconde.
+        $dejaCouvertes = $seance->classesConcernees()->pluck('id');
+
+        $jumelles = EmploiDuTemps::forSchool($seance->school_id)
+            ->where('jour', $seance->date_seance->dayOfWeekIso)
+            ->where('heure_debut', $seance->heure_debut)
+            ->whereNotNull('classe_matiere_id')
+            ->where('classe_matiere_id', '!=', $cm->id)
+            ->with('classeMatiere.classe', 'classeMatiere.matiere')
+            ->get()
+            ->map(fn (EmploiDuTemps $creneau) => $creneau->classeMatiere)
+            ->filter(fn (?ClasseMatiere $autre) => $autre
+                && $autre->statut === 'actif'
+                && $autre->matiere_id === $cm->matiere_id
+                && $autre->personnel_id === $cm->personnel_id
+                && $autre->classe !== null
+                && ! $dejaCouvertes->contains($autre->classe_id))
+            ->unique('id');
+
+        $date = $seance->date_seance->format('Y-m-d');
+
+        foreach ($jumelles as $autre) {
+            $jumelle = $this->seanceDuJour($autre, $date);
+
+            // La fiche de progression est partagée entre les classes de même
+            // matière, niveau et enseignant (cf. ResolveurFicheProgression) :
+            // les mêmes leçons s'y retrouvent donc à l'identique. Une classe
+            // restée sur une fiche historique n'a pas ces lignes — elle
+            // reçoit alors le contenu et le statut, mais aucune leçon cochée
+            // à tort dans un programme qui n'est pas le sien.
+            $aCocher = $leconIds->isEmpty()
+                ? collect()
+                : ResolveurFicheProgression::itemsScope($autre)->lecons()->whereIn('id', $leconIds)->pluck('id');
+
+            $nouvelles = $aCocher->diff($jumelle->lecons()->pluck('progression_items.id'));
+            $jumelle->lecons()->attach($nouvelles->all(), ['valide_par' => $user->id]);
+
+            $jumelle->update([
+                'statut' => 'effectuee',
+                'contenu' => $contenu,
+            ]);
+        }
+    }
+
+    /**
+     * Journée réputée faite au primaire et à la maternelle.
+     *
+     * Là-bas, le même enseignant tient sa classe du matin au soir : la
+     * direction lui demande un nombre fixe de déclarations par jour (deux,
+     * en général) plutôt qu'une par créneau de la grille. Ce compte atteint,
+     * les cours du jour qu'il n'a pas déclarés un par un sont réputés faits,
+     * et les leçons planifiées ce jour-là sont cochées.
+     *
+     * Rien ne se déclenche tant que la direction n'a pas défini de cadence
+     * (`validations_par_jour` à 0, le défaut) : au secondaire, un enseignant
+     * donne un cours par classe et les déclare tous.
+     *
+     * Les séances déjà déclarées ne sont jamais retouchées : ce que
+     * l'enseignant a dit explicitement prime sur ce que la règle présume.
+     */
+    private function cloturerJourneeSiRequise(ClasseMatiere $cm, Seance $seance, User $user): void
+    {
+        $attendues = RegleValidationSeance::validationsAttendues(
+            $seance->school_id,
+            $cm->classe?->sous_systeme_id,
+        );
+
+        if ($attendues < 1 || $cm->personnel_id === null) {
+            return;
+        }
+
+        $date = $seance->date_seance->format('Y-m-d');
+
+        // Toutes les affectations que cet enseignant porte, y compris celles
+        // dont il est titulaire sans être nommé matière par matière — le cas
+        // normal au primaire.
+        $siennes = ClasseMatiere::forSchool($seance->school_id)
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $cm->personnel_id)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $cm->personnel_id)))
+            ->get();
+
+        $faites = Seance::forSchool($seance->school_id)
+            ->whereDate('date_seance', $date)
+            ->whereIn('classe_matiere_id', $siennes->pluck('id'))
+            ->where('statut', 'effectuee')
+            ->count();
+
+        if ($faites < $attendues) {
+            return;
+        }
+
+        // Les cours du jour se lisent dans la grille, pas dans la table des
+        // séances : une séance n'existe qu'une fois déclarée (ou
+        // pré-générée). Clôturer la journée, c'est justement ouvrir et
+        // marquer faites celles que l'enseignant n'a pas déclarées.
+        $creneaux = EmploiDuTemps::forSchool($seance->school_id)
+            ->where('jour', $seance->date_seance->dayOfWeekIso)
+            ->whereIn('classe_matiere_id', $siennes->pluck('id'))
+            ->get()
+            ->groupBy('classe_matiere_id');
+
+        foreach ($siennes as $affectation) {
+            if (! $creneaux->has($affectation->id)) {
+                continue;
+            }
+
+            $restante = $this->seanceDuJour($affectation, $date);
+
+            // Ce que l'enseignant a déclaré explicitement prime sur ce que
+            // la règle présume : on ne retouche que les séances encore vides.
+            if ($restante->statut !== 'prevue') {
+                continue;
+            }
+
+            // Leçons dont la date planifiée tombe ce jour-là : ce sont
+            // celles que la journée était censée couvrir.
+            $planifiees = ResolveurFicheProgression::itemsScope($affectation)
+                ->lecons()
+                ->whereDate('date_prevue', $date)
+                ->pluck('id');
+
+            $nouvelles = $planifiees->diff($restante->lecons()->pluck('progression_items.id'));
+            $restante->lecons()->attach($nouvelles->all(), ['valide_par' => $user->id]);
+
+            if ($nouvelles->isNotEmpty()) {
+                ProgressionItem::whereIn('id', $nouvelles)->update(['date_realisee' => $restante->date_seance]);
+            }
+
+            // Pas d'`appel_verrouille_le` : la journée est réputée faite côté
+            // leçons, l'appel de ces classes reste à prendre.
+            $restante->update(['statut' => 'effectuee']);
+        }
     }
 
     private function appliquerActionsLecons(ClasseMatiere $cm, Seance $seance, User $user, array $actions, array $ids): array

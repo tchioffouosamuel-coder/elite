@@ -534,6 +534,96 @@ class DashboardService extends BaseService
         ];
     }
 
+    /**
+     * Élèves absents sur une journée, pour le tableau de bord de la
+     * direction : combien, et lesquels.
+     *
+     * Deux chiffres plutôt qu'un, parce qu'ils ne disent pas la même chose.
+     * `total` compte les élèves ayant manqué au moins un appel — c'est le
+     * volume de la journée, celui qu'on surveille. `journee_complete` ne
+     * retient que ceux absents à TOUS les appels où on les attendait : ce
+     * sont les absences à signaler aux familles, qu'un élève sorti une heure
+     * noierait sinon dans la masse.
+     *
+     * Un enseignant ne voit que ses classes, comme pour l'assiduité.
+     *
+     * @return array{date: string, total: int, journee_complete: int, eleves: list<array<string, mixed>>}
+     */
+    public function absentsDuJour(int|array $schoolId, User $user, string $date): array
+    {
+        $classeIds = null;
+        if ($user->estEnseignant()) {
+            $enseignees = (new Perimetre($user))->classesEnseignees();
+            if (! empty($enseignees)) {
+                $classeIds = $enseignees;
+            }
+        }
+
+        // Un pointage ne compte que sur une séance réellement déclarée : une
+        // séance encore « prévue » n'a pas eu d'appel, et ses élèves ne sont
+        // pas absents pour autant.
+        $pointages = Presence::query()
+            ->whereHas('seance', fn ($q) => $q->forSchool($schoolId)
+                ->where('statut', 'effectuee')
+                ->whereDate('date_seance', $date))
+            ->when($classeIds !== null, fn ($q) => $q->whereHas('eleve', fn ($e) => $e->whereIn('classe_id', $classeIds)))
+            ->with([
+                'eleve:id,nom_complet,matricule,classe_id',
+                'eleve.classe:id,nom',
+                'seance:id,heure_debut,heure_fin,classe_matiere_id',
+                'seance.classeMatiere:id,matiere_id',
+                'seance.classeMatiere.matiere:id,nom',
+            ])
+            ->get()
+            ->filter(fn (Presence $p) => $p->eleve !== null);
+
+        $eleves = $pointages
+            ->groupBy('eleve_id')
+            ->map(function (Collection $lignes) {
+                $eleve = $lignes->first()->eleve;
+                // `renvoye` vaut absence comme ailleurs (cf. assiduite()) :
+                // l'élève n'était pas en cours. Un retard reste une présence.
+                $manques = $lignes->filter(fn (Presence $p) => in_array($p->statut, ['absent', 'renvoye'], true));
+
+                return [
+                    'eleve_id' => $eleve->id,
+                    'nom_complet' => $eleve->nom_complet,
+                    'matricule' => $eleve->matricule,
+                    'classe' => $eleve->classe?->nom,
+                    'absences' => $manques->count(),
+                    'appels' => $lignes->count(),
+                    'journee_complete' => $manques->count() === $lignes->count(),
+                    'motifs' => $manques->pluck('motif')->filter()->unique()->values()->all(),
+                    'creneaux' => $manques
+                        ->sortBy(fn (Presence $p) => (string) $p->seance?->heure_debut)
+                        ->map(fn (Presence $p) => [
+                            'heure' => substr((string) $p->seance?->heure_debut, 0, 5),
+                            'matiere' => $p->seance?->classeMatiere?->matiere?->nom,
+                            'motif' => $p->motif,
+                        ])->values()->all(),
+                ];
+            })
+            ->filter(fn (array $ligne) => $ligne['absences'] > 0)
+            // Les absences de la journée entière d'abord, puis les plus
+            // nombreuses : ce sont celles sur lesquelles la direction agit en
+            // premier. Clé composée plutôt que tris successifs, pour que
+            // l'ordre soit stable d'un appel à l'autre.
+            ->sortBy(fn (array $ligne) => sprintf(
+                '%d|%03d|%s',
+                $ligne['journee_complete'] ? 0 : 1,
+                max(0, 999 - $ligne['absences']),
+                $ligne['nom_complet'],
+            ))
+            ->values();
+
+        return [
+            'date' => $date,
+            'total' => $eleves->count(),
+            'journee_complete' => $eleves->where('journee_complete', true)->count(),
+            'eleves' => $eleves->all(),
+        ];
+    }
+
     /** @return array{0: Carbon, 1: Carbon}|null */
     private function bornesPeriode(int $schoolId, string $periode): ?array
     {

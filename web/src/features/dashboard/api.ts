@@ -137,6 +137,36 @@ export async function fetchAssiduite(periode: PeriodeAssiduite): Promise<Assidui
   return data.data;
 }
 
+/** Un élève absent dans la journée, et à quels créneaux (cf. DashboardService::absentsDuJour). */
+export interface EleveAbsentDuJour {
+  eleve_id: number;
+  nom_complet: string;
+  matricule: string | null;
+  classe: string | null;
+  /** Nombre d'appels manqués. */
+  absences: number;
+  /** Nombre d'appels où l'élève était attendu. */
+  appels: number;
+  /** Absent à tous les appels de la journée. */
+  journee_complete: boolean;
+  motifs: string[];
+  creneaux: { heure: string; matiere: string | null; motif: string | null }[];
+}
+
+export interface AbsentsDuJour {
+  date: string;
+  /** Élèves ayant manqué au moins un appel. */
+  total: number;
+  /** Parmi eux, ceux absents à tous les appels. */
+  journee_complete: number;
+  eleves: EleveAbsentDuJour[];
+}
+
+export async function fetchAbsentsDuJour(date: string): Promise<AbsentsDuJour> {
+  const { data } = await http.get<ApiResponse<AbsentsDuJour>>("/dashboard/absents-du-jour", { params: { date } });
+  return data.data;
+}
+
 export async function fetchPilotage(): Promise<Pilotage> {
   const { data } = await http.get<ApiResponse<Pilotage>>("/dashboard/pilotage");
   return data.data;

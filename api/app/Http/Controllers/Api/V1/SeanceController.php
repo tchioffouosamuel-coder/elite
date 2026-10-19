@@ -197,6 +197,12 @@ class SeanceController extends Controller
 
         PreuvePresence::exiger($request->user(), $seance->classe, $data['qr_token'] ?? null, $data['code_salle'] ?? null);
 
+        if ($request->user()->estEnseignant() && ! $seance->lecons()->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'lecons' => 'Indiquez la leçon faite dans Ma journée avant de valider ce cours.',
+            ]);
+        }
+
         $total = $this->service->enregistrerAppel($seance, $data['lignes']);
 
         return ApiResponse::success(['enregistres' => $total], "Appel enregistré ({$total} élève(s)).");

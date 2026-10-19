@@ -21,6 +21,7 @@ import { erreur, succes } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
 import { NoteInput, messageErreurNote } from '@/shared/ui/NoteInput'
 import { AppreciationSequenceInput } from '@/shared/ui/AppreciationSequenceInput'
+import { ImportExportBar } from '@/shared/ui/ImportExportBar'
 import { useAuthStore } from '@/shared/store/authStore'
 import { peutSaisirSequence } from '@/features/notes/saisieSequence'
 
@@ -148,6 +149,7 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const user = useAuthStore((s) => s.user)
+  const can = useAuthStore((s) => s.can)
   const [trimestreId, setTrimestreId] = useState<number | ''>('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [observations, setObservations] = useState<Record<number, string>>({})
@@ -300,17 +302,38 @@ export function NotesPrimaireDetail({ classeId, classeMatiereId, matiere }: Note
         </p>
       </div>
 
-      <Select
-        label={t('notes.trimestre')}
-        value={trimestreId}
-        onChange={(e) => setTrimestreId(e.target.value ? Number(e.target.value) : '')}
-      >
-        {trimestres?.map((tr) => (
-          <option key={tr.id} value={tr.id}>
-            {tr.libelle}
-          </option>
-        ))}
-      </Select>
+      <div className="flex flex-wrap items-end gap-3">
+        <Select
+          label={t('notes.trimestre')}
+          value={trimestreId}
+          onChange={(e) => setTrimestreId(e.target.value ? Number(e.target.value) : '')}
+        >
+          {trimestres?.map((tr) => (
+            <option key={tr.id} value={tr.id}>
+              {tr.libelle}
+            </option>
+          ))}
+        </Select>
+
+        {grille && trimestreId && (
+          <ImportExportBar
+            titreImport={t('notes.import_title')}
+            importUrl={`classe-competences/${classeMatiereId}/notes-primaire/import`}
+            exportUrl={`classe-competences/${classeMatiereId}/notes-primaire/export`}
+            modeleUrl={`classe-competences/${classeMatiereId}/notes-primaire/modele`}
+            colonnes={[
+              'Matricule',
+              'Nom complet',
+              ...grille.composantes.flatMap((c) => grille.sequences.map((_s, i) => `${LIBELLES_COMPOSANTES[c]} S${i + 1}`)),
+            ]}
+            nomFichier={`notes-${matiere?.competence?.label_fr ?? 'competence'}`}
+            exportParams={{ trimestre_id: trimestreId }}
+            extraFields={{ trimestre_id: trimestreId }}
+            peutImporter={can('notes.create') && sequencesEditables.length > 0}
+            onImported={() => queryClient.invalidateQueries({ queryKey: ['grille-primaire', classeMatiereId, trimestreId] })}
+          />
+        )}
+      </div>
 
       {isLoading || !grille ? (
         <Spinner />

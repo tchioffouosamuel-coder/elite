@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarCheck, Save, Clock, ScanLine, ShieldCheck } from 'lucide-react'
+import { CalendarCheck, Save, Clock, Plus, ScanLine, ShieldCheck, Trash2 } from 'lucide-react'
 import {
   fetchMesAffectations,
   fetchFeuilleJournee,
@@ -20,6 +20,7 @@ import { Button } from '@/shared/ui/Button'
 import { Spinner, EmptyState } from '@/shared/ui/Feedback'
 import { useAuthStore } from '@/shared/store/authStore'
 import { succes, erreur } from '@/shared/lib/alertes'
+import { newActionId } from '@/shared/lib/actionId'
 import type { ApiError } from '@/shared/types/api'
 
 const LIBELLES_PERIODES: Record<keyof HeuresCouverturePeriodes, string> = {
@@ -102,6 +103,8 @@ export function MaJourneePage() {
   const [codeSalle, setCodeSalle] = useState('')
   const [lecons, setLecons] = useState<Set<number>>(new Set())
   const [contenu, setContenu] = useState('')
+  const [titreLecon, setTitreLecon] = useState('')
+  const [leconsAjoutees, setLeconsAjoutees] = useState<{ id: number; titre: string; operationId: string }[]>([])
   const [appel, setAppel] = useState<LigneAppel[]>([])
   const [observations, setObservations] = useState('')
   const [donneesPersonnalisees, setDonneesPersonnalisees] = useState<Record<string, string | number | boolean>>({})
@@ -156,12 +159,35 @@ export function MaJourneePage() {
     setContenu(feuille.seance.contenu ?? '')
     setObservations(feuille.seance.observations ?? '')
     setDonneesPersonnalisees(feuille.seance.donnees_personnalisees ?? {})
+    setLeconsAjoutees([])
+    setTitreLecon('')
   }, [feuille])
+
+  const leconsDisponibles = [
+    ...(feuille?.lecons ?? []),
+    ...leconsAjoutees.map((l) => ({ ...l, chemin: '', sequence: null, deja_traitee: false, faite_aujourdhui: false, validee_par: null })),
+  ]
+  const leconRenseignee = leconsDisponibles.some((l) => lecons.has(l.id))
+
+  const ajouterLecon = () => {
+    const titre = titreLecon.trim()
+    if (!titre || submitting) return
+    const id = Math.min(0, ...leconsAjoutees.map((l) => l.id)) - 1
+    setLeconsAjoutees((lignes) => [...lignes, { id, titre, operationId: newActionId() }])
+    setLecons((ids) => new Set([...ids, id]))
+    setTitreLecon('')
+  }
+
+  const retirerNouvelleLecon = (id: number) => {
+    setLeconsAjoutees((lignes) => lignes.filter((l) => l.id !== id))
+    setLecons((ids) => new Set([...ids].filter((leconId) => leconId !== id)))
+  }
 
   const basculerLecon = (id: number) => {
     setLecons((s) => {
       const copie = new Set(s)
-      copie.has(id) ? copie.delete(id) : copie.add(id)
+      if (copie.has(id)) copie.delete(id)
+      else copie.add(id)
       return copie
     })
   }
@@ -194,11 +220,18 @@ export function MaJourneePage() {
   }
 
   const enregistrer = async () => {
+    if (!leconRenseignee || submitting) return
     setSubmitting(true)
     try {
       await enregistrerJournee(Number(affectationId), {
         date,
         lecons: [...lecons],
+        actions_lecons: leconsAjoutees.map((l) => ({
+          operation_id: l.operationId,
+          action: 'creer',
+          lecon_id: l.id,
+          fiche: { titre: l.titre, date_prevue: date },
+        })),
         contenu: contenu.trim() || null,
         qr_token: qrToken,
         code_salle: codeSalle || undefined,
@@ -207,7 +240,7 @@ export function MaJourneePage() {
         donnees_personnalisees: donneesPersonnalisees,
       })
       succes(t('journee.saved'))
-      refetch()
+      await refetch()
     } catch (err) {
       erreur((err as ApiError).message)
     } finally {
@@ -314,18 +347,21 @@ export function MaJourneePage() {
             <>
               <div className="rounded-2xl border border-navy-100/70 bg-white p-4 shadow-card">
                 <h2 className="mb-3 font-display text-base font-bold text-navy-800">{t('journee.lecons')}</h2>
-                {feuille.lecons.length === 0 ? (
+                <p className="mb-3 text-sm text-navy-500">{t('journee.lecon_obligatoire')}</p>
+                {leconsDisponibles.length === 0 ? (
                   <p className="pb-2 text-sm text-navy-400">{t('journee.aucun_programme')}</p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
-                    {feuille.lecons.map((lecon) => (
-                      <label
+                    {leconsDisponibles.map((lecon) => (
+                      <div
                         key={lecon.id}
-                        className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-1.5 hover:bg-cream-50"
+                        className="flex items-start gap-2 rounded-xl px-2 py-1.5 hover:bg-cream-50"
                       >
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
                         <input
                           type="checkbox"
                           checked={lecons.has(lecon.id)}
+                          disabled={submitting}
                           onChange={() => basculerLecon(lecon.id)}
                           className="mt-0.5 h-4 w-4 flex-none rounded border-navy-300"
                         />
@@ -346,11 +382,26 @@ export function MaJourneePage() {
                           )}
                         </span>
                       </label>
+                      {lecon.id < 0 && (
+                        <button type="button" title={t('journee.retirer_nouvelle_lecon')} disabled={submitting} onClick={() => retirerNouvelleLecon(lecon.id)} className="rounded-lg p-1.5 text-navy-400 hover:bg-red-50 hover:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      </div>
                     ))}
                   </div>
                 )}
+                <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-cream-50 p-3">
+                  <div className="min-w-0 flex-1">
+                    <Input label={t('journee.titre_nouvelle_lecon')} maxLength={255} value={titreLecon} disabled={submitting} onChange={(e) => setTitreLecon(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterLecon() } }} />
+                  </div>
+                  <Button type="button" variant="secondary" disabled={!titreLecon.trim() || submitting} onClick={ajouterLecon}>
+                    <Plus className="h-4 w-4" />{t('journee.ajouter_lecon_faite')}
+                  </Button>
+                </div>
                 <Textarea
                   className="mt-3"
+                  label={t('journee.complement_lecon')}
                   value={contenu}
                   onChange={(e) => setContenu(e.target.value)}
                   maxLength={2000}
@@ -452,7 +503,7 @@ export function MaJourneePage() {
               <div className="flex items-center gap-3">
                 {/* Le serveur refuse en 403 sans preuve : mieux vaut un
                     bouton inactif qu'un aller-retour qui perd la saisie. */}
-                <Button onClick={enregistrer} disabled={submitting || !preuveFournie}>
+                <Button onClick={enregistrer} disabled={submitting || !preuveFournie || !leconRenseignee}>
                   <Save className="h-4 w-4" />
                   {t('common.save')}
                 </Button>

@@ -41,6 +41,24 @@ class DashboardController extends Controller
      * scolaire en cours (carte « Vue d'ensemble »). Séparée de `index()`
      * pour que changer de période ne recharge pas tout le tableau de bord.
      */
+    /**
+     * Absents d'une journée : le compteur du tableau de bord et la liste
+     * qu'ouvre sa modale. Sans date, aujourd'hui — le calendrier de l'écran
+     * permet d'en choisir une autre.
+     */
+    public function absentsDuJour(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        return ApiResponse::success($this->service->absentsDuJour(
+            Tenant::schoolIds(),
+            $request->user(),
+            $validated['date'] ?? now()->toDateString(),
+        ));
+    }
+
     public function assiduite(Request $request): JsonResponse
     {
         $validated = $request->validate([

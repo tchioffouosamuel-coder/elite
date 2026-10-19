@@ -10,6 +10,7 @@ use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\ProgressionItem;
 use App\Models\RegleValidationSeance;
 use App\Models\School;
 use App\Models\Seance;
@@ -128,7 +129,10 @@ class MaJourneeQrRequisTest extends TestCase
     private function corpsAppel(array $extra = []): array
     {
         return [
-            'lecons' => [],
+            'lecons' => [ProgressionItem::firstOrCreate([
+                'classe_matiere_id' => $this->classeMatiere->id,
+                'type' => 'lecon', 'titre' => 'Leçon du jour',
+            ])->id],
             'appel' => [],
             ...$extra,
         ];

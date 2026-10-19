@@ -223,6 +223,36 @@ export async function fetchVerificationBulletin(
   return data.data;
 }
 
+// ------------------------------------- Import/export par enseignant (point 17)
+
+export interface AffectationMatiere {
+  classe_matiere_id: number;
+  classe_id: number;
+  classe: string;
+  matiere: string;
+  taux_remplissage: number | null;
+}
+
+export interface AffectationCompetence {
+  classe_competence_id: number;
+  classe_id: number;
+  classe: string;
+  competence: string;
+  taux_remplissage: number | null;
+}
+
+/** Affectations secondaire (classe↔matière) d'un agent précis, choisi par la direction. */
+export async function fetchAffectationsMatieresDe(personnelId: number): Promise<AffectationMatiere[]> {
+  const { data } = await http.get<ApiResponse<AffectationMatiere[]>>(`/personnels/${personnelId}/classe-matieres`);
+  return data.data;
+}
+
+/** Affectations primaire/maternelle (classe↔compétence) d'un agent précis, choisi par la direction. */
+export async function fetchAffectationsCompetencesDe(personnelId: number): Promise<AffectationCompetence[]> {
+  const { data } = await http.get<ApiResponse<AffectationCompetence[]>>(`/personnels/${personnelId}/classe-competences`);
+  return data.data;
+}
+
 async function ouvrirPdf(url: string, trimestreId?: number): Promise<void> {
   const fenetre = window.open("", "_blank");
 

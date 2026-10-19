@@ -411,6 +411,9 @@ export interface RegleValidationSeance {
   delai_valeur: number;
   delai_unite: "minutes" | "jours" | "semaines";
   delai_en_minutes: number;
+  /** Cadence journalière attendue ; 0 = chaque cours se déclare séparément. */
+  validations_par_jour: number;
+  appels_par_jour: number;
 }
 
 export async function fetchReglesValidationSeance(): Promise<
@@ -428,6 +431,8 @@ export interface RegleValidationSeancePayload {
   methode_validation: "qr" | "code" | "libre";
   delai_valeur: number;
   delai_unite: "minutes" | "jours" | "semaines";
+  validations_par_jour: number;
+  appels_par_jour: number;
 }
 
 export async function createRegleValidationSeance(

@@ -78,6 +78,37 @@ class CompetenceController extends Controller
         ])->values());
     }
 
+    /**
+     * Même chose que {@see mesAffectations()}, mais pour UN agent précis
+     * choisi par la direction — point d'entrée de l'écran « Import/export par
+     * enseignant », réservé à `pedagogie.suivi_saisies` (cf. route).
+     */
+    public function affectationsDe(int $personnelId): JsonResponse
+    {
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
+
+        $attributions = ClasseCompetence::whereHas('classe', fn ($q) => $q->forSchool(Tenant::schoolIds()))
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnel->id)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnel->id)))
+            ->with(['classe', 'competence'])
+            ->get();
+
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
+        )->first();
+
+        return ApiResponse::success($attributions->map(fn (ClasseCompetence $cc) => [
+            'classe_competence_id' => $cc->id,
+            'classe_id' => $cc->classe->id,
+            'classe' => $cc->classe->nom,
+            'competence' => $cc->competence->label_fr,
+            'taux_remplissage' => $sequenceActive ? $this->notes->tauxRemplissage($cc, $sequenceActive) : null,
+        ])->values());
+    }
+
     public function index(): JsonResponse
     {
         $competences = Competence::forSchool(Tenant::schoolIds())

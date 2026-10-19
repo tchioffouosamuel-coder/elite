@@ -23,6 +23,7 @@ import {
 import { fetchDashboardStats, fetchPilotage, type CreneauPilotage, type ActiviteLog, type DashboardStatsEcoleLigne } from '@/features/dashboard/api'
 import { LigneActivite } from '@/features/dashboard/pages/LigneActivite'
 import { CarteAssiduite } from '@/features/dashboard/pages/CarteAssiduite'
+import { CarteAbsentsDuJour } from '@/features/dashboard/pages/CarteAbsentsDuJour'
 import { StatCard, Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { Badge } from '@/shared/ui/Badge'
@@ -601,6 +602,8 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
       </div>
 
       <CarteAssiduite />
+
+      <CarteAbsentsDuJour />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-2">

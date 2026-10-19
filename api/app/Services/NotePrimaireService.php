@@ -2,15 +2,21 @@
 
 namespace App\Services;
 
+use App\Imports\NotePrimaireImport;
 use App\Models\AnneeScolaire;
 use App\Models\Appreciation;
 use App\Models\ClasseCompetence;
+use App\Models\Eleve;
 use App\Models\Note;
 use App\Models\ObservationEvaluation;
 use App\Models\Sequence;
 use App\Models\Trimestre;
 use App\Models\User;
+use App\Services\Concerns\DetecteConflitsRemplacement;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Saisie des notes du primaire et de la maternelle.
@@ -34,6 +40,16 @@ use Illuminate\Support\Collection;
  */
 class NotePrimaireService extends BaseService
 {
+    use DetecteConflitsRemplacement;
+
+    /** Libellés affichés des volets, pour les en-têtes du fichier Excel (export/modèle/import). */
+    public const LIBELLES_COMPOSANTES = [
+        'oral' => 'Oral',
+        'ecrit' => 'Écrit',
+        'savoir_etre' => 'Savoir-être',
+        'pratique' => 'Pratique',
+    ];
+
     public function __construct(private readonly AppreciationService $appreciations) {}
 
     /**
@@ -105,6 +121,143 @@ class NotePrimaireService extends BaseService
     }
 
     /** La maternelle coche un visage ; le primaire saisit un chiffre. */
+    /**
+     * Une ligne par élève, une colonne « {Volet} S{ordre} » par volet × séquence
+     * retenue du trimestre — colonnes alignées avec {@see NotePrimaireImport}
+     * pour un aller-retour sans adaptation. En maternelle, la cellule porte le
+     * libellé de l'appréciation (ex. « Acquis ») plutôt qu'un chiffre.
+     *
+     * @return Collection<int, array{matricule: ?string, nom_complet: string, cellules: array<string, mixed>}>
+     */
+    public function lignesExport(ClasseCompetence $classeCompetence, Trimestre $trimestre, bool $pourModele = false): Collection
+    {
+        $composantes = $classeCompetence->voletsNotes();
+        $sequences = $trimestre->sequencesRetenues()->values();
+        $maternelle = $this->parAppreciation($classeCompetence);
+
+        $notes = $pourModele ? collect() : Note::where('classe_competence_id', $classeCompetence->id)
+            ->whereIn('sequence_id', $sequences->pluck('id'))->get();
+
+        $appreciationsParId = $maternelle
+            ? Appreciation::forSchool((int) $classeCompetence->classe->school_id)->get()->keyBy('id')
+            : collect();
+
+        return $classeCompetence->classe->eleves()->where('statut', 'actif')->inscritAnneeActive()->orderBy('nom_complet')->get()
+            ->map(function (Eleve $eleve) use ($notes, $composantes, $sequences, $maternelle, $appreciationsParId) {
+                $parEleve = $notes->where('eleve_id', $eleve->id);
+                $cellules = [];
+
+                foreach ($composantes as $composante) {
+                    foreach ($sequences as $i => $sequence) {
+                        $note = $parEleve->first(fn (Note $n) => $n->composante === $composante && $n->sequence_id === $sequence->id);
+                        $cle = self::colonne($composante, $i + 1);
+
+                        $cellules[$cle] = $maternelle
+                            ? ($note?->appreciation_id !== null ? $appreciationsParId->get($note->appreciation_id)?->label_fr : null)
+                            : ($note?->valeur !== null ? (float) $note->valeur : null);
+                    }
+                }
+
+                return ['matricule' => $eleve->matricule, 'nom_complet' => $eleve->nom_complet, 'cellules' => $cellules];
+            });
+    }
+
+    /** Nom de colonne Excel d'un volet pour une séquence donnée (1-indexée) — partagé entre export et import. */
+    public static function colonne(string $composante, int $ordreSequence): string
+    {
+        return (self::LIBELLES_COMPOSANTES[$composante] ?? ucfirst($composante))." S{$ordreSequence}";
+    }
+
+    /**
+     * Importe un fichier rempli depuis {@see lignesExport()} — même garde-fou
+     * qu'au secondaire (cf. {@see NoteService::importFromExcel()}) : rien
+     * n'est écrit si au moins une ligne valide remplacerait une note déjà
+     * saisie et différente, tant que le client n'a pas confirmé.
+     *
+     * @return array{imported: int, failed: int, errors: list<string>, confirmation_requise: bool, conflits: array}
+     */
+    public function importerDepuisExcel(ClasseCompetence $classeCompetence, Trimestre $trimestre, ?User $user, UploadedFile $file, bool $confirmerRemplacement = false): array
+    {
+        $composantes = $classeCompetence->voletsNotes();
+        $sequences = $trimestre->sequencesRetenues()->values();
+        $maternelle = $this->parAppreciation($classeCompetence);
+        $schoolId = (int) $classeCompetence->classe->school_id;
+
+        $eleveIdsParMatricule = $classeCompetence->classe->eleves()
+            ->whereNotNull('matricule')->pluck('id', 'matricule')
+            ->mapWithKeys(fn ($id, $matricule) => [self::normaliser((string) $matricule) => $id]);
+
+        $appreciationsParLabel = $maternelle
+            ? Appreciation::forSchool($schoolId)->get()->mapWithKeys(fn (Appreciation $a) => [self::normaliser($a->label_fr) => $a->id])
+            : collect();
+
+        $import = new NotePrimaireImport(
+            $eleveIdsParMatricule, $composantes, $sequences, $maternelle,
+            $appreciationsParLabel, $classeCompetence->repartitionVolets(),
+        );
+
+        return $this->transaction(function () use ($import, $file, $user, $classeCompetence, $sequences, $confirmerRemplacement, $maternelle) {
+            if ($user) {
+                foreach ($sequences as $sequence) {
+                    Sequence::with('trimestre.anneeScolaire')->lockForUpdate()->findOrFail($sequence->id)
+                        ->verifierSaisieNotes($user, $classeCompetence->classe->school_id);
+                }
+            }
+
+            Excel::import($import, $file);
+
+            $existantes = Note::where('classe_competence_id', $classeCompetence->id)
+                ->whereIn('sequence_id', $sequences->pluck('id'))
+                ->get()->keyBy(fn (Note $n) => "{$n->eleve_id}:{$n->sequence_id}:{$n->composante}");
+            $noms = Eleve::whereIn('id', collect($import->lignes)->pluck('eleve_id')->unique())->pluck('nom_complet', 'id');
+
+            $conflits = $this->detecterConflits(
+                $import->lignes,
+                $existantes,
+                fn (array $l) => "{$l['eleve_id']}:{$l['sequence_id']}:{$l['composante']}",
+                fn (array $l, Note $existante) => $maternelle
+                    ? ($existante->appreciation_id !== null && $existante->appreciation_id !== ($l['appreciation_id'] ?? null))
+                    : ($existante->valeur !== null && (float) $existante->valeur !== ($l['valeur'] ?? null)),
+                fn (array $l, Note $existante) => [
+                    'eleve_id' => $l['eleve_id'],
+                    'nom_complet' => $noms->get($l['eleve_id']),
+                    'composante' => self::LIBELLES_COMPOSANTES[$l['composante']] ?? $l['composante'],
+                    'valeur_actuelle' => $maternelle ? $existante->appreciation_id : (float) $existante->valeur,
+                ],
+            );
+
+            if ($conflits !== [] && ! $confirmerRemplacement) {
+                return [
+                    'imported' => 0, 'failed' => count($import->erreurs), 'errors' => $import->erreurs,
+                    'confirmation_requise' => true, 'conflits' => $conflits,
+                ];
+            }
+
+            $personnelId = $user?->personnel?->id;
+            $imported = 0;
+
+            foreach ($import->lignes as $ligne) {
+                $attributs = $maternelle
+                    ? ['appreciation_id' => $ligne['appreciation_id'], 'valeur' => null, 'saisi_par' => $personnelId]
+                    : ['valeur' => $ligne['valeur'], 'saisi_par' => $personnelId];
+
+                Note::updateOrCreate([
+                    'eleve_id' => $ligne['eleve_id'], 'classe_competence_id' => $classeCompetence->id,
+                    'sequence_id' => $ligne['sequence_id'], 'composante' => $ligne['composante'],
+                ], $attributs);
+                $imported++;
+            }
+
+            return ['imported' => $imported, 'failed' => count($import->erreurs), 'errors' => $import->erreurs, 'confirmation_requise' => false, 'conflits' => []];
+        });
+    }
+
+    /** Minuscule + accents retirés, pour un rapprochement insensible à la casse et aux accents (matricule, libellé d'appréciation). */
+    public static function normaliser(string $valeur): string
+    {
+        return mb_strtolower(trim(Str::ascii($valeur)));
+    }
+
     public function parAppreciation(ClasseCompetence $classeCompetence): bool
     {
         return (bool) $classeCompetence->classe?->school?->estMaternelle();

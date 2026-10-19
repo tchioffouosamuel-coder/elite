@@ -129,6 +129,37 @@ class ClasseMatiereController extends Controller
     }
 
     /**
+     * Même chose que {@see mesAffectations()}, mais pour UN agent précis
+     * choisi par la direction — point d'entrée de l'écran « Import/export par
+     * enseignant », réservé à `pedagogie.suivi_saisies` (cf. route).
+     */
+    public function affectationsDe(int $personnelId): JsonResponse
+    {
+        $personnel = Personnel::forSchool(Tenant::schoolIds())->findOrFail($personnelId);
+
+        $affectations = ClasseMatiere::forSchool(Tenant::schoolIds())
+            ->where('statut', 'actif')
+            ->where(fn ($q) => $q
+                ->where('personnel_id', $personnel->id)
+                ->orWhereHas('classe', fn ($c) => $c->where('titulaire_id', $personnel->id)))
+            ->with(['classe', 'matiere'])
+            ->get();
+
+        $sequenceActive = Sequence::whereHas(
+            'trimestre',
+            fn ($q) => $q->where('is_active', true)->whereHas('anneeScolaire', fn ($aq) => $aq->whereIn('school_id', Tenant::schoolIds()))
+        )->first();
+
+        return ApiResponse::success($affectations->map(fn (ClasseMatiere $cm) => [
+            'classe_matiere_id' => $cm->id,
+            'classe_id' => $cm->classe->id,
+            'classe' => $cm->classe->nom,
+            'matiere' => $cm->matiere->nom,
+            'taux_remplissage' => $sequenceActive ? $this->notes->tauxRemplissage($cm, $sequenceActive->id) : null,
+        ])->values());
+    }
+
+    /**
      * Duplique une ou plusieurs affectations (matière, enseignant, coefficient,
      * quota horaire) vers une ou plusieurs autres classes — évite de ressaisir
      * à la main la même configuration classe par classe. Une matière déjà

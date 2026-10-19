@@ -10,6 +10,7 @@ use App\Models\EmploiDuTemps;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\Personnel;
+use App\Models\ProgressionItem;
 use App\Models\School;
 use App\Models\Seance;
 use App\Models\Trimestre;
@@ -163,6 +164,10 @@ class AppelVerrouilleSuperAdminTest extends TestCase
 
     public function test_le_super_admin_peut_declarer_ma_journee_sur_une_seance_verrouillee(): void
     {
+        $lecon = ProgressionItem::create([
+            'classe_matiere_id' => $this->classeMatiere->id,
+            'type' => 'lecon', 'titre' => 'Leçon effectuée',
+        ]);
         $reponse = $this->actingAs($this->superAdmin, 'sanctum')
             ->getJson("/api/v1/ma-journee/{$this->classeMatiere->id}")
             ->assertOk();
@@ -170,7 +175,7 @@ class AppelVerrouilleSuperAdminTest extends TestCase
 
         $this->actingAs($this->superAdmin, 'sanctum')
             ->postJson("/api/v1/ma-journee/{$this->classeMatiere->id}", [
-                'lecons' => [],
+                'lecons' => [$lecon->id],
                 'appel' => [],
             ])
             ->assertOk();

@@ -6,6 +6,7 @@ use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ClasseMatiere;
 use App\Models\EmploiDuTemps;
+use App\Models\Eleve;
 use App\Models\FonctionReferentiel;
 use App\Models\Matiere;
 use App\Models\NotificationInterne;
@@ -249,12 +250,58 @@ class MaJourneeValidationLeconTest extends TestCase
         $this->assertStringContainsString('a créé la leçon', $seance->observations);
     }
 
-    public function test_creation_sans_cocher_faite_ne_valide_pas_la_lecon(): void
+    public function test_creation_sans_cocher_faite_refuse_la_validation_et_annule_la_creation(): void
     {
-        $this->enregistrerActions([$this->action('creer', -1, ['titre' => 'À préparer'])])->assertOk();
-        $lecon = ProgressionItem::where('titre', 'À préparer')->sole();
-        $this->assertNull($lecon->date_realisee);
-        $this->assertFalse($lecon->estTraitee());
+        $this->enregistrerActions([$this->action('creer', -1, ['titre' => 'À préparer'])])
+            ->assertUnprocessable()->assertJsonValidationErrors('lecons');
+        $this->assertDatabaseMissing('progression_items', ['titre' => 'À préparer']);
+        $this->assertSame('prevue', Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole()->statut);
+    }
+
+    public function test_un_cours_sans_lecon_faite_est_refuse_meme_avec_un_contenu_libre(): void
+    {
+        $this->enregistrerActions([], [], ['contenu' => 'Travail effectué', 'observations' => 'Cours terminé'])
+            ->assertUnprocessable()->assertJsonValidationErrors('lecons');
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole();
+        $this->assertSame('prevue', $seance->statut);
+        $this->assertNull($seance->appel_verrouille_le);
+        $this->assertSame(0, $seance->lecons()->count());
+    }
+
+    public function test_un_identifiant_invalide_ne_compte_pas_comme_lecon_faite(): void
+    {
+        $this->valider($this->prof, [999999])->assertUnprocessable()->assertJsonValidationErrors('lecons');
+    }
+
+    public function test_l_appel_seul_ne_permet_pas_a_l_enseignant_de_valider_sans_lecon(): void
+    {
+        $seance = app(\App\Services\MaJourneeService::class)->seanceDuJour($this->classeMatiere, now()->toDateString());
+        $eleve = Eleve::create([
+            'school_id' => $this->school->id, 'classe_id' => $this->classeMatiere->classe_id,
+            'nom_complet' => 'Élève test', 'sexe' => 'M', 'statut' => 'actif',
+        ]);
+        $this->actingAs($this->prof, 'sanctum')->postJson("/api/v1/seances/{$seance->id}/appel", [
+            'lignes' => [['eleve_id' => $eleve->id, 'statut' => 'present']],
+            'qr_token' => 'TOKEN-SALLE-5EA',
+        ])->assertUnprocessable()->assertJsonValidationErrors('lecons');
+        $this->assertSame('prevue', $seance->refresh()->statut);
+        $this->assertSame(0, $seance->presences()->count());
+    }
+
+    public function test_la_derniere_lecon_faite_ne_peut_pas_etre_decochee_a_la_validation(): void
+    {
+        $this->valider($this->prof, [$this->lecons[0]->id])->assertOk();
+        $this->valider($this->prof, [])->assertUnprocessable()->assertJsonValidationErrors('lecons');
+        $seance = Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole();
+        $this->assertSame([$this->lecons[0]->id], $seance->lecons()->pluck('progression_items.id')->all());
+    }
+
+    public function test_un_programme_vide_peut_etre_complete_et_valide_en_une_fois(): void
+    {
+        ProgressionItem::where('classe_matiere_id', $this->classeMatiere->id)->delete();
+        $this->enregistrerActions([$this->action('creer', -1, ['titre' => 'Première leçon'])], [-1])
+            ->assertOk()->assertJsonPath('data.lecons.0.faite_aujourdhui', true);
+        $this->assertSame(1, Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole()->lecons()->count());
     }
 
     public function test_modification_preserve_la_date_planifiee_et_trace_le_changement(): void
@@ -287,7 +334,7 @@ class MaJourneeValidationLeconTest extends TestCase
     public function test_suppression_tracee_et_refusee_pour_une_lecon_deja_traitee(): void
     {
         $lecon = $this->lecons[0];
-        $this->enregistrerActions([$this->action('supprimer', $lecon->id)])->assertOk();
+        $this->enregistrerActions([$this->action('supprimer', $lecon->id)], [$this->lecons[1]->id])->assertOk();
         $this->assertDatabaseMissing('progression_items', ['id' => $lecon->id]);
         $this->assertStringContainsString('a supprimé la leçon', Seance::where('classe_matiere_id', $this->classeMatiere->id)->sole()->observations);
         $this->valider($this->prof, [$this->lecons[1]->id])->assertOk();
@@ -300,7 +347,7 @@ class MaJourneeValidationLeconTest extends TestCase
         $action = $this->action('creer', -1, ['titre' => 'Nouvelle', 'parent_id' => 99999, 'type' => 'module']);
         $this->enregistrerActions([$action], [], ['qr_token' => null])->assertForbidden();
         $this->assertDatabaseMissing('progression_items', ['titre' => 'Nouvelle']);
-        $this->enregistrerActions([$action])->assertOk();
+        $this->enregistrerActions([$action], [-1])->assertOk();
         $lecon = ProgressionItem::where('titre', 'Nouvelle')->sole();
         $this->assertSame('lecon', $lecon->type);
         $this->assertNull($lecon->parent_id);

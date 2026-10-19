@@ -31,13 +31,7 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
   const estSecondaire = estSecondaireHelper(classe.school?.type)
 
   const estEnseignant = user?.est_enseignant ?? false
-  // `discipline.view` n'est qu'un privilège global : au secondaire, la
-  // discipline d'UNE classe reste réservée à son surveillant général — un
-  // enseignant qui n'occupe pas cette fonction sur cette classe précise n'a
-  // rien à y faire, même s'il enseigne dans la classe.
-  const estSurveillantGeneralDeClasse =
-    user?.attributions?.some((a) => a.code === 'surveillant_general' && a.classes.includes(classeId)) ?? false
-  const peutVoirDiscipline = can('discipline.view') && (!estEnseignant || !estSecondaire || estSurveillantGeneralDeClasse)
+  const peutVoirDiscipline = can('discipline.view') && !estEnseignant
 
   const tabs = [
     can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },

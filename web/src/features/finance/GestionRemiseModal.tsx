@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '@/shared/ui/Modal'
 import { Button } from '@/shared/ui/Button'
 import { Input, MontantInput } from '@/shared/ui/Field'
-import { Spinner } from '@/shared/ui/Feedback'
+import { ErrorState, Spinner } from '@/shared/ui/Feedback'
+import { useAuthStore } from '@/shared/store/authStore'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { creerRemise, fetchRemises, modifierRemise, supprimerRemise, francs, type RemiseIndividuelle } from '@/features/finance/api'
 import type { ApiError } from '@/shared/types/api'
@@ -16,10 +17,12 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
   onChange: () => void
 }) {
   const queryClient = useQueryClient()
+  const can = useAuthStore((s) => s.can)
   const [edition, setEdition] = useState<RemiseIndividuelle | 'nouvelle' | null>(null)
   const [montant, setMontant] = useState<number | null>(null)
   const [motif, setMotif] = useState('')
-  const { data: remises, isLoading } = useQuery({ queryKey: ['remises', eleveId], queryFn: () => fetchRemises(eleveId) })
+  const [submitting, setSubmitting] = useState(false)
+  const { data: remises, isLoading, isError } = useQuery({ queryKey: ['remises', eleveId], queryFn: () => fetchRemises(eleveId) })
 
   const rafraichir = () => {
     queryClient.invalidateQueries({ queryKey: ['remises', eleveId] })
@@ -40,7 +43,8 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
   }
 
   const enregistrer = async () => {
-    if (!edition || !montant) return
+    if (!edition || !montant || montant < 1 || submitting) return
+    setSubmitting(true)
     try {
       if (edition === 'nouvelle') {
         await creerRemise(eleveId, { montant, motif: motif || undefined })
@@ -53,6 +57,8 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
       rafraichir()
     } catch (e) {
       erreur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -63,18 +69,21 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
       action: 'Supprimer',
     })
     if (!ok) return
+    setSubmitting(true)
     try {
       await supprimerRemise(remise.id)
       succes('Remise supprimée.')
       rafraichir()
     } catch (e) {
       erreur((e as ApiError).message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
     <Modal title={`Remises — ${eleveNom}`} onClose={onClose}>
-      {isLoading ? <Spinner /> : (
+      {isLoading ? <Spinner /> : isError ? <ErrorState /> : (
         <div className="flex flex-col gap-3">
           {remises?.length === 0 && <p className="text-sm text-navy-400">Aucune remise.</p>}
           {remises?.map((remise) => (
@@ -84,12 +93,16 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
                 <div className="truncate text-xs text-navy-400">{remise.annee_scolaire ?? 'Année active'}{remise.motif ? ` · ${remise.motif}` : ''}</div>
               </div>
               <div className="flex flex-none gap-1">
-                <button type="button" title="Modifier la remise" onClick={() => ouvrirEdition(remise)} className="rounded-lg p-2 text-navy-400 hover:bg-cream-100 hover:text-navy-800">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button type="button" title="Supprimer la remise" onClick={() => retirer(remise)} className="rounded-lg p-2 text-navy-300 hover:bg-red-50 hover:text-red-500">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {can('remises.update') && (
+                  <button type="button" title="Modifier la remise" disabled={submitting} onClick={() => ouvrirEdition(remise)} className="rounded-lg p-2 text-navy-400 hover:bg-cream-100 hover:text-navy-800">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {can('remises.delete') && (
+                  <button type="button" title="Supprimer la remise" disabled={submitting} onClick={() => retirer(remise)} className="rounded-lg p-2 text-navy-300 hover:bg-red-50 hover:text-red-500">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -99,14 +112,14 @@ export function GestionRemiseModal({ eleveId, eleveNom, onClose, onChange }: {
               <MontantInput label="Montant de la remise (F CFA)" value={montant} onChange={setMontant} />
               <Input label="Motif (optionnel)" value={motif} onChange={(e) => setMotif(e.target.value)} />
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setEdition(null)}>Annuler</Button>
-                <Button size="sm" onClick={enregistrer} disabled={!montant}>Enregistrer</Button>
+                <Button size="sm" variant="secondary" disabled={submitting} onClick={() => setEdition(null)}>Annuler</Button>
+                <Button size="sm" onClick={enregistrer} disabled={!montant || montant < 1 || submitting}>Enregistrer</Button>
               </div>
             </div>
           )}
 
-          {!edition && (
-            <Button size="sm" variant="secondary" onClick={ouvrirCreation}>
+          {!edition && can('remises.create') && (
+            <Button size="sm" variant="secondary" disabled={submitting} onClick={ouvrirCreation}>
               <Plus className="h-3.5 w-3.5" />
               Accorder une remise
             </Button>

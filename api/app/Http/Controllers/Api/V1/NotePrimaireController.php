@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\NotePrimaireExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BulkSaveNotesPrimaireRequest;
@@ -12,6 +13,9 @@ use App\Services\NotePrimaireService;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Saisie des notes au primaire et en maternelle : la grille couvre tout le
@@ -87,6 +91,96 @@ class NotePrimaireController extends Controller
         $count = $this->service->sauvegarderEnLot($classeCompetence, $request->input('notes'), $request->user());
 
         return ApiResponse::success(['saved' => $count], "{$count} note(s) enregistrée(s).");
+    }
+
+    /** Export des notes d'une compétence pour tout le trimestre — colonnes alignées avec import(). */
+    public function export(Request $request, int $classeCompetenceId): BinaryFileResponse
+    {
+        $classeCompetence = ClasseCompetence::forSchool(Tenant::schoolIds())
+            ->with(['classe.school', 'competence'])->findOrFail($classeCompetenceId);
+
+        if (! $this->service->peutSaisir($request->user(), $classeCompetence)) {
+            abort(403, "Vous n'êtes pas le titulaire de cette classe.");
+        }
+
+        $trimestre = $this->resoudreTrimestre($request, $classeCompetence->classe->school_id);
+        abort_unless($trimestre, 422, 'Aucun trimestre actif pour cet établissement.');
+
+        $nomFichier = 'notes-'.Str::slug($classeCompetence->classe->nom.'-'.$classeCompetence->competence->label_fr).'.xlsx';
+
+        return Excel::download(
+            new NotePrimaireExport($this->service->lignesExport($classeCompetence, $trimestre), $this->entetesCellules($classeCompetence, $trimestre)),
+            $nomFichier,
+        );
+    }
+
+    /** Modèle vide (matricule + nom déjà remplis, cellules à saisir) à téléverser via import(). */
+    public function modele(Request $request, int $classeCompetenceId): BinaryFileResponse
+    {
+        $classeCompetence = ClasseCompetence::forSchool(Tenant::schoolIds())
+            ->with(['classe.school', 'competence'])->findOrFail($classeCompetenceId);
+
+        if (! $this->service->peutSaisir($request->user(), $classeCompetence)) {
+            abort(403, "Vous n'êtes pas le titulaire de cette classe.");
+        }
+
+        $trimestre = $this->resoudreTrimestre($request, $classeCompetence->classe->school_id);
+        abort_unless($trimestre, 422, 'Aucun trimestre actif pour cet établissement.');
+
+        $nomFichier = 'modele-notes-'.Str::slug($classeCompetence->classe->nom.'-'.$classeCompetence->competence->label_fr).'.xlsx';
+
+        return Excel::download(
+            new NotePrimaireExport($this->service->lignesExport($classeCompetence, $trimestre, pourModele: true), $this->entetesCellules($classeCompetence, $trimestre)),
+            $nomFichier,
+        );
+    }
+
+    public function import(Request $request, int $classeCompetenceId): JsonResponse
+    {
+        $classeCompetence = ClasseCompetence::forSchool(Tenant::schoolIds())
+            ->with(['classe.school', 'competence'])->findOrFail($classeCompetenceId);
+
+        if (! $this->service->peutSaisir($request->user(), $classeCompetence)) {
+            return ApiResponse::forbidden("Vous n'êtes pas le titulaire de cette classe.");
+        }
+
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $trimestre = $this->resoudreTrimestre($request, $classeCompetence->classe->school_id);
+        if (! $trimestre) {
+            return ApiResponse::error('Aucun trimestre actif pour cet établissement.', 422);
+        }
+
+        $result = $this->service->importerDepuisExcel(
+            $classeCompetence, $trimestre, $request->user(), $request->file('file'),
+            $request->boolean('confirmer_remplacement'),
+        );
+
+        if ($result['confirmation_requise']) {
+            return ApiResponse::error(
+                'Cet import remplacerait des notes déjà saisies : ajoutez confirmer_remplacement=1 pour confirmer.',
+                409,
+                ['conflits' => $result['conflits'], 'failed' => $result['failed'], 'errors' => $result['errors']],
+            );
+        }
+
+        return ApiResponse::success($result, "{$result['imported']} note(s) importée(s).");
+    }
+
+    /** @return list<string> noms de colonnes « {Volet} S{ordre} », dans l'ordre volet puis séquence. */
+    private function entetesCellules(ClasseCompetence $classeCompetence, Trimestre $trimestre): array
+    {
+        $composantes = $classeCompetence->voletsNotes();
+        $sequences = $trimestre->sequencesRetenues()->values();
+
+        $entetes = [];
+        foreach ($composantes as $composante) {
+            foreach ($sequences as $i => $sequence) {
+                $entetes[] = NotePrimaireService::colonne($composante, $i + 1);
+            }
+        }
+
+        return $entetes;
     }
 
     /**
