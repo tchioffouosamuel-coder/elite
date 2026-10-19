@@ -6,6 +6,7 @@ use App\Models\School;
 use App\Models\Setting;
 use App\Support\Pdf\Concerns\RenduDocument;
 use Carbon\CarbonInterface;
+use Endroid\QrCode\Builder\Builder;
 use Illuminate\Support\Carbon;
 use Mpdf\Output\Destination;
 
@@ -27,6 +28,13 @@ class GabaritRecuTicket
     use RenduDocument;
 
     private const FORMAT = [80, 200];
+
+    /**
+     * Préfixe d'empreinte du cache de rendus : à incrémenter dès qu'une
+     * modification du gabarit change le PDF sans changer le HTML (marges,
+     * format, filigrane), pour que les tickets déjà en cache soient recomposés.
+     */
+    private const EMPREINTE_VERSION = 'ticket-v1';
 
     /** Largeur du filigrane : tient dans les 80 mm de haut du ticket couché. */
     private const FILIGRANE_LARGEUR = 55;
@@ -57,6 +65,27 @@ class GabaritRecuTicket
      */
     public function rendre(School $school, array $recu): string
     {
+        $html = $this->html($school, $recu);
+
+        if (! config('recu.cache', true)) {
+            return $this->composer($school, $recu['numero'], $html);
+        }
+
+        // Le HTML détermine entièrement le ticket : à empreinte égale, le même
+        // PDF. Réimprimer un reçu revient donc à relire un fichier plutôt qu'à
+        // refaire composer la page à mPDF — l'essentiel des quelque 300 ms que
+        // coûte un ticket part dans l'ajustement automatique de ses blocs
+        // `position:absolute`, qu'on ne peut pas accélérer sans en changer la
+        // mise en page, validée telle quelle avec l'établissement.
+        return CacheRendus::memoriser(
+            self::EMPREINTE_VERSION.'|'.$this->signatureFiligrane($school).'|'.$html,
+            fn () => $this->composer($school, $recu['numero'], $html),
+        );
+    }
+
+    /** Composition effective par mPDF — l'étape coûteuse que le cache évite de refaire. */
+    private function composer(School $school, string $numero, string $html): string
+    {
         $mpdf = MpdfFactory::make([
             'format' => self::FORMAT,
             'orientation' => 'L',
@@ -66,10 +95,16 @@ class GabaritRecuTicket
             'margin_bottom' => 4,
         ], $school);
         MpdfFactory::appliquerFiligrane($mpdf, $school, self::FILIGRANE_LARGEUR);
-        $mpdf->SetTitle('Reçu '.$recu['numero']);
+        $mpdf->SetTitle('Reçu '.$numero);
+        $mpdf->WriteHTML($html);
 
-        $mpdf->WriteHTML(
-            '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'.$this->styles().'</style></head><body>'
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /** @param  array<string, mixed>  $recu */
+    private function html(School $school, array $recu): string
+    {
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'.$this->styles().'</style></head><body>'
             // Le trait et le corps sont posés en absolu ; seul le tableau des
             // historiques reste dans le flux : mPDF ne sait faire pivoter qu'un
             // tableau de premier niveau, qu'il place alors en haut à gauche.
@@ -83,10 +118,19 @@ class GabaritRecuTicket
             .$this->bloc(77, 100, 33, $this->corps($recu))
             .$this->bloc(176, 20, 51, $this->zoneCachet($recu))
             .$this->historiques($recu)
-            .'</body></html>'
-        );
+            .'</body></html>';
+    }
 
-        return $mpdf->Output('', Destination::STRING_RETURN);
+    /**
+     * Le filigrane est le seul élément du ticket qui n'apparaisse pas dans le
+     * HTML : il entre donc dans l'empreinte par son chemin et sa date, sans
+     * quoi un logo remplacé continuerait d'être servi depuis le cache.
+     */
+    private function signatureFiligrane(School $school): string
+    {
+        $logo = $school->logo_path ? storage_path('app/public/'.ltrim($school->logo_path, '/')) : null;
+
+        return $logo !== null && is_file($logo) ? $logo.':'.filemtime($logo) : '';
     }
 
     private function styles(): string
@@ -294,6 +338,27 @@ class GabaritRecuTicket
         }
 
         return array_map(fn ($l) => [$l[0], self::montant($l[1])], $affichees);
+    }
+
+    /**
+     * Code QR du ticket, en image encodée dans l'URL — vers la page publique
+     * de vérification d'authenticité du reçu.
+     *
+     * Mémorisé : le lien d'un reçu ne change jamais, et l'encodage coûte à lui
+     * seul une vingtaine de millisecondes, payées jusqu'ici à chaque
+     * réimpression. Un échec d'encodage n'empêche pas d'imprimer le reçu : le
+     * QR est un complément de vérification, pas une mention obligatoire.
+     */
+    public static function qr(string $lien): ?string
+    {
+        try {
+            return CacheRendus::memoriser(
+                'qr-v1|'.$lien,
+                fn () => (new Builder)->build(data: $lien, size: 200, margin: 4)->getDataUri(),
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public static function montant(int $valeur): string

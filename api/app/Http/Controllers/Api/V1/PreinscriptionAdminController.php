@@ -24,6 +24,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use App\Support\Pdf\RecuPreinscriptionGenerator;
+use App\Support\Pdf\ReponsePdf;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** File d'attente des préinscriptions déposées par les parents, à valider ou rejeter. */
@@ -219,7 +220,7 @@ class PreinscriptionAdminController extends Controller
         return ApiResponse::created($this->resume($p->load('eleve:id,nom_complet,matricule')), 'Préinscription enregistrée et validée.');
     }
 
-    public function recu(int $id): Response
+    public function recu(Request $request, int $id): Response
     {
         $preinscription = Preinscription::forSchool(Tenant::schoolIds())->with(['versement', 'eleve'])->findOrFail($id);
 
@@ -229,10 +230,11 @@ class PreinscriptionAdminController extends Controller
             ? BusVersement::forSchool(Tenant::schoolIds())->with('affectation.trajet')->findOrFail($preinscription->bus_versement_id)
             : null;
 
-        return response((new RecuPreinscriptionGenerator)->build($preinscription->versement, $busVersement), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-preinscription-' . $id . '.pdf"',
-        ]);
+        return ReponsePdf::enLigne(
+            $request,
+            (new RecuPreinscriptionGenerator)->build($preinscription->versement, $busVersement),
+            'recu-preinscription-' . $id . '.pdf',
+        );
     }
 
     private function eleveIdPreinscrit(int $schoolId, array $donneesEleve): ?int

@@ -1,6 +1,6 @@
 import { http } from "@/shared/lib/http";
 import { useDocumentPreviewStore } from "@/shared/store/documentPreviewStore";
-import { imprimerPdf } from "@/shared/lib/pdf";
+import { imprimerPdf, prechargerPdf } from "@/shared/lib/pdf";
 import { erreur } from "@/shared/lib/alertes";
 import type { ApiError } from "@/shared/types/api";
 
@@ -99,6 +99,9 @@ export async function ouvrirDocument(
   options: OptionsDocument = {},
 ): Promise<void> {
   return presenter(async () => {
+    // Le lecteur se prépare pendant que le document arrive, au lieu
+    // d'attendre son arrivée pour commencer à se charger.
+    prechargerPdf();
     const response = await http.get(url, {
       params,
       headers,
@@ -122,6 +125,7 @@ export async function imprimerDocument(
   options: OptionsDocument = {},
 ): Promise<void> {
   return presenter(async () => {
+    prechargerPdf();
     const response = await http.get(url, {
       params,
       headers,

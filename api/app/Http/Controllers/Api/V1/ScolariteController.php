@@ -13,6 +13,7 @@ use App\Models\Versement;
 use App\Services\Notifications\NotificationPaiementService;
 use App\Services\ScolariteService;
 use App\Support\Pdf\RecuVersementGenerator;
+use App\Support\Pdf\ReponsePdf;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -191,14 +192,15 @@ class ScolariteController extends Controller
     }
 
     /** Reçu au format du ticket de caisse (rouleau 80 mm). */
-    public function recu(int $versementId): Response
+    public function recu(Request $request, int $versementId): Response
     {
         $versement = Versement::forSchool(Tenant::schoolIds())->findOrFail($versementId);
 
-        return response((new RecuVersementGenerator)->build($versement), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-'.Str::slug($versement->numero_recu).'.pdf"',
-        ]);
+        return ReponsePdf::enLigne(
+            $request,
+            (new RecuVersementGenerator)->build($versement),
+            'recu-'.Str::slug($versement->numero_recu).'.pdf',
+        );
     }
 
     private function dossierDuTenant(int $id): DossierScolarite

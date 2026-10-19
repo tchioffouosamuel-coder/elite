@@ -5,7 +5,6 @@ namespace App\Support\Pdf;
 use App\Models\DossierScolarite;
 use App\Models\Versement;
 use App\Support\SignatureVersement;
-use Endroid\QrCode\Builder\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -120,10 +119,6 @@ class RecuVersementGenerator
     /** Code QR vers la page publique de vérification d'authenticité (cf. SignatureVersement). */
     private function qrCode(Versement $versement): ?string
     {
-        try {
-            return (new Builder)->build(data: SignatureVersement::lienVerification($versement->id), size: 200, margin: 4)->getDataUri();
-        } catch (\Throwable) {
-            return null;
-        }
+        return GabaritRecuTicket::qr(SignatureVersement::lienVerification($versement->id));
     }
 }

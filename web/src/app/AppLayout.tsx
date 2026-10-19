@@ -78,6 +78,7 @@ import { logout } from '@/features/auth/api'
 import { NotificationBell } from './NotificationBell'
 import { ActionHistoryButtons } from '@/shared/ui/ActionHistory'
 import { DesktopStatusIndicator } from '@/features/desktop/DesktopStatusIndicator'
+import { prechargerPdf } from '@/shared/lib/pdf'
 
 type TypeEcole = 'maternelle' | 'primaire' | 'secondaire'
 
@@ -572,6 +573,20 @@ export function AppLayout() {
   useEffect(() => setMenuOuvert(false), [location.pathname])
 
   useEffect(() => setGroupeTopbarOuvert(null), [location.pathname])
+
+  // Le lecteur PDF (pdf.js et son worker, près de deux mégaoctets) se met en
+  // place pendant que l'utilisateur lit son écran d'accueil : au comptoir, le
+  // premier reçu de la journée s'affiche alors sans ce délai d'amorçage.
+  useEffect(() => {
+    // `requestIdleCallback` manque encore à Safari : repli sur un délai.
+    const inactif: typeof window.requestIdleCallback | undefined = window.requestIdleCallback
+    if (inactif) {
+      const id = inactif(() => prechargerPdf(), { timeout: 4000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = window.setTimeout(() => prechargerPdf(), 2000)
+    return () => window.clearTimeout(id)
+  }, [])
 
   useEffect(() => {
     const groupeActif = navGroups.find((group) =>

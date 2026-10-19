@@ -85,8 +85,11 @@ function ApercuDocument({ document: blob, titre, close }: { document: Blob; titr
   }, [close])
 
   const imprimer = async () => {
+    if (!documentPdf) return
     setImpression(true)
-    try { await imprimerPdf(blob) }
+    // Le document affiché, pas le blob : le relire aurait demandé une
+    // seconde analyse complète du PDF juste pour l'imprimer.
+    try { await imprimerPdf(documentPdf) }
     catch (error) { setErreur((error as Error).message) }
     finally { setImpression(false) }
   }

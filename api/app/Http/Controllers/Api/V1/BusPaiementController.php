@@ -9,6 +9,7 @@ use App\Models\BusVersement;
 use App\Services\BusPaiementService;
 use App\Services\Notifications\NotificationPaiementService;
 use App\Support\Pdf\RecuVersementBusGenerator;
+use App\Support\Pdf\ReponsePdf;
 use App\Support\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,14 +114,15 @@ class BusPaiementController extends Controller
         return ApiResponse::success(null, "Reçu {$versement->numero_recu} annulé.");
     }
 
-    public function recu(int $versementId): Response
+    public function recu(Request $request, int $versementId): Response
     {
         $versement = $this->versement($versementId);
 
-        return response((new RecuVersementBusGenerator)->build($versement), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="recu-bus-'.Str::slug($versement->numero_recu).'.pdf"',
-        ]);
+        return ReponsePdf::enLigne(
+            $request,
+            (new RecuVersementBusGenerator)->build($versement),
+            'recu-bus-'.Str::slug($versement->numero_recu).'.pdf',
+        );
     }
 
     /**

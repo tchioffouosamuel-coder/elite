@@ -6,7 +6,6 @@ use App\Models\BusVersement;
 use App\Models\Versement;
 use App\Support\SignatureVersement;
 use App\Support\SignatureVersementBus;
-use Endroid\QrCode\Builder\Builder;
 
 /**
  * Reçu remis à la préinscription, au format du ticket papier (cf.
@@ -68,14 +67,12 @@ class RecuPreinscriptionGenerator
     /** QR du versement de scolarité s'il y en a un, sinon de celui du transport. */
     private function qrCode(?Versement $scolarite, ?BusVersement $bus): ?string
     {
-        try {
-            $lien = $scolarite
-                ? SignatureVersement::lienVerification($scolarite->id)
-                : SignatureVersementBus::lienVerification($bus->id);
+        $lien = match (true) {
+            $scolarite !== null => SignatureVersement::lienVerification($scolarite->id),
+            $bus !== null => SignatureVersementBus::lienVerification($bus->id),
+            default => null,
+        };
 
-            return (new Builder)->build(data: $lien, size: 200, margin: 4)->getDataUri();
-        } catch (\Throwable) {
-            return null;
-        }
+        return $lien === null ? null : GabaritRecuTicket::qr($lien);
     }
 }

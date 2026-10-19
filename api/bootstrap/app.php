@@ -3,14 +3,15 @@
 use App\Console\Commands\AlerteAbsenceNonEnregistreeCommand;
 use App\Console\Commands\AlerteMoratoireExpireCommand;
 use App\Console\Commands\EnvoyerRapportHebdomadaireParents;
+use App\Console\Commands\PurgerCacheRendus;
 use App\Console\Commands\PurgerJournalAudit;
 use App\Console\Commands\RappelEcheancesCommand;
 use App\Helpers\ApiResponse;
-use App\Http\Middleware\EnregistrerDansOutboxLocale;
 use App\Http\Middleware\EnregistrerActionAnnulable;
+use App\Http\Middleware\EnregistrerDansOutboxLocale;
 use App\Http\Middleware\ExigerMotDePasseRenouvele;
-use App\Http\Middleware\JournaliserAudit;
 use App\Http\Middleware\Idempotence;
+use App\Http\Middleware\JournaliserAudit;
 use App\Http\Middleware\ScopeEtablissement;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\VerifierPermission;
@@ -56,6 +57,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // En pleine nuit : le journal d'audit grossit à chaque requête, ses
         // lignes au-delà de la durée de conservation sont purgées.
         $schedule->command(PurgerJournalAudit::class)->dailyAt('03:00');
+
+        // Dans la foulée : les reçus mis en cache que plus personne ne
+        // réimprime (cf. App\Support\Pdf\CacheRendus).
+        $schedule->command(PurgerCacheRendus::class)->dailyAt('03:10');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Render (comme tout hébergeur derrière un load balancer) termine le
@@ -150,7 +155,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * permanence plutôt que de retomber sur le rendu par défaut de
          * Laravel en local.
          */
-        $exceptions->render(function (\Throwable $e, Request $request) {
+        $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
             }

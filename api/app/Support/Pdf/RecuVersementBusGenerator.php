@@ -4,7 +4,6 @@ namespace App\Support\Pdf;
 
 use App\Models\BusVersement;
 use App\Support\SignatureVersementBus;
-use Endroid\QrCode\Builder\Builder;
 
 /**
  * Reçu du transport scolaire, au format du ticket papier (cf.
@@ -66,10 +65,6 @@ class RecuVersementBusGenerator
     /** Code QR vers la page publique de vérification d'authenticité (cf. SignatureVersementBus). */
     private function qrCode(BusVersement $versement): ?string
     {
-        try {
-            return (new Builder)->build(data: SignatureVersementBus::lienVerification($versement->id), size: 200, margin: 4)->getDataUri();
-        } catch (\Throwable) {
-            return null;
-        }
+        return GabaritRecuTicket::qr(SignatureVersementBus::lienVerification($versement->id));
     }
 }

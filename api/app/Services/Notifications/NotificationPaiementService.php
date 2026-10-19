@@ -37,6 +37,17 @@ class NotificationPaiementService
             return;
         }
 
+        // Après la réponse, pas pendant : l'envoi d'un SMS passe par un appel
+        // HTTP à l'opérateur (jusqu'à 15 s de délai d'attente, deux fois avec
+        // l'obtention du jeton). Le caissier attendait donc l'opérateur avant
+        // même de voir son reçu s'afficher — alors que, de l'aveu même de
+        // cette classe, aucun de ces envois ne conditionne l'encaissement.
+        defer(fn () => $this->envoyer($tuteur, $canaux, $schoolId, $titre, $message));
+    }
+
+    /** @param  list<string>  $canaux */
+    private function envoyer(Tuteur $tuteur, array $canaux, int $schoolId, string $titre, string $message): void
+    {
         if (in_array('sms', $canaux, true)) {
             $this->sms->envoyer($tuteur->telephone, $message);
         }
