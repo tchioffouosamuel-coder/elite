@@ -9,6 +9,8 @@ import { Button } from '@/shared/ui/Button'
 import { fetchClasses } from '@/features/classes/api'
 import { createEleve, updateEleve, type Eleve, type ElevePayload } from '@/features/eleves/api'
 import type { ApiError } from '@/shared/types/api'
+import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 
 export function EleveFormModal({
   eleve,
@@ -20,6 +22,8 @@ export function EleveFormModal({
   onCreated: () => void
 }) {
   const { t } = useTranslation()
+  const typeEcoleActive = useAuthStore((s) => s.activeSchool()?.type)
+  const typeEcole = eleve?.school?.type ?? typeEcoleActive
   const { data: classes } = useQuery({ queryKey: ['classes'], queryFn: () => fetchClasses() })
   const [serverError, setServerError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -79,7 +83,7 @@ export function EleveFormModal({
   }
 
   return (
-    <Modal title={eleve ? t('eleves.edit') : t('eleves.add')} onClose={onClose}>
+    <Modal title={termeApprenant(t, typeEcole, eleve ? 'edit' : 'enroll')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <Input
           label={t('eleves.nom_complet')}

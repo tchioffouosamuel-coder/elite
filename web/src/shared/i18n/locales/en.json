@@ -206,7 +206,7 @@
   },
   "situationClasses": {
     "title": "My classes' situation",
-    "subtitle": "Students to follow up on fees and students using school transport, without any amount.",
+    "subtitle": "Lists of {{learners}} to follow up on fees and those using school transport.",
     "insolvables": "Insolvent",
     "bus": "Transport",
     "student": "Student",
@@ -214,8 +214,8 @@
     "stop": "Destination / Stop",
     "aller": "Outbound",
     "retour": "Return",
-    "noInsolvables": "No insolvent student in your classes.",
-    "noBus": "No student in your classes uses the bus."
+    "noInsolvables": "No {{learners}} in your classes have unpaid fees.",
+    "noBus": "No {{learners}} in your classes use the bus."
   },
   "dashboard": {
     "attendance": {
@@ -544,6 +544,48 @@
       "revendications.view": "view complaints",
       "revendications.manage": "process complaints",
       "annonces.view": "view announcements"
+    }
+  },
+  "learnerTerms": {
+    "generic": {
+      "singular": "Learner",
+      "plural": "Learners",
+      "enroll": "Enroll a learner",
+      "edit": "Edit learner",
+      "empty": "No learner for this school.",
+      "enrolled": "Enrolled learners",
+      "averagePerClass": "Average learners per class",
+      "checked": "Learners checked"
+    },
+    "maternelle": {
+      "singular": "Kid",
+      "plural": "Kids",
+      "enroll": "Enroll a kid",
+      "edit": "Edit kid",
+      "empty": "No kid for this school.",
+      "enrolled": "Enrolled kids",
+      "averagePerClass": "Average kids per class",
+      "checked": "Kids checked"
+    },
+    "primaire": {
+      "singular": "Pupil",
+      "plural": "Pupils",
+      "enroll": "Enroll a pupil",
+      "edit": "Edit pupil",
+      "empty": "No pupil for this school.",
+      "enrolled": "Enrolled pupils",
+      "averagePerClass": "Average pupils per class",
+      "checked": "Pupils checked"
+    },
+    "secondaire": {
+      "singular": "Student",
+      "plural": "Students",
+      "enroll": "Enroll a student",
+      "edit": "Edit student",
+      "empty": "No student for this school.",
+      "enrolled": "Enrolled students",
+      "averagePerClass": "Average students per class",
+      "checked": "Students checked"
     }
   },
   "eleves": {

@@ -25,6 +25,8 @@ import { Input, Select, FieldWrapper } from '@/shared/ui/Field'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { succes, erreur, confirmerSuppression } from '@/shared/lib/alertes'
 import type { ApiError } from '@/shared/types/api'
+import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 
 interface MaterielFormValue {
   inventaire_article_id: number | ''
@@ -70,6 +72,7 @@ function formatMontant(montant: number, locale: string): string {
 
 export function VisiteInfirmerieFormPage() {
   const { t, i18n } = useTranslation()
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { id } = useParams<{ id: string }>()
@@ -303,7 +306,7 @@ export function VisiteInfirmerieFormPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr] lg:items-start">
         <Card className="p-5">
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <Select label={t('eleves.title')} {...register('eleve_id', { required: true })}>
+            <Select label={termeApprenant(t, typeEcole, 'plural')} {...register('eleve_id', { required: true })}>
               <option value="">—</option>
               {eleves?.items.map((e) => (
                 <option key={e.id} value={e.id}>

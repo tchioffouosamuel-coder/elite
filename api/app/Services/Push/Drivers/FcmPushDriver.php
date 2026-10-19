@@ -29,17 +29,31 @@ class FcmPushDriver implements PushDriver
 
         $envoyes = 0;
         $url = "https://fcm.googleapis.com/v1/projects/{$projet}/messages:send";
+        $reveilSilencieux = ($donnees['type'] ?? null) === 'sync';
 
         foreach ($jetons as $jeton) {
+            $chargeUtile = [
+                'token' => $jeton,
+                // FCM n'accepte que des chaînes dans `data` : un entier
+                // passé tel quel fait échouer tout le message.
+                'data' => array_map(fn ($v) => (string) $v, $donnees),
+                'android' => ['priority' => 'high'],
+            ];
+
+            if ($reveilSilencieux) {
+                $chargeUtile['apns'] = [
+                    'headers' => [
+                        'apns-push-type' => 'background',
+                        'apns-priority' => '5',
+                    ],
+                    'payload' => ['aps' => ['content-available' => 1]],
+                ];
+            } else {
+                $chargeUtile['notification'] = ['title' => $titre, 'body' => $message];
+            }
+
             $reponse = Http::withToken($acces)->post($url, [
-                'message' => [
-                    'token' => $jeton,
-                    'notification' => ['title' => $titre, 'body' => $message],
-                    // FCM n'accepte que des chaînes dans `data` : un entier
-                    // passé tel quel fait échouer tout le message.
-                    'data' => array_map(fn ($v) => (string) $v, $donnees),
-                    'android' => ['priority' => 'high'],
-                ],
+                'message' => $chargeUtile,
             ]);
 
             if ($reponse->successful()) {

@@ -5,6 +5,8 @@ import { CalendarCheck, UserX, ClipboardCheck } from 'lucide-react'
 import clsx from 'clsx'
 import { fetchAssiduite, PERIODES_ASSIDUITE, type PeriodeAssiduite } from '@/features/dashboard/api'
 import { Card } from '@/shared/ui/Card'
+import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 
 /**
  * Présence relevée à l'appel sur le mois, le trimestre ou l'année en cours —
@@ -14,6 +16,7 @@ import { Card } from '@/shared/ui/Card'
  */
 export function CarteAssiduite() {
   const { t } = useTranslation()
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const [periode, setPeriode] = useState<PeriodeAssiduite>('mois')
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard-assiduite', periode],
@@ -68,7 +71,7 @@ export function CarteAssiduite() {
         <div className="flex flex-col items-center gap-1 text-center">
           <ClipboardCheck className="h-5 w-5 text-navy-400" aria-hidden />
           <span className="text-2xl font-extrabold tabular-nums text-navy-800">{valeur(data?.pointages)}</span>
-          <span className="text-xs text-navy-500">{t('dashboard.attendance.checks')}</span>
+          <span className="text-xs text-navy-500">{termeApprenant(t, typeEcole, 'checked')}</span>
         </div>
       </div>
 

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { createSanction } from '@/features/discipline/api'
@@ -37,6 +39,7 @@ export function SanctionFormModal({
   onCreated: () => void
 }) {
   const { t } = useTranslation()
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const [serverError, setServerError] = useState<string | null>(null)
   // Inutile de charger tout l'effectif quand l'élève est déjà connu.
   const { data: eleves } = useQuery({
@@ -83,7 +86,7 @@ export function SanctionFormModal({
     <Modal title={t('discipline.add_sanction')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         {eleve ? (
-          <FieldWrapper label={t('eleves.title')}>
+          <FieldWrapper label={termeApprenant(t, typeEcole, 'plural')}>
             <p className="rounded-xl border border-navy-100 bg-cream-50 px-3.5 py-2.5 text-sm font-semibold text-navy-800">
               {eleve.nom_complet}
               {eleve.classe?.nom && <span className="font-normal text-navy-400"> — {eleve.classe.nom}</span>}
@@ -95,7 +98,7 @@ export function SanctionFormModal({
             </p>
           </FieldWrapper>
         ) : (
-          <Select label={t('eleves.title')} error={errors.eleve_id?.message} {...register('eleve_id', { required: true })}>
+          <Select label={termeApprenant(t, typeEcole, 'plural')} error={errors.eleve_id?.message} {...register('eleve_id', { required: true })}>
             <option value="">—</option>
             {eleves?.items.map((e) => (
               <option key={e.id} value={e.id}>

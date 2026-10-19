@@ -12,7 +12,7 @@ import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { CanauxNotificationField, type CanalNotification } from '@/shared/ui/CanauxNotificationField'
 import { confirmer, erreur, succes } from '@/shared/lib/alertes'
 import { imprimerDocument, ouvrirDocument } from '@/shared/lib/download'
-import { annulerVersement, creerRemise, encaisser, fetchDossier, francs, ventilerAutomatiquement, MODES, type DossierScolarite, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
+import { annulerVersement, creerRemise, encaisser, fetchDettesAnterieures, fetchDossier, fetchRemises, francs, ventilerAutomatiquement, MODES, type DossierScolarite, type LigneVentilation, type ModePaiement } from '@/features/finance/api'
 import { SectionMoratoires } from '@/features/finance/GestionInsolvableModal'
 import { GestionRemiseModal } from '@/features/finance/GestionRemiseModal'
 import { GestionDetteAnterieureModal } from '@/features/finance/GestionDetteAnterieureModal'
@@ -41,6 +41,10 @@ function formatDateHeure(iso: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR')
 }
 
 /**
@@ -117,6 +121,16 @@ export function EncaissementPage() {
   const montant = Number(watch('montant') || 0)
   const resteApres = (dossier?.reste_a_payer ?? 0) - montant
   const versements = (dossier?.versements ?? []).slice().sort((a, b) => new Date(b.date_versement + 'T' + (b.heure_versement ?? '00:00:00')).getTime() - new Date(a.date_versement + 'T' + (a.heure_versement ?? '00:00:00')).getTime())
+  const { data: remises, isLoading: remisesEnChargement, isError: erreurRemises } = useQuery({
+    queryKey: ['remises', dossier?.eleve.id],
+    queryFn: () => fetchRemises(dossier!.eleve.id),
+    enabled: !!dossier,
+  })
+  const { data: dettes, isLoading: dettesEnChargement, isError: erreurDettes } = useQuery({
+    queryKey: ['dettes-anterieures', dossier?.eleve.id],
+    queryFn: () => fetchDettesAnterieures(dossier!.eleve.id),
+    enabled: !!dossier,
+  })
 
   // La répartition suggérée suit le montant saisi tant que l'utilisateur n'a
   // pas encore touché aux champs — dès qu'il en modifie un, on ne l'écrase
@@ -356,6 +370,88 @@ export function EncaissementPage() {
               </div>
             </div>
           )}
+
+          <div className="rounded-xl border border-navy-100 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Historique des remises</span>
+              <span className="text-[0.6875rem] text-navy-400">
+                {remisesEnChargement ? 'Chargement…' : `${remises?.length ?? 0} remise${remises?.length === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            {erreurRemises ? (
+              <ErrorState />
+            ) : remisesEnChargement ? (
+              <Spinner />
+            ) : remises?.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[27.5rem] text-left text-xs">
+                  <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
+                    <tr>
+                      <th className="px-2 py-2">Date</th>
+                      <th className="px-2 py-2 text-right">Montant</th>
+                      <th className="px-2 py-2">Année scolaire</th>
+                      <th className="px-2 py-2">Motif</th>
+                      <th className="px-2 py-2">Accordée par</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100">
+                    {remises.map((r) => (
+                      <tr key={r.id} className="align-middle text-navy-700">
+                        <td className="whitespace-nowrap px-2 py-2">{r.created_at ? formatDate(r.created_at) : '—'}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums text-violet-600">{francs(r.montant)}</td>
+                        <td className="px-2 py-2">{r.annee_scolaire ?? 'Année active'}</td>
+                        <td className="px-2 py-2">{r.motif || '—'}</td>
+                        <td className="px-2 py-2">{r.accorde_par || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="py-2 text-xs text-navy-400">Aucune remise enregistrée.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-navy-100 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Historique des dettes antérieures</span>
+              <span className="text-[0.6875rem] text-navy-400">
+                {dettesEnChargement ? 'Chargement…' : `${dettes?.length ?? 0} dette${dettes?.length === 1 ? '' : 's'}`}
+              </span>
+            </div>
+            {erreurDettes ? (
+              <ErrorState />
+            ) : dettesEnChargement ? (
+              <Spinner />
+            ) : dettes?.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[27.5rem] text-left text-xs">
+                  <thead className="bg-cream-50 text-[0.625rem] font-semibold uppercase tracking-wide text-navy-400">
+                    <tr>
+                      <th className="px-2 py-2">Date</th>
+                      <th className="px-2 py-2 text-right">Montant</th>
+                      <th className="px-2 py-2">Motif</th>
+                      <th className="px-2 py-2">Situation</th>
+                      <th className="px-2 py-2">Enregistrée par</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100">
+                    {dettes.map((d) => (
+                      <tr key={d.id} className="align-middle text-navy-700">
+                        <td className="whitespace-nowrap px-2 py-2">{d.created_at ? formatDate(d.created_at) : '—'}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums text-red-500">{francs(d.montant)}</td>
+                        <td className="px-2 py-2">{d.motif || '—'}</td>
+                        <td className="px-2 py-2">{d.imputee ? 'Reprise dans le dossier' : 'À reprendre'}</td>
+                        <td className="px-2 py-2">{d.accorde_par || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="py-2 text-xs text-navy-400">Aucune dette antérieure enregistrée.</p>
+            )}
+          </div>
 
           {peutAccorderRemise && (
             <div

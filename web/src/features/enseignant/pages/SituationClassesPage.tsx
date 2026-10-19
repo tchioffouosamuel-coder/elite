@@ -8,6 +8,8 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Card } from '@/shared/ui/Card'
 import { Table, Thead, Th, Tr, Td } from '@/shared/ui/Table'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
+import { useAuthStore } from '@/shared/store/authStore'
 
 type Onglet = 'insolvables' | 'bus'
 
@@ -34,6 +36,7 @@ function parClasse(eleves: EleveSituation[]): [string, EleveSituation[]][] {
  */
 export function SituationClassesPage() {
   const { t } = useTranslation()
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const [onglet, setOnglet] = useState<Onglet>('insolvables')
 
   const insolvables = useQuery({ queryKey: ['enseignant-insolvables'], queryFn: fetchMesInsolvables })
@@ -48,7 +51,11 @@ export function SituationClassesPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader titre={t('situationClasses.title')} sousTitre={t('situationClasses.subtitle')} icon={Wallet} />
+      <PageHeader
+        titre={t('situationClasses.title')}
+        sousTitre={t('situationClasses.subtitle', { learners: termeApprenant(t, typeEcole, 'plural').toLowerCase() })}
+        icon={Wallet}
+      />
 
       <div role="tablist" className="inline-flex w-fit rounded-xl border border-navy-100 bg-white p-1">
         {onglets.map(({ id, libelle, icone: Icone, total }) => (
@@ -75,7 +82,11 @@ export function SituationClassesPage() {
       ) : requete.isError ? (
         <ErrorState />
       ) : groupes.length === 0 ? (
-        <EmptyState label={onglet === 'insolvables' ? t('situationClasses.noInsolvables') : t('situationClasses.noBus')} />
+        <EmptyState
+          label={t(onglet === 'insolvables' ? 'situationClasses.noInsolvables' : 'situationClasses.noBus', {
+            learners: termeApprenant(t, typeEcole, 'plural').toLowerCase(),
+          })}
+        />
       ) : (
         groupes.map(([classe, eleves]) => (
           <Card key={classe}>
@@ -85,7 +96,7 @@ export function SituationClassesPage() {
             <Table>
               <Thead>
                 <tr>
-                  <Th>{t('situationClasses.student')}</Th>
+                  <Th>{termeApprenant(t, typeEcole, 'singular')}</Th>
                   <Th>{t('situationClasses.matricule')}</Th>
                   {onglet === 'bus' && <Th>{t('situationClasses.stop')}</Th>}
                   {onglet === 'bus' && <Th className="text-center">{t('situationClasses.aller')}</Th>}

@@ -31,6 +31,7 @@ import { useAuthStore } from '@/shared/store/authStore'
 import type { ApiError } from '@/shared/types/api'
 import { succes } from '@/shared/lib/alertes'
 import { ouvrirDocument } from '@/shared/lib/download'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 
 function useLienParenteOptions() {
     const { t } = useTranslation()
@@ -695,7 +696,7 @@ export function EleveInscriptionPage() {
                 {t('common.back')}
             </Link>
             <PageHeader
-                titre={eleve ? t('eleves.edit') : t('eleves.add')}
+                titre={termeApprenant(t, eleve?.school?.type ?? ecoleActive?.type, eleve ? 'edit' : 'enroll')}
                 sousTitre={eleve ? t('eleves.inscription.page_description_edit') : t('eleves.inscription.page_description_create')}
             />
 

@@ -120,7 +120,7 @@ class MaJourneeValidationLeconTest extends TestCase
         foreach (['Les empires africains', 'La colonisation'] as $i => $titre) {
             $this->lecons[] = ProgressionItem::create([
                 'classe_matiere_id' => $this->classeMatiere->id, 'type' => 'lecon',
-                'titre' => $titre, 'ordre' => $i,
+                'titre' => $titre, 'ordre' => $i, 'semaine' => $i === 0 ? '1' : null,
             ]);
         }
     }
@@ -146,7 +146,8 @@ class MaJourneeValidationLeconTest extends TestCase
         $this->valider($this->admin, [$this->lecons[0]->id])
             ->assertOk()
             ->assertJsonPath('data.lecons.0.faite_aujourdhui', true)
-            ->assertJsonPath('data.lecons.0.validee_par', 'Root');
+            ->assertJsonPath('data.lecons.0.validee_par', 'Root')
+            ->assertJsonPath('data.lecons.0.semaine', '1');
 
         $this->assertSame($this->admin->id, $this->validePar($this->lecons[0]));
     }

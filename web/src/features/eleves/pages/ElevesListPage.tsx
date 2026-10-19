@@ -42,6 +42,7 @@ import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { confirmer, succes, erreur } from '@/shared/lib/alertes'
 import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import { Select } from '@/shared/ui/Select'
 import type { ApiError } from '@/shared/types/api'
 import { Modal } from '@/shared/ui/Modal'
@@ -202,6 +203,7 @@ export function ElevesListPage() {
   const can = useAuthStore((s) => s.can)
   const canAny = useAuthStore((s) => s.canAny)
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
+  const typeEcoleActive = useAuthStore((s) => s.activeSchool()?.type)
   const queryClient = useQueryClient()
   const [showImport, setShowImport] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -238,6 +240,10 @@ export function ElevesListPage() {
   const classesDisponibles = schoolFilter === null
     ? classes
     : classes.filter((classe) => (classe.school_id ?? classe.school?.id) === schoolFilter)
+  const typeEcoleLibelle = schoolFilter === null
+    ? (schools.length > 1 && !typeEcoleActive ? null : typeEcoleActive)
+    : schools.find((school) => school.id === schoolFilter)?.type
+  const titreEleves = termeApprenant(t, typeEcoleLibelle, 'plural')
   const elevesFiltres = (data?.items ?? []).filter((eleve) => {
     const ecoleCorrespond = schoolFilter === null || eleve.school_id === schoolFilter
     const classeCorrespond = classeFilter === null || eleve.classe?.id === classeFilter
@@ -579,7 +585,7 @@ export function ElevesListPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        titre={t('eleves.title')}
+        titre={titreEleves}
         icon={UserRound}
         actions={
           <>
@@ -635,7 +641,7 @@ export function ElevesListPage() {
             {can('eleves.create') && (
               <Button onClick={() => navigate('/eleves/nouveau')}>
                 <Plus className="h-4 w-4" />
-                {t('eleves.add')}
+                {termeApprenant(t, typeEcoleLibelle, 'enroll')}
               </Button>
             )}
           </>
@@ -653,7 +659,7 @@ export function ElevesListPage() {
           cleLigne={(e) => e.id}
           onLigneClick={(e) => navigate(`/eleves/${e.id}`)}
           placeholderRecherche={t('eleves.search_placeholder')}
-          messageVide={t('eleves.empty')}
+          messageVide={termeApprenant(t, typeEcoleLibelle, 'empty')}
           triDefaut={triEleves}
           outils={schools.length > 1 || classes.length > 0 ? (
             <>

@@ -22,6 +22,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { Spinner } from '@/shared/ui/Feedback'
 import { confirmerSuppression, succes } from '@/shared/lib/alertes'
 import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import type { ApiError } from '@/shared/types/api'
 
 const STATUT_TONE: Record<StatutRevendication, 'gold' | 'blue' | 'green' | 'red'> = {
@@ -205,6 +206,7 @@ export function RevendicationsPage() {
 
 function RevendicationFormModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { t } = useTranslation()
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   const [serverError, setServerError] = useState<string | null>(null)
   const { data: eleves } = useQuery({ queryKey: ['eleves', 'all'], queryFn: () => fetchEleves({ per_page: 200 }) })
   const { data: trimestres } = useQuery({ queryKey: ['trimestres'], queryFn: fetchTrimestres })
@@ -247,7 +249,7 @@ function RevendicationFormModal({ onClose, onCreated }: { onClose: () => void; o
   return (
     <Modal title={t('revendications.add')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Select label={t('eleves.title')} error={errors.eleve_id?.message} {...register('eleve_id', { required: true })}>
+        <Select label={termeApprenant(t, typeEcole, 'plural')} error={errors.eleve_id?.message} {...register('eleve_id', { required: true })}>
           <option value="">—</option>
           {eleves?.items.map((e) => (
             <option key={e.id} value={e.id}>

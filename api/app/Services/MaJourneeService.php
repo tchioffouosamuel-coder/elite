@@ -278,6 +278,7 @@ class MaJourneeService extends BaseService
                 'chemin' => collect([$lecon->parent?->parent?->titre, $lecon->parent?->titre])
                     ->filter()->implode(' › '),
                 'sequence' => $lecon->sequence?->libelle,
+                'semaine' => $lecon->semaine,
                 'faite_aujourdhui' => $faites->has($lecon->id),
                 // Enseignant ou direction : la leçon peut être validée par l'un
                 // comme par l'autre, l'écran doit dire lequel.

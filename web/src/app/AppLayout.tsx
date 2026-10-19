@@ -70,11 +70,13 @@ import {
   Route as RouteIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import type { TFunction } from 'i18next'
 import logoWordmark from '@/assets/logo-wordmark.png'
 import logoMark from '@/assets/logo-mark.png'
 import { useAuthStore } from '@/shared/store/authStore'
 import { useUiStore } from '@/shared/store/uiStore'
 import { estPersonnelDirection } from '@/shared/lib/direction'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import { logout } from '@/features/auth/api'
 import { NotificationBell } from './NotificationBell'
 import { ActionHistoryButtons } from '@/shared/ui/ActionHistory'
@@ -543,6 +545,10 @@ function normaliserRecherche(texte: string): string {
     .toLowerCase()
 }
 
+function traduireLibelleMenu(cle: string, t: TFunction, typeEcole?: TypeEcole) {
+  return cle === 'nav.eleves' ? termeApprenant(t, typeEcole, 'plural') : t(cle)
+}
+
 export function AppLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -712,7 +718,7 @@ export function AppLayout() {
             ? itemsAutorises.filter(
               (item) =>
                 groupeCorrespond ||
-                normaliserRecherche(t(item.label)).includes(requeteMenu) ||
+                normaliserRecherche(traduireLibelleMenu(item.label, t, typeEcole)).includes(requeteMenu) ||
                 ('keywords' in item &&
                   item.keywords?.some((motCle) => normaliserRecherche(motCle).includes(requeteMenu))),
             )
@@ -883,7 +889,7 @@ export function AppLayout() {
                             to={item.to}
                             end
                             aria-current={estActif ? 'page' : undefined}
-                            title={!sidebarOpen ? t(item.label) : undefined}
+                            title={!sidebarOpen ? traduireLibelleMenu(item.label, t, typeEcole) : undefined}
                             className={clsx(
                               'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[0.8125rem] font-medium transition-colors',
                               !sidebarOpen && 'lg:justify-center lg:px-2',
@@ -901,7 +907,7 @@ export function AppLayout() {
                                 estActif ? 'text-gold-300' : 'text-navy-300 group-hover:text-gold-200',
                               )}
                             />
-                            <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{t(item.label)}</span>
+                            <span className={clsx('truncate', !sidebarOpen && 'lg:hidden')}>{traduireLibelleMenu(item.label, t, typeEcole)}</span>
                           </NavLink>
                         )
                       })}
@@ -1029,7 +1035,7 @@ export function AppLayout() {
                                     )}
                                   >
                                     <item.icon className={clsx('h-3.5 w-3.5 flex-none', estActif ? 'text-gold-600' : 'text-navy-400')} />
-                                    <span className="truncate">{t(item.label)}</span>
+                                    <span className="truncate">{traduireLibelleMenu(item.label, t, typeEcole)}</span>
                                   </NavLink>
                                 )
                               })}

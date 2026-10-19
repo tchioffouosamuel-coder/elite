@@ -53,6 +53,7 @@ import { TransfererClasseModal } from '@/features/eleves/TransfererClasseModal'
 import { TransfererEcoleModal } from '@/features/eleves/TransfererEcoleModal'
 import { telechargerFichier, ouvrirDocument } from '@/shared/lib/download'
 import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import { estSecondaire } from '@/shared/lib/ecole'
 import { Card } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
@@ -291,7 +292,7 @@ export function EleveDetailPage() {
       titre: t('hub.groupe.dossier'),
       items: [
         can('eleves.update') && {
-          label: t('eleves.edit'),
+          label: termeApprenant(t, eleve.school?.type, 'edit'),
           icon: Pencil,
           onClick: () => navigate(`/eleves/${eleve.id}/edit`),
         },

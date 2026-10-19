@@ -562,6 +562,48 @@
       "annonces.view": "consultation des annonces"
     }
   },
+  "learnerTerms": {
+    "generic": {
+      "singular": "Élève",
+      "plural": "Élèves",
+      "enroll": "Inscrire un élève",
+      "edit": "Modifier un élève",
+      "empty": "Aucun élève pour cet établissement.",
+      "enrolled": "Élèves inscrits",
+      "averagePerClass": "Élèves par classe (moyenne)",
+      "checked": "Élèves pointés"
+    },
+    "maternelle": {
+      "singular": "Élève",
+      "plural": "Élèves",
+      "enroll": "Inscrire un élève",
+      "edit": "Modifier un élève",
+      "empty": "Aucun élève pour cet établissement.",
+      "enrolled": "Élèves inscrits",
+      "averagePerClass": "Élèves par classe (moyenne)",
+      "checked": "Élèves pointés"
+    },
+    "primaire": {
+      "singular": "Élève",
+      "plural": "Élèves",
+      "enroll": "Inscrire un élève",
+      "edit": "Modifier un élève",
+      "empty": "Aucun élève pour cet établissement.",
+      "enrolled": "Élèves inscrits",
+      "averagePerClass": "Élèves par classe (moyenne)",
+      "checked": "Élèves pointés"
+    },
+    "secondaire": {
+      "singular": "Élève",
+      "plural": "Élèves",
+      "enroll": "Inscrire un élève",
+      "edit": "Modifier un élève",
+      "empty": "Aucun élève pour cet établissement.",
+      "enrolled": "Élèves inscrits",
+      "averagePerClass": "Élèves par classe (moyenne)",
+      "checked": "Élèves pointés"
+    }
+  },
   "eleves": {
     "title": "Élèves",
     "add": "Inscrire un élève",

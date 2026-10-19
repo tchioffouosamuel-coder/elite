@@ -44,7 +44,23 @@ class PushService
         }
 
         try {
-            return $this->driver->envoyer($jetons, $titre, $message, $donnees);
+            $envoyes = $this->driver->envoyer($jetons, $titre, $message, $donnees);
+
+            // Le push visible informe l'utilisateur; ce second message data-only
+            // réveille le moteur local pour rapatrier les changements métier.
+            if (
+                $envoyes > 0
+                && ($donnees['type'] ?? null) !== 'sync'
+                && $this->driver instanceof FcmPushDriver
+            ) {
+                try {
+                    $this->driver->envoyer($jetons, '', '', ['type' => 'sync']);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
+            return $envoyes;
         } catch (\Throwable $e) {
             report($e);
 

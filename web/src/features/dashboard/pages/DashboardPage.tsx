@@ -31,6 +31,7 @@ import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { Spinner, ErrorState } from '@/shared/ui/Feedback'
 import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '@/shared/store/authStore'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 
 export function DashboardPage() {
   const { data, isLoading, isError } = useQuery({
@@ -130,7 +131,7 @@ function TableauClasse({ data }: { data: Extract<import('@/features/dashboard/ap
 
           <dl className="mt-5 flex flex-col gap-2 border-t border-navy-50 pt-4 text-sm">
             <div className="flex justify-between">
-              <dt className="text-navy-400">{t('dashboard.students')}</dt>
+              <dt className="text-navy-400">{termeApprenant(t, typeEcole, 'plural')}</dt>
               <dd className="font-semibold tabular-nums text-navy-700">{effectifs.eleves}</dd>
             </div>
             <div className="flex justify-between">
@@ -499,9 +500,13 @@ function TableauComplexe({ data }: { data: Extract<import('@/features/dashboard/
     },
     {
       cle: 'eleves',
-      entete: t('dashboard.students'),
+      entete: termeApprenant(t, null, 'plural'),
       valeur: (e) => e.effectifs.eleves,
-      cellule: (e) => <span className="font-semibold tabular-nums text-navy-800">{e.effectifs.eleves}</span>,
+      cellule: (e) => (
+        <span className="font-semibold tabular-nums text-navy-800">
+          {e.effectifs.eleves} {termeApprenant(t, e.type, 'plural').toLowerCase()}
+        </span>
+      ),
     },
     {
       cle: 'personnel',
@@ -548,7 +553,7 @@ function TableauComplexe({ data }: { data: Extract<import('@/features/dashboard/
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label={t('dashboard.schools_count')} value={ecoles.length} icon={School} accent="navy" />
-        <StatCard label={t('dashboard.enrolled_students')} value={totalEleves} icon={UserRound} accent="navy" />
+        <StatCard label={termeApprenant(t, null, 'enrolled')} value={totalEleves} icon={UserRound} accent="navy" />
         <StatCard label={t('dashboard.staff')} value={totalPersonnel} icon={Users} accent="green" />
         <StatCard label={t('dashboard.classes')} value={totalClasses} icon={GraduationCap} accent="gold" />
       </div>
@@ -573,6 +578,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
   const { t } = useTranslation()
   const isSuperAdmin = useAuthStore((s) => s.user?.is_super_admin ?? false)
   const nomEcoleActive = useAuthStore((s) => s.activeSchool()?.name)
+  const typeEcole = useAuthStore((s) => s.activeSchool()?.type)
   // Pilotage en temps réel : privilège dédié, réservé par défaut à la direction.
   const voirPilotage = useAuthStore((s) => s.can('dashboard.pilotage'))
   const [voirClassement, setVoirClassement] = useState(false)
@@ -591,7 +597,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
-          label={t('dashboard.enrolled_students')}
+          label={termeApprenant(t, typeEcole, 'enrolled')}
           value={reinscription.anciens_reinscrits + reinscription.nouveaux_eleves}
           icon={UserRound}
           accent="navy"
@@ -670,7 +676,7 @@ function TableauEcole({ data }: { data: Extract<import('@/features/dashboard/api
               <dd className="font-semibold tabular-nums text-navy-700">{indicateurs.taux_filles}%</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-navy-400">{t('dashboard.avg_students_per_class')}</dt>
+              <dt className="text-navy-400">{termeApprenant(t, typeEcole, 'averagePerClass')}</dt>
               <dd className="font-semibold tabular-nums text-navy-700">{indicateurs.eleves_par_classe_moyenne}</dd>
             </div>
           </dl>

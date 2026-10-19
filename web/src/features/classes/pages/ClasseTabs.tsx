@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/shared/store/authStore'
 import { estSecondaire as estSecondaireHelper } from '@/shared/lib/ecole'
+import { termeApprenant } from '@/shared/i18n/learnerTerms'
 import { Tabs } from '@/shared/ui/Tabs'
 import { AffectationsTab } from '@/features/pedagogie/pages/AffectationsTab'
 import { NotesTab } from '@/features/notes/pages/NotesTab'
@@ -35,7 +36,7 @@ export function ClasseTabs({ classe }: { classe: Classe }) {
 
   const tabs = [
     can('pedagogie.view') && { key: 'affectations', label: t('pedagogie.title') },
-    can('eleves.view') && { key: 'eleves', label: t('eleves.title') },
+    can('eleves.view') && { key: 'eleves', label: termeApprenant(t, classe.school?.type, 'plural') },
     can('notes.view') && { key: 'notes', label: t('notes.title') },
     peutVoirDiscipline && { key: 'absences', label: t('discipline.title') },
     can('notes.view') && { key: 'resultats', label: t('resultats.title') },
