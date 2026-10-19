@@ -200,12 +200,12 @@ export function LoginPage() {
             <h1 className="font-display text-2xl font-bold tracking-tight text-navy-900">{t('auth.login_title')}</h1>
             <p className="mb-7 mt-1.5 text-sm text-navy-400">{t('auth.login_subtitle')}</p>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit(onSubmit)} autoComplete={estDesktop ? 'off' : undefined} className="flex flex-col gap-4">
               <Input
                 label={t('auth.identifiant')}
                 type="text"
                 icon={Mail}
-                autoComplete="username"
+                autoComplete={estDesktop ? 'off' : 'username'}
                 error={errors.identifiant?.message}
                 {...register('identifiant', { required: true })}
               />
@@ -213,7 +213,7 @@ export function LoginPage() {
                 label={t('auth.password')}
                 type={showPassword ? 'text' : 'password'}
                 icon={Lock}
-                autoComplete="current-password"
+                autoComplete={estDesktop ? 'new-password' : 'current-password'}
                 error={errors.password?.message}
                 endAdornment={(
                   <button

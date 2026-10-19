@@ -64,6 +64,13 @@ class RegleValidationSeanceAppliquerTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')
             ->withHeader('X-School-Id', $school->id)
+            ->getJson('/api/v1/regles-validation-seance')
+            ->assertOk()
+            ->assertJsonPath('data.0.school.id', $school->id)
+            ->assertJsonPath('data.0.school.name', 'Elites Test');
+
+        $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-School-Id', $school->id)
             ->postJson("/api/v1/regles-validation-seance/{$regle->id}/appliquer")
             ->assertOk()
             ->assertJsonPath('data.agents', 2);

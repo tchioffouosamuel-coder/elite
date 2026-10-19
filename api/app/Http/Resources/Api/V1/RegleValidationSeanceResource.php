@@ -12,6 +12,10 @@ class RegleValidationSeanceResource extends JsonResource
         return [
             'id' => $this->id,
             'school_id' => $this->school_id,
+            'school' => $this->whenLoaded('school', fn () => [
+                'id' => $this->school->id,
+                'name' => $this->school->name,
+            ]),
             'sous_systeme_id' => $this->sous_systeme_id,
             'sous_systeme' => $this->whenLoaded('sousSysteme', fn () => $this->sousSysteme?->nom),
             'methode_validation' => $this->methode_validation,

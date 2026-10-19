@@ -55,6 +55,7 @@ class NotesEnseignantService extends BaseService
                 $feuilles[] = new NotesEnseignantSheet(
                     "{$cm->id} {$cm->classe->nom} - {$cm->matiere->nom}",
                     [['Matricule', 'Nom complet', 'Note'], ...$lignes],
+                    colorerColonnes: $modele,
                 );
             }
         } else {
@@ -78,6 +79,7 @@ class NotesEnseignantService extends BaseService
                 $feuilles[] = new NotesEnseignantSheet(
                     "{$classeId} {$competences->first()->classe->nom}",
                     [$groupes, $colonnes, ...array_values($lignes)], 2,
+                    $modele,
                 );
             }
         }

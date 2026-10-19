@@ -25,7 +25,7 @@ class RegleValidationSeanceController extends Controller
     public function index(): JsonResponse
     {
         $regles = RegleValidationSeance::forSchool(Tenant::schoolIds())
-            ->with('sousSysteme:id,nom')
+            ->with(['school:id,name', 'sousSysteme:id,nom'])
             ->orderBy('school_id')
             ->get();
 

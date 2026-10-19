@@ -964,6 +964,7 @@
     "toutes_matieres": "All subjects",
     "alerte": "{{count}} row(s) below 50% — follow up on these first.",
     "aucune_sequence_active": "No active sequence right now.",
+    "selection_requise": "Select an establishment from the top bar to view this report.",
     "empty": "No data for these filters.",
     "search": "Search a class or subject…"
   },

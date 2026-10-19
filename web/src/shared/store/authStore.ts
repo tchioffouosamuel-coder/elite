@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 
 export interface EcoleAccessible {
   id: number
@@ -194,6 +194,25 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'elites-school-auth',
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          if (window.desktop) {
+            localStorage.removeItem(name)
+            return null
+          }
+
+          return localStorage.getItem(name)
+        },
+        setItem: (name, value) => {
+          if (window.desktop) {
+            localStorage.removeItem(name)
+            return
+          }
+
+          localStorage.setItem(name, value)
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      })),
       // Le profil persisté a gagné `ecoles_accessibles` et `activeSchoolId` avec
       // le multi-école, puis `attributions` et `perimetre_borne` avec les
       // responsabilités nominatives. Une session ouverte avant l'un de ces

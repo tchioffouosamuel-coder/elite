@@ -134,6 +134,24 @@ class NotesEnseignantClasseurTest extends TestCase
         $this->assertEquals(18.5, $export->getSheet(1)->getCell('C2')->getValue());
     }
 
+    public function test_le_modele_secondaire_colorie_les_colonnes_et_alterne_les_lignes(): void
+    {
+        $c = $this->contexte('secondaire');
+        $this->matiere($c);
+        $this->inscrireAnneeActive(Eleve::create([
+            'school_id' => $c['school']->id, 'classe_id' => $c['classe']->id, 'nom_complet' => 'ELEVE DEUX',
+            'matricule' => '0002', 'sexe' => 'M', 'statut' => 'actif',
+        ]));
+
+        $sheet = $this->classeur($c)->getSheet(0);
+        $this->assertNotSame($sheet->getStyle('A1')->getFill()->getStartColor()->getRGB(),
+            $sheet->getStyle('B1')->getFill()->getStartColor()->getRGB());
+        $this->assertNotSame($sheet->getStyle('B1')->getFill()->getStartColor()->getRGB(),
+            $sheet->getStyle('C1')->getFill()->getStartColor()->getRGB());
+        $this->assertNotSame($sheet->getStyle('C2')->getFill()->getStartColor()->getRGB(),
+            $sheet->getStyle('C3')->getFill()->getStartColor()->getRGB());
+    }
+
     public function test_primaire_les_competences_sont_des_blocs_de_colonnes_sur_la_meme_feuille(): void
     {
         $c = $this->contexte('primaire');
@@ -152,6 +170,23 @@ class NotesEnseignantClasseurTest extends TestCase
         $this->assertDatabaseHas('notes', ['classe_competence_id' => $cc1->id, 'sequence_id' => $c['s2']->id, 'composante' => 'oral', 'valeur' => 16]);
         $this->assertDatabaseHas('notes', ['classe_competence_id' => $cc2->id, 'sequence_id' => $c['s2']->id, 'composante' => 'pratique', 'valeur' => 5]);
         $this->assertEquals(19, $this->classeur($c, 'export')->getSheet(0)->getCell('I3')->getValue());
+    }
+
+    public function test_le_modele_primaire_colorie_les_colonnes_et_alterne_les_lignes(): void
+    {
+        $c = $this->contexte('primaire');
+        $this->competence($c, 'Communiquer');
+        $this->inscrireAnneeActive(Eleve::create([
+            'school_id' => $c['school']->id, 'classe_id' => $c['classe']->id, 'nom_complet' => 'ELEVE DEUX',
+            'matricule' => '0002', 'sexe' => 'M', 'statut' => 'actif',
+        ]));
+
+        $sheet = $this->classeur($c)->getSheet(0);
+        $this->assertNotSame($sheet->getStyle('C2')->getFill()->getStartColor()->getRGB(),
+            $sheet->getStyle('D2')->getFill()->getStartColor()->getRGB());
+        $this->assertNotSame($sheet->getStyle('C3')->getFill()->getStartColor()->getRGB(),
+            $sheet->getStyle('C4')->getFill()->getStartColor()->getRGB());
+        $this->assertContains('C1:H1', $sheet->getMergeCells());
     }
 
     public function test_maternelle_le_classeur_contient_et_importe_des_appreciations(): void

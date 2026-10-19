@@ -1007,6 +1007,7 @@
     "toutes_matieres": "Toutes les matières",
     "alerte": "{{count}} ligne(s) sous 50 % — à relancer en priorité.",
     "aucune_sequence_active": "Aucune séquence active pour le moment.",
+    "selection_requise": "Sélectionnez un établissement dans la barre supérieure pour consulter ce suivi.",
     "empty": "Aucune donnée pour ces filtres.",
     "search": "Rechercher une classe ou une matière…"
   },

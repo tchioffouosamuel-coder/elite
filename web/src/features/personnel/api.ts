@@ -405,6 +405,7 @@ export async function batchDeleteBanques(
 export interface RegleValidationSeance {
   id: number;
   school_id: number;
+  school: { id: number; name: string };
   sous_systeme_id: number | null;
   sous_systeme?: string | null;
   methode_validation: "qr" | "code" | "libre";

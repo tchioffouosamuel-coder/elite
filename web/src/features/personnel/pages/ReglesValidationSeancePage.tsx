@@ -88,15 +88,16 @@ export function ReglesValidationSeancePage() {
   }
 
   const triRegles = triEcoleSousSystemeNiveauClasse<RegleValidationSeance>({
+    ecole: (r) => r.school.name,
     sousSysteme: (r) => r.sous_systeme,
   })
 
   const colonnes: Colonne<RegleValidationSeance>[] = [
     {
-      cle: 'perimetre',
-      entete: 'Sous-système',
-      valeur: (r) => r.sous_systeme,
-      cellule: (r) => <span className="font-semibold text-navy-900">{r.sous_systeme ?? 'Toute l\'école'}</span>,
+      cle: 'ecole',
+      entete: 'École',
+      valeur: (r) => r.school.name,
+      cellule: (r) => <span className="font-semibold text-navy-900">{r.school.name}</span>,
     },
     {
       cle: 'methode',

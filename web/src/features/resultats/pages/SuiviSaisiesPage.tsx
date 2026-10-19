@@ -11,6 +11,7 @@ import { Select } from '@/shared/ui/Field'
 import { Spinner, ErrorState, EmptyState } from '@/shared/ui/Feedback'
 import { DataTable, type Colonne } from '@/shared/ui/DataTable'
 import { triEcoleSousSystemeNiveauClasse } from '@/shared/lib/triHierarchique'
+import { useAuthStore } from '@/shared/store/authStore'
 
 /** Seuil repris de RemplissagePage : rouge sous la moitié, doré sinon, vert au-delà de 90 %. */
 function couleurTaux(taux: number): string {
@@ -43,6 +44,9 @@ function Jauge({ taux }: { taux: number }) {
  */
 export function SuiviSaisiesPage() {
   const { t } = useTranslation()
+  const user = useAuthStore((state) => state.user)
+  const activeSchoolId = useAuthStore((state) => state.activeSchoolId)
+  const selectionRequise = Boolean(user?.is_super_admin && activeSchoolId === null)
   const [classeId, setClasseId] = useState<number | ''>('')
   const [matiereId, setMatiereId] = useState<number | ''>('')
 
@@ -50,8 +54,9 @@ export function SuiviSaisiesPage() {
   const { data: matieres } = useQuery({ queryKey: ['matieres'], queryFn: fetchMatieres })
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['suivi-saisies', classeId, matiereId],
+    queryKey: ['suivi-saisies', activeSchoolId, classeId, matiereId],
     queryFn: () => fetchSuiviSaisies(classeId || undefined, matiereId || undefined),
+    enabled: !selectionRequise,
   })
 
   const triLignes = triEcoleSousSystemeNiveauClasse<SuiviSaisiesLigne>({ classe: (l) => l.classe })
@@ -147,7 +152,9 @@ export function SuiviSaisiesPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {selectionRequise ? (
+        <ErrorState message={t('suivi_saisies.selection_requise')} />
+      ) : isLoading ? (
         <Spinner />
       ) : isError ? (
         <ErrorState />
