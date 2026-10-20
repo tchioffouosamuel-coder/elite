@@ -413,12 +413,13 @@ async function assurerVendorExtrait(apiDir) {
 }
 
 /**
- * Empreinte de ce que `artisan migrate` aurait à appliquer : la version de
- * l'application installée et la liste de ses fichiers de migration — un
- * installeur reconstruit sans changer de version, mais avec une migration de
- * plus, doit quand même migrer. `null` hors installation packagée (ou si la
- * liste est illisible) : en développement le contenu d'une migration change
- * sans que son nom bouge, on migre alors à chaque lancement.
+ * Empreinte de ce que `artisan migrate` aurait à appliquer : la liste des
+ * fichiers de migration. Une nouvelle version de l'application sans nouvelle
+ * migration ne doit pas retravailler la base locale. Les migrations restent
+ * immuables après publication : toute évolution de schéma doit avoir son
+ * propre fichier. `null` hors installation packagée (ou si la liste est
+ * illisible) : en développement le contenu d'une migration change sans que
+ * son nom bouge, on migre alors à chaque lancement.
  */
 function empreinteSchema() {
   if (!app.isPackaged) return null;
@@ -431,7 +432,7 @@ function empreinteSchema() {
 
     return crypto
       .createHash("sha1")
-      .update(`${app.getVersion()}\n${migrations}`)
+      .update(migrations)
       .digest("hex");
   } catch {
     return null;
@@ -439,9 +440,9 @@ function empreinteSchema() {
 }
 
 /**
- * Le schéma local est-il déjà celui de cette version ? Vrai seulement si la
- * dernière migration RÉUSSIE (cf. `migrerSiNecessaire()`) portait la même
- * empreinte, et que la base n'a pas été vidée entre-temps (scripts de
+ * Le schéma local correspond-il aux migrations embarquées ? Vrai seulement
+ * si la dernière migration RÉUSSIE (cf. `migrerSiNecessaire()`) portait la
+ * même empreinte, et que la base n'a pas été vidée entre-temps (scripts de
  * réinitialisation, fichier supprimé à la main — recréé vide par
  * `envInstanceLocale()`).
  */

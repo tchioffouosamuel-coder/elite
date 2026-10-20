@@ -61,7 +61,8 @@ class PersonnelController extends Controller
         $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
         unset($data['school_id']);
 
-        $personnel = $this->service->create($schoolId, $data);
+        $idLocal = $request->attributes->get('sync.local_id');
+        $personnel = $this->service->create($schoolId, $data, is_int($idLocal) ? $idLocal : null);
 
         ActivityLog::enregistrer($request->user(), 'personnel.cree', "Ajout de {$personnel->nom_complet}.", $personnel);
 

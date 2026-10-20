@@ -36,11 +36,24 @@ class EnregistrerDansOutboxLocale
         if (! config('sync.local_replica')
             || ! in_array($request->method(), self::METHODES_MUTANTES, true)
             || ! $reponse->isSuccessful()
-            || $request->routeIs(['api.v1.sync.*', 'api.v1.auth.*', 'api.v1.desktop.*', 'api.v1.eleves.import-preparer'])) {
+            || $request->routeIs([
+                'api.v1.sync.*',
+                'api.v1.auth.*',
+                'api.v1.desktop.*',
+                'api.v1.eleves.import-preparer',
+                'api.v1.documents.paquets.*',
+            ])) {
             return $reponse;
         }
 
         $corps = $this->corpsAvecFichiers($request);
+        if ($request->method() === 'POST'
+            && $request->routeIs(['api.v1.classes.store', 'api.v1.personnels.store'])) {
+            $idLocal = $reponse->getData(true)['data']['id'] ?? null;
+            if (filter_var($idLocal, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) !== false) {
+                $corps['__sync_local_id'] = (int) $idLocal;
+            }
+        }
         if ($ecoles = $request->attributes->get('historique.ecoles_outbox')) {
             $corps['__historique_ecoles'] = $ecoles;
         }

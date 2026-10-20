@@ -43,6 +43,23 @@ abstract class BaseRepository implements RepositoryInterface
         return $this->model->newInstance()->create($attributes)->refresh();
     }
 
+    public function createWithId(array $attributes, int $id): Model
+    {
+        if ($id < 1) {
+            abort(422, 'Identifiant local invalide.');
+        }
+
+        if ($this->query()->whereKey($id)->exists()) {
+            abort(409, "L'identifiant local {$id} est déjà utilisé sur le serveur.");
+        }
+
+        $model = $this->model->newInstance($attributes);
+        $model->setAttribute($model->getKeyName(), $id);
+        $model->save();
+
+        return $model->refresh();
+    }
+
     public function update(Model $model, array $attributes): Model
     {
         $model->update($attributes);

@@ -1200,6 +1200,74 @@ class DesktopSyncTest extends TestCase
         $this->assertDatabaseHas('sync_outbox', ['methode' => 'POST', 'chemin' => 'appareils']);
     }
 
+    public function test_le_middleware_outbox_conserve_lidentifiant_local_dune_classe_creee(): void
+    {
+        config(['sync.local_replica' => true]);
+
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/classes', ['nom' => 'Classe hors ligne'])
+            ->assertCreated();
+
+        $operation = SyncOutbox::query()->enAttente()->firstOrFail();
+
+        $this->assertSame('classes', $operation->chemin);
+        $this->assertSame($reponse->json('data.id'), $operation->corps['__sync_local_id']);
+    }
+
+    public function test_sync_push_cree_une_classe_avec_son_identifiant_local_libre(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+
+        $reponse = $this->actingAs($user, 'sanctum')->postJson('/api/v1/sync', [
+            'operations' => [[
+                'id' => 'classe-hors-ligne-1',
+                'methode' => 'POST',
+                'chemin' => 'classes',
+                'school_id' => $ecole->id,
+                'corps' => ['nom' => 'Classe synchronisée', '__sync_local_id' => 9200],
+            ]],
+        ])->assertOk();
+
+        $this->assertSame(201, $reponse->json('data.resultats.0.statut'));
+        $this->assertDatabaseHas('classes', [
+            'id' => 9200,
+            'school_id' => $ecole->id,
+            'nom' => 'Classe synchronisée',
+        ]);
+    }
+
+    public function test_sync_push_refuse_un_identifiant_local_deja_utilise_sans_ecraser_la_classe(): void
+    {
+        $ecole = School::create(['name' => 'X', 'code' => 'X', 'type' => 'secondaire', 'is_active' => true]);
+        $user = User::factory()->create(['school_id' => $ecole->id]);
+        $user->assignRole('super_admin');
+        $classe = \App\Models\Classe::create([
+            'id' => 9201,
+            'school_id' => $ecole->id,
+            'nom' => 'Classe déjà présente',
+        ]);
+
+        $reponse = $this->actingAs($user, 'sanctum')->postJson('/api/v1/sync', [
+            'operations' => [[
+                'id' => 'classe-hors-ligne-collision',
+                'methode' => 'POST',
+                'chemin' => 'classes',
+                'school_id' => $ecole->id,
+                'corps' => ['nom' => 'Ne pas écraser', '__sync_local_id' => $classe->id],
+            ]],
+        ])->assertOk();
+
+        $this->assertSame(409, $reponse->json('data.resultats.0.statut'));
+        $this->assertDatabaseHas('classes', ['id' => $classe->id, 'nom' => 'Classe déjà présente']);
+        $this->assertDatabaseCount('classes', 1);
+    }
+
     public function test_le_middleware_outbox_ignore_les_routes_de_sync_et_auth(): void
     {
         config(['sync.local_replica' => true]);

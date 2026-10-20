@@ -57,7 +57,8 @@ class ClasseController extends Controller
         $schoolId = Tenant::resolveWriteSchoolId($data['school_id'] ?? null);
         unset($data['school_id']);
 
-        $classe = $this->service->create($schoolId, $data);
+        $idLocal = $request->attributes->get('sync.local_id');
+        $classe = $this->service->create($schoolId, $data, is_int($idLocal) ? $idLocal : null);
 
         return ApiResponse::created(new ClasseResource($classe), 'Classe créée.');
     }

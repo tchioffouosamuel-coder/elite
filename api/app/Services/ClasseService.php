@@ -78,9 +78,13 @@ class ClasseService extends BaseService
             ->where('titulaire_id', $personnelId)->first();
     }
 
-    public function create(int $schoolId, array $attributes): Classe
+    public function create(int $schoolId, array $attributes, ?int $id = null): Classe
     {
-        return $this->repository->create([...$attributes, 'school_id' => $schoolId]);
+        $attributes = [...$attributes, 'school_id' => $schoolId];
+
+        return $id === null
+            ? $this->repository->create($attributes)
+            : $this->repository->createWithId($attributes, $id);
     }
 
     public function update(Classe $classe, array $attributes): Classe

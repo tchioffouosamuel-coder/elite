@@ -43,10 +43,13 @@ class PersonnelService extends BaseService
      * une fiche que personne ne peut utiliser, et l'oubli se découvrait le
      * jour où l'agent essayait de se connecter.
      */
-    public function create(int $schoolId, array $attributes): Personnel
+    public function create(int $schoolId, array $attributes, ?int $id = null): Personnel
     {
-        return $this->transaction(function () use ($schoolId, $attributes) {
-            $personnel = $this->repository->create([...$attributes, 'school_id' => $schoolId]);
+        return $this->transaction(function () use ($schoolId, $attributes, $id) {
+            $attributes = [...$attributes, 'school_id' => $schoolId];
+            $personnel = $id === null
+                ? $this->repository->create($attributes)
+                : $this->repository->createWithId($attributes, $id);
             $this->comptes->assurer($personnel);
 
             return $personnel->refresh();

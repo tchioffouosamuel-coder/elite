@@ -240,8 +240,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // Toutes les routes métier (établissement, personnel, classes, élèves, ...)
         // sont scopées par établissement + niveau via le middleware `tenant`.
         // `idempotence` couvre d'un coup les 84 écritures métier : le mobile
-        // peut rejouer n'importe laquelle sans risque de doublon, sans avoir
-        // à déclarer route par route lesquelles sont rejouables.
+        // peut rejouer les écritures métier; les routes qui dépendent d'un
+        // état temporaire côté serveur (p. ex. les paquets documentaires)
+        // sont exclues de l'outbox par `EnregistrerDansOutboxLocale`.
         Route::middleware(['tenant', 'idempotence', 'historique-actions', 'outbox-local'])->group(function () {
 
             Route::get('historique-actions', [HistoriqueActionsController::class, 'index'])->name('historique.index');
